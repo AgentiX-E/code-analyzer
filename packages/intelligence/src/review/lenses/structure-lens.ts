@@ -3,10 +3,11 @@
 // long methods, deep nesting, layer violations, circular imports,
 // barrel export anti-patterns, orphan code.
 
-import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
-import { createLensFinding } from '../review-lenses.js';
-import type { RelationshipType } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
+
+import { createLensFinding } from '../review-lenses.js';
+
+import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -234,19 +235,19 @@ function detectCircularImports(
   store.queryEdges({
     projectId,
     sourceId: fileNodeId,
-    type: EDGE_IMPORTS as RelationshipType,
+    type: EDGE_IMPORTS,
   });
 
   // Also check reverse: what does this file import?
   const importEdges = store.queryEdges({
     projectId,
     targetId: fileNodeId,
-    type: EDGE_IMPORTS as RelationshipType,
+    type: EDGE_IMPORTS,
   });
 
   for (const edge of importEdges.items) {
     // Check if the imported node transitively imports this file
-    const bfsResult = store.bfs(edge.sourceId, 50, [EDGE_IMPORTS as RelationshipType]);
+    const bfsResult = store.bfs(edge.sourceId, 50, [EDGE_IMPORTS]);
     for (const [nodeId, depth] of bfsResult.pathLengths) {
       if (nodeId === fileNodeId && depth > 0) {
         const importedNode = store.getNode(edge.sourceId);

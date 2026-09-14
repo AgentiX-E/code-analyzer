@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — Embedding Cache Tests
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { EmbeddingCache } from '../embeddings/embedding-cache.js';
 
 describe('EmbeddingCache', () => {

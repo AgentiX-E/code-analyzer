@@ -1,6 +1,8 @@
 // @code-analyzer/intelligence — Comment Reflection Module Tests
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { CommentReflectionModule } from '../review/comment-reflection.js';
+
 import type { ReviewComment } from '@code-analyzer/shared';
 
 function makeComment(overrides: Partial<ReviewComment> = {}): ReviewComment {

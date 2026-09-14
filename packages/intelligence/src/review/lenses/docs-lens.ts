@@ -3,9 +3,11 @@
 // stale docs, README staleness, CHANGELOG gaps, API doc coverage,
 // OpenAPI/Swagger validation.
 
-import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
-import { createLensFinding } from '../review-lenses.js';
 import * as crypto from 'crypto';
+
+import { createLensFinding } from '../review-lenses.js';
+
+import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
 
 // ---------------------------------------------------------------------------
 // JSDoc/TSDoc detection
@@ -40,7 +42,7 @@ function extractFunctionInfo(lines: string[], i: number): DocCheckResult | null 
   let hasDoc = false;
   let hasParams = false;
   let documentedParams = 0;
-  let hasReturn = line.includes(':') || /=>/.test(line); // has return type annotation
+  const hasReturn = line.includes(':') || /=>/.test(line); // has return type annotation
   let documentedReturn = false;
 
   const start = Math.max(0, i - 15);

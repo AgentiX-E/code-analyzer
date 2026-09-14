@@ -2,7 +2,7 @@
 // BFS-based impact analysis that tracks how changes cascade through
 // the dependency graph to tests, routes, and execution processes.
 
-import type { ImpactResult, RiskLevel, RelationshipType, NodeLabel } from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   EDGE_CALLS,
   EDGE_IMPLEMENTS,
@@ -12,8 +12,9 @@ import {
   EDGE_HANDLES_ROUTE,
   EDGE_STEP_IN_PROCESS,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import type { ChangedSymbol } from './change-detector.js';
+import type { ImpactResult, RiskLevel, RelationshipType, NodeLabel } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces

@@ -3,8 +3,9 @@
 // detection. Supports configurable sources, sinks, and sanitizers
 // across 8 programming languages.
 
-import type { KnowledgeGraph, GraphNode } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_DATA_FLOWS, EDGE_IMPORTS } from '@code-analyzer/shared';
+
+import type { KnowledgeGraph, GraphNode } from '@code-analyzer/shared';
 
 /** Severity level for taint findings */
 export type TaintSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';

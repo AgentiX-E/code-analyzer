@@ -9,7 +9,9 @@
 // id, driving the external-symbol branch with a real assertion on the output.
 
 import { describe, it, expect } from 'vitest';
+
 import { exportScipIndex } from '../scip/scip-exporter.js';
+
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 

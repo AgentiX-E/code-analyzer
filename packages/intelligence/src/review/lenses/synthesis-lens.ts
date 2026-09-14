@@ -2,8 +2,9 @@
 // Hard gate: deduplication, ensemble voting, ML severity calibration,
 // action plan, health score, executive summary generation.
 
-import type { LensFinding, LensReport, EvidenceAnchor } from '../review-lenses.js';
 import { createLensFinding } from '../review-lenses.js';
+
+import type { LensFinding, LensReport, EvidenceAnchor } from '../review-lenses.js';
 import type { Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

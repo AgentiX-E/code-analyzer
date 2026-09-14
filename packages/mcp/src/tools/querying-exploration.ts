@@ -1,12 +1,14 @@
 // @code-analyzer/mcp — Querying & Exploration Tools
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { tokenize, parse, plan, execute } from '../cypher/index.js';
-import { ToolContextImpl, type ToolContext } from './tool-context.js';
-import type { NodeLabel } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_EXTENDS, EDGE_HAS_METHOD, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
-import type { ToolResult } from './registry.js';
+
 import { buildSearchResponse, buildTraceResponse } from './smart-response.js';
+import { ToolContextImpl, type ToolContext } from './tool-context.js';
+import { tokenize, parse, plan, execute } from '../cypher/index.js';
+
+import type { ToolResult } from './registry.js';
+import type { NodeLabel } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1037,7 +1039,7 @@ export async function exploreSymbol(
         if (node.filePath) {
           const fileSymbols = graphStore
             .getAllNodes()
-            .filter((n) => n.filePath === node!.filePath && n.id !== node!.id);
+            .filter((n) => n.filePath === node.filePath && n.id !== node.id);
           result.fileSymbols = fileSymbols.slice(0, 50).map((n) => ({
             name: n.name,
             qualifiedName: n.qualifiedName,

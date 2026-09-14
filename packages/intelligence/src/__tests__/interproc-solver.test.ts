@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — Inter-Procedural Taint Solver Tests
 
 import { describe, it, expect } from 'vitest';
+
 import {
   InterprocSolver,
   type FunctionSummary,

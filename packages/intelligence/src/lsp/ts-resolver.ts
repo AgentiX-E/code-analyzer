@@ -16,9 +16,10 @@
 //     - Member access → resolve receiver, look up property/method
 //     - Property access expressions → evaluate on receiver type
 
-import type { TypeRep } from '../lsp/type-rep.js';
 import { t, BUILTINS } from '../lsp/type-rep.js';
+
 import type { TypeRegistry, RegisteredFunction } from '../lsp/type-registry.js';
+import type { TypeRep } from '../lsp/type-rep.js';
 
 // ---------------------------------------------------------------------------
 // Scope

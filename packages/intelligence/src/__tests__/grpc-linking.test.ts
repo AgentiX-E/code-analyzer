@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — gRPC Linking Tests
 import { describe, it, expect } from 'vitest';
+
 import { GRPC_LIBRARIES, extractGrpcServiceMethod } from '../cross-service/grpc-linking.js';
 
 describe('grpc-linking', () => {

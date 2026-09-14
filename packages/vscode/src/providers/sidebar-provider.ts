@@ -2,8 +2,9 @@
 // WebviewView provider that renders a message-based tabbed sidebar UI.
 // VS Code integration is handled by extension.ts through DI.
 
-import type { EngineBridge } from '../services/engine-bridge.js';
 import { EDGE_CALLS } from '@code-analyzer/shared';
+
+import type { EngineBridge } from '../services/engine-bridge.js';
 
 // ---------------------------------------------------------------------------
 // SidebarLogic — testable pure logic

@@ -1,11 +1,13 @@
 // @code-analyzer/intelligence — Impact Graph Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
-import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
-import { ImpactGraphBuilder } from '../../cross-repo/impact-graph.js';
 import { EDGE_CROSS_REPO_DEPENDS } from '@code-analyzer/shared';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
+import { ImpactGraphBuilder } from '../../cross-repo/impact-graph.js';
+import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
+
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

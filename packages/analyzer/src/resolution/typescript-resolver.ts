@@ -3,9 +3,11 @@
 // without spawning an external language server process.
 
 import Parser from 'tree-sitter';
-import type { SyntaxNode } from 'tree-sitter';
+
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
+
 import type { TypeInfo, TypeMember, TypeVisibility } from './type-registry.js';
+import type { SyntaxNode } from 'tree-sitter';
 
 // Lazy import to avoid crashing when tree-sitter-typescript is not installed
 let TSLanguage: unknown;

@@ -3,10 +3,12 @@
 // Execution → Deduplication → Severity Normalization.
 // Implements the hybrid architecture from Alibaba Open Code Review.
 
-import type { GitDiff, ReviewComment, Severity } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import { CodeReviewEngine, type ReviewConfig } from './review-engine.js';
+
 import type { EnrichedDiff } from './pr-review.js';
+import type { GitDiff, ReviewComment, Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,9 +1,11 @@
 // @code-analyzer/intelligence — Impact Analyzer Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { ImpactAnalyzer } from '../impact/impact-analyzer.js';
-import type { ChangedSymbol } from '../impact/change-detector.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { ImpactAnalyzer } from '../impact/impact-analyzer.js';
+
+import type { ChangedSymbol } from '../impact/change-detector.js';
 import type { GraphNode, ImpactResult } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

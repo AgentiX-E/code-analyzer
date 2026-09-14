@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — Community Aggregation Tests
 
 import { describe, it, expect } from 'vitest';
+
 import {
   buildReducedGraph,
   mapToOriginalNodes,

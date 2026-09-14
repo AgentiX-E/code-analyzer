@@ -5,7 +5,9 @@
 // all above the default 0.7 threshold, forcing the sort to execute.
 
 import { describe, it, expect } from 'vitest';
+
 import { NearCloneDetector } from '../similarity/near-clone-detector.js';
+
 import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 
 function makeNode(id: number, name: string, signature: string): GraphNode {

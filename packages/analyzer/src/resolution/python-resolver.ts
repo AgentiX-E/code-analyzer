@@ -3,9 +3,11 @@
 // without spawning an external language server process.
 
 import Parser from 'tree-sitter';
-import type { SyntaxNode } from 'tree-sitter';
+
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
+
 import type { TypeInfo, TypeMember } from './type-registry.js';
+import type { SyntaxNode } from 'tree-sitter';
 
 // Lazy import
 let PythonLanguage: unknown;

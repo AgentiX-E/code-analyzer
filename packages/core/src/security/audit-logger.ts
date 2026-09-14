@@ -2,9 +2,10 @@
 // Enterprise audit trail with buffered writes, querying, and JSON Lines export.
 
 import { createHash } from 'crypto';
-import type { WriteStream } from 'fs';
 import { createWriteStream, writeFile } from 'fs';
 import { promisify } from 'util';
+
+import type { WriteStream } from 'fs';
 
 const writeFileAsync = promisify(writeFile);
 

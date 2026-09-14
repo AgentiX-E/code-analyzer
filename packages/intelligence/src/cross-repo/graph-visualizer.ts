@@ -2,12 +2,13 @@
 // Generates DOT/graphviz and JSON graph formats for cross-repo dependency
 // visualization, plus repo-level metrics computation.
 
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import {
   EDGE_CROSS_REPO_CALLS,
   EDGE_CROSS_REPO_DEPENDS,
   EDGE_CROSS_REPO_IMPLEMENTS,
 } from '@code-analyzer/shared';
+
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces

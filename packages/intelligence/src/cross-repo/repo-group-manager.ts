@@ -2,6 +2,7 @@
 // Manages groups of related repositories for cross-repo analysis.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+
 import type { RepoGroup, GroupRepo } from '@code-analyzer/shared';
 
 /**

@@ -1,8 +1,10 @@
+import { EDGE_CALLS, EDGE_DATA_FLOWS } from '@code-analyzer/shared';
 import { describe, it, expect } from 'vitest';
+
 import { TaintAnalysisEngine } from '../security/taint-engine.js';
+
 import type { TaintSource, TaintSink, Sanitizer } from '../security/taint-engine.js';
 import type { KnowledgeGraph, GraphNode, GraphEdge } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_DATA_FLOWS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test helpers

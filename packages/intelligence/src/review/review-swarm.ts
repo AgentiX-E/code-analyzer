@@ -3,10 +3,14 @@
 // Each lens runs independently, then findings are merged, deduplicated,
 // and validated through the Synthesis Lens (HARD GATE).
 
-import type { GitDiff, ReviewComment, Severity } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_CROSS_REPO_CALLS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { EDGE_CALLS, EDGE_CROSS_REPO_CALLS } from '@code-analyzer/shared';
+
 import { IoUOverlapDetector, type CommentRegion } from '../impact/iou-overlap.js';
+import { analyzeApi } from './lenses/api-lens.js';
+import { analyzeDocs } from './lenses/docs-lens.js';
+import { analyzeStructure } from './lenses/structure-lens.js';
+import { analyzeStyle } from './lenses/style-lens.js';
 import {
   type LensId,
   type LensProfile,
@@ -22,10 +26,8 @@ import {
   reviewDependencyHealth,
   reviewApiContract,
 } from './review-lenses.js';
-import { analyzeStructure } from './lenses/structure-lens.js';
-import { analyzeStyle } from './lenses/style-lens.js';
-import { analyzeApi } from './lenses/api-lens.js';
-import { analyzeDocs } from './lenses/docs-lens.js';
+
+import type { GitDiff, ReviewComment, Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Swarm Configuration

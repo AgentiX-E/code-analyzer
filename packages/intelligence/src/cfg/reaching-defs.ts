@@ -385,7 +385,7 @@ function sweepFacts(
     // then walk the block's statements applying defs in order. Seeding from
     // the block's own OUT set (which includes its GEN) would let a use see a
     // def that appears later in the same block — incorrect ordering.
-    let currentDefs = new Map<number, Set<number>>();
+    const currentDefs = new Map<number, Set<number>>();
     for (const pred of getBlockPredecessors(cfg, b)) {
       for (const [bindIdx, defs] of outSets[pred]!) {
         const existing = currentDefs.get(bindIdx);
@@ -469,7 +469,7 @@ function sweepFactsSparse(
 
     // Intra-block overlay: carry the entry set forward, applying defs as we
     // walk statements so that later uses in the same block see earlier defs.
-    let currentDefs = new Map<number, Set<number>>();
+    const currentDefs = new Map<number, Set<number>>();
     for (const [bindIdx, defs] of entry) {
       currentDefs.set(bindIdx, new Set(defs));
     }

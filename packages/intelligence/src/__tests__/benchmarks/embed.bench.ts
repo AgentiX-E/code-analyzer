@@ -2,6 +2,7 @@
 // Measures vector embedding throughput (embeddings/sec) under varying conditions.
 
 import { describe, it, expect } from 'vitest';
+
 import { EmbeddingEngine } from '../../../src/embeddings/embedder.js';
 
 // ---------------------------------------------------------------------------

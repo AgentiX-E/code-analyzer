@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { ReportGenerator } from '../report/generator.js';
+
 import type {
   ReviewComment,
   Finding,

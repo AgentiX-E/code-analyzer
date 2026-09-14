@@ -2,13 +2,15 @@
 // Persisted SQLite-backed graph store with WAL mode, FTS5, and prepared statements.
 
 import { existsSync, unlinkSync } from 'node:fs';
-import type { Database as DatabaseType, Statement } from 'better-sqlite3';
-import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
+
 import {
   loadBetterSqlite3,
   loadDefaultBetterSqlite3,
   type Sqlite3Loader,
 } from './sqlite-loader.js';
+
+import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
+import type { Database as DatabaseType, Statement } from 'better-sqlite3';
 
 // ---------------------------------------------------------------------------
 // SQL Schema

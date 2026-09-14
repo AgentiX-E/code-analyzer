@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Pipeline Phase: Communities
 
-import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
@@ -10,10 +10,11 @@ import {
   EDGE_IMPORTS,
   EDGE_MEMBER_OF,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Communities helpers

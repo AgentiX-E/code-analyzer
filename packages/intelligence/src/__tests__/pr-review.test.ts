@@ -1,15 +1,18 @@
 // @code-analyzer/intelligence — PR Review Engine Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { CodeReviewEngine } from '../review/review-engine.js';
-import { PRReviewEngine, severityRiskLevel } from '../review/pr-review.js';
-import { SessionStore } from '../review/session-store.js';
-import { ReviewSwarm } from '../review/review-swarm.js';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GitDiff, PullRequest, GraphNode, GraphEdge } from '@code-analyzer/shared';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as os from 'os';
+import * as path from 'path';
+
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import { PRReviewEngine, severityRiskLevel } from '../review/pr-review.js';
+import { CodeReviewEngine } from '../review/review-engine.js';
+import { ReviewSwarm } from '../review/review-swarm.js';
+import { SessionStore } from '../review/session-store.js';
+
+import type { GitDiff, PullRequest, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -3,8 +3,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ReviewComment } from '@code-analyzer/shared';
+
 import { type SessionMetadata } from './session-store.js';
+
+import type { ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

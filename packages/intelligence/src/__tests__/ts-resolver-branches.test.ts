@@ -4,6 +4,7 @@
 // access on object-literal/promise receivers, and registry/import resolution.
 
 import { describe, it, expect } from 'vitest';
+
 import { TSResolverContext, resolveImport, isBuiltinType } from '../lsp/ts-resolver.js';
 import { TypeRegistry } from '../lsp/type-registry.js';
 import { t, typeToString, BUILTINS } from '../lsp/type-rep.js';

@@ -2,18 +2,21 @@
 // Exercises the full chain: diff parsing → context enrichment → review →
 // standards checking → impact analysis → report generation.
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import {
   CodeReviewEngine,
   PRReviewEngine,
   ReviewPipeline,
   DiffParser,
 } from '@code-analyzer/intelligence';
-import type { GitDiff, ReviewComment, ReviewCategory, Severity } from '@code-analyzer/shared';
+
+import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test Fixture Setup
@@ -409,7 +412,7 @@ function riskyFunction(userInput) {
       expect(Array.isArray(result.comments)).toBe(true);
 
       // Verify comments have valid structure if any
-      for (const comment of result.comments as ReviewComment[]) {
+      for (const comment of result.comments) {
         expect(comment).toHaveProperty('category');
         expect(comment).toHaveProperty('severity');
         expect(comment).toHaveProperty('content');

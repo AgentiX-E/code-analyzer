@@ -1,3 +1,6 @@
+import { STANDARD_TEMPLATES, getTemplate, listTemplates } from './templates.js';
+
+import type { StandardTemplate } from './templates.js';
 import type {
   ProjectStandard,
   StandardsCheckResult,
@@ -6,8 +9,6 @@ import type {
   StandardRule,
   Severity,
 } from '@code-analyzer/shared';
-import { STANDARD_TEMPLATES, getTemplate, listTemplates } from './templates.js';
-import type { StandardTemplate } from './templates.js';
 
 export interface AutoFix {
   filePath: string;

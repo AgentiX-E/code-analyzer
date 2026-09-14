@@ -2,7 +2,6 @@
 // Comprehensive tests for IncrementalCrossRepoIndexer change detection,
 // cache management, incremental indexing, and edge cases.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import {
   mkdtempSync,
@@ -14,14 +13,17 @@ import {
   statSync,
   symlinkSync,
 } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
-import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { IncrementalCrossRepoIndexer } from '../cross-repo/incremental-indexer.js';
+import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
+
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -627,7 +629,7 @@ describe('IncrementalCrossRepoIndexer', () => {
       await indexer.incrementalIndex('stale-group');
 
       const cache = readCacheFile(cacheDir, 'test/stale-entries-repo');
-      const files = (cache as Record<string, unknown>)['files'] as Record<string, string>;
+      const files = cache['files'] as Record<string, string>;
       expect(Object.keys(files)).toHaveLength(1);
       expect(files).toHaveProperty('src/keep.ts');
       expect(files).not.toHaveProperty('src/old-gone.ts');

@@ -1,5 +1,6 @@
 // @code-analyzer/web — useGraphStats hook
 import { useState, useEffect, useCallback } from 'react';
+
 import { getIndexStatus, type GraphStats } from '../api/client';
 
 export interface UseGraphStatsResult {

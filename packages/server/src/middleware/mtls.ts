@@ -3,8 +3,9 @@
 // Verifies client certificates against trusted CAs, supports
 // certificate pinning, chain validation, and graceful fallback.
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createHash } from 'node:crypto';
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 // ---------------------------------------------------------------------------
 // Types

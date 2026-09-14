@@ -14,8 +14,9 @@
 //   - cond-false → 'F'
 //   - seq / loop-back / fallthrough → complement of explicit arm
 
-import type { FunctionCfg, CfgEdgeKind, ControlDepEdge, CdgLabel } from './types.js';
 import { computePostDominators, NO_IPDOM, postDominates } from './post-dominators.js';
+
+import type { FunctionCfg, CfgEdgeKind, ControlDepEdge, CdgLabel } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Core Algorithm

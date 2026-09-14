@@ -61,6 +61,7 @@ import { reviewDiff, reviewDiffSchema, reviewFile, reviewFileSchema } from './co
 import { reviewPR, reviewPRSchema, checkStandards, checkStandardsSchema } from './pr-review.js';
 
 // Reports
+import { reportGenerationTool } from './report-generation.js';
 import {
   generateReport,
   generateReportSchema,
@@ -114,14 +115,13 @@ import {
 import { runBenchmark, runBenchmarkSchema } from './benchmark.js';
 
 // Intelligence Tools (Iteration 15)
+import { testGenerationTool } from './test-generation.js';
 import { trendAnalysisTool } from './trend-analysis.js';
 import { hotspotDetectionTool } from './hotspot-detection.js';
 import { refactorSuggestionTool } from './refactor-suggestion.js';
-import { testGenerationTool } from './test-generation.js';
 import { docGenerationTool } from './doc-generation.js';
 import { codeSuggestionTool } from './code-suggestion.js';
 import { hallucinationDetectionTool } from './hallucination-detection.js';
-import { reportGenerationTool } from './report-generation.js';
 
 // ---------------------------------------------------------------------------
 // Register All Tools

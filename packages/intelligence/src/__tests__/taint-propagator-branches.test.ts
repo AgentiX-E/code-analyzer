@@ -3,7 +3,9 @@
 // worklist re-enqueue/skip decision for re-derived taint.
 
 import { describe, it, expect } from 'vitest';
+
 import { TaintPropagator } from '../security/taint-propagator.js';
+
 import type {
   FunctionCfg,
   DefUseFact,

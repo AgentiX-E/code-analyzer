@@ -2,13 +2,14 @@
 // Connects GitHub webhook events → CrossRepoPRReviewEngine → GitHub Check Runs.
 // This is the core pipeline that enables automated cross-repo PR review on GitHub.
 
+import { DiffParser } from '../review/diff-parser.js';
+
+import type { GitHubCheckRunManager } from './check-run.js';
 import type { GitHubApiClient } from './client.js';
 import type { GitHubRepoSync } from './repo-sync.js';
-import type { GitHubCheckRunManager } from './check-run.js';
-import type { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import type { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import type { CrossRepoPRReviewEngine } from '../cross-repo/cross-repo-pr-review.js';
-import { DiffParser } from '../review/diff-parser.js';
+import type { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import type { PullRequest, GitDiff, GitHubRepo } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

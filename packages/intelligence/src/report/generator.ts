@@ -462,7 +462,7 @@ export class ReportGenerator {
       };
       // `severity` originates from `f.severity`, which is always a `Severity`
       // present in `severityOrder`, so the lookup provably returns a value.
-      const priority = severityOrder[severity as Severity]!;
+      const priority = severityOrder[severity as Severity];
 
       return {
         id: `rec-${idx}`,

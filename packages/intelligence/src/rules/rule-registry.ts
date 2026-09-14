@@ -2,8 +2,9 @@
 // A shareable registry of project standards and review rules with versioning,
 // import/export, and validation. Enables teams to share and reuse rule sets.
 
-import type { ProjectStandard, Severity } from '@code-analyzer/shared';
 import { createHash } from 'node:crypto';
+
+import type { ProjectStandard, Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

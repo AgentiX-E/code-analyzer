@@ -5,11 +5,13 @@
 // Honest limitation: trend analysis over time requires multiple snapshots.
 // This tool analyzes the current graph state and provides structural metrics.
 
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS } from '@code-analyzer/shared';
+
+import { ToolContextImpl } from './tool-context.js';
+
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS } from '@code-analyzer/shared';
-import { ToolContextImpl } from './tool-context.js';
 
 export const trendAnalysisTool: McpToolDefinition = {
   name: 'trend_analysis',

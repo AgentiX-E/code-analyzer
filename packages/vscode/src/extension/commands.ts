@@ -1,10 +1,11 @@
 // @code-analyzer/vscode — VS Code Extension Commands
 // Registers all 14 VS Code commands.
 
+import { CommentLogic } from '../providers/comment-provider.js';
+import { DiagnosticSeverity } from '../services/vscode-api.js';
+
 import type { EngineBridge } from '../services/engine-bridge.js';
 import type { IVSCodeAPI, DiagnosticCollection } from '../services/vscode-api.js';
-import { DiagnosticSeverity } from '../services/vscode-api.js';
-import { CommentLogic } from '../providers/comment-provider.js';
 
 export interface RegisteredDisposables {
   disposables: Array<{ dispose(): void }>;

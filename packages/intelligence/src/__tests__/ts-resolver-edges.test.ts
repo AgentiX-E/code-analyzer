@@ -2,6 +2,7 @@
 // function, generic argument binding, and field access.
 
 import { describe, it, expect } from 'vitest';
+
 import { TSResolverContext } from '../lsp/ts-resolver.js';
 import { TypeRegistry } from '../lsp/type-registry.js';
 import { t, typeToString, BUILTINS } from '../lsp/type-rep.js';

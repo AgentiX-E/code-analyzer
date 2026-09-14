@@ -3,16 +3,17 @@
 // Markdown, HTML, CSS, R, and Groovy.
 
 import { describe, it, expect } from 'vitest';
-import { YamlProvider } from '../yaml.js';
-import { JsonProvider } from '../json.js';
-import { SqlProvider } from '../sql.js';
+
 import { BashProvider } from '../bash.js';
-import { TomlProvider } from '../toml.js';
-import { MarkdownProvider } from '../markdown.js';
-import { HtmlProvider } from '../html.js';
 import { CssProvider } from '../css.js';
-import { RProvider } from '../r.js';
 import { GroovyProvider } from '../groovy.js';
+import { HtmlProvider } from '../html.js';
+import { JsonProvider } from '../json.js';
+import { MarkdownProvider } from '../markdown.js';
+import { RProvider } from '../r.js';
+import { SqlProvider } from '../sql.js';
+import { TomlProvider } from '../toml.js';
+import { YamlProvider } from '../yaml.js';
 
 // ---------------------------------------------------------------------------
 // YAML

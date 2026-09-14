@@ -11,14 +11,16 @@
 // will report this as a configuration error rather than producing
 // fabricated results.
 
-import type { ReviewComment, ReviewSession, GitDiff } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import { analyzeFileHeuristics, toReviewComment, type GraphAnalysisData } from './heuristics.js';
-import { SessionStore, computeFileFingerprint } from './session-store.js';
-import type { SessionMetadata, ReviewItemResult } from './session-store.js';
-import type { LLMProvider } from './llm/provider.js';
 import { LLMReviewEngine } from './llm/llm-review-engine.js';
+import { SessionStore, computeFileFingerprint } from './session-store.js';
+
 import type { LLMReviewOptions } from './llm/llm-review-engine.js';
+import type { LLMProvider } from './llm/provider.js';
+import type { SessionMetadata, ReviewItemResult } from './session-store.js';
+import type { ReviewComment, ReviewSession, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Git Operations Interface

@@ -2,6 +2,7 @@
 // Tests for all five review lane prompt templates and response parsing.
 
 import { describe, it, expect } from 'vitest';
+
 import {
   SECURITY_REVIEW_PROMPT,
   PERFORMANCE_REVIEW_PROMPT,
@@ -13,6 +14,7 @@ import {
   LANE_PRIORITIES,
   parseLLMResponse,
 } from '../../review/llm/prompts.js';
+
 import type { PromptContext, ReviewLane } from '../../review/llm/prompts.js';
 
 // ---------------------------------------------------------------------------

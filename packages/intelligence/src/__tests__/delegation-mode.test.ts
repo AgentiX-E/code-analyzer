@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — Delegation Mode Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { DelegationManager } from '../review/delegation-mode.js';
+
 import type { DelegatePreview, ResolvedRule } from '../review/delegation-mode.js';
 import type { ProjectStandard } from '@code-analyzer/shared';
 

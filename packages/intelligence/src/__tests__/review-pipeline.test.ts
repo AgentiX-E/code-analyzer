@@ -1,9 +1,10 @@
 // @code-analyzer/intelligence — Review Pipeline Tests
 
-import { describe, it, expect, vi } from 'vitest';
-import { ReviewPipeline } from '../review/review-pipeline.js';
-import { CodeReviewEngine } from '../review/review-engine.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, vi } from 'vitest';
+
+import { CodeReviewEngine } from '../review/review-engine.js';
+import { ReviewPipeline } from '../review/review-pipeline.js';
 
 import type { GitDiff, ReviewComment, GraphNode } from '@code-analyzer/shared';
 
@@ -911,7 +912,7 @@ describe('ReviewPipeline - Edge Cases', () => {
           constructor(_pattern: string, _flags?: string) {
             throw new SyntaxError('Invalid regular expression');
           }
-        } as any,
+        },
       );
 
       const result = (pipeline as any).testGlobRegex('test.ts', '**/pattern');

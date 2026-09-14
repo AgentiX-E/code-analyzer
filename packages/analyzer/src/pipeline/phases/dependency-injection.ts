@@ -1,16 +1,17 @@
 // @code-analyzer/analyzer — Pipeline Phase: DependencyInjection
 
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_INJECTS } from '@code-analyzer/shared';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
+
+import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
   PipelineContext,
   DiscoveredFile,
   ParsedFile,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger, EDGE_INJECTS } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-
-import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
 
 // ---------------------------------------------------------------------------
 // DI helpers

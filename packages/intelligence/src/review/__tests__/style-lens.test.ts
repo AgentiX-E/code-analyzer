@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — Style Lens Tests
 import { describe, it, expect } from 'vitest';
+
 import { analyzeStyle, generateStyleReport } from '../lenses/style-lens.js';
 
 describe('Style Lens', () => {

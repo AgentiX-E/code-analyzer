@@ -2,11 +2,10 @@
 // Reviews pull requests with cross-repo context, detects API breaking changes,
 // predicts test impact across repos, and checks version compatibility.
 
-import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
-
 import type { CrossRepoIndexer, CrossRepoSymbolMatch } from './cross-repo-indexer.js';
 import type { RepoGroupManager } from './repo-group-manager.js';
 import type { CodeReviewEngine } from '../review/review-engine.js';
+import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -903,7 +902,7 @@ export class CrossRepoPRReviewEngine {
       for (const line of lines) {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 2 && parts[0] && parts[1]) {
-          deps[parts[0]!] = parts[1]!;
+          deps[parts[0]] = parts[1]!;
         }
       }
     }

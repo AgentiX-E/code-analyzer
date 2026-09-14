@@ -2,11 +2,13 @@
 // Exercises the full chain: repo group management → version matrix →
 // federated search → cross-repo PR review → dependency compatibility.
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { existsSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import {
   RepoGroupManager,
   FederatedSearchEngine,
@@ -509,7 +511,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         repos: [],
         sharedDependencies: {},
         matrix: {},
-      } as any);
+      });
       expect(conflicts2).toEqual([]);
     });
 

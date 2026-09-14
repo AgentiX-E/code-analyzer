@@ -1,9 +1,9 @@
 // @code-analyzer/server — SSE Transport
 // Server-Sent Events transport for MCP protocol and real-time streaming.
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { ServerConfig } from '../server-config.js';
 import type { ToolRegistry, ToolResult } from '@code-analyzer/mcp';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 /** Active SSE connections tracked for cleanup. */
 interface SSEConnection {

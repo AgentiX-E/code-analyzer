@@ -11,6 +11,7 @@ import {
   handleWorkerMessage,
   registerWorkerHandlers,
 } from '../embeddings/embedding-worker.js';
+
 import type { EmbedMessage, EmbedReply, WorkerPort } from '../embeddings/embedding-worker.js';
 
 describe('buildEmbedReply (in-process)', () => {
@@ -55,7 +56,6 @@ describe('buildEmbedReply (in-process)', () => {
   it('stringifies a non-Error backend failure', async () => {
     const throwing = {
       embedCode: async (): Promise<Float32Array> => {
-        // eslint-disable-next-line no-throw-literal
         throw 'raw string failure';
       },
     };

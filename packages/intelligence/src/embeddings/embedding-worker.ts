@@ -12,6 +12,7 @@
 import { parentPort } from 'node:worker_threads';
 
 import { MockEmbeddingBackend } from './embedder.js';
+
 import type { EmbeddingBackend } from './embedder.js';
 
 export interface EmbedMessage {

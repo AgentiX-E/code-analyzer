@@ -5,6 +5,9 @@
 // Reference: Ferrante, Ottenstein & Warren (1987) "The Program Dependence
 // Graph and Its Use in Optimization."
 
+import { computeControlDependence } from './control-dependence.js';
+import { computeReachingDefinitions } from './reaching-defs.js';
+
 import type {
   FunctionCfg,
   ControlDepEdge,
@@ -13,8 +16,6 @@ import type {
   PdgDataQuery,
   PdgQueryResult,
 } from './types.js';
-import { computeControlDependence } from './control-dependence.js';
-import { computeReachingDefinitions } from './reaching-defs.js';
 
 // ---------------------------------------------------------------------------
 // PDG Node

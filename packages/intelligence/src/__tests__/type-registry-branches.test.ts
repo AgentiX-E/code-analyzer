@@ -3,6 +3,7 @@
 // resolution, and method-index receiver matching.
 
 import { describe, it, expect } from 'vitest';
+
 import {
   TypeRegistry,
   buildProjectRegistry,

@@ -3,7 +3,9 @@
 // graph query API, which the control-dependence-focused suite does not cover.
 
 import { describe, it, expect } from 'vitest';
+
 import { buildPdg } from '../cfg/pdg-builder.js';
+
 import type {
   FunctionCfg,
   BasicBlock,

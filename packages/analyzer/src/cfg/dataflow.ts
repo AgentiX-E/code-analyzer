@@ -5,8 +5,9 @@
 //   - Unreachable Code Detection
 //   - Dead Store Detection
 
-import type { ControlFlowGraph } from './cfg-types.js';
 import { intersectSets, setEquals } from './set-utils.js';
+
+import type { ControlFlowGraph } from './cfg-types.js';
 
 // ---------------------------------------------------------------------------
 // Reaching Definitions

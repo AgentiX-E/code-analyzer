@@ -1,5 +1,6 @@
 // @code-analyzer/web — useApiHealth hook
 import { useState, useEffect, useCallback, useRef } from 'react';
+
 import { getApiHealth, type HealthResponse } from '../api/client';
 
 export interface UseApiHealthResult {

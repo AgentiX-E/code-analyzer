@@ -8,6 +8,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EmbeddingWorkerPool } from '../embeddings/worker-pool.js';
+
 import type { EmbeddingTask } from '../embeddings/worker-pool.js';
 
 const FIXTURE = resolve(__dirname, 'fixtures', 'embedding-worker.cjs');

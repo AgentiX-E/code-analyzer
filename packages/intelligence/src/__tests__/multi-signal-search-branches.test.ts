@@ -4,7 +4,9 @@
 // module-proximity helpers that the happy-path suite never reaches.
 
 import { describe, it, expect } from 'vitest';
+
 import { HybridSearchEngine } from '../search/multi-signal-search.js';
+
 import type { EmbeddingEngine } from '../embeddings/embedder.js';
 
 /** A minimal, deterministic EmbeddingEngine stand-in. */

@@ -6,7 +6,9 @@
 // fallback, and the DFS black-successor skip in loop detection.
 
 import { describe, it, expect } from 'vitest';
+
 import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
+
 import type {
   FunctionCfg,
   BasicBlock,

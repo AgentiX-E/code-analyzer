@@ -6,6 +6,7 @@
 // arrow-function block extraction, and cohesion computation on empty input.
 
 import { describe, it, expect } from 'vitest';
+
 import { analyzeStructure, generateStructureReport } from '../review/lenses/structure-lens.js';
 
 // ---------------------------------------------------------------------------

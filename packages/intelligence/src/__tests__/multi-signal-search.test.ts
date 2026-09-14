@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { HybridSearchEngine } from '../search/multi-signal-search.js';
+
 import { EmbeddingEngine, MockEmbeddingBackend } from '../embeddings/embedder.js';
-import type { EmbeddingEngine as EmbeddingEngineType } from '../embeddings/embedder.js';
+import { HybridSearchEngine } from '../search/multi-signal-search.js';
 
 // The HybridSearchEngine expects an EmbeddingEngine-like object with
 // embedCode, embedBatch, and cosineSimilarity. Use the real (mock-backed)
 // EmbeddingEngine to exercise the integration path deterministically.
 function makeEngine(config?: ConstructorParameters<typeof EmbeddingEngine>[0]) {
-  return new HybridSearchEngine(new EmbeddingEngine(config) as unknown as EmbeddingEngineType, {
+  return new HybridSearchEngine(new EmbeddingEngine(config), {
     // Make results deterministic and threshold-inclusive
     minScore: 0,
     useRRF: true,
@@ -101,12 +101,9 @@ describe('HybridSearchEngine', () => {
 
     it('applies minScore threshold filter', async () => {
       // Use a high threshold to ensure filtering works
-      const engine = new HybridSearchEngine(
-        new EmbeddingEngine() as unknown as EmbeddingEngineType,
-        {
-          minScore: 999, // impossible threshold
-        },
-      );
+      const engine = new HybridSearchEngine(new EmbeddingEngine(), {
+        minScore: 999, // impossible threshold
+      });
       engine.indexDocument('x', 'function x does something');
       const results = await engine.searchMultiSignal('x');
       expect(results).toHaveLength(0);
@@ -141,10 +138,13 @@ describe('HybridSearchEngine', () => {
 
   describe('weighted-sum fusion (useRRF: false)', () => {
     it('combines bm25 and semantic scores by weighted sum', async () => {
-      const engine = new HybridSearchEngine(
-        new EmbeddingEngine() as unknown as EmbeddingEngineType,
-        { minScore: 0, useRRF: false, bm25Weight: 0.7, semanticWeight: 0.3, topK: 50 },
-      );
+      const engine = new HybridSearchEngine(new EmbeddingEngine(), {
+        minScore: 0,
+        useRRF: false,
+        bm25Weight: 0.7,
+        semanticWeight: 0.3,
+        topK: 50,
+      });
       engine.indexDocument('user1', 'function getUserById returns user record');
       const results = await engine.search('getUser');
       expect(results.length).toBeGreaterThan(0);
@@ -152,10 +152,11 @@ describe('HybridSearchEngine', () => {
     });
 
     it('returns results ordered by combined score', async () => {
-      const engine = new HybridSearchEngine(
-        new EmbeddingEngine() as unknown as EmbeddingEngineType,
-        { minScore: 0, useRRF: false, topK: 50 },
-      );
+      const engine = new HybridSearchEngine(new EmbeddingEngine(), {
+        minScore: 0,
+        useRRF: false,
+        topK: 50,
+      });
       engine.indexDocument('a', 'function alpha beta gamma');
       engine.indexDocument('b', 'function alpha');
       const results = await engine.search('alpha');

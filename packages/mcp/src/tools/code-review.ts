@@ -1,10 +1,12 @@
 // @code-analyzer/mcp — Code Review Tools
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl, type ToolContext } from './tool-context.js';
-import type { ToolResult } from './registry.js';
-import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
 import { EDGE_CALLS } from '@code-analyzer/shared';
+
+import { ToolContextImpl, type ToolContext } from './tool-context.js';
+
+import type { ToolResult } from './registry.js';
+import type { GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -127,11 +129,7 @@ export async function reviewDiff(
             diffs,
           );
 
-          const filtered = filterComments(
-            prResult.comments,
-            severity as Severity,
-            categories as ReviewCategory[],
-          );
+          const filtered = filterComments(prResult.comments, severity, categories);
           const sum = buildSummary(filtered);
 
           return {
@@ -188,11 +186,7 @@ export async function reviewDiff(
         const session = await reviewEngine.reviewDiff(projectId, diffs);
 
         const allComments = extractCommentsFromSession(session);
-        const filtered = filterComments(
-          allComments,
-          severity as Severity,
-          categories as ReviewCategory[],
-        );
+        const filtered = filterComments(allComments, severity, categories);
         const sum = buildSummary(filtered);
 
         return {
@@ -384,7 +378,7 @@ export async function reviewFile(
       const reviewEngine = ctx.getReviewEngine();
       const comments = await reviewEngine.reviewFile(projectId, filePath, content);
 
-      const filtered = filterComments(comments as unknown[], severity as Severity);
+      const filtered = filterComments(comments as unknown[], severity);
       const summary = buildSummary(filtered);
 
       return {
@@ -414,7 +408,7 @@ export async function reviewFile(
       const fileNodes = ctx.getFileSymbols(projectId, filePath);
 
       const fileComments = analyzeFileFromGraph(filePath, fileNodes);
-      const filtered = filterComments(fileComments, severity as Severity);
+      const filtered = filterComments(fileComments, severity);
       const summary = buildSummary(filtered);
 
       return {

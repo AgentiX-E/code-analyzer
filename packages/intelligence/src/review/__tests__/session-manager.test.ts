@@ -1,11 +1,14 @@
 // @code-analyzer/intelligence — Session Manager Tests
 // Tests for PR review session checkpoint/resume workflow.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as os from 'os';
+import * as path from 'path';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { ReviewSessionManager } from '../session-manager.js';
+
 import type { ReviewComment } from '@code-analyzer/shared';
 
 describe('ReviewSessionManager', () => {

@@ -2,10 +2,12 @@
 // Dynamically loads plugins from file paths or node_modules packages.
 // Supports CommonJS and ESM plugins with validation before registration.
 
-import { isValidPlugin, getValidationErrors } from './plugin-interface.js';
-import type { CodeAnalyzerPlugin } from './plugin-interface.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+import { isValidPlugin, getValidationErrors } from './plugin-interface.js';
+
+import type { CodeAnalyzerPlugin } from './plugin-interface.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,6 +124,6 @@ export class PluginLoader {
     }
 
     this.loadedCount++;
-    return candidate as CodeAnalyzerPlugin;
+    return candidate;
   }
 }

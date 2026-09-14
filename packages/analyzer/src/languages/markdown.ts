@@ -7,10 +7,12 @@
 // tables, and inline code, plus external-link taint source detection.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import type { ParsedImport, LanguageProvider } from './provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+
 import { sanitizeSource, lineNumber } from './regex-helpers.js';
+
+import type { ParsedImport, LanguageProvider } from './provider.js';
+import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const MARKDOWN_EXTENSIONS = ['.md', '.mdx', '.markdown'];
 const MARKDOWN_GLOBS = ['**/*.md', '**/*.mdx', '**/*.markdown'];

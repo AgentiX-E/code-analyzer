@@ -74,7 +74,7 @@ export class ImpactGraphBuilder {
       // Add nodes
       for (const repo of allRepos) {
         const nodes = this.indexer.getRepoNodes(repo);
-        const symbols = nodes.map((n) => n.name).filter(Boolean) as string[];
+        const symbols = nodes.map((n) => n.name).filter(Boolean);
         this.graph.nodes.set(repo, {
           repo,
           symbols,

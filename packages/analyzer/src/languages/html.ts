@@ -3,10 +3,11 @@
 // XSS taint sinks, script/style imports, forms as taint sources.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
 import { childrenOf } from './syntax-children.js';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
 import type { ParsedImport } from './provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
   TreeSitterLanguage,
   TreeSitterSyntaxNode,
@@ -14,6 +15,7 @@ import type {
   TaintSink,
   TaintSanitizer,
 } from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
 
 export class HtmlProvider extends TreeSitterBaseProvider {
   readonly language = 'html';
@@ -130,7 +132,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       node.type === 'style_element' ||
       node.type === 'start_tag'
     ) {
-      let tagNameNode = this.findTagName(node);
+      const tagNameNode = this.findTagName(node);
       if (!tagNameNode) {
         // Recursively walk children even if no tag_name found
         for (const child of childrenOf(node)) {
@@ -391,7 +393,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
     const tagRx = /<\/?(\w+)[^>]*>/g;
     while ((m = tagRx.exec(source)) !== null) {
-      const isClosing = m[0]!.startsWith('</');
+      const isClosing = m[0].startsWith('</');
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
         text: m[1]!,

@@ -1,10 +1,12 @@
 // @code-analyzer/intelligence — Contract Validator Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { ContractValidator } from '../../cross-repo/contract-validator.js';
 import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
 import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
-import { ContractValidator } from '../../cross-repo/contract-validator.js';
+
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

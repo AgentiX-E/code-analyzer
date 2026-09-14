@@ -7,7 +7,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
-import type { CrossRepoIndexer, IndexOptions } from './cross-repo-indexer.js';
+import type { CrossRepoIndexer } from './cross-repo-indexer.js';
 
 // ---------------------------------------------------------------------------
 // Public Types
@@ -173,7 +173,7 @@ export class IncrementalReindexer {
     const filesToProcess = [...changes.added, ...changes.modified];
     if (filesToProcess.length > 0) {
       try {
-        await indexer.indexSingleRepo(repoPath, repoPath, { force: true } as IndexOptions);
+        await indexer.indexSingleRepo(repoPath, repoPath, { force: true });
         filesProcessed = filesToProcess.length;
       } catch {
         filesSkipped = filesToProcess.length;

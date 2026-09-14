@@ -2,14 +2,16 @@
 // Comprehensive tests for CrossRepoWebhookBridge with mocked dependencies.
 
 import { describe, it, expect, vi } from 'vitest';
+
 import { CrossRepoWebhookBridge } from '../github/cross-repo-bridge.js';
-import type { WebhookPayload, BridgeResult } from '../github/cross-repo-bridge.js';
-import type { GitHubApiClient } from '../github/client.js';
-import type { GitHubRepoSync } from '../github/repo-sync.js';
-import type { GitHubCheckRunManager } from '../github/check-run.js';
-import type { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
+
 import type { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import type { CrossRepoPRReviewEngine } from '../cross-repo/cross-repo-pr-review.js';
+import type { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
+import type { GitHubCheckRunManager } from '../github/check-run.js';
+import type { GitHubApiClient } from '../github/client.js';
+import type { WebhookPayload, BridgeResult } from '../github/cross-repo-bridge.js';
+import type { GitHubRepoSync } from '../github/repo-sync.js';
 import type { RepoGroup, GroupRepo } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

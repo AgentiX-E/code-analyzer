@@ -2,8 +2,9 @@
 // Pure logic class for knowledge graph exploration in the sidebar.
 // No VS Code dependency — all VS Code integration lives in extension.ts.
 
-import type { EngineBridge, SymbolDetailItem } from '../services/engine-bridge.js';
 import { EDGE_CALLS } from '@code-analyzer/shared';
+
+import type { EngineBridge, SymbolDetailItem } from '../services/engine-bridge.js';
 
 // ---------------------------------------------------------------------------
 // Graph Data Types

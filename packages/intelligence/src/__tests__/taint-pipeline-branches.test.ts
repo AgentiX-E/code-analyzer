@@ -3,7 +3,9 @@
 // fallback.
 
 import { describe, it, expect } from 'vitest';
+
 import { buildCallGraph } from '../security/taint-pipeline.js';
+
 import type { FunctionCfg, CfgEdge } from '../cfg/types.js';
 
 function makeCfg(fnName: string, edges: CfgEdge[]): FunctionCfg {

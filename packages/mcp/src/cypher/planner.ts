@@ -1,9 +1,10 @@
 // @code-analyzer/mcp — Cypher Planner
 // Translates a Cypher AST into a SQL-compatible query plan.
 
-import type { CypherExpression, GraphNode } from '@code-analyzer/shared';
-import type { CypherQuery } from './parser.js';
 import { NODE_LABELS, RELATIONSHIP_TYPES } from '@code-analyzer/shared';
+
+import type { CypherQuery } from './parser.js';
+import type { CypherExpression, GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Graph Schema
@@ -17,8 +18,8 @@ export interface GraphSchema {
 }
 
 export const DEFAULT_SCHEMA: GraphSchema = {
-  nodeLabels: NODE_LABELS as unknown as string[],
-  relationshipTypes: RELATIONSHIP_TYPES as unknown as string[],
+  nodeLabels: NODE_LABELS,
+  relationshipTypes: RELATIONSHIP_TYPES,
   nodeProperties: [
     'name',
     'qualifiedName',

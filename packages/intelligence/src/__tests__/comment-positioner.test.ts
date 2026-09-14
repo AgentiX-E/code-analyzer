@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — Comment Positioner Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { CommentPositioner } from '../review/comment-positioner.js';
+
 import type { PositionedComment } from '../review/comment-positioner.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 

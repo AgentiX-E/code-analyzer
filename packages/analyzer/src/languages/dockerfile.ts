@@ -9,6 +9,7 @@
 // parser below is the complete, tested implementation.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 

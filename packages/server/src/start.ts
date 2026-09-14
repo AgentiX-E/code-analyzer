@@ -13,9 +13,11 @@
 //   SERVER_API_KEY — API key for authentication (optional)
 //   NODE_ENV       — Environment: development, production
 
-import { createServer } from './http-server.js';
-import type { ServerInstance, ServerOptions } from './http-server.js';
 import { ToolRegistry } from '@code-analyzer/mcp';
+
+import { createServer } from './http-server.js';
+
+import type { ServerInstance, ServerOptions } from './http-server.js';
 
 // ---------------------------------------------------------------------------
 // Signal handling for graceful shutdown

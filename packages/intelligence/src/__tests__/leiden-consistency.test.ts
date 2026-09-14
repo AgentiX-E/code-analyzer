@@ -6,14 +6,16 @@
 // Q = 5/14, which guards against regressions in the gain/score formulas.
 
 import { describe, it, expect } from 'vitest';
+
 import { leiden } from '../community/leiden.js';
-import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
+
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 function makeNode(id: number): GraphNode {
   return {
     id,
     projectId: 'test',
-    label: 'Function' as NodeLabel,
+    label: 'Function',
     name: `f${id}`,
     qualifiedName: `Function:f${id}`,
     filePath: null,
@@ -37,7 +39,7 @@ function makeEdge(id: number, sourceId: number, targetId: number): GraphEdge {
     projectId: 'test',
     sourceId,
     targetId,
-    type: 'CALLS' as RelationshipType,
+    type: 'CALLS',
     properties: {},
     weight: 1,
     createdAt: '2024-01-01T00:00:00.000Z',

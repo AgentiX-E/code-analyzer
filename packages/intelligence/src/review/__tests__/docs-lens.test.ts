@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — Docs Lens Tests
 import { describe, it, expect } from 'vitest';
+
 import { analyzeDocs, generateDocsReport } from '../lenses/docs-lens.js';
 
 describe('Docs Lens', () => {

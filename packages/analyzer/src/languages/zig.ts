@@ -7,9 +7,11 @@
 // implementation.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+import { sanitizeSource, lineNumber } from './regex-helpers.js';
+
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import { sanitizeSource, lineNumber } from './regex-helpers.js';
 
 const ZIG_EXTENSIONS = ['.zig'];
 const ZIG_GLOBS = ['**/*.zig'];
@@ -29,7 +31,7 @@ export class ZigProvider implements LanguageProvider {
     // Function declarations: [pub] fn name
     const funcRegex = /(?:pub\s+)?fn\s+(\w+)/g;
     while ((m = funcRegex.exec(sanitized)) !== null) {
-      const isPub = m[0]!.startsWith('pub');
+      const isPub = m[0].startsWith('pub');
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: m[1]!,

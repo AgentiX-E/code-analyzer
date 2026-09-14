@@ -116,9 +116,7 @@ export class ConfigService {
       this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
     const profileDef = PROFILES[currentProfile];
     if (profileDef && key in profileDef.overrides) {
-      return profileDef.overrides[
-        key as keyof typeof profileDef.overrides
-      ] as CodeAnalyzerConfig[K];
+      return profileDef.overrides[key] as CodeAnalyzerConfig[K];
     }
 
     // 3. Fall back to built-in defaults

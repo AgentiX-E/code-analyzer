@@ -1,5 +1,18 @@
 // @code-analyzer/analyzer — Pipeline Phase: CrossFile
 
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+import {
+  CAPTURE_TAGS,
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_IMPORTS,
+} from '@code-analyzer/shared';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
+import { getOrLoadProvider, resolveImportPath } from '../phase-helpers.js';
+
+import type { ParsedImport } from '../../languages/provider.js';
+import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
   PipelineContext,
@@ -8,18 +21,6 @@ import type {
   ResolvedImport,
   UnifiedCapture,
 } from '@code-analyzer/shared';
-import {
-  CAPTURE_TAGS,
-  PhaseLogger,
-  createNoopPhaseLogger,
-  EDGE_IMPORTS,
-} from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { ParsedImport } from '../../languages/provider.js';
-
-import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { getOrLoadProvider, resolveImportPath } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
 
 // ---------------------------------------------------------------------------
 // Phase 6: crossFile — Cross-file dependency analysis

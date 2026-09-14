@@ -1,6 +1,8 @@
 // @code-analyzer/intelligence — Synthesis Lens Tests
 import { describe, it, expect } from 'vitest';
+
 import { synthesizeFindings, generateSynthesisReport } from '../lenses/synthesis-lens.js';
+
 import type { LensReport, LensFinding } from '../review-lenses.js';
 
 function makeFinding(
@@ -15,7 +17,7 @@ function makeFinding(
   return {
     id,
     lens: lens as any,
-    category: 'security' as any,
+    category: 'security',
     severity: severity as any,
     title,
     description: 'Test finding',

@@ -6,10 +6,12 @@
 // tables, array tables, key/value pairs, and config-secret taint detection.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import type { ParsedImport, LanguageProvider } from './provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+
 import { extractSecretSources } from './regex-helpers.js';
+
+import type { ParsedImport, LanguageProvider } from './provider.js';
+import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
 
 /** Secret-bearing keys that mark a TOML value as a config-secret taint source. */
 const SECRET_KEYWORDS = ['password', 'secret', 'token', 'api_key', 'credential', 'private_key'];

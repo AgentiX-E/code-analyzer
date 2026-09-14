@@ -2,7 +2,7 @@
 // In-memory secondary indexes for O(1) lookups by name, label, and project.
 // Plugs into InMemoryGraphStore for sub-millisecond query performance.
 
-import type { GraphNode } from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // NodeIndex
@@ -146,8 +146,6 @@ export class NodeIndex {
 // ---------------------------------------------------------------------------
 // EdgeIndex
 // ---------------------------------------------------------------------------
-
-import type { GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
 /** Index for graph edges enabling O(1) lookups by source, target, and type. */
 export class EdgeIndex {

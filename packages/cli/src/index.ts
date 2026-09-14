@@ -3,14 +3,16 @@
 // Full-featured CLI for Code Analyzer: init, analyze, search, review, status, agent.
 // Includes global error handling and signal handling for production readiness.
 
-import { Command } from 'commander';
 import { EOL } from 'node:os';
+
+import { Command } from 'commander';
+
 import { createAgentCommand } from './commands/agent.js';
-import { initProject, type InitOptions } from './commands/init.js';
 import { analyzeRepository, formatAnalyzeResult, type AnalyzeOptions } from './commands/analyze.js';
+import { initProject, type InitOptions } from './commands/init.js';
+import { reviewCode, formatReviewResult, type ReviewOptions } from './commands/review.js';
 import { searchGraph, formatSearchResult, type SearchOptions } from './commands/search.js';
 import { getStatus, formatStatusReport, type StatusOptions } from './commands/status.js';
-import { reviewCode, formatReviewResult, type ReviewOptions } from './commands/review.js';
 
 // ---------------------------------------------------------------------------
 // Global Error Handlers

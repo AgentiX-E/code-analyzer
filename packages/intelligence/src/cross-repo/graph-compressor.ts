@@ -13,8 +13,9 @@ import {
   constants as zConstants,
 } from 'node:zlib';
 
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Types
@@ -287,7 +288,7 @@ export class GraphCompressor {
           startLine: sn.startLine,
           endLine: sn.endLine,
           language: sn.language,
-          properties: sn.properties as GraphNode['properties'],
+          properties: sn.properties,
           signature: sn.signature,
           docstring: sn.docstring,
           complexity: sn.complexity,

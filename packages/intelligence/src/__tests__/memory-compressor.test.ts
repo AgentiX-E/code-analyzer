@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — Memory Compressor Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { MemoryCompressor, countTokens } from '../compression/memory-compressor.js';
+
 import type { CompressionConfig } from '../compression/memory-compressor.js';
 
 // ---------------------------------------------------------------------------

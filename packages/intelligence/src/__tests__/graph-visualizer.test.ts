@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { CrossRepoGraphVisualizer } from '../cross-repo/graph-visualizer.js';
+
 import type { CrossRepoEdgeRecord } from '../cross-repo/graph-visualizer.js';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
@@ -17,7 +19,7 @@ function makeNode(overrides: Partial<GraphNode> & { id: number; projectId: strin
     startLine: null,
     endLine: null,
     language: 'typescript',
-    properties: {} as any,
+    properties: {},
     signature: null,
     docstring: null,
     complexity: null,
@@ -39,8 +41,8 @@ function makeEdge(
   },
 ): GraphEdge {
   return {
-    type: 'IMPORTS' as any,
-    properties: {} as any,
+    type: 'IMPORTS',
+    properties: {},
     weight: 1,
     createdAt: '2025-01-01T00:00:00.000Z',
     ...overrides,
@@ -627,15 +629,15 @@ describe('CrossRepoGraphVisualizer', () => {
           projectId: repoId,
           sourceId: 1,
           targetId: 2,
-          type: 'CROSS_REPO_IMPORTS' as any,
+          type: 'CROSS_REPO_IMPORTS',
         }),
-        makeEdge({ id: 2, projectId: repoId, sourceId: 2, targetId: 3, type: 'IMPORTS' as any }),
+        makeEdge({ id: 2, projectId: repoId, sourceId: 2, targetId: 3, type: 'IMPORTS' }),
         makeEdge({
           id: 3,
           projectId: repoId,
           sourceId: 3,
           targetId: 4,
-          type: 'CROSS_REPO_CALLS' as any,
+          type: 'CROSS_REPO_CALLS',
         }),
       ];
     });
@@ -787,16 +789,16 @@ describe('CrossRepoGraphVisualizer', () => {
           projectId: repoId,
           sourceId: 1,
           targetId: 2,
-          type: 'CROSS_REPO_IMPORTS' as any,
-          properties: { sourceRepo: repoId, targetRepo: 'other' } as any,
+          type: 'CROSS_REPO_IMPORTS',
+          properties: { sourceRepo: repoId, targetRepo: 'other' },
         }),
         makeEdge({
           id: 2,
           projectId: repoId,
           sourceId: 3,
           targetId: 4,
-          type: 'CROSS_REPO_IMPORTS' as any,
-          properties: { sourceRepo: 'outsider', targetRepo: repoId } as any,
+          type: 'CROSS_REPO_IMPORTS',
+          properties: { sourceRepo: 'outsider', targetRepo: repoId },
         }),
       ];
 
@@ -812,8 +814,8 @@ describe('CrossRepoGraphVisualizer', () => {
           projectId: repoId,
           sourceId: 1,
           targetId: 2,
-          type: 'CROSS_REPO_IMPORTS' as any,
-          properties: {} as any,
+          type: 'CROSS_REPO_IMPORTS',
+          properties: {},
         }),
       ];
 
@@ -878,7 +880,7 @@ describe('CrossRepoGraphVisualizer', () => {
           projectId: 'auth',
           sourceId: 1,
           targetId: 2,
-          type: 'CROSS_REPO_IMPORTS' as any,
+          type: 'CROSS_REPO_IMPORTS',
         }),
       ];
 

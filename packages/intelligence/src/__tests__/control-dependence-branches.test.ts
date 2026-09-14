@@ -3,8 +3,10 @@
 // multi-controller sorting that the happy-path if-else / loop fixtures do not.
 
 import { describe, it, expect } from 'vitest';
+
 import { computeControlDependence } from '../cfg/control-dependence.js';
 import { computePostDominators, postDominates } from '../cfg/post-dominators.js';
+
 import type { FunctionCfg, BasicBlock, CfgEdge, CfgEdgeKind } from '../cfg/types.js';
 
 /** Build a minimal FunctionCfg from an explicit block list and edge list. */

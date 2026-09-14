@@ -1,9 +1,10 @@
 // @code-analyzer/mcp — Standards, ADR, and Agent Tools
 // Uses in-memory stores for standards and ADRs with real data
 
+import { SkillInstaller } from '../skills/installer.js';
+
 import type { ToolResult } from './registry.js';
 import type { DetectedAgent } from '@code-analyzer/shared';
-import { SkillInstaller } from '../skills/installer.js';
 
 // ---------------------------------------------------------------------------
 // In-memory stores

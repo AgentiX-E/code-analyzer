@@ -2,6 +2,8 @@
 // Aggregates metrics across multiple PR reviews for trend analysis,
 // code health scoring, team insights, and dashboard report generation.
 
+import { TrendAnalyzer, type TrendData } from '../report/trends.js';
+
 import type {
   ReviewComment,
   ReviewCategory,
@@ -14,9 +16,7 @@ import type {
   ReportMetrics,
   Finding,
   Recommendation,
-  RiskLevel,
 } from '@code-analyzer/shared';
-import { TrendAnalyzer, type TrendData } from '../report/trends.js';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -631,13 +631,7 @@ export class ReviewDashboardAggregator {
 
     const summary: ReportSummary = {
       overallScore: Math.max(0, 100 - criticals * 10 - highs * 5),
-      riskLevel: (criticals > 0
-        ? 'critical'
-        : highs > 3
-          ? 'high'
-          : mediums > 5
-            ? 'medium'
-            : 'low') as RiskLevel,
+      riskLevel: criticals > 0 ? 'critical' : highs > 3 ? 'high' : mediums > 5 ? 'medium' : 'low',
       totalFindings: r.comments.length,
       criticalFindings: criticals,
       highFindings: highs,
@@ -689,7 +683,7 @@ export class ReviewDashboardAggregator {
       filePath: c.path ?? '',
       lineRange:
         (c.startLine ?? 0) > 0
-          ? ([c.startLine!, c.endLine ?? c.startLine!] as [number, number])
+          ? ([c.startLine, c.endLine ?? c.startLine] as [number, number])
           : null,
       evidence: c.existingCode ?? '',
       relatedFindings: [],

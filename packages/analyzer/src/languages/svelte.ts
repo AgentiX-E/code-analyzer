@@ -5,6 +5,7 @@
 // not deeply parsed.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 

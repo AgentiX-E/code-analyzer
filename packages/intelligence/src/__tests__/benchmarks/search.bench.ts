@@ -1,10 +1,12 @@
 // @code-analyzer/intelligence — Hybrid Search Benchmarks
 // Measures BM25 + vector search latency and throughput.
 
-import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { HybridSearchEngine, tokenize } from '../../../src/search/hybrid-search.js';
+import { describe, it, expect } from 'vitest';
+
 import { EmbeddingEngine } from '../../../src/embeddings/embedder.js';
+import { HybridSearchEngine, tokenize } from '../../../src/search/hybrid-search.js';
+
 import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { TaintPipeline } from '../security/taint-pipeline.js';
+
 import type { FunctionCfg } from '../cfg/types.js';
 import type { CallGraphEdge } from '../security/interproc-solver.js';
 

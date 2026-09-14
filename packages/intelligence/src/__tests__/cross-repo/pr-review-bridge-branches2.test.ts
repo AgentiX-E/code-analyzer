@@ -5,8 +5,10 @@
 // IMPORTS edges carry an `importPath` property.
 
 import { describe, it, expect, vi } from 'vitest';
+
 import { PRReviewBridge } from '../../cross-repo/pr-review-bridge.js';
 import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
+
 import type { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
 import type { CodeReviewEngine } from '../../review/review-engine.js';
 

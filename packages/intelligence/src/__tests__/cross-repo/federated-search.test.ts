@@ -2,10 +2,12 @@
 // Supplementary tests for FederatedSearchEngine covering edge cases and
 // specific code paths not covered by the main cross-repo test suite.
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode } from '@code-analyzer/shared';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { FederatedSearchEngine } from '../../cross-repo/federated-search.js';
+
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers

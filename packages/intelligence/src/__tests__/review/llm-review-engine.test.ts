@@ -3,12 +3,14 @@
 // context truncation, and ReviewComment conversion.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { LLMReviewEngine } from '../../review/llm/llm-review-engine.js';
+import { LANE_LABELS } from '../../review/llm/prompts.js';
+
 import type { LLMReviewOptions } from '../../review/llm/llm-review-engine.js';
+import type { ReviewLane } from '../../review/llm/prompts.js';
 import type { LLMProvider, CompletionResult } from '../../review/llm/provider.js';
 import type { GitDiff } from '@code-analyzer/shared';
-import type { ReviewLane } from '../../review/llm/prompts.js';
-import { LANE_LABELS } from '../../review/llm/prompts.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -632,7 +634,7 @@ describe('LLMReviewEngine', () => {
       // the !promptFn branch (line 157)
       const result = await (engine as any).executeLane(
         { diffContent: '// test', filePath: '/test.ts', changeType: 'modified' },
-        'unknown_lane' as ReviewLane,
+        'unknown_lane',
       );
 
       expect(result.success).toBe(false);
@@ -651,7 +653,7 @@ describe('LLMReviewEngine', () => {
 
       const result = await (engine as any).executeLane(
         { diffContent: '', filePath: '/test.ts', changeType: 'modified' },
-        'unknown_lane' as ReviewLane,
+        'unknown_lane',
       );
 
       expect(result.durationMs).toBeGreaterThanOrEqual(0);

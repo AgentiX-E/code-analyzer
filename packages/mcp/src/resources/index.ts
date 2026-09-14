@@ -3,8 +3,8 @@
 // ResourceProvider queries the InMemoryGraphStore and returns structured JSON.
 // registerResources() is kept for backward compatibility as a static list.
 
-import type { ResourceDefinition } from '@code-analyzer/shared';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { ResourceDefinition } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Resource Content Types
@@ -329,8 +329,8 @@ export class ResourceProvider {
     }> = [];
 
     for (const node of this.store.nodes.values()) {
-      const routeMethod = node.properties.routeMethod as string | undefined;
-      const routePath = node.properties.routePath as string | undefined;
+      const routeMethod = node.properties.routeMethod;
+      const routePath = node.properties.routePath;
       if (!routeMethod && !routePath) continue;
 
       routes.push({

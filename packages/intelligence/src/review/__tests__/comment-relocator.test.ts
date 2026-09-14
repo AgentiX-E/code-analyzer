@@ -2,7 +2,9 @@
 // Tests for fuzzy comment re-location after code changes.
 
 import { describe, it, expect } from 'vitest';
+
 import { CommentRelocator } from '../comment-relocator.js';
+
 import type { ReviewComment } from '@code-analyzer/shared';
 
 function makeComment(overrides: Partial<ReviewComment> = {}): ReviewComment {

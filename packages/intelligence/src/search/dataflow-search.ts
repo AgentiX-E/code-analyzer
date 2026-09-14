@@ -350,12 +350,8 @@ export class DataflowSearchEngine {
             filePath: node.filePath ?? '',
             line: node.startLine ?? 0,
             kind: isSink
-              ? (this.mapSinkCategory as (c: TaintSink['category']) => DataflowNode['kind'])(
-                  (pattern as TaintSink).category,
-                )
-              : (this.mapSourceCategory as (c: TaintSource['category']) => DataflowNode['kind'])(
-                  (pattern as TaintSource).category,
-                ),
+              ? this.mapSinkCategory((pattern as TaintSink).category)
+              : this.mapSourceCategory((pattern as TaintSource).category),
           });
           break;
         }

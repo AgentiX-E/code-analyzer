@@ -1,10 +1,11 @@
 // @code-analyzer/analyzer — Pipeline Phase: PruneLocalSymbols
 
-import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
-import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import { toPhaseFailure } from '../phase-helpers.js';
+
+import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase 11: pruneLocalSymbols — Prune local-only symbols from the graph

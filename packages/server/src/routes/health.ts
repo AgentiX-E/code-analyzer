@@ -2,9 +2,9 @@
 // Health check, readiness, and liveness endpoints.
 // Integrates with HealthCheckRegistry for comprehensive health monitoring.
 
-import type { FastifyInstance } from 'fastify';
 import type { ServerConfig } from '../server-config.js';
 import type { HealthCheckRegistry } from '@code-analyzer/core';
+import type { FastifyInstance } from 'fastify';
 
 /**
  * Register health check routes.

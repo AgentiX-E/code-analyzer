@@ -17,8 +17,9 @@
 //           └── AST pattern matching via tree-sitter
 //           └── Route node + HANDLES edge creation
 
-import type { KnowledgeGraph, GraphNode, GraphEdge, NodeLabel } from '@code-analyzer/shared';
 import { EDGE_HANDLES } from '@code-analyzer/shared';
+
+import type { KnowledgeGraph, GraphNode, GraphEdge, NodeLabel } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

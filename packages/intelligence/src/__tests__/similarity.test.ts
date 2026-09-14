@@ -1,11 +1,13 @@
 // @code-analyzer/intelligence — End-to-End Similarity Pipeline Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { HybridSearchEngine } from '../search/hybrid-search.js';
-import { EmbeddingEngine } from '../embeddings/embedder.js';
-import { MinHashSimilarity } from '../similarity/minhash.js';
-import { LSHSearcher } from '../similarity/lsh.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { EmbeddingEngine } from '../embeddings/embedder.js';
+import { HybridSearchEngine } from '../search/hybrid-search.js';
+import { LSHSearcher } from '../similarity/lsh.js';
+import { MinHashSimilarity } from '../similarity/minhash.js';
+
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

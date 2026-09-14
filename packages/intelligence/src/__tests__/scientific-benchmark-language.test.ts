@@ -3,6 +3,7 @@
 // detections.
 
 import { describe, it, expect } from 'vitest';
+
 import { runScientificBenchmark } from '../benchmark/scientific-benchmark.js';
 
 function makeCase(languages: string[]): any {

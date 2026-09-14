@@ -2,11 +2,12 @@
 // weight mapping via build(), severity mapping via calculateBlastRadius,
 // transitive BFS, cycle guards, and empty-node tolerance).
 
-import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect } from 'vitest';
+
 import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
-import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 import { ImpactGraphBuilder } from '../../cross-repo/impact-graph.js';
+import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 
 function makeBuilder() {
   const store = new InMemoryGraphStore();

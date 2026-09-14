@@ -3,8 +3,9 @@
 // rate limiting, response format consistency, CORS configuration,
 // GraphQL schema breaking changes.
 
-import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
 import { createLensFinding } from '../review-lenses.js';
+
+import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
 
 // ---------------------------------------------------------------------------
 // Route detection patterns

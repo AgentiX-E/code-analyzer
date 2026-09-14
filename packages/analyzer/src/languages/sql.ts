@@ -7,10 +7,12 @@
 // sanitizer detection.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import type { ParsedImport, LanguageProvider } from './provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+
 import { sanitizeSource, lineNumber } from './regex-helpers.js';
+
+import type { ParsedImport, LanguageProvider } from './provider.js';
+import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const SQL_EXTENSIONS = ['.sql', '.psql', '.ddl', '.dml'];
 const SQL_GLOBS = ['**/*.sql', '**/*.psql', '**/*.ddl', '**/*.dml'];
@@ -67,7 +69,7 @@ export class SqlProvider implements LanguageProvider {
     while ((m = dmlRx.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: m[0]!,
+        text: m[0],
         startLine: ln(m.index),
         endLine: ln(m.index + m[0].length),
         startByte: m.index,

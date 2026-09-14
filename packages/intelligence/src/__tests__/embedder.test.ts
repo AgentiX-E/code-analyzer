@@ -4,6 +4,7 @@
 // embedder-onnx.test.ts (with the @agentix-e/embed-code-node dependency mocked).
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { EmbeddingEngine, MockEmbeddingBackend, murmurHash3 } from '../embeddings/embedder.js';
 
 // ---------------------------------------------------------------------------
@@ -972,10 +973,10 @@ describe('EmbeddingEngine edge cases', () => {
     ]);
 
     for (let j = 0; j < 768; j++) {
-      expect(batch1[0]![j]!).toBe(individual[0]![j]!);
-      expect(batch1[1]![j]!).toBe(individual[1]![j]!);
-      expect(batch2[0]![j]!).toBe(individual[2]![j]!);
-      expect(batch2[1]![j]!).toBe(individual[3]![j]!);
+      expect(batch1[0]![j]!).toBe(individual[0][j]!);
+      expect(batch1[1]![j]!).toBe(individual[1][j]!);
+      expect(batch2[0]![j]!).toBe(individual[2][j]!);
+      expect(batch2[1]![j]!).toBe(individual[3][j]!);
     }
   });
 });

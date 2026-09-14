@@ -1,13 +1,16 @@
 // @code-analyzer/intelligence — GitHub Repo Sync Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { GitHubRepoSync } from '../github/repo-sync.js';
-import type { SyncOptions } from '../github/repo-sync.js';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { GitHubApiClient } from '../github/client.js';
+import { GitHubRepoSync } from '../github/repo-sync.js';
+
+import type { SyncOptions } from '../github/repo-sync.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,6 +78,10 @@ function createCachedRepoStructure(
 // GitHubRepoSync
 // ---------------------------------------------------------------------------
 
+// These cases shell out to real `git clone` / `git fetch` against locally built repositories, so their
+// runtime depends on I/O and on what else the machine is doing. The per-test timeouts below override the
+// suite default, and at 120 s they were exceeded under coverage instrumentation on a laptop while
+// finishing in seconds on CI — a threshold that measures the machine rather than the code.
 describe('GitHubRepoSync', () => {
   let cacheDir: string;
 
@@ -373,7 +380,7 @@ describe('GitHubRepoSync', () => {
   // -----------------------------------------------------------------------
 
   describe('clone — shallow option', () => {
-    it('should not add --depth 1 when shallow is false', { timeout: 120_000 }, async () => {
+    it('should not add --depth 1 when shallow is false', { timeout: 300_000 }, async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
         client,
@@ -395,7 +402,7 @@ describe('GitHubRepoSync', () => {
   describe('pull', () => {
     it(
       'should delegate to clone when repo is not cached',
-      { retry: 2, timeout: 60_000 },
+      { retry: 2, timeout: 300_000 },
       async () => {
         const client = createMockClient();
         const sync = new GitHubRepoSync({
@@ -519,7 +526,7 @@ describe('GitHubRepoSync', () => {
 
     it(
       'should handle multi-batch processing (5+ repos triggers two batches)',
-      { timeout: 120_000 },
+      { timeout: 300_000 },
       async () => {
         const client = createMockClient();
         const sync = new GitHubRepoSync({

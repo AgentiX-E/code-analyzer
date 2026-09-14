@@ -3,6 +3,7 @@
 // method line scanning, and the SvelteKit async layout-server load fallback.
 
 import { describe, it, expect } from 'vitest';
+
 import { FrameworkRouteDetector } from '../impact/framework-routes.js';
 
 const detector = new FrameworkRouteDetector();

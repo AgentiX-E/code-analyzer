@@ -7,9 +7,9 @@
 // is not checked in. Mocking the dependency (not the module under test) lets us
 // exercise the delegation and factory logic without those artifacts.
 
+import { NodeEmbedder } from '@agentix-e/embed-code-node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { NodeEmbedder } from '@agentix-e/embed-code-node';
 import { EmbeddingEngine, RealEmbeddingBackend } from '../embeddings/embedder.js';
 
 // Mock the third-party dependency, NOT the module under test. The real package

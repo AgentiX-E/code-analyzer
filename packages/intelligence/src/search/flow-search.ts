@@ -4,8 +4,6 @@
 // Integrates with the knowledge graph to follow edges and discover
 // connected code entities.
 
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphEdge, RelationshipType } from '@code-analyzer/shared';
 import {
   EDGE_ACCESSES,
   EDGE_CALLS,
@@ -17,6 +15,9 @@ import {
   EDGE_IMPORTS,
   EDGE_INSTANTIATES,
 } from '@code-analyzer/shared';
+
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,11 +1,13 @@
 // @code-analyzer/mcp — Cross-Repository Tools
 // Real implementations backed by graph store and cross-repo engine
 
-import type { ToolResult } from './registry.js';
-import { ToolContextImpl } from './tool-context.js';
-import { buildSearchResponse, buildTraceResponse, buildImpactResponse } from './smart-response.js';
-import type { GitDiff } from '@code-analyzer/shared';
 import { EDGE_CALLS } from '@code-analyzer/shared';
+
+import { buildSearchResponse, buildTraceResponse, buildImpactResponse } from './smart-response.js';
+import { ToolContextImpl } from './tool-context.js';
+
+import type { ToolResult } from './registry.js';
+import type { GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Singleton RepoGroupManager for session-scoped group persistence
@@ -39,7 +41,7 @@ function parseRepoRef(ref: string): { owner: string; name: string } {
   try {
     const u = new URL(ref.includes('://') ? ref : `https://${ref}`);
     const parts = u.pathname.replace(/^\//, '').split('/');
-    if (parts.length >= 2 && parts[0] && parts[1]) return { owner: parts[0]!, name: parts[1]! };
+    if (parts.length >= 2 && parts[0] && parts[1]) return { owner: parts[0], name: parts[1] };
   } catch {
     /* not a URL */
   }

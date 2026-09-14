@@ -1,8 +1,6 @@
 // @code-analyzer/intelligence — LLM Review Engine
 // Orchestrates LLM-powered code review across multiple lanes.
 
-import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
-import type { LLMProvider, CompletionOptions } from './provider.js';
 import {
   LANE_PROMPTS,
   LANE_LABELS,
@@ -11,6 +9,9 @@ import {
   type ReviewLane,
   type LLMFinding,
 } from './prompts.js';
+
+import type { LLMProvider, CompletionOptions } from './provider.js';
+import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

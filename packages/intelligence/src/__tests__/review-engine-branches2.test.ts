@@ -1,12 +1,14 @@
 // @code-analyzer/intelligence — Review Engine resume-session branch coverage.
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect } from 'vitest';
+
 import { CodeReviewEngine } from '../review/review-engine.js';
 import { SessionStore } from '../review/session-store.js';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
 function tempDir(): string {
   const dir = path.join(

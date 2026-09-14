@@ -6,7 +6,9 @@
 // node ids.
 
 import { describe, it, expect } from 'vitest';
+
 import { buildPdg } from '../cfg/pdg-builder.js';
+
 import type {
   FunctionCfg,
   BasicBlock,

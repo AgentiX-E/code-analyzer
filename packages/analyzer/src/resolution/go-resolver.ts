@@ -8,14 +8,16 @@
 // Uses tree-sitter-go AST for structural extraction with regex fallback.
 
 import Parser from 'tree-sitter';
-import type { SyntaxNode } from 'tree-sitter';
+
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
-import type { TypeInfo, TypeMember, TypeVisibility } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
   type ResolvedType,
   type TypeContext,
 } from '../resolution/type-resolver-base.js';
+
+import type { TypeInfo, TypeMember, TypeVisibility } from '../resolution/type-registry.js';
+import type { SyntaxNode } from 'tree-sitter';
 
 // ---------------------------------------------------------------------------
 // Lazy language loader

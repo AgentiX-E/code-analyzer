@@ -4,25 +4,7 @@
 // Rule data definitions live in rule-definitions.ts.
 // Backward-compatible CodeRule API delegated to checker functions.
 
-import type { Severity } from '@code-analyzer/shared';
-import type { RuleDefinition, RuleCategory } from './rule-definitions.js';
-import { ALL_RULE_DEFINITIONS } from './rule-definitions.js';
 import { astChecker } from './ast-rule-checker.js';
-import {
-  checkNoEvalAst,
-  checkXssAst,
-  checkSqlInjectionAst,
-  checkHardcodedSecretsAst,
-  checkCommandInjectionAst,
-  checkPathTraversalAst,
-  checkOpenRedirectAst,
-  checkUnsafeDeserializationAst,
-  checkWeakCryptoAst,
-  checkInsecureRandomAst,
-  checkHttpUrlAst,
-  checkNoDebugAst,
-  checkUnsafeOptionalChainingAst,
-} from './ast-security-rules.js';
 import {
   checkXxeAst,
   checkSstiAst,
@@ -45,7 +27,26 @@ import {
   checkUnrestrictedFileUploadAst,
   checkToctouAst,
 } from './ast-security-rules-2.js';
+import {
+  checkNoEvalAst,
+  checkXssAst,
+  checkSqlInjectionAst,
+  checkHardcodedSecretsAst,
+  checkCommandInjectionAst,
+  checkPathTraversalAst,
+  checkOpenRedirectAst,
+  checkUnsafeDeserializationAst,
+  checkWeakCryptoAst,
+  checkInsecureRandomAst,
+  checkHttpUrlAst,
+  checkNoDebugAst,
+  checkUnsafeOptionalChainingAst,
+} from './ast-security-rules.js';
+import { ALL_RULE_DEFINITIONS } from './rule-definitions.js';
 import { RulesRegistry } from './rules-registry.js';
+
+import type { RuleDefinition, RuleCategory } from './rule-definitions.js';
+import type { Severity } from '@code-analyzer/shared';
 
 // ===========================================================================
 // Types
@@ -228,7 +229,7 @@ export function checkNoUndef(
     if (param) {
       for (const p of param[1]!.split(',')) {
         const name = p.trim().split(/[:= ]/)[0];
-        if (name) declared.add(name!);
+        if (name) declared.add(name);
       }
     }
     const arrow = line.match(/^(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\s*\(([^)]*)\)/);
@@ -236,7 +237,7 @@ export function checkNoUndef(
       declared.add(arrow[1]!);
       for (const p of arrow[2]!.split(',')) {
         const name = p.trim().split(/[:= ]/)[0];
-        if (name) declared.add(name!);
+        if (name) declared.add(name);
       }
     }
   }
@@ -1784,7 +1785,7 @@ export function checkMissingAbstraction(
     const line = src[i]!;
     const newMatch = line.match(/new\s+(\w+)\s*\(/);
     if (newMatch && newMatch[1]) {
-      const className = newMatch[1]!;
+      const className = newMatch[1];
       const hasInterface = src.some(
         (l) =>
           l.includes(`interface I${className}`) ||

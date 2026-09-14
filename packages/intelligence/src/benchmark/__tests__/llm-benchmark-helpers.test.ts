@@ -5,12 +5,14 @@
 // resolve to the real modules.
 
 import { describe, it, expect } from 'vitest';
+
 import {
   toReviewComments,
   deduplicateComments,
   mapCategory,
   mapSeverity,
 } from '../llm-benchmark-runner.js';
+
 import type { ReviewComment } from '@code-analyzer/shared';
 
 function finding(overrides: Record<string, unknown> = {}): Record<string, unknown> {

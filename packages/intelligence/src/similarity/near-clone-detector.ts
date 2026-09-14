@@ -2,8 +2,9 @@
 // Implements MinHash + Locality-Sensitive Hashing (LSH) for
 // efficient detection of near-duplicate code across large codebases.
 
-import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 import { EDGE_SIMILAR_TO } from '@code-analyzer/shared';
+
+import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 
 /** MinHash signature (array of hash values) */
 export type MinHashSignature = number[];

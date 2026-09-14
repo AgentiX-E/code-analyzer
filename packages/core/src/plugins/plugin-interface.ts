@@ -136,7 +136,7 @@ export function isValidPlugin(obj: unknown): obj is CodeAnalyzerPlugin {
   if (!obj || typeof obj !== 'object') return false;
   const plugin = obj as Record<string, unknown>;
   return REQUIRED_PLUGIN_FIELDS.every(
-    (field) => typeof plugin[field] === 'string' && (plugin[field] as string).length > 0,
+    (field) => typeof plugin[field] === 'string' && plugin[field].length > 0,
   );
 }
 
@@ -148,7 +148,7 @@ export function getValidationErrors(obj: unknown): string[] {
   }
   const plugin = obj as Record<string, unknown>;
   for (const field of REQUIRED_PLUGIN_FIELDS) {
-    if (typeof plugin[field] !== 'string' || (plugin[field] as string).length === 0) {
+    if (typeof plugin[field] !== 'string' || plugin[field].length === 0) {
       errors.push(`Missing required field: "${field}"`);
     }
   }

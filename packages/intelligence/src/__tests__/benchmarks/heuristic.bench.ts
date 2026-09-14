@@ -2,7 +2,9 @@
 // Measures rule-based code analysis throughput (files/sec, rules/sec).
 
 import { describe, it, expect } from 'vitest';
+
 import { analyzeFileHeuristics } from '../../../src/review/heuristics.js';
+
 import type { GraphAnalysisData } from '../../../src/review/heuristics.js';
 
 // ---------------------------------------------------------------------------

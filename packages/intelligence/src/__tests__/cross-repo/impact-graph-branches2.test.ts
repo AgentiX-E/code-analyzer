@@ -3,14 +3,16 @@
 // edges, off-path inbound edges in dependency chains, cycle-back guards, and
 // non-source critical edges.
 
-import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { EDGE_CROSS_REPO_DEPENDS } from '@code-analyzer/shared';
-import type { GraphNode } from '@code-analyzer/shared';
+import { describe, it, expect } from 'vitest';
+
 import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
-import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 import { ImpactGraphBuilder } from '../../cross-repo/impact-graph.js';
+import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
+
 import type { ImpactGraph } from '../../cross-repo/impact-graph.js';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers

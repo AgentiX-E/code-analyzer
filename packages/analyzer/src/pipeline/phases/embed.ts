@@ -2,11 +2,12 @@
 // Uses @agentix-e/embed-code-node (nomic-embed-code ONNX) when available.
 // Falls back to deterministic hash-based embeddings when ONNX is unavailable.
 
-import type { PipelinePhaseId, PipelineContext, GraphNode } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
-import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import { simpleHash } from '../phase-helpers.js';
+
+import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import type { PipelinePhaseId, PipelineContext, GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Embed helpers

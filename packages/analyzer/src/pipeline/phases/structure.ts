@@ -2,10 +2,10 @@
 
 import { dirname } from 'node:path';
 
-import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase 2: structure — Build directory and module structure

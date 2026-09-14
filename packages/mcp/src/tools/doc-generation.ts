@@ -3,10 +3,12 @@
 // skeletons (JSDoc, docstring, Go doc) based on symbol metadata and
 // usage patterns detected through graph edges.
 
+import { EDGE_CALLS } from '@code-analyzer/shared';
+
+import { ToolContextImpl } from './tool-context.js';
+
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl } from './tool-context.js';
-import { EDGE_CALLS } from '@code-analyzer/shared';
 
 export const docGenerationTool: McpToolDefinition = {
   name: 'doc_generation',

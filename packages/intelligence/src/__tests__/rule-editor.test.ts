@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { CustomRuleEditor } from '../standards/rule-editor.js';
+
 import type { CreateRuleInput } from '../standards/rule-editor.js';
 import type { StandardRule, ProjectStandard } from '@code-analyzer/shared';
 

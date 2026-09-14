@@ -93,13 +93,12 @@ export function createPhaseLogger(
  * Creates a no-op PhaseLogger for use when logging is disabled.
  */
 export function createNoopPhaseLogger(): PhaseLogger {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   const noop = (): void => {};
   return {
-    error: noop as PhaseLogger['error'],
-    warn: noop as PhaseLogger['warn'],
-    info: noop as PhaseLogger['info'],
-    debug: noop as PhaseLogger['debug'],
-    trace: noop as PhaseLogger['trace'],
+    error: noop,
+    warn: noop,
+    info: noop,
+    debug: noop,
+    trace: noop,
   };
 }

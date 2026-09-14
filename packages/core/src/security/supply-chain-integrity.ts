@@ -110,7 +110,7 @@ export class IntegrityVerifier {
   audit(fileContents: Map<string, Buffer | string>): AuditResult {
     const violations: SecurityViolation[] = [];
     let verifiedFiles = 0;
-    let failedFiles: string[] = [];
+    const failedFiles: string[] = [];
     const totalFiles = Object.keys(this.manifest?.files ?? {}).length;
 
     if (this.manifest) {

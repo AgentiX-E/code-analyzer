@@ -4,9 +4,11 @@
 // Phase 2: Community aggregation (build new graph of communities)
 // Iterate until convergence.
 
-import type { KnowledgeGraph } from '@code-analyzer/shared';
 import { EDGE_CALLS } from '@code-analyzer/shared';
+
 import { mulberry32, DEFAULT_SEED } from './rng.js';
+
+import type { KnowledgeGraph } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -2,6 +2,7 @@
 // skipping and negative/edge branches not exercised by the existing suites.
 
 import { describe, it, expect } from 'vitest';
+
 import { CHECKER_MAP } from '../rules/rule-runner.js';
 
 function run(ruleId: string, source: string) {

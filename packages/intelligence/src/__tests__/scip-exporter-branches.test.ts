@@ -2,9 +2,11 @@
 // Exercises the remaining descriptor kinds, edge-role mappings, and
 // syntax-kind classifications that the happy-path exporter tests do not reach.
 
-import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect } from 'vitest';
+
 import { exportScipIndex, SyntaxKind } from '../scip/scip-exporter.js';
+
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 const NOW = new Date().toISOString();

@@ -1,9 +1,9 @@
 // @code-analyzer/intelligence — Review Swarm Tests
 // Tests for the 8-Lens PR Review Swarm system.
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ReviewSwarm } from '../review/review-swarm.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import {
   getLensProfiles,
   getLensProfile,
@@ -12,6 +12,8 @@ import {
   lensFindingToReviewComment,
   type EvidenceAnchor,
 } from '../review/review-lenses.js';
+import { ReviewSwarm } from '../review/review-swarm.js';
+
 import type { GitDiff, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -152,10 +154,10 @@ describe('createLensFinding', () => {
     );
 
     expect(finding).not.toBeNull();
-    expect(finding!.id).toMatch(/^sec-/);
-    expect(finding!.lens).toBe('security');
-    expect(finding!.severity).toBe('critical');
-    expect(finding!.evidence.filePath).toBe('/src/test.ts');
+    expect(finding.id).toMatch(/^sec-/);
+    expect(finding.lens).toBe('security');
+    expect(finding.severity).toBe('critical');
+    expect(finding.evidence.filePath).toBe('/src/test.ts');
   });
 
   it('should throw on finding without filePath', () => {
@@ -224,8 +226,8 @@ describe('createLensFinding', () => {
     );
 
     expect(finding).not.toBeNull();
-    expect(finding!.suggestion).toBe('Use JSON.parse instead');
-    expect(finding!.evidence.graphRef).toBe('MATCH (f:Function {name: "eval"})');
+    expect(finding.suggestion).toBe('Use JSON.parse instead');
+    expect(finding.evidence.graphRef).toBe('MATCH (f:Function {name: "eval"})');
   });
 });
 
@@ -250,7 +252,7 @@ describe('lensFindingToReviewComment', () => {
       'SQL Injection',
       'Unsafe query',
       evidence,
-    )!;
+    );
 
     const comment = lensFindingToReviewComment(finding);
     expect(comment.path).toBe('/src/test.ts');

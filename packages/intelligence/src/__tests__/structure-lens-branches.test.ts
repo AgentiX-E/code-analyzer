@@ -1,9 +1,11 @@
 // @code-analyzer/intelligence — Structure Lens branch coverage (graph-backed
 // detections + parser edge cases not covered by structure-lens-layers.test.ts).
 
-import { describe, it, expect } from 'vitest';
-import { analyzeStructure } from '../review/lenses/structure-lens.js';
 import { InMemoryGraphStore, type NewGraphNode } from '@code-analyzer/infra';
+import { describe, it, expect } from 'vitest';
+
+import { analyzeStructure } from '../review/lenses/structure-lens.js';
+
 import type { GraphNode, RelationshipType } from '@code-analyzer/shared';
 
 function node(

@@ -1,24 +1,24 @@
 // @code-analyzer/analyzer — Pipeline Phase: Parse
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  DiscoveredFile,
-  ParsedFile,
-  SupportedLanguage,
-  NodeProperties,
-} from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
   EDGE_DEFINES,
   EDGE_HAS_METHOD,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
+import { getOrLoadProvider, groupCaptures, toPhaseFailure } from '../phase-helpers.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { getOrLoadProvider, groupCaptures, toPhaseFailure } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type {
+  PipelinePhaseId,
+  PipelineContext,
+  DiscoveredFile,
+  ParsedFile,
+  NodeProperties,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase 3: parse — Parse source files with language providers
@@ -67,7 +67,7 @@ export class ParsePhase implements ExecutablePhase {
 
         parsedFiles.push({
           filePath: file.filePath,
-          language: lang as SupportedLanguage,
+          language: lang,
           symbols,
           references,
           scopeTree,

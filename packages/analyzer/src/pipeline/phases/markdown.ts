@@ -1,11 +1,12 @@
 // @code-analyzer/analyzer — Pipeline Phase: Markdown
 
-import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger, EDGE_CONTAINS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_CONTAINS } from '@code-analyzer/shared';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Markdown helpers

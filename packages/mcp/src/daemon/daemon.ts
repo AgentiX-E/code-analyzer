@@ -2,9 +2,10 @@
 // Manages the MCP server as a long-running daemon process with PID file,
 // signal handling, health checks, and graceful shutdown sequencing.
 
+import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { EventEmitter } from 'node:events';
+
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 // ---------------------------------------------------------------------------

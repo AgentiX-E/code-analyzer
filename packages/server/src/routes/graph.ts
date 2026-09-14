@@ -2,10 +2,10 @@
 // Serves an interactive D3.js force-directed graph visualization
 // and a JSON data API backed by InMemoryGraphStore.
 
-import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ServerConfig } from '../server-config.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { NodeLabel, GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { ReviewDashboardAggregator } from '../review/dashboard-aggregator.js';
+
 import type { ReviewEntry } from '../review/dashboard-aggregator.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
@@ -145,7 +147,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('ignores comments with undefined or unknown severity', () => {
       const comment = createReviewComment({ severity: 'high' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).severity = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.aggregateReviews([review]);
@@ -175,7 +177,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('defaults comment category to "other" when missing', () => {
       const comment = createReviewComment({ category: 'bug' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).category = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.aggregateReviews([review]);
@@ -554,7 +556,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles undefined comment severity gracefully', () => {
       const comment = createReviewComment({ severity: 'low', category: 'bug' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).severity = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.computeCodeHealthScore([review]);
@@ -736,7 +738,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('defaults comment path to "unknown" when missing', () => {
       const comment = createReviewComment({ path: 'src/file.ts' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).path = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.computeTeamInsights([review]);
@@ -942,8 +944,8 @@ describe('ReviewDashboardAggregator', () => {
       // Create a review that will cause issues during conversion
       const badReview = createReviewEntry({
         comments: [createReviewComment({ severity: 'critical' })],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        summary: undefined as any,
+
+        summary: undefined,
       });
       const review = createReviewEntry({
         comments: [],
@@ -1110,7 +1112,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with undefined id (uses generated id)', () => {
       const comment = createReviewComment({ id: 'test-id' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).id = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1122,7 +1124,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with undefined category in findings', () => {
       const comment = createReviewComment({ category: 'bug' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).category = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1134,7 +1136,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with undefined severity in findings', () => {
       const comment = createReviewComment({ severity: 'high' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).severity = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1146,7 +1148,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with undefined content', () => {
       const comment = createReviewComment({ content: 'some content' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).content = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1158,7 +1160,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with undefined path', () => {
       const comment = createReviewComment({ path: 'src/test.ts' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).path = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1180,7 +1182,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with startLine > 0 and undefined endLine', () => {
       const comment = createReviewComment({ startLine: 5, endLine: 5 });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).endLine = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1192,7 +1194,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with undefined existingCode', () => {
       const comment = createReviewComment({ existingCode: 'code' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).existingCode = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1267,7 +1269,7 @@ describe('ReviewDashboardAggregator', () => {
       const review = createReviewEntry({
         summary: { totalComments: 0, riskLevel: 'low', mergeRecommendation: 'approve' },
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (review.summary as any).mergeRecommendation = undefined;
       const result = aggregator.generateDashboardReport([
         review,
@@ -1278,7 +1280,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comment with undefined startLine (null lineRange via ?? 0)', () => {
       const comment = createReviewComment({ startLine: 5 });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).startLine = undefined;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.generateDashboardReport([
@@ -1524,7 +1526,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comments with null category gracefully', () => {
       const comment = createReviewComment({ category: 'bug' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).category = null;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.aggregateReviews([review]);
@@ -1535,7 +1537,7 @@ describe('ReviewDashboardAggregator', () => {
 
     it('handles comments with null severity gracefully', () => {
       const comment = createReviewComment({ severity: 'high' });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (comment as any).severity = null;
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.aggregateReviews([review]);

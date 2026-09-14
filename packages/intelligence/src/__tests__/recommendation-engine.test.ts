@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { RecommendationEngine } from '../report/recommend.js';
+
 import type { Finding, Recommendation } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

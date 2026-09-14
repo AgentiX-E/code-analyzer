@@ -3,8 +3,9 @@
  * Matches HTTP routes, channels, and gRPC services across project boundaries.
  */
 
-import type { CrossProjectMatch } from './types.js';
 import { GRPC_PREFIX } from './types.js';
+
+import type { CrossProjectMatch } from './types.js';
 
 // ============================================================================
 // Cross-Project Route Matching

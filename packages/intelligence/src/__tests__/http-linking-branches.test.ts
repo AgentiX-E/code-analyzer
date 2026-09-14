@@ -4,7 +4,9 @@
 // (no-dot method, relative path, Java mapping), and URL extraction guards.
 
 import { describe, it, expect } from 'vitest';
+
 import { classifyCall, parseRouteDecorator } from '../cross-service/http-linking.js';
+
 import type { ResolvedCall } from '../cross-service/types.js';
 
 function makeCall(overrides: Partial<ResolvedCall> = {}): ResolvedCall {

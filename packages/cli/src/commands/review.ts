@@ -3,10 +3,10 @@
 // deterministic rules engine. Supports multiple output formats
 // and integration with the standards engine.
 
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
-import { EOL } from 'node:os';
 import { execSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { EOL } from 'node:os';
+import { resolve, relative } from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Types

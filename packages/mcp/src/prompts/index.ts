@@ -3,9 +3,10 @@
 // PromptProvider resolves arguments against the InMemoryGraphStore to produce
 // structured LLM messages with relevant code context embedded.
 
-import type { PromptDefinition } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_IMPORTS } from '@code-analyzer/shared';
+
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { PromptDefinition } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Prompt Message Types

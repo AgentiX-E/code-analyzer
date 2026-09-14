@@ -3,13 +3,14 @@
 import { existsSync } from 'node:fs';
 import { basename, dirname, relative, join } from 'node:path';
 
-import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger, EDGE_CONTAINS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_CONTAINS } from '@code-analyzer/shared';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
+import { parseGitignore, toPhaseFailure, walkDirectory } from '../phase-helpers.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { parseGitignore, toPhaseFailure, walkDirectory } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase 1: scan — Discover source files in the project

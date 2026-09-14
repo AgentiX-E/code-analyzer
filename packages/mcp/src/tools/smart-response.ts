@@ -2,8 +2,6 @@
 // Pre-computes enriched, structured responses to give AI agents complete
 // answers in single queries — eliminating round-trips.
 
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import {
   EDGE_CALLS,
   EDGE_CROSS_REPO_CALLS,
@@ -11,7 +9,11 @@ import {
   EDGE_IMPLEMENTS,
   EDGE_IMPORTS,
 } from '@code-analyzer/shared';
+
 import { computeConfidence, type ConfidenceScore } from './confidence.js';
+
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Enriched Type Definitions

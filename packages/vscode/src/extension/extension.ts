@@ -4,10 +4,6 @@
 
 import * as vscode from 'vscode';
 
-import { EngineBridge } from '../services/engine-bridge.js';
-import { ConfigService } from '../services/config-service.js';
-import { FileWatcherService } from '../services/file-watcher.js';
-import { createStatusBarManager } from '../views/status-bar.js';
 import { registerCommands } from './commands.js';
 import {
   CodeAnalyzerChatParticipant,
@@ -17,12 +13,19 @@ import {
   type ChatResponseStream,
   type CancellationToken,
 } from '../participant/code-analyzer-participant.js';
-import { SidebarLogic, generateSidebarHtml } from '../providers/sidebar-provider.js';
+import { CommentLogic } from '../providers/comment-provider.js';
 import { ConfigLogic, generateConfigHtml } from '../providers/config-provider.js';
 import { GraphExplorerLogic } from '../providers/graph-explorer.js';
 import { ReviewDecorationLogic } from '../providers/review-decoration-provider.js';
+import { SidebarLogic, generateSidebarHtml } from '../providers/sidebar-provider.js';
 import { GraphTreeDataProviderLogic, type TreeItemData } from '../providers/tree-view-provider.js';
-import { CommentLogic } from '../providers/comment-provider.js';
+import { ConfigService } from '../services/config-service.js';
+import { EngineBridge } from '../services/engine-bridge.js';
+import { FileWatcherService } from '../services/file-watcher.js';
+import { DiagnosticSeverity } from '../services/vscode-api.js';
+import { createStatusBarManager } from '../views/status-bar.js';
+
+import type { ReviewCommentItem } from '../services/engine-bridge.js';
 import type {
   IVSCodeAPI,
   DiagnosticCollection,
@@ -30,8 +33,6 @@ import type {
   StatusBarItem,
   VSCodeWorkspaceFolder,
 } from '../services/vscode-api.js';
-import { DiagnosticSeverity } from '../services/vscode-api.js';
-import type { ReviewCommentItem } from '../services/engine-bridge.js';
 import type { CodeAnalyzerConfig } from '@code-analyzer/shared';
 
 /** Chat participant with slash command registration (runtime has .command() not in vscode types). */
@@ -170,20 +171,15 @@ function createVSCodeAPIAdapter(): IVSCodeAPI {
     getConfiguration: (section) => vscode.workspace.getConfiguration(section),
 
     // Commands
-    registerCommand: (command, callback) =>
-      vscode.commands.registerCommand(command, callback as (...args: unknown[]) => unknown),
+    registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback),
     executeCommand: async (command, ...args) => vscode.commands.executeCommand(command, ...args),
 
     // Diagnostics
-    createDiagnosticCollection: (name) =>
-      vscode.languages.createDiagnosticCollection(name) as unknown as DiagnosticCollection,
+    createDiagnosticCollection: (name) => vscode.languages.createDiagnosticCollection(name),
 
     // Status Bar
     createStatusBarItem: (alignment, priority) =>
-      vscode.window.createStatusBarItem(
-        alignment as unknown as vscode.StatusBarAlignment,
-        priority,
-      ) as unknown as StatusBarItem,
+      vscode.window.createStatusBarItem(alignment, priority) as unknown as StatusBarItem,
 
     // URI
     Uri: {
@@ -224,12 +220,7 @@ function registerChatParticipantWithCommands(
     'code-analyzer',
     async (request, _ctx, stream, token) => {
       const handler = new CodeAnalyzerChatParticipant(eng);
-      return handler.handleRequest(
-        request as unknown as ChatRequest,
-        _ctx as unknown as ChatContext,
-        stream as unknown as ChatResponseStream,
-        token as unknown as CancellationToken,
-      );
+      return handler.handleRequest(request, _ctx as unknown as ChatContext, stream, token);
     },
   ) as unknown as ChatParticipantExt;
 
@@ -321,7 +312,7 @@ function createDiagnosticCollection(context: vscode.ExtensionContext): Diagnosti
   const collection = vscode.languages.createDiagnosticCollection(
     'code-analyzer',
   ) as unknown as DiagnosticCollection;
-  context.subscriptions.push(collection as unknown as { dispose(): void });
+  context.subscriptions.push(collection);
   return collection;
 }
 
@@ -333,10 +324,7 @@ function registerStatusBar(context: vscode.ExtensionContext, eng: EngineBridge):
   const manager = createStatusBarManager(
     {
       createStatusBarItem: (alignment, priority) =>
-        vscode.window.createStatusBarItem(
-          alignment as unknown as vscode.StatusBarAlignment,
-          priority,
-        ) as unknown as StatusBarItem,
+        vscode.window.createStatusBarItem(alignment, priority) as unknown as StatusBarItem,
     },
     eng,
   );
@@ -368,7 +356,7 @@ function registerConfigWebview(
               if (message.command === 'saveConfig') {
                 const config = message['config'] as Record<string, unknown> | undefined;
                 if (config) {
-                  const errors = configLogic.validate(config as Partial<CodeAnalyzerConfig>);
+                  const errors = configLogic.validate(config);
                   if (errors.length > 0) {
                     webviewView.webview.postMessage({
                       command: 'configError',
@@ -587,7 +575,7 @@ function registerGraphTreeView(context: vscode.ExtensionContext, eng: EngineBrid
         treeItem.iconPath = new vscode.ThemeIcon(iconPath);
       }
       if (element.command) {
-        treeItem.command = element.command as vscode.Command;
+        treeItem.command = element.command;
       }
       return treeItem;
     },

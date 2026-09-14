@@ -6,14 +6,10 @@
 //     (require a multi-member community with >= 2 distinct labels/languages)
 
 import { describe, it, expect } from 'vitest';
+
 import { LeidenCommunityDetector } from '../community/leiden-detector.js';
-import type {
-  GraphNode,
-  GraphEdge,
-  KnowledgeGraph,
-  NodeLabel,
-  RelationshipType,
-} from '@code-analyzer/shared';
+
+import type { GraphNode, GraphEdge, KnowledgeGraph, NodeLabel } from '@code-analyzer/shared';
 
 function makeNode(
   id: number,
@@ -48,7 +44,7 @@ function makeEdge(id: number, sourceId: number, targetId: number): GraphEdge {
     projectId: 'test',
     sourceId,
     targetId,
-    type: 'CALLS' as RelationshipType,
+    type: 'CALLS',
     properties: {},
     weight: 1,
     createdAt: '2024-01-01T00:00:00.000Z',

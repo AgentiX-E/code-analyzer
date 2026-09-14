@@ -2,11 +2,18 @@
 // Resolver implementations for all queries, mutations, and subscriptions.
 // Delegates all data access to the InMemoryGraphStore and analysis engine.
 
-import type { GraphQLContext } from './context.js';
-import type { GraphEdge, GraphNode, InMemoryGraphStore } from '@code-analyzer/infra';
-import type { NodeQuery, EdgeQuery, FtsSearchResult } from '@code-analyzer/infra';
-import type { NodeLabel, RelationshipType } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_IMPORTS } from '@code-analyzer/shared';
+
+import type { GraphQLContext } from './context.js';
+import type {
+  GraphEdge,
+  GraphNode,
+  InMemoryGraphStore,
+  NodeQuery,
+  EdgeQuery,
+  FtsSearchResult,
+} from '@code-analyzer/infra';
+import type { NodeLabel, RelationshipType } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Resolver types
@@ -560,8 +567,8 @@ export const resolvers = {
             const tgtPkg = target.filePath.split('/')[0] ?? '.';
             if (srcPkg !== tgtPkg) {
               if (!adjacency[srcPkg]) adjacency[srcPkg] = [];
-              if (!adjacency[srcPkg]!.includes(tgtPkg)) {
-                adjacency[srcPkg]!.push(tgtPkg);
+              if (!adjacency[srcPkg].includes(tgtPkg)) {
+                adjacency[srcPkg].push(tgtPkg);
               }
               // Check for circular dependency
               if (adjacency[tgtPkg]?.includes(srcPkg)) {

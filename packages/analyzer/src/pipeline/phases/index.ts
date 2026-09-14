@@ -22,24 +22,24 @@ export { TypeResolutionPhase } from './type-resolution.js';
 
 export type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 
-import { ScanPhase } from './scan.js';
-import { StructurePhase } from './structure.js';
-import { ParsePhase } from './parse.js';
-import { MarkdownPhase } from './markdown.js';
+import { CommunitiesPhase } from './communities.js';
 import { ConfigPhase } from './config.js';
 import { CrossFilePhase } from './cross-file.js';
-import { ScopeResolutionPhase } from './scope-resolution.js';
-import { RoutesPhase } from './routes.js';
-import { ToolsPhase } from './tools.js';
 import { DependencyInjectionPhase } from './dependency-injection.js';
-import { PruneLocalSymbolsPhase } from './prune-local-symbols.js';
-import { CommunitiesPhase } from './communities.js';
-import { ProcessesPhase } from './processes.js';
-import { TestsPhase } from './tests.js';
 import { DumpPhase } from './dump.js';
+import { EmbedPhase } from './embed.js';
+import { MarkdownPhase } from './markdown.js';
+import { ParsePhase } from './parse.js';
+import { PruneLocalSymbolsPhase } from './prune-local-symbols.js';
+import { RoutesPhase } from './routes.js';
+import { ScanPhase } from './scan.js';
+import { StructurePhase } from './structure.js';
+import { ScopeResolutionPhase } from './scope-resolution.js';
+import { TestsPhase } from './tests.js';
+import { ToolsPhase } from './tools.js';
+import { ProcessesPhase } from './processes.js';
 import { SimilarityPhase } from './similarity.js';
 import { SemanticPhase } from './semantic.js';
-import { EmbedPhase } from './embed.js';
 import { TypeResolutionPhase } from './type-resolution.js';
 
 import type { ExecutablePhase } from '../phase-helpers.js';

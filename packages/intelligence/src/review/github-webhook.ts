@@ -4,10 +4,13 @@
 // and posts inline comments back to GitHub PRs.
 
 import { createHmac, timingSafeEqual } from 'crypto';
-import type { PullRequest } from '@code-analyzer/shared';
+
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
-import { PRReviewEngine } from './pr-review.js';
+
 import { DiffParser } from './diff-parser.js';
+import { PRReviewEngine } from './pr-review.js';
+
+import type { PullRequest } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

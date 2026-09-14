@@ -3,8 +3,9 @@
 // detection (UTF-8, UTF-16, latin1), glob pattern file discovery, and
 // content-addressed deduplication using SHA-256.
 
-import { readFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { readFile, stat } from 'node:fs/promises';
+
 import { BatchProcessor } from './batch-processor.js';
 
 // ---------------------------------------------------------------------------

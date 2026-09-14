@@ -3,9 +3,9 @@
 // Supports multiple concurrent clients, keepalive heartbeats, reconnection,
 // and graceful shutdown.
 
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { Server as HttpServer } from 'node:http';
 import { EventEmitter } from 'node:events';
+
+import type { IncomingMessage, ServerResponse, Server as HttpServer } from 'node:http';
 
 // ---------------------------------------------------------------------------
 // SSE Event Types
@@ -331,7 +331,7 @@ export class SSETransport extends EventEmitter {
 
     // Allow the event loop to exit if no other references exist
     if (this.heartbeatTimer && typeof this.heartbeatTimer === 'object') {
-      (this.heartbeatTimer as NodeJS.Timeout).unref?.();
+      this.heartbeatTimer.unref?.();
     }
   }
 

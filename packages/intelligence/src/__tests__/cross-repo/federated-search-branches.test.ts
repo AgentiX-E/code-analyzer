@@ -3,10 +3,12 @@
 // `search`, the low-similarity arm of `findDuplicates`, null-metadata duplicate
 // reporting, and signature-only matches in `getCrossRepoUsage`.
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode } from '@code-analyzer/shared';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { FederatedSearchEngine } from '../../cross-repo/federated-search.js';
+
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers

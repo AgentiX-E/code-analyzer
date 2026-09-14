@@ -1,10 +1,13 @@
 // @code-analyzer/analyzer — Pipeline Phase Helpers
 
-import { readFile, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { basename, dirname, relative, resolve, join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { basename, dirname, relative, resolve, join } from 'node:path';
 
+import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger } from '@code-analyzer/shared';
+
+import type { LanguageProvider } from '../languages/provider.js';
 import type {
   PipelinePhase,
   PipelinePhaseId,
@@ -14,11 +17,8 @@ import type {
   ReferenceSite,
   ScopeTree,
   NodeLabel,
+  UnifiedCapture,
 } from '@code-analyzer/shared';
-
-import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger } from '@code-analyzer/shared';
-import type { LanguageProvider } from '../languages/provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase metadata interface

@@ -3,9 +3,10 @@
 // detection accuracy while maintaining backward-compatible output format.
 // Uses AstRuleContext from ast-rule-checker.ts.
 
-import type { RuleCheckResult } from './rule-runner.js';
-import type { AstRuleContext } from './ast-rule-checker.js';
 import { findCalls, findStringLiterals, isTestFile } from './ast-rule-checker.js';
+
+import type { AstRuleContext } from './ast-rule-checker.js';
+import type { RuleCheckResult } from './rule-runner.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,7 +76,7 @@ export function checkNoDebugAst(ctx: AstRuleContext): RuleCheckResult[] {
   const debugMethods = ['log', 'debug', 'info', 'warn', 'error', 'trace', 'dir', 'table'];
 
   for (const call of ctx.calls) {
-    if (call.object === 'console' && (debugMethods as string[]).includes(call.name)) {
+    if (call.object === 'console' && debugMethods.includes(call.name)) {
       // Skip commented lines
       if (!isComment(ctx.lines[call.line - 1] ?? '')) {
         r.push(

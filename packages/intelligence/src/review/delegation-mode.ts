@@ -91,7 +91,7 @@ export class DelegationManager {
             severity: rule.severity,
             pattern:
               typeof rule.checkConfig['pattern'] === 'string'
-                ? (rule.checkConfig['pattern'] as string)
+                ? rule.checkConfig['pattern']
                 : JSON.stringify(rule.checkConfig),
             description: rule.description,
             appliesTo,

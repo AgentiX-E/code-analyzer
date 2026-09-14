@@ -1,5 +1,7 @@
 // @code-analyzer/analyzer — Knowledge Graph Builder
 
+import { EDGE_CONTAINS } from '@code-analyzer/shared';
+
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type {
   KnowledgeGraph,
@@ -10,7 +12,6 @@ import type {
   RelationshipType,
   NodeProperties,
 } from '@code-analyzer/shared';
-import { EDGE_CONTAINS } from '@code-analyzer/shared';
 
 export interface IntegrityReport {
   projectId: string;

@@ -3,25 +3,26 @@
 // Integrates GracefulShutdown, HealthCheckRegistry, rate limiting,
 // and max connection limits for production readiness.
 
+import { GracefulShutdown, HealthCheckRegistry } from '@code-analyzer/core';
 import Fastify from 'fastify';
 
-import { resolveConfig } from './server-config.js';
-import type { ServerConfig } from './server-config.js';
-import { registerCors } from './middleware/cors.js';
 import { registerAuth } from './middleware/auth.js';
-import { registerLogging } from './middleware/logging.js';
+import { registerCors } from './middleware/cors.js';
 import { registerErrorHandler } from './middleware/error-handler.js';
-import { registerRateLimit } from './middleware/rate-limit.js';
+import { registerLogging } from './middleware/logging.js';
 import { registerMtls } from './middleware/mtls.js';
-import { registerHealthRoutes } from './routes/health.js';
-import { registerToolRoutes } from './routes/tools.js';
-import { registerSSERoutes } from './routes/sse.js';
-import { registerWebhookRoutes } from './routes/webhook.js';
-import type { WebhookConfig } from './routes/webhook.js';
+import { registerRateLimit } from './middleware/rate-limit.js';
 import { registerGraphRoutes } from './routes/graph.js';
-import { GracefulShutdown, HealthCheckRegistry } from '@code-analyzer/core';
-import type { ToolRegistry } from '@code-analyzer/mcp';
+import { registerHealthRoutes } from './routes/health.js';
+import { registerSSERoutes } from './routes/sse.js';
+import { registerToolRoutes } from './routes/tools.js';
+import { registerWebhookRoutes } from './routes/webhook.js';
+import { resolveConfig } from './server-config.js';
+
+import type { WebhookConfig } from './routes/webhook.js';
+import type { ServerConfig } from './server-config.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { ToolRegistry } from '@code-analyzer/mcp';
 
 // ---------------------------------------------------------------------------
 // Public API

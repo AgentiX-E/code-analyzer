@@ -2,9 +2,10 @@
 // Runs benchmark cases through the heuristic review engine and compares
 // results against ground-truth annotations to compute quality metrics.
 
-import type { ReviewCategory, Severity, GitDiff, DiffRange } from '@code-analyzer/shared';
 import { analyzeFileHeuristics, type HeuristicRuleResult } from '../review/heuristics.js';
+
 import type { BenchmarkCase, GroundTruthIssue } from './benchmark-data.js';
+import type { ReviewCategory, Severity, GitDiff, DiffRange } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,9 +1,10 @@
 // @code-analyzer/intelligence — ReviewSessionManager filesystem footprint
 
-import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+
+import { describe, it, expect, afterEach } from 'vitest';
 
 import { ReviewSessionManager } from '../review/session-manager.js';
 

@@ -1,8 +1,11 @@
 // @code-analyzer/mcp — Indexing & Lifecycle Tools
 
 import { existsSync } from 'node:fs';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
+
 import type { ToolResult } from './registry.js';
 import type { SupportedLanguage } from '@code-analyzer/shared';
 
@@ -242,7 +245,7 @@ export async function listProjects(
   args: Record<string, unknown>,
   store?: unknown,
 ): Promise<ToolResult> {
-  const params = args as Record<string, unknown>;
+  const params = args;
   const limit = (params['limit'] as number) ?? 50;
   const offset = (params['offset'] as number) ?? 0;
 

@@ -13,7 +13,7 @@ const mockProvider = class {};
 
 // Mutable mock state so individual tests can force the LLM engine to throw or
 // to omit token usage (exercising the fallback/robustness branches).
-const mockState = vi.hoisted(() => ({ llmMode: 'normal' as 'normal' | 'throw' | 'no-token' }));
+const mockState = vi.hoisted(() => ({ llmMode: 'normal' }));
 
 vi.mock('../../review/llm/provider.js', () => {
   class MockDeepSeekProvider {}
@@ -160,8 +160,9 @@ vi.mock('@code-analyzer/infra', () => {
 });
 
 import { runLLMBenchmark, generateLLMComparisonReport } from '../llm-benchmark-runner.js';
-import type { LLMBenchmarkResult } from '../llm-benchmark-runner.js';
+
 import type { BenchmarkResult } from '../code-review-benchmark.js';
+import type { LLMBenchmarkResult } from '../llm-benchmark-runner.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -389,8 +390,8 @@ describe('runLLMBenchmark', () => {
   const gitOps = {} as any;
 
   it('runs and returns complete LLMBenchmarkResult', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -404,8 +405,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('reports heuristic benchmark result with valid metrics', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -415,8 +416,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('reports combined benchmark result with valid metrics', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -425,8 +426,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('produces llmOnly benchmark result', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -435,8 +436,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('returns token usage statistics', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -446,8 +447,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('tracks fixturesWithLLM count', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -455,8 +456,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('measures LLM duration as a non-negative number', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -464,8 +465,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('works with empty graph store', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -474,8 +475,8 @@ describe('runLLMBenchmark', () => {
   });
 
   it('runs successfully with mock provider', async () => {
-    const store = new (mockStore as any)() as any;
-    const provider = new (mockProvider as any)() as any;
+    const store = new (mockStore as any)();
+    const provider = new (mockProvider as any)();
 
     const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -488,8 +489,8 @@ describe('runLLMBenchmark', () => {
   it('falls back to heuristic-only results when the LLM engine throws', async () => {
     mockState.llmMode = 'throw';
     try {
-      const store = new (mockStore as any)() as any;
-      const provider = new (mockProvider as any)() as any;
+      const store = new (mockStore as any)();
+      const provider = new (mockProvider as any)();
 
       const result = await runLLMBenchmark(provider, store, gitOps);
 
@@ -504,8 +505,8 @@ describe('runLLMBenchmark', () => {
   it('treats missing token usage as zero', async () => {
     mockState.llmMode = 'no-token';
     try {
-      const store = new (mockStore as any)() as any;
-      const provider = new (mockProvider as any)() as any;
+      const store = new (mockStore as any)();
+      const provider = new (mockProvider as any)();
 
       const result = await runLLMBenchmark(provider, store, gitOps);
 

@@ -62,7 +62,9 @@
     "typecheck:tests": "tsc -p tsconfig.tests.json --pretty false",
     "coverage:per-file": "node scripts/coverage-per-file.js --json coverage/coverage-summary.json",
     "typecheck:tests:ratchet": "sh -c 'pnpm typecheck:tests > /tmp/typecheck-tests.log 2>&1 || true; node scripts/typecheck-per-file.js --log /tmp/typecheck-tests.log'",
-    "typecheck:tests:update-baseline": "sh -c 'pnpm typecheck:tests > /tmp/typecheck-tests.log 2>&1 || true; node scripts/typecheck-per-file.js --log /tmp/typecheck-tests.log --update'"
+    "typecheck:tests:update-baseline": "sh -c 'pnpm typecheck:tests > /tmp/typecheck-tests.log 2>&1 || true; node scripts/typecheck-per-file.js --log /tmp/typecheck-tests.log --update'",
+    "lint:ratchet": "node scripts/lint-per-file.js",
+    "lint:update": "node scripts/lint-per-file.js --update"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

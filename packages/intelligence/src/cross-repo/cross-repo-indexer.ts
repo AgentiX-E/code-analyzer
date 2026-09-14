@@ -6,7 +6,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 
-import type { GraphNode, GraphEdge, NodeLabel, Contract } from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   EDGE_IMPORTS,
   EDGE_CALLS,
@@ -15,11 +15,11 @@ import {
   EDGE_CROSS_REPO_CALLS,
   EDGE_CROSS_REPO_IMPLEMENTS,
   EDGE_CROSS_REPO_DEPENDS,
+  getLanguageFromFilename,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { getLanguageFromFilename } from '@code-analyzer/shared';
 
 import type { RepoGroupManager } from './repo-group-manager.js';
+import type { GraphNode, GraphEdge, NodeLabel, Contract } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -690,8 +690,8 @@ export class CrossRepoIndexer {
     }
 
     // API pattern match (route paths)
-    const routeA = symA.properties.routePath as string | undefined;
-    const routeB = symB.properties.routePath as string | undefined;
+    const routeA = symA.properties.routePath;
+    const routeB = symB.properties.routePath;
     if (routeA && routeB && routeA === routeB) {
       return {
         sourceRepo: repoA,

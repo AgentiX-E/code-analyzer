@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — Leiden + Taint Models Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { LeidenCommunityDetector } from '../community/leiden-detector.js';
 import {
   TYPESCRIPT_TAINT_MODEL,
@@ -8,6 +9,7 @@ import {
   GO_TAINT_MODEL,
   TAINT_MODELS,
 } from '../security/taint-models.js';
+
 import type { TaintModel } from '../security/taint-models.js';
 
 // =========================================================================

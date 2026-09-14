@@ -8,14 +8,16 @@
 // Uses tree-sitter-java AST for structural extraction with regex fallback.
 
 import Parser from 'tree-sitter';
-import type { SyntaxNode } from 'tree-sitter';
+
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
-import type { TypeInfo, TypeMember } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
   type ResolvedType,
   type TypeContext,
 } from '../resolution/type-resolver-base.js';
+
+import type { TypeInfo, TypeMember } from '../resolution/type-registry.js';
+import type { SyntaxNode } from 'tree-sitter';
 
 // ---------------------------------------------------------------------------
 // Lazy language loader
@@ -375,10 +377,7 @@ export class JavaResolver extends TypeResolverBase {
           name: `@${annotation.name}`,
           kind: 'object',
           members: Object.fromEntries(
-            Object.entries(annotation.params).map(([k, v]) => [
-              k,
-              { name: v, kind: 'primitive' } as ResolvedType,
-            ]),
+            Object.entries(annotation.params).map(([k, v]) => [k, { name: v, kind: 'primitive' }]),
           ),
         };
     }
@@ -684,7 +683,7 @@ export class JavaResolver extends TypeResolverBase {
           name: mName,
           paramTypes,
           returnType,
-          visibility: visibility as JavaMethodSignature['visibility'],
+          visibility: visibility,
           isStatic,
           isAbstract: modifiers.includes('abstract'),
           isFinal: modifiers.includes('final'),
@@ -696,7 +695,7 @@ export class JavaResolver extends TypeResolverBase {
         members.set(mName, {
           name: mName,
           type: `(${paramTypes.join(', ')}) => ${returnType}`,
-          visibility: visibility as 'public' | 'protected' | 'private',
+          visibility: visibility,
           isStatic,
           isOptional: false,
           isAsync: false,
@@ -723,7 +722,7 @@ export class JavaResolver extends TypeResolverBase {
             members.set(fname, {
               name: fname,
               type: fieldType,
-              visibility: visibility as 'public' | 'protected' | 'private',
+              visibility: visibility,
               isStatic,
               isOptional: false,
               isAsync: false,
@@ -917,7 +916,7 @@ export class JavaResolver extends TypeResolverBase {
     if (!clause) return names;
     const typeList = this.findChild(clause, 'type_list')!;
     for (const child of namedChildrenOf(typeList)) {
-      names.push(this.extractTypeName(child!));
+      names.push(this.extractTypeName(child));
     }
     return names;
   }

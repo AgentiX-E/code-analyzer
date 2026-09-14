@@ -4,7 +4,9 @@
 // does not reach.
 
 import { describe, it, expect } from 'vitest';
+
 import { synthesizeFindings, generateSynthesisReport } from '../lenses/synthesis-lens.js';
+
 import type { LensReport, LensFinding } from '../review-lenses.js';
 
 function makeFinding(
@@ -20,7 +22,7 @@ function makeFinding(
   return {
     id,
     lens: lens as any,
-    category: 'security' as any,
+    category: 'security',
     severity: severity as any,
     title,
     description: 'Test finding',
@@ -68,7 +70,7 @@ describe('Synthesis Lens — branch coverage', () => {
     // The style lens has a 0.35 FP rate (> 0.3), so a non-rule high-severity
     // finding is downgraded to medium.
     const f = makeFinding('a', 'style', 'high', 'Style Blocker', '/src/a.ts', 1, 1, {
-      category: 'style' as any,
+      category: 'style',
       confidence: 'llm' as any,
     });
     const report = makeReport('style', 'Style', [f]);
@@ -79,8 +81,8 @@ describe('Synthesis Lens — branch coverage', () => {
 
   it('downgrades a critical-severity finding from a high-FP-rate lens', () => {
     const f = makeFinding('a', 'style', 'critical', 'Style Blocker', '/src/a.ts', 1, 1, {
-      category: 'maintainability' as any,
-      confidence: 'heuristic' as any,
+      category: 'maintainability',
+      confidence: 'heuristic',
     });
     const report = makeReport('style', 'Style', [f]);
 
@@ -102,7 +104,7 @@ describe('Synthesis Lens — branch coverage', () => {
 
   it('recommends documentation improvements for docs findings', () => {
     const f = makeFinding('a', 'docs', 'low', 'Missing JSDoc', '/src/a.ts', 1, 1, {
-      category: 'documentation' as any,
+      category: 'documentation',
     });
     const report = makeReport('docs', 'Docs', [f]);
 

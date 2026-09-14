@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import GraphExplorer from './components/GraphExplorer';
-import SearchView from './components/SearchView';
-import Dashboard from './components/Dashboard';
+
 import CrossRepoDashboard from './components/CrossRepoDashboard';
+import Dashboard from './components/Dashboard';
+import GraphExplorer from './components/GraphExplorer';
 import PRReviewPanel from './components/PRReviewPanel';
 import RepoGroupManager from './components/RepoGroupManager';
+import SearchView from './components/SearchView';
 
 type Tab = 'graph' | 'search' | 'dashboard' | 'cross-repo' | 'pr-review' | 'repo-groups';
 

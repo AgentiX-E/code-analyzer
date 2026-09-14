@@ -2,17 +2,18 @@
 
 import { basename, extname } from 'node:path';
 
-import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
   EDGE_IMPORTS,
   EDGE_TESTS,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Tests helpers
@@ -60,7 +61,7 @@ export class TestsPhase implements ExecutablePhase {
       // Build a mapping of source file paths to their graph node IDs
       const filePathToNodeId = new Map<string, number>();
       for (const [nodeId, node] of ctx.graph.nodes) {
-        const filePath = node.properties?.filePath as string | undefined;
+        const filePath = node.properties?.filePath;
         if (
           filePath &&
           (node.label === 'File' || node.label === 'Function' || node.label === 'Class')
@@ -78,7 +79,7 @@ export class TestsPhase implements ExecutablePhase {
           if (edge.sourceId === fileNodeId && edge.type === EDGE_IMPORTS) {
             const targetNode = ctx.graph.nodes.get(edge.targetId);
             if (targetNode?.properties?.filePath) {
-              importedFiles.add(targetNode.properties.filePath as string);
+              importedFiles.add(targetNode.properties.filePath);
             }
           }
         }

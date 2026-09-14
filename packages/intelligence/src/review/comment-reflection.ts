@@ -4,8 +4,9 @@
 // and adjusts positioning drift. Generates a reflection report
 // summarizing review quality metrics.
 
-import type { ReviewComment } from '@code-analyzer/shared';
 import { CommentPositioner, type PositionedComment } from './comment-positioner.js';
+
+import type { ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

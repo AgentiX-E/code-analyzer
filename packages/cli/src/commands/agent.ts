@@ -10,8 +10,10 @@
 //
 
 import { Command } from 'commander';
-import type { SupportedAgent } from '../agent-setup.js';
+
 import { AgentSetupManager } from '../agent-setup.js';
+
+import type { SupportedAgent } from '../agent-setup.js';
 
 export function createAgentCommand(manager: AgentSetupManager = new AgentSetupManager()): Command {
   const agent = new Command('agent').description(

@@ -123,7 +123,7 @@ export class RBACEngine {
   /** Get all roles for a user. */
   getRoles(userId: string): RoleName[] {
     const roles = this.userRoles.get(userId);
-    return roles ? (Array.from(roles) as Role[]) : [];
+    return roles ? Array.from(roles) : [];
   }
 
   // -----------------------------------------------------------------------

@@ -2,6 +2,11 @@
 // Executes a query plan against an InMemoryGraphStore and formats results.
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { NODE_LABELS, RELATIONSHIP_TYPES } from '@code-analyzer/shared';
+
+import { buildFilterPredicate } from './planner.js';
+
+import type { QueryPlan, ColumnDef, PlanStep } from './planner.js';
 import type {
   GraphNode,
   GraphEdge,
@@ -9,9 +14,6 @@ import type {
   RelationshipType,
   CypherExpression,
 } from '@code-analyzer/shared';
-import { NODE_LABELS, RELATIONSHIP_TYPES } from '@code-analyzer/shared';
-import type { QueryPlan, ColumnDef, PlanStep } from './planner.js';
-import { buildFilterPredicate } from './planner.js';
 
 // ---------------------------------------------------------------------------
 // Query Result
@@ -130,9 +132,7 @@ function executeScan(step: PlanStep, ctx: ExecContext): void {
 
   // Get all matching nodes from the store
   const labels =
-    pattern.labels.length > 0
-      ? (pattern.labels.filter((l) => isNodeLabel(l)) as NodeLabel[])
-      : undefined;
+    pattern.labels.length > 0 ? pattern.labels.filter((l) => isNodeLabel(l)) : undefined;
 
   const result = ctx.store.queryNodes({
     projectId: ctx.projectId,
@@ -220,9 +220,7 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
 
   for (const sourceNode of sourceNodes) {
     const edgeTypes =
-      rel.types.length > 0
-        ? (rel.types.filter((t) => isRelationshipType(t)) as RelationshipType[])
-        : undefined;
+      rel.types.length > 0 ? rel.types.filter((t) => isRelationshipType(t)) : undefined;
 
     // Get outgoing edges
     if (rel.direction === 'right' || rel.direction === 'both') {
@@ -266,7 +264,7 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
   // Invariant: sourceNodes is non-empty — guarded by the early return above.
   ctx.nodeVars.set(sourceVar, sourceNodes[0]!);
   if (targetNodes.length > 0 && targetVar && targetNodes[0]) {
-    ctx.nodeVars.set(targetVar, targetNodes[0]!);
+    ctx.nodeVars.set(targetVar, targetNodes[0]);
   }
 }
 

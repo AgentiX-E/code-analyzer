@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — Framework Route Detection Tests
 import { describe, it, expect } from 'vitest';
+
 import { FrameworkRouteDetector } from '../impact/framework-routes.js';
 
 describe('FrameworkRouteDetector', () => {

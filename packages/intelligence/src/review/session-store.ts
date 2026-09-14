@@ -3,8 +3,9 @@
 
 import { createHash } from 'crypto';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as os from 'os';
+import * as path from 'path';
+
 import type { ReviewComment, ReviewSession } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

@@ -1,11 +1,14 @@
 // @code-analyzer/mcp — PR Review Tools
 
 import { existsSync, readFileSync } from 'node:fs';
+
 import { StandardsEngine } from '@code-analyzer/intelligence';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
+
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
+
 import type { ToolResult } from './registry.js';
 import type { GitDiff } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -156,7 +159,7 @@ export async function reviewPR(
     const ctx = getContext(store);
     const graphStore = ToolContextImpl.getStore(store);
 
-    let findings: unknown[] = [];
+    const findings: unknown[] = [];
     let totalFindings = 0;
     let criticalFindings = 0;
     let highFindings = 0;

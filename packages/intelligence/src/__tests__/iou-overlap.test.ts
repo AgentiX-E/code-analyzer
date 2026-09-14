@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — IoU Overlap Detector Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { IoUOverlapDetector } from '../impact/iou-overlap.js';
+
 import type { CommentRegion } from '../impact/iou-overlap.js';
 
 // ---------------------------------------------------------------------------

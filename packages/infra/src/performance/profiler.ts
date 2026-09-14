@@ -3,6 +3,7 @@
 // Measures and reports query latency, throughput, and memory usage.
 
 import { performance } from 'node:perf_hooks';
+
 import type { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 
 // ---------------------------------------------------------------------------

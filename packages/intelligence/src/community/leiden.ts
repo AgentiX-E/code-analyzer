@@ -15,9 +15,11 @@
 //   - Higher modularity scores on most graphs
 //   - Fewer iterations due to smarter refinement
 
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import { mulberry32, shuffleWith, DEFAULT_SEED } from './rng.js';
+
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 /** Result of Leiden community detection. */
 export interface LeidenCommunityResult {

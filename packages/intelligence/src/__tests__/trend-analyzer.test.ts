@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { TrendAnalyzer } from '../report/trends.js';
+
 import type { AnalysisReport, Finding } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

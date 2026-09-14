@@ -3,9 +3,23 @@
 // worker-pool concurrency and streaming graph construction.
 
 import { existsSync } from 'node:fs';
-import { basename, dirname, join, relative } from 'node:path';
 import { cpus } from 'node:os';
+import { basename, dirname, join, relative } from 'node:path';
 
+import { InMemoryGraphStore, createFileDiscoverer } from '@code-analyzer/infra';
+import {
+  CAPTURE_TAGS,
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_DEFINES,
+  EDGE_HAS_METHOD,
+} from '@code-analyzer/shared';
+
+import { toPhaseFailure } from './phase-helpers.js';
+import { GraphBuilder } from '../graph/graph-builder.js';
+
+import type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';
+import type { LanguageProvider } from '../languages/provider.js';
 import type {
   PipelinePhaseId,
   PipelineContext,
@@ -15,24 +29,9 @@ import type {
   ReferenceSite,
   NodeLabel,
   NodeProperties,
-  SupportedLanguage,
   UnifiedCapture,
   ScopeTree,
 } from '@code-analyzer/shared';
-import {
-  CAPTURE_TAGS,
-  PhaseLogger,
-  createNoopPhaseLogger,
-  EDGE_DEFINES,
-  EDGE_HAS_METHOD,
-} from '@code-analyzer/shared';
-
-import { InMemoryGraphStore, createFileDiscoverer } from '@code-analyzer/infra';
-
-import type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';
-import { toPhaseFailure } from './phase-helpers.js';
-import type { LanguageProvider } from '../languages/provider.js';
-import { GraphBuilder } from '../graph/graph-builder.js';
 
 // ---------------------------------------------------------------------------
 // Provider Loader (shared with sequential phases)
@@ -223,9 +222,9 @@ export function groupCaptures(
       const containerName = capture.containerName;
       const qualifiedName = containerName ? `${containerName}.${name}` : `file:${filePath}:${name}`;
       const props = capture.properties ?? {};
-      const sig = props['signature'] as string | undefined;
-      const retType = props['returnType'] as string | undefined;
-      const doc = props['docstring'] as string | undefined;
+      const sig = props['signature'];
+      const retType = props['returnType'];
+      const doc = props['docstring'];
 
       symbols.push({
         name,
@@ -484,7 +483,7 @@ export class ParallelParsePhase implements ExecutablePhase {
 
     const parsedFile: ParsedFile = {
       filePath: file.filePath,
-      language: lang as SupportedLanguage,
+      language: lang,
       symbols,
       references,
       scopeTree,

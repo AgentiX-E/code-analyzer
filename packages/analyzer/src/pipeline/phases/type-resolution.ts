@@ -3,16 +3,17 @@
 // Uses language-specific advanced resolvers to extract type information
 // from parsed ASTs and build a cross-file type registry.
 
-import type { PipelinePhaseId, PipelineContext, ParsedFile } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
-import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { toPhaseFailure } from '../phase-helpers.js';
-import { TypeRegistry } from '../../resolution/type-registry.js';
-import { TypeScriptAdvancedResolver } from '../../resolution/typescript-resolver-advanced.js';
-import { PythonAdvancedResolver } from '../../resolution/python-resolver-advanced.js';
 import { GoResolver } from '../../resolution/go-resolver.js';
 import { JavaResolver } from '../../resolution/java-resolver.js';
+import { PythonAdvancedResolver } from '../../resolution/python-resolver-advanced.js';
+import { TypeRegistry } from '../../resolution/type-registry.js';
+import { TypeScriptAdvancedResolver } from '../../resolution/typescript-resolver-advanced.js';
+import { toPhaseFailure } from '../phase-helpers.js';
+
+import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import type { PipelinePhaseId, PipelineContext, ParsedFile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // TypeResolutionPhase — Multi-language type extraction
@@ -89,7 +90,7 @@ export class TypeResolutionPhase implements ExecutablePhase {
 
         // Get or create resolver for this language
         if (!resolverInstances.has(lang)) {
-          resolverInstances.set(lang, LANGUAGE_RESOLVERS[lang]!());
+          resolverInstances.set(lang, LANGUAGE_RESOLVERS[lang]());
         }
         const resolver = resolverInstances.get(lang)!;
 

@@ -1,11 +1,14 @@
 // @code-analyzer/intelligence — GitHub PR Webhook Handler Tests
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createHmac } from 'crypto';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
 import { GitHubPRWebhook } from '../review/github-webhook.js';
 import { PRReviewEngine, type PRReviewResult, type PRReviewSummary } from '../review/pr-review.js';
 import { CodeReviewEngine } from '../review/review-engine.js';
+
 import type { GitHubPREvent, InlineComment, PRFile } from '../review/github-webhook.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 

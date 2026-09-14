@@ -4,7 +4,9 @@
 // is already exercised by buildProjectRegistry in the round-1 suite.)
 
 import { describe, it, expect } from 'vitest';
+
 import { TypeRegistry } from '../lsp/type-registry.js';
+
 import type { RegisteredType, RegisteredFunction } from '../lsp/type-registry.js';
 
 function makeType(qn: string, shortName: string): RegisteredType {

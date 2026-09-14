@@ -185,7 +185,7 @@ function parseNodePattern(state: ParserState): NodePattern {
   state.expect('PUNCTUATION', '(');
 
   let variable = '';
-  let labels: string[] = [];
+  const labels: string[] = [];
   let properties: Record<string, unknown> = {};
 
   // Variable (optional)
@@ -279,7 +279,7 @@ function parseRelationship(state: ParserState): RelationshipPattern {
   // consuming a '[' (either '<-[…' or '-[…').
 
   // Parse relationship details inside [...]
-  let types: string[] = [];
+  const types: string[] = [];
   let variable: string | undefined;
   let minHops: number | undefined;
   let maxHops: number | undefined;

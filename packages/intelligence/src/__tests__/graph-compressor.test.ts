@@ -2,14 +2,16 @@
 // Comprehensive tests for GraphCompressor: export, import, verification,
 // checksum integrity, compression, and edge cases.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { GraphCompressor } from '../cross-repo/graph-compressor.js';
+
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers

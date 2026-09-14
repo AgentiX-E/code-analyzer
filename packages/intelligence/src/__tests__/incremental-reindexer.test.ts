@@ -2,16 +2,18 @@
 // Comprehensive tests for IncrementalReindexer: change detection via git diff,
 // re-indexing changed files, commit tracking, cache management, and edge cases.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
-import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { IncrementalReindexer } from '../cross-repo/incremental-reindexer.js';
+import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
+
 import type { ChangedFiles } from '../cross-repo/incremental-reindexer.js';
 
 // ---------------------------------------------------------------------------

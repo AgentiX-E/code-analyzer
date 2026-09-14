@@ -1,8 +1,9 @@
 // @code-analyzer/mcp — MCP Middleware
 // Auth, rate limiting, tool policies, request logging, and circuit breaker.
 
-import type { ToolProfile } from '@code-analyzer/shared';
 import { createHash, timingSafeEqual } from 'node:crypto';
+
+import type { ToolProfile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Auth Middleware

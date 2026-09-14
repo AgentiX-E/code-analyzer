@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — Rule Registry Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { RuleRegistry } from '../rules/rule-registry.js';
+
 import type { RegistryTemplate } from '../rules/rule-registry.js';
 
 // ---------------------------------------------------------------------------

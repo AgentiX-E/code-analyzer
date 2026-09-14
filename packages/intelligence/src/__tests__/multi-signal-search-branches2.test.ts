@@ -9,7 +9,9 @@
 // them by stubbing `search()` — the exact shape an upstream caller provides.
 
 import { describe, it, expect, vi } from 'vitest';
+
 import { HybridSearchEngine, type HybridSearchResult } from '../search/multi-signal-search.js';
+
 import type { EmbeddingEngine } from '../embeddings/embedder.js';
 
 /** A minimal, deterministic EmbeddingEngine stand-in. */

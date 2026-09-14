@@ -1,8 +1,8 @@
 // @code-analyzer/server — Logging Middleware
 // Structured request/response logging with configurable detail levels.
 
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { LoggingConfig } from '../server-config.js';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 const LEVEL_PRIORITY: Record<string, number> = {
   silent: 0,

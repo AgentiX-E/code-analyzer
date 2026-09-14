@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
 import { useSearch, type UseSearchResult } from '../hooks';
 
 /* ------------------------------------------------------------------ */
@@ -79,7 +80,7 @@ const SearchView: React.FC = () => {
             type="text"
             placeholder="Search symbols, files, or types..."
             value={query}
-            onChange={(e) => setQuery((e.target as HTMLInputElement).value)}
+            onChange={(e) => setQuery(e.target.value)}
             autoFocus
           />
           {loading && <span className="search-spinner">⏳</span>}
@@ -87,7 +88,7 @@ const SearchView: React.FC = () => {
         <select
           className="filter-select"
           value={typeFilter}
-          onChange={(e) => setTypeFilter((e.target as HTMLSelectElement).value as TypeFilter)}
+          onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
         >
           {typeFilters.map((f) => (
             <option key={f.value} value={f.value}>

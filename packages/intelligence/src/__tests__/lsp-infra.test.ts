@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — LSP Infrastructure Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { t, typeToString } from '../lsp/type-rep.js';
+
 import {
   TypeRegistry,
   buildProjectRegistry,
@@ -9,6 +9,7 @@ import {
   type FileDefinition,
   type FileImport,
 } from '../lsp/type-registry.js';
+import { t, typeToString } from '../lsp/type-rep.js';
 
 // ---------------------------------------------------------------------------
 // Type Representation Tests

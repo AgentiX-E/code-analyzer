@@ -3,8 +3,9 @@
 // Verifies HMAC signatures and responds within GitHub's 10-second requirement.
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+
 import type { ServerConfig } from '../server-config.js';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 // ---------------------------------------------------------------------------
 // Types

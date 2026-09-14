@@ -2,16 +2,12 @@
 // Covers flow graph traversal, depth-limited search, result ranking,
 // path finding, direction filtering, edge type filtering, and edge cases.
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { FlowSearchEngine } from '../search/flow-search.js';
-import type {
-  GraphNode,
-  GraphEdge,
-  RelationshipType,
-  NodeProperties,
-  EdgeProperties,
-} from '@code-analyzer/shared';
+
+import type { GraphNode, GraphEdge, RelationshipType, NodeProperties } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,7 +30,7 @@ function createNode(
     startLine,
     endLine: startLine + 1,
     language: 'typescript',
-    properties: { name, filePath, startLine } as unknown as NodeProperties,
+    properties: { name, filePath, startLine },
     signature: null,
     docstring: null,
     complexity: null,
@@ -60,7 +56,7 @@ function createEdge(
     sourceId,
     targetId,
     type,
-    properties: {} as EdgeProperties,
+    properties: {},
     weight: 1,
     createdAt: new Date().toISOString(),
   };
@@ -163,7 +159,7 @@ describe('FlowSearchEngine', () => {
 
     // Results should be sorted by score descending
     for (let i = 0; i < results.length - 1; i++) {
-      expect(results[i]!.score).toBeGreaterThanOrEqual(results[i + 1]!.score!);
+      expect(results[i]!.score).toBeGreaterThanOrEqual(results[i + 1]!.score);
     }
   });
 
@@ -1303,7 +1299,7 @@ describe('FlowSearchEngine', () => {
     const nodeWithNullLine: GraphNode = {
       id: 0,
       projectId: 'test-project',
-      label: 'Function' as GraphNode['label'],
+      label: 'Function',
       name: 'nullLine',
       qualifiedName: '/test/null.ts:nullLine',
       filePath: '/test/null.ts',
@@ -1418,7 +1414,7 @@ describe('FlowSearchEngine', () => {
     const mid: GraphNode = {
       id: 0,
       projectId: 'test-project',
-      label: 'Function' as GraphNode['label'],
+      label: 'Function',
       name: 'midFunc',
       qualifiedName: '/test/mid.ts:midFunc',
       filePath: null,
@@ -1493,7 +1489,7 @@ describe('FlowSearchEngine', () => {
     const b: GraphNode = {
       id: 0,
       projectId: 'test-project',
-      label: 'Function' as GraphNode['label'],
+      label: 'Function',
       name: 'noFile',
       qualifiedName: '/unknown:noFile',
       filePath: null,
@@ -1552,11 +1548,11 @@ describe('FlowSearchEngine', () => {
     const b = createNode(store, 'Target', 'Function', '/test/tgt.ts', 1);
 
     // CONTAINS is a valid RelationshipType but NOT in the describeMatch dictionary
-    createEdge(store, a.id, b.id, 'CONTAINS' as RelationshipType);
+    createEdge(store, a.id, b.id, 'CONTAINS');
 
     const results = engine.search([a.id], {
       maxDepth: 1,
-      edgeTypes: ['CONTAINS' as RelationshipType],
+      edgeTypes: ['CONTAINS'],
     });
 
     expect(results.length).toBe(1);
@@ -1574,7 +1570,7 @@ describe('FlowSearchEngine', () => {
     const srcNode: GraphNode = {
       id: 0,
       projectId: 'test-project',
-      label: 'Function' as GraphNode['label'],
+      label: 'Function',
       name: 'nullSrc',
       qualifiedName: '/test/src.ts:nullSrc',
       filePath: null,
@@ -1611,7 +1607,7 @@ describe('FlowSearchEngine', () => {
     const node: GraphNode = {
       id: 0,
       projectId: 'test-project',
-      label: 'Function' as GraphNode['label'],
+      label: 'Function',
       name: 'selfNull',
       qualifiedName: '/test/self.ts:selfNull',
       filePath: null,
@@ -1650,7 +1646,7 @@ describe('FlowSearchEngine', () => {
     const srcNode: GraphNode = {
       id: 0,
       projectId: 'test-project',
-      label: 'Function' as GraphNode['label'],
+      label: 'Function',
       name: 'nullStart',
       qualifiedName: '/test/start.ts:nullStart',
       filePath: null,

@@ -6,8 +6,9 @@
 // non-style comment-line fall-through, the docs-missing-jsdoc down-rank, and
 // the request-changes decision for 4+ high-severity findings.
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { ReviewSwarm } from '../review/review-swarm.js';
 
 function makeFinding(overrides: Record<string, unknown> = {}): any {

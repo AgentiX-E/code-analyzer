@@ -1,5 +1,6 @@
 // @code-analyzer/web — useSearch hook
 import { useState, useEffect, useRef } from 'react';
+
 import { searchCode, type SearchResult } from '../api/client';
 
 export interface UseSearchResult {

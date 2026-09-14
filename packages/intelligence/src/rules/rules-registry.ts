@@ -2,10 +2,11 @@
 // Manages registration and execution of rule definitions and their checkers.
 // Provides filtering by category, severity, and language.
 
-import type { RuleDefinition, RuleCategory, RuleSeverity } from './rule-definitions.js';
 import { ALL_RULE_DEFINITIONS } from './rule-definitions.js';
-import type { RuleCheckResult, RuleChecker } from './rule-runner.js';
 import { CHECKER_MAP } from './rule-runner.js';
+
+import type { RuleDefinition, RuleCategory, RuleSeverity } from './rule-definitions.js';
+import type { RuleCheckResult, RuleChecker } from './rule-runner.js';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,11 +1,12 @@
 // @code-analyzer/analyzer — Unified Parser
 // Centralized language-aware code parser with optional fingerprint-based caching.
 
+import { ParseCache } from './parse-cache.js';
+
+import type { ParseCacheStats } from './parse-cache.js';
 import type { LanguageProvider } from '../languages/provider.js';
 import type { WorkerPool } from '@code-analyzer/infra';
 import type { DiscoveredFile, UnifiedCapture } from '@code-analyzer/shared';
-import { ParseCache } from './parse-cache.js';
-import type { ParseCacheStats } from './parse-cache.js';
 
 // ---------------------------------------------------------------------------
 // Parser Options

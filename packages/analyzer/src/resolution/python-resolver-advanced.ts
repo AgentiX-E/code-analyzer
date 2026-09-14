@@ -10,14 +10,16 @@
 // to regex-based parsing.
 
 import Parser from 'tree-sitter';
-import type { SyntaxNode } from 'tree-sitter';
+
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
-import type { TypeInfo } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
   type ResolvedType,
   type TypeContext,
 } from '../resolution/type-resolver-base.js';
+
+import type { TypeInfo } from '../resolution/type-registry.js';
+import type { SyntaxNode } from 'tree-sitter';
 
 // ---------------------------------------------------------------------------
 // Lazy language loader
@@ -197,7 +199,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     };
 
     if (handlers[base]) {
-      const result = handlers[base]!(resolvedArgs);
+      const result = handlers[base](resolvedArgs);
       if (result) return result;
     }
 

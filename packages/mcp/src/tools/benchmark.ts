@@ -2,10 +2,10 @@
 // Delegates to CA-Bench for comprehensive suite-based benchmarking.
 // Falls back to the heuristic review benchmark for backward compatibility.
 
+import { BenchmarkRunner, ALL_BENCHMARK_CASES } from '@code-analyzer/intelligence';
+
 import type { ToolResult } from './registry.js';
 import type { ReviewCategory, Severity } from '@code-analyzer/shared';
-import { BenchmarkRunner } from '@code-analyzer/intelligence';
-import { ALL_BENCHMARK_CASES } from '@code-analyzer/intelligence';
 
 // The CA-Bench runner lives under `tests/` and is loaded lazily so the optional
 // dependency never blocks normal tool startup. The non-literal specifier keeps
@@ -78,7 +78,7 @@ export async function runBenchmark(
   const params = args as unknown as RunBenchmarkParams;
   const category = params.category as ReviewCategory | undefined;
   const severity = params.severity as Severity | undefined;
-  const suite = params.suite as string | undefined;
+  const suite = params.suite;
   const format = (params.format as string) ?? 'markdown';
 
   // Route to CA-Bench if a suite is specified explicitly
@@ -129,15 +129,7 @@ async function runCaBenchSuite(suite: string, format: string): Promise<ToolResul
   try {
     const { CaBenchRunner } = (await import(CA_BENCH_RUNNER_SPECIFIER)) as CaBenchRunnerModule;
     const runner = new CaBenchRunner();
-    const suiteResult = await runner.runSuite(
-      suite as
-        | 'parse-accuracy'
-        | 'search-quality'
-        | 'review-quality'
-        | 'embedding-quality'
-        | 'cross-repo'
-        | 'throughput',
-    );
+    const suiteResult = await runner.runSuite(suite);
 
     let text: string;
     if (format === 'json') {

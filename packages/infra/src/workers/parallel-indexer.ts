@@ -13,8 +13,17 @@ import {
   EDGE_CALLS,
   EDGE_DEFINES,
   EDGE_IMPORTS,
+  PhaseLogger,
+  createNoopPhaseLogger,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+
+import { createWorkerPool } from './pool.js';
+import { createFileDiscoverer } from '../filesystem/discoverer.js';
+
+import type { WorkerPool, WorkerTask } from './pool.js';
+import type { FileDiscoverer } from '../filesystem/discoverer.js';
+import type { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
+import type { SqliteGraphStore } from '../storage/sqlite-graph-store.js';
 import type {
   DiscoveredFile,
   GraphEdge,
@@ -25,13 +34,6 @@ import type {
   SymbolDefinition,
   RelationshipType,
 } from '@code-analyzer/shared';
-
-import { createFileDiscoverer } from '../filesystem/discoverer.js';
-import type { FileDiscoverer } from '../filesystem/discoverer.js';
-import type { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
-import type { SqliteGraphStore } from '../storage/sqlite-graph-store.js';
-import { createWorkerPool } from './pool.js';
-import type { WorkerPool, WorkerTask } from './pool.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -174,7 +176,7 @@ export class ParallelIndexer {
       // Phase 2: Filter by language and patterns
       if (options?.languages && options.languages.length > 0) {
         const langSet = new Set(options.languages);
-        files = files.filter((f) => f.language && langSet.has(f.language!));
+        files = files.filter((f) => f.language && langSet.has(f.language));
       }
 
       if (options?.filePatterns && options.filePatterns.length > 0) {
@@ -733,9 +735,9 @@ export class ParallelIndexer {
 
   private addToBuffer(item: GraphNode | GraphEdge): void {
     if ('sourceId' in item) {
-      this.edgeBuffer.push(item as GraphEdge);
+      this.edgeBuffer.push(item);
     } else {
-      this.nodeBuffer.push(item as GraphNode);
+      this.nodeBuffer.push(item);
     }
 
     // Auto-flush when buffers reach batch size
@@ -992,7 +994,7 @@ export function toError(err: unknown): Error {
 
 function minimatchCheck(str: string, pattern: string): boolean {
   // Convert glob pattern to regex
-  let regexStr = pattern
+  const regexStr = pattern
     .replace(/\./g, '\\.')
     .replace(/\*\*/g, '<<<GLOBSTAR>>>')
     .replace(/\*/g, '[^/]*')

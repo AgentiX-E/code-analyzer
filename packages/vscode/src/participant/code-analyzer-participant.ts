@@ -3,8 +3,9 @@
 // invokes analyzer tools to gather context, and enriches the chat stream.
 // Supports 15 slash commands for structured analysis workflows.
 
-import type { EngineBridge } from '../services/engine-bridge.js';
 import { EDGE_CALLS } from '@code-analyzer/shared';
+
+import type { EngineBridge } from '../services/engine-bridge.js';
 
 // ---------------------------------------------------------------------------
 // Type stubs for VS Code Chat API (used in tests only; real types from vscode)

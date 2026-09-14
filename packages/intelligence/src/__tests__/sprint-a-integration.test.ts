@@ -1,10 +1,11 @@
 // @code-analyzer/intelligence — Sprint A Integration Test
 
 import { describe, it, expect } from 'vitest';
-import { TaintPipeline } from '../security/taint-pipeline.js';
-import { buildCallGraph } from '../security/taint-pipeline.js';
+
 import { buildReducedGraph, mapToOriginalNodes } from '../community/aggregation.js';
 import { createAstContext } from '../rules/ast-rule-checker.js';
+import { TaintPipeline, buildCallGraph } from '../security/taint-pipeline.js';
+
 import type { FunctionCfg } from '../cfg/types.js';
 
 // ---------------------------------------------------------------------------

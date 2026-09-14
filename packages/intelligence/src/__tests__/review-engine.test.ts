@@ -1,6 +1,13 @@
 // @code-analyzer/intelligence — Code Review Engine Tests
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import { analyzeFileHeuristics, toReviewComment } from '../review/heuristics.js';
 import {
   CodeReviewEngine,
   ReviewEngineError,
@@ -9,14 +16,9 @@ import {
   toErrorMessage,
 } from '../review/review-engine.js';
 import { SessionStore } from '../review/session-store.js';
-import type { SessionMetadata } from '../review/session-store.js';
-import { analyzeFileHeuristics, toReviewComment } from '../review/heuristics.js';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { LLMProvider, CompletionResult } from '../review/llm/provider.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
+import type { LLMProvider, CompletionResult } from '../review/llm/provider.js';
+import type { SessionMetadata } from '../review/session-store.js';
 import type { GitDiff, DiffRange, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

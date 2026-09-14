@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — GitHub API Client Tests
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { GitHubApiClient, GitHubApiError, GitHubRateLimitError } from '../github/client.js';
+
 import type { GitHubAuth } from '../github/client.js';
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — GraphQL/tRPC Linking Tests
 import { describe, it, expect } from 'vitest';
+
 import {
   GRAPHQL_LIBRARIES,
   TRPC_LIBRARIES,

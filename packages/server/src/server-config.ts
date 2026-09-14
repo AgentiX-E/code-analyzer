@@ -1,8 +1,8 @@
 // @code-analyzer/server — Server Configuration
 // Configuration types and defaults for the HTTP + SSE MCP server.
 
-import type { RateLimitConfig } from './middleware/rate-limit.js';
 import type { MtlsConfig } from './middleware/mtls.js';
+import type { RateLimitConfig } from './middleware/rate-limit.js';
 
 /** Full server configuration. All fields have sensible defaults. */
 export interface ServerConfig {
@@ -119,7 +119,7 @@ export const DEFAULT_CONFIG: ServerConfig = {
     requireCert: false,
     skipHealthEndpoints: true,
     failureMode: 'reject',
-  } as MtlsConfig,
+  },
   maxBodySize: 1_048_576,
   keepAliveTimeout: 61_000,
   sseHeartbeatMs: 15_000,

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { MarkdownFormatter, JsonFormatter, HtmlFormatter } from '../report/formatters.js';
+
 import type { AnalysisReport } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -475,7 +477,7 @@ describe('JsonFormatter', () => {
     const report = makeReport();
     const json = formatter.format(report);
     const lines = json.split('\n');
-    expect(lines[1]).toMatch(/^  "/); // Second line should be indented
+    expect(lines[1]).toMatch(/^ {2}"/); // Second line should be indented
   });
 });
 

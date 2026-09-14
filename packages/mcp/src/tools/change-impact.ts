@@ -1,9 +1,6 @@
 // @code-analyzer/mcp — Change & Impact Analysis Tools
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl, type ToolContext } from './tool-context.js';
-import type { ToolResult } from './registry.js';
-import { buildImpactResponse } from './smart-response.js';
 import {
   EDGE_CALLS,
   EDGE_EXTENDS,
@@ -11,6 +8,11 @@ import {
   EDGE_IMPORTS,
   EDGE_MEMBER_OF,
 } from '@code-analyzer/shared';
+
+import { buildImpactResponse } from './smart-response.js';
+import { ToolContextImpl, type ToolContext } from './tool-context.js';
+
+import type { ToolResult } from './registry.js';
 import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

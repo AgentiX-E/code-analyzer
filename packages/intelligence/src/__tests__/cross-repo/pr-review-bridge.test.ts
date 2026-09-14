@@ -1,11 +1,13 @@
 // @code-analyzer/intelligence — PR Review Bridge Tests
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
+import { PRReviewBridge } from '../../cross-repo/pr-review-bridge.js';
 import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 import { CodeReviewEngine } from '../../review/review-engine.js';
-import { PRReviewBridge } from '../../cross-repo/pr-review-bridge.js';
+
 import type { PullRequest, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

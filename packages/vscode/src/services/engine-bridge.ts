@@ -4,6 +4,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
 import { InMemoryGraphStore, createGitOperations } from '@code-analyzer/infra';
 import {
   HybridSearchEngine,
@@ -13,8 +14,9 @@ import {
   ImpactAnalyzer,
   EmbeddingEngine,
 } from '@code-analyzer/intelligence';
-import type { GitDiff } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_TESTS } from '@code-analyzer/shared';
+
+import type { GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public return types (simplified for vscode consumers)

@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — Review Quality Benchmark Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BenchmarkRunner } from '../benchmark/benchmark-runner.js';
+
 import {
   ALL_BENCHMARK_CASES,
   BENCH_NPE_001,
@@ -20,6 +20,8 @@ import {
   BENCH_PERF_001,
   BENCH_PERF_002,
 } from '../benchmark/benchmark-data.js';
+import { BenchmarkRunner } from '../benchmark/benchmark-runner.js';
+
 import type { BenchmarkCase } from '../benchmark/benchmark-data.js';
 import type {
   SingleCaseResult,

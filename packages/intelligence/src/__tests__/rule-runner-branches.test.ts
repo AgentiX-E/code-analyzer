@@ -4,10 +4,12 @@
 // inClass-reset bug fix.
 
 import { describe, it, expect } from 'vitest';
+
 import { CHECKER_MAP, RulesEngine, runRules, getFileLanguage } from '../rules/rule-runner.js';
-import type { RuleContext } from '../rules/rule-runner.js';
 import { RulesRegistry } from '../rules/rules-registry.js';
+
 import type { RuleDefinition } from '../rules/rule-definitions.js';
+import type { RuleContext } from '../rules/rule-runner.js';
 
 function run(ruleId: string, source: string, filePath = 'test.ts', language = 'typescript') {
   const c = CHECKER_MAP[ruleId];

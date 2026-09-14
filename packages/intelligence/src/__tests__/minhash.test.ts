@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — MinHash Similarity Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { MinHashSimilarity } from '../similarity/minhash.js';
 
 // ---------------------------------------------------------------------------

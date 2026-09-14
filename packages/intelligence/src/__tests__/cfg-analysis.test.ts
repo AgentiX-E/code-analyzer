@@ -2,9 +2,11 @@
 // Comprehensive tests for post-dominators, control dependence, and reaching definitions.
 
 import { describe, it, expect } from 'vitest';
-import { computePostDominators, postDominates, NO_IPDOM } from '../cfg/post-dominators.js';
+
 import { computeControlDependence } from '../cfg/control-dependence.js';
+import { computePostDominators, postDominates, NO_IPDOM } from '../cfg/post-dominators.js';
 import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
+
 import type { FunctionCfg, BasicBlock, CfgEdge, StatementFacts } from '../cfg/types.js';
 
 // ---------------------------------------------------------------------------

@@ -1,9 +1,11 @@
 // @code-analyzer/intelligence — Hybrid Search Engine Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { HybridSearchEngine, tokenize, cosineSimilarity } from '../search/hybrid-search.js';
-import type { RankedResult } from '../search/hybrid-search.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { HybridSearchEngine, tokenize, cosineSimilarity } from '../search/hybrid-search.js';
+
+import type { RankedResult } from '../search/hybrid-search.js';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

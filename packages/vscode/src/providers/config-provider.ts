@@ -2,6 +2,7 @@
 // Webview-based configuration UI for the extension settings.
 
 import { ConfigService } from '../services/config-service.js';
+
 import type { CodeAnalyzerConfig } from '../services/config-service.js';
 
 // ---------------------------------------------------------------------------

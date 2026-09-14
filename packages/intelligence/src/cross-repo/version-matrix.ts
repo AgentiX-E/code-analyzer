@@ -66,7 +66,7 @@ export class VersionCompatibilityMatrix {
         if (!sharedDependencies[pkg]) {
           sharedDependencies[pkg] = {};
         }
-        sharedDependencies[pkg]![rv.repo] = version;
+        sharedDependencies[pkg][rv.repo] = version;
       }
     }
 

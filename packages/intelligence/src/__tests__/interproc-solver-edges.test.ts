@@ -3,6 +3,7 @@
 // propagation (source → caller → grand-caller).
 
 import { describe, it, expect } from 'vitest';
+
 import {
   InterprocSolver,
   type FunctionSummary,

@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — File Bundler Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { FileBundler } from '../review/file-bundler.js';
+
 import type { FileBundle } from '../review/file-bundler.js';
 
 const ROOT = '/project/src';

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import {
   inferHttpMethod,
   inferRouteMethod,
@@ -11,6 +12,7 @@ import {
   buildHandlesEdge,
   buildChannelEdge,
 } from '../cross-service/http-linking.js';
+
 import type { ResolvedCall } from '../cross-service/types.js';
 
 function makeCall(overrides: Partial<ResolvedCall> = {}): ResolvedCall {

@@ -4,15 +4,16 @@
 // piping to other tools.
 
 import { existsSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
 import { EOL } from 'node:os';
+import { resolve, relative } from 'node:path';
+
 import {
   PipelineOrchestrator,
   type PipelineResult,
   type PhaseResult,
-  type ExecutablePhase,
 } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import type { PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -112,7 +113,7 @@ export async function analyzeRepository(options: AnalyzeOptions): Promise<Analyz
         metadata: {},
       } as unknown as PipelineContext;
 
-      const orchestrator = new PipelineOrchestrator(phases as ExecutablePhase[]);
+      const orchestrator = new PipelineOrchestrator(phases);
       const result: PipelineResult = await orchestrator.execute(ctx);
 
       clearTimeout(timer);

@@ -1,8 +1,8 @@
 // @code-analyzer/server — CORS Middleware
 // Configurable Cross-Origin Resource Sharing handling.
 
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { CorsConfig } from '../server-config.js';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 /**
  * Register CORS middleware on a Fastify instance.

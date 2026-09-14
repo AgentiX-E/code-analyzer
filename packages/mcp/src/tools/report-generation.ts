@@ -199,7 +199,7 @@ export function computeCategoryBreakdown(comments: ReviewComment[]): CategoryBre
   const result: CategoryBreakdown[] = [];
   for (const [category, count] of categoryCounts) {
     result.push({
-      category: category as ReviewCategory,
+      category: category,
       count,
       percentage: Math.round((count / total) * 1000) / 10,
     });
@@ -224,7 +224,7 @@ export function computeSeverityBreakdown(comments: ReviewComment[]): SeverityBre
   const result: SeverityBreakdown[] = [];
   for (const [severity, count] of severityCounts) {
     result.push({
-      severity: severity as Severity,
+      severity: severity,
       count,
       percentage: Math.round((count / total) * 1000) / 10,
     });

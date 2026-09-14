@@ -99,7 +99,7 @@ export class LRUCache<K = string, V = unknown> {
     if (config?.sweepInterval && config.sweepInterval > 0) {
       this.sweepTimer = setInterval(() => this.sweep(), config.sweepInterval);
       if (this.sweepTimer && typeof this.sweepTimer === 'object' && 'unref' in this.sweepTimer) {
-        (this.sweepTimer as NodeJS.Timeout).unref();
+        this.sweepTimer.unref();
       }
     }
   }

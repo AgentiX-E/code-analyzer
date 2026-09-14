@@ -2,8 +2,7 @@
 // Handles GitHub pull_request webhook events.
 // Triggers the code review pipeline and posts results back to the PR.
 
-import type { WebhookEvent } from './webhook-handler.js';
-import type { EventHandler } from './webhook-handler.js';
+import type { WebhookEvent, EventHandler } from './webhook-handler.js';
 import type { CodeReviewEngine } from '@code-analyzer/intelligence';
 
 // ---------------------------------------------------------------------------

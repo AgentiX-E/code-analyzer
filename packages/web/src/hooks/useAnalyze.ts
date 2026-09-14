@@ -1,5 +1,6 @@
 // @code-analyzer/web — useAnalyze hook
 import { useState, useCallback } from 'react';
+
 import { analyzeRepository, type AnalyzeResult } from '../api/client';
 
 export interface UseAnalyzeResult {

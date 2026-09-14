@@ -2,17 +2,19 @@
 // Bridges single-repo PR review with cross-repo context analysis.
 // Orchestrates contract validation, impact graph, and review engine.
 
-import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
 import { EDGE_IMPORTS } from '@code-analyzer/shared';
-import type { CrossRepoIndexer } from './cross-repo-indexer.js';
-import type { RepoGroupManager } from './repo-group-manager.js';
-import type { CodeReviewEngine } from '../review/review-engine.js';
+
 import { ContractValidator, type ContractValidationResult } from './contract-validator.js';
 import {
   ImpactGraphBuilder,
   type BlastRadiusResult,
   type DependencyChain,
 } from './impact-graph.js';
+
+import type { CrossRepoIndexer } from './cross-repo-indexer.js';
+import type { RepoGroupManager } from './repo-group-manager.js';
+import type { CodeReviewEngine } from '../review/review-engine.js';
+import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -104,7 +106,7 @@ export class PRReviewBridge {
     const dependencyChains = this.impactGraph.findDependencyChains(sourceRepoId, impactGraph);
 
     // 5. Run standard review engine on diffs
-    let reviewComments: ReviewComment[] = [];
+    const reviewComments: ReviewComment[] = [];
     try {
       // `ReviewSession` reports counts (`filesReviewed`, `commentsGenerated`) and
       // carries no comment list, so there is nothing to extract here: the review is

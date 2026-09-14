@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { NearCloneDetector } from '../similarity/near-clone-detector.js';
+
 import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 
 function makeNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {

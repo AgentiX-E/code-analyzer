@@ -2,10 +2,12 @@
 // Search across all indexed repositories, find symbols, detect duplicates,
 // and analyze cross-repo usage patterns.
 
-import type { GraphNode } from '@code-analyzer/shared';
 import { EDGE_DEFINES } from '@code-analyzer/shared';
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import { MinHashSimilarity } from '../similarity/minhash.js';
+
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Interfaces

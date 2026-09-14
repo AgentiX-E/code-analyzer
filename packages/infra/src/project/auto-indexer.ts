@@ -2,10 +2,11 @@
 // Handles automatic indexing on MCP connection.
 // Detects project type, runs FileDiscoverer, and indexes files into the graph store.
 
+import { detectProject, type ProjectInfo } from './project-detector.js';
+
 import type { FileDiscoverer } from '../filesystem/discoverer.js';
 import type { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 import type { GraphNode } from '@code-analyzer/shared';
-import { detectProject, type ProjectInfo } from './project-detector.js';
 
 // ---------------------------------------------------------------------------
 // Types

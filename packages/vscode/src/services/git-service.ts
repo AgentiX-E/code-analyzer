@@ -20,7 +20,7 @@ export class GitService {
       const diffs = await git.getWorkspaceDiff();
       return diffs.map((d) => ({
         path: d.filePath,
-        status: d.changeType as DiffInfo['status'],
+        status: d.changeType,
         oldPath: d.oldPath,
       }));
     } catch {

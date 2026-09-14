@@ -5,15 +5,15 @@
 // This is the missing link that makes inter-procedural taint analysis
 // actually work end-to-end.
 
-import type { FunctionCfg } from '../cfg/types.js';
-import { TaintPropagator } from './taint-propagator.js';
 import {
   InterprocSolver,
   type FunctionSummary,
   type CallGraphEdge,
   type InterprocTaintResult,
 } from './interproc-solver.js';
-import type { TaintFunctionResult } from '../cfg/types.js';
+import { TaintPropagator } from './taint-propagator.js';
+
+import type { FunctionCfg, TaintFunctionResult } from '../cfg/types.js';
 
 // ---------------------------------------------------------------------------
 // Pipeline

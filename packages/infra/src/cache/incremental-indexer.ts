@@ -3,9 +3,10 @@
 // hashing. Integrates with ContentCache and optionally git diff.
 // Only returns files whose content actually changed — not just git-stale files.
 
-import type { DiscoveredFile, KnowledgeGraph } from '@code-analyzer/shared';
-import type { ContentCache } from './content-cache.js';
 import { computeSha256 } from './content-cache.js';
+
+import type { ContentCache } from './content-cache.js';
+import type { DiscoveredFile, KnowledgeGraph } from '@code-analyzer/shared';
 
 /** Result of change detection for a set of discovered files. */
 export interface ChangeDetectionResult {

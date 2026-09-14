@@ -3,8 +3,8 @@
 // graph stats, memory usage, health checks.
 
 import { existsSync, statSync } from 'node:fs';
-import { resolve, join } from 'node:path';
 import { EOL, hostname, uptime, freemem, totalmem } from 'node:os';
+import { resolve, join } from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Types

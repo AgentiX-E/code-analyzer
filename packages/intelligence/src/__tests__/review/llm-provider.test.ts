@@ -2,6 +2,7 @@
 // Tests for DeepSeekProvider: API integration, retry logic, error handling, timeouts.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import {
   DeepSeekProvider,
   LLMError,
@@ -9,6 +10,7 @@ import {
   LLMTimeoutError,
   LLMRateLimitError,
 } from '../../review/llm/provider.js';
+
 import type { LLMProvider } from '../../review/llm/provider.js';
 
 // ---------------------------------------------------------------------------
@@ -22,7 +24,7 @@ function createMockFetch(
     const response = responseFactory();
     // Support both sync and async factories
     return response instanceof Promise ? response : response;
-  }) as unknown as typeof globalThis.fetch;
+  });
 }
 
 function successResponse(content: string): Response {

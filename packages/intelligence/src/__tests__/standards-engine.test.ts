@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
+
 import { StandardsEngine } from '../standards/engine.js';
 import { STANDARD_TEMPLATES, getTemplate, listTemplates } from '../standards/templates.js';
+
 import type { ProjectStandard, RuleCheckResult, Violation } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

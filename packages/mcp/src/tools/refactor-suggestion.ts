@@ -3,11 +3,13 @@
 // high-complexity functions, god classes, long parameter lists,
 // and symbols with excessive dependencies.
 
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
+
+import { ToolContextImpl } from './tool-context.js';
+
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
-import { ToolContextImpl } from './tool-context.js';
 
 export const refactorSuggestionTool: McpToolDefinition = {
   name: 'refactor_suggestion',

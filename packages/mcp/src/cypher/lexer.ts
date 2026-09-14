@@ -1,7 +1,6 @@
 // @code-analyzer/mcp — Cypher Lexer
 // Tokenizes a Cypher-like query string into a stream of tokens.
 
-import type { CypherToken } from '@code-analyzer/shared';
 import {
   EDGE_CALLS,
   EDGE_EXPOSES,
@@ -11,6 +10,8 @@ import {
   EDGE_IMPORTS,
   EDGE_TESTS,
 } from '@code-analyzer/shared';
+
+import type { CypherToken } from '@code-analyzer/shared';
 
 const KEYWORDS = new Set([
   'MATCH',

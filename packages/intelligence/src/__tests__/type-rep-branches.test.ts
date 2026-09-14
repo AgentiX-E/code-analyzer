@@ -2,6 +2,7 @@
 // kind, plus optional/readonly modifiers and constrained type parameters.
 
 import { describe, it, expect } from 'vitest';
+
 import { t, typeToString } from '../lsp/type-rep.js';
 
 describe('typeToString — kind coverage', () => {

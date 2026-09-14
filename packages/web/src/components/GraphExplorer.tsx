@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useGraphStats } from '../hooks';
+
 import { searchGraph, type GraphData } from '../api/client';
+import { useGraphStats } from '../hooks';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -67,8 +68,8 @@ function simulate(nodes: GraphNode[], edges: GraphEdge[], width: number, height:
       for (let b = a + 1; b < nodes.length; b++) {
         const na = nodes[a]!;
         const nb = nodes[b]!;
-        let dx = nb.x - na.x;
-        let dy = nb.y - na.y;
+        const dx = nb.x - na.x;
+        const dy = nb.y - na.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         const force = REPULSION / (dist * dist);
         const fx = (dx / dist) * force;
@@ -259,7 +260,7 @@ const GraphExplorer: React.FC = () => {
 
   // Determine data source
   const useApiData = apiGraphData && apiGraphData.nodes.length > 0;
-  const converted = useApiData ? convertGraphData(apiGraphData!) : buildFallbackData();
+  const converted = useApiData ? convertGraphData(apiGraphData) : buildFallbackData();
 
   const [graph, setGraph] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>(converted);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });

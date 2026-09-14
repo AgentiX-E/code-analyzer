@@ -1,12 +1,6 @@
 // @code-analyzer/analyzer — Pipeline Phase: ScopeResolution
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  ParsedFile,
-  ResolvedImport,
-  NodeLabel,
-} from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
@@ -14,10 +8,17 @@ import {
   EDGE_EXTENDS,
   EDGE_IMPLEMENTS,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type {
+  PipelinePhaseId,
+  PipelineContext,
+  ParsedFile,
+  ResolvedImport,
+  NodeLabel,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase 7: scopeResolution — Resolve scopes and references

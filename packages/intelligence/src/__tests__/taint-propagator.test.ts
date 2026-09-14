@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — Taint Propagation Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { TaintPropagator } from '../security/taint-propagator.js';
+
 import type {
   FunctionCfg,
   DefUseFact,

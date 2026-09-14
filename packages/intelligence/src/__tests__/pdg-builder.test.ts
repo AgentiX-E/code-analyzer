@@ -2,7 +2,9 @@
 // Data-dependence tested separately via reaching-defs integration tests.
 
 import { describe, it, expect } from 'vitest';
+
 import { buildPdg } from '../cfg/pdg-builder.js';
+
 import type { FunctionCfg, BindingEntry } from '../cfg/types.js';
 
 function makeCfg(

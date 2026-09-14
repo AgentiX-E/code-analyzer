@@ -2,8 +2,8 @@
 // Extracts and validates API contracts across repository boundaries.
 // Detects breaking changes: removed exports, changed signatures, renamed symbols.
 
-import type { GraphNode } from '@code-analyzer/shared';
 import type { CrossRepoIndexer } from './cross-repo-indexer.js';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces

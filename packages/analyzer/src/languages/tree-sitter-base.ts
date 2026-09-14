@@ -2,10 +2,12 @@
 // AST-based parsing using tree-sitter for production-grade accuracy.
 // Falls back to regex-based parsing if tree-sitter packages are not available.
 
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
+
 import type { LanguageProvider, ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag, ImportSemantics } from '@code-analyzer/shared';
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 // ---------------------------------------------------------------------------
 // Taint analysis types

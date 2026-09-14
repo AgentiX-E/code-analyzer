@@ -26,6 +26,7 @@ vi.mock('../security/taint-propagator.js', () => {
 });
 
 import { TaintPipeline } from '../security/taint-pipeline.js';
+
 import type { FunctionCfg } from '../cfg/types.js';
 
 function cfg(fnName: string, bindings: FunctionCfg['bindings']): FunctionCfg {

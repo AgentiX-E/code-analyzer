@@ -2,13 +2,19 @@
 // Comprehensive tests for all 70 rules, registry, and engine.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { RulesRegistry } from '../rules/rules-registry.js';
-import { RulesEngine, getFileLanguage, DEFAULT_RULES, runRules } from '../rules/rule-runner.js';
-import type { RuleCheckResult, RuleChecker } from '../rules/rule-runner.js';
-import { CHECKER_MAP } from '../rules/rule-runner.js';
-import type { RuleDefinition } from '../rules/rule-definitions.js';
+
 import { ALL_RULE_DEFINITIONS } from '../rules/rule-definitions.js';
-import type { RuleContext } from '../rules/rule-runner.js';
+import {
+  RulesEngine,
+  getFileLanguage,
+  DEFAULT_RULES,
+  runRules,
+  CHECKER_MAP,
+} from '../rules/rule-runner.js';
+import { RulesRegistry } from '../rules/rules-registry.js';
+
+import type { RuleDefinition } from '../rules/rule-definitions.js';
+import type { RuleCheckResult, RuleChecker, RuleContext } from '../rules/rule-runner.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

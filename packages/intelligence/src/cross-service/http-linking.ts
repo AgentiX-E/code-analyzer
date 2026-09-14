@@ -4,14 +4,10 @@
  * route node synthesis, edge construction, and cross-project matching.
  */
 
-import type {
-  ServiceClassification,
-  ResolvedCall,
-  RouteNode,
-  ServiceEdge,
-  DecoratorRoute,
-  LibraryPattern,
-} from './types.js';
+import { EDGE_CALLS, EDGE_EMITS, EDGE_HANDLES, EDGE_LISTENS_ON } from '@code-analyzer/shared';
+
+import { GRAPHQL_LIBRARIES, TRPC_LIBRARIES } from './graphql-linking.js';
+import { GRPC_LIBRARIES, extractGrpcServiceMethod } from './grpc-linking.js';
 import {
   ROUTE_PREFIX,
   GRPC_PREFIX,
@@ -24,10 +20,15 @@ import {
   METHOD_SUFFIXES,
   ROUTE_REG_SUFFIXES,
 } from './types.js';
-import { GRPC_LIBRARIES } from './grpc-linking.js';
-import { extractGrpcServiceMethod } from './grpc-linking.js';
-import { GRAPHQL_LIBRARIES, TRPC_LIBRARIES } from './graphql-linking.js';
-import { EDGE_CALLS, EDGE_EMITS, EDGE_HANDLES, EDGE_LISTENS_ON } from '@code-analyzer/shared';
+
+import type {
+  ServiceClassification,
+  ResolvedCall,
+  RouteNode,
+  ServiceEdge,
+  DecoratorRoute,
+  LibraryPattern,
+} from './types.js';
 
 // ============================================================================
 // Pattern Matching
@@ -214,7 +215,7 @@ export function parseRouteDecorator(decoratorText: string): DecoratorRoute | nul
     return { method, path, framework: detectFramework(decoratorText, name) };
   }
 
-  let [, funcName, path] = callMatch;
+  const [, funcName, path] = callMatch;
   if (!funcName || !path) return null;
   if (!path.startsWith('/')) return null;
 

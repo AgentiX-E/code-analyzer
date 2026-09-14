@@ -8,9 +8,10 @@
 // - Auto-index failure reported to MCP client via notification
 // - /* v8 ignore file */ removed — covered by unit and integration tests
 
+import { createLogger, type Logger } from '@code-analyzer/core';
+import { InMemoryGraphStore, createFileDiscoverer, AutoIndexer } from '@code-analyzer/infra';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type * as http from 'http';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
@@ -19,21 +20,22 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+
+import { AuthMiddleware, RateLimiter } from '../middleware/index.js';
+import { PromptProvider } from '../prompts/index.js';
+import { ResourceProvider } from '../resources/index.js';
+import { createToolRegistry, ToolRegistry } from '../tools/index.js';
+import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
+import { SSETransport } from '../transport/sse-transport.js';
+
+import type { AutoIndexer as AutoIndexerType } from '@code-analyzer/infra';
 import type {
   MCPServerConfig,
   ToolDefinition,
   ResourceDefinition,
   PromptDefinition,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore, createFileDiscoverer, AutoIndexer } from '@code-analyzer/infra';
-import type { AutoIndexer as AutoIndexerType } from '@code-analyzer/infra';
-import { createToolRegistry, ToolRegistry } from '../tools/index.js';
-import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
-import { ResourceProvider } from '../resources/index.js';
-import { PromptProvider } from '../prompts/index.js';
-import { AuthMiddleware, RateLimiter } from '../middleware/index.js';
-import { SSETransport } from '../transport/sse-transport.js';
-import { createLogger, type Logger } from '@code-analyzer/core';
+import type * as http from 'http';
 
 // ---------------------------------------------------------------------------
 // Default Configuration
@@ -124,11 +126,11 @@ export class CodeAnalyzerMCPServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<any> => {
       const start = Date.now();
       const { name, arguments: args } = request.params;
-      const argsObj = (args ?? {}) as Record<string, unknown>;
+      const argsObj = args ?? {};
 
       try {
         // Auth check
-        const authResult = this.auth.validate(request as unknown as Record<string, unknown>);
+        const authResult = this.auth.validate(request);
         if (!authResult.allowed) {
           this.logger.warn('Unauthorized tool access attempt', {
             toolName: name,
@@ -225,10 +227,7 @@ export class CodeAnalyzerMCPServer {
 
       this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
-        const result = await this.promptProvider.getPrompt(
-          name,
-          args as Record<string, unknown> | undefined,
-        );
+        const result = await this.promptProvider.getPrompt(name, args);
         return {
           messages: result.messages,
           description: result.description,

@@ -2,14 +2,16 @@
 // Creates a Yoga GraphQL server that integrates with the existing Fastify HTTP server.
 // Provides /graphql endpoint with GraphiQL playground in development mode.
 
-import { createYoga } from 'graphql-yoga';
 import { makeExecutableSchema } from '@graphql-tools/schema';
-import type { FastifyReply, FastifyRequest } from 'fastify';
-import { typeDefs } from './schema.js';
+import { createYoga } from 'graphql-yoga';
+
 import { resolvers } from './resolvers.js';
+import { typeDefs } from './schema.js';
+
 import type { GraphQLContext } from './context.js';
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ServerConfig } from '../server-config.js';
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 /**
  * Options for creating the GraphQL Yoga server.

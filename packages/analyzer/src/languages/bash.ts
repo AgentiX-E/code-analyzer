@@ -3,10 +3,11 @@
 // sinks, source/include import tracking.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
 import type { ParsedImport } from './provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
   TreeSitterLanguage,
   TreeSitterSyntaxNode,
@@ -14,6 +15,7 @@ import type {
   TaintSink,
   TaintSanitizer,
 } from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
 
 export class BashProvider extends TreeSitterBaseProvider {
   readonly language = 'bash';

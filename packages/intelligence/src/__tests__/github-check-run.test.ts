@@ -1,11 +1,13 @@
 // @code-analyzer/intelligence — GitHub Check Run Manager Tests
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { GitHubCheckRunManager } from '../github/check-run.js';
-import type { CheckRunOptions } from '../github/check-run.js';
 import { GitHubApiClient } from '../github/client.js';
-import type { GitHubCheckRun } from '../github/client.js';
+
 import type { CrossRepoReviewResult } from '../cross-repo/cross-repo-pr-review.js';
+import type { CheckRunOptions } from '../github/check-run.js';
+import type { GitHubCheckRun } from '../github/client.js';
 
 function createManager(options?: Partial<CheckRunOptions>): GitHubCheckRunManager {
   const client = new GitHubApiClient({ token: 'ghp_test' });
@@ -416,7 +418,7 @@ describe('GitHubCheckRunManager', () => {
       expect(call[1]).toBe('repo');
       expect(call[2]).toBe(12345);
 
-      const params = call[3]!;
+      const params = call[3];
       expect(params.status).toBe('completed');
       expect(params.conclusion).toBe(manager.determineConclusion(result));
       expect(params.completed_at).toBeDefined();
@@ -453,7 +455,7 @@ describe('GitHubCheckRunManager', () => {
 
       // annotationsCount reflects the full set, not the capped payload.
       expect(out.annotationsCount).toBe(60);
-      const params = updateSpy.mock.calls[0]![3]!;
+      const params = updateSpy.mock.calls[0]![3];
       expect(params.output?.annotations).toHaveLength(50);
     });
   });
@@ -477,7 +479,7 @@ describe('GitHubCheckRunManager', () => {
       expect(call[1]).toBe('repo');
       expect(call[2]).toBe(12345);
 
-      const params = call[3]!;
+      const params = call[3];
       expect(params.status).toBe('completed');
       expect(params.conclusion).toBe('failure');
       expect(params.completed_at).toBeDefined();

@@ -2,7 +2,9 @@
 // name/language fallbacks and wildcard-language source/sink/sanitizer matching.
 
 import { describe, it, expect } from 'vitest';
+
 import { TaintAnalysisEngine } from '../security/taint-engine.js';
+
 import type { TaintSource, TaintSink, Sanitizer } from '../security/taint-engine.js';
 import type { KnowledgeGraph, GraphNode, GraphEdge } from '@code-analyzer/shared';
 

@@ -1,13 +1,16 @@
 // @code-analyzer/intelligence — Review Engine branch coverage via the public API.
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect } from 'vitest';
+
 import { CodeReviewEngine, mergeAndDeduplicateComments } from '../review/review-engine.js';
 import { SessionStore } from '../review/session-store.js';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import type { GitDiff, GraphNode, GraphEdge, ReviewComment } from '@code-analyzer/shared';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
 function tempDir(): string {
   const dir = path.join(

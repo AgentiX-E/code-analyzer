@@ -1,8 +1,6 @@
 // @code-analyzer/mcp — PDG & Taint Analysis Tools
 // Honest implementations — PDG construction requires CFG analysis
 
-import type { ToolResult } from './registry.js';
-import { ToolContextImpl } from './tool-context.js';
 import {
   EDGE_CALLS,
   EDGE_CFG,
@@ -13,6 +11,10 @@ import {
   EDGE_TAINTED,
   EDGE_TAINT_PATH,
 } from '@code-analyzer/shared';
+
+import { ToolContextImpl } from './tool-context.js';
+
+import type { ToolResult } from './registry.js';
 
 // ---------------------------------------------------------------------------
 // pdg_query — Analyze program dependence graph (CFG-based)

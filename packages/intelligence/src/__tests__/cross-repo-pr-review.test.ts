@@ -1,17 +1,19 @@
 // @code-analyzer/intelligence — Cross-Repo PR Review Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
-import { CodeReviewEngine } from '../review/review-engine.js';
 import {
   CrossRepoPRReviewEngine,
   buildSuggestedActionsForImpact,
 } from '../cross-repo/cross-repo-pr-review.js';
+import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { VersionCompatibilityMatrix } from '../cross-repo/version-matrix.js';
-import type { PullRequest, GitDiff, GraphNode } from '@code-analyzer/shared';
+import { CodeReviewEngine } from '../review/review-engine.js';
+
 import type { CompatibilityMatrix } from '../cross-repo/version-matrix.js';
+import type { PullRequest, GitDiff, GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -4,9 +4,11 @@
 // that the happy-path benchmark fixtures do not reach.
 
 import { describe, it, expect } from 'vitest';
+
 import { BenchmarkRunner } from '../benchmark/benchmark-runner.js';
-import type { AggregateMetrics } from '../benchmark/benchmark-runner.js';
+
 import type { BenchmarkCase, GroundTruthIssue, FileContent } from '../benchmark/benchmark-data.js';
+import type { AggregateMetrics } from '../benchmark/benchmark-runner.js';
 
 function makeCase(
   id: string,

@@ -2,16 +2,17 @@
 // Replaces regex-based parsing with tree-sitter AST for 99.9%+ accuracy.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
-import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 import type {
   NodeTypeMapping,
   TreeSitterLanguage,
   TreeSitterSyntaxNode,
 } from './tree-sitter-base.js';
+import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
 const tsExtensions = ['.ts', '.tsx', '.mts', '.cts'];
 const tsGlobs = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.d.ts'];

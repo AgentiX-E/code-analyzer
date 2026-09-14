@@ -1,9 +1,11 @@
 // @code-analyzer/intelligence — Hybrid Search Engine
 // Combines BM25 text search with vector semantic search using Reciprocal Rank Fusion.
 
-import type { GraphNode, SearchOptions, NodeLabel } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import { DataflowSearchEngine, type DataflowPath } from './dataflow-search.js';
+
+import type { GraphNode, SearchOptions, NodeLabel } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Search-specific interfaces

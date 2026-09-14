@@ -6,14 +6,16 @@
 // IMPORTANT: DEEPSEEK_API_KEY must be set in .env (NOT committed to git).
 // The provider reads from process.env['DEEPSEEK_API_KEY'].
 
-import { type LLMProvider } from '../review/llm/provider.js';
-import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
-import { CodeReviewEngine, type GitOperations } from '../review/review-engine.js';
-import { BenchmarkRunner } from './code-review-benchmark.js';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import { ALL_BENCHMARK_FIXTURES } from './benchmark-fixtures.js';
+import { BenchmarkRunner } from './code-review-benchmark.js';
+import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
+import { type LLMProvider } from '../review/llm/provider.js';
+import { CodeReviewEngine, type GitOperations } from '../review/review-engine.js';
+
 import type { BenchmarkResult } from './code-review-benchmark.js';
 import type { ReviewComment, GitDiff } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // LLM Benchmark Runner
@@ -60,7 +62,7 @@ export async function runLLMBenchmark(
 
   for (const fixture of ALL_BENCHMARK_FIXTURES) {
     const engine = new CodeReviewEngine(
-      store as never,
+      store,
       { allowMetadataFallback: true },
       undefined,
       undefined,

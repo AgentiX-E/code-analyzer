@@ -5,8 +5,6 @@
 // SCIP spec: https://github.com/sourcegraph/scip
 // JSON serialization (not Protobuf) per SCIP JSON-Line convention.
 
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import {
   EDGE_CALLS,
   EDGE_DEFINES,
@@ -15,6 +13,9 @@ import {
   EDGE_IMPORTS,
   EDGE_METHOD_OVERRIDES,
 } from '@code-analyzer/shared';
+
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ===========================================================================
 // SCIP Data Types — TypeScript mirrors of the SCIP Protobuf schema

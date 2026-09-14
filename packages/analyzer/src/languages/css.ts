@@ -6,10 +6,12 @@
 // imports, plus external-url taint sources and CSS-injection taint sinks.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import type { ParsedImport, LanguageProvider } from './provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+
 import { sanitizeSource, lineNumber } from './regex-helpers.js';
+
+import type { ParsedImport, LanguageProvider } from './provider.js';
+import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const CSS_EXTENSIONS = ['.css', '.scss', '.less'];
 const CSS_GLOBS = ['**/*.css', '**/*.scss', '**/*.less'];

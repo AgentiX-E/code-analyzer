@@ -1,7 +1,8 @@
 // @code-analyzer/intelligence — SCIP Exporter Tests
 
-import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect } from 'vitest';
+
 import {
   exportScipIndex,
   serializeScipIndex,
@@ -9,6 +10,7 @@ import {
   scipStats,
   SyntaxKind,
 } from '../scip/scip-exporter.js';
+
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 const NOW = new Date().toISOString();

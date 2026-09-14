@@ -2,10 +2,12 @@
 // Comprehensive tests for Louvain and Leiden community detection algorithms.
 
 import { describe, it, expect } from 'vitest';
-import { LouvainDetector } from '../community/louvain.js';
-import { leiden } from '../community/leiden.js';
-import { LeidenCommunityDetector } from '../community/leiden-detector.js';
+
 import { buildReducedGraph, mapToOriginalNodes } from '../community/aggregation.js';
+import { LeidenCommunityDetector } from '../community/leiden-detector.js';
+import { leiden } from '../community/leiden.js';
+import { LouvainDetector } from '../community/louvain.js';
+
 import type { KnowledgeGraph, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

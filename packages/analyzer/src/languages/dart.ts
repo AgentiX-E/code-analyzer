@@ -7,9 +7,11 @@
 // implementation.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+import { sanitizeSource, lineNumber } from './regex-helpers.js';
+
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import { sanitizeSource, lineNumber } from './regex-helpers.js';
 
 const DART_EXTENSIONS = ['.dart'];
 const DART_GLOBS = ['**/*.dart'];

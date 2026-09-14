@@ -2,9 +2,10 @@
 // Detects style issues: naming conventions, magic numbers, comment ratio,
 // whitespace, line length, duplicate code, inconsistent naming, comment quality.
 
-import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
-import { createLensFinding } from '../review-lenses.js';
 import { MinHashSimilarity } from '../../similarity/minhash.js';
+import { createLensFinding } from '../review-lenses.js';
+
+import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
 
 // ---------------------------------------------------------------------------
 // Detection functions

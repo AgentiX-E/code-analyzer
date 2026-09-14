@@ -5,8 +5,9 @@
 // rules, including comment-skip paths and regex fallback.
 
 import { describe, it, expect } from 'vitest';
-import { CHECKER_MAP } from '../rules/rule-runner.js';
+
 import { createAstContext, isTestFile } from '../rules/ast-rule-checker.js';
+import { CHECKER_MAP } from '../rules/rule-runner.js';
 
 function run(ruleId: string, source: string, lang = 'typescript', filePath = 'test.ts') {
   const c = CHECKER_MAP[ruleId];

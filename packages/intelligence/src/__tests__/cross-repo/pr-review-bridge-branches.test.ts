@@ -6,12 +6,14 @@
 // "all-clear" paths were reached.
 
 import { describe, it, expect } from 'vitest';
+
 import { PRReviewBridge } from '../../cross-repo/pr-review-bridge.js';
+
+import type { ContractValidationResult } from '../../cross-repo/contract-validator.js';
 import type { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
+import type { BlastRadiusResult, DependencyChain } from '../../cross-repo/impact-graph.js';
 import type { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 import type { CodeReviewEngine } from '../../review/review-engine.js';
-import type { ContractValidationResult } from '../../cross-repo/contract-validator.js';
-import type { BlastRadiusResult, DependencyChain } from '../../cross-repo/impact-graph.js';
 import type { GitDiff } from '@code-analyzer/shared';
 
 function makeBridge(): PRReviewBridge {

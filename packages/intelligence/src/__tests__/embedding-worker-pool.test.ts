@@ -3,11 +3,13 @@
 // worker restart, fallback mode, statistics, and edge cases.
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
+
 import {
   EmbeddingWorkerPool,
   getEmbeddingWorkerPool,
   shutdownEmbeddingPool,
 } from '../embeddings/worker-pool.js';
+
 import type { EmbeddingTask } from '../embeddings/worker-pool.js';
 
 // ---------------------------------------------------------------------------
@@ -454,7 +456,6 @@ describe('EmbeddingWorkerPool', () => {
   it('should handle fallback with non-Error throws', async () => {
     pool = new EmbeddingWorkerPool('/nonexistent/worker.js', 2);
     const fallbackFn = vi.fn(async (): Promise<Float32Array> => {
-      // eslint-disable-next-line no-throw-literal
       throw 'string error';
     });
 

@@ -4,7 +4,9 @@
 // a reachable loop. The dense solver is already covered by cfg-analysis.test.ts.
 
 import { describe, it, expect } from 'vitest';
+
 import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
+
 import type {
   FunctionCfg,
   BasicBlock,

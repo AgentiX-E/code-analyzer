@@ -3,6 +3,7 @@
 // Provides access to the graph store, analysis engine, and server configuration.
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import type { ServerConfig } from '../server-config.js';
 
 /**

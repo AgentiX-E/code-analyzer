@@ -315,7 +315,7 @@ async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBack
           }
         ).createFromPackage();
 
-    return new RealEmbeddingBackend(embedder as unknown as NodeEmbedderInstance);
+    return new RealEmbeddingBackend(embedder);
   } catch (_err) {
     // Package, model, or ONNX runtime not available — caller falls back to mock.
     // This is expected in CI environments and on machines without ONNX runtime.

@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — New AST Security Rules Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { CHECKER_MAP } from '../rules/rule-runner.js';
 
 function run(ruleId: string, source: string) {

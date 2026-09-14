@@ -1,6 +1,8 @@
 // @code-analyzer/intelligence — Louvain Community Detection Tests
 import { describe, it, expect } from 'vitest';
+
 import { LouvainDetector } from '../louvain.js';
+
 import type { KnowledgeGraph, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 function makeGraph(): KnowledgeGraph {
@@ -513,8 +515,8 @@ describe('LouvainDetector', () => {
 
   it('should handle community labeling when node has undefined label', () => {
     const g = makeGraph();
-    addNode(g, 0, 'Function' as any, 'f0');
-    addNode(g, 1, 'Unknown' as any, 'f1');
+    addNode(g, 0, 'Function', 'f0');
+    addNode(g, 1, 'Unknown', 'f1');
     addEdge(g, 0, 0, 1, 'CALLS');
 
     const detector = new LouvainDetector();

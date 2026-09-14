@@ -251,7 +251,7 @@ export class HybridSearchEngine {
       let totalWeight = 0;
       for (const [signal, weight] of Object.entries(signalWeights)) {
         if (signals[signal] !== undefined) {
-          combinedScore += signals[signal]! * weight;
+          combinedScore += signals[signal] * weight;
           totalWeight += weight;
         }
       }

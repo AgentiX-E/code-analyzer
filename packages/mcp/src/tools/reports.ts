@@ -1,8 +1,6 @@
 // @code-analyzer/mcp — Report Tools
 // Generates structured reports from graph analysis data
 
-import type { ToolResult } from './registry.js';
-import { ToolContextImpl } from './tool-context.js';
 import {
   EDGE_CALLS,
   EDGE_EXTENDS,
@@ -10,6 +8,10 @@ import {
   EDGE_IMPORTS,
   type GraphNode,
 } from '@code-analyzer/shared';
+
+import { ToolContextImpl } from './tool-context.js';
+
+import type { ToolResult } from './registry.js';
 
 // ---------------------------------------------------------------------------
 // generate_report — Real implementation using graph store data

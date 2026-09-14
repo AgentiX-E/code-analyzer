@@ -2,9 +2,10 @@
 // Manages the VS Code status bar item for Code Analyzer.
 // Shows analysis status, symbol count, review issues, and click actions.
 
+import { StatusBarAlignment } from '../services/vscode-api.js';
+
 import type { EngineBridge } from '../services/engine-bridge.js';
 import type { StatusBarItem } from '../services/vscode-api.js';
-import { StatusBarAlignment } from '../services/vscode-api.js';
 
 // ---------------------------------------------------------------------------
 // StatusBarState — testable pure state management

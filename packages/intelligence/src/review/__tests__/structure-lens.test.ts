@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — Structure Lens Tests
 import { describe, it, expect } from 'vitest';
+
 import { analyzeStructure, generateStructureReport } from '../lenses/structure-lens.js';
 
 describe('Structure Lens', () => {

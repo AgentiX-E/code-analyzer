@@ -4,6 +4,7 @@
 // backtick template-literal secrets, and the deserialization try/catch scan.
 
 import { describe, it, expect } from 'vitest';
+
 import {
   checkNoDebugAst,
   checkHardcodedSecretsAst,
@@ -12,6 +13,7 @@ import {
   checkHttpUrlAst,
   checkUnsafeOptionalChainingAst,
 } from '../rules/ast-security-rules.js';
+
 import type { AstRuleContext } from '../rules/ast-rule-checker.js';
 
 function makeCtx(overrides: Partial<AstRuleContext> = {}): AstRuleContext {

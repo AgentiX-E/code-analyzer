@@ -3,10 +3,12 @@
 // the combination most correlated with defect density.
 // Complexity is measured by edge degree in the knowledge graph.
 
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
+
+import { ToolContextImpl } from './tool-context.js';
+
 import type { McpToolDefinition } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl } from './tool-context.js';
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 
 export const hotspotDetectionTool: McpToolDefinition = {
   name: 'hotspot_detection',

@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Pipeline Phase: Semantic
 
-import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
@@ -8,11 +8,12 @@ import {
   EDGE_HAS_METHOD,
   EDGE_SEMANTICALLY_RELATED,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
+import { toPhaseFailure } from '../phase-helpers.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { toPhaseFailure } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase 17: semantic — Semantic analysis and relationship detection
@@ -46,7 +47,7 @@ export class SemanticPhase implements ExecutablePhase {
           // `signature` is only consumed for Function/Method nodes below.
           classes.push({ id: nodeId, name: node.name, parent: null });
         } else if (node.label === 'Function' || node.label === 'Method') {
-          const sig = node.properties?.signature as string | undefined;
+          const sig = node.properties?.signature;
           const params = sig
             ? sig
                 .replace(/^.*?\(([^)]*)\).*$/, '$1')

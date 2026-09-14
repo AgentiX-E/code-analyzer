@@ -1,6 +1,13 @@
 // @code-analyzer/intelligence — PR Review Engine
 // Pull request review with enriched knowledge graph context and standards checks.
 
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import { CodeReviewEngine, type ReviewContext } from './review-engine.js';
+import { ReviewSwarm, type SwarmResult } from './review-swarm.js';
+import { SessionStore } from './session-store.js';
+import { DEFAULT_STANDARDS } from './standards-defaults.js';
+
 import type {
   PullRequest,
   GitDiff,
@@ -12,11 +19,6 @@ import type {
   StandardsCheckResult,
   ProjectStandard,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { CodeReviewEngine, type ReviewContext } from './review-engine.js';
-import { SessionStore } from './session-store.js';
-import { DEFAULT_STANDARDS } from './standards-defaults.js';
-import { ReviewSwarm, type SwarmResult } from './review-swarm.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -407,7 +409,7 @@ export class PRReviewEngine {
             filtered: false,
             id: `std-${result.standardId}-${ruleResult.ruleId}-${violation.lineNumber}`,
             createdAt: new Date().toISOString(),
-          } as ReviewComment);
+          });
         }
       }
     }

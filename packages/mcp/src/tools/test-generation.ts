@@ -2,10 +2,12 @@
 // Analyzes function/method symbols in the knowledge graph and generates
 // test skeleton templates based on their signatures and dependencies.
 
+import { EDGE_CALLS } from '@code-analyzer/shared';
+
+import { ToolContextImpl } from './tool-context.js';
+
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl } from './tool-context.js';
-import { EDGE_CALLS } from '@code-analyzer/shared';
 
 export const testGenerationTool: McpToolDefinition = {
   name: 'test_generation',

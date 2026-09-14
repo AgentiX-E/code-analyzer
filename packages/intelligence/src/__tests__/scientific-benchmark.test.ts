@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — Scientific Benchmark Tests
 
 import { describe, it, expect } from 'vitest';
+
 import {
   computeBootstrapConfidenceIntervals,
   mcnemarTest,

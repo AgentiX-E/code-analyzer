@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — Diff Parser Tests
 
 import { describe, it, expect } from 'vitest';
+
 import { DiffParser } from '../review/diff-parser.js';
 
 import type { GitDiff } from '@code-analyzer/shared';

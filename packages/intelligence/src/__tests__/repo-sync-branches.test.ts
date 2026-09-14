@@ -8,14 +8,17 @@
 // eviction, and the defensive non-Error coercion arms) with no `v8 ignore`
 // hints left in repo-sync.ts.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, rmSync, writeFileSync, utimesSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { GitHubRepoSync } from '../github/repo-sync.js';
-import type { SyncOptions } from '../github/repo-sync.js';
+import { join } from 'node:path';
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { GitHubApiClient } from '../github/client.js';
+import { GitHubRepoSync } from '../github/repo-sync.js';
+
 import type { GitHubRepo } from '../github/client.js';
+import type { SyncOptions } from '../github/repo-sync.js';
 
 // Mock execSync so `git clone` / `git fetch` / `git rev-parse` never spawn a
 // real process (which would block on network access in sandboxed CI).

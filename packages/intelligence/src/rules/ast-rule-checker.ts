@@ -239,7 +239,6 @@ function tryParseWithTreeSitter(
   functions: AstFunctionBounds[];
 } | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     // require('tree-sitter') always resolves to its Parser class export (the
     // module's `main` field); a missing module throws and is caught below, so
     // there is no falsy-Parser case to guard against.
@@ -367,7 +366,7 @@ function walkTsTree(
       const argTexts: string[] = [];
       if (argsNode) {
         for (let j = 0; j < argsNode.namedChildCount; j++) {
-          argTexts.push(argsNode.namedChild(j)!.text);
+          argTexts.push(argsNode.namedChild(j).text);
         }
       }
       ctx.calls.push({

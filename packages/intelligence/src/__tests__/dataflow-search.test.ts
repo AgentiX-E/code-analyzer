@@ -3,7 +3,9 @@
 // BFS path finding, risk scoring, and default patterns.
 
 import { describe, it, expect, vi } from 'vitest';
+
 import { DataflowSearchEngine } from '../search/dataflow-search.js';
+
 import type { ReachableSink, TaintReport } from '../search/dataflow-search.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
@@ -31,7 +33,7 @@ function makeGraphNode(overrides: Partial<GraphNode> = {}): GraphNode {
     startLine: 1,
     endLine: 10,
     language: 'typescript',
-    properties: {} as any,
+    properties: {},
     signature: 'function testFunc(): void',
     docstring: null,
     complexity: null,
@@ -54,7 +56,7 @@ function makeGraphEdge(
     sourceId,
     targetId,
     type,
-    properties: {} as any,
+    properties: {},
     weight: 1,
     createdAt: new Date().toISOString(),
   };
@@ -1124,8 +1126,8 @@ describe('DataflowSearchEngine', () => {
 
     it('should handle nodes with null filePath', () => {
       const store = createMockStore();
-      const sourceNode = makeGraphNode({ id: 1, name: 'req.body', filePath: null as any });
-      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', filePath: null as any });
+      const sourceNode = makeGraphNode({ id: 1, name: 'req.body', filePath: null });
+      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', filePath: null });
       setupNodes(store, [sourceNode, sinkNode]);
       setupEdges(store, [makeGraphEdge(1, 2)]);
       setupGetNode(store, new Map([[2, sinkNode]]));
@@ -1139,8 +1141,8 @@ describe('DataflowSearchEngine', () => {
 
     it('should handle nodes with null startLine', () => {
       const store = createMockStore();
-      const sourceNode = makeGraphNode({ id: 1, name: 'req.body', startLine: null as any });
-      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', startLine: null as any });
+      const sourceNode = makeGraphNode({ id: 1, name: 'req.body', startLine: null });
+      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', startLine: null });
       setupNodes(store, [sourceNode, sinkNode]);
       setupEdges(store, [makeGraphEdge(1, 2)]);
       setupGetNode(store, new Map([[2, sinkNode]]));

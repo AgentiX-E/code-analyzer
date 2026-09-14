@@ -2,7 +2,6 @@
 // Tests for RepoGroupManager, CrossRepoIndexer, FederatedSearchEngine,
 // and Levenshtein distance.
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import {
   existsSync,
   mkdirSync,
@@ -11,15 +10,17 @@ import {
   truncateSync,
   chmodSync,
 } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import { describe, it, expect, beforeEach } from 'vitest';
 
-import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { CrossRepoIndexer, levenshteinDistance } from '../cross-repo/cross-repo-indexer.js';
 import { FederatedSearchEngine } from '../cross-repo/federated-search.js';
+import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
+
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test Helpers
@@ -347,7 +348,7 @@ describe('RepoGroupManager', () => {
       expect(group.contracts[0]!.dependencies).toEqual(['o/repo-a', 'o/repo-b']);
 
       // Verify it's a deep clone — modifying the returned object shouldn't affect original
-      group.contracts[0]!.definition = { modified: true } as any;
+      group.contracts[0]!.definition = { modified: true };
       group.contracts[0]!.dependencies.push('o/repo-c');
       const fresh = manager.getGroup('g1')!;
       expect(fresh.contracts[0]!.definition).toEqual({
@@ -2617,7 +2618,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const nodeA = createProjectNode('org/repo-a', 'sigFn', 'Function', 'src/s.ts', true);
       const nodeB = {
         ...createProjectNode('org/repo-b', 'sigFn', 'Function', 'src/s.ts', true),
-        signature: null as null,
+        signature: null,
       };
 
       store.insertNode(nodeA);

@@ -84,7 +84,7 @@ export class AsyncMemoizer<T extends (...args: unknown[]) => Promise<unknown>> {
     if (pending) {
       // Count as hit since we're reusing an in-flight computation
       this.hitsInternal++;
-      return pending as Awaited<ReturnType<T>>;
+      return pending;
     }
 
     // Expired or missing — compute fresh value

@@ -2,11 +2,13 @@
 // Comprehensive tests for all 5 enhanced lenses with known-bad and adversarial snippets.
 
 import { describe, it, expect } from 'vitest';
-import { analyzeStructure } from '../review/lenses/structure-lens.js';
-import { analyzeStyle } from '../review/lenses/style-lens.js';
+
 import { analyzeApi } from '../review/lenses/api-lens.js';
 import { analyzeDocs } from '../review/lenses/docs-lens.js';
+import { analyzeStructure } from '../review/lenses/structure-lens.js';
+import { analyzeStyle } from '../review/lenses/style-lens.js';
 import { synthesizeFindings } from '../review/lenses/synthesis-lens.js';
+
 import type { LensReport } from '../review/review-lenses.js';
 
 // ---------------------------------------------------------------------------

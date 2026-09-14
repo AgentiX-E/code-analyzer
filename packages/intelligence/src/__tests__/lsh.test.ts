@@ -1,9 +1,11 @@
 // @code-analyzer/intelligence — LSH Searcher Tests
 
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { LSHSearcher } from '../similarity/lsh.js';
 import { MinHashSimilarity } from '../similarity/minhash.js';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

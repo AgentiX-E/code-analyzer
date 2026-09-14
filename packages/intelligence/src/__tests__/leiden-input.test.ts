@@ -3,16 +3,18 @@
 // InMemoryGraphStore, standalone nodes/edges, edge-type filtering, directed
 // mode, and the edge-less early-return path.
 
-import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect } from 'vitest';
+
 import { leiden } from '../community/leiden.js';
-import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
+
+import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
 function makeNode(id: number, name = `f${id}`): GraphNode {
   return {
     id,
     projectId: 'test',
-    label: 'Function' as NodeLabel,
+    label: 'Function',
     name,
     qualifiedName: `Function:${name}`,
     filePath: null,

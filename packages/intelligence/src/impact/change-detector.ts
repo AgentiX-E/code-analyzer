@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — Change Detector
 // Detects changed symbols from git diffs and classifies risk per change.
 
-import type { GitDiff, RiskLevel, GraphNode, RelationshipType } from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   EDGE_CALLS,
   EDGE_EXTENDS,
@@ -10,7 +10,8 @@ import {
   EDGE_MEMBER_OF,
   EDGE_TESTS,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import type { GitDiff, RiskLevel, GraphNode, RelationshipType } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces

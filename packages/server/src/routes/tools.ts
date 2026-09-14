@@ -1,9 +1,9 @@
 // @code-analyzer/server — Tools Routes
 // MCP tool listing and invocation via REST API.
 
-import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ServerConfig } from '../server-config.js';
 import type { ToolRegistry } from '@code-analyzer/mcp';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 /** Schema for tool call request body. */
 interface ToolCallBody {

@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Pipeline Phase: Processes
 
-import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
@@ -9,11 +9,12 @@ import {
   EDGE_IMPORTS,
   EDGE_STEP_IN_PROCESS,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
+import { toPhaseFailure } from '../phase-helpers.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { toPhaseFailure } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Phase 13: processes — Detect business processes from call chains

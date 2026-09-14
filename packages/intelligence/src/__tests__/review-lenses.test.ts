@@ -2,6 +2,12 @@
 // Tests for all lens types, deterministic analysis rules, and helper functions.
 
 import { describe, it, expect } from 'vitest';
+
+import { analyzeApi, generateApiReport } from '../review/lenses/api-lens.js';
+import { analyzeDocs, generateDocsReport } from '../review/lenses/docs-lens.js';
+import { analyzeStructure, generateStructureReport } from '../review/lenses/structure-lens.js';
+import { analyzeStyle, generateStyleReport } from '../review/lenses/style-lens.js';
+import { synthesizeFindings, generateSynthesisReport } from '../review/lenses/synthesis-lens.js';
 import {
   LENS_PROFILES,
   getLensProfiles,
@@ -14,11 +20,6 @@ import {
   PERFORMANCE_PATTERNS,
   KNOWN_CVE_ADVISORIES,
 } from '../review/review-lenses.js';
-import { analyzeApi, generateApiReport } from '../review/lenses/api-lens.js';
-import { analyzeDocs, generateDocsReport } from '../review/lenses/docs-lens.js';
-import { synthesizeFindings, generateSynthesisReport } from '../review/lenses/synthesis-lens.js';
-import { analyzeStyle, generateStyleReport } from '../review/lenses/style-lens.js';
-import { analyzeStructure, generateStructureReport } from '../review/lenses/structure-lens.js';
 
 // ---------------------------------------------------------------------------
 // Lens Profiles
@@ -40,7 +41,7 @@ describe('Lens Profiles', () => {
     ];
     for (const lensId of expectedLenses) {
       expect(LENS_PROFILES[lensId as keyof typeof LENS_PROFILES]).toBeDefined();
-      expect(LENS_PROFILES[lensId as keyof typeof LENS_PROFILES]!.id).toBe(lensId);
+      expect(LENS_PROFILES[lensId as keyof typeof LENS_PROFILES].id).toBe(lensId);
     }
   });
 
@@ -780,12 +781,12 @@ describe('createLensFinding', () => {
       validEvidence,
     );
     expect(finding).not.toBeNull();
-    expect(finding!.id).toMatch(/^sec-/);
-    expect(finding!.lens).toBe('security');
-    expect(finding!.category).toBe('security');
-    expect(finding!.severity).toBe('high');
-    expect(finding!.confidence).toBe('rule');
-    expect(finding!.autoFixable).toBe(false);
+    expect(finding.id).toMatch(/^sec-/);
+    expect(finding.lens).toBe('security');
+    expect(finding.category).toBe('security');
+    expect(finding.severity).toBe('high');
+    expect(finding.confidence).toBe('rule');
+    expect(finding.autoFixable).toBe(false);
   });
 
   it('should throw when filePath is empty (invalid anchor)', () => {
@@ -827,27 +828,27 @@ describe('createLensFinding', () => {
   // --- Confidence levels ---
   it('should assign rule confidence for security lens', () => {
     const finding = createLensFinding('security', 'security', 'high', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('rule');
+    expect(finding.confidence).toBe('rule');
   });
 
   it('should assign rule confidence for style lens', () => {
     const finding = createLensFinding('style', 'style', 'low', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('rule');
+    expect(finding.confidence).toBe('rule');
   });
 
   it('should assign rule confidence for testing lens', () => {
     const finding = createLensFinding('testing', 'test', 'medium', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('rule');
+    expect(finding.confidence).toBe('rule');
   });
 
   it('should assign low confidence for docs lens', () => {
     const finding = createLensFinding('docs', 'documentation', 'low', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('low');
+    expect(finding.confidence).toBe('low');
   });
 
   it('should assign heuristic confidence for api lens', () => {
     const finding = createLensFinding('api', 'api', 'medium', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('heuristic');
+    expect(finding.confidence).toBe('heuristic');
   });
 
   it('should assign heuristic confidence for performance lens', () => {
@@ -859,17 +860,17 @@ describe('createLensFinding', () => {
       'D',
       validEvidence,
     );
-    expect(finding!.confidence).toBe('heuristic');
+    expect(finding.confidence).toBe('heuristic');
   });
 
   it('should assign heuristic confidence for structure lens', () => {
     const finding = createLensFinding('structure', 'architecture', 'high', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('heuristic');
+    expect(finding.confidence).toBe('heuristic');
   });
 
   it('should assign heuristic confidence for deps lens', () => {
     const finding = createLensFinding('deps', 'maintainability', 'high', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('heuristic');
+    expect(finding.confidence).toBe('heuristic');
   });
 
   // --- Options ---
@@ -877,27 +878,27 @@ describe('createLensFinding', () => {
     const finding = createLensFinding('security', 'security', 'high', 'T', 'D', validEvidence, {
       suggestion: 'Use parameterized queries',
     });
-    expect(finding!.suggestion).toBe('Use parameterized queries');
+    expect(finding.suggestion).toBe('Use parameterized queries');
   });
 
   it('should set autoFixable from options', () => {
     const finding = createLensFinding('style', 'style', 'low', 'T', 'D', validEvidence, {
       autoFixable: true,
     });
-    expect(finding!.autoFixable).toBe(true);
+    expect(finding.autoFixable).toBe(true);
   });
 
   it('should set ruleId from options', () => {
     const finding = createLensFinding('security', 'security', 'high', 'T', 'D', validEvidence, {
       ruleId: 'custom-rule-123',
     });
-    expect(finding!.evidence.ruleId).toBe('custom-rule-123');
+    expect(finding.evidence.ruleId).toBe('custom-rule-123');
   });
 
   it('should fall back to evidence ruleId when options ruleId is not provided', () => {
     const evidenceWithRule = { ...validEvidence, ruleId: 'builtin-rule' };
     const finding = createLensFinding('security', 'security', 'high', 'T', 'D', evidenceWithRule);
-    expect(finding!.evidence.ruleId).toBe('builtin-rule');
+    expect(finding.evidence.ruleId).toBe('builtin-rule');
   });
 
   it('should set graphRef from options', () => {
@@ -912,7 +913,7 @@ describe('createLensFinding', () => {
         graphRef: 'node-abc-123',
       },
     );
-    expect(finding!.evidence.graphRef).toBe('node-abc-123');
+    expect(finding.evidence.graphRef).toBe('node-abc-123');
   });
 
   it('should use evidence graphRef when options graphRef is not provided', () => {
@@ -925,17 +926,17 @@ describe('createLensFinding', () => {
       'D',
       evidenceWithGraphRef,
     );
-    expect(finding!.evidence.graphRef).toBe('evidence-graph-ref');
+    expect(finding.evidence.graphRef).toBe('evidence-graph-ref');
   });
 
   it('should assign heuristic confidence for contract lens', () => {
     const finding = createLensFinding('contract', 'api', 'high', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('heuristic');
+    expect(finding.confidence).toBe('heuristic');
   });
 
   it('should assign heuristic confidence for synthesis lens', () => {
     const finding = createLensFinding('synthesis', 'api', 'info', 'T', 'D', validEvidence);
-    expect(finding!.confidence).toBe('heuristic');
+    expect(finding.confidence).toBe('heuristic');
   });
 });
 
@@ -959,7 +960,7 @@ describe('lensFindingToReviewComment', () => {
         lens: 'security',
       },
       { suggestion: 'Use environment variables instead' },
-    )!;
+    );
 
     const comment = lensFindingToReviewComment(finding);
     expect(comment.path).toBe('/src/config.ts');
@@ -989,7 +990,7 @@ describe('lensFindingToReviewComment', () => {
         codeSnippet: 'const x = 1',
         lens: 'style',
       },
-    )!;
+    );
 
     const comment = lensFindingToReviewComment(finding);
     expect(comment.suggestionCode).toBeUndefined();
@@ -1787,7 +1788,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec-sql',
-    })!;
+    });
 
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 100);
@@ -1803,7 +1804,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec-a',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'high', 'Issue B', 'desc', {
       filePath: '/test.ts',
       startLine: 3,
@@ -1811,7 +1812,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'style',
       ruleId: 'sty-b',
-    })!;
+    });
 
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 100);
@@ -1829,7 +1830,7 @@ describe('synthesizeFindings', () => {
         codeSnippet: 'x',
         lens: 'style',
         ruleId: 'sty-x',
-      })!;
+      });
       findings.push(f);
     }
     const report = makeReport({ findings });
@@ -1856,7 +1857,7 @@ describe('synthesizeFindings', () => {
         lens: 'security',
         ruleId: 'sec-c',
       },
-    )!;
+    );
     const lowFinding = createLensFinding('style', 'style', 'low', 'Low Issue', 'desc', {
       filePath: '/test.ts',
       startLine: 1,
@@ -1864,7 +1865,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty-l',
-    })!;
+    });
 
     const report = makeReport({ findings: [criticalFinding, lowFinding] });
     const result = synthesizeFindings([report], 200);
@@ -1881,7 +1882,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec-c',
-    })!;
+    });
 
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 100);
@@ -1896,7 +1897,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
 
     const securityReport = makeReport({ lens: 'security', findings: [finding] });
     const styleReport = makeReport({ lens: 'style', findings: [] });
@@ -1913,7 +1914,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'low', 'Common Issue', 'desc', {
       filePath: '/b.ts',
       startLine: 1,
@@ -1921,7 +1922,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const f3 = createLensFinding('style', 'style', 'low', 'Rare Issue', 'desc', {
       filePath: '/c.ts',
       startLine: 1,
@@ -1929,7 +1930,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
 
     const report = makeReport({ findings: [f1, f2, f3] });
     const result = synthesizeFindings([report], 300);
@@ -1946,7 +1947,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
 
     const report = makeReport({ findings: [finding] });
     const synthReport = generateSynthesisReport([report], 100);
@@ -1972,7 +1973,7 @@ describe('synthesizeFindings', () => {
           lens: 'structure',
           ruleId: 'struct',
         },
-      )!;
+      );
       findings.push(f);
     }
     const report = makeReport({ findings });
@@ -1994,7 +1995,7 @@ describe('synthesizeFindings', () => {
         codeSnippet: 'x',
         lens: 'style',
         ruleId: 'sty',
-      })!;
+      });
       findings.push(f);
     }
     const report = makeReport({ findings });
@@ -2020,7 +2021,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 1000);
     // Critical weight is 25, scaled penalty = 25 * (1000/1000) = 25, health = 75
@@ -2035,7 +2036,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 0);
     expect(result.summary.healthScore).toBe(100);
@@ -2049,7 +2050,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const f2 = createLensFinding('security', 'security', 'critical', 'Issue B', 'desc', {
       filePath: '/file1.ts',
       startLine: 1,
@@ -2057,7 +2058,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Both critical issues in same file should be grouped in one action
@@ -2073,7 +2074,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'low', 'Style Issue', 'desc', {
       filePath: '/test.ts',
       startLine: 1,
@@ -2081,7 +2082,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report1 = makeReport({ lens: 'security', findings: [f1] });
     const report2 = makeReport({ lens: 'style', findings: [f2] });
     const result = synthesizeFindings([report1, report2], 200);
@@ -2097,7 +2098,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 's',
-    })!;
+    });
     const high = createLensFinding('api', 'api', 'high', 'H', 'desc', {
       filePath: '/b.ts',
       startLine: 1,
@@ -2105,7 +2106,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'api',
       ruleId: 'a',
-    })!;
+    });
     const medium = createLensFinding('structure', 'architecture', 'medium', 'M', 'desc', {
       filePath: '/c.ts',
       startLine: 1,
@@ -2113,7 +2114,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'structure',
       ruleId: 'st',
-    })!;
+    });
     const low = createLensFinding('style', 'style', 'low', 'L', 'desc', {
       filePath: '/d.ts',
       startLine: 1,
@@ -2121,7 +2122,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report = makeReport({ findings: [critical, high, medium, low] });
     const result = synthesizeFindings([report], 400);
     expect(result.summary.critical).toBe(1);
@@ -2140,7 +2141,7 @@ describe('synthesizeFindings', () => {
         codeSnippet: 'x',
         lens: 'security',
         ruleId: 'sec',
-      })!;
+      });
       findings.push(f);
     }
     const report = makeReport({ findings });
@@ -2158,7 +2159,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'low', 'Issue B', 'desc', {
       filePath: '/file2.ts',
       startLine: 1,
@@ -2166,7 +2167,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Both should be kept since they're in different files
@@ -2182,7 +2183,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'low', 'Issue B', 'desc', {
       filePath: '/test.ts',
       startLine: 10,
@@ -2190,7 +2191,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Non-overlapping — both kept
@@ -2206,7 +2207,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'high', 'Same Line B', 'desc', {
       filePath: '/test.ts',
       startLine: 5,
@@ -2214,7 +2215,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 100);
     // Overlapping on same line — higher severity kept
@@ -2229,7 +2230,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const f2 = createLensFinding('security', 'security', 'critical', 'Issue', 'desc', {
       filePath: '/test.ts',
       startLine: 3,
@@ -2237,7 +2238,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Higher severity (critical) should win
@@ -2253,7 +2254,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const highF = createLensFinding('security', 'security', 'high', 'MultiSeverity Issue', 'desc', {
       filePath: '/b.ts',
       startLine: 1,
@@ -2261,7 +2262,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const report = makeReport({ findings: [lowF, highF] });
     const result = synthesizeFindings([report], 200);
     const topIssue = result.summary.topIssues.find((i) => i.title === 'MultiSeverity Issue');
@@ -2286,7 +2287,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'low', 'Unique Low', 'desc', {
       filePath: '/b.ts',
       startLine: 1,
@@ -2294,7 +2295,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     expect(result.summary.topIssues.length).toBe(2);
@@ -2312,7 +2313,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 10000);
     // Low severity (weight 1) with many lines → penalty is minimal
@@ -2331,7 +2332,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 0);
     expect(result.summary.healthScore).toBe(100);
@@ -2349,7 +2350,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const f2 = createLensFinding('style', 'style', 'high', 'Same Line Issue', 'desc', {
       filePath: '/test.ts',
       startLine: 3,
@@ -2357,7 +2358,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'y',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 100);
     // On same line, IoU=1, both overlap → higher severity kept
@@ -2377,7 +2378,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'style',
       ruleId: 'sty',
-    })!;
+    });
     const f2 = createLensFinding('security', 'security', 'critical', 'Consistent Issue', 'desc', {
       filePath: '/b.ts',
       startLine: 1,
@@ -2385,7 +2386,7 @@ describe('synthesizeFindings', () => {
       codeSnippet: 'x',
       lens: 'security',
       ruleId: 'sec',
-    })!;
+    });
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     const topIssue = result.summary.topIssues.find((i) => i.title === 'Consistent Issue');

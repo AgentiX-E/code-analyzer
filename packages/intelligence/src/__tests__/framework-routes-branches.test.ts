@@ -3,6 +3,7 @@
 // route groups, client-side load fallback, and FeignClient without a name).
 
 import { describe, it, expect } from 'vitest';
+
 import { FrameworkRouteDetector } from '../impact/framework-routes.js';
 
 describe('FrameworkRouteDetector — branch edge cases', () => {

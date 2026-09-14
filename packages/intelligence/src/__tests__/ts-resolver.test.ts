@@ -1,9 +1,11 @@
 // @code-analyzer/intelligence — TS LSP Resolver Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { TSResolverContext, resolveImport, isBuiltinType } from '../lsp/ts-resolver.js';
 import { TypeRegistry, buildProjectRegistry, createPerFileOverlay } from '../lsp/type-registry.js';
 import { t, typeToString, BUILTINS } from '../lsp/type-rep.js';
+
 import type { FileDefinition, FileImport } from '../lsp/type-registry.js';
 
 describe('TSResolverContext', () => {

@@ -5,8 +5,9 @@
 // Uses the Cooper-Harvey-Kennedy algorithm for computing dominators
 // and immediate dominators in O(N²) worst-case, O(N log N) typical.
 
-import type { ControlFlowGraph } from './cfg-types.js';
 import { intersectSets, setEquals } from './set-utils.js';
+
+import type { ControlFlowGraph } from './cfg-types.js';
 
 /**
  * Compute the set of dominators for each block in the CFG.
@@ -48,7 +49,7 @@ export function computeDominators(cfg: ControlFlowGraph): Map<number, Set<number
 
       // Every block is pre-seeded with a dominator set and preds is non-empty
       // here, so the first predecessor always seeds the intersection.
-      let newDom = new Set(dom.get(preds[0]!.id)!);
+      let newDom = new Set(dom.get(preds[0]!.id));
       for (let i = 1; i < preds.length; i++) {
         newDom = intersectSets(newDom, dom.get(preds[i]!.id)!);
       }
@@ -260,8 +261,8 @@ export function findNaturalLoops(cfg: ControlFlowGraph): Map<number, number[]> {
           // the header, plus the edge p -> c, would reach c without passing the
           // header. Hence every predecessor reached here is dominated by the
           // header and a dominance check would always succeed.
-          if (!loop!.includes(pred.id)) {
-            loop!.push(pred.id);
+          if (!loop.includes(pred.id)) {
+            loop.push(pred.id);
           }
           stack.push(pred.id);
         }

@@ -6,7 +6,9 @@
 // non-empty (and duplicated) target repos to exercise the Set-dedup map.
 
 import { describe, it, expect } from 'vitest';
+
 import { ContractValidator } from '../../cross-repo/contract-validator.js';
+
 import type { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
 import type { GraphNode } from '@code-analyzer/shared';
 

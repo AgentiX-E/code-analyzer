@@ -2,9 +2,11 @@
 // Uses banded MinHash to efficiently find candidate near-duplicate pairs.
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphEdge } from '@code-analyzer/shared';
 import { EDGE_SIMILAR_TO } from '@code-analyzer/shared';
+
 import { MinHashSimilarity } from './minhash.js';
+
+import type { GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types

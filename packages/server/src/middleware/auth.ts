@@ -1,8 +1,8 @@
 // @code-analyzer/server — Auth Middleware
 // API key-based authentication for protected routes.
 
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AuthConfig } from '../server-config.js';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 /**
  * Register authentication middleware on a Fastify instance.

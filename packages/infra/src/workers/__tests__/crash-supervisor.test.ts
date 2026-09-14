@@ -1,5 +1,6 @@
 // @code-analyzer/infra — Crash Supervisor Tests
 import { describe, it, expect } from 'vitest';
+
 import { CrashSupervisor } from '../crash-supervisor.js';
 
 describe('CrashSupervisor', () => {

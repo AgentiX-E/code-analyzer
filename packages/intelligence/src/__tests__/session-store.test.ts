@@ -1,20 +1,23 @@
 // @code-analyzer/intelligence — Session Store Tests
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import {
   SessionStore,
   computeFileFingerprint,
   generateSessionId,
 } from '../review/session-store.js';
+
 import type {
   SessionMetadata,
   ReviewItemResult,
   ReviewItemError,
 } from '../review/session-store.js';
 import type { ReviewComment } from '@code-analyzer/shared';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
 // ---------------------------------------------------------------------------
 // Helpers

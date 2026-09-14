@@ -3,10 +3,10 @@
 // batching support, health tracking, and automatic worker restart.
 // Falls back gracefully to main-thread processing when workers are unavailable.
 
-import { Worker } from 'node:worker_threads';
-import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { cpus } from 'node:os';
+import { resolve } from 'node:path';
+import { Worker } from 'node:worker_threads';
 
 // ---------------------------------------------------------------------------
 // Types

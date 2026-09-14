@@ -12,8 +12,8 @@ import {
   CrossRepoIndexer,
   CrossRepoPRReviewEngine,
 } from '@code-analyzer/intelligence';
-import type { PipelineOrchestrator } from '@code-analyzer/analyzer';
-import type { PipelineResult } from '@code-analyzer/analyzer';
+
+import type { PipelineOrchestrator, PipelineResult } from '@code-analyzer/analyzer';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

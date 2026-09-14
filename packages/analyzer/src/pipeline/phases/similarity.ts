@@ -1,12 +1,13 @@
 // @code-analyzer/analyzer — Pipeline Phase: Similarity
 
-import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger, EDGE_SIMILAR_TO } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_SIMILAR_TO } from '@code-analyzer/shared';
+
+import { GraphBuilder } from '../../graph/graph-builder.js';
+import { simpleHash } from '../phase-helpers.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { simpleHash } from '../phase-helpers.js';
-import { GraphBuilder } from '../../graph/graph-builder.js';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Similarity helpers

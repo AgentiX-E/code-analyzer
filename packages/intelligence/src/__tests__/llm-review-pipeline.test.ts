@@ -1,6 +1,8 @@
 // @code-analyzer/intelligence — LLM Review Pipeline Integration Tests
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { LLMReviewPipeline } from '../review/llm-review-pipeline.js';
+
 import type { LLMFinding } from '../review/llm/prompts.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
@@ -412,7 +414,7 @@ describe('LLMReviewPipeline — Error Handling', () => {
       endLine: 1,
       snippet: 'const x = 1;',
       category: '' as any,
-      lane: '' as any,
+      lane: '',
     });
     const pipeline = new LLMReviewPipeline();
     const result = pipeline.processFindings([finding], content, 'file.ts');
@@ -442,7 +444,7 @@ describe('LLMReviewPipeline — Error Handling', () => {
       endLine: 1,
       snippet: 'code line 1',
       lane: 'performance',
-      category: undefined as any,
+      category: undefined,
     });
     const pipeline = new LLMReviewPipeline();
     const result = pipeline.processFindings([finding], content, 'file.ts');

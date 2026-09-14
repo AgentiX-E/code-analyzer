@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — API Lens Tests
 import { describe, it, expect } from 'vitest';
+
 import { analyzeApi, generateApiReport } from '../lenses/api-lens.js';
 
 describe('API Lens', () => {

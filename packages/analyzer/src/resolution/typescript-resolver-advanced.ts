@@ -11,14 +11,16 @@
 // to regex-based parsing for edge cases.
 
 import Parser from 'tree-sitter';
-import type { SyntaxNode } from 'tree-sitter';
+
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
-import type { TypeInfo } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
   type ResolvedType,
   type TypeContext,
 } from '../resolution/type-resolver-base.js';
+
+import type { TypeInfo } from '../resolution/type-registry.js';
+import type { SyntaxNode } from 'tree-sitter';
 
 // ---------------------------------------------------------------------------
 // Lazy language loader
@@ -352,7 +354,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
 
     // Check if the base is a known generic utility type
     if (genericHandlers[base]) {
-      const result = genericHandlers[base]!(args);
+      const result = genericHandlers[base](args);
       if (result) return result;
     }
 

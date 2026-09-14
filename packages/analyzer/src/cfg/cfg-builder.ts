@@ -3,9 +3,10 @@
 // Groups captures by function/method, identifies control flow boundaries,
 // and constructs basic blocks with successor/predecessor edges.
 
-import type { UnifiedCapture } from '@code-analyzer/shared';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
 import type { BasicBlock, ControlFlowGraph } from './cfg-types.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
 
 /**
  * Control flow boundary information for a block.

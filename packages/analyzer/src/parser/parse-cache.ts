@@ -3,7 +3,9 @@
 // re-parsing unchanged files. Uses LRU eviction to bound memory usage.
 
 import { createHash } from 'node:crypto';
+
 import { LRUCache } from '@code-analyzer/shared';
+
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
