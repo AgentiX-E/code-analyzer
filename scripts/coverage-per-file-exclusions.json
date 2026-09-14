@@ -2,25 +2,20 @@
   "comment": [
     "Files that cannot reach the per-file threshold, with the reason and the floor they are held to.",
     "",
-    "An entry here is a deliberate, reviewable decision — it shows up in the diff. It is NOT an",
+    "An entry here is a deliberate, reviewable decision \u2014 it shows up in the diff. It is NOT an",
     "exemption: the file must still stay above its recorded floor, so nothing can quietly regress.",
     "Leave out a floor for a dimension and that dimension keeps the full threshold.",
     "",
     "Add an entry only after establishing that the residue is unreachable on the platform the gate",
     "runs on. The two shapes that qualify so far are a platform-dependent branch and an arm whose",
-    "only path needs network access."
+    "only path needs network access.",
+    "Removed: `intelligence/github/repo-sync.ts` (branches >= 90). Its floor rested on the belief that its tests needed network access. They do not: the integration tests build local git repositories. The belief came from a command wrapped in `timeout`, which macOS does not have, so the tests never ran and the empty output was read as a hang. With them running, the file clears 95 locally."
   ],
   "exclusions": {
     "packages/infra/src/filesystem/watcher.ts": {
       "reason": "Platform-dependent arms. fs.watch reports an in-place write as 'rename' under FSEvents (macOS) and as 'change' under inotify (Linux), so no single platform can execute both the 'change' branch and the FSEvents-specific rename paths. Measured 85.18% branches on the Linux CI runner and 92.59% locally, with different uncovered lines in each case.",
       "floors": {
         "branches": 85
-      }
-    },
-    "packages/intelligence/src/github/repo-sync.ts": {
-      "reason": "Two arms are reached only by the integration tests that clone from github.com, which the local sandbox cannot do; on the CI runner those tests run and the file measures 100/97.91/100/100. The floor keeps the gate usable in both environments without hiding a regression either one can see.",
-      "floors": {
-        "branches": 90
       }
     }
   }
