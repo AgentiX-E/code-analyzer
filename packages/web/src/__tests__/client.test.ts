@@ -15,7 +15,7 @@ describe('getHealth', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should return health response on success', async () => {
@@ -108,7 +108,7 @@ describe('getApiHealth', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should fetch from /api/v1/health', async () => {
@@ -141,7 +141,7 @@ describe('getServiceInfo', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should return service info from root endpoint', async () => {
@@ -172,7 +172,7 @@ describe('getToolList', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should return tool list', async () => {
@@ -218,7 +218,7 @@ describe('callTool', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should call a tool with args', async () => {
@@ -283,7 +283,7 @@ describe('getIndexStatus', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should parse structured index status', async () => {
@@ -377,7 +377,7 @@ describe('searchCode', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should search with query and options', async () => {
@@ -433,7 +433,7 @@ describe('searchGraph', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should return graph data', async () => {
@@ -513,7 +513,7 @@ describe('listProjects', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should list projects', async () => {
@@ -555,7 +555,7 @@ describe('analyzeRepository', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
-    client = await import('../api/client');
+    client = await import('../api/client.js');
   });
 
   it('should analyze a repository', async () => {
@@ -627,7 +627,7 @@ describe('analyzeRepository', () => {
 
 describe('ApiError', () => {
   it('should be an instance of Error', async () => {
-    const { ApiError } = await import('../api/client');
+    const { ApiError } = await import('../api/client.js');
     const err = new ApiError(404, 'Not found');
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe('ApiError');
@@ -638,7 +638,7 @@ describe('ApiError', () => {
 
 describe('NetworkError', () => {
   it('should be an instance of Error', async () => {
-    const { NetworkError } = await import('../api/client');
+    const { NetworkError } = await import('../api/client.js');
     const err = new NetworkError('Offline');
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe('NetworkError');

@@ -27,7 +27,7 @@ describe('useApiHealth', () => {
     });
     mockFetch.mockReturnValueOnce(promise);
 
-    const { useApiHealth } = await import('../hooks/useApiHealth');
+    const { useApiHealth } = await import('../hooks/useApiHealth.js');
     const { result, unmount } = renderHook(() => useApiHealth(5000));
 
     expect(result.current.loading).toBe(true);
@@ -75,7 +75,7 @@ describe('useApiHealth', () => {
         }),
     });
 
-    const { useApiHealth } = await import('../hooks/useApiHealth');
+    const { useApiHealth } = await import('../hooks/useApiHealth.js');
     const { result, unmount } = renderHook(() => useApiHealth(60000));
 
     await waitFor(() => {
@@ -93,7 +93,7 @@ describe('useApiHealth', () => {
   it('should set error on failed fetch', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const { useApiHealth } = await import('../hooks/useApiHealth');
+    const { useApiHealth } = await import('../hooks/useApiHealth.js');
     const { result, unmount } = renderHook(() => useApiHealth(60000));
 
     await waitFor(() => {
@@ -124,7 +124,7 @@ describe('useApiHealth', () => {
         }),
     });
 
-    const { useApiHealth } = await import('../hooks/useApiHealth');
+    const { useApiHealth } = await import('../hooks/useApiHealth.js');
     const { result, unmount } = renderHook(() => useApiHealth(60000));
 
     await waitFor(() => {
@@ -164,7 +164,7 @@ describe('useToolList', () => {
         }),
     });
 
-    const { useToolList } = await import('../hooks/useToolList');
+    const { useToolList } = await import('../hooks/useToolList.js');
     const { result } = renderHook(() => useToolList());
 
     await waitFor(() => {
@@ -180,7 +180,7 @@ describe('useToolList', () => {
   it('should set error on failure', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Failed'));
 
-    const { useToolList } = await import('../hooks/useToolList');
+    const { useToolList } = await import('../hooks/useToolList.js');
     const { result } = renderHook(() => useToolList());
 
     await waitFor(() => {
@@ -197,7 +197,7 @@ describe('useToolList', () => {
       json: () => Promise.resolve({ total: 0, tools: [] }),
     });
 
-    const { useToolList } = await import('../hooks/useToolList');
+    const { useToolList } = await import('../hooks/useToolList.js');
     const { result } = renderHook(() => useToolList());
 
     await waitFor(() => {
@@ -215,7 +215,7 @@ describe('useToolList', () => {
 
 describe('useSearch', () => {
   it('should not search for empty query', async () => {
-    const { useSearch } = await import('../hooks/useSearch');
+    const { useSearch } = await import('../hooks/useSearch.js');
     const { result } = renderHook(() => useSearch('', { debounceMs: 100 }));
 
     // Empty query should not trigger loading
@@ -244,7 +244,7 @@ describe('useSearch', () => {
         }),
     });
 
-    const { useSearch } = await import('../hooks/useSearch');
+    const { useSearch } = await import('../hooks/useSearch.js');
     const { result, rerender } = renderHook(({ q }) => useSearch(q, { debounceMs: 10 }), {
       initialProps: { q: '' },
     });
@@ -272,7 +272,7 @@ describe('useSearch', () => {
   it('should set error on failure', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Search failed'));
 
-    const { useSearch } = await import('../hooks/useSearch');
+    const { useSearch } = await import('../hooks/useSearch.js');
     const { result, rerender } = renderHook(({ q }) => useSearch(q, { debounceMs: 10 }), {
       initialProps: { q: '' },
     });
@@ -301,7 +301,7 @@ describe('useSearch', () => {
         }),
     });
 
-    const { useSearch } = await import('../hooks/useSearch');
+    const { useSearch } = await import('../hooks/useSearch.js');
     const { rerender } = renderHook(({ q, o }) => useSearch(q, o), {
       initialProps: { q: '', o: { debounceMs: 10, limit: 10, projectId: 'p1' } },
     });
@@ -338,7 +338,7 @@ describe('useGraphStats', () => {
         }),
     });
 
-    const { useGraphStats } = await import('../hooks/useGraphStats');
+    const { useGraphStats } = await import('../hooks/useGraphStats.js');
     const { result } = renderHook(() => useGraphStats());
 
     await waitFor(() => {
@@ -363,7 +363,7 @@ describe('useGraphStats', () => {
         }),
     });
 
-    const { useGraphStats } = await import('../hooks/useGraphStats');
+    const { useGraphStats } = await import('../hooks/useGraphStats.js');
     renderHook(() => useGraphStats('my-proj'));
 
     await waitFor(() => {
@@ -385,7 +385,7 @@ describe('useGraphStats', () => {
         }),
     });
 
-    const { useGraphStats } = await import('../hooks/useGraphStats');
+    const { useGraphStats } = await import('../hooks/useGraphStats.js');
     const { result } = renderHook(() => useGraphStats());
 
     await waitFor(() => {
@@ -398,7 +398,7 @@ describe('useGraphStats', () => {
   it('should set error on failure', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Stats unavailable'));
 
-    const { useGraphStats } = await import('../hooks/useGraphStats');
+    const { useGraphStats } = await import('../hooks/useGraphStats.js');
     const { result } = renderHook(() => useGraphStats());
 
     await waitFor(() => {
@@ -420,7 +420,7 @@ describe('useGraphStats', () => {
         }),
     });
 
-    const { useGraphStats } = await import('../hooks/useGraphStats');
+    const { useGraphStats } = await import('../hooks/useGraphStats.js');
     const { result } = renderHook(() => useGraphStats());
 
     await waitFor(() => {
@@ -466,7 +466,7 @@ describe('useAnalyze', () => {
         }),
     });
 
-    const { useAnalyze } = await import('../hooks/useAnalyze');
+    const { useAnalyze } = await import('../hooks/useAnalyze.js');
     const { result } = renderHook(() => useAnalyze());
 
     expect(result.current.loading).toBe(false);
@@ -486,7 +486,7 @@ describe('useAnalyze', () => {
   it('should set error on failure', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Analysis failed'));
 
-    const { useAnalyze } = await import('../hooks/useAnalyze');
+    const { useAnalyze } = await import('../hooks/useAnalyze.js');
     const { result } = renderHook(() => useAnalyze());
 
     let analyzeResult: unknown;
@@ -509,7 +509,7 @@ describe('useAnalyze', () => {
         }),
     });
 
-    const { useAnalyze } = await import('../hooks/useAnalyze');
+    const { useAnalyze } = await import('../hooks/useAnalyze.js');
     const { result } = renderHook(() => useAnalyze());
 
     await act(async () => {
