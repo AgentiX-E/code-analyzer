@@ -123,11 +123,7 @@ describe('resolvers — dependencyGraph', () => {
   });
 
   it('handles single-segment file paths as the root package', () => {
-    const a = insertNode({
-      projectId: 'p1',
-      filePath: 'standalone.ts',
-      qualifiedName: 'standalone',
-    });
+    void insertNode({ projectId: 'p1', filePath: 'standalone.ts', qualifiedName: 'standalone' });
     const graph = resolvers.Query.dependencyGraph(null, { projectId: 'p1' }, ctx);
     expect(graph.packages).toContain('.');
     expect(graph.nodeCount).toBeGreaterThanOrEqual(1);

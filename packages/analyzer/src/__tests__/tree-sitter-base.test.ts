@@ -416,7 +416,7 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect call site capture', () => {
       const source = 'function test() { console.log("hello"); }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const calls = captures.filter(
+      void captures.filter(
         (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL || c.tag === CAPTURE_TAGS.METHOD_CALL,
       );
       expect(Array.isArray(captures)).toBe(true);

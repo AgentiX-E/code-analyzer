@@ -139,11 +139,7 @@ describe('InMemoryGraphStore Performance', () => {
     const nodes = generateNodes(10_000);
     store.insertNodes(nodes);
     const start = performance.now();
-    const result = store.queryNodes({
-      projectId: 'perf-test',
-      namePattern: 'node_10*',
-      limit: 100,
-    });
+    void store.queryNodes({ projectId: 'perf-test', namePattern: 'node_10*', limit: 100 });
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(100);
   });

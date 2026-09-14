@@ -20,7 +20,7 @@ function createStoreWithData(): InMemoryGraphStore {
     qualifiedName: 'fetchData',
     filePath: 'src/api.ts',
   });
-  const cId = insertNode(store, {
+  void insertNode(store, {
     projectId: 'test-project',
     label: 'Class',
     name: 'DataService',

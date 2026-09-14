@@ -1,7 +1,6 @@
 // @code-analyzer/server — HTTP Server Integration Tests
 
 import { describe, it, expect, afterEach } from 'vitest';
-import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 
 import { createServer } from '../http-server.js';

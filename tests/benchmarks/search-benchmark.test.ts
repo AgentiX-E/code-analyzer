@@ -93,7 +93,7 @@ describe('Search Performance', () => {
 
     // Add nodes to the graph
     for (let i = 0; i < INDEX_FILES; i++) {
-      const node = builder.addNode({
+      void builder.addNode({
         label: 'Class',
         properties: {
           name: `Service${i}`,

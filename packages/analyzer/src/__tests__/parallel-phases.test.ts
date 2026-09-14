@@ -374,7 +374,7 @@ describe('ParallelParsePhase', () => {
 
       // Add file node to the graph so symbol edges can reference it
       const filePath = '/fake/project/src/app.ts';
-      const fileNode = builder.addNode(
+      void builder.addNode(
         graph,
         'File',
         filePath,

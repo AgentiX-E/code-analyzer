@@ -430,7 +430,7 @@ describe('impactAnalysis', () => {
       makeNode({ name: 'dep', qualifiedName: 'pkg.dep', filePath: '/dep.ts' }),
     );
     // `orphan` has no edges at all and a null filePath (filtered out of files).
-    const orphan = store.insertNode(
+    void store.insertNode(
       makeNode({ name: 'orphan', qualifiedName: 'pkg.orphan', filePath: null }),
     );
     store.insertEdge(makeEdge({ sourceId: dep, targetId: root, type: 'CALLS' }));

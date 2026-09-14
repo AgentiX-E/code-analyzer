@@ -131,10 +131,7 @@ describe('Performance: queryNodes with secondary indexes', () => {
 
   it('searchFts with projectId should pre-filter by project index', () => {
     const start = performance.now();
-    const results = store.searchFts('node_42', {
-      projectId: 'proj-a',
-      limit: 5,
-    });
+    void store.searchFts('node_42', { projectId: 'proj-a', limit: 5 });
     const elapsed = performance.now() - start;
 
     // Should find at least one match (node_42, node_420, node_421, etc.)

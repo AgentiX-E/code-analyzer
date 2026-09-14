@@ -1773,9 +1773,7 @@ describe('InMemoryGraphStore', () => {
 
   describe('pattern cache', () => {
     it('caches regex patterns for repeated queries', () => {
-      const n1 = store.insertNode(
-        createTestNode({ qualifiedName: 'cache.test', name: 'cachedName' }),
-      );
+      void store.insertNode(createTestNode({ qualifiedName: 'cache.test', name: 'cachedName' }));
 
       // First query — should build and cache regex
       const r1 = store.queryNodes({ projectId: 'test-project', namePattern: 'cached*' });
