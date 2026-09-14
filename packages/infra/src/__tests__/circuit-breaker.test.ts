@@ -2,7 +2,6 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CircuitBreaker } from '../workers/circuit-breaker.js';
-import type { CircuitBreakerOptions } from '../workers/circuit-breaker.js';
 
 describe('CircuitBreaker', () => {
   let breaker: CircuitBreaker;

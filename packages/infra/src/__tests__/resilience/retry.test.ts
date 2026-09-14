@@ -8,7 +8,6 @@ import {
   isRateLimitError,
   isTransientError,
 } from '../../resilience/retry.js';
-import type { RetryOptions } from '../../resilience/retry.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

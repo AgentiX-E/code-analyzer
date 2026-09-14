@@ -8,8 +8,6 @@ import {
   type SecurityPolicy,
   type ThreatCategory,
   type Countermeasure,
-  type AuditFinding,
-  type AuditReport,
 } from '../security/assurance-case.js';
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,6 @@
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { SSETransport } from '../transport/sse-transport.js';
-import type { SSEEvent } from '../transport/sse-transport.js';
 import * as http from 'node:http';
 import type { Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';

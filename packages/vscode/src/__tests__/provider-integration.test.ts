@@ -8,7 +8,6 @@ import { CommentLogic } from '../providers/comment-provider.js';
 import { GraphTreeDataProviderLogic } from '../providers/tree-view-provider.js';
 import { GraphExplorerLogic } from '../providers/graph-explorer.js';
 import type { EngineBridge, ReviewCommentItem } from '../services/engine-bridge.js';
-import type { TreeItemData } from '../providers/tree-view-provider.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

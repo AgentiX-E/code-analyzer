@@ -5,7 +5,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { detectProject, detectToolVersion } from '../project/project-detector.js';
-import type { ProjectInfo } from '../project/project-detector.js';
 
 describe('ProjectDetector', () => {
   let rootPath: string;

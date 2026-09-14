@@ -12,7 +12,6 @@ import { BatchFileReader } from '@code-analyzer/infra';
 import { createParseCache, computeContentHash } from '@code-analyzer/infra';
 import { tokenize } from '@code-analyzer/intelligence';
 import '@code-analyzer/shared';
-import type { UnifiedCapture } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test Helpers

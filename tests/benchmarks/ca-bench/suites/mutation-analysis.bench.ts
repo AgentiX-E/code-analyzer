@@ -6,7 +6,6 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { MutantAnalysis } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Test Quality Metrics

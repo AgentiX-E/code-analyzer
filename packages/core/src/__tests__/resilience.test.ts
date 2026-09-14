@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { RetryPolicy, DeadLetterQueue } from '../operations/resilience.js';
 
-import type { DeadLetterEntry } from '../operations/resilience.js';
-
 describe('RetryPolicy', () => {
   describe('successful execution', () => {
     it('should return the result on first attempt', async () => {

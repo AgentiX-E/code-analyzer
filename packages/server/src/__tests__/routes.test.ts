@@ -10,7 +10,6 @@ import { registerSSERoutes, sendSSEEvent } from '../routes/sse.js';
 import { registerErrorHandler } from '../middleware/error-handler.js';
 import { resolveConfig } from '../server-config.js';
 import { ToolRegistry } from '@code-analyzer/mcp';
-import type { ToolContext } from '@code-analyzer/mcp';
 import { HealthCheckRegistry } from '@code-analyzer/core';
 
 // ---------------------------------------------------------------------------

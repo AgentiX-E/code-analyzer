@@ -7,8 +7,6 @@ import {
   createThresholdCheck,
 } from '../../resilience/health-check.js';
 
-import type { HealthStatus } from '../../resilience/health-check.js';
-
 // ---------------------------------------------------------------------------
 // HealthCheckRegistry
 // ---------------------------------------------------------------------------

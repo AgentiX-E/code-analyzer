@@ -9,7 +9,6 @@ import { CheckpointStore } from '../crash-recovery/checkpoint-store.js';
 import { QuarantineManager } from '../crash-recovery/quarantine.js';
 import { RecoveryManager } from '../crash-recovery/recovery-manager.js';
 import type { Checkpoint } from '../crash-recovery/checkpoint-store.js';
-import type { QuarantinedFile } from '../crash-recovery/quarantine.js';
 
 // ---------------------------------------------------------------------------
 // Test Helpers

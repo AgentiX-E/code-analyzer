@@ -4,8 +4,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CircuitBreaker } from '../../workers/circuit-breaker.js';
 
-import type { CircuitState } from '../../workers/circuit-breaker.js';
-
 // ---------------------------------------------------------------------------
 // CircuitBreaker Tests
 // ---------------------------------------------------------------------------

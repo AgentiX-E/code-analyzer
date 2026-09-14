@@ -3,7 +3,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { GraphTreeDataProviderLogic } from '../providers/tree-view-provider.js';
-import type { TreeItemData } from '../providers/tree-view-provider.js';
 import { EngineBridge } from '../services/engine-bridge.js';
 import { PROJECT, seedGraph } from './fixtures/seeded-graph.js';
 import type { SeededGraph } from './fixtures/seeded-graph.js';
