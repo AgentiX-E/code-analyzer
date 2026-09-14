@@ -301,7 +301,7 @@ describe('ReviewDecorationLogic', () => {
     it('filters by critical — keeps only critical', () => {
       const filtered = logic.filterByMinSeverity(comments, 'critical');
       expect(filtered.length).toBe(1);
-      expect(filtered[0].title).toBe('c1');
+      expect(filtered[0]!.title).toBe('c1');
     });
 
     it('filters by high — keeps critical and high', () => {
@@ -450,7 +450,7 @@ describe('ReviewDecorationLogic', () => {
       const comments = [makeComment({ path: 'src/x.ts', startLine: 42 })];
       const groups = logic.groupDecorationsByFile(comments);
       const group = groups.get('src/x.ts');
-      expect(group?.[0].line).toBe(41); // startLine - 1
+      expect(group?.[0]!.line).toBe(41); // startLine - 1
     });
 
     it('each group entry has config and comment', () => {
@@ -466,7 +466,7 @@ describe('ReviewDecorationLogic', () => {
       const groups = logic.groupDecorationsByFile(comments);
       expect(groups.size).toBe(1);
       const group = groups.get('src/test.ts');
-      expect(group?.[0].config.severity).toBe('info');
+      expect(group?.[0]!.config.severity).toBe('info');
     });
   });
 

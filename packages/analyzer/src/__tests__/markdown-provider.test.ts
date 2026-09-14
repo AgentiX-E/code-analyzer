@@ -99,7 +99,7 @@ describe('MarkdownProvider', () => {
       const code = '# Title\n- Item 1\n- Item 2';
       const captures = provider.parse(code, 'test.md');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 

@@ -109,7 +109,7 @@ describe('RProvider', () => {
       const code = 'x <- 10\nmyfunc <- function() { }\nlibrary(dplyr)';
       const captures = provider.parse(code, 'test.R');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 
@@ -244,7 +244,7 @@ describe('RProvider', () => {
       const code = 'x <- 10\ny <- 20\nf <- function() { }';
       const captures = provider.fallbackParse(code, 'test.R');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 

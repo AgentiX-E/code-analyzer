@@ -368,7 +368,7 @@ describe('GroovyProvider', () => {
     it('should extract imports via the regex fallback', () => {
       const imports = regex.extractImports('import a.b.C\nimport static d.E', 'f.groovy');
       expect(imports.map((i) => i.source)).toEqual(['a.b.C', 'd.E']);
-      expect(imports[0].names).toEqual(['C']);
+      expect(imports[0]!.names).toEqual(['C']);
     });
 
     it('should report exported by default via the regex fallback', () => {

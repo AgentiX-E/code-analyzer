@@ -121,7 +121,7 @@ describe('SqlProvider', () => {
       const code = 'CREATE TABLE a (id INT);\nCREATE TABLE b (id INT);';
       const captures = provider.parse(code, 'test.sql');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 
@@ -227,7 +227,7 @@ describe('SqlProvider', () => {
       const code = 'CREATE TABLE a (id INT);\nSELECT * FROM a;';
       const captures = provider.parse(code, 'test.sql');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 

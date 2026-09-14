@@ -161,7 +161,7 @@ describe('RustProvider', () => {
       const code = 'use std::io;\nfn first() { }\npub fn second() { }';
       const captures = provider.parse(code, 'test.rs');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 
@@ -291,8 +291,8 @@ describe('RustProvider', () => {
       const code = 'use std::collections::HashMap;';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].names).toContain('HashMap');
-      expect(imports[0].type).toBe('named');
+      expect(imports[0]!.names).toContain('HashMap');
+      expect(imports[0]!.type).toBe('named');
     });
 
     it('should extract wildcard imports', () => {
@@ -308,8 +308,8 @@ describe('RustProvider', () => {
       const code = 'use std::collections::HashMap as Map;';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].names).toContain('HashMap');
-      expect(imports[0].type).toBe('named');
+      expect(imports[0]!.names).toContain('HashMap');
+      expect(imports[0]!.type).toBe('named');
     });
 
     it('should handle files without imports', () => {
@@ -321,7 +321,7 @@ describe('RustProvider', () => {
       const code = '// comment\nuse std::collections::HashMap;';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].lineNumber).toBe(2);
+      expect(imports[0]!.lineNumber).toBe(2);
     });
 
     it('should extract use with self path', () => {
@@ -453,7 +453,7 @@ describe('RustProvider', () => {
       const code = 'use std::collections::*;';
       const imports = provider.fallbackExtractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].type).toBe('wildcard');
+      expect(imports[0]!.type).toBe('wildcard');
     });
 
     it('fallbackExtractImports should handle empty source', () => {

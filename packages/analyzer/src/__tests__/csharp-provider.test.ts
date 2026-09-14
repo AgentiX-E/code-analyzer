@@ -204,7 +204,7 @@ describe('CSharpProvider', () => {
         't.cs',
       );
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
   });

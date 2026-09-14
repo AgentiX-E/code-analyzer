@@ -239,10 +239,10 @@ describe('detectChanges', () => {
     const data = parseText(result);
     const symbols = data['changedSymbols'] as Array<{ name: string; dependencyCount: number }>;
     expect(symbols.length).toBeGreaterThanOrEqual(2);
-    expect(symbols[0].name).toBe('b');
-    expect(symbols[0].dependencyCount).toBe(6);
-    expect(symbols[1].name).toBe('a');
-    expect(symbols[1].dependencyCount).toBe(4);
+    expect(symbols[0]!.name).toBe('b');
+    expect(symbols[0]!.dependencyCount).toBe(6);
+    expect(symbols[1]!.name).toBe('a');
+    expect(symbols[1]!.dependencyCount).toBe(4);
   });
 
   it('returns an error when graph stats throw an Error', async () => {
@@ -252,7 +252,7 @@ describe('detectChanges', () => {
     };
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Change detection error: boom');
+    expect(result.content[0]!.text).toContain('Change detection error: boom');
   });
 
   it('stringifies a non-Error thrown value', async () => {
@@ -262,7 +262,7 @@ describe('detectChanges', () => {
     };
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Change detection error: plain failure');
+    expect(result.content[0]!.text).toContain('Change detection error: plain failure');
   });
 });
 
@@ -453,7 +453,7 @@ describe('impactAnalysis', () => {
       store,
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Impact analysis error');
+    expect(result.content[0]!.text).toContain('Impact analysis error');
   });
 
   it('stringifies a non-Error thrown during traversal', async () => {
@@ -466,7 +466,7 @@ describe('impactAnalysis', () => {
       store,
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Impact analysis error: plain failure');
+    expect(result.content[0]!.text).toContain('Impact analysis error: plain failure');
   });
 });
 
@@ -500,7 +500,7 @@ describe('routeMap', () => {
     const routes = data['routes'] as Array<Record<string, unknown>>;
     expect(data['routeCount']).toBe(2);
     expect(routes[0]).toMatchObject({ method: 'POST', path: '/api/x' });
-    expect(routes[0]['handler']).toBeUndefined();
+    expect(routes[0]!['handler']).toBeUndefined();
     expect(routes[1]).toMatchObject({ method: 'GET', path: 'routes.bare' });
   });
 
@@ -521,11 +521,11 @@ describe('routeMap', () => {
     const result = await routeMap({ projectId: 'p1', includeHandlers: true }, ctx);
     const data = parseText(result);
     const routes = data['routes'] as Array<Record<string, unknown>>;
-    expect(routes[0]['handler']).toBe('handler');
-    expect(routes[0]['filePath']).toBe('/src/routes.ts');
+    expect(routes[0]!['handler']).toBe('handler');
+    expect(routes[0]!['filePath']).toBe('/src/routes.ts');
     // A null filePath collapses to undefined rather than leaking null.
-    expect(routes[1]['handler']).toBe('bare');
-    expect(routes[1]['filePath']).toBeUndefined();
+    expect(routes[1]!['handler']).toBe('bare');
+    expect(routes[1]!['filePath']).toBeUndefined();
   });
 
   it('returns an error when the graph store is closed', async () => {
@@ -533,7 +533,7 @@ describe('routeMap', () => {
     store.close();
     const result = await routeMap({ projectId: 'p1' }, store);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Route map error');
+    expect(result.content[0]!.text).toContain('Route map error');
   });
 
   it('stringifies a non-Error thrown during node listing', async () => {
@@ -543,7 +543,7 @@ describe('routeMap', () => {
     });
     const result = await routeMap({ projectId: 'p1' }, store);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Route map error: plain failure');
+    expect(result.content[0]!.text).toContain('Route map error: plain failure');
   });
 });
 
@@ -573,7 +573,7 @@ describe('checkCycles', () => {
     const data = parseText(result);
     expect(data['cyclesFound']).toBe(1);
     const cycles = data['cycles'] as Array<{ nodes: string[]; types: string[] }>;
-    expect(cycles[0].nodes).toEqual(['pkg.a', 'pkg.b', 'pkg.c']);
+    expect(cycles[0]!.nodes).toEqual(['pkg.a', 'pkg.b', 'pkg.c']);
   });
 
   it('detects no cycle in an acyclic import graph', async () => {
@@ -627,7 +627,7 @@ describe('checkCycles', () => {
     store.close();
     const result = await checkCycles({ projectId: 'p1' }, store);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Cycle check error');
+    expect(result.content[0]!.text).toContain('Cycle check error');
   });
 
   it('stringifies a non-Error thrown during node listing', async () => {
@@ -637,6 +637,6 @@ describe('checkCycles', () => {
     });
     const result = await checkCycles({ projectId: 'p1' }, store);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Cycle check error: plain failure');
+    expect(result.content[0]!.text).toContain('Cycle check error: plain failure');
   });
 });

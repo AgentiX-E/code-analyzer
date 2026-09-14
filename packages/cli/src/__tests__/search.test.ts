@@ -35,7 +35,7 @@ describe('searchGraph', () => {
   it('should return results sorted by score', async () => {
     const result = await searchGraph({ query: 'main', limit: 10 });
     for (let i = 1; i < result.results.length; i++) {
-      expect(result.results[i].score).toBeLessThanOrEqual(result.results[i - 1].score);
+      expect(result.results[i]!.score).toBeLessThanOrEqual(result.results[i - 1]!.score);
     }
   });
 
@@ -95,8 +95,8 @@ describe('searchGraph', () => {
       mockStore as unknown as InMemoryGraphStore,
     );
     expect(result.success).toBe(true);
-    expect(result.results[0].snippet).toBeDefined();
-    expect(result.results[0].snippet?.length).toBeGreaterThan(0);
+    expect(result.results[0]!.snippet).toBeDefined();
+    expect(result.results[0]!.snippet?.length).toBeGreaterThan(0);
   });
 
   it('should filter results by type when type option is provided', async () => {
@@ -128,7 +128,7 @@ describe('searchGraph', () => {
       mockStore as unknown as InMemoryGraphStore,
     );
     expect(result.success).toBe(true);
-    expect(result.results[0].id).toBe(42);
+    expect(result.results[0]!.id).toBe(42);
   });
 
   it('should use fallback values when store returns incomplete data', async () => {
@@ -144,14 +144,14 @@ describe('searchGraph', () => {
     expect(result.success).toBe(true);
     expect(result.results.length).toBe(3);
     // First result: all defaults
-    expect(result.results[0].id).toBe(0);
-    expect(result.results[0].name).toBe('unknown');
-    expect(result.results[0].type).toBe('unknown');
-    expect(result.results[0].file).toBe('');
-    expect(result.results[0].line).toBe(1);
-    expect(result.results[0].score).toBe(0);
+    expect(result.results[0]!.id).toBe(0);
+    expect(result.results[0]!.name).toBe('unknown');
+    expect(result.results[0]!.type).toBe('unknown');
+    expect(result.results[0]!.file).toBe('');
+    expect(result.results[0]!.line).toBe(1);
+    expect(result.results[0]!.score).toBe(0);
     // Second result: partial
-    expect(result.results[1].name).toBe('partialFn');
+    expect(result.results[1]!.name).toBe('partialFn');
   });
 
   it('should return empty results for a valid store with no matches', async () => {
@@ -179,7 +179,7 @@ describe('searchGraph', () => {
       { query: 'fn', verbose: true },
       mockStore as unknown as InMemoryGraphStore,
     );
-    expect(result.results[0].snippet).toBe('');
+    expect(result.results[0]!.snippet).toBe('');
   });
 
   it('should filter mixed types correctly', async () => {
@@ -197,8 +197,8 @@ describe('searchGraph', () => {
     );
     expect(result.results.length).toBe(2);
     expect(result.results.every((r) => r.type === 'class')).toBe(true);
-    expect(result.results[0].score).toBe(0.8);
-    expect(result.results[1].score).toBe(0.6);
+    expect(result.results[0]!.score).toBe(0.8);
+    expect(result.results[1]!.score).toBe(0.6);
   });
 });
 

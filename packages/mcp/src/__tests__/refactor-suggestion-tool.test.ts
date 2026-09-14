@@ -76,7 +76,7 @@ describe('refactorSuggestionTool', () => {
       { projectId: 'test-project', maxSuggestions: 10 },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('Refactor Suggestions');
+    expect(r.content[0]!.text).toContain('Refactor Suggestions');
     expect(r.metadata['suggestionCount']).toBeGreaterThan(0);
   });
   it('should return none for empty store', async () => {
@@ -84,7 +84,7 @@ describe('refactorSuggestionTool', () => {
       { projectId: 'test-project' },
       new InMemoryGraphStore(),
     );
-    expect(r.content[0].text).toContain('No symbols found');
+    expect(r.content[0]!.text).toContain('No symbols found');
   });
   it('should respect maxSuggestions limit', async () => {
     const r = await refactorSuggestionTool.handler(
@@ -114,8 +114,8 @@ describe('refactorSuggestionTool', () => {
       insertEdge(store, { projectId: 'p', type: 'CALLS', sourceId: fnId, targetId: dep });
     }
     const r = await refactorSuggestionTool.handler({ projectId: 'p' }, store);
-    expect(r.content[0].text).toContain('high priority');
-    expect(r.content[0].text).toContain('Extract Method');
+    expect(r.content[0]!.text).toContain('high priority');
+    expect(r.content[0]!.text).toContain('Extract Method');
   });
 
   it('should flag split-class for a class with >15 dependencies', async () => {
@@ -138,7 +138,7 @@ describe('refactorSuggestionTool', () => {
       insertEdge(store, { projectId: 'p', type: 'CALLS', sourceId: clsId, targetId: dep });
     }
     const r = await refactorSuggestionTool.handler({ projectId: 'p' }, store);
-    expect(r.content[0].text).toContain('Split Class');
+    expect(r.content[0]!.text).toContain('Split Class');
   });
 
   it('should flag reduce-coupling for >15 incoming calls', async () => {
@@ -161,7 +161,7 @@ describe('refactorSuggestionTool', () => {
       insertEdge(store, { projectId: 'p', type: 'CALLS', sourceId: caller, targetId: targetId });
     }
     const r = await refactorSuggestionTool.handler({ projectId: 'p' }, store);
-    expect(r.content[0].text).toContain('Reduce Coupling');
+    expect(r.content[0]!.text).toContain('Reduce Coupling');
   });
 
   // Three arms nothing had reached, plus one function nothing had called:
@@ -267,7 +267,7 @@ describe('refactorSuggestionTool', () => {
       { projectId: 'p', filePath: 'src/missing.ts' },
       store,
     );
-    expect(r.content[0].text).toContain('No symbols found');
+    expect(r.content[0]!.text).toContain('No symbols found');
   });
 
   it('should filter by symbolName', async () => {
@@ -281,6 +281,6 @@ describe('refactorSuggestionTool', () => {
     });
     const r = await refactorSuggestionTool.handler({ projectId: 'p', symbolName: 'small' }, store);
     expect(r.metadata['suggestionCount']).toBe(0);
-    expect(r.content[0].text).toContain('No refactoring opportunities');
+    expect(r.content[0]!.text).toContain('No refactoring opportunities');
   });
 });

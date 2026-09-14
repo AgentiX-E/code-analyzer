@@ -40,50 +40,50 @@ describe('GraphTreeDataProviderLogic', () => {
     it('root item has project type context value', async () => {
       engine.setProjectId('/workspace/my-project');
       const items = await logic.getRootItems();
-      expect(items[0].contextValue).toBe('project');
+      expect(items[0]!.contextValue).toBe('project');
     });
 
     it('root item is expanded by default', async () => {
       engine.setProjectId('/workspace/my-project');
       const items = await logic.getRootItems();
-      expect(items[0].collapsibleState).toBe('expanded');
+      expect(items[0]!.collapsibleState).toBe('expanded');
     });
 
     it('root item extracts project name from path', async () => {
       engine.setProjectId('/workspace/my-project');
       const items = await logic.getRootItems();
-      expect(items[0].label).toBe('my-project');
+      expect(items[0]!.label).toBe('my-project');
     });
 
     it('returns projectId itself when path has no slashes', async () => {
       engine.setProjectId('simple-project');
       const items = await logic.getRootItems();
-      expect(items[0].label).toBe('simple-project');
+      expect(items[0]!.label).toBe('simple-project');
     });
 
     it('handles projectId ending with slash (extractProjectName fallback)', async () => {
       engine.setProjectId('/workspace/project/');
       const items = await logic.getRootItems();
       // Last part after split is empty string '', so falls back to projectId
-      expect(items[0].label).toBe('/workspace/project/');
+      expect(items[0]!.label).toBe('/workspace/project/');
     });
 
     it('root item has correct icon', async () => {
       engine.setProjectId('/workspace/my-project');
       const items = await logic.getRootItems();
-      expect(items[0].iconPath).toBe('project');
+      expect(items[0]!.iconPath).toBe('project');
     });
 
     it('root item has resourceUri', async () => {
       engine.setProjectId('/workspace/my-project');
       const items = await logic.getRootItems();
-      expect(items[0].resourceUri).toEqual({ fsPath: '/workspace/my-project' });
+      expect(items[0]!.resourceUri).toEqual({ fsPath: '/workspace/my-project' });
     });
 
     it('root item has id with project prefix', async () => {
       engine.setProjectId('/workspace/my-project');
       const items = await logic.getRootItems();
-      expect(items[0].id).toContain('project:');
+      expect(items[0]!.id).toContain('project:');
     });
   });
 

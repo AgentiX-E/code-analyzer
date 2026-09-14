@@ -153,11 +153,11 @@ describe('PromptProvider', () => {
       const result = await provider.getPrompt('explore-codebase', { projectId: 'my-app' });
       expect(result.messages).toBeDefined();
       expect(result.messages.length).toBe(2); // assistant (system prompt) + user
-      expect(result.messages[0].role).toBe('assistant');
-      expect(result.messages[1].role).toBe('user');
-      expect(result.messages[1].content.text).toContain('my-app');
-      expect(result.messages[1].content.text).toContain('Total Nodes');
-      expect(result.messages[1].content.text).toContain('authenticateUser');
+      expect(result.messages[0]!.role).toBe('assistant');
+      expect(result.messages[1]!.role).toBe('user');
+      expect(result.messages[1]!.content.text).toContain('my-app');
+      expect(result.messages[1]!.content.text).toContain('Total Nodes');
+      expect(result.messages[1]!.content.text).toContain('authenticateUser');
     });
 
     it('should include focus when specified', async () => {
@@ -165,7 +165,7 @@ describe('PromptProvider', () => {
         projectId: 'my-app',
         focus: 'auth',
       });
-      expect(result.messages[1].content.text).toContain('auth');
+      expect(result.messages[1]!.content.text).toContain('auth');
     });
 
     it('should include depth instruction when deep', async () => {
@@ -173,7 +173,7 @@ describe('PromptProvider', () => {
         projectId: 'my-app',
         depth: 'deep',
       });
-      expect(result.messages[1].content.text).toContain('deep analysis');
+      expect(result.messages[1]!.content.text).toContain('deep analysis');
     });
 
     it('should work with wildcard projectId', async () => {
@@ -190,8 +190,8 @@ describe('PromptProvider', () => {
         toRef: 'feature-branch',
       });
       expect(result.messages.length).toBe(2);
-      expect(result.messages[1].content.text).toContain('main');
-      expect(result.messages[1].content.text).toContain('feature-branch');
+      expect(result.messages[1]!.content.text).toContain('main');
+      expect(result.messages[1]!.content.text).toContain('feature-branch');
     });
 
     it('should include focus instructions for security', async () => {
@@ -200,7 +200,7 @@ describe('PromptProvider', () => {
         fromRef: 'main',
         focus: 'security',
       });
-      expect(result.messages[1].content.text).toContain('security vulnerabilities');
+      expect(result.messages[1]!.content.text).toContain('security vulnerabilities');
     });
 
     it('should default toRef to HEAD', async () => {
@@ -208,7 +208,7 @@ describe('PromptProvider', () => {
         projectId: 'my-app',
         fromRef: 'main',
       });
-      expect(result.messages[1].content.text).toContain('HEAD');
+      expect(result.messages[1]!.content.text).toContain('HEAD');
     });
   });
 
@@ -220,8 +220,8 @@ describe('PromptProvider', () => {
         symptom: 'Users getting 401 errors intermittently',
       });
       expect(result.messages.length).toBe(2);
-      expect(result.messages[1].content.text).toContain('401');
-      expect(result.messages[1].content.text).toContain('authenticateUser');
+      expect(result.messages[1]!.content.text).toContain('401');
+      expect(result.messages[1]!.content.text).toContain('authenticateUser');
     });
 
     it('should handle entryPoint not found in graph', async () => {
@@ -230,7 +230,7 @@ describe('PromptProvider', () => {
         entryPoint: 'nonexistentFunction',
         symptom: 'Something is broken',
       });
-      expect(result.messages[1].content.text).toContain('not found');
+      expect(result.messages[1]!.content.text).toContain('not found');
     });
   });
 
@@ -242,8 +242,8 @@ describe('PromptProvider', () => {
         goal: 'extract',
       });
       expect(result.messages.length).toBe(2);
-      expect(result.messages[1].content.text).toContain('UserService');
-      expect(result.messages[1].content.text).toContain('extract');
+      expect(result.messages[1]!.content.text).toContain('UserService');
+      expect(result.messages[1]!.content.text).toContain('extract');
     });
 
     it('should include impact info for known symbols', async () => {
@@ -252,7 +252,7 @@ describe('PromptProvider', () => {
         target: 'UserService',
         goal: 'decouple',
       });
-      expect(result.messages[1].content.text).toContain('depended on');
+      expect(result.messages[1]!.content.text).toContain('depended on');
     });
   });
 
@@ -263,7 +263,7 @@ describe('PromptProvider', () => {
         aspect: 'dependencies',
       });
       expect(result.messages.length).toBe(2);
-      expect(result.messages[1].content.text).toContain('my-app');
+      expect(result.messages[1]!.content.text).toContain('my-app');
     });
 
     it('should include ADR generation instruction when requested', async () => {
@@ -271,7 +271,7 @@ describe('PromptProvider', () => {
         projectId: 'my-app',
         generateADR: 'true',
       });
-      expect(result.messages[1].content.text).toContain('ADR');
+      expect(result.messages[1]!.content.text).toContain('ADR');
     });
 
     it('should default aspect to layers', async () => {
@@ -285,7 +285,7 @@ describe('PromptProvider', () => {
       const result = await provider.getPrompt('architecture-review', {
         projectId: 'my-app',
       });
-      expect(result.messages[1].content.text).not.toContain('Architecture Decision Record');
+      expect(result.messages[1]!.content.text).not.toContain('Architecture Decision Record');
     });
   });
 

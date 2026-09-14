@@ -210,9 +210,9 @@ describe('analyzeRepository', () => {
     expect(result.graph.fileCount).toBe(3);
     expect(result.graph.phaseCount).toBe(3);
     expect(result.phases.length).toBe(3);
-    expect(result.phases[0].id).toBe('scan');
-    expect(result.phases[0].status).toBe('success');
-    expect(result.phases[0].duration).toBe(100);
+    expect(result.phases[0]!.id).toBe('scan');
+    expect(result.phases[0]!.status).toBe('success');
+    expect(result.phases[0]!.duration).toBe(100);
     expect(result.duration).toBe(500);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0]).toContain('[dump] Disk almost full');
@@ -239,8 +239,8 @@ describe('analyzeRepository', () => {
 
     expect(result.success).toBe(false);
     expect(result.graph.nodeCount).toBe(0);
-    expect(result.phases[1].status).toBe('failed');
-    expect(result.phases[1].error).toBe('Syntax error');
+    expect(result.phases[1]!.status).toBe('failed');
+    expect(result.phases[1]!.error).toBe('Syntax error');
   });
 
   it('should handle orchestrator throwing an error', async () => {
@@ -299,8 +299,8 @@ describe('analyzeRepository', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.phases[0].status).toBe('skipped');
-    expect(result.phases[0].duration).toBe(0);
+    expect(result.phases[0]!.status).toBe('skipped');
+    expect(result.phases[0]!.duration).toBe(0);
   });
 
   it('should handle orchestrator returning graph without nodes', async () => {

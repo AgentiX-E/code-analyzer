@@ -88,16 +88,16 @@ describe('PhpProvider', () => {
     it('extracts a single use statement', () => {
       const imports = provider.extractImports('use App\\Models\\User;');
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('App\\Models\\User');
-      expect(imports[0].names).toEqual(['User']);
-      expect(imports[0].type).toBe('named');
+      expect(imports[0]!.source).toBe('App\\Models\\User');
+      expect(imports[0]!.names).toEqual(['User']);
+      expect(imports[0]!.type).toBe('named');
     });
 
     it('extracts an aliased use statement', () => {
       const imports = provider.extractImports('use App\\Models\\User as U;');
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('App\\Models\\User');
-      expect(imports[0].names).toEqual(['U']);
+      expect(imports[0]!.source).toBe('App\\Models\\User');
+      expect(imports[0]!.names).toEqual(['U']);
     });
 
     it('extracts multiple clauses in one use statement', () => {
@@ -109,61 +109,61 @@ describe('PhpProvider', () => {
     it('extracts use function declarations', () => {
       const imports = provider.extractImports('use function App\\helper;');
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('App\\helper');
-      expect(imports[0].names).toEqual(['helper']);
+      expect(imports[0]!.source).toBe('App\\helper');
+      expect(imports[0]!.names).toEqual(['helper']);
     });
 
     it('extracts use const declarations', () => {
       const imports = provider.extractImports('use const App\\CONSTANT;');
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('App\\CONSTANT');
-      expect(imports[0].names).toEqual(['CONSTANT']);
+      expect(imports[0]!.source).toBe('App\\CONSTANT');
+      expect(imports[0]!.names).toEqual(['CONSTANT']);
     });
 
     it('extracts grouped imports with a base namespace', () => {
       const imports = provider.extractImports('use App\\Models\\{User, Post};');
       expect(imports).toHaveLength(2);
       expect(imports.map((i) => i.source)).toEqual(['App\\Models\\User', 'App\\Models\\Post']);
-      expect(imports[0].names).toEqual(['User']);
-      expect(imports[1].names).toEqual(['Post']);
+      expect(imports[0]!.names).toEqual(['User']);
+      expect(imports[1]!.names).toEqual(['Post']);
     });
 
     it('extracts grouped imports with an alias', () => {
       const imports = provider.extractImports('use App\\Models\\{User, Post as P};');
       expect(imports).toHaveLength(2);
-      expect(imports[1].source).toBe('App\\Models\\Post');
-      expect(imports[1].names).toEqual(['P']);
+      expect(imports[1]!.source).toBe('App\\Models\\Post');
+      expect(imports[1]!.names).toEqual(['P']);
     });
 
     it('extracts single-quoted include', () => {
       const imports = provider.extractImports("include 'config.php';");
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('config.php');
-      expect(imports[0].type).toBe('default');
+      expect(imports[0]!.source).toBe('config.php');
+      expect(imports[0]!.type).toBe('default');
     });
 
     it('extracts double-quoted include', () => {
       const imports = provider.extractImports('include "config.php";');
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('config.php');
+      expect(imports[0]!.source).toBe('config.php');
     });
 
     it('extracts parenthesized require', () => {
       const imports = provider.extractImports('require("lib.php");');
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('lib.php');
+      expect(imports[0]!.source).toBe('lib.php');
     });
 
     it('extracts parenthesized require_once with single quotes', () => {
       const imports = provider.extractImports("require_once('lib.php');");
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('lib.php');
+      expect(imports[0]!.source).toBe('lib.php');
     });
 
     it('extracts include_once', () => {
       const imports = provider.extractImports("include_once 'helpers.php';");
       expect(imports).toHaveLength(1);
-      expect(imports[0].source).toBe('helpers.php');
+      expect(imports[0]!.source).toBe('helpers.php');
     });
 
     it('returns no imports for import-free source', () => {
@@ -287,7 +287,7 @@ describe('PhpProvider', () => {
 
     it('sorts captures by line then byte', () => {
       const captures = provider.fallbackParse('function first() {}\nclass Second {}', 's.php');
-      expect(captures[0].name).toBe('first');
+      expect(captures[0]!.name).toBe('first');
     });
 
     it('handles empty source', () => {
@@ -301,8 +301,8 @@ describe('PhpProvider', () => {
         'use App\\Models\\User;\nuse App\\Models\\User as U;',
       );
       expect(imports).toHaveLength(2);
-      expect(imports[0].names).toEqual(['User']);
-      expect(imports[1].names).toEqual(['U']);
+      expect(imports[0]!.names).toEqual(['User']);
+      expect(imports[1]!.names).toEqual(['U']);
     });
 
     it('extracts use function and use const', () => {
@@ -310,16 +310,16 @@ describe('PhpProvider', () => {
         'use function App\\helper;\nuse const App\\CONST;',
       );
       expect(imports).toHaveLength(2);
-      expect(imports[0].source).toBe('App\\helper');
-      expect(imports[1].source).toBe('App\\CONST');
+      expect(imports[0]!.source).toBe('App\\helper');
+      expect(imports[1]!.source).toBe('App\\CONST');
     });
 
     it('extracts grouped imports', () => {
       const imports = provider.fallbackExtractImports('use App\\Models\\{User, Post as P};');
       expect(imports).toHaveLength(2);
-      expect(imports[0].source).toBe('App\\Models\\User');
-      expect(imports[1].source).toBe('App\\Models\\Post');
-      expect(imports[1].names).toEqual(['P']);
+      expect(imports[0]!.source).toBe('App\\Models\\User');
+      expect(imports[1]!.source).toBe('App\\Models\\Post');
+      expect(imports[1]!.names).toEqual(['P']);
     });
 
     it('extracts require and include variants', () => {

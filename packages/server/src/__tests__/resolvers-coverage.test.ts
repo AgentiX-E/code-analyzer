@@ -74,10 +74,10 @@ describe('resolvers — symbolUsage', () => {
       ctx,
     );
     expect(results).toHaveLength(1);
-    expect(results[0]['symbolName']).toBe('getUser');
-    expect(results[0]['referenceCount']).toBe(1);
-    expect(results[0]['callers']).toContain('src.app.callerFn');
-    expect(results[0]['referencedBy']).toContain('src/app/index.ts');
+    expect(results[0]!['symbolName']).toBe('getUser');
+    expect(results[0]!['referenceCount']).toBe(1);
+    expect(results[0]!['callers']).toContain('src.app.callerFn');
+    expect(results[0]!['referencedBy']).toContain('src/app/index.ts');
   });
 
   it('applies the limit and handles a missing limit', () => {

@@ -323,8 +323,8 @@ describe('AgentSetupManager — Configuration', () => {
 
     const results = manager.configureAgents(['cursor']);
     expect(results.length).toBe(1);
-    expect(results[0].agent).toBe('cursor');
-    expect(results[0].configured).toBe(true);
+    expect(results[0]!.agent).toBe('cursor');
+    expect(results[0]!.configured).toBe(true);
   });
 
   // -----------------------------------------------------------------------
@@ -724,7 +724,7 @@ describe('AgentSetupManager — All 11 Agent Configs', () => {
       const detectionDir = path.join(tempHome, config.detectionPaths[0]);
 
       // Create either a directory or file depending on the detection path
-      if (config.detectionPaths[0].endsWith('.yml')) {
+      if (config.detectionPaths[0]!.endsWith('.yml')) {
         const dir = path.dirname(detectionDir);
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(detectionDir, '', 'utf-8');

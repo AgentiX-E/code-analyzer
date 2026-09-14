@@ -291,7 +291,7 @@ function extractMarkdownSections(content: string): MarkdownSection[] {
   for (let i = 0; i < lines.length; i++) {
     const match = HEADING_REGEX.exec(lines[i]);
     if (match) {
-      headingLines.push({ level: match[1].length, title: match[2].trim(), line: i + 1 });
+      headingLines.push({ level: match[1]!.length, title: match[2]!.trim(), line: i + 1 });
     }
   }
 
@@ -399,7 +399,7 @@ function flattenObject(obj: unknown, prefix: string, path: string, depth: number
 function findLineNumber(lines: string[], charIndex: number): number {
   let accumulated = 0;
   for (let i = 0; i < lines.length; i++) {
-    accumulated += lines[i].length + 1;
+    accumulated += lines[i]!.length + 1;
     if (accumulated > charIndex) return i + 1;
   }
   return lines.length;
@@ -427,7 +427,7 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
     } else if (ext === '.env') {
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        const line = lines[i]!.trim();
         if (!line || line.startsWith('#')) continue;
         const eqIdx = line.indexOf('=');
         if (eqIdx > 0) {
@@ -446,7 +446,7 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
         if (match) {
           entries.push({
             key: match[2],
-            value: match[3].trim(),
+            value: match[3]!.trim(),
             path: filePath,
             line: i + 1,
           });
@@ -459,7 +459,7 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
         if (match) {
           entries.push({
             key: match[1],
-            value: match[2].trim(),
+            value: match[2]!.trim(),
             path: filePath,
             line: i + 1,
           });
@@ -473,7 +473,7 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
         const lineNum = findLineNumber(lines, match.index);
         entries.push({
           key: match[1],
-          value: match[2].trim(),
+          value: match[2]!.trim(),
           path: filePath,
           line: lineNum,
         });
@@ -1131,10 +1131,10 @@ describe('groupCaptures', () => {
     ];
     const result = groupCaptures(captures, '/src/app.ts');
     expect(result.symbols).toHaveLength(1);
-    expect(result.symbols[0].name).toBe('hello');
-    expect(result.symbols[0].kind).toBe('Function');
-    expect(result.symbols[0].startLine).toBe(2);
-    expect(result.symbols[0].endLine).toBe(5);
+    expect(result.symbols[0]!.name).toBe('hello');
+    expect(result.symbols[0]!.kind).toBe('Function');
+    expect(result.symbols[0]!.startLine).toBe(2);
+    expect(result.symbols[0]!.endLine).toBe(5);
   });
 
   it('groups class definitions into symbols', () => {
@@ -1143,8 +1143,8 @@ describe('groupCaptures', () => {
     ];
     const result = groupCaptures(captures, '/src/app.ts');
     expect(result.symbols).toHaveLength(1);
-    expect(result.symbols[0].kind).toBe('Class');
-    expect(result.symbols[0].name).toBe('MyClass');
+    expect(result.symbols[0]!.kind).toBe('Class');
+    expect(result.symbols[0]!.name).toBe('MyClass');
   });
 
   it('uses capture.text as name when name is undefined', () => {
@@ -1152,7 +1152,7 @@ describe('groupCaptures', () => {
       makeCap({ tag: CAPTURE_TAGS.FUNCTION_DEF, name: undefined, text: 'anonymous' }),
     ];
     const result = groupCaptures(captures, '/src/app.ts');
-    expect(result.symbols[0].name).toBe('anonymous');
+    expect(result.symbols[0]!.name).toBe('anonymous');
   });
 
   it('computes qualifiedName with containerName', () => {
@@ -1164,13 +1164,13 @@ describe('groupCaptures', () => {
       }),
     ];
     const result = groupCaptures(captures, '/src/app.ts');
-    expect(result.symbols[0].qualifiedName).toBe('MyClass.greet');
+    expect(result.symbols[0]!.qualifiedName).toBe('MyClass.greet');
   });
 
   it('computes qualifiedName without containerName using file path', () => {
     const captures: UnifiedCapture[] = [makeCap({ tag: CAPTURE_TAGS.FUNCTION_DEF, name: 'main' })];
     const result = groupCaptures(captures, '/src/app.ts');
-    expect(result.symbols[0].qualifiedName).toBe('file:/src/app.ts:main');
+    expect(result.symbols[0]!.qualifiedName).toBe('file:/src/app.ts:main');
   });
 
   it('groups function calls into references', () => {
@@ -1179,9 +1179,9 @@ describe('groupCaptures', () => {
     ];
     const result = groupCaptures(captures, '/src/app.ts');
     expect(result.references).toHaveLength(1);
-    expect(result.references[0].targetName).toBe('console.log');
-    expect(result.references[0].referenceKind).toBe('call');
-    expect(result.references[0].sourceLine).toBe(10);
+    expect(result.references[0]!.targetName).toBe('console.log');
+    expect(result.references[0]!.referenceKind).toBe('call');
+    expect(result.references[0]!.sourceLine).toBe(10);
   });
 
   it('groups imports into references with import kind', () => {
@@ -1190,7 +1190,7 @@ describe('groupCaptures', () => {
     ];
     const result = groupCaptures(captures, '/src/app.ts');
     expect(result.references).toHaveLength(1);
-    expect(result.references[0].referenceKind).toBe('import');
+    expect(result.references[0]!.referenceKind).toBe('import');
   });
 
   it('groups type references into references with type kind', () => {
@@ -1199,7 +1199,7 @@ describe('groupCaptures', () => {
     ];
     const result = groupCaptures(captures, '/src/app.ts');
     expect(result.references).toHaveLength(1);
-    expect(result.references[0].referenceKind).toBe('type');
+    expect(result.references[0]!.referenceKind).toBe('type');
   });
 
   it('groups variable access into references with access kind', () => {
@@ -1208,7 +1208,7 @@ describe('groupCaptures', () => {
     ];
     const result = groupCaptures(captures, '/src/app.ts');
     expect(result.references).toHaveLength(1);
-    expect(result.references[0].referenceKind).toBe('access');
+    expect(result.references[0]!.referenceKind).toBe('access');
   });
 
   it('handles mixed definitions and references', () => {
@@ -1221,8 +1221,8 @@ describe('groupCaptures', () => {
     const result = groupCaptures(captures, '/src/calc.ts');
     expect(result.symbols).toHaveLength(2);
     expect(result.references).toHaveLength(2);
-    expect(result.symbols[0].kind).toBe('Function');
-    expect(result.symbols[1].kind).toBe('Class');
+    expect(result.symbols[0]!.kind).toBe('Function');
+    expect(result.symbols[1]!.kind).toBe('Class');
   });
 
   it('builds scope tree from symbols', () => {
@@ -1236,8 +1236,8 @@ describe('groupCaptures', () => {
     expect(result.scopeTree.startLine).toBe(1);
     expect(result.scopeTree.endLine).toBe(7);
     expect(result.scopeTree.children).toHaveLength(2);
-    expect(result.scopeTree.children[0].name).toBe('add');
-    expect(result.scopeTree.children[1].name).toBe('subtract');
+    expect(result.scopeTree.children[0]!.name).toBe('add');
+    expect(result.scopeTree.children[1]!.name).toBe('subtract');
     expect(result.scopeTree.symbols).toHaveLength(2);
   });
 
@@ -1261,7 +1261,7 @@ describe('groupCaptures', () => {
       const captures: UnifiedCapture[] = [makeCap({ tag, name: 'test', startLine: 1, endLine: 1 })];
       const result = groupCaptures(captures, '/src/file.ts');
       expect(result.symbols).toHaveLength(1);
-      expect(result.symbols[0].name).toBe('test');
+      expect(result.symbols[0]!.name).toBe('test');
     }
   });
 
@@ -1282,7 +1282,7 @@ describe('groupCaptures', () => {
       const captures: UnifiedCapture[] = [makeCap({ tag, name: 'target', startLine: 1 })];
       const result = groupCaptures(captures, '/src/file.ts');
       expect(result.references).toHaveLength(1);
-      expect(result.references[0].targetName).toBe('target');
+      expect(result.references[0]!.targetName).toBe('target');
     }
   });
 
@@ -1295,8 +1295,8 @@ describe('groupCaptures', () => {
       }),
     ];
     const result = groupCaptures(captures, '/src/app.ts');
-    expect(result.symbols[0].signature).toBe('(name: string): string');
-    expect(result.symbols[0].returnType).toBe('string');
+    expect(result.symbols[0]!.signature).toBe('(name: string): string');
+    expect(result.symbols[0]!.returnType).toBe('string');
   });
 
   it('preserves docstring from properties', () => {
@@ -1308,7 +1308,7 @@ describe('groupCaptures', () => {
       }),
     ];
     const result = groupCaptures(captures, '/src/app.ts');
-    expect(result.symbols[0].docstring).toBe('Greets a user by name');
+    expect(result.symbols[0]!.docstring).toBe('Greets a user by name');
   });
 });
 
@@ -1367,10 +1367,10 @@ describe('extractMarkdownSections', () => {
     const content = '# Introduction\nSome content.';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(1);
-    expect(sections[0].level).toBe(1);
-    expect(sections[0].title).toBe('Introduction');
-    expect(sections[0].startLine).toBe(1);
-    expect(sections[0].endLine).toBe(2);
+    expect(sections[0]!.level).toBe(1);
+    expect(sections[0]!.title).toBe('Introduction');
+    expect(sections[0]!.startLine).toBe(1);
+    expect(sections[0]!.endLine).toBe(2);
   });
 
   it('extracts multiple headings at different levels', () => {
@@ -1378,54 +1378,54 @@ describe('extractMarkdownSections', () => {
       '# Title\n## Section 1\nContent here\n## Section 2\n### Subsection\nMore content';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(4);
-    expect(sections[0].title).toBe('Title');
-    expect(sections[0].level).toBe(1);
-    expect(sections[1].title).toBe('Section 1');
-    expect(sections[1].level).toBe(2);
-    expect(sections[2].title).toBe('Section 2');
-    expect(sections[2].level).toBe(2);
-    expect(sections[3].title).toBe('Subsection');
-    expect(sections[3].level).toBe(3);
+    expect(sections[0]!.title).toBe('Title');
+    expect(sections[0]!.level).toBe(1);
+    expect(sections[1]!.title).toBe('Section 1');
+    expect(sections[1]!.level).toBe(2);
+    expect(sections[2]!.title).toBe('Section 2');
+    expect(sections[2]!.level).toBe(2);
+    expect(sections[3]!.title).toBe('Subsection');
+    expect(sections[3]!.level).toBe(3);
   });
 
   it('calculates endLine correctly based on next heading', () => {
     const content = '# Title\n## Section 1\nContent\n## Section 2';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(3);
-    expect(sections[0].startLine).toBe(1);
-    expect(sections[0].endLine).toBe(1); // ends before next heading
-    expect(sections[1].startLine).toBe(2);
-    expect(sections[1].endLine).toBe(3); // ends before section 2 heading
-    expect(sections[2].startLine).toBe(4);
-    expect(sections[2].endLine).toBe(4); // last heading, goes to end
+    expect(sections[0]!.startLine).toBe(1);
+    expect(sections[0]!.endLine).toBe(1); // ends before next heading
+    expect(sections[1]!.startLine).toBe(2);
+    expect(sections[1]!.endLine).toBe(3); // ends before section 2 heading
+    expect(sections[2]!.startLine).toBe(4);
+    expect(sections[2]!.endLine).toBe(4); // last heading, goes to end
   });
 
   it('handles headings up to level 6', () => {
     const content = '###### Deep heading\nSome text';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(1);
-    expect(sections[0].level).toBe(6);
-    expect(sections[0].title).toBe('Deep heading');
+    expect(sections[0]!.level).toBe(6);
+    expect(sections[0]!.title).toBe('Deep heading');
   });
 
   it('trims whitespace from titles', () => {
     const content = '#   Padded Title   \nContent';
     const sections = extractMarkdownSections(content);
-    expect(sections[0].title).toBe('Padded Title');
+    expect(sections[0]!.title).toBe('Padded Title');
   });
 
   it('does not match 7 # characters (not a valid markdown heading)', () => {
     const content = '####### Not a heading\n# Real heading';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(1);
-    expect(sections[0].title).toBe('Real heading');
+    expect(sections[0]!.title).toBe('Real heading');
   });
 
   it('does not match # without space', () => {
     const content = '#not-a-heading\n# Real heading';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(1);
-    expect(sections[0].title).toBe('Real heading');
+    expect(sections[0]!.title).toBe('Real heading');
   });
 
   it('handles content with only headings', () => {
@@ -1438,8 +1438,8 @@ describe('extractMarkdownSections', () => {
     const content = 'line1\nline2\nline3\n# Heading\nline5\nline6';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(1);
-    expect(sections[0].startLine).toBe(4);
-    expect(sections[0].endLine).toBe(6);
+    expect(sections[0]!.startLine).toBe(4);
+    expect(sections[0]!.endLine).toBe(6);
   });
 });
 
@@ -1458,21 +1458,21 @@ describe('flattenObject', () => {
   it('flattens nested objects', () => {
     const result = flattenObject({ a: { b: { c: 'deep' } } }, '', '/fake.json', 0);
     expect(result).toHaveLength(1);
-    expect(result[0].key).toBe('a.b.c');
-    expect(result[0].value).toBe('deep');
+    expect(result[0]!.key).toBe('a.b.c');
+    expect(result[0]!.value).toBe('deep');
   });
 
   it('stringifies non-string values', () => {
     const result = flattenObject({ count: 42, flag: true }, '', '/fake.json', 0);
     expect(result).toHaveLength(2);
-    expect(result[0].value).toBe('42');
-    expect(result[1].value).toBe('true');
+    expect(result[0]!.value).toBe('42');
+    expect(result[1]!.value).toBe('true');
   });
 
   it('handles array values by stringifying', () => {
     const result = flattenObject({ items: [1, 2, 3] }, '', '/fake.json', 0);
     expect(result).toHaveLength(1);
-    expect(result[0].value).toBe('[1,2,3]');
+    expect(result[0]!.value).toBe('[1,2,3]');
   });
 
   it('respects depth limit of 10', () => {
@@ -1498,7 +1498,7 @@ describe('flattenObject', () => {
 
   it('handles prefix parameter', () => {
     const result = flattenObject({ name: 'test' }, 'config', '/fake.json', 0);
-    expect(result[0].key).toBe('config.name');
+    expect(result[0]!.key).toBe('config.name');
   });
 
   it('handles empty object', () => {

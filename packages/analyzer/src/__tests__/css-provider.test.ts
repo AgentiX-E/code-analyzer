@@ -100,7 +100,7 @@ describe('CssProvider', () => {
       const code = '.a { color: red; }\n.b { color: blue; }';
       const captures = provider.parse(code, 'test.css');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 
@@ -202,7 +202,7 @@ describe('CssProvider', () => {
       const code = '.a { color: red; }\n.b { color: blue; }';
       const captures = provider.parse(code, 'test.css');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 

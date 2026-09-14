@@ -79,7 +79,7 @@ describe('trendAnalysisTool', () => {
       { projectId: 'unknown', metric: 'health' },
       new InMemoryGraphStore(),
     );
-    expect(r.content[0].text).toContain('No data found');
+    expect(r.content[0]!.text).toContain('No data found');
   });
 
   it('should analyze complexity', async () => {
@@ -87,7 +87,7 @@ describe('trendAnalysisTool', () => {
       { projectId: 'test-project', metric: 'complexity' },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('Complexity Analysis');
+    expect(r.content[0]!.text).toContain('Complexity Analysis');
   });
 
   it('should analyze health', async () => {
@@ -95,7 +95,7 @@ describe('trendAnalysisTool', () => {
       { projectId: 'test-project', metric: 'health' },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('Health Report');
+    expect(r.content[0]!.text).toContain('Health Report');
   });
 
   it('should analyze structure', async () => {
@@ -103,7 +103,7 @@ describe('trendAnalysisTool', () => {
       { projectId: 'test-project', metric: 'structure' },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('Structure Analysis');
+    expect(r.content[0]!.text).toContain('Structure Analysis');
   });
 
   it('should analyze dependencies', async () => {
@@ -111,7 +111,7 @@ describe('trendAnalysisTool', () => {
       { projectId: 'test-project', metric: 'dependencies' },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('Dependency Analysis');
+    expect(r.content[0]!.text).toContain('Dependency Analysis');
   });
 
   it('should default to health', async () => {
@@ -127,7 +127,7 @@ describe('trendAnalysisTool', () => {
       { projectId: 'test-project', metric: 'bogus' },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('Unknown metric: bogus');
+    expect(r.content[0]!.text).toContain('Unknown metric: bogus');
   });
 
   it('should bucket complexity across multiple ranges', async () => {
@@ -188,7 +188,7 @@ describe('trendAnalysisTool', () => {
     }
 
     const r = await trendAnalysisTool.handler({ projectId: 'p', metric: 'complexity' }, store);
-    const text = r.content[0].text;
+    const text = r.content[0]!.text;
     expect(text).toContain('Complexity Analysis');
     expect(text).toContain('1–5');
     expect(text).toContain('6–10');
@@ -206,7 +206,7 @@ describe('trendAnalysisTool', () => {
       filePath: 'o.ts',
     });
     const r = await trendAnalysisTool.handler({ projectId: 'p', metric: 'health' }, store);
-    const text = r.content[0].text;
+    const text = r.content[0]!.text;
     expect(text).toContain('Orphaned Symbols');
     expect(text).toContain('orphan');
   });

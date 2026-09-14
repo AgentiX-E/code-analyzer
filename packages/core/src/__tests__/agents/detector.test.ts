@@ -134,7 +134,7 @@ describe('Agent Registry', () => {
   it('should return immutable registry', () => {
     const registry = getAgentRegistry();
     expect(registry.length).toBe(12);
-    expect(registry[0].id).toBe('claude-code');
+    expect(registry[0]!.id).toBe('claude-code');
   });
 
   it('each agent should have required fields', () => {

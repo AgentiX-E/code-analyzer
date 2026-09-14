@@ -193,7 +193,7 @@ describe('reviewDiff — Input validation', () => {
       },
       undefined,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.range.from).toBe('HEAD~1');
     expect(data.range.to).toBe('HEAD');
     expect(data.severity).toBe('medium');
@@ -232,7 +232,7 @@ describe('reviewFile — Input validation', () => {
       },
       undefined,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.severity).toBe('medium');
   });
 });
@@ -253,7 +253,7 @@ describe('reviewDiff — Basic execution', () => {
     expect(result.content).toBeDefined();
     expect(result.content.length).toBeGreaterThan(0);
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.projectId).toBe('test-project');
     expect(data.hasDiff).toBe(false);
     expect(data.comments).toEqual([]);
@@ -270,7 +270,7 @@ describe('reviewDiff — Basic execution', () => {
       store,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.graphIntegrity).toBeDefined();
     expect(data.note).toContain('Graph data available');
   });
@@ -284,7 +284,7 @@ describe('reviewDiff — Basic execution', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.hasDiff).toBe(false);
     expect(data.comments).toBeDefined();
     expect(data.summary).toBeDefined();
@@ -320,7 +320,7 @@ index abc123..def456 100644
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.hasDiff).toBe(true);
     expect(data.sessionId).toBeDefined();
     expect(data.reviewMethod).toMatch(/heuristics|review|PRReview/i);
@@ -337,7 +337,7 @@ index abc123..def456 100644
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.severity).toBe('critical');
   });
 });
@@ -356,7 +356,7 @@ describe('reviewFile — Basic execution', () => {
       undefined,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.projectId).toBe('test-project');
     expect(data.filePath).toBe('/src/test.ts');
     expect(data.note).toContain('graph store');
@@ -372,7 +372,7 @@ describe('reviewFile — Basic execution', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.filePath).toBe('/src/my-class.ts');
     expect(data.symbolsInFile).toBeGreaterThan(0);
     expect(data.comments).toBeDefined();
@@ -390,7 +390,7 @@ describe('reviewFile — Basic execution', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.symbolsInFile).toBe(0);
 
     // The "No symbols" comment has severity 'low' which is filtered by default 'medium'
@@ -414,7 +414,7 @@ describe('reviewFile — Basic execution', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.hasContent).toBe(true);
     expect(data.comments).toBeDefined();
     expect(data.reviewMethod).toMatch(/heuristics|review|PRReview/i);
@@ -477,8 +477,8 @@ describe('Code Review Tools — Error handling', () => {
     // With a diff, the code tries PRReviewEngine then falls back to CodeReviewEngine
     // Both throw, so the outer catch should capture it
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Review error');
-    expect(result.content[0].text).toContain('string error');
+    expect(result.content[0]!.text).toContain('Review error');
+    expect(result.content[0]!.text).toContain('string error');
 
     // Restore
     ctx.getReviewEngine = origGetReviewEngine;
@@ -503,7 +503,7 @@ describe('Code Review Tools — Error handling', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Review error');
+    expect(result.content[0]!.text).toContain('Review error');
 
     ctx.getReviewEngine = origGetReviewEngine;
   });
@@ -524,7 +524,7 @@ describe('Code Review Tools — Edge cases', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.hasDiff).toBe(false);
   });
 
@@ -538,7 +538,7 @@ describe('Code Review Tools — Edge cases', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     // Whitespace is still truthy so it enters the diff parsing branch
     // but parseDiffContent won't find any valid diff entries
     expect(data.hasDiff).toBe(true);
@@ -554,7 +554,7 @@ describe('Code Review Tools — Edge cases', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     const hasCouplingComment = data.comments.some(
       (c: any) => c.content && c.content.includes('coupling'),
     );
@@ -588,7 +588,7 @@ describe('Code Review Tools — Edge cases', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     const hasLargeComment = data.comments.some(
       (c: any) => c.content && c.content.includes('Large file'),
     );
@@ -618,7 +618,7 @@ describe('Code Review Tools — Edge cases', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     const hasComplexComment = data.comments.some(
       (c: any) => c.content && c.content.includes('Complex function'),
     );
@@ -635,7 +635,7 @@ describe('Code Review Tools — Edge cases', () => {
       undefined,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.range.from).toBe('v1.0');
     expect(data.range.to).toBe('v2.0');
   });
@@ -665,7 +665,7 @@ describe('Code Review Tools — Registry integration', () => {
 
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.projectId).toBe('test-project');
   });
 
@@ -681,7 +681,7 @@ describe('Code Review Tools — Registry integration', () => {
 
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.filePath).toBe('/src/my-class.ts');
   });
 
@@ -702,7 +702,7 @@ describe('Code Review Tools — Registry integration', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.hasDiff).toBe(true);
   });
 
@@ -717,7 +717,7 @@ describe('Code Review Tools — Registry integration', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.hasContent).toBe(true);
   });
 });
@@ -1065,7 +1065,7 @@ describe('reviewDiff — null fields and fallback', () => {
     );
     const ctx = new ToolContextImpl(store);
     const result = await reviewDiff({ projectId }, ctx);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(
       data.comments.some((c: { content?: string }) => c.content?.includes('High complexity')),
     ).toBe(true);
@@ -1100,7 +1100,7 @@ describe('reviewDiff — null fields and fallback', () => {
     }
     const ctx = new ToolContextImpl(store);
     const result = await reviewDiff({ projectId }, ctx);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(
       data.comments.some((c: { content?: string }) => c.content?.includes('High coupling')),
     ).toBe(true);
@@ -1118,7 +1118,7 @@ describe('reviewDiff — null fields and fallback', () => {
       },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text);
     expect(data.reviewMethod).toBe('Basic code review (heuristics)');
     expect(data.sessionId).toBeDefined();
   });
@@ -1143,7 +1143,7 @@ describe('Code Review Tools — real Error handling', () => {
       ctx,
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('engine boom');
+    expect(result.content[0]!.text).toContain('engine boom');
   });
 
   it('reviewFile surfaces an Error message', async () => {
@@ -1154,6 +1154,6 @@ describe('Code Review Tools — real Error handling', () => {
     };
     const result = await reviewFile({ projectId: 'test', filePath: '/x.ts', content: 'code' }, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('file boom');
+    expect(result.content[0]!.text).toContain('file boom');
   });
 });

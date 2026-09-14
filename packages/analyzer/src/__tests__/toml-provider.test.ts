@@ -118,7 +118,7 @@ describe('TomlProvider', () => {
       const code = '[a]\nx = 1\n[b]\ny = 2';
       const captures = provider.parse(code, 'test.toml');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 

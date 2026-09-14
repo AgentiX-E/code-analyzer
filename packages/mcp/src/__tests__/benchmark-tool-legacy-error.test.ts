@@ -37,13 +37,13 @@ describe('runBenchmark — legacy error handling', () => {
     legacyMode.mode = 'error';
     const r = await runBenchmark({ category: 'bug' });
     expect(r.isError).toBe(true);
-    expect(r.content[0].text).toContain('legacy boom');
+    expect(r.content[0]!.text).toContain('legacy boom');
   });
 
   it('stringifies non-Error failures from the legacy benchmark', async () => {
     legacyMode.mode = 'string';
     const r = await runBenchmark({ category: 'bug' });
     expect(r.isError).toBe(true);
-    expect(r.content[0].text).toContain('legacy string failure');
+    expect(r.content[0]!.text).toContain('legacy string failure');
   });
 });

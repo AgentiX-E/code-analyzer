@@ -64,7 +64,7 @@ describe('testGenerationTool', () => {
       { projectId: 'test-project', framework: 'vitest', maxTests: 10 },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('describe');
+    expect(r.content[0]!.text).toContain('describe');
     expect(r.metadata['framework']).toBe('vitest');
   });
   it('should generate jest tests', async () => {
@@ -93,7 +93,7 @@ describe('testGenerationTool', () => {
       { projectId: 'test-project' },
       new InMemoryGraphStore(),
     );
-    expect(r.content[0].text).toContain('No testable symbols found');
+    expect(r.content[0]!.text).toContain('No testable symbols found');
   });
   it('should respect maxTests', async () => {
     const r = await testGenerationTool.handler(
@@ -122,7 +122,7 @@ describe('testGenerationTool', () => {
     insertEdge(store, { projectId: 'test-project', type: 'CALLS', sourceId: fId, targetId: dId });
 
     const r = await testGenerationTool.handler({ projectId: 'test-project' }, store);
-    const text = r.content[0].text;
+    const text = r.content[0]!.text;
     expect(text).toContain('import pytest');
     expect(text).toContain('from unittest.mock import patch');
   });
@@ -146,7 +146,7 @@ describe('testGenerationTool', () => {
     insertEdge(store, { projectId: 'test-project', type: 'CALLS', sourceId: fId, targetId: dId });
 
     const r = await testGenerationTool.handler({ projectId: 'test-project' }, store);
-    const text = r.content[0].text;
+    const text = r.content[0]!.text;
     expect(text).toContain('package main');
     expect(text).toContain('func TestServeHTTP');
   });
@@ -161,7 +161,7 @@ describe('testGenerationTool', () => {
       filePath: 'src/view.js',
     });
     const r = await testGenerationTool.handler({ projectId: 'test-project' }, store);
-    expect(r.content[0].text).toContain('javascript');
+    expect(r.content[0]!.text).toContain('javascript');
   });
 
   it('should filter by symbolName', async () => {
@@ -171,7 +171,7 @@ describe('testGenerationTool', () => {
       store,
     );
     expect(r.metadata['skeletonCount']).toBe(1);
-    expect(r.content[0].text).toContain('calc');
+    expect(r.content[0]!.text).toContain('calc');
   });
 
   it('should filter by filePath', async () => {
@@ -195,6 +195,6 @@ describe('testGenerationTool', () => {
     const r = await testGenerationTool.handler({ projectId: 'test-project' }, store);
     // The null filePath is tolerated (falls back to typescript skeleton).
     expect(r.metadata['skeletonCount']).toBe(1);
-    expect(r.content[0].text).toContain('orphan');
+    expect(r.content[0]!.text).toContain('orphan');
   });
 });

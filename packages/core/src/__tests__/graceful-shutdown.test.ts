@@ -115,8 +115,8 @@ describe('GracefulShutdown', () => {
       expect(result.signal).toBe('SIGINT');
       expect(result.duration).toBeGreaterThanOrEqual(0);
       expect(result.handlers).toHaveLength(1);
-      expect(result.handlers[0].name).toBe('ok-handler');
-      expect(result.handlers[0].success).toBe(true);
+      expect(result.handlers[0]!.name).toBe('ok-handler');
+      expect(result.handlers[0]!.success).toBe(true);
     });
 
     it('should mark handler as failed when it throws', async () => {
@@ -131,8 +131,8 @@ describe('GracefulShutdown', () => {
 
       const result = await gs.shutdown('SIGTERM', true);
       expect(result.success).toBe(false);
-      expect(result.handlers[0].success).toBe(false);
-      expect(result.handlers[0].error).toBe('Shutdown failed');
+      expect(result.handlers[0]!.success).toBe(false);
+      expect(result.handlers[0]!.error).toBe('Shutdown failed');
     });
 
     it('should handle non-Error throws in handler', async () => {
@@ -148,8 +148,8 @@ describe('GracefulShutdown', () => {
 
       const result = await gs.shutdown('SIGTERM', true);
       expect(result.success).toBe(false);
-      expect(result.handlers[0].success).toBe(false);
-      expect(result.handlers[0].error).toBe('plain string error');
+      expect(result.handlers[0]!.success).toBe(false);
+      expect(result.handlers[0]!.error).toBe('plain string error');
     });
 
     it('should handle handler timeout', async () => {
@@ -163,8 +163,8 @@ describe('GracefulShutdown', () => {
       });
 
       const result = await gs.shutdown('SIGTERM', true);
-      expect(result.handlers[0].success).toBe(false);
-      expect(result.handlers[0].error).toContain('timed out');
+      expect(result.handlers[0]!.success).toBe(false);
+      expect(result.handlers[0]!.error).toContain('timed out');
     });
 
     it('should register multiple results', async () => {

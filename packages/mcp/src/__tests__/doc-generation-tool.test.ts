@@ -62,7 +62,7 @@ describe('docGenerationTool', () => {
       { projectId: 'test-project', style: 'jsdoc', maxResults: 10 },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('Documentation Generation');
+    expect(r.content[0]!.text).toContain('Documentation Generation');
     expect(r.metadata['style']).toBe('jsdoc');
   });
   it('should generate docstring', async () => {
@@ -84,7 +84,7 @@ describe('docGenerationTool', () => {
       { projectId: 'test-project' },
       new InMemoryGraphStore(),
     );
-    expect(r.content[0].text).toContain('No documentable symbols');
+    expect(r.content[0]!.text).toContain('No documentable symbols');
   });
   it('should respect maxResults', async () => {
     const r = await docGenerationTool.handler(
@@ -104,8 +104,8 @@ describe('docGenerationTool', () => {
       filePath: 'src/parse.py',
     });
     const r = await docGenerationTool.handler({ projectId: 'p' }, store);
-    expect(r.content[0].text).toContain('python');
-    expect(r.content[0].text).toContain('Args:');
+    expect(r.content[0]!.text).toContain('python');
+    expect(r.content[0]!.text).toContain('Args:');
   });
 
   it('should generate godoc for Go files', async () => {
@@ -118,7 +118,7 @@ describe('docGenerationTool', () => {
       filePath: 'main.go',
     });
     const r = await docGenerationTool.handler({ projectId: 'p' }, store);
-    expect(r.content[0].text).toContain('// Run is a function');
+    expect(r.content[0]!.text).toContain('// Run is a function');
   });
 
   it('should detect Java language for .java files', async () => {
@@ -131,7 +131,7 @@ describe('docGenerationTool', () => {
       filePath: 'src/Service.java',
     });
     const r = await docGenerationTool.handler({ projectId: 'p' }, store);
-    expect(r.content[0].text).toContain('java');
+    expect(r.content[0]!.text).toContain('java');
   });
 
   it('should include @example for Class symbols', async () => {
@@ -144,8 +144,8 @@ describe('docGenerationTool', () => {
       filePath: 'src/widget.ts',
     });
     const r = await docGenerationTool.handler({ projectId: 'p' }, store);
-    expect(r.content[0].text).toContain('@example');
-    expect(r.content[0].text).toContain('new Widget');
+    expect(r.content[0]!.text).toContain('@example');
+    expect(r.content[0]!.text).toContain('new Widget');
   });
 
   it('should filter by symbolName and filePath', async () => {
@@ -161,7 +161,7 @@ describe('docGenerationTool', () => {
       store,
     );
     expect(byFile.metadata['docCount']).toBe(1);
-    expect(byFile.content[0].text).toContain('makeRequest');
+    expect(byFile.content[0]!.text).toContain('makeRequest');
   });
 
   it('should handle a node without filePath', async () => {
@@ -175,7 +175,7 @@ describe('docGenerationTool', () => {
     });
     const r = await docGenerationTool.handler({ projectId: 'p' }, store);
     expect(r.metadata['docCount']).toBe(1);
-    expect(r.content[0].text).toContain('<unknown>');
+    expect(r.content[0]!.text).toContain('<unknown>');
   });
 
   it('should render empty docs for maxResults 0', async () => {
@@ -183,6 +183,6 @@ describe('docGenerationTool', () => {
       { projectId: 'test-project', maxResults: 0 },
       createStoreWithData(),
     );
-    expect(r.content[0].text).toContain('No documentable symbols');
+    expect(r.content[0]!.text).toContain('No documentable symbols');
   });
 });

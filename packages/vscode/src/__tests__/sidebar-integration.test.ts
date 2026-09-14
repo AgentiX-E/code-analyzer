@@ -245,7 +245,7 @@ describe('Tree View + Engine Integration', () => {
     engine.setProjectId('/test/proj');
     const roots = await treeLogic.getRootItems();
     expect(roots.length).toBe(1);
-    expect(roots[0].label).toBe('proj');
+    expect(roots[0]!.label).toBe('proj');
   });
 
   it('parent chain: symbol → module → project', () => {

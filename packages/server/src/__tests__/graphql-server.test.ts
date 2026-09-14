@@ -61,7 +61,7 @@ describe('createGraphQLServer', () => {
   it('provides request-scoped context from store, config and startTime', () => {
     const options = makeOptions();
     createGraphQLServer(options);
-    const opts = createYogaMock.mock.calls[0][0];
+    const opts = createYogaMock.mock.calls[0]![0];
     const context = opts.context();
 
     expect(context.store).toBe(options.store);
@@ -71,26 +71,26 @@ describe('createGraphQLServer', () => {
 
   it('enables debug logging when logging is enabled at a non-silent level', () => {
     createGraphQLServer(makeOptions({ enabled: true, level: 'info' }));
-    const opts = createYogaMock.mock.calls[0][0];
+    const opts = createYogaMock.mock.calls[0]![0];
     expect(opts.logging).toBe('debug');
   });
 
   it('disables logging when logging is disabled', () => {
     createGraphQLServer(makeOptions({ enabled: false }));
-    const opts = createYogaMock.mock.calls[0][0];
+    const opts = createYogaMock.mock.calls[0]![0];
     expect(opts.logging).toBe(false);
   });
 
   it('disables logging when the level is silent', () => {
     createGraphQLServer(makeOptions({ enabled: true, level: 'silent' }));
-    const opts = createYogaMock.mock.calls[0][0];
+    const opts = createYogaMock.mock.calls[0]![0];
     expect(opts.logging).toBe(false);
   });
 
   it('enables GraphiQL and keeps errors unmasked outside production', () => {
     process.env['NODE_ENV'] = 'development';
     createGraphQLServer(makeOptions());
-    const opts = createYogaMock.mock.calls[0][0];
+    const opts = createYogaMock.mock.calls[0]![0];
     expect(opts.graphiql).toBe(true);
     expect(opts.maskedErrors).toBe(false);
   });
@@ -98,7 +98,7 @@ describe('createGraphQLServer', () => {
   it('disables GraphiQL and masks errors in production', () => {
     process.env['NODE_ENV'] = 'production';
     createGraphQLServer(makeOptions());
-    const opts = createYogaMock.mock.calls[0][0];
+    const opts = createYogaMock.mock.calls[0]![0];
     expect(opts.graphiql).toBe(false);
     expect(opts.maskedErrors).toBe(true);
   });
@@ -139,8 +139,8 @@ describe('mountGraphQLOnFastify', () => {
   it('registers the /graphql route with GET, POST and OPTIONS', () => {
     const { routes } = mount();
     expect(routes).toHaveLength(1);
-    expect(routes[0]['url']).toBe('/api/v1/graphql');
-    expect(routes[0]['method']).toEqual(['GET', 'POST', 'OPTIONS']);
+    expect(routes[0]!['url']).toBe('/api/v1/graphql');
+    expect(routes[0]!['method']).toEqual(['GET', 'POST', 'OPTIONS']);
   });
 
   it('logs the endpoint when logging is enabled', () => {
@@ -168,7 +168,7 @@ describe('mountGraphQLOnFastify', () => {
 
   function handler(): Handler {
     const { routes } = mount();
-    return routes[0]['handler'] as Handler;
+    return routes[0]!['handler'] as Handler;
   }
 
   function makeReply() {

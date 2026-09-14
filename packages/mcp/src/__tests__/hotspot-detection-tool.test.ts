@@ -83,7 +83,7 @@ describe('hotspotDetectionTool handler with store', () => {
       { projectId: 'test-project', threshold: 10, maxResults: 20 },
       emptyStore,
     );
-    expect(result.content[0].text).toContain('No hotspots detected');
+    expect(result.content[0]!.text).toContain('No hotspots detected');
     expect(result.metadata['hotspotCount']).toBe(0);
   });
 
@@ -94,7 +94,7 @@ describe('hotspotDetectionTool handler with store', () => {
       store,
     );
     expect(result.metadata['hotspotCount']).toBeGreaterThan(0);
-    expect(result.content[0].text).toContain('processRequest');
+    expect(result.content[0]!.text).toContain('processRequest');
   });
 
   it('should filter by threshold', async () => {
@@ -126,7 +126,7 @@ describe('hotspotDetectionTool handler with store', () => {
       { projectId: 'test-project', threshold: 5, maxResults: 20 },
       store,
     );
-    expect(result.content[0].text).toContain('Hotspot Analysis');
+    expect(result.content[0]!.text).toContain('Hotspot Analysis');
   });
 
   // The report emits one recommendation per non-zero risk level, and the tiering has three

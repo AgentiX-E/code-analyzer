@@ -308,7 +308,7 @@ describe('MetricsRegistry', () => {
       const counters = json['counters'] as Record<string, unknown>;
       expect(counters).toBeDefined();
       const entries = counters['test_counter'] as Array<{ value: number }>;
-      expect(entries[0].value).toBe(42);
+      expect(entries[0]!.value).toBe(42);
     });
 
     it('should export gauges as JSON', () => {
@@ -319,7 +319,7 @@ describe('MetricsRegistry', () => {
       const gauges = json['gauges'] as Record<string, unknown>;
       expect(gauges).toBeDefined();
       const entries = gauges['test_gauge'] as Array<{ value: number }>;
-      expect(entries[0].value).toBe(99);
+      expect(entries[0]!.value).toBe(99);
     });
 
     it('should export histograms as JSON with bucket data', () => {
@@ -335,8 +335,8 @@ describe('MetricsRegistry', () => {
         bucketCounts: number[];
         buckets: number[];
       }>;
-      expect(entries[0].count).toBe(1);
-      expect(entries[0].sum).toBe(0.3);
+      expect(entries[0]!.count).toBe(1);
+      expect(entries[0]!.sum).toBe(0.3);
     });
   });
 
@@ -439,10 +439,10 @@ describe('MetricsRegistry', () => {
       >;
       const entries = histograms['json_hist'];
       expect(entries).toHaveLength(1);
-      expect(entries[0].count).toBe(2);
-      expect(entries[0].sum).toBeCloseTo(3.3);
-      expect(entries[0].bucketCounts).toEqual([1, 1, 2]);
-      expect(entries[0].buckets).toEqual([0.5, 1.0, 5.0]);
+      expect(entries[0]!.count).toBe(2);
+      expect(entries[0]!.sum).toBeCloseTo(3.3);
+      expect(entries[0]!.bucketCounts).toEqual([1, 1, 2]);
+      expect(entries[0]!.buckets).toEqual([0.5, 1.0, 5.0]);
     });
   });
 });

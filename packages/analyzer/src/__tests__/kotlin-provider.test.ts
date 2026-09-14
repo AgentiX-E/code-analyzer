@@ -222,7 +222,7 @@ describe('KotlinProvider', () => {
       const code = 'import kotlin.collections.List\nclass First\nfun second()';
       const captures = provider.parse(code, 'test.kt');
       for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
       }
     });
 
@@ -341,7 +341,7 @@ describe('KotlinProvider', () => {
       const code = '// comment\nimport kotlin.collections.List';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].lineNumber).toBe(2);
+      expect(imports[0]!.lineNumber).toBe(2);
     });
 
     it('should extract multiple wildcard imports', () => {
@@ -356,8 +356,8 @@ describe('KotlinProvider', () => {
       const code = 'import kotlin.collections.List';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].source).toContain('kotlin');
-      expect(imports[0].type).toBe('named');
+      expect(imports[0]!.source).toContain('kotlin');
+      expect(imports[0]!.type).toBe('named');
     });
   });
 
@@ -513,14 +513,14 @@ describe('KotlinProvider', () => {
       const code = 'import kotlin.collections.*';
       const imports = provider.fallbackExtractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].type).toBe('wildcard');
+      expect(imports[0]!.type).toBe('wildcard');
     });
 
     it('fallbackExtractImports should extract aliased imports', () => {
       const code = 'import kotlin.collections.List as MyList';
       const imports = provider.fallbackExtractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].names).toContain('MyList');
+      expect(imports[0]!.names).toContain('MyList');
     });
 
     it('fallbackExtractImports should handle empty source', () => {

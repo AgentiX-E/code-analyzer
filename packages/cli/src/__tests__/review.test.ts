@@ -57,7 +57,7 @@ describe('reviewCode — file mode', () => {
     const result = await reviewCode({ target: filePath, mode: 'file' });
     const evalIssues = result.issues.filter((i) => i.ruleId === 'no-eval');
     expect(evalIssues.length).toBeGreaterThan(0);
-    expect(evalIssues[0].severity).toBe('critical');
+    expect(evalIssues[0]!.severity).toBe('critical');
   });
 
   it('should detect hardcoded secrets', async () => {
@@ -66,7 +66,7 @@ describe('reviewCode — file mode', () => {
     const result = await reviewCode({ target: filePath, mode: 'file' });
     const secretIssues = result.issues.filter((i) => i.ruleId === 'no-hardcoded-secrets');
     expect(secretIssues.length).toBeGreaterThan(0);
-    expect(secretIssues[0].severity).toBe('critical');
+    expect(secretIssues[0]!.severity).toBe('critical');
   });
 
   it('should detect innerHTML', async () => {
@@ -99,7 +99,7 @@ describe('reviewCode — file mode', () => {
     const result = await reviewCode({ target: filePath, mode: 'file' });
     const sqlIssues = result.issues.filter((i) => i.ruleId === 'no-sql-injection-raw');
     expect(sqlIssues.length).toBeGreaterThan(0);
-    expect(sqlIssues[0].severity).toBe('critical');
+    expect(sqlIssues[0]!.severity).toBe('critical');
   });
 
   it('should not report for clean code', async () => {

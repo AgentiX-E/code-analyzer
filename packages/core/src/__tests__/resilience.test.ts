@@ -283,8 +283,8 @@ describe('DeadLetterQueue', () => {
       });
 
       const entries = dlq.getAll();
-      expect(entries[0].timestamp).toBeTruthy();
-      expect(entries[0].id).toBe(id);
+      expect(entries[0]!.timestamp).toBeTruthy();
+      expect(entries[0]!.id).toBe(id);
     });
   });
 
@@ -295,8 +295,8 @@ describe('DeadLetterQueue', () => {
 
       const entries = dlq.getAll();
       expect(entries).toHaveLength(2);
-      expect(entries[0].operation).toBe('a');
-      expect(entries[1].operation).toBe('b');
+      expect(entries[0]!.operation).toBe('a');
+      expect(entries[1]!.operation).toBe('b');
     });
 
     it('should return empty array when queue is empty', () => {
@@ -326,8 +326,8 @@ describe('DeadLetterQueue', () => {
 
       const emailEntries = dlq.getByOperation('email');
       expect(emailEntries).toHaveLength(2);
-      expect(emailEntries[0].operation).toBe('email');
-      expect(emailEntries[1].operation).toBe('email');
+      expect(emailEntries[0]!.operation).toBe('email');
+      expect(emailEntries[1]!.operation).toBe('email');
     });
 
     it('should return empty array when no matching entries', () => {
@@ -356,7 +356,7 @@ describe('DeadLetterQueue', () => {
 
       dlq.dequeue(id1);
       expect(dlq.size()).toBe(1);
-      expect(dlq.getAll()[0].id).toBe(id2);
+      expect(dlq.getAll()[0]!.id).toBe(id2);
     });
   });
 
@@ -421,7 +421,7 @@ describe('DeadLetterQueue', () => {
 
       expect(result.failed).toBe(1);
       const entries = dlq.getAll();
-      expect(entries[0].attempts).toBe(2); // Incremented from 1 to 2
+      expect(entries[0]!.attempts).toBe(2); // Incremented from 1 to 2
     });
 
     it('should handle an empty queue', async () => {
@@ -490,7 +490,7 @@ describe('DeadLetterQueue', () => {
 
       expect(q.size()).toBe(3);
       // id1 should have been evicted
-      expect(q.getAll()[0].id).toBe(id2);
+      expect(q.getAll()[0]!.id).toBe(id2);
     });
 
     it('should handle maxSize=0 (evicts on first enqueue)', () => {
@@ -503,7 +503,7 @@ describe('DeadLetterQueue', () => {
       // Second enqueue: entries.length (1) >= maxSize (0) → shift removes first, push adds → size 1
       q.enqueue({ operation: 'b', payload: null, error: 'e', attempts: 1 });
       expect(q.size()).toBe(1);
-      expect(q.getAll()[0].operation).toBe('b');
+      expect(q.getAll()[0]!.operation).toBe('b');
     });
 
     it('should handle negative maxSize (always evicts)', () => {
@@ -516,7 +516,7 @@ describe('DeadLetterQueue', () => {
       // Second enqueue: entries.length (1) >= -1 → true → shift then push → size 1
       q.enqueue({ operation: 'b', payload: null, error: 'e', attempts: 1 });
       expect(q.size()).toBe(1);
-      expect(q.getAll()[0].operation).toBe('b');
+      expect(q.getAll()[0]!.operation).toBe('b');
     });
 
     it('should use default maxSize of 1000', () => {
