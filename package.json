@@ -59,7 +59,8 @@
     "version": "changeset version",
     "release": "turbo build && changeset publish",
     "publish": "turbo build && pnpm -r publish --access public --no-git-checks",
-    "typecheck:tests": "tsc -p tsconfig.tests.json --pretty false"
+    "typecheck:tests": "tsc -p tsconfig.tests.json --pretty false",
+    "coverage:per-file": "node scripts/coverage-per-file.js --json coverage/coverage-summary.json"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
