@@ -36,7 +36,7 @@ interface SourceModule {
 
 function analyzeSourceFile(filePath: string): SourceModule {
   const source = readFileSync(filePath, 'utf-8');
-  const lines = source.split('\n');
+  void source.split('\n');
 
   // Count functions/methods
   const functionRegex = /(?:function\s+(\w+)|(?:async\s+)?(\w+)\s*\([^)]*\)\s*[:{])/g;
@@ -282,7 +282,7 @@ export function generateMutationReport(results: TestQualityMetrics[]): string {
   }
 
   // Total
-  const totalAssertions = results.reduce((s, r) => s + (r.assertionsPerFunction > 0 ? 1 : 0), 0);
+  void results.reduce((s, r) => s + (r.assertionsPerFunction > 0 ? 1 : 0), 0);
   lines.push('## Interpretation');
   lines.push('');
   lines.push(

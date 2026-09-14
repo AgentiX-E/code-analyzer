@@ -433,7 +433,7 @@ describe('DeadLetterQueue', () => {
 
     it('should skip entries removed by concurrent removal during retry', async () => {
       const id1 = dlq.enqueue({ operation: 'op1', payload: 'data1', error: 'e1', attempts: 1 });
-      const id2 = dlq.enqueue({ operation: 'op2', payload: 'data2', error: 'e2', attempts: 1 });
+      void dlq.enqueue({ operation: 'op2', payload: 'data2', error: 'e2', attempts: 1 });
       const id3 = dlq.enqueue({ operation: 'op3', payload: 'data3', error: 'e3', attempts: 1 });
 
       const result = await dlq.retryAll(async (entry) => {
@@ -483,10 +483,10 @@ describe('DeadLetterQueue', () => {
     it('should evict oldest entry when exceeding max size', () => {
       const q = new DeadLetterQueue({ maxSize: 3 });
 
-      const id1 = q.enqueue({ operation: 'a', payload: null, error: 'e', attempts: 1 });
+      void q.enqueue({ operation: 'a', payload: null, error: 'e', attempts: 1 });
       const id2 = q.enqueue({ operation: 'b', payload: null, error: 'e', attempts: 1 });
-      const id3 = q.enqueue({ operation: 'c', payload: null, error: 'e', attempts: 1 });
-      const id4 = q.enqueue({ operation: 'd', payload: null, error: 'e', attempts: 1 });
+      void q.enqueue({ operation: 'c', payload: null, error: 'e', attempts: 1 });
+      void q.enqueue({ operation: 'd', payload: null, error: 'e', attempts: 1 });
 
       expect(q.size()).toBe(3);
       // id1 should have been evicted

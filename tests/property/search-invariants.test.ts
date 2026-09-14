@@ -91,12 +91,12 @@ describe('Search Invariants', () => {
     it('adding nodes never decreases recall for exact match queries', async () => {
       const store = makeStore();
       // Baseline: search with a small corpus
-      const baseEntries = buildCorpus(store, 30, 0);
+      void buildCorpus(store, 30, 0);
       const engine = buildEngine(store);
       const baseResults = await engine.search({ query: 'benchmark performance' });
 
       // Add more nodes with offset to avoid name collisions
-      const extraEntries = buildCorpus(store, 30, 100);
+      void buildCorpus(store, 30, 100);
       const engine2 = buildEngine(store);
       const expandedResults = await engine2.search({ query: 'benchmark performance' });
 

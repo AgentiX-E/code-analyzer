@@ -111,7 +111,7 @@ describe('Performance: queryNodes with secondary indexes', () => {
 
   it('queryEdges by sourceId should use adjacency index (not full scan)', () => {
     const start = performance.now();
-    const result = store.queryEdges({ projectId: 'proj-a', sourceId: 1, limit: 10 });
+    void store.queryEdges({ projectId: 'proj-a', sourceId: 1, limit: 10 });
     const elapsed = performance.now() - start;
 
     expect(elapsed).toBeLessThan(15);

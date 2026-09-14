@@ -403,7 +403,7 @@ describe('LSPManager — Acceptance Criteria', () => {
 
   it('AC-5: Cache invalidation works correctly', async () => {
     const mgr = new LSPManager({ projectRoot: '/test', enabled: true, cacheSize: 100 });
-    const info1 = await mgr.getTypeInfo('/test/src/lib.ts', 3, 8, 'typescript', 'Logger');
+    void (await mgr.getTypeInfo('/test/src/lib.ts', 3, 8, 'typescript', 'Logger'));
 
     mgr.invalidateFile('/test/src/lib.ts');
 

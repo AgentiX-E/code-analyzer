@@ -154,7 +154,7 @@ describe('ParallelScanPhase', () => {
       const phase = new ParallelScanPhase();
       const rootPath = join(process.cwd(), 'packages/analyzer/src/pipeline');
       const store = new InMemoryGraphStore();
-      const builder = new GraphBuilder(store);
+      void new GraphBuilder(store);
       const graph: KnowledgeGraph = {
         projectId: 'test',
         nodes: new Map(),
@@ -540,7 +540,7 @@ describe('ParallelBuildPhase', () => {
     it('returns correct counts for empty graph', async () => {
       const phase = new ParallelBuildPhase();
       const store = new InMemoryGraphStore();
-      const builder = new GraphBuilder(store);
+      void new GraphBuilder(store);
       const graph: KnowledgeGraph = {
         projectId: 'test',
         nodes: new Map(),

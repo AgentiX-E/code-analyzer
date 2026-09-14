@@ -301,7 +301,7 @@ describe('WorkerPool', () => {
     ).rejects.toThrow('shut down');
 
     // The queued tasks (already past shutdown check) will execute
-    const results = await Promise.allSettled(queuedPromises);
+    void (await Promise.allSettled(queuedPromises));
     // They resolve because they passed the shutdown check before being queued
 
     // Clean up the long task

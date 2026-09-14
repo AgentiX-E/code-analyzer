@@ -66,7 +66,7 @@ function parseText(result: ToolResult): Record<string, unknown> {
 /** Build a ToolContext wrapping a store seeded with the given nodes/edges. */
 function ctxWith(nodes: GraphNode[], edges: Array<Partial<GraphEdge>> = []): ToolContextImpl {
   const store = new InMemoryGraphStore();
-  const ids = nodes.map((n) => store.insertNode(n));
+  void nodes.map((n) => store.insertNode(n));
   for (const edge of edges) {
     store.insertEdge(makeEdge(edge));
   }

@@ -577,7 +577,9 @@ describe('TreeSitterBaseProvider', () => {
       const source = 'function test() { foo(); }';
       const captures = tsProvider.parse(source, 'test.ts');
       const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
-      expect(Array.isArray(captures)).toBe(true);
+      // The test is named after this detection, so assert it: `Array.isArray(captures)`
+      // holds for an empty array too, which made the test pass for any provider at all.
+      expect(calls.length).toBeGreaterThan(0);
     });
 
     it('parse should detect method calls on objects', () => {
@@ -590,14 +592,23 @@ describe('TreeSitterBaseProvider', () => {
       const source = 'function test() { const d = new Date(); return d; }';
       const captures = tsProvider.parse(source, 'test.ts');
       const newExprs = captures.filter((c) => c.tag === CAPTURE_TAGS.NEW_EXPRESSION);
-      expect(Array.isArray(captures)).toBe(true);
+      // The test is named after this detection, so assert it: `Array.isArray(captures)`
+      // holds for an empty array too, which made the test pass for any provider at all.
+      expect(newExprs.length).toBeGreaterThan(0);
     });
 
     it('parse should detect method calls on object members', () => {
       const source = 'function test() { console.log("hello"); }';
       const captures = tsProvider.parse(source, 'test.ts');
       const methodCalls = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL);
-      expect(Array.isArray(captures)).toBe(true);
+      // METHOD_CALL is emitted by the Groovy provider only; the TypeScript provider captures a
+      // member call as FUNCTION_CALL. Asserting a non-empty METHOD_CALL set here was impossible to
+      // satisfy, which is how the test came to be written with `Array.isArray` instead — an
+      // assertion that holds for an empty array and so verified nothing at all.
+      expect(methodCalls).toHaveLength(0);
+      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL).length).toBeGreaterThan(
+        0,
+      );
     });
 
     it('parse should detect class with extends (baseClasses property)', () => {

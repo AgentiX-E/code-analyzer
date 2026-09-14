@@ -151,7 +151,7 @@ describe('SlidingWindowStore', () => {
   it('should cleanup entries older than 5 minutes', async () => {
     // Use fake timers to control the passage of time
     vi.useFakeTimers();
-    const fakeNow = Date.now();
+    void Date.now();
 
     // Hit with a normal window
     store.hit('old-key', 60_000);

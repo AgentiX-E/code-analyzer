@@ -25,7 +25,7 @@ function createAgentDir(tempHome: string, agentConfig: AgentConfig): void {
 }
 
 function createFakeAgentInstall(agentConfig: AgentConfig, detectionPath: string): void {
-  const fullPath = path.join(agentConfig.configPath.startsWith('/') ? '' : '', detectionPath);
+  void path.join(agentConfig.configPath.startsWith('/') ? '' : '', detectionPath);
   // We handle this via the manager's homeDir
 }
 

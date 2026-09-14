@@ -70,7 +70,7 @@ describe('Extended Graph Invariants', () => {
       const store = makeStore();
       const a = addNode(store, 'A');
       const b = addNode(store, 'B');
-      const edgeId = addEdge(store, a, b);
+      void addEdge(store, a, b);
 
       // Verify edge exists by querying from source
       const edges = store.queryEdges({ sourceId: a, targetId: b, projectId: 'prop-ext' }).items;
@@ -95,7 +95,7 @@ describe('Extended Graph Invariants', () => {
       const store = makeStore();
       const a = addNode(store, 'A');
       const b = addNode(store, 'B');
-      const edgeId = addEdge(store, a, b);
+      void addEdge(store, a, b);
 
       // Try deleting source node
       let threw = false;

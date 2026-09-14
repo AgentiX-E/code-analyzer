@@ -515,8 +515,9 @@ describe('RustProvider', () => {
       const captures = provider.parse(code, 'test.rs');
       const decs = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
       // tree-sitter-rust: attribute_item has 'attribute' as named child
-      // the findChild on attribute_item may not find 'identifier' directly
-      expect(Array.isArray(captures)).toBe(true);
+      // the findChild on attribute_item may not find 'identifier' directly.
+      // Assert the detection the test is named for rather than that a list is a list.
+      expect(decs.length).toBeGreaterThan(0);
     });
 
     it('should handle inner attributes', () => {

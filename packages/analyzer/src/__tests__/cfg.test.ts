@@ -51,7 +51,7 @@ function makeCfg(
 // ===========================================================================
 
 describe('CFG Construction', () => {
-  const builder = new CfgBuilder();
+  void new CfgBuilder();
 
   it('should build a simple linear CFG (3 blocks)', () => {
     const cfg = makeCfg('linear', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);

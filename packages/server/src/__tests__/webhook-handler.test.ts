@@ -189,7 +189,7 @@ describe('GitHubWebhookHandler', () => {
       handler.on('pull_request', successHandler);
 
       const sig = signPayload(SECRET, VALID_PR_PAYLOAD);
-      const result = await handler.process('pull_request', 'delivery-001', sig, VALID_PR_PAYLOAD);
+      void (await handler.process('pull_request', 'delivery-001', sig, VALID_PR_PAYLOAD));
 
       // Second handler should still have been called
       expect(successHandler.handled.length).toBe(1);

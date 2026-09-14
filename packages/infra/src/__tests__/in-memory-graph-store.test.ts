@@ -2121,7 +2121,7 @@ describe('InMemoryGraphStore', () => {
       const n1 = store.insertNode(
         createTestNode({ qualifiedName: 'fallback.n1', label: 'Function' }),
       );
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'fallback.n2', label: 'Class' }));
+      void store.insertNode(createTestNode({ qualifiedName: 'fallback.n2', label: 'Class' }));
 
       // Delete the project index to force fallback path
       (store as any).projectNodesIndex.delete(store.nodes.get(n1)!.projectId);
