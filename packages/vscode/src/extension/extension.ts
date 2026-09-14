@@ -8,10 +8,7 @@ import { registerCommands } from './commands.js';
 import {
   CodeAnalyzerChatParticipant,
   SLASH_COMMANDS,
-  type ChatRequest,
   type ChatContext,
-  type ChatResponseStream,
-  type CancellationToken,
 } from '../participant/code-analyzer-participant.js';
 import { CommentLogic } from '../providers/comment-provider.js';
 import { ConfigLogic, generateConfigHtml } from '../providers/config-provider.js';
@@ -33,7 +30,6 @@ import type {
   StatusBarItem,
   VSCodeWorkspaceFolder,
 } from '../services/vscode-api.js';
-import type { CodeAnalyzerConfig } from '@code-analyzer/shared';
 
 /** Chat participant with slash command registration (runtime has .command() not in vscode types). */
 interface ChatParticipantExt extends vscode.Disposable {
