@@ -222,23 +222,23 @@ export function validateComment(
 
   // Check 2: Line number validation
   if (comment.startLine > 0 && knownFiles.size > 0 && knownFiles.has(comment.path)) {
-    const range = fileLineRanges.get(comment.path);
-    if (range) {
-      if (comment.startLine > range.endLine) {
-        issues.push({
-          type: 'line_out_of_range',
-          severity: 'error',
-          message: `Line ${comment.startLine} is beyond file end at line ${range.endLine}.`,
-          detail: `File "${comment.path}" only has ${range.endLine} lines.`,
-        });
-      } else if (comment.endLine > range.endLine) {
-        issues.push({
-          type: 'line_out_of_range',
-          severity: 'warning',
-          message: `End line ${comment.endLine} exceeds file range (ends at ${range.endLine}).`,
-          detail: `The referenced range may extend beyond the actual file.`,
-        });
-      }
+    // No `if (range)` guard: `fileLineRanges` is written in lockstep with `knownFiles` — the same
+    // source-node loop populates both — so a path present in `knownFiles` always has a range here.
+    const range = fileLineRanges.get(comment.path)!;
+    if (comment.startLine > range.endLine) {
+      issues.push({
+        type: 'line_out_of_range',
+        severity: 'error',
+        message: `Line ${comment.startLine} is beyond file end at line ${range.endLine}.`,
+        detail: `File "${comment.path}" only has ${range.endLine} lines.`,
+      });
+    } else if (comment.endLine > range.endLine) {
+      issues.push({
+        type: 'line_out_of_range',
+        severity: 'warning',
+        message: `End line ${comment.endLine} exceeds file range (ends at ${range.endLine}).`,
+        detail: `The referenced range may extend beyond the actual file.`,
+      });
     }
   } else if (comment.startLine < 0) {
     issues.push({

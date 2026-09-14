@@ -142,6 +142,54 @@ describe('hallucinationDetectionTool handler', () => {
     expect(result.metadata!['projectId']).toBe('test-project');
   });
 
+  // Three things nothing had built: two nodes in the *same* file (the merge path — min start, max
+  // end), a node with a path but no positions (the `?? 1` fallbacks on both bounds), and a comment
+  // carrying a warning *alongside* an error.
+  //
+  // That last one is why `[WARNING]` had never rendered: the report lists only comments that are
+  // invalid, and a comment is invalid only if some issue has `severity: 'error'` — so a warning on
+  // an otherwise valid comment is never printed. Here the start line is past the merged end (error)
+  // while `existingCode` is empty under strict mode (warning).
+  it('should merge same-file ranges, fall back without positions and render a warning', async () => {
+    const nodes = [
+      makeGraphNode({ id: 1, filePath: '/src/merged.ts', startLine: 10, endLine: 40 }),
+      makeGraphNode({
+        id: 2,
+        filePath: '/src/merged.ts',
+        startLine: undefined,
+        endLine: undefined,
+      }),
+      makeGraphNode({
+        id: 3,
+        filePath: '/src/posless.ts',
+        startLine: undefined,
+        endLine: undefined,
+      }),
+    ];
+    const comments = [
+      makeComment({
+        id: 'merged-1',
+        path: '/src/merged.ts',
+        startLine: 999,
+        endLine: 1000,
+        existingCode: '',
+      }),
+    ];
+
+    const result = await hallucinationDetectionTool.handler({
+      projectId: 'merge-project',
+      reviewComments: JSON.stringify(comments),
+      sourceNodes: JSON.stringify(nodes),
+      strictMode: true,
+    });
+    const text = result.content[0]!.text;
+
+    expect(result.isError).toBeUndefined();
+    expect(text).toContain('### Flagged Comments');
+    expect(text).toContain('[ERROR]');
+    expect(text).toContain('[WARNING]');
+  });
+
   it('should handle strict mode', async () => {
     const comments = [makeComment()];
     const result = await hallucinationDetectionTool.handler({
