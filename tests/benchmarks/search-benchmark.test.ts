@@ -2,10 +2,10 @@
 // Measures BM25 + vector search latency, cross-repo indexing throughput.
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { resolve } from 'node:path';
+import 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { GraphBuilder } from '@code-analyzer/analyzer';
 import { HybridSearchEngine, tokenize } from '@code-analyzer/intelligence';

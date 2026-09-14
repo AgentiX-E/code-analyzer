@@ -2,7 +2,7 @@
 // Additional invariants beyond the existing graph-invariants.test.ts.
 // Tests edge consistency, acyclic properties, component sizes, and degree distributions.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------

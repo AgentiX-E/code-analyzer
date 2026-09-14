@@ -1,6 +1,6 @@
 // @code-analyzer/mcp — MCP Server Tests
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { CodeAnalyzerMCPServer } from '../server/mcp-server.js';
 import { ResourceProvider } from '../resources/index.js';
 import { PromptProvider } from '../prompts/index.js';
@@ -227,11 +227,20 @@ describe('Middleware', () => {
     });
 
     it('should deny requests exceeding capacity', () => {
-      const limiter = new RateLimiter(1);
-      expect(limiter.check('test').allowed).toBe(true);
-      const result = limiter.check('test');
-      expect(result.allowed).toBe(false);
-      expect(result.retryAfterMs).toBeDefined();
+      // The bucket refills at the default 0.5 tokens/ms, so a capacity of 1 is restored after 2 ms.
+      // This test therefore only held when the two calls landed inside the same 2 ms tick, which a
+      // loaded machine cannot guarantee — it failed once in a full run and passed on re-run.
+      // Freezing the clock removes the race without changing what is under test: the capacity.
+      vi.useFakeTimers();
+      try {
+        const limiter = new RateLimiter(1);
+        expect(limiter.check('test').allowed).toBe(true);
+        const result = limiter.check('test');
+        expect(result.allowed).toBe(false);
+        expect(result.retryAfterMs).toBeDefined();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should track per-tool separately', () => {

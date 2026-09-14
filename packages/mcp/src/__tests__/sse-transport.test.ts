@@ -1,6 +1,6 @@
 // @code-analyzer/mcp — SSE Transport Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { SSETransport } from '../transport/sse-transport.js';
 import type { SSEEvent } from '../transport/sse-transport.js';
 import * as http from 'node:http';

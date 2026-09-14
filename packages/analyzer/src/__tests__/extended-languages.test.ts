@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CAPTURE_TAGS, getLanguageFromFilename } from '@code-analyzer/shared';
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { YamlProvider } from '../languages/yaml.js';
 import { TomlProvider } from '../languages/toml.js';

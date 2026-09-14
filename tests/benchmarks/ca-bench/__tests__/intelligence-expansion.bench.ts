@@ -9,7 +9,7 @@ import {
   LENS_PROFILES,
 } from '@code-analyzer/intelligence';
 import { DataflowSearchEngine } from '@code-analyzer/intelligence';
-import { HybridSearchEngine, tokenize, cosineSimilarity } from '@code-analyzer/intelligence';
+import { HybridSearchEngine } from '@code-analyzer/intelligence';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------

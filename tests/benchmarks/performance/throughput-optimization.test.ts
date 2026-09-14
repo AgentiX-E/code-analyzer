@@ -3,7 +3,7 @@
 // batch I/O, embedding worker pool, parse cache, and Unicode/BOM handling.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { BatchFileReader } from '@code-analyzer/infra';
 import { createParseCache, computeContentHash } from '@code-analyzer/infra';
 import { tokenize } from '@code-analyzer/intelligence';
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import '@code-analyzer/shared';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 // NOTE: graphql-yoga and @graphql-tools/schema are resolved via @code-analyzer/server's
 // dependency tree to avoid duplicate graphql module instances (pnpm strict mode).
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Setup — imports resolved through server package's node_modules to avoid

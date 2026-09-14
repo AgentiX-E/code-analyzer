@@ -2,7 +2,7 @@
 // Focused on worker pool behavior, failure handling, progress reporting,
 // result collection, and graceful degradation.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

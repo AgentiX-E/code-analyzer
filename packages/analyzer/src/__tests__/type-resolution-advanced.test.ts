@@ -3,7 +3,7 @@
 // Covers: generics, unions, intersections, interface satisfaction,
 //   struct tags, annotations, method overloading, and edge cases.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { TypeScriptAdvancedResolver } from '../resolution/typescript-resolver-advanced.js';
 import { PythonAdvancedResolver } from '../resolution/python-resolver-advanced.js';
 import { GoResolver } from '../resolution/go-resolver.js';

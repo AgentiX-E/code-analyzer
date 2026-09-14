@@ -1,6 +1,6 @@
 // @code-analyzer/infra — IndexSupervisor Tests
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { IndexSupervisor } from '../workers/supervisor.js';
 import type { SupervisorConfig } from '../workers/supervisor.js';
 

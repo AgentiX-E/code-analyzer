@@ -2,7 +2,7 @@
 // Validates the complete pipeline: Server startup → CLI operations → MCP tools.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { resolve } from 'node:path';
+import 'node:path';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

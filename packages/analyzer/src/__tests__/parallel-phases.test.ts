@@ -3,10 +3,10 @@
 // from packages/analyzer/src/pipeline/parallel-phases.ts
 
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
-import { basename, dirname, join, relative } from 'node:path';
+import 'node:fs';
+import { basename, join } from 'node:path';
 
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import '@code-analyzer/shared';
 import type {
   PipelineContext,
   DiscoveredFile,

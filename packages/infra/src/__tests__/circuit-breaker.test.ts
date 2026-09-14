@@ -1,6 +1,6 @@
 // @code-analyzer/infra — CircuitBreaker Tests
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { CircuitBreaker } from '../workers/circuit-breaker.js';
 import type { CircuitBreakerOptions } from '../workers/circuit-breaker.js';
 

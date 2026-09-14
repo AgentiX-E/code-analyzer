@@ -1,6 +1,6 @@
 // @code-analyzer/infra — Performance Profiler Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PerformanceProfiler } from '../performance/profiler.js';
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 import type { BenchmarkConfig, BenchmarkResult } from '../performance/profiler.js';

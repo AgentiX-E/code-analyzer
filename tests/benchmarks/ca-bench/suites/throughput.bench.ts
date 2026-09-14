@@ -7,7 +7,7 @@ import type { BenchmarkSuite, BenchmarkResult } from '../runner.js';
 import { measurement, makeResult } from '../reporter.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { HybridSearchEngine } from '@code-analyzer/intelligence';
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import '@code-analyzer/shared';
 
 import type { GraphNode } from '@code-analyzer/shared';
 

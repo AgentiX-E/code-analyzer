@@ -2,7 +2,7 @@
 // Exercises the start/startStdio/startHTTP/startSSE/start dispatch and the
 // auto-index helper (success and failure paths) that unit tests bypassed.
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, it } from 'vitest';
 
 import { CodeAnalyzerMCPServer } from '../server/mcp-server.js';
 

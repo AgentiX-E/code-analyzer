@@ -2,7 +2,7 @@
 // Validates the HybridSearchEngine invariants under varied inputs.
 // NOTE: Uses vitest assertions directly with systematic input generation.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { HybridSearchEngine } from '@code-analyzer/intelligence';
 

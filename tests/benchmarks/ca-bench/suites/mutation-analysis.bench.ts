@@ -4,7 +4,7 @@
 // with mutation kill rate: assertion density, branch coverage per function,
 // and input space coverage.
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MutantAnalysis } from '../types.js';
 
