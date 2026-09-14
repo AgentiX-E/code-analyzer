@@ -30,7 +30,10 @@ import type {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeStream(): ChatResponseStream & { content: string } {
+// The double exposes `length` as well as `content`, and the annotation has to say so: the tests assert
+// `stream.length` in nine places, and a type that omits it reports every one of them as a property that
+// does not exist — on an object that has it.
+function makeStream(): ChatResponseStream & { content: string; length: number } {
   const state = { content: '' };
   return {
     markdown(value: string) {

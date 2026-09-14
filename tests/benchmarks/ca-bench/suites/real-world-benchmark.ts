@@ -163,8 +163,13 @@ export function runBenchmark(
     const catMatchedGround = new Set<number>();
     let catTp = 0;
 
-    for (const { d, di } of catDetected) {
-      for (const { g, gi: origGi } of catGround) {
+    // The elements are `{ d, i }` / `{ g, i }` (see the `.map((…, i) => ({ …, i }))` above), and these
+    // loops used to destructure `di` and `gi`. Neither exists, so `origGi` was always `undefined` and
+    // `catMatchedGround.has(undefined)` was never true: one ground-truth issue could be claimed by two
+    // different detected issues, which inflates `catTp` and with it the per-category precision and
+    // recall. The index is `i`.
+    for (const { d } of catDetected) {
+      for (const { g, i: origGi } of catGround) {
         if (catMatchedGround.has(origGi)) continue;
         if (isMatch(d, g)) {
           catTp++;
