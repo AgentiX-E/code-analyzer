@@ -190,51 +190,6 @@ export class PaymentProcessor {
 // PR Diff — removes the email field from User type (BREAKING CHANGE)
 // ---------------------------------------------------------------------------
 
-const USER_SERVICE_AFTER_PR: ServiceRepo = {
-  name: 'user-service',
-  files: {
-    'src/models/User.ts': `
-/**
- * Core User model — the single source of truth for User type.
- * AFTER PR: email field is removed (GDPR compliance requirement).
- */
-export interface User {
-  id: string;
-  name: string;
-  role: 'admin' | 'user';
-  createdAt: string;
-  updatedAt: string;
-  // email field removed for GDPR compliance
-}
-
-export class UserModel {
-  static findById(id: string): User | null {
-    return { id, name: 'Jane', role: 'user', createdAt: '2026-01-01', updatedAt: '2026-06-01' };
-  }
-
-  static findAll(): User[] {
-    return [this.findById('1')!, this.findById('2')!];
-  }
-}
-`.trim(),
-    'src/services/UserService.ts': `
-import { User, UserModel } from '../models/User';
-
-export class UserService {
-  getUser(id: string): User | null {
-    return UserModel.findById(id);
-  }
-
-  getAllUsers(): User[] {
-    return UserModel.findAll();
-  }
-
-  // getUserEmail removed — email field no longer exists
-}
-`.trim(),
-  },
-};
-
 // ---------------------------------------------------------------------------
 // Benchmark Setup
 // ---------------------------------------------------------------------------

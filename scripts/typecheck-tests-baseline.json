@@ -87,7 +87,7 @@
     "tests/benchmarks/real-world/__tests__/react-analysis.test.ts": 5,
     "tests/benchmarks/real-world/__tests__/scale-stress.test.ts": 1,
     "tests/benchmarks/real-world/__tests__/vue-analysis.test.ts": 5,
-    "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 6,
+    "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 5,
     "tests/benchmarks/real-world/react-analysis.bench.ts": 1,
     "tests/benchmarks/real-world/scale-profiling.bench.ts": 1,
     "tests/benchmarks/search-benchmark.test.ts": 13,
@@ -102,7 +102,7 @@
     "tests/property/graph-invariants-extended.test.ts": 2,
     "tests/property/parse-roundtrip.test.ts": 1,
     "tests/property/search-invariants.test.ts": 4,
-    "tests/unit/mcp/mcp-server.test.ts": 11,
+    "tests/unit/mcp/mcp-server.test.ts": 2,
     "tests/unit/review/review-engine.test.ts": 12
   }
 }

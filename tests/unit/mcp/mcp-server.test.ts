@@ -20,63 +20,6 @@ const mockStore = {
   close: vi.fn(),
 };
 
-const mockAutoIndexer = {
-  onProjectOpen: vi.fn().mockResolvedValue(undefined),
-  index: vi.fn().mockResolvedValue(undefined),
-};
-
-const mockFileDiscoverer = {
-  discover: vi.fn().mockReturnValue([]),
-};
-
-const mockToolRegistry = {
-  listByProfile: vi.fn().mockReturnValue([]),
-  execute: vi.fn().mockResolvedValue({
-    content: [{ type: 'text', text: 'result' }],
-  }),
-};
-
-const mockToolContext = {
-  store: mockStore,
-  getProjectPath: vi.fn().mockReturnValue('/test/project'),
-};
-
-const mockResourceProvider = {
-  listResources: vi.fn().mockReturnValue([]),
-  getResource: vi.fn().mockResolvedValue({
-    uri: 'test://resource',
-    mimeType: 'text/plain',
-    text: 'resource content',
-  }),
-};
-
-const mockPromptProvider = {
-  listPrompts: vi.fn().mockReturnValue([]),
-  getPrompt: vi.fn().mockResolvedValue({
-    messages: [{ role: 'user', content: { type: 'text', text: 'prompt' } }],
-    description: 'test prompt',
-  }),
-};
-
-const mockAuthMiddleware = {
-  validate: vi.fn().mockReturnValue({ allowed: true }),
-};
-
-const mockRateLimiter = {
-  check: vi.fn().mockReturnValue({ allowed: true }),
-};
-
-const mockRequestLogger = {
-  log: vi.fn(),
-};
-
-const mockSSETransport = {
-  start: vi.fn(),
-  shutdown: vi.fn(),
-  broadcast: vi.fn(),
-  isRunning: vi.fn().mockReturnValue(true),
-};
-
 // ---------------------------------------------------------------------------
 // Helper: Create a testable server instance
 // ---------------------------------------------------------------------------
