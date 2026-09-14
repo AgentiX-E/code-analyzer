@@ -70,6 +70,7 @@ function main() {
 
   const counts = new Map();
   const byCode = new Map();
+  const details = new Map();
   for (const rawLine of readFileSync(LOG_PATH, 'utf-8').split('\n')) {
     // `--pretty false` still emits colour when a wrapper sets FORCE_COLOR.
     const line = rawLine.replace(/\u001b\[[0-9;]*m/g, '');
@@ -79,6 +80,8 @@ function main() {
     const code = match[2];
     counts.set(file, (counts.get(file) || 0) + 1);
     byCode.set(code, (byCode.get(code) || 0) + 1);
+    if (!details.has(file)) details.set(file, []);
+    details.get(file).push(line.trim());
   }
 
   const total = [...counts.values()].reduce((sum, n) => sum + n, 0);
@@ -174,6 +177,7 @@ function main() {
   console.error(`❌ Typecheck ratchet violated:\n`);
   for (const f of newFailures) {
     console.error(`  • ${f.file}: ${f.count} error(s) in a file that was clean`);
+    for (const d of (details.get(f.file) || []).slice(0, 20)) console.error(`        ${d}`);
     console.log(
       `::error title=Typecheck ratchet::${f.file} has ${f.count} type error(s) but is not in the ` +
         `baseline — fix them, or record the file deliberately.`,
@@ -181,6 +185,12 @@ function main() {
   }
   for (const r of regressions) {
     console.error(`  • ${r.file}: ${r.recorded} → ${r.count} error(s)`);
+    // A count cannot be acted on: print what the file currently reports so the diff is visible in
+    // the CI log without a reproduction (the counts can differ between the local machine and CI).
+    const lines = details.get(r.file) || [];
+    console.error(`      currently reported (${lines.length}):`);
+    for (const d of lines.slice(0, 20)) console.error(`        ${d}`);
+    if (lines.length > 20) console.error(`        … and ${lines.length - 20} more`);
     console.log(
       `::error title=Typecheck ratchet::${r.file} grew from ${r.recorded} to ${r.count} type ` +
         `error(s).`,
