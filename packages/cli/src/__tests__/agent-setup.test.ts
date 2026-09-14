@@ -737,3 +737,156 @@ describe('AgentSetupManager — All 11 Agent Configs', () => {
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// YAML merging, config inspection and report rendering
+// ---------------------------------------------------------------------------
+
+describe('AgentSetupManager — YAML merge and config inspection', () => {
+  let tempHome: string;
+  let manager: AgentSetupManager;
+
+  beforeEach(() => {
+    tempHome = createTempHome();
+    manager = new AgentSetupManager(tempHome);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  // The YAML serializer strips an existing `mcp_servers:` block and keeps everything else. No
+  // fixture had a *multi-line* block, so the skip state was never held across blank lines, comments
+  // or sibling entries, and the reset that ends the block had never run.
+  it('should strip a multi-line mcp_servers block and keep the surrounding YAML', () => {
+    const configPath = path.join(tempHome, '.aider.conf.yml');
+    fs.writeFileSync(
+      configPath,
+      [
+        '# Aider configuration',
+        'model: gpt-4',
+        '',
+        'mcp_servers:',
+        '  - name: stale-server',
+        '',
+        '# a comment inside the block',
+        '  - name: another-stale-server',
+        'auto_commits: true',
+        '',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const result = manager.configure('aider');
+
+    expect(result.configured).toBe(true);
+    const content = fs.readFileSync(configPath, 'utf-8');
+    expect(content).toContain('# Aider configuration');
+    expect(content).toContain('model: gpt-4');
+    expect(content).toContain('auto_commits: true');
+    expect(content).not.toContain('stale-server');
+    expect(content).toContain('code-analyzer');
+  });
+
+  it('should write no leading blank line when the YAML config held only an MCP block', () => {
+    const configPath = path.join(tempHome, '.aider.conf.yml');
+    fs.writeFileSync(configPath, 'mcp_servers:\n  - name: stale\n', 'utf-8');
+
+    manager.configure('aider');
+
+    const content = fs.readFileSync(configPath, 'utf-8');
+    expect(content.startsWith('mcp_servers:')).toBe(true);
+    expect(content).not.toContain('stale');
+  });
+
+  it('should judge a YAML agent by whether its file mentions the server', () => {
+    const configPath = path.join(tempHome, '.aider.conf.yml');
+
+    fs.writeFileSync(configPath, 'model: gpt-4\n', 'utf-8');
+    expect(manager.isConfigured('aider')).toBe(false);
+
+    fs.writeFileSync(configPath, 'model: gpt-4\n# code-analyzer\n', 'utf-8');
+    expect(manager.isConfigured('aider')).toBe(true);
+  });
+
+  // Copilot Chat keeps its servers under a namespaced settings key, which is a different lookup
+  // from every other JSON agent.
+  it('should look for the server under the Copilot Chat settings key', () => {
+    const dir = path.join(tempHome, '.vscode');
+    fs.mkdirSync(dir, { recursive: true });
+    const configPath = path.join(dir, 'settings.json');
+
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({ 'github.copilot.chat.mcpServers': { 'code-analyzer': {} } }),
+      'utf-8',
+    );
+    expect(manager.isConfigured('copilot-chat')).toBe(true);
+
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({ 'github.copilot.chat.mcpServers': { 'some-other-server': {} } }),
+      'utf-8',
+    );
+    expect(manager.isConfigured('copilot-chat')).toBe(false);
+
+    fs.writeFileSync(configPath, JSON.stringify({ 'editor.fontSize': 14 }), 'utf-8');
+    expect(manager.isConfigured('copilot-chat')).toBe(false);
+  });
+
+  // A config file the tool cannot parse must read as "not configured" rather than throwing — the
+  // catch in `isConfigured` had never run, because every fixture wrote valid JSON.
+  it('should treat an unparsable config as not configured', () => {
+    const dir = path.join(tempHome, '.claude');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'mcp.json'), '{ this is not json', 'utf-8');
+
+    expect(manager.isConfigured('claude-code')).toBe(false);
+  });
+
+  it('should report a JSON config with no mcpServers key as not configured', () => {
+    const dir = path.join(tempHome, '.claude');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'mcp.json'), JSON.stringify({ other: true }), 'utf-8');
+
+    expect(manager.isConfigured('claude-code')).toBe(false);
+  });
+
+  it('should distinguish detected from manually selected agents in the report', () => {
+    const report = manager.getReport([
+      {
+        agent: 'claude-code',
+        detected: true,
+        configured: true,
+        configPath: '/home/.claude/mcp.json',
+        message: 'ok',
+      },
+      {
+        agent: 'cursor',
+        detected: false,
+        configured: true,
+        configPath: '/home/.cursor/mcp.json',
+        message: 'ok',
+      },
+    ]);
+
+    expect(report).toContain('[DETECTED]');
+    expect(report).toContain('[MANUAL]');
+    expect(report).toContain('Configured successfully: 2');
+  });
+
+  it('should mark a configured agent as Yes in the status table', () => {
+    const dir = path.join(tempHome, '.claude');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'mcp.json'),
+      JSON.stringify({ mcpServers: { 'code-analyzer': {} } }),
+      'utf-8',
+    );
+
+    const report = manager.getStatusReport();
+
+    expect(report).toContain('Claude Code');
+    expect(report).toMatch(/Claude Code\s+Yes\s+Yes/);
+  });
+});
