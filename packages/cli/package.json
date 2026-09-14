@@ -57,7 +57,7 @@
     "@code-analyzer/analyzer": "workspace:*",
     "@code-analyzer/intelligence": "workspace:*",
     "@code-analyzer/mcp": "workspace:*",
-    "commander": "^12.0.0"
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
