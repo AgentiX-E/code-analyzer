@@ -131,9 +131,28 @@ export const DEFAULT_CONFIG: ServerConfig = {
 };
 
 /**
+ * A partial view of a config tree, one level down for each nested object.
+ *
+ * `Partial<ServerConfig>` only makes the top level optional, so `cors: { origin }` was rejected even though
+ * the merge below spreads `DEFAULT_CONFIG.cors` first and therefore supports it — the tests were relying on
+ * documented behaviour. This is what the deep merge actually accepts.
+ *
+ * Arrays and functions are passed through **unchanged**: mapping over either produces nonsense. A
+ * `string[]` becomes a set of optional array methods, and a callback such as `keyGenerator` becomes `{}` —
+ * which is how the first version of this type broke the `RateLimitConfig` default it was meant to describe.
+ */
+type DeepPartial<T> = T extends readonly unknown[]
+  ? T
+  : T extends (...args: never[]) => unknown
+    ? T
+    : T extends object
+      ? { [K in keyof T]?: DeepPartial<T[K]> }
+      : T;
+
+/**
  * Merge user-provided config with defaults. Deep merges nested objects.
  */
-export function resolveConfig(overrides?: Partial<ServerConfig>): ServerConfig {
+export function resolveConfig(overrides?: DeepPartial<ServerConfig>): ServerConfig {
   if (!overrides) {
     return {
       ...DEFAULT_CONFIG,
