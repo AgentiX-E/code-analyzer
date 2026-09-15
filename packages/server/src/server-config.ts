@@ -141,7 +141,7 @@ export const DEFAULT_CONFIG: ServerConfig = {
  * `string[]` becomes a set of optional array methods, and a callback such as `keyGenerator` becomes `{}` —
  * which is how the first version of this type broke the `RateLimitConfig` default it was meant to describe.
  */
-type DeepPartial<T> = T extends readonly unknown[]
+export type DeepPartial<T> = T extends readonly unknown[]
   ? T
   : T extends (...args: never[]) => unknown
     ? T

@@ -20,7 +20,7 @@ import { registerWebhookRoutes } from './routes/webhook.js';
 import { resolveConfig } from './server-config.js';
 
 import type { WebhookConfig } from './routes/webhook.js';
-import type { ServerConfig } from './server-config.js';
+import type { DeepPartial, ServerConfig } from './server-config.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ToolRegistry } from '@code-analyzer/mcp';
 
@@ -29,8 +29,11 @@ import type { ToolRegistry } from '@code-analyzer/mcp';
 // ---------------------------------------------------------------------------
 
 export interface ServerOptions {
-  /** Server configuration (merged with defaults) */
-  config?: Partial<ServerConfig>;
+  /**
+   * Server configuration. Deep-merged with the defaults by `resolveConfig`, so any level of it may be
+   * partial — `Partial<ServerConfig>` said otherwise and rejected `{ logging: { enabled: false } }`.
+   */
+  config?: DeepPartial<ServerConfig>;
   /** MCP ToolRegistry instance */
   registry: ToolRegistry;
   /** Custom Fastify plugins to register */
