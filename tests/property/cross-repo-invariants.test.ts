@@ -197,13 +197,13 @@ describe('Property — Impact Graph', () => {
     populateRepo(store, 'chain-repo', ['Node0', 'Node1', 'Node2', 'Node3', 'Node4']);
     const builder = new ImpactGraphBuilder(indexer);
 
-    const graph = await builder.build('chain-repo');
+    const graph = await builder.build('chain-repo', 'chain-repo');
     expect(graph).toBeDefined();
   });
 
   it('should handle non-existent project', async () => {
     const builder = new ImpactGraphBuilder(indexer);
-    const graph = await builder.build('nonexistent-project');
+    const graph = await builder.build('nonexistent-project', 'nonexistent-project');
 
     expect(graph).toBeDefined();
   });
@@ -213,7 +213,7 @@ describe('Property — Impact Graph', () => {
     populateRepo(store, 'proj-eee', ['Sym1', 'Sym2']);
     populateRepo(store, 'proj-fff', ['Sym1', 'Sym2']);
 
-    const graph = await builder.build('proj-eee');
+    const graph = await builder.build('proj-eee', 'proj-eee');
     expect(graph).toBeDefined();
   });
 
@@ -221,7 +221,7 @@ describe('Property — Impact Graph', () => {
     populateRepo(store, 'solo-repo', ['LoneWolf']);
     const builder = new ImpactGraphBuilder(indexer);
 
-    const graph = await builder.build('solo-repo');
+    const graph = await builder.build('solo-repo', 'solo-repo');
     expect(graph).toBeDefined();
   });
 });

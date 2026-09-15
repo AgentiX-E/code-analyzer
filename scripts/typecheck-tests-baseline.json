@@ -65,7 +65,6 @@
     "tests/e2e/graphql-e2e.test.ts": 3,
     "tests/e2e/webhook-e2e.test.ts": 1,
     "tests/performance/benchmark-runner.ts": 6,
-    "tests/property/cross-repo-invariants.test.ts": 4,
     "tests/unit/mcp/mcp-server.test.ts": 1,
     "tests/unit/review/review-engine.test.ts": 3
   }
