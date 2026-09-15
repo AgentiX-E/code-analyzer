@@ -2203,7 +2203,9 @@ describe('CodeAnalyzerChatParticipant — /impact rendering', () => {
     const { participant } = scriptedParticipant({
       callers: Array.from({ length: 17 }, (_, i) => ref(`caller${i}`)),
       relatedSymbols: [ref('related')],
-      changedSymbols: [{ name: 'handleRequest', riskLevel: 'high' }],
+      changedSymbols: [
+        { qualifiedName: 'src/api.ts::handleRequest', name: 'handleRequest', riskLevel: 'high' },
+      ],
       impact: { riskLevel: 'high', affectedSymbols: 17 },
     });
     const stream = makeStream();

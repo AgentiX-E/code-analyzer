@@ -111,6 +111,7 @@ describe('ReviewDecorationLogic', () => {
   describe('buildHoverMarkdown', () => {
     it('produces markdown with severity badge', () => {
       const content: HoverContent = {
+        category: 'review',
         title: 'Test',
         message: 'Description',
         severity: 'warning',
@@ -134,6 +135,7 @@ describe('ReviewDecorationLogic', () => {
 
     it('includes suggestion when present', () => {
       const content: HoverContent = {
+        category: 'review',
         title: 'Test',
         message: 'Description',
         severity: 'low',

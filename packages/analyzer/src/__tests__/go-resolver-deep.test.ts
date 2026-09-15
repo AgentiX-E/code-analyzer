@@ -13,7 +13,7 @@ function makeResolver(): GoResolver {
 }
 
 function makeContext(filePath = '/test.go'): TypeContext {
-  return { filePath };
+  return { filePath, imports: [] };
 }
 
 describe('GoResolver — function types', () => {

@@ -382,8 +382,8 @@ describe('SidebarLogic — navigate and graph commands', () => {
 
     it('returns nodes and edges when rootSymbol is provided and traceCallPath succeeds', async () => {
       vi.spyOn(engine, 'traceCallPath').mockResolvedValue([
-        { name: 'funcA', filePath: '/a.ts' },
-        { name: 'funcB', filePath: '/b.ts' },
+        { qualifiedName: 'src/a.ts::funcA', name: 'funcA', filePath: '/a.ts' },
+        { qualifiedName: 'src/b.ts::funcB', name: 'funcB', filePath: '/b.ts' },
       ]);
       const response = await logic.handleMessage({
         command: 'getGraphData',
