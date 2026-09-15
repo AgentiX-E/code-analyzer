@@ -1,6 +1,6 @@
 // @code-analyzer/vscode — Sidebar Provider Tests
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidebarLogic, generateSidebarHtml } from '../providers/sidebar-provider.js';
 import { EngineBridge } from '../services/engine-bridge.js';
 

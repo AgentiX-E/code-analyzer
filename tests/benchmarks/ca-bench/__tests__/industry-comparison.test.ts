@@ -2,7 +2,7 @@
 // Quantitative comparison of code-analyzer against leading industry tools:
 // SonarQube, CodeQL, Semgrep, and Sourcegraph.
 
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

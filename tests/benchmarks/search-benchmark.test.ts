@@ -1,7 +1,7 @@
 // @code-analyzer — Search & Cross-Repo Performance Benchmarks
 // Measures BM25 + vector search latency, cross-repo indexing throughput.
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

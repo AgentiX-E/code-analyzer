@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 import { createTestNode, createTestEdge, resetCounters } from './helpers.js';
+import type { NodeLabel } from '@code-analyzer/shared';
 
 describe('InMemoryGraphStore', () => {
   let store: InMemoryGraphStore;
