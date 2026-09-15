@@ -1419,7 +1419,7 @@ describe('PruneLocalSymbolsPhase', () => {
     await parsePhase.execute(ctx);
     await scopeResolutionPhase.execute(ctx);
 
-    const nodeCountBefore = ctx.graph!.nodes.size;
+    void ctx.graph!.nodes.size;
 
     const result = await prunePhase.execute(ctx);
     expect(result.status).toBe('success');

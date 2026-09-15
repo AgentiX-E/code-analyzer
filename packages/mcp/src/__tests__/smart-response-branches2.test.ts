@@ -11,7 +11,7 @@ import {
 import type { GraphNode, RelationshipType } from '@code-analyzer/shared';
 
 let nodeId = 2000;
-let edgeId = 2000;
+void 2000;
 
 function addNode(store: InMemoryGraphStore, overrides: Partial<GraphNode> = {}): number {
   const id = store.insertNode({

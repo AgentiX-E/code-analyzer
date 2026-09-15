@@ -14,12 +14,6 @@ import { describe, it, expect, vi } from 'vitest';
 // The MCP server depends on several internal packages. We define minimal
 // mocks to isolate the server logic from its dependencies.
 
-const mockStore = {
-  getAllNodes: vi.fn().mockReturnValue([]),
-  getAllEdges: vi.fn().mockReturnValue([]),
-  close: vi.fn(),
-};
-
 // ---------------------------------------------------------------------------
 // Helper: Create a testable server instance
 // ---------------------------------------------------------------------------
