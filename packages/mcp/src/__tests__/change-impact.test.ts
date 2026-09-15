@@ -108,6 +108,27 @@ function riskyStore(count: number): ToolContextImpl {
 // Schema registration
 // ---------------------------------------------------------------------------
 
+/**
+ * The `summary` block of a change-impact result, as the tool's JSON contract describes it.
+ */
+interface ChangeImpactSummary {
+  totalFiles: number;
+  totalSymbols: number;
+  filesChanged: number;
+  symbolsChanged: number;
+  risk: string;
+}
+
+/**
+ * `parseText` returns `Record<string, unknown>` because this file parses several different payloads, so
+ * reading a nested field off it fails — `unknown` has no properties. Naming the shape once, at the same
+ * level as the helper, is what lets the assertions read it, and a misspelled field becomes a compile
+ * error rather than an unknown access.
+ */
+function summaryOf(data: Record<string, unknown>): ChangeImpactSummary {
+  return data['summary'] as ChangeImpactSummary;
+}
+
 describe('Change & Impact — schemas', () => {
   it('declares required fields for each tool schema', () => {
     expect(detectChangesSchema.type).toBe('object');
@@ -183,10 +204,10 @@ describe('detectChanges', () => {
     ]);
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     const data = parseText(result);
-    expect(data['summary'].totalFiles).toBe(1);
-    expect(data['summary'].totalSymbols).toBe(3);
-    expect(data['summary'].filesChanged).toBe(1); // /a.ts complexity 11 > 10
-    expect(data['summary'].risk).toBe('low');
+    expect(summaryOf(data).totalFiles).toBe(1);
+    expect(summaryOf(data).totalSymbols).toBe(3);
+    expect(summaryOf(data).filesChanged).toBe(1); // /a.ts complexity 11 > 10
+    expect(summaryOf(data).risk).toBe('low');
   });
 
   it('flags a file as risky when it accumulates more than 20 symbols', async () => {
@@ -196,15 +217,15 @@ describe('detectChanges', () => {
     const ctx = ctxWith(nodes);
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     const data = parseText(result);
-    expect(data['summary'].filesChanged).toBe(1); // /shared.ts has 21 symbols > 20
+    expect(summaryOf(data).filesChanged).toBe(1); // /shared.ts has 21 symbols > 20
   });
 
   it('classifies risk as medium for 11-20 risky files', async () => {
     const ctx = riskyStore(11);
     const result = await detectChanges({ projectId: 'p1', includeFiles: true }, ctx);
     const data = parseText(result);
-    expect(data['summary'].risk).toBe('medium');
-    expect(data['summary'].filesChanged).toBe(11);
+    expect(summaryOf(data).risk).toBe('medium');
+    expect(summaryOf(data).filesChanged).toBe(11);
     expect(Array.isArray(data['changedFiles'])).toBe(true);
     expect((data['changedFiles'] as unknown[]).length).toBe(11);
   });
@@ -213,8 +234,8 @@ describe('detectChanges', () => {
     const ctx = riskyStore(21);
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     const data = parseText(result);
-    expect(data['summary'].risk).toBe('high');
-    expect(data['summary'].filesChanged).toBe(21);
+    expect(summaryOf(data).risk).toBe('high');
+    expect(summaryOf(data).filesChanged).toBe(21);
   });
 
   it('lists high-impact symbols sorted by dependency count descending', async () => {

@@ -42,7 +42,6 @@
     "packages/infra/src/__tests__/supervisor.test.ts": 1,
     "packages/infra/src/__tests__/watcher.test.ts": 1,
     "packages/infra/src/__tests__/worker-pool.test.ts": 1,
-    "packages/mcp/src/__tests__/change-impact.test.ts": 9,
     "packages/mcp/src/__tests__/doc-generation-tool.test.ts": 1,
     "packages/mcp/src/__tests__/mcp-server-health.test.ts": 1,
     "packages/mcp/src/__tests__/pr-review-tools.test.ts": 1,
