@@ -87,7 +87,9 @@ describe('TypeRegistry — branch coverage', () => {
     registry.registerType(
       makeType({ name: 'Foo', qualifiedName: 'Foo', filePath: '/proj/./foo', kind: 'class' }),
     );
-    registry.buildImportMap('/proj/bar.ts', [{ source: './foo', names: ['Foo'] }]);
+    registry.buildImportMap('/proj/bar.ts', [
+      { source: './foo', names: ['Foo'], type: 'named', lineNumber: 1 },
+    ]);
     const result = registry.resolveType('Foo', '/proj/bar.ts');
     expect(result.isResolved).toBe(true);
   });
@@ -96,7 +98,9 @@ describe('TypeRegistry — branch coverage', () => {
     registry.registerType(
       makeType({ name: 'Foo', qualifiedName: 'Foo', filePath: '/proj/./foo.ts', kind: 'class' }),
     );
-    registry.buildImportMap('/proj/bar.ts', [{ source: './foo', names: ['Foo'] }]);
+    registry.buildImportMap('/proj/bar.ts', [
+      { source: './foo', names: ['Foo'], type: 'named', lineNumber: 1 },
+    ]);
     const result = registry.resolveType('Foo', '/proj/bar.ts');
     expect(result.isResolved).toBe(true);
   });
@@ -112,7 +116,9 @@ describe('TypeRegistry — branch coverage', () => {
         kind: 'class',
       }),
     );
-    registry.buildImportMap('/proj/bar.ts', [{ source: './foo', names: ['Foo'] }]);
+    registry.buildImportMap('/proj/bar.ts', [
+      { source: './foo', names: ['Foo'], type: 'named', lineNumber: 1 },
+    ]);
     const result = registry.resolveType('Foo', '/proj/bar.ts');
     expect(result.isResolved).toBe(true);
   });
@@ -126,7 +132,9 @@ describe('TypeRegistry — branch coverage', () => {
         kind: 'class',
       }),
     );
-    registry.buildImportMap('/proj/bar.ts', [{ source: './foo', names: ['ns.Foo'] }]);
+    registry.buildImportMap('/proj/bar.ts', [
+      { source: './foo', names: ['ns.Foo'], type: 'named', lineNumber: 1 },
+    ]);
     const result = registry.resolveType('ns.Foo', '/proj/bar.ts');
     expect(result.isResolved).toBe(true);
   });
@@ -140,7 +148,9 @@ describe('TypeRegistry — branch coverage', () => {
         kind: 'class',
       }),
     );
-    registry.buildImportMap('/proj/bar.ts', [{ source: './foo', names: ['Missing'] }]);
+    registry.buildImportMap('/proj/bar.ts', [
+      { source: './foo', names: ['Missing'], type: 'named', lineNumber: 1 },
+    ]);
     const result = registry.resolveType('Missing', '/proj/bar.ts');
     expect(result.isResolved).toBe(false);
   });

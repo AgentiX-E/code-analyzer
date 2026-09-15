@@ -60,6 +60,9 @@ describe('Pipeline Integration — End-to-End', () => {
       rootPath: FIXTURE_SRC,
       graph,
       config: {
+        projectId: 'integration-test',
+        rootPath: FIXTURE_SRC,
+        ignorePaths: [],
         excludePatterns: [],
         includePatterns: [],
         maxFileSize: 10 * 1024 * 1024,
@@ -68,7 +71,6 @@ describe('Pipeline Integration — End-to-End', () => {
         cacheDir: '.code-analyzer-test',
       },
       phaseData: new Map(),
-      cancelled: false,
     };
 
     // Run phases sequentially using the PipelineOrchestrator
@@ -395,6 +397,9 @@ describe('Pipeline Integration — End-to-End', () => {
         rootPath: resolve(FIXTURE_SRC, 'non-existent'),
         graph: emptyGraph,
         config: {
+          projectId: 'empty-test',
+          rootPath: resolve(FIXTURE_SRC, 'non-existent'),
+          ignorePaths: [],
           excludePatterns: [],
           includePatterns: [],
           maxFileSize: 10 * 1024 * 1024,
@@ -403,7 +408,6 @@ describe('Pipeline Integration — End-to-End', () => {
           cacheDir: '.code-analyzer-test-empty',
         },
         phaseData: new Map(),
-        cancelled: false,
       };
 
       const phases = [new ScanPhase(), new StructurePhase(), new ParsePhase()];
@@ -428,6 +432,9 @@ describe('Pipeline Integration — End-to-End', () => {
         rootPath: tmpDir,
         graph: badGraph,
         config: {
+          projectId: 'bad-ts-test',
+          rootPath: tmpDir,
+          ignorePaths: [],
           excludePatterns: [],
           includePatterns: [],
           maxFileSize: 10 * 1024 * 1024,
@@ -436,7 +443,6 @@ describe('Pipeline Integration — End-to-End', () => {
           cacheDir: '.code-analyzer-test-bad',
         },
         phaseData: new Map(),
-        cancelled: false,
       };
 
       try {
