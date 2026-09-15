@@ -219,7 +219,7 @@ describe('Cross-Repo Indexing Performance', () => {
     'should index group within performance target',
     async () => {
       const store = new InMemoryGraphStore();
-      const indexer = new CrossRepoIndexer(groupManager, store);
+      const indexer = new CrossRepoIndexer(store, groupManager);
 
       const start = Date.now();
       const result = await indexer.indexGroup('bench-group');
@@ -235,7 +235,7 @@ describe('Cross-Repo Indexing Performance', () => {
     'should index single repo under per-file target',
     async () => {
       const store = new InMemoryGraphStore();
-      const indexer = new CrossRepoIndexer(groupManager, store);
+      const indexer = new CrossRepoIndexer(store, groupManager);
 
       const start = Date.now();
       const result = await indexer.indexGroup('bench-group');
@@ -255,7 +255,7 @@ describe('Cross-Repo Indexing Performance', () => {
     'should build cross-repo graph',
     async () => {
       const store = new InMemoryGraphStore();
-      const indexer = new CrossRepoIndexer(groupManager, store);
+      const indexer = new CrossRepoIndexer(store, groupManager);
 
       await indexer.indexGroup('bench-group');
       const graphReport = await indexer.buildCrossRepoGraph('bench-group');
@@ -272,7 +272,7 @@ describe('Cross-Repo Indexing Performance', () => {
     'should detect cross-repo contracts',
     async () => {
       const store = new InMemoryGraphStore();
-      const indexer = new CrossRepoIndexer(groupManager, store);
+      const indexer = new CrossRepoIndexer(store, groupManager);
 
       await indexer.indexGroup('bench-group');
       const contracts = await indexer.detectContracts('bench-group');
@@ -287,7 +287,7 @@ describe('Cross-Repo Indexing Performance', () => {
     'should analyze cross-repo impact',
     async () => {
       const store = new InMemoryGraphStore();
-      const indexer = new CrossRepoIndexer(groupManager, store);
+      const indexer = new CrossRepoIndexer(store, groupManager);
 
       await indexer.indexGroup('bench-group');
 

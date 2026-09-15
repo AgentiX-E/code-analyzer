@@ -10,7 +10,14 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import {
+  type Dirent,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, extname, relative, dirname } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { memoryUsage } from 'node:process';
@@ -129,7 +136,10 @@ const SKIP_EXTS = new Set(['.d.ts', '.min.js', '.snap']);
 function discoverFiles(root: string): FileInfo[] {
   const results: FileInfo[] = [];
   function walk(dir: string) {
-    let entries: ReturnType<typeof readdirSync>;
+    // `readdirSync` is overloaded, so `ReturnType<typeof readdirSync>` resolves to the wrong one
+    // (`NonSharedBuffer[]`) and every `entry.name` below was unchecked. The call passes
+    // `withFileTypes: true`, so the value is `Dirent[]`.
+    let entries: Dirent[];
     try {
       entries = readdirSync(dir, { withFileTypes: true });
     } catch {
