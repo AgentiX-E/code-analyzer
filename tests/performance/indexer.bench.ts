@@ -141,7 +141,7 @@ function generateEdges(
   projectId = 'perf-test',
 ): GraphEdge[] {
   const edges: GraphEdge[] = [];
-  const types: RelationshipType[] = ['CALLS', 'DEFINES', 'IMPORTS', 'REFERENCES'];
+  const types: RelationshipType[] = ['CALLS', 'DEFINES', 'IMPORTS', 'IMPORTS'];
   for (let i = 0; i < nodeIds.length; i++) {
     for (let j = 0; j < edgesPerNode; j++) {
       const targetIdx = (i + j + 1) % nodeIds.length;

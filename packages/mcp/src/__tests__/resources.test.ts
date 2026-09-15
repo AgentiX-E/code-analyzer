@@ -397,7 +397,11 @@ describe('ResourceProvider', () => {
       // Groups come from nodes with repoGroup/repoName properties
       const nodeWithGroup: GraphNode = {
         projectId: 'test-project',
-        label: 'Repository',
+        // `'Repository'` is not in `NODE_LABELS`. This node is a repository root, which is what the
+        // graph models as a `Project`; the grouping this test exercises comes from the `repoGroup` and
+        // `repoName` properties below, not from the label.
+        id: 900,
+        label: 'Project',
         name: 'code-analyzer',
         qualifiedName: 'repo::code-analyzer',
         filePath: null,

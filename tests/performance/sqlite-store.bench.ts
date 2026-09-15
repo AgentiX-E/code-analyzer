@@ -55,7 +55,7 @@ function generateEdges(
     'IMPORTS',
     'EXTENDS',
     'IMPLEMENTS',
-    'REFERENCES',
+    'IMPORTS',
   ];
   for (let i = 0; i < nodeIds.length; i++) {
     for (let j = 0; j < edgesPerNode; j++) {
