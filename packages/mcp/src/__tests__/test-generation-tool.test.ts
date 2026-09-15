@@ -44,9 +44,8 @@ describe('testGenerationTool', () => {
     expect(testGenerationTool.name).toBe('test_generation');
   });
   it('should support frameworks', () => {
-    const e = (testGenerationTool.inputSchema['properties'].framework as Record<string, unknown>)[
-      'enum'
-    ] as string[];
+    const properties = testGenerationTool.inputSchema['properties'] as Record<string, unknown>;
+    const e = (properties['framework'] as Record<string, unknown>)['enum'] as string[];
     expect(e).toContain('vitest');
     expect(e).toContain('jest');
     expect(e).toContain('pytest');

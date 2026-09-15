@@ -43,9 +43,8 @@ describe('docGenerationTool', () => {
     expect(docGenerationTool.name).toBe('doc_generation');
   });
   it('should support doc styles', () => {
-    const e = (docGenerationTool.inputSchema['properties'].style as Record<string, unknown>)[
-      'enum'
-    ] as string[];
+    const properties = docGenerationTool.inputSchema['properties'] as Record<string, unknown>;
+    const e = (properties['style'] as Record<string, unknown>)['enum'] as string[];
     expect(e).toContain('jsdoc');
     expect(e).toContain('docstring');
     expect(e).toContain('godoc');
