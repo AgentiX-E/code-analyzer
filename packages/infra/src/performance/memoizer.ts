@@ -35,7 +35,14 @@ interface CacheEntry<T> {
 // Memoizer
 // ---------------------------------------------------------------------------
 
-export class AsyncMemoizer<T extends (...args: unknown[]) => Promise<unknown>> {
+/**
+ * `T` is used only through `Awaited<ReturnType<T>>` — the class never touches its parameters — so the
+ * constraint must not constrain them. `(...args: unknown[])` did, and **no** function with typed
+ * parameters satisfies it: `unknown` has to be acceptable where the function expects `number`.
+ * `never[]` is the sound spelling of "any function": `never` is assignable to every parameter type, so
+ * anything callable fits, and no `any` is smuggled in.
+ */
+export class AsyncMemoizer<T extends (...args: never[]) => Promise<unknown>> {
   private cache: Map<string, CacheEntry<Awaited<ReturnType<T>>>>;
   private readonly ttlMs: number;
   private readonly maxSize: number;
