@@ -1,5 +1,8 @@
 // @code-analyzer/web — API Client Tests
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+// `client` is a value, so `client.ApiError` is usable as a value but not as a type; the module
+// namespace supplies the type positions.
+import * as clientApi from '../api/client';
 
 // We need to mock fetch before importing the module
 const mockFetch = vi.fn();
@@ -55,8 +58,8 @@ describe('getHealth', () => {
       expect.fail('Should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(client.ApiError);
-      expect((err as client.ApiError).status).toBe(503);
-      expect((err as client.ApiError).message).toBe('Server down');
+      expect((err as clientApi.ApiError).status).toBe(503);
+      expect((err as clientApi.ApiError).message).toBe('Server down');
     }
   });
 
@@ -68,7 +71,7 @@ describe('getHealth', () => {
       expect.fail('Should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(client.NetworkError);
-      expect((err as client.NetworkError).message).toBe('Connection refused');
+      expect((err as clientApi.NetworkError).message).toBe('Connection refused');
     }
   });
 
@@ -80,7 +83,7 @@ describe('getHealth', () => {
       expect.fail('Should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(client.NetworkError);
-      expect((err as client.NetworkError).message).toBe('Network request failed');
+      expect((err as clientApi.NetworkError).message).toBe('Network request failed');
     }
   });
 
@@ -97,7 +100,7 @@ describe('getHealth', () => {
       expect.fail('Should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(client.ApiError);
-      expect((err as client.ApiError).message).toContain('HTTP 500');
+      expect((err as clientApi.ApiError).message).toContain('HTTP 500');
     }
   });
 });

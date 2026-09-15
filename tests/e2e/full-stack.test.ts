@@ -170,13 +170,13 @@ describe('Full-Stack E2E — MCP Tools', () => {
 
 describe('Full-Stack E2E — CLI', () => {
   it('should initialize project via CLI command', async () => {
-    const { initProject } = await import('../../packages/cli/src/commands/init.ts');
+    const { initProject } = await import('../../packages/cli/src/commands/init.js');
     const result = initProject({ directory: testDir, force: true });
     expect(result.success).toBe(true);
   });
 
   it('should get status via CLI command', async () => {
-    const { getStatus } = await import('../../packages/cli/src/commands/status.ts');
+    const { getStatus } = await import('../../packages/cli/src/commands/status.js');
     const report = getStatus({ directory: testDir });
     expect(report.system).toBeDefined();
     expect(report.system.platform).toBeTruthy();
@@ -186,7 +186,7 @@ describe('Full-Stack E2E — CLI', () => {
 
   it('should analyze repository via CLI', async () => {
     const { analyzeRepository, formatAnalyzeResult } =
-      await import('../../packages/cli/src/commands/analyze.ts');
+      await import('../../packages/cli/src/commands/analyze.js');
     const result = await analyzeRepository({ path: testDir, format: 'json' });
     expect(result).toBeDefined();
     // May succeed or fail depending on env, but should not crash
@@ -197,7 +197,7 @@ describe('Full-Stack E2E — CLI', () => {
 
   it('should search via CLI command', async () => {
     const { searchGraph, formatSearchResult } =
-      await import('../../packages/cli/src/commands/search.ts');
+      await import('../../packages/cli/src/commands/search.js');
     const result = await searchGraph({ query: 'hello', format: 'json' });
     expect(result).toBeDefined();
     const output = formatSearchResult(result, 'text');
