@@ -14,5 +14,3 @@
 // The benchmark logic lives in the test file which is the canonical source.
 // This file serves as documentation and can be used as a standalone entry point
 // for running the benchmark via vitest.
-
-export { default } from './__tests__/react-analysis.test.js';

@@ -4,7 +4,9 @@
 import { describe, it, expect } from 'vitest';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import type { ParsedImport, UnifiedCapture, ImportSemantics } from '@code-analyzer/shared';
+import type { UnifiedCapture, ImportSemantics } from '@code-analyzer/shared';
+// `ParsedImport` is declared by the language provider; `shared` never exported it.
+import type { ParsedImport } from '../languages/provider.js';
 import type {
   NodeTypeMapping,
   TreeSitterLanguage,
