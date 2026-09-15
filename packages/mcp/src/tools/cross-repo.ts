@@ -718,8 +718,8 @@ export async function syncContracts(
       const repoRoutes = allNodes.filter((n) => n.label === 'Route' && n.projectId === repo);
 
       for (const route of repoRoutes) {
-        const routePath = (route.properties?.routePath as string) ?? 'unknown';
-        const routeMethod = (route.properties?.routeMethod as string) ?? 'GET';
+        const routePath = route.properties?.routePath ?? 'unknown';
+        const routeMethod = route.properties?.routeMethod ?? 'GET';
         const contractKey = `${routeMethod}:${routePath}`;
 
         // Check if this route exists in other repos
@@ -729,8 +729,8 @@ export async function syncContracts(
             (n) =>
               n.label === 'Route' &&
               n.projectId === otherRepo &&
-              (n.properties?.routePath as string) === routePath &&
-              (n.properties?.routeMethod as string) === routeMethod,
+              n.properties?.routePath === routePath &&
+              n.properties?.routeMethod === routeMethod,
           );
 
           if (otherRoute) {
