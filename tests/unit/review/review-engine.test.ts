@@ -55,21 +55,6 @@ interface MockGitDiff {
   content?: string;
 }
 
-interface MockReviewComment {
-  id: string;
-  path: string;
-  content: string;
-  thinking: string;
-  existingCode: string;
-  suggestionCode?: string;
-  startLine: number;
-  endLine: number;
-  category: string;
-  severity: string;
-  filtered: boolean;
-  createdAt: string;
-}
-
 class MockInMemoryStore {
   private nodes: MockGraphNode[] = [];
   private edges: MockGraphEdge[] = [];
@@ -472,7 +457,7 @@ describe('CodeReviewEngine — reviewFile()', () => {
     const comments = await engine.reviewFile('test-proj', 'src/bad-naming.ts', content);
     expect(Array.isArray(comments)).toBe(true);
     // Should detect class name not using PascalCase
-    const namingIssues = comments.filter((c: MockReviewComment) => c.category === 'style');
+    const namingIssues = comments.filter((c) => c.category === 'style');
     expect(namingIssues.length).toBeGreaterThan(0);
   });
 
@@ -495,14 +480,14 @@ describe('CodeReviewEngine — reviewFile()', () => {
     ].join('\n');
 
     const comments = await engine.reviewFile('test-proj', 'src/worker.ts', content);
-    const logIssues = comments.filter((c: MockReviewComment) => c.content.includes('console.log'));
+    const logIssues = comments.filter((c) => c.content.includes('console.log'));
     expect(logIssues.length).toBeGreaterThan(0);
   });
 
   it('should not flag console.log in test files', async () => {
     const content = ['console.log("test output");'].join('\n');
     const comments = await engine.reviewFile('test-proj', 'src/worker.test.ts', content);
-    const logIssues = comments.filter((c: MockReviewComment) => c.content.includes('console.log'));
+    const logIssues = comments.filter((c) => c.content.includes('console.log'));
     expect(logIssues.length).toBe(0);
   });
 
@@ -1718,7 +1703,7 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
 
     const comments = await engine.reviewFile('test', 'src/db.ts', content);
     // Should detect missing error handling or risky DB operations
-    const bugComments = comments.filter((c: MockReviewComment) => c.category === 'bug');
+    const bugComments = comments.filter((c) => c.category === 'bug');
     expect(bugComments.length).toBeGreaterThan(0);
   });
 
@@ -1733,7 +1718,7 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     ].join('\n');
 
     const comments = await engine.reviewFile('test', 'src/api.ts', content);
-    const bugComments = comments.filter((c: MockReviewComment) => c.category === 'bug');
+    const bugComments = comments.filter((c) => c.category === 'bug');
     expect(bugComments.length).toBeGreaterThan(0);
   });
 
@@ -1749,7 +1734,7 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     ].join('\n');
 
     const comments = await engine.reviewFile('test', 'src/process.ts', content);
-    const docComments = comments.filter((c: MockReviewComment) => c.category === 'documentation');
+    const docComments = comments.filter((c) => c.category === 'documentation');
     expect(docComments.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -1765,9 +1750,7 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     ].join('\n');
 
     const comments = await engine.reviewFile('test', 'src/debug.ts', content);
-    const logComments = comments.filter((c: MockReviewComment) =>
-      c.content.includes('console.log'),
-    );
+    const logComments = comments.filter((c) => c.content.includes('console.log'));
     expect(logComments.length).toBeGreaterThan(0);
   });
 
@@ -1792,8 +1775,7 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
 
     const comments = await engine.reviewFile('test', 'src/nested.ts', content);
     const nestingComments = comments.filter(
-      (c: MockReviewComment) =>
-        c.content.includes('nesting') || c.content.includes('Deeply nested'),
+      (c) => c.content.includes('nesting') || c.content.includes('Deeply nested'),
     );
     expect(nestingComments.length).toBeGreaterThan(0);
   });
@@ -1809,7 +1791,7 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     const content = lines.join('\n');
 
     const comments = await engine.reviewFile('test', 'src/long.ts', content);
-    const longFuncComments = comments.filter((c: MockReviewComment) =>
+    const longFuncComments = comments.filter((c) =>
       c.content.toLowerCase().includes('long function'),
     );
     expect(longFuncComments.length).toBeGreaterThan(0);

@@ -82,6 +82,6 @@
     "tests/property/parse-roundtrip.test.ts": 1,
     "tests/property/search-invariants.test.ts": 4,
     "tests/unit/mcp/mcp-server.test.ts": 2,
-    "tests/unit/review/review-engine.test.ts": 12
+    "tests/unit/review/review-engine.test.ts": 3
   }
 }
