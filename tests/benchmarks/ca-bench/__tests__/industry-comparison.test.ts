@@ -231,7 +231,7 @@ function normalizeScore(rawValue: number, maxValue: number): number {
   return Math.min(100, Math.max(0, Math.round(normalized * 10) / 10));
 }
 
-function computeCompetitorScores(dimensions: ComparisonDimension[]): CompetitorScore[] {
+function computeCompetitorScores(_dimensions: ComparisonDimension[]): CompetitorScore[] {
   const tools = ['code-analyzer', 'SonarQube', 'CodeQL', 'Semgrep', 'Sourcegraph'] as const;
   const confidence: Record<string, CompetitorScore['confidence']> = {
     'code-analyzer': 'measured',

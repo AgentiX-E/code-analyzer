@@ -254,7 +254,7 @@ function groupCaptures(captures: UnifiedCapture[], filePath: string): CaptureGro
 function resolveImportPath(
   importPath: string,
   sourceFilePath: string,
-  projectRoot: string,
+  _projectRoot: string,
 ): string | null {
   if (importPath.startsWith('.')) {
     const sourceDir = dirname(sourceFilePath);

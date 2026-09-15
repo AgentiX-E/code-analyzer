@@ -16,7 +16,7 @@ async function waitForEvents(
   action: () => void,
   timeoutMs = 2000,
 ): Promise<FileChangeEvent[]> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const events: FileChangeEvent[] = [];
     const timer = setTimeout(() => {
       watcher.unwatch();

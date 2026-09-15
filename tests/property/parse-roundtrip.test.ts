@@ -291,9 +291,7 @@ describe('Parser Roundtrip Invariants', () => {
   describe('Capture Tag Consistency', () => {
     it('all capture tags are valid enum values', () => {
       const validTags = Object.values(CAPTURE_TAGS);
-      for (const { provider, language, validCode, hasSymbols } of PARSERS.filter(
-        (p) => p.hasSymbols,
-      )) {
+      for (const { provider, language, validCode } of PARSERS.filter((p) => p.hasSymbols)) {
         const result = provider.parse(validCode, `test.${language}`);
         for (const capture of result) {
           expect(validTags).toContain(capture.tag);

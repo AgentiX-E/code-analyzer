@@ -47,7 +47,7 @@ function makeWatcherFactory(): WatcherFactory & {
 
   return {
     watchers,
-    createFileSystemWatcher(pattern: string): FileSystemWatcher {
+    createFileSystemWatcher(_pattern: string): FileSystemWatcher {
       const w = createFakeWatcher();
       watchers.push(w);
       return w;

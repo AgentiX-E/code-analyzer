@@ -72,7 +72,7 @@ describe('AsyncMemoizer', () => {
   it('should use custom keyResolver when provided', async () => {
     const memo = new AsyncMemoizer<TestFn>({
       ttlMs: 60000,
-      keyResolver: (x: unknown) => 'fixed-key',
+      keyResolver: (_x: unknown) => 'fixed-key',
     });
     const fn = makeFn();
     await memo.call(fn, 5);

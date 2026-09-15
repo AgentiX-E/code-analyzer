@@ -32,7 +32,7 @@ function getHealth(port: number, path: string): Promise<{ status: number; body: 
  * rather than about the stream's lifetime.
  */
 function statusOf(port: number, path: string): Promise<number> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const req = http.request({ host: '127.0.0.1', port, path, method: 'GET' }, (res) => {
       resolve(res.statusCode ?? 0);
       res.destroy();
