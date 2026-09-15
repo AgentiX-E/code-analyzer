@@ -1639,7 +1639,7 @@ describe('InMemoryGraphStore', () => {
     it('maintains source index on edge insert', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'adj.src' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'adj.tgt' }));
-      const e1 = store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+      const e1 = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
 
       const edges = store.getEdgesForNode(n1, undefined, 'out');
       expect(edges.length).toBe(1);
@@ -1649,7 +1649,7 @@ describe('InMemoryGraphStore', () => {
     it('maintains target index on edge insert', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'tgt.src' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'tgt.dst' }));
-      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
 
       const edges = store.getEdgesForNode(n2, undefined, 'in');
       expect(edges.length).toBe(1);
@@ -1658,7 +1658,7 @@ describe('InMemoryGraphStore', () => {
     it('removes from index on edge delete', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'del.idx.src' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'del.idx.tgt' }));
-      const e1 = store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+      const e1 = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
 
       store.deleteEdge(e1);
       const edges = store.getEdgesForNode(n1, undefined, 'out');
@@ -1668,8 +1668,8 @@ describe('InMemoryGraphStore', () => {
     it('removes from both indices on node delete', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'casc.idx.src' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'casc.idx.tgt' }));
-      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
-      store.insertEdge(createTestEdge(n2, n1, 'IMPORTS'));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
+      store.insertEdge(createTestEdge({ sourceId: n2, targetId: n1, type: 'IMPORTS' }));
 
       store.deleteNode(n1);
 
@@ -1684,7 +1684,7 @@ describe('InMemoryGraphStore', () => {
     it('optimize rebuilds indices correctly', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'opt.src' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'opt.tgt' }));
-      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
 
       store.optimize();
 
@@ -1696,9 +1696,9 @@ describe('InMemoryGraphStore', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'deg.src' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'deg.tgt1' }));
       const n3 = store.insertNode(createTestNode({ qualifiedName: 'deg.tgt2' }));
-      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
-      store.insertEdge(createTestEdge(n1, n3, 'CALLS'));
-      store.insertEdge(createTestEdge(n3, n1, 'IMPORTS'));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n3, type: 'CALLS' }));
+      store.insertEdge(createTestEdge({ sourceId: n3, targetId: n1, type: 'IMPORTS' }));
 
       expect(store.getDegree(n1)).toBe(3);
     });
@@ -1741,9 +1741,9 @@ describe('InMemoryGraphStore', () => {
       const n3 = store.insertNode(createTestNode({ qualifiedName: 'be.n3' }));
 
       const edges = [
-        createTestEdge(n1, n2, 'CALLS'),
-        createTestEdge(n2, n3, 'CALLS'),
-        createTestEdge(n3, n1, 'IMPORTS'),
+        createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }),
+        createTestEdge({ sourceId: n2, targetId: n3, type: 'CALLS' }),
+        createTestEdge({ sourceId: n3, targetId: n1, type: 'IMPORTS' }),
       ];
       const ids = store.insertEdges(edges);
       expect(ids.length).toBe(3);
@@ -1753,7 +1753,7 @@ describe('InMemoryGraphStore', () => {
     it('rejects batch edges with missing target', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.valid' }));
       const edges = [
-        createTestEdge(n1, 99999, 'CALLS'), // target doesn't exist
+        createTestEdge({ sourceId: n1, targetId: 99999, type: 'CALLS' }), // target doesn't exist
       ];
       expect(() => store.insertEdges(edges)).toThrow('not found');
       expect(store.getEdgeCount()).toBe(0);
