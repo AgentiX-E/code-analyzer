@@ -121,8 +121,8 @@ describe('Search Invariants', () => {
       for (let i = 0; i < results1.length; i++) {
         expect(results1[i]!.node.id).toBe(results2[i]!.node.id);
         // Only compare scores if both are defined
-        if (results1[i]!.score !== undefined && results2[i]!.score !== undefined) {
-          expect(results1[i]!.score).toBeCloseTo(results2[i]!.score, 5);
+        if (results1[i]!.combinedScore !== undefined && results2[i]!.combinedScore !== undefined) {
+          expect(results1[i]!.combinedScore).toBeCloseTo(results2[i]!.combinedScore, 5);
         }
       }
     });

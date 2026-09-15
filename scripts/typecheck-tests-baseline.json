@@ -67,7 +67,6 @@
     "tests/e2e/webhook-e2e.test.ts": 1,
     "tests/performance/benchmark-runner.ts": 6,
     "tests/property/cross-repo-invariants.test.ts": 4,
-    "tests/property/search-invariants.test.ts": 4,
     "tests/unit/mcp/mcp-server.test.ts": 1,
     "tests/unit/review/review-engine.test.ts": 3
   }
