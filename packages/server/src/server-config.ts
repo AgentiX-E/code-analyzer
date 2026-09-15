@@ -54,8 +54,12 @@ export interface AuthConfig {
   enabled: boolean;
   /** API keys that are allowed access (header: x-api-key) */
   apiKeys: string[];
-  /** Header name for API key (default: 'x-api-key') */
-  headerName: string;
+  /**
+   * Header name for the API key. Optional because `DEFAULT_CONFIG` supplies `'x-api-key'` and the
+   * config is assembled by spreading it — a caller that omits this field gets the documented default.
+   * Requiring it here made seven tests that rely on that default fail to typecheck.
+   */
+  headerName?: string;
 }
 
 export interface LoggingConfig {

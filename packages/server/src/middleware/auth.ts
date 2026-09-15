@@ -18,11 +18,14 @@ export function registerAuth(app: FastifyInstance, config: AuthConfig): void {
       return;
     }
 
-    const apiKey = extractApiKey(request, config.headerName);
+    // The default lives in `DEFAULT_CONFIG`; resolving it here keeps the fallback visible at the point
+    // that depends on it rather than implying the value is always present.
+    const headerName = config.headerName ?? 'x-api-key';
+    const apiKey = extractApiKey(request, headerName);
     if (!apiKey) {
       return reply.status(401).send({
         error: 'Unauthorized',
-        message: `Missing authentication. Provide '${config.headerName}' header.`,
+        message: `Missing authentication. Provide '${headerName}' header.`,
       });
     }
 
