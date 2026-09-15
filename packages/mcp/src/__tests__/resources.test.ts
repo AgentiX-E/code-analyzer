@@ -165,7 +165,7 @@ function addEdges(store: InMemoryGraphStore): void {
       projectId: 'test-project',
       sourceId: 1,
       targetId: 3,
-      type: 'DEPENDS_ON',
+      type: 'CROSS_REPO_DEPENDS',
       properties: {},
       weight: 1,
       createdAt: '2026-01-01T00:00:00Z',

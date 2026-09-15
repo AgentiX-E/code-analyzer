@@ -123,19 +123,19 @@ describe('Extended Graph Invariants', () => {
       const n3 = addNode(store, 'Module3');
 
       // n1 → n2 → n3 (no cycle)
-      addEdge(store, n1, n2, 'DEPENDS_ON');
-      addEdge(store, n2, n3, 'DEPENDS_ON');
+      addEdge(store, n1, n2, 'CROSS_REPO_DEPENDS');
+      addEdge(store, n2, n3, 'CROSS_REPO_DEPENDS');
 
       // Verify edges exist
       const edges1 = store.queryEdges({
         sourceId: n1,
         projectId: 'prop-ext',
-        type: 'DEPENDS_ON',
+        type: 'CROSS_REPO_DEPENDS',
       }).items;
       const edges2 = store.queryEdges({
         sourceId: n2,
         projectId: 'prop-ext',
-        type: 'DEPENDS_ON',
+        type: 'CROSS_REPO_DEPENDS',
       }).items;
       expect(edges1.length).toBeGreaterThan(0);
       expect(edges2.length).toBeGreaterThan(0);

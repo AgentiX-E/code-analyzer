@@ -100,7 +100,7 @@ function populateStore(store: InMemoryGraphStore): void {
     projectId: 'my-app',
     sourceId: 2, // UserService
     targetId: 4, // src/auth.ts
-    type: 'DEPENDS_ON',
+    type: 'CROSS_REPO_DEPENDS',
     properties: {},
     weight: 1,
     createdAt: '2026-01-01T00:00:00Z',
@@ -110,7 +110,7 @@ function populateStore(store: InMemoryGraphStore): void {
     projectId: 'my-app',
     sourceId: 3, // main
     targetId: 2, // UserService — main depends on UserService
-    type: 'DEPENDS_ON',
+    type: 'CROSS_REPO_DEPENDS',
     properties: {},
     weight: 1,
     createdAt: '2026-01-01T00:00:00Z',

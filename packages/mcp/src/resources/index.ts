@@ -563,10 +563,7 @@ export class ResourceProvider {
     }> = [];
 
     for (const edge of this.store.edges.values()) {
-      if (
-        (edge.type as string) === 'CONTRACT' ||
-        (edge.type as string) === 'DEPENDS_ON_CROSS_REPO'
-      ) {
+      if (edge.type === 'CROSS_REPO_CONTRACT' || edge.type === 'CROSS_REPO_DEPENDS') {
         contracts.push({
           id: edge.id,
           sourceId: edge.sourceId,

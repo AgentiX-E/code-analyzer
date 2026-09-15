@@ -495,9 +495,7 @@ ${adrInstruction}`;
     if (node) {
       lines.push(`- Found: \`${node.qualifiedName || node.name}\` (${node.label})`);
       const edges = this.store.getEdgesForNode(node.id, undefined, 'out');
-      const calls = edges.filter(
-        (e) => e.type === EDGE_CALLS || (e.type as string) === 'DEPENDS_ON',
-      );
+      const calls = edges.filter((e) => e.type === EDGE_CALLS || e.type === 'CROSS_REPO_DEPENDS');
       if (calls.length > 0) {
         lines.push(`- Direct calls/dependencies: ${calls.length}`);
         for (const edge of calls.slice(0, 5)) {
@@ -601,7 +599,7 @@ ${adrInstruction}`;
 
     for (const edge of this.store.edges.values()) {
       if (edge.projectId !== projectId && projectId !== '*') continue;
-      if ((edge.type as string) === 'DEPENDS_ON' || edge.type === EDGE_IMPORTS) {
+      if (edge.type === 'CROSS_REPO_DEPENDS' || edge.type === EDGE_IMPORTS) {
         const src = this.store.getNode(edge.sourceId);
         const tgt = this.store.getNode(edge.targetId);
         if (src && tgt) {
