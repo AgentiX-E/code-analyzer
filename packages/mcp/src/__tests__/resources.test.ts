@@ -12,6 +12,7 @@ function makeStore(): InMemoryGraphStore {
 function addNodes(store: InMemoryGraphStore): void {
   const nodes: GraphNode[] = [
     {
+      id: 1,
       projectId: 'test-project',
       label: 'Function',
       name: 'calculateTotal',
@@ -30,6 +31,7 @@ function addNodes(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-02T00:00:00Z',
     },
     {
+      id: 2,
       projectId: 'test-project',
       label: 'Class',
       name: 'Logger',
@@ -48,15 +50,16 @@ function addNodes(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 3,
       projectId: 'test-project',
-      label: 'EntryPoint',
+      label: 'Function',
       name: 'main',
       qualifiedName: 'src/index.ts::main',
       filePath: 'src/index.ts',
       startLine: 5,
       endLine: 20,
       language: 'typescript',
-      properties: { isEntrypoint: 'true' },
+      properties: {},
       signature: null,
       docstring: null,
       complexity: 2,
@@ -66,6 +69,7 @@ function addNodes(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 4,
       projectId: 'test-project',
       label: 'Function',
       name: 'complexAlgorithm',
@@ -84,6 +88,7 @@ function addNodes(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 5,
       projectId: 'test-project',
       label: 'ADR',
       name: 'ADR-001-Use-PostgreSQL',
@@ -102,6 +107,7 @@ function addNodes(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 6,
       projectId: 'test-project',
       label: 'Process',
       name: 'UserRegistration',
@@ -144,6 +150,7 @@ function addNodes(store: InMemoryGraphStore): void {
 function addEdges(store: InMemoryGraphStore): void {
   const edges: GraphEdge[] = [
     {
+      id: 7,
       projectId: 'test-project',
       sourceId: 1,
       targetId: 2,
@@ -153,6 +160,7 @@ function addEdges(store: InMemoryGraphStore): void {
       createdAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 8,
       projectId: 'test-project',
       sourceId: 2,
       targetId: 1,
@@ -162,6 +170,7 @@ function addEdges(store: InMemoryGraphStore): void {
       createdAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 9,
       projectId: 'test-project',
       sourceId: 1,
       targetId: 3,
@@ -333,7 +342,11 @@ describe('ResourceProvider', () => {
       if ('text' in result) {
         const data = JSON.parse(result.text);
         expect(data.totalEntrypoints).toBe(1);
-        expect(data.entrypoints[0].kind).toBe('EntryPoint');
+        // `kind` is the node's label, so this asserts the label the analyzer actually emits for an
+        // exported `main` — not an 'EntryPoint' label, which is not in `NODE_LABELS` and is produced
+        // by nothing. The fixture no longer invents either it or the `isEntrypoint` property, so this
+        // test now depends on the clause that does the work: `name === 'main' && isExported`.
+        expect(data.entrypoints[0].kind).toBe('Function');
       }
     });
 

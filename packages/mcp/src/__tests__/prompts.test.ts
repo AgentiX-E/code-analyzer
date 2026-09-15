@@ -12,6 +12,7 @@ function makeStore(): InMemoryGraphStore {
 function populateStore(store: InMemoryGraphStore): void {
   const nodes: GraphNode[] = [
     {
+      id: 1,
       projectId: 'my-app',
       label: 'Function',
       name: 'authenticateUser',
@@ -48,15 +49,18 @@ function populateStore(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 2,
       projectId: 'my-app',
-      label: 'EntryPoint',
+      // `'EntryPoint'` is not in `NODE_LABELS`; an exported `main` is how the prompt builder finds an
+      // entry point.
+      label: 'Function',
       name: 'main',
       qualifiedName: 'src/index.ts::main',
       filePath: 'src/index.ts',
       startLine: 1,
       endLine: 30,
       language: 'typescript',
-      properties: { isEntrypoint: 'true' },
+      properties: {},
       signature: null,
       docstring: null,
       complexity: 3,
@@ -66,6 +70,7 @@ function populateStore(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 3,
       projectId: 'my-app',
       label: 'Module',
       name: 'src/auth.ts',
