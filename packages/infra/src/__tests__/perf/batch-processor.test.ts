@@ -69,7 +69,7 @@ describe('BatchProcessor', () => {
     const processor = new BatchProcessor<number>({ batchSize: 5 });
     const items = makeItems(12);
     const handler = vi.fn(async (item: number): Promise<number> => item);
-    const progressCalls: number[] = [];
+    void [];
 
     const result = await processor.process(items, handler);
     expect(result.results.length).toBe(12);

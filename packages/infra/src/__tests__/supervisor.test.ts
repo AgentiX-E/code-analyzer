@@ -498,7 +498,7 @@ describe('IndexSupervisor', () => {
   });
 
   it('handles stable memory (heap not increasing between checks)', async () => {
-    const originalMemoryUsage = process.memoryUsage;
+    void process.memoryUsage;
     let callCount = 0;
 
     // Mock memoryUsage to return the same heap value each time,
