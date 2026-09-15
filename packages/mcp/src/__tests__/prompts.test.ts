@@ -31,6 +31,7 @@ function populateStore(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 933,
       projectId: 'my-app',
       label: 'Class',
       name: 'UserService',
@@ -39,7 +40,7 @@ function populateStore(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 120,
       language: 'typescript',
-      properties: { baseClasses: 'BaseService' },
+      properties: { baseClasses: ['BaseService'] },
       signature: null,
       docstring: 'Service for user-related operations',
       complexity: 12,

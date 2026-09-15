@@ -180,10 +180,11 @@ function addEdges(store: InMemoryGraphStore): void {
       createdAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 1082,
       projectId: 'test-project',
       sourceId: 1,
       targetId: 4,
-      type: 'CONTRACT',
+      type: 'CROSS_REPO_CONTRACT',
       properties: { repoGroup: 'main-services' },
       weight: 2,
       createdAt: '2026-01-01T00:00:00Z',
@@ -302,7 +303,7 @@ describe('ResourceProvider', () => {
         expect(data.nodeLabels).toContain('Function');
         expect(data.nodeLabels).toContain('Class');
         expect(data.edgeTypes).toContain('CALLS');
-        expect(data.edgeTypes).toContain('CONTRACT');
+        expect(data.edgeTypes).toContain('CROSS_REPO_CONTRACT');
         expect(data.totalNodeTypes).toBeGreaterThan(0);
         expect(data.totalEdgeTypes).toBeGreaterThan(0);
       }
@@ -431,7 +432,9 @@ describe('ResourceProvider', () => {
       const result = await provider.getResource('code-analyzer://resources/contracts');
       if ('text' in result) {
         const data = JSON.parse(result.text);
-        expect(data.totalContracts).toBe(1);
+        // Both cross-repo edge types match the filter (`CROSS_REPO_CONTRACT` and `CROSS_REPO_DEPENDS`),
+        // and the fixture carries one of each.
+        expect(data.totalContracts).toBe(2);
         expect(data.contracts[0].type || data.contracts[0].projectId).toBeDefined();
       }
     });
