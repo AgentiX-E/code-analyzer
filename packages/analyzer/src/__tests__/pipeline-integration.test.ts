@@ -18,22 +18,42 @@ import {
   RoutesPhase,
 } from '../pipeline/phases/index.js';
 import type {
-  PipelineContext,
   DiscoveredFile,
+  KnowledgeGraph,
   ParsedFile,
+  PipelineContext,
   ResolvedImport,
 } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const FIXTURE_DIR = resolve(__dirname, 'fixtures', 'integration-project');
 const FIXTURE_SRC = resolve(FIXTURE_DIR, 'src');
 
+/**
+ * An empty `KnowledgeGraph` for a context.
+ *
+ * `PipelineContext.graph` holds a `KnowledgeGraph`, and the orchestrator builds one with its private
+ * `createEmptyGraph(projectId)`. These fixtures used an `InMemoryGraphStore`, which is a different thing:
+ * its indexes are keyed by project (`Map<projectId, Set<nodeId>>`) because a store holds many projects,
+ * while a graph has a single `projectId` — one that production reads (`graph-builder` stamps it on every
+ * node and edge it creates). The store happened to satisfy every other field, so the mismatch surfaced as
+ * one missing property.
+ */
+function makeEmptyGraph(projectId: string): KnowledgeGraph {
+  return {
+    projectId,
+    nodes: new Map(),
+    edges: new Map(),
+    qnameIndex: new Map(),
+    fileIndex: new Map(),
+  };
+}
+
 describe('Pipeline Integration — End-to-End', () => {
   let ctx: PipelineContext;
 
   beforeAll(async () => {
-    const graph = new InMemoryGraphStore();
+    const graph = makeEmptyGraph('integration-test');
 
     ctx = {
       projectId: 'integration-test',
@@ -369,7 +389,7 @@ describe('Pipeline Integration — End-to-End', () => {
 
   describe('Pipeline Error Resilience', () => {
     it('should handle empty project gracefully', async () => {
-      const emptyGraph = new InMemoryGraphStore();
+      const emptyGraph = makeEmptyGraph('empty-test');
       const emptyCtx: PipelineContext = {
         projectId: 'empty-test',
         rootPath: resolve(FIXTURE_SRC, 'non-existent'),
@@ -393,7 +413,7 @@ describe('Pipeline Integration — End-to-End', () => {
     });
 
     it('should handle malformed TypeScript gracefully', async () => {
-      const badGraph = new InMemoryGraphStore();
+      const badGraph = makeEmptyGraph('bad-ts-test');
       const fs = await import('node:fs/promises');
       const { resolve: r } = await import('node:path');
       const tmpDir = r(FIXTURE_SRC, '..', '.tmp-test');
