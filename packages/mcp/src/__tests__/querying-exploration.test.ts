@@ -43,9 +43,6 @@ function makeNode(
   return {
     id: 0,
     projectId: PROJECT,
-    label: overrides.label,
-    name: overrides.name,
-    qualifiedName: overrides.qualifiedName,
     filePath: null,
     startLine: null,
     endLine: null,

@@ -78,7 +78,9 @@ function setupMockOrchestrator(
     duration: overrides.duration ?? 300,
   });
 
-  (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function () {
+  (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+    close: () => void;
+  }) {
     return { execute: executeMock };
   });
 
@@ -87,7 +89,9 @@ function setupMockOrchestrator(
     { name: 'parse', execute: vi.fn() },
   ]);
 
-  (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function () {
+  (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+    close: () => void;
+  }) {
     this.close = vi.fn();
   });
 
@@ -244,14 +248,18 @@ describe('analyzeRepository', () => {
   });
 
   it('should handle orchestrator throwing an error', async () => {
-    (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function () {
+    (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+      close: () => void;
+    }) {
       return {
         execute: vi.fn().mockRejectedValue(new Error('Pipeline crashed')),
       };
     });
 
     (createAllPhases as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function () {
+    (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+      close: () => void;
+    }) {
       this.close = vi.fn();
     });
 
@@ -265,14 +273,18 @@ describe('analyzeRepository', () => {
   });
 
   it('should handle non-Error throw in orchestrator', async () => {
-    (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function () {
+    (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+      close: () => void;
+    }) {
       return {
         execute: vi.fn().mockRejectedValue('raw error string'),
       };
     });
 
     (createAllPhases as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function () {
+    (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+      close: () => void;
+    }) {
       this.close = vi.fn();
     });
 
@@ -304,7 +316,9 @@ describe('analyzeRepository', () => {
   });
 
   it('should handle orchestrator returning graph without nodes', async () => {
-    (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function () {
+    (PipelineOrchestrator as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+      close: () => void;
+    }) {
       return {
         execute: vi.fn().mockResolvedValue({
           status: 'success',
@@ -317,7 +331,9 @@ describe('analyzeRepository', () => {
     });
 
     (createAllPhases as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function () {
+    (InMemoryGraphStore as ReturnType<typeof vi.fn>).mockImplementation(function (this: {
+      close: () => void;
+    }) {
       this.close = vi.fn();
     });
 
