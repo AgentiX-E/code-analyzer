@@ -152,8 +152,13 @@ export function registerSSERoutes(
 /**
  * Send a Server-Sent Event to a raw response stream.
  */
+/**
+ * The parameter is the one member this function uses: `res.write` is its only access, production passes
+ * `reply.raw` (a real `ServerResponse`), and the tests pass minimal stubs. Intersecting with
+ * `NodeJS.WritableStream` demanded a full stream from every caller and rejected those stubs for no benefit.
+ */
 function sendSSEEvent(
-  res: NodeJS.WritableStream & { write: (chunk: string) => boolean },
+  res: { write: (chunk: string) => boolean },
   event: string,
   data: unknown,
 ): void {

@@ -436,7 +436,14 @@ describe('CodeAnalyzerChatParticipant — Context Building', () => {
   it('includes impact analysis section', () => {
     const intent: ClassifiedIntent = { type: 'impact', confidence: 0.9 };
     const ctx = {
-      impact: { riskLevel: 'high', affectedSymbols: 15 },
+      impact: {
+        riskLevel: 'high',
+        riskScore: 0.75,
+        affectedSymbols: 15,
+        directDependents: [],
+        indirectDependents: [],
+        affectedTests: [],
+      },
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('### Impact Analysis');
@@ -1053,7 +1060,14 @@ describe('CodeAnalyzerChatParticipant — Deep Context Validation', () => {
   it('buildContextMessage handles combined context sections', () => {
     const intent: ClassifiedIntent = { type: 'impact', confidence: 0.9 };
     const ctx = {
-      impact: { riskLevel: 'critical', affectedSymbols: 42 },
+      impact: {
+        riskLevel: 'critical',
+        riskScore: 0.9,
+        affectedSymbols: 42,
+        directDependents: [],
+        indirectDependents: [],
+        affectedTests: [],
+      },
       changedSymbols: [
         { name: 'Config', riskLevel: 'high' },
         { name: 'Logger', riskLevel: 'medium' },
