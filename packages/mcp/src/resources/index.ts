@@ -359,10 +359,9 @@ export class ResourceProvider {
     }> = [];
 
     for (const node of this.store.nodes.values()) {
+      // `'EntryPoint'` is not a `NodeLabel`; the cast only stopped the compiler saying so.
       const isEntrypoint =
-        (node.label as string) === 'EntryPoint' ||
-        node.properties['isEntrypoint'] === 'true' ||
-        (node.name === 'main' && node.isExported);
+        node.properties['isEntrypoint'] === 'true' || (node.name === 'main' && node.isExported);
       if (!isEntrypoint) continue;
 
       entrypoints.push({
@@ -624,8 +623,10 @@ export class ResourceProvider {
     const reports: Array<{ name: string; nodeId: number; createdAt: string; type: string }> = [];
 
     for (const node of this.store.nodes.values()) {
-      const isReport =
-        (node.label as string) === 'Report' || node.properties['isReport'] === 'true';
+      // `'Report'` is not a `NodeLabel` either. Unlike `isEntrypoint` there is no other clause here, so
+      // this list renders only when something sets `isReport` — and nothing in production does. Left as
+      // the property check alone, with the question flagged rather than guessed at.
+      const isReport = node.properties['isReport'] === 'true';
       if (!isReport) continue;
 
       reports.push({

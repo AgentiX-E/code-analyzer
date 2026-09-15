@@ -470,8 +470,12 @@ ${adrInstruction}`;
     const lines: string[] = [];
     for (const node of this.store.nodes.values()) {
       if (node.projectId !== projectId && projectId !== '*') continue;
+      // `'EntryPoint'` is not a `NodeLabel` and nothing emits `isEntrypoint` in production, so this
+      // condition was false for every node and the section below never rendered. `resources/index.ts`
+      // detects entry points with the third clause — an exported `main` — which is the mechanism that
+      // actually works; the first two are kept only as data-driven overrides.
       const isEntry =
-        (node.label as string) === 'EntryPoint' || node.properties['isEntrypoint'] === 'true';
+        node.properties['isEntrypoint'] === 'true' || (node.name === 'main' && node.isExported);
       if (!isEntry) continue;
       const fileInfo = node.filePath ?? 'unknown file';
       const lineInfo = node.startLine ? `:${node.startLine}` : '';
