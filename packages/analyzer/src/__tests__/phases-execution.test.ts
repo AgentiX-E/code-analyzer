@@ -5074,7 +5074,7 @@ describe('ParsePhase - provider loading', () => {
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
     scanData.discoveredFiles.push({
       filePath: join(fixture.rootPath, 'src/unknown.xyz'),
-      language: 'unknown-language',
+      language: 'unknown-language' as never,
       content: 'some content',
       hash: 'xyz123',
       size: 20,

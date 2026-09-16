@@ -97,6 +97,8 @@ export interface SymbolDetailItem {
   docstring?: string;
   label: string;
   isExported: boolean;
+  /** Read by the `/explain` renderer as `d.complexity`; the type was missing the field it renders. */
+  complexity?: ComplexityMetricsItem;
 }
 
 export interface ComplexityMetricsItem {

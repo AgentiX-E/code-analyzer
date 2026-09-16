@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { GoResolver } from '../resolution/go-resolver.js';
-import type { TypeContext } from '../resolution/type-resolver-base.js';
+import type { ResolvedType, TypeContext } from '../resolution/type-resolver-base.js';
 
 function makeResolver(): GoResolver {
   return new GoResolver();
@@ -67,7 +67,7 @@ describe('GoResolver — unknown/external resolution', () => {
     const r = makeResolver();
     const ctx: TypeContext = {
       filePath: '/test.go',
-      resolveExternal: async () => ({ name: 'External', kind: 'class' }),
+      resolveExternal: async (): Promise<ResolvedType> => ({ name: 'External', kind: 'class' }),
     };
     const result = await r.resolveType('ExternalType', ctx);
     expect(result).not.toBeNull();
