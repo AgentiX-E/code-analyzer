@@ -292,9 +292,10 @@ describe('ConfigService', () => {
     it('rejects an unknown profile', () => {
       // Settings are untyped at the source, so a value outside the union is a
       // legal input to validate() even though the type says otherwise.
+      // Double cast, because the intent is precisely to pass a value the type rejects — see the comment above.
       const errors = ConfigService.validate({
         profile: 'turbo',
-      } as Partial<CodeAnalyzerConfig>);
+      } as unknown as Partial<CodeAnalyzerConfig>);
 
       expect(errors).toEqual([
         'Invalid profile: "turbo". Must be "strict", "balanced", or "relaxed".',

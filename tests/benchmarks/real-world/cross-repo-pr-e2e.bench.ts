@@ -269,8 +269,8 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
 
     // Phase 4: Cross-repo contract validation
     // Create cross-repo indexer and group manager for the analysis
-    const crossRepoIndexer = new CrossRepoIndexer(store);
     const groupManager = new RepoGroupManager();
+    const crossRepoIndexer = new CrossRepoIndexer(store, groupManager);
 
     // Register repos as a group
     groupManager.createGroup('microservices', 'Microservice Architecture', [
@@ -315,11 +315,7 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
     let blastRadius: BlastRadiusResult | null = null;
 
     try {
-      blastRadius = await impactBuilder.calculateBlastRadius(
-        'microservices',
-        'user-service',
-        changedSymbols,
-      );
+      blastRadius = await impactBuilder.calculateBlastRadius('user-service');
     } catch {
       // Build manual blast radius from node analysis
       blastRadius = buildManualBlastRadius(allNodes, 'user-service', changedSymbols);

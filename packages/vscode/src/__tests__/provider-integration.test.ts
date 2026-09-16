@@ -151,7 +151,9 @@ describe('ReviewDecorationLogic', () => {
       const comment = {
         severity: 'high',
         message: 'Test issue',
-        filePath: '/test/file.ts',
+        title: 'Test issue',
+
+        path: '/test/file.ts',
         startLine: 10,
         endLine: 15,
       } as ReviewCommentItem;
@@ -163,8 +165,10 @@ describe('ReviewDecorationLogic', () => {
     it('returns fix action for critical severity', () => {
       const comment = {
         severity: 'critical',
+        title: 'Critical issue',
         message: 'Critical issue',
-        filePath: '/test/file.ts',
+
+        path: '/test/file.ts',
         startLine: 1,
         endLine: 5,
       } as ReviewCommentItem;
