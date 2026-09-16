@@ -4,7 +4,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
-import { basename, join, relative } from 'node:path';
+import { basename, join, posix, relative } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
@@ -293,12 +293,12 @@ export class CrossRepoIndexer {
     const files = await this.discoverFiles(localPath, options);
 
     const langFilter = options.languages ? new Set(options.languages) : null;
+    const selected = langFilter ? files.filter((f) => langFilter.has(f.language)) : files;
 
-    for (const file of files) {
-      if (langFilter && !langFilter.has(file.language)) {
-        continue;
-      }
-
+    // Two passes, because an edge can point at a file that has not been visited yet: create every File node
+    // first, then resolve the imports. Building an edge as each file is visited meant the target's node did not
+    // exist yet, so no import ever resolved and `totalEdges` stayed at zero.
+    for (const file of selected) {
       try {
         const content = readFileSync(file.filePath, 'utf-8');
         const symbols = this.extractSymbols(
@@ -309,16 +309,21 @@ export class CrossRepoIndexer {
           file.language,
         );
         this.insertNodes(projectId, symbols);
-
-        // Create File node
         this.ensureFileNode(projectId, file.filePath, localPath, file.language);
+      } catch {
+        // Skip files that can't be read or parsed
+      }
+    }
 
+    for (const file of selected) {
+      try {
+        const content = readFileSync(file.filePath, 'utf-8');
         // Extract imports and create edges. Pass the repo-relative path so it
         // matches the `filePath` stored on File nodes.
         const imports = this.extractImports(file.filePath, content, projectId);
         this.createImportEdges(projectId, relative(localPath, file.filePath), imports);
       } catch {
-        // Skip files that can't be read or parsed
+        // Skip files whose imports can't be read
       }
     }
   }
@@ -1302,15 +1307,18 @@ export class CrossRepoIndexer {
   ): void {
     const now = new Date().toISOString();
 
+    const nodes = this.getRepoNodes(projectId);
+
     for (const imp of imports) {
-      // Find target file node by module path
-      const nodes = this.getRepoNodes(projectId);
+      // A module specifier is written **relative to the importing file**, while a File node stores a
+      // **repo-relative** path. Comparing the two directly never matched: `'src/types.ts'.includes('./types')`
+      // is false, so every edge was skipped and `totalEdges` stayed at zero. Resolve first, then compare like
+      // with like.
+      const resolved = resolveModulePath(sourceFile, imp.modulePath);
+      if (!resolved) continue;
+
       const targetFileNode = nodes.find(
-        (n) =>
-          n.label === 'File' &&
-          (n.filePath?.includes(imp.modulePath) ||
-            n.filePath?.includes(imp.modulePath.replace(/^\./, '')) ||
-            n.name.startsWith(imp.modulePath)),
+        (n) => n.label === 'File' && stripExtension(n.filePath ?? '') === resolved,
       );
 
       if (!targetFileNode) continue;
@@ -1447,4 +1455,19 @@ export function levenshteinDistance(a: string, b: string): number {
   }
 
   return prevRow[a.length]!;
+}
+
+/**
+ * Turn `('./types', 'src/gateway.ts')` into `'src/types'` — the importer's directory plus the specifier,
+ * with the extension dropped — or `null` when the specifier is bare.
+ */
+function resolveModulePath(sourceFile: string, modulePath: string): string | null {
+  if (!modulePath.startsWith('.')) return null;
+  const dir = sourceFile.includes('/') ? sourceFile.slice(0, sourceFile.lastIndexOf('/')) : '';
+  return stripExtension(posix.normalize(posix.join(dir, modulePath)));
+}
+
+/** `'src/types.ts'` -> `'src/types'`; already-extensionless paths are returned unchanged. */
+function stripExtension(filePath: string): string {
+  return filePath.replace(/\.(tsx?|jsx?|mjs|cjs)$/, '');
 }

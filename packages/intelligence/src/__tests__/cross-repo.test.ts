@@ -671,6 +671,23 @@ describe('CrossRepoIndexer', () => {
       expect(result.totalEdges).toBeGreaterThanOrEqual(0);
     });
 
+    it('should create import edges between the files of a repo', async () => {
+      const repoDir = createTestRepoDir(tmpBaseDir, 'service-edges', {
+        'src/types.ts': 'export interface User { id: string; }',
+        'src/index.ts':
+          "import { User } from './types';\nexport function get(): User { return { id: '1' }; }",
+      });
+
+      groupManager.createGroup('g-edges', 'Edges Group', '');
+      groupManager.addRepo('g-edges', 'org', 'service-edges', 'https://e.example.com', repoDir);
+
+      const result = await indexer.indexGroup('g-edges');
+
+      // A module specifier is relative to the importing file while File nodes hold repo-relative paths, so
+      // the matcher has to resolve one to the other — otherwise every import is skipped and no edge exists.
+      expect(result.totalEdges).toBeGreaterThan(0);
+    });
+
     it('should record the project id each repo was indexed under', async () => {
       const repoDir = createTestRepoDir(tmpBaseDir, 'service-pid', {
         'index.ts': 'export function getData() { return 42; }',
