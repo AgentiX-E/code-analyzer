@@ -30,8 +30,11 @@
       "@code-analyzer/cli/*": ["./packages/cli/src/*"],
       "@code-analyzer/integration": ["./packages/integration/src/index.ts"],
       "@code-analyzer/integration/*": ["./packages/integration/src/*"]
-    }
+    },
+    "module": "ESNext",
+    "moduleResolution": "bundler"
   },
   "include": ["packages/*/src/**/*.test.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "**/dist/**", "**/coverage/**"]
+  "exclude": ["node_modules", "**/dist/**", "**/coverage/**"],
+  "//module": "The suites run under vitest/vite, whose resolver is a bundler's: the `paths` above already mirror `resolve.alias` for exactly that reason. `NodeNext` inherited from the base treated these files as CommonJS and rejected `import.meta`, which vite supports. Overriding here keeps the modelling honest \u2014 the test project describes how the tests actually run."
 }

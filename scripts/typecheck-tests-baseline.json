@@ -14,7 +14,6 @@
   "files": {
     "packages/analyzer/src/__tests__/orchestrator.test.ts": 3,
     "packages/analyzer/src/__tests__/parse-cache.test.ts": 1,
-    "packages/analyzer/src/__tests__/pipeline-integration.test.ts": 1,
     "packages/analyzer/src/__tests__/type-registry.test.ts": 3,
     "packages/core/src/__tests__/plugin-loader.test.ts": 1,
     "packages/infra/src/__tests__/batch-file-reader.test.ts": 1,
@@ -28,12 +27,9 @@
     "tests/benchmarks/ca-bench/suites/llm-review-quality.bench.ts": 1,
     "tests/benchmarks/ca-bench/suites/review-quality.bench.ts": 3,
     "tests/benchmarks/ca-bench/suites/throughput.bench.ts": 1,
-    "tests/benchmarks/real-world/__tests__/react-analysis.test.ts": 1,
-    "tests/benchmarks/real-world/__tests__/scale-stress.test.ts": 1,
-    "tests/benchmarks/real-world/__tests__/vue-analysis.test.ts": 1,
     "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 5,
     "tests/benchmarks/search-benchmark.test.ts": 1,
-    "tests/e2e/graphql-e2e.test.ts": 3,
+    "tests/e2e/graphql-e2e.test.ts": 2,
     "tests/e2e/webhook-e2e.test.ts": 1,
     "tests/unit/mcp/mcp-server.test.ts": 1,
     "tests/unit/review/review-engine.test.ts": 1
