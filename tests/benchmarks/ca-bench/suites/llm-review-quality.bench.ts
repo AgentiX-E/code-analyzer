@@ -4,6 +4,7 @@
 
 import { LLMReviewEngine, DeepSeekProvider } from '@code-analyzer/intelligence';
 import type { LLMReviewCase, BenchmarkResult } from '../types.js';
+import type { GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Known Vulnerability Test Cases
@@ -307,10 +308,22 @@ export async function runLLMReviewBenchmark(): Promise<BenchmarkResult> {
     usedLLM = true;
 
     for (const testCase of TEST_CASES) {
-      const diff = `--- a/test.ts\n+++ b/test.ts\n@@ -0,0 +1,5 @@\n${testCase.source
-        .split('\n')
-        .map((l) => '+' + l)
-        .join('\n')}`;
+      const addedLines = testCase.source.split('\n');
+      const diff: GitDiff = {
+        filePath: 'test.ts',
+        oldHash: '0000000000000000000000000000000000000000',
+        newHash: '1111111111111111111111111111111111111111',
+        changeType: 'added',
+        ranges: [
+          {
+            oldStart: 0,
+            oldEnd: 0,
+            newStart: 1,
+            newEnd: addedLines.length,
+            changeType: 'added',
+          },
+        ],
+      };
 
       try {
         const comments = await engine.reviewDiffAsComments(diff, undefined);

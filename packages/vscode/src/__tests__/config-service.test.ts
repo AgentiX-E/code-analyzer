@@ -336,7 +336,7 @@ describe('ConfigService', () => {
         showInlineDecorations: false,
         maxSearchResults: 5,
       };
-      const svc = new ConfigService(createMockConfig(), customDefaults);
+      const svc = new ConfigService(createMockConfig(), ConfigService.withDefaults(customDefaults));
       expect(svc.get('autoIndex')).toBe(false);
       expect(svc.get('indexMode')).toBe('fast');
       expect(svc.get('maxSearchResults')).toBe(5);

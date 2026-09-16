@@ -21,7 +21,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 let store: InMemoryGraphStore;
 let ctx: GraphQLContext;
-let yoga: ReturnType<typeof createYoga>;
+let yoga: ReturnType<typeof createYoga<GraphQLContext>>;
 
 async function executeQuery(query: string, variables?: Record<string, unknown>) {
   const resp = await yoga.fetch('http://localhost/graphql', {

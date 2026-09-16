@@ -126,8 +126,9 @@ function addNodes(store: InMemoryGraphStore): void {
       updatedAt: '2026-01-01T00:00:00Z',
     },
     {
+      id: 5,
       projectId: 'test-project',
-      label: 'Report',
+      label: 'File',
       name: 'Security-Audit-2026Q1',
       qualifiedName: 'reports::Security-Audit-2026Q1',
       filePath: null,
