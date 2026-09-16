@@ -179,11 +179,7 @@ describe('Webhook E2E — Idempotency', () => {
 // ---------------------------------------------------------------------------
 
 describe('Webhook E2E — PR Review Event Handling', () => {
-  let store: InMemoryGraphStore;
-
-  beforeEach(() => {
-    store = new InMemoryGraphStore(':memory:');
-  });
+  beforeEach(() => {});
 
   it('should handle a full PR opened → review flow', () => {
     // Simulate the complete flow without actually calling GitHub API

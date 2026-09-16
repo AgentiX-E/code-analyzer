@@ -14,12 +14,10 @@ import { resolveConfig } from '../server-config.js';
 // ---------------------------------------------------------------------------
 
 let toolCallCount = 0;
-let lastToolArgs: Record<string, unknown> = {};
 
 function createTestRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
   toolCallCount = 0;
-  lastToolArgs = {};
 
   registry.register(
     'hello',
@@ -27,7 +25,6 @@ function createTestRegistry(): ToolRegistry {
     { type: 'object', properties: { name: { type: 'string' } }, required: [] },
     async (args: Record<string, unknown>) => {
       toolCallCount++;
-      lastToolArgs = args;
       return {
         content: [{ type: 'text', text: `Hello, ${(args['name'] as string) ?? 'world'}!` }],
       };
@@ -41,7 +38,6 @@ function createTestRegistry(): ToolRegistry {
     { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] },
     async (args: Record<string, unknown>) => {
       toolCallCount++;
-      lastToolArgs = args;
       return {
         content: [{ type: 'text', text: `Echo: ${args['message']}` }],
       };

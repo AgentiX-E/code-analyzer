@@ -170,7 +170,7 @@ describe('IncrementalIndexer', () => {
         createDiscoveredFile('src/b.ts', 'const b = 2;'), // new
       ];
 
-      const { result, stats } = indexer.detectChangesWithStats(files);
+      const { stats } = indexer.detectChangesWithStats(files);
 
       expect(stats.totalFiles).toBe(2);
       expect(stats.unchangedCount).toBe(1);

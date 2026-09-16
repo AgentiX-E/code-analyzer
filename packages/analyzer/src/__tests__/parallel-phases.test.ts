@@ -558,13 +558,6 @@ describe('ParallelBuildPhase', () => {
     it('catches exceptions and returns failed status with error message', async () => {
       const phase = new ParallelBuildPhase();
       // Pass an invalid graph that will cause an error
-      const graph: KnowledgeGraph = {
-        projectId: 'test',
-        nodes: new Map(),
-        edges: new Map(),
-        qnameIndex: new Map(),
-        fileIndex: new Map(),
-      };
 
       // Add a node with a null key — this should not cause an error normally,
       // but let's verify error handling works by testing the null graph case
