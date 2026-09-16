@@ -336,7 +336,13 @@ describe('ConfigService', () => {
         showInlineDecorations: false,
         maxSearchResults: 5,
       };
-      const svc = new ConfigService(createMockConfig(), ConfigService.withDefaults(customDefaults));
+      // `withDefaults` would fill in DEFAULT_CONFIG.profile, and a profile's overrides take precedence over
+      // these defaults in `get()` — so completing the partial here changes what the service returns. The
+      // literal is deliberately incomplete: it is the caller's defaults, not a whole config.
+      const svc = new ConfigService(
+        createMockConfig(),
+        customDefaults as unknown as CodeAnalyzerConfig,
+      );
       expect(svc.get('autoIndex')).toBe(false);
       expect(svc.get('indexMode')).toBe('fast');
       expect(svc.get('maxSearchResults')).toBe(5);
