@@ -8,7 +8,6 @@ import { registerCors, resolveAllowedOrigin } from '../middleware/cors.js';
 import { registerAuth } from '../middleware/auth.js';
 import { registerLogging, shouldLog, logStructured, logPretty } from '../middleware/logging.js';
 import { registerErrorHandler } from '../middleware/error-handler.js';
-import type { CorsConfig, AuthConfig, LoggingConfig } from '../server-config.js';
 import type { ErrorResponse } from '../middleware/error-handler.js';
 
 // ---------------------------------------------------------------------------

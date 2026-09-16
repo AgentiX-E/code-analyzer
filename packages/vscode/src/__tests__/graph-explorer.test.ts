@@ -3,7 +3,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { GraphExplorerLogic } from '../providers/graph-explorer.js';
-import type { GraphNodeData, GraphEdgeData, GraphData } from '../providers/graph-explorer.js';
 import { EngineBridge } from '../services/engine-bridge.js';
 import {
   OTHER_PROJECT,

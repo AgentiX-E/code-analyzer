@@ -2,12 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { MetricsRegistry, createStandardMetrics } from '../operations/metrics-exporter.js';
 
-import type {
-  CounterMetric,
-  GaugeMetric,
-  HistogramMetric,
-} from '../operations/metrics-exporter.js';
-
 describe('MetricsRegistry', () => {
   let registry: MetricsRegistry;
 

@@ -4,7 +4,6 @@
 // Uses synthetic code generation to avoid external dependencies.
 
 import { InMemoryGraphStore, createFileDiscoverer, AutoIndexer } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
