@@ -162,7 +162,6 @@ describe('CodeReviewEngine — Construction', () => {
     const store = new MockInMemoryStore();
     const engine = new CodeReviewEngine(store as never, {
       maxTokens: 16000,
-      planLineThreshold: 100,
     });
     expect(engine).toBeDefined();
   });
@@ -1464,7 +1463,6 @@ describe('CodeReviewEngine — Plan Phase Edge Cases', () => {
       store as never,
       {
         allowMetadataFallback: false,
-        planLineThreshold: 200,
       },
       undefined,
       undefined,

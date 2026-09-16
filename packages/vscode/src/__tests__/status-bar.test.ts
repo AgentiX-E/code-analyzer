@@ -7,7 +7,9 @@ import type { IndexingState } from '../services/engine-bridge.js';
 import { StatusBarAlignment } from '../services/vscode-api.js';
 import type { StatusBarItem } from '../services/vscode-api.js';
 
-function createMockItem(): StatusBarItem {
+function createMockItem(): StatusBarItem & {
+  _state: { text: string; tooltip: string; command: string; visible: boolean };
+} {
   const state: { text: string; tooltip: string; command: string; visible: boolean } = {
     text: '',
     tooltip: '',

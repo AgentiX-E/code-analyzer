@@ -32,7 +32,6 @@
     "packages/vscode/src/__tests__/config-service.test.ts": 2,
     "packages/vscode/src/__tests__/participant.test.ts": 1,
     "packages/vscode/src/__tests__/provider-integration.test.ts": 2,
-    "packages/vscode/src/__tests__/status-bar.test.ts": 1,
     "tests/benchmarks/ca-bench/suites/llm-review-quality.bench.ts": 2,
     "tests/benchmarks/ca-bench/suites/review-quality.bench.ts": 3,
     "tests/benchmarks/ca-bench/suites/throughput.bench.ts": 1,
@@ -45,6 +44,6 @@
     "tests/e2e/graphql-e2e.test.ts": 3,
     "tests/e2e/webhook-e2e.test.ts": 1,
     "tests/unit/mcp/mcp-server.test.ts": 1,
-    "tests/unit/review/review-engine.test.ts": 3
+    "tests/unit/review/review-engine.test.ts": 1
   }
 }
