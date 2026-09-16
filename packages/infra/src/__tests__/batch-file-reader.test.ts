@@ -2,7 +2,7 @@
 // Covers encoding detection, glob pattern matching, batch file reading,
 // progress tracking, error handling, and edge cases.
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it } from 'vitest';
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

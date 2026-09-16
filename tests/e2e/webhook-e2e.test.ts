@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { verifySignature } from '@code-analyzer/server';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Helpers

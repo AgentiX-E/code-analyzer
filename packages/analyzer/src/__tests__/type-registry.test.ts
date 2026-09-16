@@ -2,6 +2,7 @@
 // Comprehensive test suite for Hybrid LSP type resolution.
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import type { ParsedImport } from '../languages/provider.js';
 import { TypeRegistry } from '../resolution/type-registry.js';
 import type { TypeInfo, TypeMember } from '../resolution/type-registry.js';
 import { TypeScriptTypeResolver } from '../resolution/typescript-resolver.js';
@@ -348,7 +349,7 @@ describe('TypeRegistry', () => {
           names: ['User'],
           type: 'named',
           lineNumber: 1,
-        } as import('@code-analyzer/shared').ParsedImport,
+        } as ParsedImport,
       ]);
 
       const result = registry.resolveType('User', '/main.ts');
@@ -766,7 +767,7 @@ describe('TypeRegistry', () => {
           names: ['User'],
           type: 'named',
           lineNumber: 1,
-        } as import('@code-analyzer/shared').ParsedImport,
+        } as ParsedImport,
       ]);
 
       const exported = registry.export();
@@ -804,7 +805,7 @@ describe('TypeRegistry', () => {
           names: ['User'],
           type: 'named',
           lineNumber: 1,
-        } as import('@code-analyzer/shared').ParsedImport,
+        } as ParsedImport,
       ]);
       const result = registry.resolveType('User', '/main.ts');
       expect(result.isResolved).toBe(true);

@@ -1,6 +1,6 @@
 // @code-analyzer/core — Plugin Loader Tests
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { beforeEach, describe, it, expect, afterEach } from 'vitest';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

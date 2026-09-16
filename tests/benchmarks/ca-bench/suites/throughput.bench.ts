@@ -86,10 +86,10 @@ export class ThroughputSuite implements BenchmarkSuite {
     const edgeStart = Date.now();
     for (let i = 1; i <= edgeCount; i++) {
       store.insertEdge({
-        id: nodeCount + i,
+        projectId: 'bench',
         sourceId: i,
         targetId: i + 1,
-        type: 'calls',
+        type: 'CALLS',
         properties: {},
       });
     }
