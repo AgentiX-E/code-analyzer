@@ -350,15 +350,12 @@ describe('WorkerPool', () => {
 
   it('tasks are queued when all workers busy', async () => {
     pool = createWorkerPool(1);
-    let running = false;
 
     // Start a blocking task
     const blocker = pool.execute({
       id: 'blocker2',
       execute: async () => {
-        running = true;
         await new Promise((r) => setTimeout(r, 100));
-        running = false;
         return 'done';
       },
     });

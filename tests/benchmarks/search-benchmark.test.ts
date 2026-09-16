@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { GraphBuilder } from '@code-analyzer/analyzer';
+import type { KnowledgeGraph } from '@code-analyzer/shared';
 import { HybridSearchEngine, tokenize } from '@code-analyzer/intelligence';
 import { RepoGroupManager, CrossRepoIndexer } from '@code-analyzer/intelligence';
 
@@ -92,18 +93,29 @@ describe('Search Performance', () => {
     const builder = new GraphBuilder(store);
 
     // Add nodes to the graph
+    // `addNode(graph, label, name, properties, qualifiedName?)` — the graph is the accumulator the builder
+    // fills, and the name and qualified name are parameters of their own, not properties.
+    const graph: KnowledgeGraph = {
+      projectId: 'bench',
+      nodes: new Map(),
+      edges: new Map(),
+      qnameIndex: new Map(),
+      fileIndex: new Map(),
+    };
+
     for (let i = 0; i < INDEX_FILES; i++) {
-      void builder.addNode({
-        label: 'Class',
-        properties: {
-          name: `Service${i}`,
-          qualifiedName: `src.Service${i}`,
+      builder.addNode(
+        graph,
+        'Class',
+        `Service${i}`,
+        {
           filePath: join(benchDir, `service-${i}.ts`),
           isExported: true,
           startLine: 1,
           endLine: 40,
         },
-      });
+        `src.Service${i}`,
+      );
     }
 
     engine = new HybridSearchEngine(store);

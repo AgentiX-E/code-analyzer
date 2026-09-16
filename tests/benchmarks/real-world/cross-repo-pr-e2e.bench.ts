@@ -372,7 +372,8 @@ function buildManualContractValidation(
   const changes = changedSymbols.map((symbol) => {
     const relatedNodes = nodes.filter(
       (n) =>
-        (n.name as string)?.toLowerCase() === symbol.toLowerCase() || n.properties?.type === symbol,
+        (n.name as string)?.toLowerCase() === symbol.toLowerCase() ||
+        n.properties?.['type'] === symbol,
     );
 
     return {

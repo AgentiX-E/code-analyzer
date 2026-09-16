@@ -81,12 +81,6 @@ class MockInMemoryStore {
 // Test Fixture Factory
 // ---------------------------------------------------------------------------
 
-interface ReviewTestEnv {
-  store: MockInMemoryStore;
-  engine: CodeReviewEngine;
-  gitOps: GitOpsMock;
-}
-
 class GitOpsMock {
   private files = new Map<string, string>();
   private diffs = new Map<string, string>();
