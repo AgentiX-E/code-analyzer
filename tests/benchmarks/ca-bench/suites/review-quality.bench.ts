@@ -105,7 +105,7 @@ export class ReviewQualitySuite implements BenchmarkSuite {
     for (const vc of VULN_CASES) {
       try {
         const session = await engine.reviewDiff('test-project', [vc.diff]);
-        const comments = session.comments ?? [];
+        const comments = engine.commentsForSession(session.id);
 
         // Check if at least one comment matches the expected category
         const hasRelevantComment = comments.some(

@@ -390,6 +390,17 @@ export class CodeReviewEngine {
   /**
    * Resume an interrupted review session.
    */
+  /**
+   * The review comments a session produced.
+   *
+   * `reviewDiff` returns a session summary — its comments are recorded per item in the session store — so a
+   * caller that needs the comments themselves had no way back to them. This reuses the collection logic
+   * `buildResumeState` already performs rather than duplicating it.
+   */
+  commentsForSession(sessionId: string): ReviewComment[] {
+    return this.sessionStore.buildResumeState(sessionId).reusedComments;
+  }
+
   async resumeSession(sessionId: string): Promise<ReviewSession> {
     const resumeState = this.sessionStore.buildResumeState(sessionId);
     const records = this.sessionStore.getRecords(sessionId);

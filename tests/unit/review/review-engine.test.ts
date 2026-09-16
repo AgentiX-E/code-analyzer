@@ -220,6 +220,28 @@ describe('CodeReviewEngine — Metadata Fallback', () => {
     expect(session.filesReviewed).toBe(1);
   });
 
+  it('should expose the comments a session recorded through commentsForSession', async () => {
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: true,
+    });
+
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/index.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' }],
+      },
+    ];
+
+    const session = await engine.reviewDiff('test-proj', diffs as never);
+    // `reviewDiff` returns the summary; the comments are recorded per item in the session store, and the
+    // count it reports is the invariant this accessor has to agree with.
+    const comments = engine.commentsForSession(session.id);
+
+    expect(Array.isArray(comments)).toBe(true);
+    expect(comments.length).toBe(session.commentsGenerated);
+  });
+
   it('should use metadata fallback when allowMetadataFallback is enabled and gitOps throws', async () => {
     const gitOps = new GitOpsMock();
     // Don't set any files — all reads will fail
