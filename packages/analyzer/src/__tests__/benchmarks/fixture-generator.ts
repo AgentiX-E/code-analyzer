@@ -210,11 +210,21 @@ export function generateFixture(config: FixtureConfig): { totalFiles: number; to
       }
 
       // Main class
-      content += generateClass(rng, className, importNames) + '\n';
+      content +=
+        generateClass(
+          rng,
+          className,
+          importNames.filter((n): n is string => n !== undefined),
+        ) + '\n';
 
       // Utility function (30% chance)
       if (rng.next() > 0.7) {
-        content += generateFunction(rng, `${className}Util`, importNames) + '\n';
+        content +=
+          generateFunction(
+            rng,
+            `${className}Util`,
+            importNames.filter((n): n is string => n !== undefined),
+          ) + '\n';
       }
 
       // Prepend imports at the top

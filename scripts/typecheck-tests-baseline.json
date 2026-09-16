@@ -12,7 +12,6 @@
     "only ever tighten."
   ],
   "files": {
-    "packages/analyzer/src/__tests__/benchmarks/fixture-generator.ts": 2,
     "packages/analyzer/src/__tests__/extended-languages.test.ts": 1,
     "packages/analyzer/src/__tests__/go-resolver-deep.test.ts": 1,
     "packages/analyzer/src/__tests__/orchestrator.test.ts": 3,
@@ -31,7 +30,6 @@
     "packages/infra/src/__tests__/in-memory-graph-store-branches2.test.ts": 2,
     "packages/infra/src/__tests__/incremental-indexer.test.ts": 1,
     "packages/infra/src/__tests__/parallel-indexer.test.ts": 1,
-    "packages/infra/src/__tests__/parse-cache.test.ts": 1,
     "packages/infra/src/__tests__/perf/memoizer.test.ts": 1,
     "packages/infra/src/__tests__/worker-pool.test.ts": 1,
     "packages/mcp/src/__tests__/pr-review-tools.test.ts": 1,

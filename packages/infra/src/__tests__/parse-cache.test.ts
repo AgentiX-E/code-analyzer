@@ -424,7 +424,7 @@ describe('ParseCache', () => {
 
   describe('getHitRate', () => {
     it('should return 0 when no gets have occurred', () => {
-      const cache = createParseCache({ maxSize: 100 });
+      const cache = createParseCache(100);
       expect(cache.getHitRate()).toBe(0);
     });
 
