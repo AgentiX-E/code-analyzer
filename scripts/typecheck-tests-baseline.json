@@ -12,8 +12,6 @@
     "only ever tighten."
   ],
   "files": {
-    "packages/analyzer/src/__tests__/orchestrator.test.ts": 3,
-    "packages/analyzer/src/__tests__/parse-cache.test.ts": 1,
     "packages/infra/src/__tests__/worker-pool.test.ts": 1,
     "packages/mcp/src/__tests__/resources.test.ts": 1,
     "packages/server/src/__tests__/graphql.test.ts": 1,

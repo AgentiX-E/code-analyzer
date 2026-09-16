@@ -3,16 +3,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ParseCache } from '../parser/parse-cache.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 function makeCaptures(count: number): UnifiedCapture[] {
   return Array.from({ length: count }, (_, i) => ({
-    nodeType: 'function_definition' as const,
-    name: `func${i}`,
-    startLine: i * 10,
-    endLine: i * 10 + 5,
-    children: [],
+    tag: CAPTURE_TAGS.FUNCTION_DEF,
     text: `function func${i}() {}`,
-    syntaxType: `source.ts`,
+    startLine: i * 10 + 1,
+    endLine: i * 10 + 5,
+    startByte: i * 100,
+    endByte: i * 100 + 25,
+    name: `func${i}`,
   }));
 }
 

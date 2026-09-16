@@ -858,8 +858,12 @@ describe('PipelineOrchestrator', () => {
       const ctx = createMockContext();
       const result = await orchestrator.execute(ctx);
       expect(result.status).toBe('partial');
-      expect(result.phases.find((p) => p.phaseId === 'depends-on-fail')!.status).toBe('skipped');
-      expect(result.phases.find((p) => p.phaseId === 'independent-ok')!.status).toBe('success');
+      expect(result.phases.find((p) => (p.phaseId as string) === 'depends-on-fail')!.status).toBe(
+        'skipped',
+      );
+      expect(result.phases.find((p) => (p.phaseId as string) === 'independent-ok')!.status).toBe(
+        'success',
+      );
     });
 
     it('should not skip phase when dependency succeeded', async () => {
@@ -888,7 +892,9 @@ describe('PipelineOrchestrator', () => {
       const ctx = createMockContext();
       const result = await orchestrator.execute(ctx);
       expect(result.status).toBe('complete');
-      expect(result.phases.find((p) => p.phaseId === 'child-success')!.status).toBe('success');
+      expect(result.phases.find((p) => (p.phaseId as string) === 'child-success')!.status).toBe(
+        'success',
+      );
     });
 
     it('should handle failed phase with no error message', async () => {
