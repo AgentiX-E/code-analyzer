@@ -12,7 +12,6 @@
     "only ever tighten."
   ],
   "files": {
-    "packages/analyzer/src/__tests__/extended-languages.test.ts": 1,
     "packages/analyzer/src/__tests__/go-resolver-deep.test.ts": 1,
     "packages/analyzer/src/__tests__/orchestrator.test.ts": 3,
     "packages/analyzer/src/__tests__/parallel-phases.test.ts": 1,
@@ -26,7 +25,6 @@
     "packages/infra/src/__tests__/git-operations.test.ts": 1,
     "packages/infra/src/__tests__/graph-index.test.ts": 1,
     "packages/infra/src/__tests__/incremental-indexer.test.ts": 1,
-    "packages/infra/src/__tests__/parallel-indexer.test.ts": 1,
     "packages/infra/src/__tests__/perf/memoizer.test.ts": 1,
     "packages/infra/src/__tests__/worker-pool.test.ts": 1,
     "packages/mcp/src/__tests__/pr-review-tools.test.ts": 1,
@@ -41,8 +39,7 @@
     "packages/vscode/src/__tests__/status-bar.test.ts": 1,
     "tests/benchmarks/ca-bench/suites/llm-review-quality.bench.ts": 2,
     "tests/benchmarks/ca-bench/suites/review-quality.bench.ts": 3,
-    "tests/benchmarks/ca-bench/suites/search-quality.bench.ts": 1,
-    "tests/benchmarks/ca-bench/suites/throughput.bench.ts": 2,
+    "tests/benchmarks/ca-bench/suites/throughput.bench.ts": 1,
     "tests/benchmarks/real-world/__tests__/multi-lang-validation.test.ts": 1,
     "tests/benchmarks/real-world/__tests__/react-analysis.test.ts": 1,
     "tests/benchmarks/real-world/__tests__/scale-stress.test.ts": 1,

@@ -114,16 +114,22 @@ export class ThroughputSuite implements BenchmarkSuite {
   private makeNode(id: number, name: string): GraphNode {
     return {
       id,
-      name,
+      projectId: 'bench',
       label: 'Function',
+      name,
+      qualifiedName: `pkg::${name}`,
       filePath: `src/module${id % 10}/${name.toLowerCase()}.ts`,
       startLine: 1,
       endLine: 10,
-      signature: `function ${name}(arg: string): void`,
+      language: 'typescript',
       properties: { filePath: `src/module${id % 10}/${name.toLowerCase()}.ts` },
-      dependencies: [],
-      callers: [],
+      signature: `function ${name}(arg: string): void`,
+      docstring: null,
       complexity: 1 + (id % 20),
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   }
 }

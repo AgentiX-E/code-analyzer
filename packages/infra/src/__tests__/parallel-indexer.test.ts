@@ -8,11 +8,7 @@ import { tmpdir } from 'node:os';
 import { EDGE_CALLS, EDGE_IMPORTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 import { ParallelIndexer, toError } from '../workers/parallel-indexer.js';
-import type {
-  IndexProgress,
-  IndexerResult,
-  ParallelIndexerConfig,
-} from '../workers/parallel-indexer.js';
+import type { IndexProgress, IndexerResult } from '../workers/parallel-indexer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -466,13 +462,6 @@ describe('ParallelIndexer', () => {
 
   it('uses sensible default config', async () => {
     const indexer = new ParallelIndexer(store);
-
-    const defaultConfig: ParallelIndexerConfig = {
-      concurrency: expect.any(Number) as unknown as number,
-      batchSize: 50,
-      enableStreaming: true,
-      enableIncremental: true,
-    };
 
     // Defaults should be set
     expect(indexer).toBeDefined();

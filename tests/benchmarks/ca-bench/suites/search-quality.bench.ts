@@ -146,16 +146,22 @@ export class SearchQualitySuite implements BenchmarkSuite {
   private makeNode(id: number, name: string, tag: string, signature: string): GraphNode {
     return {
       id,
-      name,
+      projectId: 'bench',
       label: tag as GraphNode['label'],
+      name,
+      qualifiedName: `pkg::${name}`,
       filePath: `src/${name.toLowerCase()}.ts`,
       startLine: 1,
       endLine: 5,
-      signature,
+      language: 'typescript',
       properties: { filePath: `src/${name.toLowerCase()}.ts` },
-      dependencies: [],
-      callers: [],
+      signature: signature,
+      docstring: null,
       complexity: 1,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   }
 }

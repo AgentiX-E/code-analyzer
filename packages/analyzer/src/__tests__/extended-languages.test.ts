@@ -838,9 +838,6 @@ describe('CssProvider', () => {
     });
     it('detects import statements', () => {
       const caps = provider.parse("@import 'base.css';", 'test.css');
-      const hasImport =
-        caps.some((c) => c.tag === CAPTURE_TAGS.IMPORT) ||
-        caps.some((c) => c.name?.includes('base.css') || c.text?.includes('base.css'));
       expect(caps.length).toBeGreaterThanOrEqual(0);
       expect(Array.isArray(caps)).toBe(true);
     });
