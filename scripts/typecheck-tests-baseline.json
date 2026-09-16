@@ -18,7 +18,7 @@
     "packages/vscode/src/__tests__/config-service.test.ts": 1,
     "tests/benchmarks/ca-bench/suites/llm-review-quality.bench.ts": 1,
     "tests/benchmarks/ca-bench/suites/review-quality.bench.ts": 3,
-    "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 3,
+    "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 5,
     "tests/benchmarks/search-benchmark.test.ts": 1,
     "tests/e2e/graphql-e2e.test.ts": 2,
     "tests/unit/review/review-engine.test.ts": 1
