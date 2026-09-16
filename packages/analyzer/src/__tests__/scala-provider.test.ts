@@ -255,10 +255,7 @@ describe('ScalaProvider', () => {
     });
 
     it('should extract imports with the last segment as the name', () => {
-      const imports = fallback.extractImports(
-        'import scala.collection.mutable.ListBuffer',
-        't.scala',
-      );
+      const imports = fallback.extractImports('import scala.collection.mutable.ListBuffer');
       expect(imports.some((i) => i.source === 'scala.collection.mutable.ListBuffer')).toBe(true);
       expect(imports.some((i) => i.names.includes('ListBuffer'))).toBe(true);
     });

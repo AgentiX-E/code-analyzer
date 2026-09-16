@@ -267,7 +267,7 @@ describe('AsyncMemoizer', () => {
       throw new Error('test error');
     });
 
-    await expect(memoizer.call(failingFn)).rejects.toThrow('test error');
+    await expect(memoizer.call(failingFn, 1)).rejects.toThrow('test error');
     expect(memoizer.inFlightCount).toBe(0);
   });
 
