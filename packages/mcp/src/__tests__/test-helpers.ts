@@ -42,8 +42,11 @@ function makeEdge(
   },
 ): GraphEdge {
   return {
-    id: 0,
     ...overrides,
+    id: 0,
+    properties: {},
+    weight: 1,
+    createdAt: new Date().toISOString(),
   };
 }
 

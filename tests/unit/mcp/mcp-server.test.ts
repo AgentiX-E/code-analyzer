@@ -45,8 +45,8 @@ describe('CodeAnalyzerMCPServer — Construction', () => {
   });
 
   it('should construct with custom tool profile', async () => {
-    const server = await createTestServer({ toolProfile: 'minimal' });
-    expect(server.getConfig().toolProfile).toBe('minimal');
+    const server = await createTestServer({ toolProfile: 'scout' });
+    expect(server.getConfig().toolProfile).toBe('scout');
   });
 
   it('should construct with resources and prompts enabled', async () => {
@@ -188,10 +188,10 @@ describe('CodeAnalyzerMCPServer — Tool Dispatch', () => {
     expect(Array.isArray(tools)).toBe(true);
   });
 
-  it('should list tools by minimal profile', async () => {
-    const server = await createTestServer({ toolProfile: 'minimal' });
+  it('should list tools by the scoped profile', async () => {
+    const server = await createTestServer({ toolProfile: 'scout' });
     const registry = server.getRegistry();
-    const tools = registry.listByProfile('minimal');
+    const tools = registry.listByProfile('scout');
     expect(Array.isArray(tools)).toBe(true);
   });
 });

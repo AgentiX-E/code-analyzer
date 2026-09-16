@@ -20,7 +20,6 @@
     "packages/infra/src/__tests__/git-operations.test.ts": 1,
     "packages/infra/src/__tests__/worker-pool.test.ts": 1,
     "packages/mcp/src/__tests__/resources.test.ts": 1,
-    "packages/mcp/src/__tests__/test-helpers.ts": 1,
     "packages/server/src/__tests__/graphql.test.ts": 1,
     "packages/vscode/src/__tests__/config-service.test.ts": 2,
     "packages/vscode/src/__tests__/provider-integration.test.ts": 2,
@@ -31,7 +30,6 @@
     "tests/benchmarks/search-benchmark.test.ts": 1,
     "tests/e2e/graphql-e2e.test.ts": 2,
     "tests/e2e/webhook-e2e.test.ts": 1,
-    "tests/unit/mcp/mcp-server.test.ts": 1,
     "tests/unit/review/review-engine.test.ts": 1
   }
 }
