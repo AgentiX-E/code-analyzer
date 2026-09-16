@@ -37,9 +37,11 @@ export interface BenchmarkReport {
 }
 
 export interface RegressionReport {
+  /** Whether every benchmark met its baseline. */
   passed: boolean;
   totalBenchmarks: number;
-  passed: number;
+  /** How many benchmarks were within baseline. Distinct from `passed`, which is the overall verdict. */
+  passedCount: number;
   failed: number;
   regressions: Array<{
     name: string;
@@ -186,7 +188,7 @@ export class BenchmarkRunner {
     return {
       passed: failed === 0,
       totalBenchmarks: this.results.length,
-      passed,
+      passedCount: passed,
       failed,
       regressions,
     };

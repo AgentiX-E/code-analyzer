@@ -12,7 +12,7 @@ import trendAnalysisTool from '../tools/trend-analysis.js';
 
 async function run(store: InMemoryGraphStore, projectId: string, metric: string): Promise<string> {
   const r = await trendAnalysisTool.handler({ projectId, metric }, store);
-  return r.content[0]!.text;
+  return r.content[0]!.text!;
 }
 
 describe('trendAnalysisTool — complexity report edge cases', async () => {

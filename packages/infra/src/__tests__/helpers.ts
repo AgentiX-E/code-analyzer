@@ -6,7 +6,11 @@ import type { GraphNode, GraphEdge, EdgeProperties } from '@code-analyzer/shared
 let nodeIdCounter = 0;
 let edgeIdCounter = 0;
 
-export function createTestNode(overrides: Partial<GraphNode> & { id?: number } = {}): GraphNode {
+// Each field may also be explicitly `null`: several tests pass `qualifiedName: null` to exercise how the
+// store handles a missing value, and `Partial<GraphNode>` alone rejects that.
+export function createTestNode(
+  overrides: { [K in keyof GraphNode]?: GraphNode[K] | null } & { id?: number } = {},
+): GraphNode {
   const id = overrides.id ?? ++nodeIdCounter;
   return {
     id,

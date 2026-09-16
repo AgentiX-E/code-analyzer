@@ -17,7 +17,17 @@ export interface ResolvedType {
   /** The short name of the type (e.g. "string", "Array", "User") */
   name: string;
   /** The kind of type — determines how it should be interpreted */
-  kind: 'primitive' | 'object' | 'union' | 'intersection' | 'generic' | 'function' | 'unknown';
+  // `'class'` is produced by the TypeScript and Python resolvers and asserted by their tests; it was
+  // missing here, so this union was narrower than the values the code already returns.
+  kind:
+    | 'primitive'
+    | 'object'
+    | 'class'
+    | 'union'
+    | 'intersection'
+    | 'generic'
+    | 'function'
+    | 'unknown';
   /** Type arguments for generic types (e.g. Array<string> → [ResolvedType("string")]) */
   genericArgs?: ResolvedType[];
   /** Named members for object/interface/struct types */
