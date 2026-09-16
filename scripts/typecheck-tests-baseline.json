@@ -11,7 +11,5 @@
     "Improving a file? Re-run the gate with --update to lower its number — the ratchet should",
     "only ever tighten."
   ],
-  "files": {
-    "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 4
-  }
+  "files": {}
 }

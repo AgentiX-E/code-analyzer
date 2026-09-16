@@ -671,6 +671,22 @@ describe('CrossRepoIndexer', () => {
       expect(result.totalEdges).toBeGreaterThanOrEqual(0);
     });
 
+    it('should record the project id each repo was indexed under', async () => {
+      const repoDir = createTestRepoDir(tmpBaseDir, 'service-pid', {
+        'index.ts': 'export function getData() { return 42; }',
+      });
+
+      groupManager.createGroup('g-pid', 'Project Id Group', '');
+      groupManager.addRepo('g-pid', 'org', 'service-pid', 'https://pid.example.com', repoDir);
+
+      await indexer.indexGroup('g-pid');
+
+      // `indexSingleRepo` keys a repo's nodes by its full name, and the cross-repo analysis looks them up
+      // through `repo.projectId`. Left null, every lookup returns nothing.
+      const repo = groupManager.getRepos('g-pid').find((r) => r.fullName === 'org/service-pid');
+      expect(repo!.projectId).toBe('org/service-pid');
+    });
+
     it('should handle repos with no valid source files', async () => {
       const repoDir = createTestRepoDir(tmpBaseDir, 'empty-service', {
         'README.md': '# My Service',

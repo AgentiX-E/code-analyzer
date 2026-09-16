@@ -216,6 +216,13 @@ export class CrossRepoIndexer {
       await Promise.all(promises);
     }
 
+    // `indexSingleRepo` keys a repo's nodes by the repo's `fullName`; the cross-repo analysis looks them up
+    // through `repo.projectId`, so the group has to record what was used. Without this every repository stays
+    // `projectId: null` and the analysis finds nothing.
+    for (const repo of repos) {
+      this.groupManager.setRepoProjectId(groupId, repo.fullName, repo.fullName);
+    }
+
     // Build cross-repo graph after indexing all repos
     const graphReport = await this.buildCrossRepoGraph(groupId);
     const contracts = await this.detectContracts(groupId);
