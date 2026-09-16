@@ -204,29 +204,26 @@ describe('Multi-Language Real-world Validation', () => {
     results: [],
   };
 
-  beforeAll(
-    () => {
-      // Clone repos (skip if network unavailable or already cloned)
-      try {
-        cloneIfNeeded('https://github.com/django/django.git', REPO_PATHS.django);
-      } catch {
-        /* network unavailable — skip */
-      }
+  beforeAll(() => {
+    // Clone repos (skip if network unavailable or already cloned)
+    try {
+      cloneIfNeeded('https://github.com/django/django.git', REPO_PATHS.django);
+    } catch {
+      /* network unavailable — skip */
+    }
 
-      try {
-        cloneIfNeeded('https://github.com/kubernetes/client-go.git', REPO_PATHS.k8sClientGo);
-      } catch {
-        /* network unavailable — skip */
-      }
+    try {
+      cloneIfNeeded('https://github.com/kubernetes/client-go.git', REPO_PATHS.k8sClientGo);
+    } catch {
+      /* network unavailable — skip */
+    }
 
-      try {
-        cloneIfNeeded('https://github.com/spring-projects/spring-boot.git', REPO_PATHS.springBoot);
-      } catch {
-        /* network unavailable — skip */
-      }
-    },
-    { timeout: 300_000 },
-  );
+    try {
+      cloneIfNeeded('https://github.com/spring-projects/spring-boot.git', REPO_PATHS.springBoot);
+    } catch {
+      /* network unavailable — skip */
+    }
+  }, 300_000);
 
   // ── Python / Django ───────────────────────────────────────────────────────
 

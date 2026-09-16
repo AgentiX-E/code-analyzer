@@ -67,7 +67,8 @@ describe('GoResolver — unknown/external resolution', () => {
     const r = makeResolver();
     const ctx: TypeContext = {
       filePath: '/test.go',
-      resolveExternal: async (): Promise<ResolvedType> => ({ name: 'External', kind: 'class' }),
+      imports: [],
+      resolveExternal: (): ResolvedType => ({ name: 'External', kind: 'class' }),
     };
     const result = await r.resolveType('ExternalType', ctx);
     expect(result).not.toBeNull();

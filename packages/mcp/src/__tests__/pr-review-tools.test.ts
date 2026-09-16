@@ -95,7 +95,7 @@ function parseResult(result: ToolResult): Record<string, unknown> {
   if (!first || first.type !== 'text') {
     throw new Error(`expected a text result, got: ${JSON.stringify(result.content)}`);
   }
-  return JSON.parse(first.text) as Record<string, unknown>;
+  return JSON.parse(first.text!) as Record<string, unknown>;
 }
 
 function summaryOf(data: Record<string, unknown>): Record<string, number> {
