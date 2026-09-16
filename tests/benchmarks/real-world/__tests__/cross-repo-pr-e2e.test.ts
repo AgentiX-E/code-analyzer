@@ -46,7 +46,7 @@ describe('Cross-Repo PR Review E2E', () => {
   it('should identify affected repos in contract validation', () => {
     const targets = result.contractValidation?.targetRepos ?? [];
     expect(targets.length).toBeGreaterThan(0);
-    expect(targets).toContain('api-gateway');
+    expect(targets).toContain('acme/api-gateway');
   });
 
   // --- Blast Radius ---
@@ -55,12 +55,12 @@ describe('Cross-Repo PR Review E2E', () => {
   });
 
   it('should identify api-gateway as directly impacted', () => {
-    expect(result.blastRadius?.directImpact).toContain('api-gateway');
+    expect(result.blastRadius?.directImpact).toContain('acme/api-gateway');
   });
 
   it('should include affected repos in the final list', () => {
     expect(result.affectedRepos.length).toBeGreaterThan(0);
-    expect(result.affectedRepos).toContain('api-gateway');
+    expect(result.affectedRepos).toContain('acme/api-gateway');
   });
 
   // --- Recommendations ---
