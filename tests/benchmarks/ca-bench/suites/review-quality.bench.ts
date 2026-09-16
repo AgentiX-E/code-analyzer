@@ -22,17 +22,22 @@ interface VulnerabilityCase {
 }
 
 function makeDiff(fileName: string, oldContent: string, newContent: string): GitDiff {
+  // `GitDiff` carries hashes, a change type and `DiffRange`s — not the `hunks` this fixture once used. Nothing
+  // reads the hashes, so they are well-formed constants; the ranges are derived from the two contents.
+  const oldLines = oldContent.split('\n').length;
+  const newLines = newContent.split('\n').length;
   return {
     filePath: fileName,
-    oldContent,
-    newContent,
-    hunks: [
+    oldHash: '0000000000000000000000000000000000000000',
+    newHash: '1111111111111111111111111111111111111111',
+    changeType: 'modified',
+    ranges: [
       {
         oldStart: 1,
-        oldLines: oldContent.split('\n').length,
+        oldEnd: oldLines,
         newStart: 1,
-        newLines: newContent.split('\n').length,
-        lines: newContent.split('\n').map((line) => ({ type: 'added' as const, content: line })),
+        newEnd: newLines,
+        changeType: 'modified',
       },
     ],
   };
