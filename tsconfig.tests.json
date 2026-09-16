@@ -29,12 +29,15 @@
       "@code-analyzer/cli": ["./packages/cli/src/index.ts"],
       "@code-analyzer/cli/*": ["./packages/cli/src/*"],
       "@code-analyzer/integration": ["./packages/integration/src/index.ts"],
-      "@code-analyzer/integration/*": ["./packages/integration/src/*"]
+      "@code-analyzer/integration/*": ["./packages/integration/src/*"],
+      "graphql-yoga": ["./packages/server/node_modules/graphql-yoga"],
+      "@graphql-tools/schema": ["./packages/server/node_modules/@graphql-tools/schema"]
     },
     "module": "ESNext",
     "moduleResolution": "bundler"
   },
   "include": ["packages/*/src/**/*.test.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "**/dist/**", "**/coverage/**"],
-  "//module": "The suites run under vitest/vite, whose resolver is a bundler's: the `paths` above already mirror `resolve.alias` for exactly that reason. `NodeNext` inherited from the base treated these files as CommonJS and rejected `import.meta`, which vite supports. Overriding here keeps the modelling honest \u2014 the test project describes how the tests actually run."
+  "//module": "The suites run under vitest/vite, whose resolver is a bundler's: the `paths` above already mirror `resolve.alias` for exactly that reason. `NodeNext` inherited from the base treated these files as CommonJS and rejected `import.meta`, which vite supports. Overriding here keeps the modelling honest \u2014 the test project describes how the tests actually run.",
+  "//paths-server": "`graphql-e2e.test.ts` resolves these from the server's dependency tree at runtime via createRequire, because only that package declares them. These entries give the typecheck the same answer, as the entries above mirror vitest.config.ts."
 }

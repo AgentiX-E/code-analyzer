@@ -12,7 +12,6 @@
     "only ever tighten."
   ],
   "files": {
-    "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 4,
-    "tests/e2e/graphql-e2e.test.ts": 2
+    "tests/benchmarks/real-world/cross-repo-pr-e2e.bench.ts": 4
   }
 }

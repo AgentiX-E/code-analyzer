@@ -18,6 +18,11 @@ const serverRequire = createRequire(import.meta.url.replace('tests/e2e', 'packag
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createYoga } = serverRequire('graphql-yoga') as typeof import('graphql-yoga');
+// The instance this file creates carries its own context; the compiler reports it as
+// `YogaServerInstance<{}, GraphQLContext>`, and every annotation that names the instance uses this name
+// so they cannot drift apart.
+type YogaInstance = ReturnType<typeof createYoga<{}, GraphQLContext>>;
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { makeExecutableSchema } = serverRequire(
   '@graphql-tools/schema',
@@ -25,7 +30,7 @@ const { makeExecutableSchema } = serverRequire(
 
 import { typeDefs } from '@code-analyzer/server/graphql/schema';
 import { resolvers } from '@code-analyzer/server/graphql/resolvers';
-import { createGraphQLContext } from '@code-analyzer/server/graphql/context';
+import { createGraphQLContext, type GraphQLContext } from '@code-analyzer/server/graphql/context';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -33,7 +38,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 // ---------------------------------------------------------------------------
 
 function setupYoga(): {
-  yoga: ReturnType<typeof createYoga>;
+  yoga: YogaInstance;
   store: InMemoryGraphStore;
   ctx: ReturnType<typeof createGraphQLContext>;
 } {
@@ -50,7 +55,7 @@ function setupYoga(): {
 }
 
 async function executeQuery(
-  yoga: ReturnType<typeof createYoga>,
+  yoga: YogaInstance,
   query: string,
   variables?: Record<string, unknown>,
 ) {
