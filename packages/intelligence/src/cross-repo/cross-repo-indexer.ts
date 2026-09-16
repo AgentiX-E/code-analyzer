@@ -7,7 +7,6 @@ import { readdir, stat } from 'node:fs/promises';
 import { basename, join, posix, relative } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GroupRepo } from '@code-analyzer/shared';
 import {
   EDGE_IMPORTS,
   EDGE_CALLS,
@@ -20,7 +19,7 @@ import {
 } from '@code-analyzer/shared';
 
 import type { RepoGroupManager } from './repo-group-manager.js';
-import type { GraphNode, GraphEdge, NodeLabel, Contract } from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, GroupRepo, NodeLabel, Contract } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Interfaces
