@@ -269,26 +269,36 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
 
     // Phase 4: Cross-repo contract validation
     // Create cross-repo indexer and group manager for the analysis
+    const crossRepoIndexer = new CrossRepoIndexer(store);
     const groupManager = new RepoGroupManager();
-    const crossRepoIndexer = new CrossRepoIndexer(store, groupManager);
 
-    // Register the scenario's three repositories. `createGroup` takes a description — the repo list it was
-    // once handed was never read — and repositories are added one at a time with `addRepo`.
-    groupManager.createGroup(
-      'microservices',
-      'Microservice Architecture',
-      'Cross-repo PR review scenario',
-    );
-    groupManager.addRepo('microservices', 'acme', 'api-gateway', '', apiGatewayDir);
-    groupManager.addRepo('microservices', 'acme', 'user-service', '', userServiceDir);
-    groupManager.addRepo('microservices', 'acme', 'payment-service', '', paymentServiceDir);
+    // Register repos as a group
+    groupManager.createGroup('microservices', 'Microservice Architecture', [
+      { id: 'api-gateway', path: apiGatewayDir, name: 'API Gateway', language: 'typescript' },
+      { id: 'user-service', path: userServiceDir, name: 'User Service', language: 'typescript' },
+      {
+        id: 'payment-service',
+        path: paymentServiceDir,
+        name: 'Payment Service',
+        language: 'typescript',
+      },
+    ]);
 
     // Run contract validation
     const contractValidator = new ContractValidator(crossRepoIndexer);
     let contractResult: ContractValidationResult | null = null;
 
     try {
-      await crossRepoIndexer.indexGroup('microservices', { languages: ['typescript'] });
+      await crossRepoIndexer.indexGroup('microservices', [
+        { id: 'api-gateway', path: apiGatewayDir, name: 'API Gateway', language: 'typescript' },
+        { id: 'user-service', path: userServiceDir, name: 'User Service', language: 'typescript' },
+        {
+          id: 'payment-service',
+          path: paymentServiceDir,
+          name: 'Payment Service',
+          language: 'typescript',
+        },
+      ]);
 
       contractResult = await contractValidator.validateCrossRepo(
         'microservices',
@@ -305,11 +315,14 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
     let blastRadius: BlastRadiusResult | null = null;
 
     try {
-      const graph = await impactBuilder.build('microservices', 'acme/user-service');
-      blastRadius = impactBuilder.calculateBlastRadius('acme/user-service', graph);
+      blastRadius = await impactBuilder.calculateBlastRadius(
+        'microservices',
+        'user-service',
+        changedSymbols,
+      );
     } catch {
       // Build manual blast radius from node analysis
-      blastRadius = buildManualBlastRadius(allNodes, 'acme/user-service', changedSymbols);
+      blastRadius = buildManualBlastRadius(allNodes, 'user-service', changedSymbols);
     }
 
     // Phase 6: Aggregate results
