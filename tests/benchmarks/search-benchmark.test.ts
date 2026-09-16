@@ -126,7 +126,7 @@ describe('Search Performance', () => {
       timings.push(elapsed);
 
       expect(elapsed).toBeLessThan(SEARCH_TIMEOUT_MS);
-      expect(result.results.length).toBeGreaterThan(0);
+      expect(result.length).toBeGreaterThan(0);
     },
     SEARCH_TIMEOUT_MS,
   );
@@ -140,7 +140,7 @@ describe('Search Performance', () => {
       timings.push(elapsed);
 
       expect(elapsed).toBeLessThan(SEARCH_TIMEOUT_MS);
-      expect(result.results.length).toBeGreaterThan(0);
+      expect(result.length).toBeGreaterThan(0);
     },
     SEARCH_TIMEOUT_MS,
   );
@@ -151,12 +151,12 @@ describe('Search Performance', () => {
     const elapsed = Date.now() - start;
 
     expect(elapsed).toBeLessThan(1000); // Very fast for no matches
-    expect(result.results.length).toBe(0);
+    expect(result.length).toBe(0);
   });
 
   it('should respect limit parameter', async () => {
     const result = await engine.search({ query: 'Service', limit: 5 });
-    expect(result.results.length).toBeLessThanOrEqual(5);
+    expect(result.length).toBeLessThanOrEqual(5);
   });
 
   it('should have consistent search performance', () => {
@@ -301,7 +301,7 @@ describe('Cross-Repo Indexing Performance', () => {
       try {
         const impact = await indexer.analyzeCrossRepoImpact('bench-group', 'test/repo-a');
         expect(impact).toBeDefined();
-        expect(impact.changedFiles).toBeDefined();
+        expect(impact.changedSymbols).toBeDefined();
       } catch {
         // Impact analysis may fail if symbols not found — acceptable for benchmark
       }

@@ -314,7 +314,7 @@ export async function runLLMReviewBenchmark(): Promise<BenchmarkResult> {
 
       try {
         const comments = await engine.reviewDiffAsComments(diff, undefined);
-        const foundKeywords = comments.flatMap((c) => c.message.toLowerCase().split(/\s+/));
+        const foundKeywords = comments.flatMap((c) => c.content.toLowerCase().split(/\s+/));
         results.push({ caseId: testCase.id, foundKeywords });
         details.push(`[LLM] ${testCase.id}: found ${comments.length} comment(s)`);
       } catch (err: unknown) {
