@@ -5,7 +5,9 @@ import { ConfigService, PROFILES } from '../services/config-service.js';
 import type { CodeAnalyzerConfig } from '../services/config-service.js';
 import type { WorkspaceConfiguration } from '../services/vscode-api.js';
 
-function createMockConfig(overrides?: Record<string, unknown>): WorkspaceConfiguration {
+function createMockConfig(
+  overrides?: Record<string, unknown>,
+): WorkspaceConfiguration & { getDefault<T>(section: string, defaultValue: T): T } {
   return {
     get<T>(section: string): T | undefined {
       return overrides?.[section] as T | undefined;

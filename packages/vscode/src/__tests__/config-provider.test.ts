@@ -5,7 +5,9 @@ import { ConfigLogic, generateConfigHtml } from '../providers/config-provider.js
 import { ConfigService } from '../services/config-service.js';
 import type { WorkspaceConfiguration } from '../services/vscode-api.js';
 
-function mockConfig(overrides?: Record<string, unknown>): WorkspaceConfiguration {
+function mockConfig(
+  overrides?: Record<string, unknown>,
+): WorkspaceConfiguration & { getDefault<T>(section: string, defaultValue: T): T } {
   return {
     get<T>(section: string): T | undefined {
       return overrides?.[section] as T | undefined;
