@@ -7,6 +7,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { basename, join, posix, relative } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { GroupRepo } from '@code-analyzer/shared';
 import {
   EDGE_IMPORTS,
   EDGE_CALLS,
@@ -742,6 +743,12 @@ export class CrossRepoIndexer {
       };
     }
 
+    // Cross-repo imports can only be resolved here. `indexSingleRepo` runs repositories concurrently, so when
+    // `api-gateway` resolves `../../user-service/…` the sibling's nodes may not exist yet — and the loop below
+    // only upgrades edges whose target lies in another project, so an import that never resolves can never be
+    // seen there.
+    this.linkCrossRepoImports(group.repos);
+
     const byType: Record<string, number> = {};
     let crossRepoEdges = 0;
     const now = new Date().toISOString();
@@ -1342,6 +1349,71 @@ export class CrossRepoIndexer {
         createdAt: now,
       });
     }
+  }
+
+  /**
+   * Resolve imports that point outside their own repository and create the edge. Must run after every
+   * repository in the group has been indexed, which is why it is called from `buildCrossRepoGraph` rather than
+   * from `indexSingleRepo`.
+   */
+  private linkCrossRepoImports(repos: GroupRepo[]): void {
+    const now = new Date().toISOString();
+
+    for (const repo of repos) {
+      const localPath = repo.localPath;
+      if (!localPath) continue;
+      const projectId = repo.projectId ?? repo.fullName;
+
+      for (const node of this.getRepoNodes(projectId)) {
+        if (node.label !== 'File' || !node.filePath) continue;
+
+        let content: string;
+        try {
+          content = readFileSync(join(localPath, node.filePath), 'utf-8');
+        } catch {
+          continue;
+        }
+
+        for (const imp of this.extractImports(node.filePath, content, projectId)) {
+          const resolved = resolveModulePath(node.filePath, imp.modulePath);
+          if (!resolved || !resolved.startsWith('..')) continue;
+
+          const target = this.findRepoFileByPath(repos, resolved);
+          if (!target || target.id === node.id) continue;
+
+          this.store.insertEdge({
+            projectId,
+            sourceId: node.id,
+            targetId: target.id,
+            type: EDGE_IMPORTS,
+            properties: {
+              importPath: imp.modulePath,
+              importedSymbols: imp.importedNames,
+            },
+            weight: 1,
+            createdAt: now,
+          });
+        }
+      }
+    }
+  }
+
+  /** The File node of another repository in the group, addressed by a path that walked out of this one. */
+  private findRepoFileByPath(repos: GroupRepo[], resolved: string): GraphNode | null {
+    const wanted = stripExtension(resolved).replace(/^(\.\.\/)+/, '');
+
+    for (const repo of repos) {
+      // The path names the repository directory, which is the last segment of `owner/name`.
+      const dir = basename(repo.localPath ?? '');
+      if (!dir || !wanted.startsWith(dir + '/')) continue;
+      const rest = wanted.slice(dir.length + 1);
+      return (
+        this.getRepoNodes(repo.projectId ?? repo.fullName).find(
+          (n) => n.label === 'File' && stripExtension(n.filePath ?? '') === rest,
+        ) ?? null
+      );
+    }
+    return null;
   }
 
   private ensureCrossRepoNode(repo: string, edgeType: string, now: string): number {

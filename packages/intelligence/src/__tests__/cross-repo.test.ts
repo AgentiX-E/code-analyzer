@@ -671,6 +671,28 @@ describe('CrossRepoIndexer', () => {
       expect(result.totalEdges).toBeGreaterThanOrEqual(0);
     });
 
+    it('should link repositories that import each other across the group', async () => {
+      const baseDir = join(tmpdir(), `xrepo-${Date.now()}`);
+      mkdirSync(baseDir, { recursive: true });
+      const apiDir = createTestRepoDir(baseDir, 'api', {
+        'src/gateway.ts':
+          "import { handle } from '../../svc/src/service';\nexport function go() { return handle(); }",
+      });
+      const svcDir = createTestRepoDir(baseDir, 'svc', {
+        'src/service.ts': 'export function handle() { return 1; }',
+      });
+
+      groupManager.createGroup('g-xrepo', 'Cross Group', '');
+      groupManager.addRepo('g-xrepo', 'org', 'api', 'https://api.example.com', apiDir);
+      groupManager.addRepo('g-xrepo', 'org', 'svc', 'https://svc.example.com', svcDir);
+
+      const result = await indexer.indexGroup('g-xrepo');
+
+      // The import walks out of `api` into `svc`. That can only be resolved once both repositories are
+      // indexed, which is why the linking happens after indexing rather than during it.
+      expect(result.crossRepoEdges).toBeGreaterThan(0);
+    });
+
     it('should create import edges between the files of a repo', async () => {
       const repoDir = createTestRepoDir(tmpBaseDir, 'service-edges', {
         'src/types.ts': 'export interface User { id: string; }',
