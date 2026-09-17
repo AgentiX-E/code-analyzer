@@ -2,14 +2,17 @@
   "comment": [
     "Per-file type error counts for `tsc -p tsconfig.tests.json`.",
     "",
-    "`typecheck:tests` is a known-red tree (1829 errors across 184 files); a single total lets",
-    "a clean file go dirty as long as another file improves, which is not a ratchet. This file",
-    "records what each file currently costs, so `scripts/typecheck-per-file.js` can require:",
-    "  - a file absent from this list must have ZERO errors (new failures are blocked anywhere)",
+    "**`typecheck:tests` is clean: 0 errors across 0 files, so `files` is empty.** The ratchet is at its",
+    "strongest \u2014 `scripts/typecheck-per-file.js` requires:",
+    "  - a file absent from this list must have ZERO errors (a new failure is blocked anywhere)",
     "  - a file present must not EXCEED its recorded count (improvement is always allowed)",
     "",
-    "Improving a file? Re-run the gate with --update to lower its number — the ratchet should",
-    "only ever tighten."
+    "This file began as a ratchet against a red tree \u2014 1829 errors across 184 files \u2014 and the per-file shape is",
+    "what let it be worked down without a clean file going dirty when another improved. With the backlog at zero,",
+    "the mechanism now only guards the result.",
+    "",
+    "A file that must stay below the threshold has a different home: `scripts/coverage-per-file-exclusions.json`.",
+    "To record a genuine improvement, re-run the gate with --update; the numbers should only ever tighten."
   ],
   "files": {}
 }
