@@ -698,6 +698,28 @@ describe('CrossRepoIndexer', () => {
       ).rejects.toThrow(/is not in group/);
     });
 
+    it('should leave an import to a repository outside the group unlinked', async () => {
+      const baseDir = join(tmpdir(), `xout-${Date.now()}`);
+      mkdirSync(baseDir, { recursive: true });
+      const apiDir = createTestRepoDir(baseDir, 'out-api', {
+        'src/gateway.ts':
+          "import { gone } from '../../nowhere/src/missing';\nexport function go() { return gone; }",
+      });
+      const otherDir = createTestRepoDir(baseDir, 'out-other', {
+        'src/other.ts': 'export const other = 1;',
+      });
+
+      groupManager.createGroup('g-out', 'Outside Group', '');
+      groupManager.addRepo('g-out', 'org', 'out-api', 'https://a.example.com', apiDir);
+      groupManager.addRepo('g-out', 'org', 'out-other', 'https://o.example.com', otherDir);
+
+      const result = await indexer.indexGroup('g-out');
+
+      // The import names a repository the group does not contain, so there is nothing to link it to — and the
+      // group still needs two repositories for the cross-repo graph to be built at all.
+      expect(result.crossRepoEdges).toBe(0);
+    });
+
     it('should report the importing repository as affected by the one it imports', async () => {
       const baseDir = join(tmpdir(), `xdir-${Date.now()}`);
       mkdirSync(baseDir, { recursive: true });
