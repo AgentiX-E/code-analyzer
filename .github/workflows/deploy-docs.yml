@@ -1,11 +1,16 @@
 name: Deploy Docs
 
+# Manual only until the docs package is part of the workspace. It is currently impossible for this workflow to
+# succeed: `docs/` is outside `packages/*`, so its filter matches nothing, and `vitepress` is absent from
+# pnpm-lock.yaml, so its dependencies were never installed. Triggering it on every docs push produced a permanent
+# red, and a permanently red job teaches people to ignore red. Restore the `push` trigger in the same commit that
+# adds `docs` to the workspace and regenerates the lockfile.
 on:
-  push:
-    branches: [master]
-    paths:
-      - 'docs/**'
-      - '.github/workflows/deploy-docs.yml'
+  # push:
+  #   branches: [master]
+  #   paths:
+  #     - 'docs/**'
+  #     - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 permissions:
@@ -33,6 +38,21 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build docs site
         run: pnpm --filter code-analyzer-docs build
+
+      # `pnpm --filter <no match>` exits 0 — it prints "No projects matched the filters" and succeeds — so the
+      # step above reported success while producing nothing, and the upload step then failed on a missing
+      # directory. A build step that cannot fail is not a build step; this one can.
+      - name: Require build output
+        run: |
+          if [ ! -f docs/.vitepress/dist/index.html ]; then
+            echo "::error::docs/.vitepress/dist/index.html was not produced."
+            echo "  The docs package is not part of the pnpm workspace (pnpm-workspace.yaml lists only"
+            echo "  packages/*), and 'vitepress' does not appear in pnpm-lock.yaml, so its dependencies were"
+            echo "  never installed. Adding 'docs' to the workspace requires regenerating the lockfile, after"
+            echo "  which this workflow can run on push again."
+            exit 1
+          fi
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
