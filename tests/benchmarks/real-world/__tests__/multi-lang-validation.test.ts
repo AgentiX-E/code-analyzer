@@ -439,9 +439,8 @@ describe('Multi-Language Real-world Validation', () => {
 
   // ── Aggregate ─────────────────────────────────────────────────────────────
 
-  it('should handle gracefully when repos are unavailable', () => {
-    // This test always passes — validates that the benchmark doesn't crash
-    // when network is unavailable and repos cannot be cloned
-    expect(true).toBe(true);
-  });
+  // A test whose only statement was `expect(true).toBe(true)` lived here, with a comment claiming it validated
+  // that the benchmark survives unavailable repositories. It validated nothing: "the suite ran" is not an
+  // assertion, and the tests above already exercise the benchmark's report. Removed rather than left to inflate
+  // the count.
 });

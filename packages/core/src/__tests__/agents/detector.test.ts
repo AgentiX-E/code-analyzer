@@ -595,31 +595,29 @@ describe('VS Code Extension Detection', () => {
 // ── Process Detection ────────────────────────────────────────────
 
 describe('Process Detection', () => {
-  it('should detect the current node process on Linux', () => {
-    if (process.platform === 'linux') {
-      // Read /proc/self/comm
-      const comm = fs.readFileSync('/proc/self/comm', 'utf-8').trim();
-      expect(comm).toBeTruthy();
-      expect(typeof comm).toBe('string');
-    } else {
-      // On non-Linux, skip process tests
-      expect(true).toBe(true);
-    }
+  // The name says "on Linux", so the platform belongs in the skip condition rather than in an `else` branch
+  // that asserts nothing. `it.skipIf` reports the test as skipped, which is the truth on other platforms.
+  it.skipIf(process.platform !== 'linux')('should detect the current node process on Linux', () => {
+    const comm = fs.readFileSync('/proc/self/comm', 'utf-8').trim();
+    expect(comm).toBeTruthy();
+    expect(typeof comm).toBe('string');
   });
 
-  it('should read comm files correctly', () => {
-    if (process.platform === 'linux') {
-      // Read a known existing PID (pid 1)
-      let comm: string;
-      try {
-        comm = fs.readFileSync('/proc/1/comm', 'utf-8').trim();
-        expect(typeof comm).toBe('string');
-        expect(comm.length).toBeGreaterThan(0);
-      } catch {
-        // pid 1 might not be readable
-        expect(true).toBe(true);
-      }
+  // Reading another PID depends on the container's permissions, so the skip condition probes for that instead
+  // of catching it — a `catch` that accepts the failure is indistinguishable from the read succeeding.
+  const pidOneReadable = (() => {
+    if (process.platform !== 'linux') return false;
+    try {
+      return fs.readFileSync('/proc/1/comm', 'utf-8').trim().length > 0;
+    } catch {
+      return false;
     }
+  })();
+
+  it.skipIf(!pidOneReadable)('should read comm files correctly', () => {
+    const comm = fs.readFileSync('/proc/1/comm', 'utf-8').trim();
+    expect(typeof comm).toBe('string');
+    expect(comm.length).toBeGreaterThan(0);
   });
 });
 

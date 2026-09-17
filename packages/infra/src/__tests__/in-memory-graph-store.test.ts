@@ -3290,14 +3290,15 @@ describe('InMemoryGraphStore', () => {
       store.insertNode(
         createTestNode({ qualifiedName: 'cache.pattern.node', name: 'CachedPattern' }),
       );
-      // First query caches
-      store.queryNodes({ projectId: 'test-project', namePattern: 'Cached*' });
-      // Second query should use cache
-      store.queryNodes({ projectId: 'test-project', namePattern: 'Cached*' });
-      // Third query with different pattern creates new entry
-      store.queryNodes({ projectId: 'test-project', namePattern: 'Different*' });
-      // Should not crash
-      expect(true).toBe(true);
+      // Repeated use of the same pattern returns the same node; a different pattern does not match it. The
+      // comments described this behaviour, but the only assertion was `expect(true)` — the test proved nothing.
+      const first = store.queryNodes({ projectId: 'test-project', namePattern: 'Cached*' });
+      const second = store.queryNodes({ projectId: 'test-project', namePattern: 'Cached*' });
+      const third = store.queryNodes({ projectId: 'test-project', namePattern: 'Different*' });
+      expect(first.total).toBe(1);
+      expect(second.total).toBe(1);
+      expect(first.items[0]!.name).toBe('CachedPattern');
+      expect(third.total).toBe(0);
     });
   });
 

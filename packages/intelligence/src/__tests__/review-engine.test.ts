@@ -1684,14 +1684,11 @@ describe('Code Review Engine', () => {
 
     it('handles resume with invalid session id gracefully', async () => {
       // SessionStore may throw or return empty records for invalid session
-      try {
-        const session = await engine.resumeSession('nonexistent-session');
-        // If it doesn't throw, it should return a session with 0 files
-        expect(session.filesReviewed).toBeGreaterThanOrEqual(0);
-      } catch {
-        // Throwing is also acceptable behavior
-        expect(true).toBe(true);
-      }
+      // `resumeSession` reads the session store's records and builds a session from them; for an id with no
+      // records that means an empty session, not a rejection. The old version accepted either outcome, so it
+      // could not tell the two apart.
+      const session = await engine.resumeSession('nonexistent-session');
+      expect(session.filesReviewed).toBe(0);
     });
   });
 
