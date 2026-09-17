@@ -66,7 +66,8 @@
     "lint:ratchet": "node scripts/lint-per-file.js",
     "lint:update": "node scripts/lint-per-file.js --update",
     "coverage:exclusions": "node scripts/coverage-exclusions-gate.js",
-    "docs:numbers": "node scripts/readme-numbers-gate.js"
+    "docs:numbers": "node scripts/readme-numbers-gate.js",
+    "docs:status": "node scripts/readme-status-gate.js"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

@@ -96,6 +96,9 @@ jobs:
       - name: Enforce that every published number is cited
         run: npm run docs:numbers
 
+      - name: Enforce that every status claim is backed by a record
+        run: npm run docs:status
+
       - name: Enforce that every coverage exclusion is recorded
         run: npm run coverage:exclusions
 

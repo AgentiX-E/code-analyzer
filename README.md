@@ -67,30 +67,34 @@ code-analyzer agent configure
 
 ## Features
 
+Status words are defined in [`benchmarks/status-register.json`](benchmarks/status-register.json) and enforced by
+`scripts/readme-status-gate.js`: **`Tested`** means a test exercises the feature and does not claim it is correct;
+**`Partial`** means the register records a qualification, and the register states it in full.
+
 Checkmarks indicate features verified through automated tests.
 
-| Capability                                                  | Status                        |
-| ----------------------------------------------------------- | ----------------------------- |
-| Knowledge Graph (36 node types, 43 relationship types)      | Verified — unit tested        |
-| 19-Phase Analysis Pipeline                                  | Verified — integration tested |
-| 31-Language Parsing (tree-sitter + regex fallback)          | Verified — unit tested        |
-| Scope Resolution (3-tier: same-file, cross-file, namespace) | Verified — unit tested        |
-| PR Review (50+ heuristic rules, 6 categories)               | Verified — integration tested |
-| Cypher Query Engine (lexer → parser → planner → executor)   | Verified — unit tested        |
-| MCP Server (45 tools, 15 resources, 5 prompts)              | Verified — integration tested |
-| VS Code Extension (15 Copilot Chat slash commands)          | Verified — unit tested        |
-| Web Dashboard (6 interactive views)                         | Verified — integration tested |
-| GitHub Integration (webhooks, check runs, cross-repo PR)    | Verified — integration tested |
-| AI Agent Auto-Detection (12 agents)                         | Verified — unit tested        |
-| RBAC (5 roles, 25 permissions)                              | Verified — unit tested        |
-| Secret Scanner (16 patterns)                                | Verified — unit tested        |
-| Impact Analysis (BFS-based change propagation)              | Verified — integration tested |
-| Cross-Repo Analysis (federated search, contract detection)  | Verified — integration tested |
-| Taint Analysis (source → sink path tracking)                | Verified — unit tested        |
-| Graph Store (in-memory + SQLite with FTS5)                  | Verified — unit tested        |
-| Rate Limiting (sliding window)                              | Verified — unit tested        |
-| Health Checks + Graceful Shutdown                           | Verified — integration tested |
-| Benchmark Framework (ca-bench, real-world PR suite)         | Verified — benchmark tested   |
+| Capability                                                  | Status                 |
+| ----------------------------------------------------------- | ---------------------- |
+| Knowledge Graph (36 node types, 43 relationship types)      | Tested — unit          |
+| 19-Phase Analysis Pipeline                                  | Partial — see register |
+| 31-Language Parsing (tree-sitter + regex fallback)          | Partial — see register |
+| Scope Resolution (3-tier: same-file, cross-file, namespace) | Tested — unit          |
+| PR Review (50+ heuristic rules, 6 categories)               | Tested — integration   |
+| Cypher Query Engine (lexer → parser → planner → executor)   | Tested — unit          |
+| MCP Server (45 tools, 15 resources, 5 prompts)              | Partial — see register |
+| VS Code Extension (15 Copilot Chat slash commands)          | Tested — unit          |
+| Web Dashboard (6 interactive views)                         | Partial — see register |
+| GitHub Integration (webhooks, check runs, cross-repo PR)    | Tested — integration   |
+| AI Agent Auto-Detection (12 agents)                         | Tested — unit          |
+| RBAC (5 roles, 25 permissions)                              | Tested — unit          |
+| Secret Scanner (16 patterns)                                | Tested — unit          |
+| Impact Analysis (BFS-based change propagation)              | Tested — integration   |
+| Cross-Repo Analysis (federated search, contract detection)  | Tested — integration   |
+| Taint Analysis (source → sink path tracking)                | Partial — see register |
+| Graph Store (in-memory + SQLite with FTS5)                  | Tested — unit          |
+| Rate Limiting (sliding window)                              | Tested — unit          |
+| Health Checks + Graceful Shutdown                           | Tested — integration   |
+| Benchmark Framework (ca-bench, real-world PR suite)         | Partial — see register |
 
 ---
 

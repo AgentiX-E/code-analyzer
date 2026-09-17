@@ -1,0 +1,101 @@
+{
+  "comment": [
+    "Every status claim in README.md's Features table resolves to an entry here.",
+    "",
+    "`scripts/readme-status-gate.js` parses that table and fails when a status cell is not a vocabulary word",
+    "allowed here, when the word is stronger than the evidence recorded against the feature, or when a feature",
+    "has no record at all.",
+    "",
+    "The vocabulary is deliberately weak. `tested` says a test exists that exercises the feature; it does not say",
+    "the feature is correct. `verified` is reserved for a claim backed by an artifact this project produced and",
+    "can be pointed at \u2014 and it is withheld where an audit has found the opposite.",
+    "",
+    "Rules learned the hard way in this repository: a benchmark figure without a citation, and an install command",
+    "that returns 404, both shipped for months because nothing checked the text against the evidence."
+  ],
+  "vocabulary": ["tested", "verified", "planned", "partial"],
+  "strongestWithoutArtifact": "tested",
+  "features": {
+    "Scope Resolution": {
+      "status": "tested",
+      "evidence": "packages/intelligence/src/__tests__/ \u2014 unit tests present"
+    },
+    "PR Review": {
+      "status": "tested",
+      "evidence": "packages/intelligence/src/__tests__/review-*"
+    },
+    "Cypher Query Engine": {
+      "status": "tested",
+      "evidence": "packages/mcp/src/__tests__/ \u2014 query tests present"
+    },
+    "MCP Server": {
+      "status": "partial",
+      "note": "The tool count of 45 is asserted in the README and was never counted; `server.tool(` does not appear in the tree, so the registration path differs from the obvious one. The server itself is exercised in integration tests."
+    },
+    "VS Code Extension": {
+      "status": "tested",
+      "evidence": "packages/vscode \u2014 780 tests, run separately in CI"
+    },
+    "Web Dashboard": {
+      "status": "partial",
+      "note": "packages/web is excluded from the root coverage run and has its own configuration; the tests exist but are not part of the measured body."
+    },
+    "GitHub Integration": {
+      "status": "tested",
+      "evidence": "packages/intelligence/src/__tests__/github-*"
+    },
+    "AI Agent Auto-Detection": {
+      "status": "tested",
+      "evidence": "packages/cli/src/__tests__/ \u2014 agent setup tests"
+    },
+    "RBAC": {
+      "status": "tested",
+      "evidence": "packages/server/src/__tests__/ \u2014 middleware tests"
+    },
+    "Secret Scanner": {
+      "status": "tested",
+      "evidence": "scanner tests present"
+    },
+    "Impact Analysis": {
+      "status": "tested",
+      "note": "Five defects in this path were fixed on 2026-09-17 (0a6418d, e505ea2, b7337e1, 2b80922, 3ec10ee). Before that date the feature ran on fallbacks and this row's claim would have been false."
+    },
+    "Cross-Repo Analysis": {
+      "status": "tested",
+      "evidence": "packages/intelligence/src/__tests__/cross-repo{,-e2e}.test.ts, plus the benchmark's E2E at 13/13 on its primary paths",
+      "note": "Same five defects as Impact Analysis; the E2E now exercises the primary path rather than two try/catch fallbacks."
+    },
+    "Taint Analysis": {
+      "status": "partial",
+      "note": "The 2026-08-17 audit lists 'No Taint Analysis' as a Critical gap. Unit tests for the path-tracking module exist, so `tested` is supportable for the module; the README's previous `Verified \u2014 unit tested` contradicted the audit, which is what this entry records."
+    },
+    "Graph Store": {
+      "status": "tested",
+      "evidence": "packages/infra/src/__tests__/in-memory-graph-store.test.ts"
+    },
+    "Rate Limiting": {
+      "status": "tested",
+      "evidence": "server middleware tests"
+    },
+    "Health Checks": {
+      "status": "tested",
+      "evidence": "packages/server/src/__tests__/http-server.test.ts exercises shutdown handlers"
+    },
+    "Benchmark Framework": {
+      "status": "partial",
+      "note": "The suite holds 49 ground-truth issues, below the 100 this project requires before publishing a figure, and the README now says no figures are published. The framework runs, so `partial` rather than absent \u2014 but `Verified \u2014 benchmark tested` contradicted the section directly above it."
+    },
+    "Knowledge Graph": {
+      "status": "tested",
+      "evidence": "packages/shared/src/types/graph.ts declares NODE_LABELS (36) and RELATIONSHIP_TYPES (43); counted on 2026-09-17 and matching the README"
+    },
+    "19-Phase Analysis Pipeline": {
+      "status": "partial",
+      "note": "The phase count is not verified against the pipeline, and no single test exercises the pipeline end to end. Recorded as partial rather than asserted."
+    },
+    "31-Language Parsing": {
+      "status": "partial",
+      "note": "The language count is asserted and not counted here. The 2026-08-17 audit notes the language parsers were excluded from coverage, so their tests were not part of the measured body."
+    }
+  }
+}
