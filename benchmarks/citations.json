@@ -1,0 +1,25 @@
+{
+  "comment": [
+    "Every number published in README.md's Benchmarks section resolves to an entry here.",
+    "",
+    "`scripts/readme-numbers-gate.js` parses that table and fails when a numeric cell has no citation, when the",
+    "artifact a citation names does not exist, when its dataset is smaller than `minimumGroundTruth`, or when it",
+    "is marked `independentValidation: false`.",
+    "",
+    "The rule this file exists to enforce: **a number we did not measure is not a comparison.** A figure from",
+    "someone else's published documentation has no place in a table of our own results — it reads as a head-to-head",
+    "result whatever the footnote says."
+  ],
+  "minimumGroundTruth": 100,
+  "citations": {
+    "internal-suite-2026-08": {
+      "artifact": "packages/intelligence/src/benchmark/benchmark-data.ts",
+      "measuredAt": "2026-08-07",
+      "groundTruthIssues": 49,
+      "groundTruthSource": "benchmark-data.ts (15 issues) plus benchmark-fixtures.ts (34)",
+      "independentValidation": false,
+      "caveat": "Measured on an internal suite of 49 issues, below the declared minimum of 100. The gate therefore refuses to let these figures appear in README.md. They stay here as a record of what was measured, not as a claim to publish.",
+      "metrics": { "precision": 0.794, "recall": 0.73, "f1": 0.761 }
+    }
+  }
+}

@@ -93,6 +93,9 @@ jobs:
           fi
           echo "::notice::All coverage dimensions meet thresholds (lines≥95%, branches≥95%, functions≥95%, statements≥95%)."
 
+      - name: Enforce that every published number is cited
+        run: npm run docs:numbers
+
       - name: Enforce that every coverage exclusion is recorded
         run: npm run coverage:exclusions
 

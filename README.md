@@ -136,21 +136,23 @@ The platform is structured as a 10-package pnpm monorepo with clear separation o
 
 ## Benchmarks
 
-Code Analyzer achieves competitive results with zero LLM token cost on internal test suites:
+**No benchmark figures are published yet, and that is deliberate.**
 
-| Metric         | Code Analyzer | SonarQube | CodeRabbit |
-| -------------- | :-----------: | :-------: | :--------: |
-| **Precision**  |     79.4%     |    72%    |    58%     |
-| **Recall**     |     73.0%     |    48%    |    52%     |
-| **F1 Score**   |     0.761     |   0.576   |   0.549    |
-| **Noise Rate** |     0.3x      |   0.8x    |    2.1x    |
-| **Cost**       |      $0       | API cost  |  API cost  |
+Earlier revisions of this section carried a table of precision, recall and F1 beside SonarQube and CodeRabbit
+columns. Two things were wrong with it. The internal suite behind our own figures holds **49** ground-truth issues
+— below the **100** this project now requires before any figure may be published — and the competitor columns
+carried numbers taken from those vendors' documentation rather than measured here. **A number this project did not
+measure is not a comparison**, whatever the footnote says.
 
-> **Important caveat:** Benchmarks are based on internal test suites (37 ground-truth issues). Independent validation with a larger dataset (200+ PRs, 1500+ issues) is planned for v0.2.0. Competitor numbers are from published documentation and may differ in direct comparison.
+The measurements that exist are recorded in [`benchmarks/citations.json`](benchmarks/citations.json), with the
+dataset size, the date, and an explicit `independentValidation: false` where it applies.
+`scripts/readme-numbers-gate.js` runs in CI and fails the build when a figure in this section has no citation,
+when its artifact is missing, when its dataset is below the declared minimum, or when it is marked as not
+independently validated.
 
-[Full benchmark report →](docs/BENCHMARK_REPORT.md)
-
----
+Raising `minimumGroundTruth` is the work, not lowering it: the plan is a dataset of at least 100 ground-truth
+issues with the protocol recorded — source, date, and arm — so that a published number can be checked rather than
+believed.
 
 ## Documentation
 
