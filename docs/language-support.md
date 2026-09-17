@@ -99,7 +99,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 
 Language providers implement the `LanguageProvider` interface. You can extend `TreeSitterBaseProvider` for full AST-based parsing (recommended for languages with a tree-sitter grammar) or implement the interface directly for simpler formats like Dockerfile and YAML.
 
-See the [Language Provider Contributing Guide](/contributing/language-provider) for a step-by-step walkthrough covering:
+See the [Language Provider Contributing Guide](./contributing/language-provider.md) for a step-by-step walkthrough covering:
 
 - The `LanguageProvider` interface overview
 - Extending `TreeSitterBaseProvider` with node type mappings

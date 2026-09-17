@@ -55,6 +55,11 @@ jobs:
             --exclude '^file://'
             --exclude '^mailto:'
             --exclude '^https://api\.securityscorecards\.dev/.*'
+            # The MCP specification site completes a handshake from a browser but not from the runner, with
+            # --max-retries 3 already in effect. Excluded by name so the failure is recorded here rather than
+            # appearing as a flaky build; if the site becomes reachable, remove this line and the link is checked
+            # again.
+            --exclude '^https://spec\.modelcontextprotocol\.io/.*'
             './**/*.md'
           failIfEmpty: false
           format: markdown
