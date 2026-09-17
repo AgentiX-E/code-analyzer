@@ -1128,6 +1128,32 @@ describe('CrossRepoIndexer', () => {
     });
   });
 
+  describe('ContractValidator — the failures it absorbs', () => {
+    it('should report no targets when the impact analysis cannot be produced', async () => {
+      // `findConsumerRepos` absorbs a failing impact analysis the same way its sibling absorbs a failing trace.
+      const indexer = {
+        getRepoNodes: () => [
+          {
+            name: 'other',
+            label: 'Function',
+            qualifiedName: 'q',
+            filePath: 'src/s.ts',
+            projectId: 'o/svc',
+          },
+        ],
+        analyzeCrossRepoImpact: async () => {
+          throw new Error('impact unavailable');
+        },
+        traceSymbolDependencies: async () => [],
+      };
+      const validator = new ContractValidator(indexer as never);
+
+      const result = await validator.validateCrossRepo('g', 'o/svc', ['handle']);
+
+      expect(result.targetRepos).toEqual([]);
+    });
+  });
+
   describe('ContractValidator — the failure it absorbs', () => {
     it('should report no consumers when the dependency trace cannot be produced', async () => {
       // `findReposConsumingSymbol` converts a failing trace into an empty list. Reaching that branch needs an
