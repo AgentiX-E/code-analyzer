@@ -361,4 +361,4 @@ MIT — see [LICENSE](./LICENSE)
 - [Code Analyzer Documentation](../docs)
 - [Contributing Guide](../CONTRIBUTING.md)
 - [VS Code Extension](../vscode) — editor-based companion
-- [Issue Tracker](https://github.com/agentix/code-analyzer/issues)
+- [Issue Tracker](https://github.com/AgentiX-E/code-analyzer/issues)
