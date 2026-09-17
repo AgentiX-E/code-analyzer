@@ -692,7 +692,8 @@ describe('CrossRepoIndexer', () => {
       // An empty source repository means "search the whole group" — which is how the contract validator asks who
       // consumes a symbol. It used to be rejected like any unknown name, and the validator turns that throw into
       // an empty list, so the answer was always "nobody". Only an unknown repository is an error.
-      await expect(indexer.traceSymbolDependencies('g-trace', '', 'handle')).resolves.toBeDefined();
+      const traces = await indexer.traceSymbolDependencies('g-trace', '', 'handle');
+      expect(traces.map((t) => t.targetRepo)).toContain('org/trace-api');
       await expect(
         indexer.traceSymbolDependencies('g-trace', 'org/absent', 'handle'),
       ).rejects.toThrow(/is not in group/);
@@ -1147,6 +1148,50 @@ describe('CrossRepoIndexer', () => {
       const nodes = indexer.getRepoNodes('o/repo-a');
       expect(nodes.length).toBeGreaterThanOrEqual(1);
       expect(nodes.some((n) => n.name === 'testFn')).toBe(true);
+    });
+  });
+
+  describe('SymbolDependencyTrace — the file level', () => {
+    it('should follow imports one level further and ignore names that do not match', async () => {
+      const baseDir = join(tmpdir(), `xchain-${Date.now()}`);
+      mkdirSync(baseDir, { recursive: true });
+      // chain-c imports from chain-a, which imports `handle` from chain-b. A trace for `handle` starts in
+      // chain-b, reaches chain-a by import, and must also reach chain-c one level further.
+      const cDir = createTestRepoDir(baseDir, 'chain-c', {
+        'src/c.ts':
+          "import { go } from '../../chain-a/src/a';\nexport function use() { return go(); }",
+      });
+      const aDir = createTestRepoDir(baseDir, 'chain-a', {
+        'src/a.ts':
+          "import { handle } from '../../chain-b/src/b';\nexport function go() { return handle(); }",
+      });
+      const bDir = createTestRepoDir(baseDir, 'chain-b', {
+        'src/b.ts': 'export function handle() { return 1; }\nexport function other() { return 2; }',
+      });
+      // chain-d imports a different name from the same file, so the edge records names that do not match the
+      // symbol being traced — the filter has to skip it rather than report a use that is not there.
+      const dDir = createTestRepoDir(baseDir, 'chain-d', {
+        'src/d.ts':
+          "import { other } from '../../chain-b/src/b';\nexport function use() { return other(); }",
+      });
+
+      groupManager.createGroup('g-chain', 'Chain Group', '');
+      groupManager.addRepo('g-chain', 'org', 'chain-a', 'https://a.example.com', aDir);
+      groupManager.addRepo('g-chain', 'org', 'chain-b', 'https://b.example.com', bDir);
+      groupManager.addRepo('g-chain', 'org', 'chain-c', 'https://c.example.com', cDir);
+      groupManager.addRepo('g-chain', 'org', 'chain-d', 'https://d.example.com', dDir);
+
+      await indexer.indexGroup('g-chain');
+
+      const traces = await indexer.traceSymbolDependencies('g-chain', '', 'handle');
+
+      // Depth 1 is the importer, depth 2 the repository that imports the importer.
+      expect(traces.some((t) => t.targetRepo === 'org/chain-a' && t.depth === 1)).toBe(true);
+      expect(traces.some((t) => t.targetRepo === 'org/chain-c' && t.depth === 2)).toBe(true);
+      // `handle` is not imported anywhere as a name other than itself, and the filter must not invent traces.
+      expect(traces.every((t) => t.sourceSymbol.includes('handle'))).toBe(true);
+      // chain-d imports `other`, not `handle`, so it must not appear.
+      expect(traces.some((t) => t.targetRepo === 'org/chain-d')).toBe(false);
     });
   });
 

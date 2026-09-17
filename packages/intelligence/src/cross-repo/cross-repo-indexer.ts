@@ -1234,6 +1234,65 @@ export class CrossRepoIndexer {
       }
     }
 
+    // Two relations reach a consumer, and they live at different levels. `CROSS_REPO_CALLS` runs from symbol to
+    // symbol — the tests build those by hand. `CROSS_REPO_IMPORTS` is created by `linkCrossRepoImports` and runs
+    // from the **declaring file** to the file that imports it, which is the only form this pipeline can produce
+    // from an import statement. Following only the symbol node missed every importer, so a repository that
+    // imports the symbol was never reported as a consumer.
+    for (const { repo: declaringRepo, node: declared } of sourceNodes) {
+      const declaringFile = this.getRepoNodes(declaringRepo).find(
+        (n) => n.label === 'File' && n.filePath === declared.filePath,
+      );
+      if (!declaringFile) continue;
+
+      // Read the plain `IMPORTS` edges: they carry the names the importer asked for. The upgraded
+      // `CROSS_REPO_IMPORTS` edge covers the same pair of files but keeps only `sourceRepo`/`targetRepo`, so
+      // reading it would report a repository that imports *something else* from the same file.
+      for (const edge of this.store.getEdgesForNode(declaringFile.id)) {
+        if (edge.type !== EDGE_IMPORTS) continue;
+
+        const importerFile = this.store.getNode(edge.targetId);
+        if (!importerFile) continue;
+        if (importerFile.projectId === declaringRepo) continue;
+        if (!repos.includes(importerFile.projectId)) continue;
+
+        const imported = edge.properties?.['importedSymbols'];
+        const importedNames = Array.isArray(imported) ? imported.map((n) => String(n)) : [];
+        if (!importedNames.some((n) => n.toLowerCase() === symbolName.toLowerCase())) continue;
+
+        traces.push({
+          sourceRepo: declaringRepo,
+          sourceSymbol: declared.qualifiedName,
+          sourceFile: declared.filePath ?? '',
+          targetRepo: importerFile.projectId,
+          targetSymbol: symbolName,
+          targetFile: importerFile.filePath ?? '',
+          dependencyType: edge.type,
+          depth: 1,
+          confidence: 'high',
+        });
+
+        for (const tEdge of this.store.getEdgesForNode(importerFile.id)) {
+          if (!tEdge.type.startsWith('CROSS_REPO_')) continue;
+          const transitive = this.store.getNode(tEdge.targetId);
+          if (!transitive || transitive.projectId === importerFile.projectId) continue;
+          if (!repos.includes(transitive.projectId)) continue;
+
+          traces.push({
+            sourceRepo: declaringRepo,
+            sourceSymbol: declared.qualifiedName,
+            sourceFile: declared.filePath ?? '',
+            targetRepo: transitive.projectId,
+            targetSymbol: transitive.qualifiedName,
+            targetFile: transitive.filePath ?? '',
+            dependencyType: `transitive_${tEdge.type}`,
+            depth: 2,
+            confidence: 'medium',
+          });
+        }
+      }
+    }
+
     return traces;
   }
 
