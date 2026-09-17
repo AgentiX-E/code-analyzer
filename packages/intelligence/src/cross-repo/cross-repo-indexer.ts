@@ -1380,10 +1380,13 @@ export class CrossRepoIndexer {
           const target = this.findRepoFileByPath(repos, resolved);
           if (!target || target.id === node.id) continue;
 
+          // The edge runs from the **imported** repository's file to the importing one. That is the convention
+          // the rest of this subsystem assumes: `analyzeCrossRepoImpact` and `traceSymbolDependencies` both walk
+          // *outgoing* cross-repo edges, and a repository's "affected" peers are the ones that import it.
           this.store.insertEdge({
-            projectId,
-            sourceId: node.id,
-            targetId: target.id,
+            projectId: target.projectId ?? projectId,
+            sourceId: target.id,
+            targetId: node.id,
             type: EDGE_IMPORTS,
             properties: {
               importPath: imp.modulePath,

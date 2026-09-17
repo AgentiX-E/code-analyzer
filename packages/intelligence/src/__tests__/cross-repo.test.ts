@@ -671,6 +671,29 @@ describe('CrossRepoIndexer', () => {
       expect(result.totalEdges).toBeGreaterThanOrEqual(0);
     });
 
+    it('should report the importing repository as affected by the one it imports', async () => {
+      const baseDir = join(tmpdir(), `xdir-${Date.now()}`);
+      mkdirSync(baseDir, { recursive: true });
+      const apiDir = createTestRepoDir(baseDir, 'dir-api', {
+        'src/gateway.ts':
+          "import { handle } from '../../dir-svc/src/service';\nexport function go() { return handle(); }",
+      });
+      const svcDir = createTestRepoDir(baseDir, 'dir-svc', {
+        'src/service.ts': 'export function handle() { return 1; }',
+      });
+
+      groupManager.createGroup('g-dir', 'Direction Group', '');
+      groupManager.addRepo('g-dir', 'org', 'dir-api', 'https://a.example.com', apiDir);
+      groupManager.addRepo('g-dir', 'org', 'dir-svc', 'https://s.example.com', svcDir);
+
+      await indexer.indexGroup('g-dir');
+
+      // The edge runs from the imported repository to the importing one, so a change in `dir-svc` reaches
+      // `dir-api` by walking *outgoing* edges — which is the direction `analyzeCrossRepoImpact` walks.
+      const impact = await indexer.analyzeCrossRepoImpact('g-dir', 'org/dir-svc');
+      expect(impact.affectedRepos).toContain('org/dir-api');
+    });
+
     it('should link repositories that import each other across the group', async () => {
       const baseDir = join(tmpdir(), `xrepo-${Date.now()}`);
       mkdirSync(baseDir, { recursive: true });
