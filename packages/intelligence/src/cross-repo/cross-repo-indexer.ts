@@ -1160,23 +1160,33 @@ export class CrossRepoIndexer {
     }
 
     const repos = group.repos.map((r) => r.fullName);
-    if (!repos.includes(sourceRepoId)) {
+    if (sourceRepoId && !repos.includes(sourceRepoId)) {
       throw new Error(`Source repo "${sourceRepoId}" is not in group "${groupId}"`);
     }
 
     const traces: SymbolDependencyTrace[] = [];
 
-    // Find the symbol node(s) in source repo
-    const sourceNodes = this.getRepoNodes(sourceRepoId).filter(
-      (n) =>
-        n.name.toLowerCase() === symbolName.toLowerCase() ||
-        n.qualifiedName.toLowerCase().includes(symbolName.toLowerCase()),
+    // An empty `sourceRepoId` means "search every repository in the group", which is how the contract
+    // validator asks who consumes a symbol. Rejecting it made this call throw every time, and the caller turns
+    // a throw into an empty list — so the answer was always "nobody consumes it".
+    const sourceRepos = sourceRepoId ? [sourceRepoId] : repos;
+
+    // Find the symbol node(s), tagged with the repository each belongs to: with an empty source there may be
+    // several, and each one's dependents are reached from its own repository.
+    const sourceNodes = sourceRepos.flatMap((repo) =>
+      this.getRepoNodes(repo)
+        .filter(
+          (n) =>
+            n.name.toLowerCase() === symbolName.toLowerCase() ||
+            n.qualifiedName.toLowerCase().includes(symbolName.toLowerCase()),
+        )
+        .map((node) => ({ repo, node })),
     );
 
     if (sourceNodes.length === 0) return traces;
 
     // For each matching source node, follow outgoing CROSS_REPO_* edges
-    for (const sourceNode of sourceNodes) {
+    for (const { repo: sourceRepo, node: sourceNode } of sourceNodes) {
       const edgesOut = this.store.getEdgesForNode(sourceNode.id);
 
       for (const edge of edgesOut) {
@@ -1184,7 +1194,7 @@ export class CrossRepoIndexer {
 
         const targetNode = this.store.getNode(edge.targetId);
         if (!targetNode) continue;
-        if (targetNode.projectId === sourceRepoId) continue;
+        if (targetNode.projectId === sourceRepo) continue;
 
         const targetRepo = targetNode.projectId;
         if (!repos.includes(targetRepo)) continue;
@@ -1198,7 +1208,7 @@ export class CrossRepoIndexer {
           if (!repos.includes(transitiveTarget.projectId)) continue;
 
           traces.push({
-            sourceRepo: sourceRepoId,
+            sourceRepo,
             sourceSymbol: sourceNode.qualifiedName,
             sourceFile: sourceNode.filePath ?? '',
             targetRepo: transitiveTarget.projectId,
@@ -1211,7 +1221,7 @@ export class CrossRepoIndexer {
         }
 
         traces.push({
-          sourceRepo: sourceRepoId,
+          sourceRepo,
           sourceSymbol: sourceNode.qualifiedName,
           sourceFile: sourceNode.filePath ?? '',
           targetRepo,

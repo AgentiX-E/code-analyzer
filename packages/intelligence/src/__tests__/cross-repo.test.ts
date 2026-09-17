@@ -671,6 +671,32 @@ describe('CrossRepoIndexer', () => {
       expect(result.totalEdges).toBeGreaterThanOrEqual(0);
     });
 
+    it('should find the consumers of a symbol when no source repository is given', async () => {
+      const baseDir = join(tmpdir(), `xtrace-${Date.now()}`);
+      mkdirSync(baseDir, { recursive: true });
+      const apiDir = createTestRepoDir(baseDir, 'trace-api', {
+        'src/gateway.ts':
+          "import { handle } from '../../trace-svc/src/service';\nexport function go() { return handle(); }",
+      });
+      const svcDir = createTestRepoDir(baseDir, 'trace-svc', {
+        'src/service.ts': 'export function handle() { return 1; }',
+      });
+
+      groupManager.createGroup('g-trace', 'Trace Group', '');
+      groupManager.addRepo('g-trace', 'org', 'trace-api', 'https://a.example.com', apiDir);
+      groupManager.addRepo('g-trace', 'org', 'trace-svc', 'https://s.example.com', svcDir);
+
+      await indexer.indexGroup('g-trace');
+
+      // An empty source repository means "search the whole group" — which is how the contract validator asks who
+      // consumes a symbol. It used to be rejected like any unknown name, and the validator turns that throw into
+      // an empty list, so the answer was always "nobody". Only an unknown repository is an error.
+      await expect(indexer.traceSymbolDependencies('g-trace', '', 'handle')).resolves.toBeDefined();
+      await expect(
+        indexer.traceSymbolDependencies('g-trace', 'org/absent', 'handle'),
+      ).rejects.toThrow(/is not in group/);
+    });
+
     it('should report the importing repository as affected by the one it imports', async () => {
       const baseDir = join(tmpdir(), `xdir-${Date.now()}`);
       mkdirSync(baseDir, { recursive: true });
