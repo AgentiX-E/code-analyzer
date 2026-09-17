@@ -2,12 +2,13 @@
 
 > VS Code extension providing Copilot Chat integration, interactive knowledge graph, inline code reviews, and impact analysis — all powered by the Code Analyzer engine.
 
-[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue?logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=agentix.code-analyzer)
-[![npm](https://img.shields.io/npm/v/@code-analyzer/vscode?color=blue)](https://www.npmjs.com/package/@code-analyzer/vscode)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
-[![VS Code](https://img.shields.io/badge/VS%20Code-%3E%3D1.95.0-blue?logo=visualstudiocode)](https://code.visualstudio.com/)
-[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green?logo=node.js)](https://nodejs.org/)
+> Not published to the VS Code Marketplace yet. Build it from this directory (`npm run package`) and install the
+> resulting `.vsix`.
+> [![npm](https://img.shields.io/npm/v/@code-analyzer/vscode?color=blue)](https://www.npmjs.com/package/@code-analyzer/vscode)
+> [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+> [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
+> [![VS Code](https://img.shields.io/badge/VS%20Code-%3E%3D1.95.0-blue?logo=visualstudiocode)](https://code.visualstudio.com/)
+> [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green?logo=node.js)](https://nodejs.org/)
 
 ---
 

@@ -481,4 +481,4 @@ When submitting a new language provider:
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/AgentiX-E/code-analyzer/discussions) or submit a draft PR for early feedback.
+Open a [GitHub issue](https://github.com/AgentiX-E/code-analyzer/issues) or submit a draft PR for early feedback.

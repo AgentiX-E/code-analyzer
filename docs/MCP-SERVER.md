@@ -170,7 +170,7 @@ If your Codex version uses JSON config, create `~/.codex/mcp.json`:
 
 **Caveats:**
 
-- Codex MCP support is evolving — check the [Codex docs](https://platform.openai.com/docs/guides/codex) for the latest MCP integration details.
+- Codex MCP support is evolving — check the [Codex docs](https://developers.openai.com/api/docs/guides/codex) for the latest MCP integration details.
 - Codex may require explicit tool invocation syntax like `@tool search_graph query="authentication"`.
 - Environment variable expansion in Codex config is limited — use absolute paths.
 

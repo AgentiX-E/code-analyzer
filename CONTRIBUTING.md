@@ -413,7 +413,7 @@ Example entry:
 
 ## Questions?
 
-- Open a [GitHub Discussion](https://github.com/AgentiX-E/code-analyzer/discussions)
+- Open a [GitHub issue](https://github.com/AgentiX-E/code-analyzer/issues)
 - Join our community chat (link coming soon)
 
 ---

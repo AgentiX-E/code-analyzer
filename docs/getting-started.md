@@ -279,7 +279,8 @@ After restarting your AI agent, you'll see a hammer icon in the chat interface, 
 3. Search for "Code Analyzer"
 4. Click **Install**
 
-Alternatively, install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentiX-E.code-analyzer).
+The extension is not published to the VS Code Marketplace yet. Build it from `packages/vscode` and install the
+resulting `.vsix` (`npm run package` in that directory).
 
 ### Verify Installation
 
