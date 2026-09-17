@@ -39,6 +39,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `spec.modelcontextprotocol.io` completes a TLS handshake from a browser but not from the runner, with
+      # `--max-retries 3` already in effect. It is excluded by name below so the failure is recorded rather
+      # than appearing as a flaky build; remove the entry to check the link again.
+      #
+      # Note for the next editor: everything inside `args: >` is one scalar. A `#` written there is passed
+      # to lychee as an argument, not treated as a comment — which is exactly how this job was broken once.
       - name: Check all links in markdown files
         uses: lycheeverse/lychee-action@v2
         with:
@@ -55,10 +61,6 @@ jobs:
             --exclude '^file://'
             --exclude '^mailto:'
             --exclude '^https://api\.securityscorecards\.dev/.*'
-            # The MCP specification site completes a handshake from a browser but not from the runner, with
-            # --max-retries 3 already in effect. Excluded by name so the failure is recorded here rather than
-            # appearing as a flaky build; if the site becomes reachable, remove this line and the link is checked
-            # again.
             --exclude '^https://spec\.modelcontextprotocol\.io/.*'
             './**/*.md'
           failIfEmpty: false
