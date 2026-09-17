@@ -28,14 +28,21 @@ Code Analyzer is a code intelligence platform that helps developers understand, 
 
 ## Install
 
-```bash
-# Install via npm
-npm install -g @code-analyzer/cli
+**Not published to npm yet** — `npm install -g @code-analyzer/cli` returns 404, so this section describes the
+only path that works today: build from source.
 
-# Initialize a project
-cd your-project
-code-analyzer init
+```bash
+git clone https://github.com/AgentiX-E/code-analyzer.git
+cd code-analyzer
+pnpm install
+pnpm build
+
+# then, from your project
+node ../code-analyzer/packages/cli/dist/index.js init
 ```
+
+The exact entry point for your build is in [the CLI package](packages/cli/README.md). Publishing to npm is tracked
+as its own task; until it happens, the command above is the one that runs.
 
 ---
 

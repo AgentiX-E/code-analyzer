@@ -2,7 +2,6 @@
 
 > HTTP REST API server wrapping the Code Analyzer intelligence engine. Provides RESTful endpoints for code analysis, search, review, and reporting.
 
-[![npm](https://img.shields.io/npm/v/@code-analyzer/server?color=blue)](https://www.npmjs.com/package/@code-analyzer/server)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green)](https://nodejs.org/)

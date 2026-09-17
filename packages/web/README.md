@@ -2,7 +2,6 @@
 
 > Web dashboard for browsing code intelligence results — knowledge graph visualization, search interface, and reports viewer.
 
-[![npm](https://img.shields.io/npm/v/@code-analyzer/web?color=blue)](https://www.npmjs.com/package/@code-analyzer/web)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green?logo=node.js)](https://nodejs.org/)

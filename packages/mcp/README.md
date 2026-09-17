@@ -2,7 +2,6 @@
 
 > MCP (Model Context Protocol) Server exposing code intelligence as 38 tools, 15 resources, and 5 prompts for AI coding agents.
 
-[![npm](https://img.shields.io/npm/v/@code-analyzer/mcp?color=blue)](https://www.npmjs.com/package/@code-analyzer/mcp)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green)](https://nodejs.org/)

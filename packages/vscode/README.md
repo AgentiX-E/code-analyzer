@@ -4,7 +4,7 @@
 
 > Not published to the VS Code Marketplace yet. Build it from this directory (`npm run package`) and install the
 > resulting `.vsix`.
-> [![npm](https://img.shields.io/npm/v/@code-analyzer/vscode?color=blue)](https://www.npmjs.com/package/@code-analyzer/vscode)
+
 > [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 > [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 > [![VS Code](https://img.shields.io/badge/VS%20Code-%3E%3D1.95.0-blue?logo=visualstudiocode)](https://code.visualstudio.com/)

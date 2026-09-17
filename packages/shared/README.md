@@ -2,7 +2,6 @@
 
 > Zero-dependency foundation layer — types, constants, and validation for the Code Analyzer knowledge graph platform.
 
-[![npm](https://img.shields.io/npm/v/@code-analyzer/shared?color=blue)](https://www.npmjs.com/package/@code-analyzer/shared)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-green)](https://nodejs.org/)

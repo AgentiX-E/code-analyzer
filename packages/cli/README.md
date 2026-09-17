@@ -2,7 +2,6 @@
 
 > Command-line interface for the Code Analyzer platform — index repositories, search the knowledge graph, and run analysis from your terminal.
 
-[![npm](https://img.shields.io/npm/v/@code-analyzer/cli?color=blue)](https://www.npmjs.com/package/@code-analyzer/cli)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green)](https://nodejs.org/)

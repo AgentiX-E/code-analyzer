@@ -2,7 +2,6 @@
 
 > The Analysis Engine — the heart of code-analyzer. Parses source code into a unified knowledge graph using regex-based language providers, a DAG pipeline, scope resolution, and graph construction.
 
-[![npm](https://img.shields.io/npm/v/@code-analyzer/analyzer?color=blue)](https://www.npmjs.com/package/@code-analyzer/analyzer)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/lang-TypeScript-3178c6)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green)](https://nodejs.org/)
