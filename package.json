@@ -64,7 +64,8 @@
     "typecheck:tests:ratchet": "sh -c 'pnpm typecheck:tests > /tmp/typecheck-tests.log 2>&1 || true; node scripts/typecheck-per-file.js --log /tmp/typecheck-tests.log'",
     "typecheck:tests:update-baseline": "sh -c 'pnpm typecheck:tests > /tmp/typecheck-tests.log 2>&1 || true; node scripts/typecheck-per-file.js --log /tmp/typecheck-tests.log --update'",
     "lint:ratchet": "node scripts/lint-per-file.js",
-    "lint:update": "node scripts/lint-per-file.js --update"
+    "lint:update": "node scripts/lint-per-file.js --update",
+    "coverage:exclusions": "node scripts/coverage-exclusions-gate.js"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

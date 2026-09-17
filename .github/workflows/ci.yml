@@ -249,6 +249,9 @@ jobs:
           fi
           echo "::notice::All coverage dimensions meet thresholds (lines≥95%, branches≥95%, functions≥95%, statements≥95%)."
 
+      - name: Enforce that every coverage exclusion is recorded
+        run: npm run coverage:exclusions
+
       - name: Enforce per-file coverage
         run: |
           # The aggregate gate above reads only `total`, so a run can pass with individual files

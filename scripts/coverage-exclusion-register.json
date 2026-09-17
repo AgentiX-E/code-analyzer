@@ -1,0 +1,26 @@
+{
+  "comment": [
+    "Every entry in `vitest.config.ts`'s coverage `exclude`, with the reason it exists.",
+    "",
+    "This register is what makes the exclusion set reviewable. `scripts/coverage-exclusions-gate.js` fails when",
+    "a config entry has no record here, when a record has no entry, or when either drifts from the recorded",
+    "count. Without it the exclude list grows by accretion and the threshold it guards stops meaning anything.",
+    "",
+    "A record is not permission to exclude more: it is a statement that someone looked, and a reason that stays",
+    "in the diff where the next reader sees it.",
+    "",
+    "`v8IgnoreDirectives` is a ratchet on source annotations. It is currently 0 — the several `v8 ignore`",
+    "occurrences in the tree are prose describing earlier removals, not directives. A new directive fails the",
+    "gate until this number is deliberately raised, which forces the reason into the same review."
+  ],
+  "v8IgnoreDirectives": 0,
+  "configEntries": {
+    "packages/web/**": "The web dashboard has its own vitest configuration and its own coverage run; including it here would measure it against a test selection that never executes it.",
+    "packages/vscode/**": "The VS Code extension runs with its own config because the extension host is not available under the root pool. Its suite is executed separately in CI (780 tests).",
+    "**/benchmarks/ca-bench/suites/**": "Benchmark suites, not tests. They are executed by the benchmark workflow, and measuring them as unit tests would report assertions that were never meant to exist.",
+    "**/benchmarks/ca-bench/fixtures/**": "Fixture material for the benchmark suites — data, not code under test.",
+    "**/benchmarks/search-benchmark.test.ts": "A search-relevance benchmark whose timings are the result; the assertions are sanity checks around a measurement, not a unit test.",
+    "packages/intelligence/src/__tests__/cross-service-linking.test.ts": "A deliberately slow end-to-end linking test; it runs in CI but outside the coverage selection so it does not distort per-file numbers with a partially-executed path.",
+    "tests/benchmarks/real-world/__tests__/scale-stress.test.ts": "Scale stress: ~9.3K synthetic files across four tiers to probe O(n^2) cliffs. Under the default unit-test pool it OOMs a single worker, and its heap-delta assertions are GC-timing sensitive. Run standalone by path."
+  }
+}
