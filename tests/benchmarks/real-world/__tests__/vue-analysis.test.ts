@@ -604,15 +604,18 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
   // ── Test 21: Cross-framework comparison present ─────────────────────────
 
   it('should include React comparison in report', () => {
-    if (!report) return; // Vue source not available
-    if (report.comparison) {
-      console.log('React vs Vue comparison:', JSON.stringify(report.comparison, null, 2));
-      expect(report.comparison.react).toBeDefined();
-      expect(report.comparison.vue).toBeDefined();
+    if (!report) return; // precondition: the Vue source needs a clone, which this environment may not have
+
+    if (existsSync(REACT_REPORT_PATH)) {
+      // The React report is on disk, so the comparison had to be computed. Its absence means the comparison
+      // itself threw and the report's `catch` recorded that as `undefined` — the same state as "the React
+      // benchmark has not run", which is why this test used to pass either way.
+      expect(report.comparison).toBeDefined();
+      expect(report.comparison!.react).toBeDefined();
+      expect(report.comparison!.vue).toBeDefined();
     } else {
-      console.log('No React report found for comparison (React benchmark not yet run)');
-      // Skippable — React report may not exist yet
-      expect(true).toBe(true);
+      // Nothing to compare against: the React benchmark has not run here, so there is no comparison to expect.
+      expect(report.comparison).toBeUndefined();
     }
   });
 });
