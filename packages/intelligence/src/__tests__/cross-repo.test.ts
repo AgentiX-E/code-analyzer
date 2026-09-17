@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { ContractValidator } from '../cross-repo/contract-validator.js';
 import { CrossRepoIndexer, levenshteinDistance } from '../cross-repo/cross-repo-indexer.js';
 import { FederatedSearchEngine } from '../cross-repo/federated-search.js';
 import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
@@ -1124,6 +1125,36 @@ describe('CrossRepoIndexer', () => {
       const nodes = indexer.getRepoNodes('o/repo-a');
       expect(nodes.length).toBeGreaterThanOrEqual(1);
       expect(nodes.some((n) => n.name === 'testFn')).toBe(true);
+    });
+  });
+
+  describe('ContractValidator — the failure it absorbs', () => {
+    it('should report no consumers when the dependency trace cannot be produced', async () => {
+      // `findReposConsumingSymbol` converts a failing trace into an empty list. Reaching that branch needs an
+      // indexer whose trace throws, which a stub states directly — the same failure the fix above was about.
+      // The contract must be non-empty (so the validator does not return early) but must not contain the
+      // changed symbol — that is the "removed" branch, and it is the one that asks who consumes the symbol.
+      const indexer = {
+        getRepoNodes: () => [
+          {
+            name: 'other',
+            label: 'Function',
+            qualifiedName: 'q',
+            filePath: 'src/s.ts',
+            projectId: 'o/svc',
+          },
+        ],
+        analyzeCrossRepoImpact: async () => ({ affectedRepos: ['o/api'] }),
+        traceSymbolDependencies: async () => {
+          throw new Error('trace unavailable');
+        },
+      };
+      const validator = new ContractValidator(indexer as never);
+
+      const result = await validator.validateCrossRepo('g', 'o/svc', ['handle']);
+
+      expect(result.targetRepos).toEqual(['o/api']);
+      expect(result.changes[0]!.affectedRepos).toEqual([]);
     });
   });
 
