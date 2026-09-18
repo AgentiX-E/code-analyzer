@@ -45,7 +45,7 @@ export class TaintPipeline {
    * @param callGraph - Call graph edges (caller → callee)
    * @returns Combined inter-procedural taint analysis result
    */
-  analyze(cfgs: Map<string, FunctionCfg>, _callGraph: CallGraphEdge[]): InterprocTaintResult {
+  analyze(cfgs: Map<string, FunctionCfg>, callGraph: CallGraphEdge[]): InterprocTaintResult {
     const summaries: FunctionSummary[] = [];
     // Step 1: Run intra-procedural analysis on each function
     for (const [fnQn, cfg] of cfgs) {
@@ -62,8 +62,11 @@ export class TaintPipeline {
       }
     }
 
-    // Step 3: Load summaries into inter-proc solver
+    // Step 3: Load summaries and the call graph into the solver. `loadCallGraph` existed and was never called:
+    // the parameter was named `_callGraph`, and `solve()` builds its reverse callee→caller index from the edges
+    // loaded here. A summary naming a callee the solver cannot resolve is skipped by `if (!s2c.resolved) continue`.
     this.solver.loadSummaries(summaries);
+    this.solver.loadCallGraph(callGraph);
 
     // Step 4: Run inter-procedural fixpoint
     const interProcResult = this.solver.solve();
