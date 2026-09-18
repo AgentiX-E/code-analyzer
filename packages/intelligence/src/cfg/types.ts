@@ -1,3 +1,5 @@
+import type { CallSite } from '@code-analyzer/shared';
+
 // @code-analyzer/intelligence — Control Flow Graph Data Model
 // Core types for CFG-based program analysis: PDG, reaching definitions, taint tracking.
 //
@@ -173,27 +175,8 @@ export interface FunctionCfg {
   readonly callSites?: readonly CallSite[];
 }
 
-/** A call made inside a function, with what the call needs to be analysed inter-procedurally. */
-export interface CallSite {
-  /** Block containing the call. */
-  readonly blockIndex: number;
-  /** Statement index within that block. */
-  readonly stmtIndex: number;
-  /** Line of the call. */
-  readonly line: number;
-  /** Callee name as written at the call site; resolution to a qualified name happens later. */
-  readonly calleeName: string;
-  /**
-   * Binding index passed at each argument position, or -1 where the argument is not a simple binding.
-   *
-   * The position matters: taint entering argument 2 reaches the callee's second parameter, and an earlier version
-   * of the transitively-called summary builder collapsed every argument to the first parameter with a comment
-   * saying it was simplified.
-   */
-  readonly argBindings: readonly number[];
-  /** Binding index the return value is assigned to, or -1 when the result is discarded. */
-  readonly resultBinding: number;
-}
+// `CallSite` lives in @code-analyzer/shared: the analyser builds them and this package consumes them, and
+// neither package depends on the other.
 
 // ---------------------------------------------------------------------------
 // Reaching Definitions Types

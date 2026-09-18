@@ -1200,3 +1200,30 @@ export interface CrashReport {
   stackTrace?: string;
   attemptNumber: number;
 }
+
+/**
+ * A call made inside a function, with what an inter-procedural analysis needs from it.
+ *
+ * Lives here rather than in the CFG package because two packages need it and neither depends on the other: the
+ * analyser builds these from its resolved calls, and the CFG type in `intelligence` carries them.
+ */
+export interface CallSite {
+  /** Block containing the call. */
+  readonly blockIndex: number;
+  /** Statement index within that block. */
+  readonly stmtIndex: number;
+  /** Line of the call. */
+  readonly line: number;
+  /** Callee name as written at the call site; resolution to a qualified name happens later. */
+  readonly calleeName: string;
+  /**
+   * Binding index passed at each argument position, or -1 where the argument is not a simple binding.
+   *
+   * The position matters: taint entering argument 2 reaches the callee's second parameter. An empty array means the
+   * positions are not known — which is different from knowing they are all -1, and callers must not treat them the
+   * same.
+   */
+  readonly argBindings: readonly number[];
+  /** Binding index the return value is assigned to, or -1 when the result is discarded. */
+  readonly resultBinding: number;
+}
