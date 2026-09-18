@@ -132,4 +132,45 @@ describe('buildCallSites', () => {
     expect(sites.get('file:src/a.ts:a')?.[0]?.calleeName).toBe('query');
     expect(sites.get('file:src/b.ts:b')?.[0]?.calleeName).toBe('save');
   });
+
+  it('groups two calls in the same file under the same function', () => {
+    // Covers the bucket path: the second call for a file must join the first rather than replace it.
+    const sites = buildCallSites(
+      [parsed([symbol('handler', 'Function', 10, 20)])],
+      [call(12, 'query'), call(14, 'save')],
+    );
+
+    expect(sites.get('file:src/a.ts:handler')?.map((c) => c.calleeName)).toEqual(['query', 'save']);
+  });
+
+  it('skips a file that has symbols but no calls', () => {
+    // The first branch: `!calls` — a parsed file the resolver produced no calls for.
+    const sites = buildCallSites(
+      [parsed([symbol('handler', 'Function', 10, 20)], 'src/quiet.ts')],
+      [call(12, 'query')],
+    );
+
+    expect(sites.size).toBe(0);
+  });
+
+  it('gives each function in a file its own entry', () => {
+    // Covers the second `out.get`: two functions in one file that both contain calls.
+    const sites = buildCallSites(
+      [parsed([symbol('first', 'Function', 1, 10), symbol('second', 'Function', 20, 30)])],
+      [call(5, 'a'), call(25, 'b')],
+    );
+
+    expect(sites.get('file:src/a.ts:first')?.map((c) => c.calleeName)).toEqual(['a']);
+    expect(sites.get('file:src/a.ts:second')?.map((c) => c.calleeName)).toEqual(['b']);
+  });
+
+  it('does not create an entry when every call in a function is unresolved', () => {
+    // Covers the final guard: `existing` stays empty when each call was skipped, so no key is written.
+    const sites = buildCallSites(
+      [parsed([symbol('handler', 'Function', 10, 20)])],
+      [call(12, null), call(14, null)],
+    );
+
+    expect(sites.size).toBe(0);
+  });
 });
