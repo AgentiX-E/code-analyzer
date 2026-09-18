@@ -16,6 +16,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const path = require('node:path');
 
 /** Count `registry.register(...)` *calls*, not lines — the arguments may be spread over several lines. */
 function countToolRegistrations(file) {
@@ -47,11 +48,21 @@ function countConstArray(file, name) {
   return (match[1].match(/'[^']+'/g) ?? []).length;
 }
 
+// A root, so the tests can point this at a synthetic repository. Derived from `process.argv` directly rather than
+// from the parsed arguments, because `const` does not hoist: an earlier version read `arguments_` here, which is
+// declared below, and the module threw at load with "Cannot access 'arguments_' before initialization".
+const ROOT_INDEX = process.argv.indexOf('--root');
+const ROOT = ROOT_INDEX === -1 ? '.' : process.argv[ROOT_INDEX + 1];
+const at = (file) => path.join(ROOT, file);
+
 const FACTS = {
-  mcpTools: countToolRegistrations('packages/mcp/src/tools/index.ts'),
-  pipelinePhases: countPipelinePhases('packages/analyzer/src/pipeline/index.ts'),
-  nodeTypes: countConstArray('packages/shared/src/types/graph.ts', 'NODE_LABELS'),
-  relationshipTypes: countConstArray('packages/shared/src/types/graph.ts', 'RELATIONSHIP_TYPES'),
+  mcpTools: countToolRegistrations(at('packages/mcp/src/tools/index.ts')),
+  pipelinePhases: countPipelinePhases(at('packages/analyzer/src/pipeline/index.ts')),
+  nodeTypes: countConstArray(at('packages/shared/src/types/graph.ts'), 'NODE_LABELS'),
+  relationshipTypes: countConstArray(
+    at('packages/shared/src/types/graph.ts'),
+    'RELATIONSHIP_TYPES',
+  ),
 };
 
 /** Every place a document states one of the counts. */
@@ -71,8 +82,8 @@ const arguments_ = process.argv.slice(2);
 const asJson = arguments_.includes('--json');
 
 for (const claim of CLAIMS) {
-  if (!fs.existsSync(claim.file)) continue;
-  const text = fs.readFileSync(claim.file, 'utf8');
+  if (!fs.existsSync(at(claim.file))) continue;
+  const text = fs.readFileSync(at(claim.file), 'utf8');
   const fact = FACTS[claim.fact];
   const actual = typeof fact === 'number' ? fact : (fact?.calls ?? fact?.distinct);
   for (const match of text.matchAll(claim.pattern)) {
