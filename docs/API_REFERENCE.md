@@ -188,7 +188,7 @@ Base URL: `http://localhost:3000/api/v1`
 
 ## MCP Tools Reference
 
-Code Analyzer exposes 40 tools via the MCP (Model Context Protocol) interface.
+Code Analyzer exposes 48 tools via the MCP (Model Context Protocol) interface.
 
 ### Indexing & Lifecycle (4 tools)
 

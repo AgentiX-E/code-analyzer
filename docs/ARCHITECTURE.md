@@ -10,7 +10,7 @@
 | ------------------ | ---------------------- | ------- | ------------------------------------------------------------------------------ |
 | 1. Foundation      | `core`, `shared`       | �? Done | Config, logging, errors, i18n, metrics, lifecycle, RBAC, secret scanner        |
 | 2. Infrastructure  | `infra`                | �? Done | File discovery, git ops, worker pool, graph stores, supervisor                 |
-| 3. Analysis Engine | `analyzer`             | �? Done | 18-phase DAG pipeline, 12 language providers, scope resolution                 |
+| 3. Analysis Engine | `analyzer`             | �? Done | 19-phase DAG pipeline, 12 language providers, scope resolution                 |
 | 4. Intelligence    | `intelligence`         | �? Done | Hybrid search, PR review, embeddings, impact analysis, standards, cross-repo   |
 | 5. Service         | `mcp`, `server`        | �? Done | 40 MCP tools, HTTP/SSE server, rate limiting, health checks, graceful shutdown |
 | 6. Integration     | `intelligence/github`  | �? Done | GitHub webhooks, cross-repo PR review bridge, check runs, repo sync            |
@@ -61,7 +61,7 @@ Code Analyzer follows a strict **seven-layer architecture**. Each layer depends 
 �?                Layer 3: Analysis Engine                          �?
 �?   ┌────────────�? ┌────────────�? ┌──────────�? ┌──────────────�? �?
 �?   �?  Pipeline   �? �?  Parser    �? �?  Graph   �? �?  Resolution  �? �?
-�?   �? (18 phases)�? �? (Unified)  �? �? (Builder)�? �?  (Scope)     �? �?
+�?   �? (19 phases)�? �? (Unified)  �? �? (Builder)�? �?  (Scope)     �? �?
 �?   └─────┬──────�? └─────┬──────�? └────┬─────�? └──────┬───────�? �?
 �?         �?              �?             �?               �?         �?
 �?   ┌─────▼──────────────▼─────────────▼───────────────▼───────�? �?
@@ -417,7 +417,7 @@ AI Agent (Claude, Cursor, Codex, etc.)
 
 ### Server Capabilities
 
-- **Tools**: 38 tools with list-changed notifications
+- **Tools**: 48 tools with list-changed notifications
 - **Resources**: 15 resources with subscribe and list-changed support
 - **Prompts**: 5 reusable prompt templates with list-changed notifications
 - **Logging**: Structured request logging with duration tracking
@@ -435,7 +435,7 @@ AI Agent (Claude, Cursor, Codex, etc.)
 
 Tools can be filtered by profile to limit exposure:
 
-- **all**: All 38 tools (default)
+- **all**: All 48 tools (default)
 - **analysis**: 28 query, review, and impact tools
 - **scout**: Discovery-focused tools only
 
@@ -537,7 +537,7 @@ Source Files (*.ts, *.py, *.go, ...)
 [Scope Resolver] ──�? ResolvedReference[], ResolvedImport[]
     �?
     �?
-[Graph Builder] ──�? KnowledgeGraph (33 node types, 39 edge types)
+[Graph Builder] ──�? KnowledgeGraph (36 node types, 43 relationship types)
     �?
     ├──�? [InMemoryGraphStore] (in-memory, adjacency-indexed)
     �?
@@ -549,5 +549,5 @@ Source Files (*.ts, *.py, *.go, ...)
     �?
     ├──�? [Standards Engine] (regex + metric + ast-pattern checks)
     �?
-    └──�? [MCP Server] (38 tools exposed to AI agents)
+    └──�? [MCP Server] (48 tools exposed to AI agents)
 ```

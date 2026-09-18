@@ -124,7 +124,7 @@ Need to orchestrate complex multi-pass code analysis including parsing, scope re
 
 ### Decision
 
-Use a directed acyclic graph (DAG) of 18 phases with Kahn's algorithm for topological ordering and parallel execution of independent phases.
+Use a directed acyclic graph (DAG) of 19 phases with Kahn's algorithm for topological ordering and parallel execution of independent phases.
 
 ### Consequences
 

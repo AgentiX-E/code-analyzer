@@ -12,7 +12,7 @@ code-analyzer analyze ./your-project
 code-analyzer mcp  # Start MCP server for AI agents
 ```
 
-## MCP Server (45 tools)
+## MCP Server (48 tools)
 
 Add to your AI agent config:
 

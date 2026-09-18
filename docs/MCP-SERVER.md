@@ -53,7 +53,7 @@ Code Analyzer works with every major MCP-compatible AI coding client. Below are 
 
 **After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 38 tools are available.
 
-**Tools available:** All 38 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
+**Tools available:** All 48 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
 
 **Example queries you can ask Claude:**
 
