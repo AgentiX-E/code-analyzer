@@ -19,7 +19,7 @@
 Code Analyzer is a code intelligence platform that helps developers understand, search, and review code at depth. It includes:
 
 - **Knowledge Graph**: Models source code as a typed property graph with 36 node types and 43 relationship types
-- **MCP Server**: Exposes 45 tools to AI coding agents via the Model Context Protocol
+- **MCP Server**: Exposes 48 tools to AI coding agents via the Model Context Protocol
 - **VS Code Extension**: Integrates with Copilot Chat for real-time code intelligence
 - **Web Dashboard**: Provides 6 interactive views for exploring your codebase
 - **CLI**: Standalone command-line interface for analysis, search, and review
@@ -81,7 +81,7 @@ Checkmarks indicate features verified through automated tests.
 | Scope Resolution (3-tier: same-file, cross-file, namespace) | Tested — unit          |
 | PR Review (50+ heuristic rules, 6 categories)               | Tested — integration   |
 | Cypher Query Engine (lexer → parser → planner → executor)   | Tested — unit          |
-| MCP Server (45 tools, 15 resources, 5 prompts)              | Partial — see register |
+| MCP Server (48 tools, 15 resources, 5 prompts)              | Partial — see register |
 | VS Code Extension (15 Copilot Chat slash commands)          | Tested — unit          |
 | Web Dashboard (6 interactive views)                         | Partial — see register |
 | GitHub Integration (webhooks, check runs, cross-repo PR)    | Tested — integration   |
@@ -109,7 +109,7 @@ The platform is structured as a 10-package pnpm monorepo with clear separation o
 |     Web Dashboard (6 views)                                   |
 +---------------------------------------------------------------+
 |                     Integration Layer                         |
-|    MCP Server (45 tools)  |  HTTP REST API  |  Webhooks      |
+|    MCP Server (48 tools)  |  HTTP REST API  |  Webhooks      |
 +---------------------------------------------------------------+
 |                     Service Layer                             |
 |    Review Engine  |  Search (BM25 + vector)  |  Standards    |
@@ -137,7 +137,7 @@ The platform is structured as a 10-package pnpm monorepo with clear separation o
 | `@code-analyzer/infra`        | Infrastructure: graph stores (in-memory, SQLite), file discovery, git operations, concurrency |
 | `@code-analyzer/analyzer`     | Analysis: 31-language parsers, 19-phase DAG pipeline, scope resolution, auto-index/watch      |
 | `@code-analyzer/intelligence` | Intelligence: 50+ review rules, cross-repo, impact analysis, embeddings, taint analysis       |
-| `@code-analyzer/mcp`          | MCP server: 45 tools, 15 resources, 5 prompts, Cypher engine, middleware                      |
+| `@code-analyzer/mcp`          | MCP server: 48 tools, 15 resources, 5 prompts, Cypher engine, middleware                      |
 | `@code-analyzer/server`       | HTTP REST API server with webhook support, rate limiting, graceful shutdown                   |
 | `@code-analyzer/cli`          | CLI: init, analyze, search, review, status, agent commands                                    |
 | `@code-analyzer/vscode`       | VS Code extension with Copilot Chat participant (15 slash commands)                           |

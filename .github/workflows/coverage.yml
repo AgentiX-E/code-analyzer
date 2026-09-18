@@ -99,6 +99,9 @@ jobs:
       - name: Enforce that every status claim is backed by a record
         run: npm run docs:status
 
+      - name: Enforce that stated counts match the code
+        run: npm run docs:code-sync
+
       - name: Enforce that every coverage exclusion is recorded
         run: npm run coverage:exclusions
 

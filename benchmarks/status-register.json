@@ -30,7 +30,7 @@
     },
     "MCP Server": {
       "status": "partial",
-      "note": "The tool count of 45 is asserted in the README and was never counted; `server.tool(` does not appear in the tree, so the registration path differs from the obvious one. The server itself is exercised in integration tests."
+      "note": "The code has 48 `registry.register(...)` calls and 46 distinct names, computed by scripts/doc-code-sync-gate.js. The README previously said 45 and had done so since before the audit; it now states the computed figure. The gap between 48 calls and 46 names is unresolved \u2014 it is either two duplicate registrations or two names the parser does not read, and the entry stays `partial` until that is settled."
     },
     "VS Code Extension": {
       "status": "tested",
