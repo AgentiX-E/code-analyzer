@@ -1,6 +1,6 @@
 # MCP Server Guide
 
-> Setup and usage guide for the Code Analyzer MCP server — expose 38 tools, 15 resources, and 5 prompts to AI coding agents.
+> Setup and usage guide for the Code Analyzer MCP server — expose 48 tools, 15 resources, and 5 prompts to AI coding agents.
 
 > **Alpha Status**: The MCP server framework, middleware, transports, and Cypher query engine are fully functional. The 38 tool definitions exist and are callable, but most tool implementations currently return placeholder or empty data. The table below summarizes per-tool status. Use the legends `[Functional]` (tested and working), `[Partial]` (may return real data in some cases), and `[Experimental]` (placeholder data only) to understand what to expect.
 
@@ -51,7 +51,7 @@ Code Analyzer works with every major MCP-compatible AI coding client. Below are 
 }
 ```
 
-**After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 38 tools are available.
+**After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 48 tools are available.
 
 **Tools available:** All 48 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
 
@@ -66,7 +66,7 @@ Code Analyzer works with every major MCP-compatible AI coding client. Below are 
 **Caveats:**
 
 - Claude Desktop restarts the server on every conversation. First query after connecting may have a brief warm-up delay as the project indexes.
-- Use `"CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"` to reduce to 28 tools if the full 38-tool listing feels noisy.
+- Use `"CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"` to reduce to 35 tools if the full 48-tool listing feels noisy.
 - On macOS, the path `~/Library/Application Support/Claude/claude_desktop_config.json` must exist. Create it if it doesn't.
 - Claude Desktop requires an absolute path for `CODE_ANALYZER_PROJECT_DIR` — tilde expansion is not supported.
 
@@ -160,7 +160,7 @@ If your Codex version uses JSON config, create `~/.codex/mcp.json`:
 }
 ```
 
-**Tools available:** 28 tools with `analysis` profile. Codex automatically discovers tools on startup and lists them in its agent mode.
+**Tools available:** 35 tools with `analysis` profile. Codex automatically discovers tools on startup and lists them in its agent mode.
 
 **Example queries you can ask Codex:**
 
@@ -213,7 +213,7 @@ mcpServers:
       CODE_ANALYZER_MCP_TOOL_PROFILE: 'analysis'
 ```
 
-**Tools available:** 28 tools with `analysis` profile. Gemini CLI auto-discovers tools on connection.
+**Tools available:** 35 tools with `analysis` profile. Gemini CLI auto-discovers tools on connection.
 
 **Example queries you can ask Gemini:**
 
@@ -255,7 +255,7 @@ Continue is an open-source AI code assistant for VS Code and JetBrains IDEs.
 
 **After reloading Continue** (Cmd/Ctrl+Shift+P → "Continue: Reload"), tools appear in the chat's tool-calling interface.
 
-**Tools available:** 28 tools with `analysis` profile. Continue's slash commands can invoke MCP tools directly — use `/tool search_graph query="authentication"` or let the model auto-select tools based on your query.
+**Tools available:** 35 tools with `analysis` profile. Continue's slash commands can invoke MCP tools directly — use `/tool search_graph query="authentication"` or let the model auto-select tools based on your query.
 
 **Example queries you can ask Continue:**
 
@@ -293,7 +293,7 @@ Windsurf is an AI-powered IDE with native MCP support.
 }
 ```
 
-**Tools available:** 28 tools with `analysis` profile. Windsurf's Cascade agent automatically discovers and uses tools based on context.
+**Tools available:** 35 tools with `analysis` profile. Windsurf's Cascade agent automatically discovers and uses tools based on context.
 
 **Example queries you can ask Windsurf:**
 
@@ -342,7 +342,7 @@ Cline is a VS Code extension that provides an autonomous coding agent with MCP t
    - **Args:** `-y @code-analyzer/mcp`
    - **Env:** `CODE_ANALYZER_PROJECT_DIR=/path/to/your/project`
 
-**Tools available:** 38 tools with `all` profile. Cline presents tools in its autonomous agent mode and lets the model decide which tools to call for each task.
+**Tools available:** 9 tools with `all` profile. Cline presents tools in its autonomous agent mode and lets the model decide which tools to call for each task.
 
 **Example queries you can ask Cline:**
 
@@ -588,7 +588,7 @@ All 33 node labels are queryable. Common labels:
 
 ### Supported Relationships
 
-All 39 relationship types. Common types:
+All 43 relationship types. Common types:
 
 | Type            | Description                     |
 | --------------- | ------------------------------- |
@@ -729,7 +729,7 @@ const policy = new ToolPolicy('analysis');
 // Only analysis-profile tools are available
 
 policy.setProfile('all');
-// All 38 tools are now available
+// All 48 tools are now available
 ```
 
 ---
