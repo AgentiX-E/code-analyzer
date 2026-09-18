@@ -617,3 +617,78 @@ describe('Kind-set exclusion model', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// The inter-procedural boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * `taint-propagator.ts` says of itself: *"Inter-procedural taint (`viaCall === true`) is not yet implemented, so
+ * the ×0.7 call-crossing factor is intentionally omitted."* The class doc says the same thing positively —
+ * "intra-procedural forward taint analysis".
+ *
+ * These tests **characterise** that boundary rather than assuming it. They pass today and they will fail the day
+ * taint starts crossing a call, which is the day the inter-procedural work lands and the day this file should be
+ * updated. A boundary that no test names is a boundary that can be crossed without anyone noticing.
+ *
+ * The strongest of the three is the second: setting `interproc: true` changes nothing. That is the gap, measured.
+ */
+describe('the inter-procedural boundary', () => {
+  /** Two bindings, two def→use hops, one source and one sink: the chain the existing tests use. */
+  const chainFacts = (): DefUseFact[] => [
+    {
+      bindingIdx: 0,
+      bindingName: 'req',
+      def: { blockIndex: 0, stmtIndex: 0, line: 1 },
+      use: { blockIndex: 1, stmtIndex: 0, line: 5 },
+    },
+    {
+      bindingIdx: 1,
+      bindingName: 'query',
+      def: { blockIndex: 1, stmtIndex: 0, line: 5 },
+      use: { blockIndex: 2, stmtIndex: 0, line: 10 },
+    },
+  ];
+
+  it('reports findings within one function, every one marked intra-procedural', () => {
+    const result = new TaintPropagator({ maxFindingsPerSource: 10 }).analyze(
+      buildTestCfg(1, 1),
+      chainFacts(),
+    );
+
+    expect(result.findings.length).toBeGreaterThan(0);
+    for (const finding of result.findings) {
+      expect(finding.interproc).toBe(false);
+    }
+  });
+
+  it('accepts interproc: true and returns the same findings, because the flag has no effect yet', () => {
+    // This is the gap stated as an assertion. `interproc` is in the config type and defaults to false; setting it
+    // true exercises no code path, so the result is identical. When it stops being identical, this test fails and
+    // the failure is the feature arriving.
+    const withoutInterproc = new TaintPropagator({
+      maxFindingsPerSource: 10,
+      interproc: false,
+    }).analyze(buildTestCfg(1, 1), chainFacts());
+    const withInterproc = new TaintPropagator({
+      maxFindingsPerSource: 10,
+      interproc: true,
+    }).analyze(buildTestCfg(1, 1), chainFacts());
+
+    expect(withInterproc.findings.length).toBe(withoutInterproc.findings.length);
+    expect(withInterproc.findings.map((f) => f.sink.kind)).toEqual(
+      withoutInterproc.findings.map((f) => f.sink.kind),
+    );
+  });
+
+  it('carries the field a cross-boundary finding would set, so the result shape does not have to change', () => {
+    // `finding.interproc` is already wired to `state.viaCall`. Nothing sets it true, but the shape is in place, and
+    // asserting that keeps the field from being removed as unused before the work that needs it.
+    const result = new TaintPropagator().analyze(buildTestCfg(1, 1), chainFacts());
+
+    for (const finding of result.findings) {
+      expect(finding).toHaveProperty('interproc');
+      expect(typeof finding.interproc).toBe('boolean');
+    }
+  });
+});
