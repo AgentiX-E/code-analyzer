@@ -23,8 +23,10 @@ function filesUnder(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...filesUnder(full));
-    else if (full.endsWith('.ts') && !full.includes('__tests__')) out.push(full);
+    if (statSync(full).isDirectory()) {
+      if (['node_modules', 'dist', '.turbo'].includes(entry)) continue;
+      out.push(...filesUnder(full));
+    } else if (full.endsWith('.ts') && !full.includes('__tests__')) out.push(full);
   }
   return out;
 }
@@ -55,6 +57,22 @@ describe('taint reachability', () => {
     const tool = readFileSync('packages/mcp/src/tools/pdg.ts', 'utf8');
 
     expect(tool).toMatch(/Full taint analysis requires data-flow graph construction/);
+  });
+
+  it('has no production input at all, which is the finding behind the finding', () => {
+    // `FunctionCfg` is the type the whole CFG-based subsystem reads: the propagator, the reaching-definitions
+    // analysis, the PDG builder, the pipeline. **Every assignment of its `stmtFacts` field in this repository is
+    // inside a `__tests__` directory.** The analyser's own CFG builder produces a different type,
+    // `ControlFlowGraph`, and nothing bridges the two.
+    //
+    // So the subsystem is not merely unconnected to the tool; it has never run on real input. This test pins that
+    // so it is not mistaken for a working analyser with a wiring problem, and so the day a producer appears it is
+    // the same day this assertion is replaced.
+    const files = filesUnder('packages').filter((file) => !file.includes('__tests__'));
+    const assigning = files.filter((file) => /stmtFacts:\s*\{/.test(readFileSync(file, 'utf8')));
+
+    expect(files.length).toBeGreaterThan(100);
+    expect(assigning).toEqual([]);
   });
 
   it('keeps the CFG-based subsystem itself intact and tested', () => {
