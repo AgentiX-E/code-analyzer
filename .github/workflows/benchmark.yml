@@ -72,7 +72,7 @@ jobs:
 
       - name: Download baseline report
         id: baseline
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: benchmark-baseline.json
           key: benchmark-baseline-${{ github.ref == 'refs/heads/master' && github.sha || 'master-latest' }}
@@ -118,7 +118,7 @@ jobs:
 
       - name: Cache baseline (master branch only)
         if: github.ref == 'refs/heads/master' && steps.run.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: benchmark-report.json
           key: benchmark-baseline-${{ github.sha }}
