@@ -12,6 +12,7 @@ import {
   type InterprocTaintResult,
 } from './interproc-solver.js';
 import { TaintPropagator } from './taint-propagator.js';
+import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
 
 import type { FunctionCfg, TaintFunctionResult } from '../cfg/types.js';
 
@@ -49,8 +50,10 @@ export class TaintPipeline {
     // Step 1: Run intra-procedural analysis on each function
     for (const [fnQn, cfg] of cfgs) {
       try {
-        // TODO: wire real DefUseFact[] from reaching-defs analysis
-        const result = this.propagator.analyze(cfg, []);
+        // Def-use facts from the reaching-definitions analysis, which is what the TODO here asked for. Without
+        // them the propagator found nothing, every summary it built was empty, and the solver below had nothing to
+        // solve — a subsystem that looked complete from every angle except its input.
+        const result = this.propagator.analyze(cfg, computeReachingDefinitions(cfg));
         const summary = buildFunctionSummary(fnQn, cfg, result);
         summaries.push(summary);
       } catch {
