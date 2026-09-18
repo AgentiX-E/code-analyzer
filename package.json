@@ -63,7 +63,8 @@
     "coverage:exclusions": "node scripts/coverage-exclusions-gate.js",
     "docs:numbers": "node scripts/readme-numbers-gate.js",
     "docs:status": "node scripts/readme-status-gate.js",
-    "docs:code-sync": "node scripts/doc-code-sync-gate.js"
+    "docs:code-sync": "node scripts/doc-code-sync-gate.js",
+    "embeddings:status": "node scripts/embedding-backend-status.js"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
