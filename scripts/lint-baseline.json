@@ -9,6 +9,7 @@
     "packages/analyzer/src/__tests__/benchmarks/pipeline-benchmark.test.ts": 1,
     "packages/analyzer/src/__tests__/benchmarks/scope.bench.ts": 1,
     "packages/analyzer/src/__tests__/c-provider.test.ts": 1,
+    "packages/analyzer/src/__tests__/call-sites.test.ts": 1,
     "packages/analyzer/src/__tests__/cfg-builder-captures.test.ts": 1,
     "packages/analyzer/src/__tests__/cfg-builder-edges.test.ts": 1,
     "packages/analyzer/src/__tests__/cfg.test.ts": 1,

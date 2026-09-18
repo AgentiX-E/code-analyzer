@@ -8,8 +8,8 @@
 // produces `ResolvedCall` with a caller, a callee and a resolution flag. **A resolved call whose line falls inside
 // a function's range is a call site of that function.** This module is that lookup.
 
-import type { CallSite, ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
 import type { ResolvedCall } from './scope-resolver.js';
+import type { CallSite, ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
 
 /** Symbol kinds that can contain calls. */
 const CALLABLE_KINDS = new Set(['Function', 'Method', 'ArrowFunction', 'Constructor']);
