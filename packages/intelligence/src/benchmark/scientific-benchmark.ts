@@ -659,7 +659,17 @@ function chiSquaredSurvival(x: number): number {
 }
 
 /**
- * Approximation of the complementary error function.
+ * Approximation of the complementary error function (Numerical Recipes, 5-term).
+ *
+ * The polynomial-times-exponential term is **erfc itself**, not erf: the standard approximation computes
+ * `erf(x) = 1 - poly(x)·exp(-x²)`, so `erfc(x) = poly(x)·exp(-x²)`. An earlier version of this function returned
+ * `1 - poly·exp(-x²)`, which is erf — and because `erf + erfc = 1`, the two are complementary and the mistake is
+ * invisible unless a known value is checked.
+ *
+ * It was not invisible here by accident: `chiSquaredSurvival` passes this to McNemar's test, so a χ² of 8.1 came
+ * back as p = 0.9956 instead of 0.0044, and the strongest possible signal — ten discordant pairs, all one way —
+ * was reported as *not significant*. That is the opposite of what the number means, in the direction that lets a
+ * real difference go unnoticed. The test that caught it asserts that ten discordant pairs give p < 0.05.
  */
 function erfc(x: number): number {
   const p = 0.3275911;
@@ -672,8 +682,9 @@ function erfc(x: number): number {
   const sign = x < 0 ? -1 : 1;
   x = Math.abs(x);
   const t = 1.0 / (1.0 + p * x);
-  const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-  return sign < 0 ? 2.0 - y : y;
+  const value = ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  // erfc(-x) = 2 - erfc(x)
+  return sign < 0 ? 2.0 - value : value;
 }
 
 function classifyEffectSize(n10: number, n01: number, totalCases: number): string {
