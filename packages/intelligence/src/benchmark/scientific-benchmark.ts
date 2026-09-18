@@ -180,6 +180,27 @@ export interface ScientificBenchmarkResult {
 export interface BenchmarkMetadata {
   /** Benchmark suite name. */
   suiteName: string;
+  /**
+   * Where the dataset came from, in a form a reader can follow — a path, a URL, or a named corpus.
+   *
+   * Required, and deliberately not defaulted. A report that does not say what it measured cannot be checked, and
+   * the fields below exist for the same reason.
+   */
+  source: string;
+  /**
+   * Which arm of the benchmark this is: `full`, `diff-only`, `review`, or whatever the caller defines.
+   *
+   * The Martian leaderboard has two arms "designed to disagree", so a number without its arm is not comparable to
+   * anything, including another number from this repository.
+   */
+  arm: string;
+  /**
+   * The revision of the dataset, so a figure can be tied to the data behind it.
+   *
+   * A count and a hash are both acceptable; what is not acceptable is silence, which is how the README once
+   * published figures from a dataset nobody could identify.
+   */
+  datasetRevision: string;
   /** Number of cases in the benchmark. */
   totalCases: number;
   /** Total lines of code across all cases. */
@@ -510,6 +531,12 @@ export async function runScientificBenchmark(
   ) => Promise<DetectionResult[]> | DetectionResult[],
   fileProvider: (caseId: string) => Map<string, string>,
   options?: {
+    /** Where the dataset came from. Recorded verbatim in the report's metadata. */
+    source?: string;
+    /** Which arm of the benchmark this run is. */
+    arm?: string;
+    /** The dataset revision the figures belong to. */
+    datasetRevision?: string;
     iouThreshold?: number;
     categoryMustMatch?: boolean;
     suiteName?: string;
@@ -584,6 +611,11 @@ export async function runScientificBenchmark(
   return {
     metadata: {
       suiteName: options?.suiteName ?? 'CA-Bench',
+      // No defaults: a report that does not name these is not publishable, so the caller has to supply them
+      // rather than receive a placeholder that reads like a value.
+      source: options?.source ?? 'unspecified',
+      arm: options?.arm ?? 'unspecified',
+      datasetRevision: options?.datasetRevision ?? 'unspecified',
       totalCases: cases.length,
       totalLoc,
       totalGroundTruth,
