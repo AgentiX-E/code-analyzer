@@ -76,16 +76,19 @@ describe('computeBootstrapConfidenceIntervals', () => {
     }
   });
 
-  it('estimates the same quantity whatever the resample count', () => {
-    // My first version of this test asserted that more resamples give a narrower interval. That is false, and the
-    // test failed: with two samples the percentile indices degenerate to the minimum and maximum of two draws, so
-    // the width is whatever those two draws happened to be. What is true, and is worth pinning, is that the point
-    // estimate does not depend on the count — it estimates the same quantity either way.
-    const few = computeBootstrapConfidenceIntervals(spread, 200);
-    const many = computeBootstrapConfidenceIntervals(spread, 4000);
-
-    for (let i = 0; i < few.length; i += 1) {
-      expect(Math.abs(few[i]!.estimate - many[i]!.estimate)).toBeLessThan(0.02);
+  it('gives a point estimate inside the range of the cases it resamples', () => {
+    // Two earlier versions of this test were wrong. The first asserted that more resamples give a narrower
+    // interval — false, because with two samples the percentile indices degenerate to the min and max of two
+    // draws. The second asserted that the estimate agrees between counts within a tolerance of 0.02, which is
+    // true on average and false run to run: the bootstrap is random, and CI saw 0.0224 and 0.0277. A tolerance on
+    // a random quantity is a flaky test, and this one passed locally and failed in CI twice.
+    //
+    // What is deterministic: every resample draws from the same case values, so their mean lies within the range
+    // of those values. That holds for any count, on any machine, without a tolerance.
+    for (const interval of computeBootstrapConfidenceIntervals(spread, 300)) {
+      const values = spread.map((c) => c[interval.metric]);
+      expect(interval.estimate).toBeGreaterThanOrEqual(Math.min(...values) - 1e-9);
+      expect(interval.estimate).toBeLessThanOrEqual(Math.max(...values) + 1e-9);
     }
   });
 
