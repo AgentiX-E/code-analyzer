@@ -1,13 +1,17 @@
 // The call graph the pipeline was given and did not pass on.
 //
-// `TaintPipeline.analyze` has always taken a `CallGraphEdge[]`, named `_callGraph` — the underscore saying plainly
-// that it was unused. `InterprocSolver.loadCallGraph` existed and had no caller. `solve()` builds its reverse
-// callee→caller index from the edges loaded there.
+// `TaintPipeline.analyze` took a `CallGraphEdge[]` named with a leading underscore — the convention that says a
+// parameter is unused — and `InterprocSolver.loadCallGraph` existed with no caller. Both are now connected, and
+// `buildFunctionSummary` reads `cfg.callSites` and derives `resolved` from the functions it was given, instead of
+// emitting one fabricated call-argument entry per block of each finding's path.
 //
-// **This test is structural**, like `taint-reachability.test.ts`, and for the same reason: the fact it pins is
-// about wiring, and wiring is not observable by calling the method. `summariesAnalyzed` counted functions when the
-// parameter was ignored too. What *is* observable changes only once call sites are extracted from the CFG, which is
-// the part still missing — so this test guards the connection until then.
+// **These tests are structural**, like `taint-reachability.test.ts`: wiring is not observable by calling the method,
+// and `summariesAnalyzed` counted functions while the parameter was ignored too.
+//
+// **Every negative assertion reads `codeOnly`.** The first versions read the raw file and failed against the
+// comments explaining the changes — twice, in two consecutive commits, the second time against a comment written
+// minutes earlier in the same commit. A pattern that matches prose about code is the defect this repository has
+// spent many commits on. **Strip comments before asserting anything about source.**
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -15,34 +19,50 @@ import { readFileSync } from 'node:fs';
 const PIPELINE = 'packages/intelligence/src/security/taint-pipeline.ts';
 const SOLVER = 'packages/intelligence/src/security/interproc-solver.ts';
 
+/** Source with line comments removed, so an assertion cannot match an explanation of the code. */
+function codeOnly(file: string): string {
+  return readFileSync(file, 'utf8')
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith('//') && !trimmed.startsWith('*') && !trimmed.startsWith('/*');
+    })
+    .join('\n');
+}
+
 describe('the pipeline passes the call graph to the solver', () => {
   it('no longer names the parameter as unused', () => {
-    const source = readFileSync(PIPELINE, 'utf8');
-
-    // Scoped to the signature: the first version checked the whole file, and failed against the comment added to
-    // explain the fix, which names the old parameter. Refined only after reading the file.
-    const signature = source
+    const signature = readFileSync(PIPELINE, 'utf8')
       .split('\n')
       .find((line) => line.includes('analyze(cfgs: Map<string, FunctionCfg>'));
+
     expect(signature).toBeDefined();
-    expect(signature).not.toContain('_callGraph');
-    expect(source).toMatch(
-      /analyze\(cfgs: Map<string, FunctionCfg>, callGraph: CallGraphEdge\[\]\)/,
-    );
+    // The signature line, not the file: the header comment names the old parameter.
+    expect(signature).not.toContain('_');
+    expect(signature).toContain('callGraph: CallGraphEdge[]');
   });
 
   it('calls loadCallGraph, which exists on the solver', () => {
-    expect(readFileSync(PIPELINE, 'utf8')).toMatch(/this\.solver\.loadCallGraph\(callGraph\)/);
-    expect(readFileSync(SOLVER, 'utf8')).toMatch(
-      /loadCallGraph\(edges: readonly CallGraphEdge\[\]\): void/,
-    );
+    expect(codeOnly(PIPELINE)).toMatch(/this\.solver\.loadCallGraph\(callGraph\)/);
+    expect(codeOnly(SOLVER)).toMatch(/loadCallGraph\(edges: readonly CallGraphEdge\[\]\): void/);
   });
 
-  it('still skips a callee the solver could not resolve, which is the remaining gap', () => {
-    // `buildFunctionSummary` writes `calleeName: ''` and `resolved: false` for every entry, so `solve()` skips all
-    // of them through this line. When real call sites are extracted from the CFG, this assertion is what should be
-    // revisited — deliberately, and with the summary builder changing beside it.
-    expect(readFileSync(SOLVER, 'utf8')).toMatch(/if \(!s2c\.resolved\) continue;/);
-    expect(readFileSync(PIPELINE, 'utf8')).toMatch(/calleeName: ''/);
+  it('derives resolution from the analysed functions instead of hardcoding it', () => {
+    // An earlier assertion pinned the opposite: the summary builder wrote an empty callee name and `false` for
+    // every entry, so `solve()` skipped all of them. That pin was written to fail here, and it did.
+    expect(codeOnly(PIPELINE)).not.toMatch(/calleeName: ''/);
+    expect(codeOnly(PIPELINE)).toMatch(/resolved: knownFunctions\.has\(call\.calleeName\)/);
+    expect(codeOnly(SOLVER)).toMatch(/if \(!s2c\.resolved\) continue;/);
+  });
+
+  it('reads call sites from the CFG rather than fabricating them', () => {
+    expect(codeOnly(PIPELINE)).toMatch(/for \(const call of cfg\.callSites \?\? \[\]\)/);
+    // The fabrication: one entry per block of the finding's path, with a line number derived from the block index.
+    expect(codeOnly(PIPELINE)).not.toMatch(/for \(const block of finding\.path\)/);
+    expect(codeOnly(PIPELINE)).not.toMatch(/callLine: block \* 100/);
+  });
+
+  it('reports the functions it was given as the resolution set', () => {
+    expect(codeOnly(PIPELINE)).toMatch(/const knownFunctions = new Set\(cfgs\.keys\(\)\)/);
   });
 });

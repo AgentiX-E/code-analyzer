@@ -47,6 +47,8 @@ export class TaintPipeline {
    */
   analyze(cfgs: Map<string, FunctionCfg>, callGraph: CallGraphEdge[]): InterprocTaintResult {
     const summaries: FunctionSummary[] = [];
+    // The names a callee can be resolved against. Computed once rather than per summary.
+    const knownFunctions = new Set(cfgs.keys());
     // Step 1: Run intra-procedural analysis on each function
     for (const [fnQn, cfg] of cfgs) {
       try {
@@ -54,7 +56,7 @@ export class TaintPipeline {
         // them the propagator found nothing, every summary it built was empty, and the solver below had nothing to
         // solve — a subsystem that looked complete from every angle except its input.
         const result = this.propagator.analyze(cfg, computeReachingDefinitions(cfg));
-        const summary = buildFunctionSummary(fnQn, cfg, result);
+        const summary = buildFunctionSummary(fnQn, cfg, result, knownFunctions);
         summaries.push(summary);
       } catch {
         // Skip functions that fail intra-procedural analysis
@@ -108,6 +110,7 @@ function buildFunctionSummary(
   fnQn: string,
   cfg: FunctionCfg,
   result: TaintFunctionResult,
+  knownFunctions: ReadonlySet<string>,
 ): FunctionSummary {
   const fnName = cfg.functionName;
   const paramCount = cfg.bindings.filter((b) => b.kind === 'param').length;
@@ -141,15 +144,19 @@ function buildFunctionSummary(
       }
     }
 
-    // Propagated flows (TITO patterns)
-    for (const block of finding.path) {
-      // Simplified: any block in the path could represent a call site
+    // TITO seeds, from the function's own call sites rather than from its path blocks.
+    //
+    // This block used to push one entry per block of `finding.path`, with `calleeName: ''`, an approximate line
+    // derived from the block index, and `resolved: false`. It fabricated call sites. `cfg.callSites` is where they
+    // belong, and `resolved` is a question with an answer: a callee is resolved when the caller was given a
+    // function of that name.
+    for (const call of cfg.callSites ?? []) {
       sourceToCallArgs.push({
         source: finding.source,
-        calleeName: '',
-        callLine: block * 100, // Approximate line from block index
+        calleeName: call.calleeName,
+        callLine: call.line,
         argIndex: 0,
-        resolved: false,
+        resolved: knownFunctions.has(call.calleeName),
       });
     }
   }

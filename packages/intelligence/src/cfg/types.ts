@@ -162,6 +162,37 @@ export interface FunctionCfg {
   readonly entryIndex: number;
   /** Index of the exit block (or -1 if none). */
   readonly exitIndex: number;
+  /**
+   * Call sites inside this function, in CFG coordinates.
+   *
+   * Optional and additive: the CFG's parsers do not populate it yet, so every existing construction stays valid.
+   * It exists because inter-procedural taint had no way to learn that one function calls another — the summary
+   * builder was fabricating call-argument entries from path blocks, with an empty callee name, because the data it
+   * needed was not in this model.
+   */
+  readonly callSites?: readonly CallSite[];
+}
+
+/** A call made inside a function, with what the call needs to be analysed inter-procedurally. */
+export interface CallSite {
+  /** Block containing the call. */
+  readonly blockIndex: number;
+  /** Statement index within that block. */
+  readonly stmtIndex: number;
+  /** Line of the call. */
+  readonly line: number;
+  /** Callee name as written at the call site; resolution to a qualified name happens later. */
+  readonly calleeName: string;
+  /**
+   * Binding index passed at each argument position, or -1 where the argument is not a simple binding.
+   *
+   * The position matters: taint entering argument 2 reaches the callee's second parameter, and an earlier version
+   * of the transitively-called summary builder collapsed every argument to the first parameter with a comment
+   * saying it was simplified.
+   */
+  readonly argBindings: readonly number[];
+  /** Binding index the return value is assigned to, or -1 when the result is discarded. */
+  readonly resultBinding: number;
 }
 
 // ---------------------------------------------------------------------------
