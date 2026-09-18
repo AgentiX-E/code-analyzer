@@ -1,18 +1,21 @@
-// Call sites, built from symbols and resolved calls.
+// Call sites, built from symbols and references.
 //
 // The taint subsystem reads `FunctionCfg.callSites` and nothing produced them. The analyser's own CFG cannot supply
 // them: `ControlFlowGraph` has no notion of variables or calls. But `ParsedFile.symbols` knows each function's line
-// range and `ResolvedCall` knows each call's line, its caller and its callee — a resolved call inside a function's
-// range is a call site of it.
+// range and a `ReferenceSite` knows each call's line and its target — a call reference inside a function's range is
+// a call site of it.
 //
-// These are the cases that decide whether that lookup is right: inside, outside, nested, and unnamed.
+// The input is `ReferenceSite` rather than `ResolvedCall` because that is what the pipeline has in hand: a
+// `ResolvedCall` would have to be constructed from one, which is a conversion invented to satisfy a signature.
+//
+// These are the cases that decide whether the lookup is right: inside, outside, nested, non-call, non-callable,
+// two files, two calls, no calls, two functions, and all references filtered out.
 
 import { describe, it, expect } from 'vitest';
 
 import { buildCallSites } from '../resolution/call-sites.js';
 
-import type { ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
-import type { ResolvedCall } from '../resolution/scope-resolver.js';
+import type { ParsedFile, ReferenceSite, SymbolDefinition } from '@code-analyzer/shared';
 
 function symbol(
   name: string,
@@ -43,19 +46,26 @@ function parsed(symbols: SymbolDefinition[], filePath = 'src/a.ts'): ParsedFile 
   } as unknown as ParsedFile;
 }
 
-function call(
-  sourceLine: number,
-  calleeName: string | null,
-  sourceFile = 'src/a.ts',
-): ResolvedCall {
+/** A call reference, which is what the module reads. */
+function call(sourceLine: number, targetName: string, sourceFile = 'src/a.ts'): ReferenceSite {
   return {
     sourceFile,
     sourceLine,
-    callerName: 'x',
-    calleeFile: null,
-    calleeName,
-    isResolved: calleeName !== null,
-  };
+    sourceColumn: 0,
+    targetName,
+    referenceKind: 'call',
+  } as ReferenceSite;
+}
+
+/** A reference that is not a call, which the module must ignore. */
+function access(sourceLine: number, targetName: string, sourceFile = 'src/a.ts'): ReferenceSite {
+  return {
+    sourceFile,
+    sourceLine,
+    sourceColumn: 0,
+    targetName,
+    referenceKind: 'access',
+  } as ReferenceSite;
 }
 
 describe('buildCallSites', () => {
@@ -101,10 +111,12 @@ describe('buildCallSites', () => {
     expect(sites.get('file:src/a.ts:outer')).toHaveLength(1);
   });
 
-  it('skips calls whose callee could not be resolved to a name', () => {
+  it('ignores references that are not calls', () => {
+    // `targetName` is always a string, so an "unnamed call" does not exist here; what the module filters on is the
+    // reference kind.
     const sites = buildCallSites(
       [parsed([symbol('handler', 'Function', 10, 20)])],
-      [call(12, null)],
+      [access(12, 'value')],
     );
 
     expect(sites.size).toBe(0);
@@ -143,7 +155,7 @@ describe('buildCallSites', () => {
     expect(sites.get('file:src/a.ts:handler')?.map((c) => c.calleeName)).toEqual(['query', 'save']);
   });
 
-  it('skips a file that has symbols but no calls', () => {
+  it('skips a file that has symbols but no references', () => {
     // The first branch: `!calls` — a parsed file the resolver produced no calls for.
     const sites = buildCallSites(
       [parsed([symbol('handler', 'Function', 10, 20)], 'src/quiet.ts')],
@@ -164,11 +176,23 @@ describe('buildCallSites', () => {
     expect(sites.get('file:src/a.ts:second')?.map((c) => c.calleeName)).toEqual(['b']);
   });
 
-  it('does not create an entry when every call in a function is unresolved', () => {
-    // Covers the final guard: `existing` stays empty when each call was skipped, so no key is written.
+  it('skips a symbol with no qualified name', () => {
+    // `hasQualifiedName` guards a symbol the extractor produced without one. Such a symbol cannot be keyed, so its
+    // calls are dropped rather than filed under an empty string.
+    const anonymous = {
+      ...symbol('anon', 'Function', 10, 20),
+      qualifiedName: '',
+    } as SymbolDefinition;
+    const sites = buildCallSites([parsed([anonymous])], [call(12, 'query')]);
+
+    expect(sites.size).toBe(0);
+  });
+
+  it('writes no key when a function contains only non-call references', () => {
+    // Covers the final guard: `existing` stays empty when every reference was filtered out, so no key is written.
     const sites = buildCallSites(
       [parsed([symbol('handler', 'Function', 10, 20)])],
-      [call(12, null), call(14, null)],
+      [access(12, 'a'), access(14, 'b')],
     );
 
     expect(sites.size).toBe(0);
