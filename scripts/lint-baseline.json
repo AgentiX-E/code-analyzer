@@ -70,6 +70,7 @@
     "packages/analyzer/src/__tests__/rust-provider.test.ts": 1,
     "packages/analyzer/src/__tests__/scala-provider.test.ts": 1,
     "packages/analyzer/src/__tests__/scan.test.ts": 1,
+    "packages/analyzer/src/__tests__/scope-resolution-callsites.test.ts": 1,
     "packages/analyzer/src/__tests__/scope-resolution.test.ts": 1,
     "packages/analyzer/src/__tests__/scope-resolver.test.ts": 1,
     "packages/analyzer/src/__tests__/set-utils.test.ts": 1,

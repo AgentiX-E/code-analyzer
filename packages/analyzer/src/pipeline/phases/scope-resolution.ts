@@ -10,6 +10,7 @@ import {
 } from '@code-analyzer/shared';
 
 import { GraphBuilder } from '../../graph/graph-builder.js';
+import { buildCallSites } from '../../resolution/call-sites.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
@@ -36,7 +37,12 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       const parseData = ctx.phaseData.get('parse') as { parsedFiles: ParsedFile[] } | undefined;
 
       if (!parseData || !parseData.parsedFiles || !ctx.graph) {
-        return { phaseId: this.id, status: 'success', output: { referencesResolved: 0 } };
+        // The same shape as the success path, so a consumer can tell "no call sites" from "the phase did not run".
+        return {
+          phaseId: this.id,
+          status: 'success',
+          output: { referencesResolved: 0, callSiteCount: 0 },
+        };
       }
 
       // Read crossFile phase data for import resolution
@@ -281,12 +287,20 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         }
       }
 
-      ctx.phaseData.set('scopeResolution', { referencesResolved });
+      // Call sites, from the same two things this phase already has in hand: the parsed files and their
+      // references. The phase resolved calls inline above to build CALLS edges and then kept only a count; the
+      // CFG-based taint subsystem needs the calls themselves, and this is where they become available.
+      const references = parseData.parsedFiles.flatMap((file) => file.references);
+      const callSites = buildCallSites(parseData.parsedFiles, references);
+      let callSiteCount = 0;
+      for (const sites of callSites.values()) callSiteCount += sites.length;
+
+      ctx.phaseData.set('scopeResolution', { referencesResolved, callSites, callSiteCount });
 
       return {
         phaseId: this.id,
         status: 'success',
-        output: { referencesResolved },
+        output: { referencesResolved, callSiteCount },
       };
     } catch (err) {
       this.logger.error(
