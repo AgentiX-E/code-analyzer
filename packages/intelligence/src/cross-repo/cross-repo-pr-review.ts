@@ -26,6 +26,16 @@ export interface CrossRepoImpactEntry {
   impactLevel: 'critical' | 'high' | 'medium' | 'low';
   description: string;
   suggestedActions: string[];
+  /**
+   * Files that consume the affected symbols and are **not** part of the diff.
+   *
+   * This is the claim that separates the analysis from a diff reader. A symbol used only inside the diff is
+   * usually fine; a symbol used at sites the author never opened is where the defects are, and only a graph can
+   * say which of the two applies. An empty list is a real answer, which is why `consumersOutsideDiffKnown`
+   * exists: `false` means "not determined" rather than "none".
+   */
+  consumerFilesOutsideDiff: string[];
+  consumersOutsideDiffKnown: boolean;
 }
 
 export interface APIBreakingReport {
@@ -144,7 +154,14 @@ export class CrossRepoPRReviewEngine {
       impactLevel: a.impactLevel,
       description: a.reason,
       suggestedActions: buildSuggestedActionsForImpact(a.impactLevel, a.repo),
+      consumerFilesOutsideDiff: [],
+      consumersOutsideDiffKnown: false,
     }));
+
+    // Record which consumers the diff never touched. A symbol used only inside the diff is usually fine; a symbol
+    // used at sites the author never opened is where the defects are. When the graph cannot say, the flag stays
+    // false so an empty list is never read as "no consumers outside the diff".
+    await this.recordConsumersOutsideDiff(groupId, diffs, crossRepoImpacts);
 
     // 4. Run review engine on the diffs. Comments are stored in the review
     //    engine's session store, not surfaced here, so the result is discarded.
@@ -185,6 +202,39 @@ export class CrossRepoPRReviewEngine {
   }
 
   // -----------------------------------------------------------------------
+  /**
+   * Fill `consumerFilesOutsideDiff` on each entry from the graph.
+   *
+   * Failure is absorbed and recorded rather than hidden: the flag stays false, so a caller can tell "no consumers
+   * outside the diff" from "the graph was not consulted".
+   */
+  private async recordConsumersOutsideDiff(
+    groupId: string,
+    diffs: GitDiff[],
+    entries: CrossRepoImpactEntry[],
+  ): Promise<void> {
+    const changedFiles = diffs
+      .map((d) => d.filePath)
+      .filter((f): f is string => typeof f === 'string' && f !== '');
+    for (const entry of entries) {
+      const consumerFiles: string[] = [];
+      for (const symbol of entry.affectedSymbols) {
+        try {
+          const traces = await this.indexer.traceSymbolDependencies(groupId, '', symbol);
+          for (const trace of traces) {
+            if (trace.targetRepo === entry.affectedRepo && trace.targetFile)
+              consumerFiles.push(trace.targetFile);
+          }
+        } catch {
+          continue;
+        }
+      }
+      const { outsideDiff } = classifyConsumersByDiff(changedFiles, consumerFiles);
+      entry.consumerFilesOutsideDiff = [...new Set(outsideDiff)];
+      entry.consumersOutsideDiffKnown = true;
+    }
+  }
+
   // API Breaking Change Detection
   // -----------------------------------------------------------------------
 
@@ -290,6 +340,9 @@ export class CrossRepoPRReviewEngine {
         impactLevel: a.impactLevel,
         description: a.reason,
         suggestedActions: [],
+        // The summary does not query the graph, so it says so rather than implying there are no consumers.
+        consumerFilesOutsideDiff: [],
+        consumersOutsideDiffKnown: false,
       })),
       breaking,
       testPredictions,
@@ -934,6 +987,30 @@ export class CrossRepoPRReviewEngine {
  * `impactLevel` switch — including the `critical` and `low` tiers that the
  * impact-analysis BFS does not emit today — can be exercised directly.
  */
+/**
+ * Split a set of consuming files into those the diff touched and those it did not.
+ *
+ * A pure function, so the distinction can be stated and checked without a graph, a repository or an index. Paths
+ * are compared after normalising separators and a leading `./`, because a diff and a graph index routinely spell
+ * the same file differently — and treating those as different files would report a consumer as outside the diff
+ * when the author had it open.
+ */
+export function classifyConsumersByDiff(
+  changedFiles: readonly string[],
+  consumerFiles: readonly string[],
+): { insideDiff: string[]; outsideDiff: string[] } {
+  const normalise = (file: string): string => file.replace(/\\/g, '/').replace(/^\.\//, '');
+  const changed = new Set(changedFiles.map(normalise));
+  const insideDiff: string[] = [];
+  const outsideDiff: string[] = [];
+  for (const file of consumerFiles) {
+    const key = normalise(file);
+    if (changed.has(key)) insideDiff.push(file);
+    else outsideDiff.push(file);
+  }
+  return { insideDiff, outsideDiff };
+}
+
 export function buildSuggestedActionsForImpact(
   impactLevel: 'critical' | 'high' | 'medium' | 'low',
   repo: string,

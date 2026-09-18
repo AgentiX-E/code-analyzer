@@ -74,6 +74,8 @@ function mockResult(overrides: Partial<CrossRepoReviewResult> = {}): CrossRepoRe
         impactLevel: 'high',
         description: 'Login signature change',
         suggestedActions: ['Update callers'],
+        consumerFilesOutsideDiff: [],
+        consumersOutsideDiffKnown: false,
       },
     ],
     apiBreakingChanges: [
@@ -162,6 +164,8 @@ describe('GitHubCheckRunManager', () => {
             impactLevel: 'critical',
             description: 'Core API removed',
             suggestedActions: ['Block merge'],
+            consumerFilesOutsideDiff: [],
+            consumersOutsideDiffKnown: false,
           },
         ],
       });
