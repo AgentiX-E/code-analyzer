@@ -16,6 +16,15 @@ import type { PipelinePhaseId, PipelineContext, GraphNode } from '@code-analyzer
 export interface EmbeddingResult {
   nodeId: number;
   embedding: number[];
+  /**
+   * Which backend produced this vector.
+   *
+   * `deterministic` means a hash-seeded pseudo-random vector, not a semantic embedding — adequate for exercising a
+   * pipeline, useless for similarity. The field exists because the fallback used to be silent: a caller could not
+   * tell a real nomic-embed-code vector from a hash PRNG, which is the same defect as an empty consumer list that
+   * does not say whether it looked.
+   */
+  backend: 'onnx' | 'deterministic';
 }
 
 /** The ONNX embedder contract consumed by `generateEmbeddings`. */
@@ -77,7 +86,11 @@ export async function generateEmbeddings(
       for (let i = 0; i < embeddable.length; i++) {
         const vector = vectors[i];
         if (vector) {
-          results.push({ nodeId: embeddable[i]!.nodeId, embedding: Array.from(vector) });
+          results.push({
+            nodeId: embeddable[i]!.nodeId,
+            embedding: Array.from(vector),
+            backend: 'onnx',
+          });
         }
       }
     } catch {
@@ -85,9 +98,9 @@ export async function generateEmbeddings(
       for (const { nodeId, text } of embeddable) {
         try {
           const vec = await embedder.embed(text);
-          results.push({ nodeId, embedding: Array.from(vec) });
+          results.push({ nodeId, embedding: Array.from(vec), backend: 'onnx' });
         } catch {
-          results.push({ nodeId, embedding: deterministicEmbed(text) });
+          results.push({ nodeId, embedding: deterministicEmbed(text), backend: 'deterministic' });
         }
       }
     } finally {
@@ -100,7 +113,7 @@ export async function generateEmbeddings(
   } else {
     // Deterministic fallback for every node
     for (const { nodeId, text } of embeddable) {
-      results.push({ nodeId, embedding: deterministicEmbed(text) });
+      results.push({ nodeId, embedding: deterministicEmbed(text), backend: 'deterministic' });
     }
   }
 

@@ -23,6 +23,7 @@
     "packages/analyzer/src/__tests__/edge-cases.test.ts": 1,
     "packages/analyzer/src/__tests__/elixir-provider.test.ts": 1,
     "packages/analyzer/src/__tests__/embed.test.ts": 1,
+    "packages/analyzer/src/__tests__/embedding-backend.test.ts": 1,
     "packages/analyzer/src/__tests__/extended-languages.test.ts": 1,
     "packages/analyzer/src/__tests__/fixtures/integration-project/src/index.ts": 1,
     "packages/analyzer/src/__tests__/fixtures/integration-project/src/models/post.ts": 1,
