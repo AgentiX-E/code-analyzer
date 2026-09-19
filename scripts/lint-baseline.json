@@ -277,6 +277,7 @@
     "packages/mcp/src/__tests__/sse-transport-branches.test.ts": 1,
     "packages/mcp/src/__tests__/sse-transport.test.ts": 1,
     "packages/mcp/src/__tests__/standards-adr-tools.test.ts": 1,
+    "packages/mcp/src/__tests__/taint-tool-findings.test.ts": 1,
     "packages/mcp/src/__tests__/test-generation-tool.test.ts": 1,
     "packages/mcp/src/__tests__/test-helpers.test.ts": 1,
     "packages/mcp/src/__tests__/test-helpers.ts": 1,
