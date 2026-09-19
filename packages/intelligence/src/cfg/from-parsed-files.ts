@@ -14,8 +14,10 @@
 // So the propagator will find no flows through these yet. What becomes true is that `buildFunctionSummary` receives
 // real functions with real call sites, and `resolved` becomes a question with an answer.
 
+import { buildStatementFacts } from './statement-facts.js';
+
 import type { FunctionCfg } from './types.js';
-import type { CallSite, ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
+import type { CallSite, ParsedFile, SymbolDefinition, UnifiedCapture } from '@code-analyzer/shared';
 
 /** Symbol kinds that become a function CFG. Shared with the call-site builder by intent, not by import. */
 const CALLABLE_KINDS = new Set(['Function', 'Method', 'ArrowFunction', 'Constructor']);
@@ -38,6 +40,13 @@ export function buildFunctionCfgs(
       if (typeof symbol.qualifiedName !== 'string' || symbol.qualifiedName.length === 0) continue;
 
       const endLine = Math.max(symbol.endLine, symbol.startLine);
+
+      // The captures are on the parsed file rather than in a tree — `ast` carries the provider's capture array, and
+      // this is the one place in the taint path that has to reach for it. The cast is required because the field is
+      // typed `unknown`, which is honest: nothing guarantees its shape except the parse phase that wrote it.
+      const captures = (parsed.ast as UnifiedCapture[] | undefined) ?? [];
+      const { bindings, stmtFacts } = buildStatementFacts(captures, symbol.startLine, endLine);
+
       out.set(symbol.qualifiedName, {
         functionName: symbol.name,
         filePath: parsed.filePath,
@@ -55,16 +64,12 @@ export function buildFunctionCfgs(
           },
         ],
         edges: [],
-        // Parameters are not in `SymbolDefinition`, so there are none. Recorded rather than guessed: a binding
-        // index that does not exist would send taint to the wrong parameter.
-        bindings: [],
-        stmtFacts: {
-          defs: new Map(),
-          uses: new Map(),
-          sourceSites: new Map(),
-          sinkSites: new Map(),
-          sanitizerSites: new Map(),
-        },
+        // Bindings and def/use facts come from the captures, derived by `buildStatementFacts`. **Source and sink
+        // sites are still empty** — the capture vocabulary has no source-and-sink tags yet, so the propagator has no
+        // sources and produces no findings. That is the half still missing, and it is the only part of this object
+        // that is a placeholder.
+        bindings,
+        stmtFacts,
         entryIndex: 0,
         exitIndex: 0,
         callSites: callSites.get(symbol.qualifiedName) ?? [],

@@ -8,7 +8,13 @@ import { describe, it, expect } from 'vitest';
 
 import { buildFunctionCfgs, isCallableSymbol } from '../cfg/from-parsed-files.js';
 
-import type { CallSite, NodeLabel, ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
+import type {
+  CallSite,
+  NodeLabel,
+  ParsedFile,
+  SymbolDefinition,
+  UnifiedCapture,
+} from '@code-analyzer/shared';
 
 function symbol(
   name: string,
@@ -27,15 +33,32 @@ function symbol(
   };
 }
 
-function parsed(symbols: SymbolDefinition[], filePath = 'src/a.ts'): ParsedFile {
+function parsed(
+  symbols: SymbolDefinition[],
+  filePath = 'src/a.ts',
+  captures: UnifiedCapture[] = [],
+): ParsedFile {
   return {
     filePath,
     language: 'typescript',
     symbols,
     references: [],
     scopeTree: {},
-    ast: null,
+    // The parse phase puts the provider's capture array here, which is where `buildFunctionCfgs` reads it.
+    ast: captures,
   } as unknown as ParsedFile;
+}
+
+function capture(tag: string, name: string, startLine: number): UnifiedCapture {
+  return {
+    tag,
+    name,
+    text: name,
+    startLine,
+    endLine: startLine,
+    startByte: 0,
+    endByte: 0,
+  } as UnifiedCapture;
 }
 
 function callSite(line: number, calleeName: string): CallSite {
@@ -83,19 +106,25 @@ describe('buildFunctionCfgs', () => {
     expect(cfg?.callSites).toEqual([]);
   });
 
-  it('leaves stmtFacts empty, and says so in the assertion', () => {
-    // This is the limit, not an oversight: defs, uses and the source and sink sites need statement-level analysis
-    // over `ParsedFile.ast`, which is `unknown`, and a source-and-sink model per language. Until then the
-    // propagator will find no flows through these CFGs — but the pipeline is fed, and `resolved` has an answer.
-    const cfg = buildFunctionCfgs([parsed([symbol('handler', 'Function', 10, 20)])], new Map()).get(
-      'file:src/a.ts:handler',
-    );
+  it('derives defs and uses from the captures, and leaves only the source and sink sites empty', () => {
+    // defs and uses come from captures the pipeline already produces. **sourceSites and sinkSites do not**, because
+    // the capture vocabulary has no source-and-sink tags — so the propagator still finds no flows through these
+    // CFGs, and that is the one placeholder left.
+    const cfg = buildFunctionCfgs(
+      [
+        parsed([symbol('handler', 'Function', 10, 20)], 'src/a.ts', [
+          capture('variable.def', 'req', 12),
+          capture('variable.access', 'req', 15),
+        ]),
+      ],
+      new Map(),
+    ).get('file:src/a.ts:handler');
 
-    expect(cfg?.stmtFacts.defs.size).toBe(0);
-    expect(cfg?.stmtFacts.uses.size).toBe(0);
+    expect(cfg?.bindings.map((b) => b.name)).toEqual(['req']);
+    expect(cfg?.stmtFacts.defs.get(2)).toHaveLength(1);
+    expect(cfg?.stmtFacts.uses.get(5)).toHaveLength(1);
     expect(cfg?.stmtFacts.sourceSites.size).toBe(0);
     expect(cfg?.stmtFacts.sinkSites.size).toBe(0);
-    expect(cfg?.bindings).toEqual([]);
   });
 
   it('skips a symbol with no qualified name', () => {
