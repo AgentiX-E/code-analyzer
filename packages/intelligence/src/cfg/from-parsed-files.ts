@@ -14,8 +14,9 @@
 // So the propagator will find no flows through these yet. What becomes true is that `buildFunctionSummary` receives
 // real functions with real call sites, and `resolved` becomes a question with an answer.
 
-import { buildStatementFacts } from './statement-facts.js';
+import { buildOccurrences, buildStatementFacts } from './statement-facts.js';
 
+import type { ExtractedSink, ExtractedSource } from './statement-facts.js';
 import type { FunctionCfg } from './types.js';
 import type { CallSite, ParsedFile, SymbolDefinition, UnifiedCapture } from '@code-analyzer/shared';
 
@@ -31,6 +32,10 @@ const CALLABLE_KINDS = new Set(['Function', 'Method', 'ArrowFunction', 'Construc
 export function buildFunctionCfgs(
   parsedFiles: readonly ParsedFile[],
   callSites: ReadonlyMap<string, CallSite[]>,
+  extraction?: ReadonlyMap<
+    string,
+    { sources: readonly ExtractedSource[]; sinks: readonly ExtractedSink[] }
+  >,
 ): Map<string, FunctionCfg> {
   const out = new Map<string, FunctionCfg>();
 
@@ -46,6 +51,16 @@ export function buildFunctionCfgs(
       // typed `unknown`, which is honest: nothing guarantees its shape except the parse phase that wrote it.
       const captures = (parsed.ast as UnifiedCapture[] | undefined) ?? [];
       const { bindings, stmtFacts } = buildStatementFacts(captures, symbol.startLine, endLine);
+
+      // Sources and sinks come from the provider extraction rather than the captures, and are joined to the bindings
+      // just derived, by line. A file the extraction found nothing in simply contributes nothing.
+      const perFile = extraction?.get(parsed.filePath);
+      const occurrences = buildOccurrences(
+        perFile?.sources ?? [],
+        perFile?.sinks ?? [],
+        bindings,
+        symbol.startLine,
+      );
 
       out.set(symbol.qualifiedName, {
         functionName: symbol.name,
@@ -69,7 +84,11 @@ export function buildFunctionCfgs(
         // sources and produces no findings. That is the half still missing, and it is the only part of this object
         // that is a placeholder.
         bindings,
-        stmtFacts,
+        stmtFacts: {
+          ...stmtFacts,
+          sourceSites: occurrences.sourceSites,
+          sinkSites: occurrences.sinkSites,
+        },
         entryIndex: 0,
         exitIndex: 0,
         callSites: callSites.get(symbol.qualifiedName) ?? [],

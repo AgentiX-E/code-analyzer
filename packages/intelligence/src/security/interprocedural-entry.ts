@@ -15,6 +15,7 @@ import { TaintPipeline } from './taint-pipeline.js';
 import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
 
 import type { CallGraphEdge, InterprocTaintResult } from './interproc-solver.js';
+import type { ExtractedSink, ExtractedSource } from '../cfg/statement-facts.js';
 import type { FunctionCfg } from '../cfg/types.js';
 import type { CallSite, ParsedFile } from '@code-analyzer/shared';
 
@@ -56,8 +57,12 @@ export function toCallGraphEdges(
 export function analyzeInterproceduralTaint(
   parsedFiles: readonly ParsedFile[],
   callSites: ReadonlyMap<string, CallSite[]>,
+  extraction?: ReadonlyMap<
+    string,
+    { sources: readonly ExtractedSource[]; sinks: readonly ExtractedSink[] }
+  >,
 ): InterprocTaintResult {
-  const cfgs = resolveCallSites(buildFunctionCfgs(parsedFiles, callSites));
+  const cfgs = resolveCallSites(buildFunctionCfgs(parsedFiles, callSites, extraction));
   return new TaintPipeline().analyze(cfgs, toCallGraphEdges(cfgs));
 }
 

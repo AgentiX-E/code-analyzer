@@ -11,6 +11,7 @@ import {
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { getOrLoadProvider, groupCaptures, toPhaseFailure } from '../phase-helpers.js';
 
+import type { TaintProvider, TaintSink, TaintSource } from '../../languages/tree-sitter-base.js';
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
@@ -41,6 +42,9 @@ export class ParsePhase implements ExecutablePhase {
       }
 
       const parsedFiles: ParsedFile[] = [];
+      // Extraction results, keyed by file, for whoever runs the taint analysis later.
+      const taintExtraction = new Map<string, { sources: TaintSource[]; sinks: TaintSink[] }>();
+      let taintExtractedCount = 0;
       let successCount = 0;
 
       for (const file of scanData.discoveredFiles) {
@@ -64,6 +68,19 @@ export class ParsePhase implements ExecutablePhase {
         }
 
         const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
+
+        // Taint sources and sinks, from the provider that just parsed this file — the only code that sees its text.
+        // They are stored per file rather than per function, because the extraction knows lines and the function
+        // boundaries are known downstream; joining them is `buildOccurrences`' job.
+        // Not every provider implements the taint capability — `TaintProvider` is a separate interface — so the
+        // call is guarded rather than assumed. A provider that does not implement it contributes nothing.
+        const taintProvider = provider as Partial<TaintProvider>;
+        const taintSources: TaintSource[] = taintProvider.extractTaintSources?.(file.content) ?? [];
+        const taintSinks: TaintSink[] = taintProvider.extractTaintSinks?.(file.content) ?? [];
+        if (taintSources.length > 0 || taintSinks.length > 0) {
+          taintExtraction.set(file.filePath, { sources: taintSources, sinks: taintSinks });
+        }
+        taintExtractedCount += taintSources.length + taintSinks.length;
 
         parsedFiles.push({
           filePath: file.filePath,
@@ -147,7 +164,7 @@ export class ParsePhase implements ExecutablePhase {
         successCount++;
       }
 
-      ctx.phaseData.set('parse', { parsedFiles });
+      ctx.phaseData.set('parse', { parsedFiles, taintExtraction, taintExtractedCount });
 
       return {
         phaseId: this.id,
