@@ -160,4 +160,17 @@ describe('analyzeInterproceduralTaint', () => {
 
     expect(resolved.get('file:src/a.ts:handler')?.callSites?.[0]?.calleeName).toBe('helper');
   });
+
+  it('leaves a function whose call sites are absent without any, rather than inventing them', () => {
+    // `FunctionCfg.callSites` is optional, so `resolveCallSites` must tolerate its absence even though the producer
+    // in this repository always sets it. The guard is required by the type, and this is where it is exercised.
+    const cfgs = buildFunctionCfgs([parsed([symbol('handler', 10, 20)])], new Map());
+    const withoutSites = new Map(
+      [...cfgs].map(([qualifiedName, cfg]) => [qualifiedName, { ...cfg, callSites: undefined }]),
+    );
+
+    const resolved = resolveCallSites(withoutSites);
+
+    expect(resolved.get('file:src/a.ts:handler')?.callSites).toEqual([]);
+  });
 });
