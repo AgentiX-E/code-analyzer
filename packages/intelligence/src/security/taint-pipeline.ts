@@ -10,6 +10,7 @@ import {
   type FunctionSummary,
   type CallGraphEdge,
   type InterprocTaintResult,
+  InterprocTaintFinding,
 } from './interproc-solver.js';
 import { TaintPropagator } from './taint-propagator.js';
 import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
@@ -49,6 +50,10 @@ export class TaintPipeline {
     const summaries: FunctionSummary[] = [];
     // The names a callee can be resolved against. Computed once rather than per summary.
     const knownFunctions = new Set(cfgs.keys());
+    // Findings the propagator produced inside a function. They were computed, used to build summaries, and then left
+    // out of the result — the comment below said "Merge and return" while the code returned the solver's result
+    // alone. These are the findings a caller can act on, so they belong in the result.
+    const intraProcFindings: InterprocTaintFinding[] = [];
     // Step 1: Run intra-procedural analysis on each function
     for (const [fnQn, cfg] of cfgs) {
       try {
@@ -58,6 +63,24 @@ export class TaintPipeline {
         const result = this.propagator.analyze(cfg, computeReachingDefinitions(cfg));
         const summary = buildFunctionSummary(fnQn, cfg, result, knownFunctions);
         summaries.push(summary);
+
+        // One flow inside one function: source and sink in the same place, no call chain to cross.
+        for (const finding of result.findings) {
+          intraProcFindings.push({
+            id: `${fnQn}#${finding.id}`,
+            source: finding.source,
+            sink: finding.sink,
+            sourceFn: fnQn,
+            sinkFn: fnQn,
+            callChain: [fnQn],
+            sanitized: finding.sanitized,
+            neutralizedKinds: [],
+            // No call was crossed, so there are no hops to count beyond reaching the sink, and the propagator's own
+            // confidence is used unchanged.
+            hops: finding.hops,
+            confidence: finding.confidence,
+          });
+        }
       } catch {
         // Skip functions that fail intra-procedural analysis
         summaries.push(emptySummary(fnQn, cfg));
@@ -73,8 +96,13 @@ export class TaintPipeline {
     // Step 4: Run inter-procedural fixpoint
     const interProcResult = this.solver.solve();
 
-    // Step 5: Merge and return
-    return interProcResult;
+    // Step 5: Merge and return — the merge the comment named and the code did not do. Intra-procedural findings come
+    // first, because they are the ones a reader can act on without following a call.
+    return {
+      ...interProcResult,
+      findings: [...intraProcFindings, ...interProcResult.findings],
+      stats: { ...interProcResult.stats, intraProcFindings: intraProcFindings.length },
+    };
   }
 }
 

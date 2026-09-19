@@ -11,8 +11,8 @@
 //
 // and then, by bisection, a fifth thing:
 //
-//   **`TaintPropagator` alone finds the finding**                                — **passes**: `findings=1`
-//   **`TaintPipeline` does not return it**                                       — **fails**
+//   `TaintPropagator` alone finds the finding                                  — passes: `findings=1`
+//   **`TaintPipeline` returns it**                                              — **passes**, since the merge
 //
 // Everything the propagator needs is present — one binding, one def, one use, one source, one sink, one fact — and it
 // produces a finding from them. **The pipeline discards it**, because `TaintPipeline.analyze` returns
