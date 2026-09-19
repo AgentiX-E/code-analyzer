@@ -7,18 +7,28 @@
 //   the extraction finds `http_request` and `sql_exec` from the source text   — passes
 //   `groupCaptures` emits `variable.def`, so `id` becomes a binding           — passes
 //   `buildOccurrences` joins the source to that binding, and the sink too     — passes
-//   **the use of `id` inside `db.query(id)` is a fact**                       — **does not**: `uses` is empty
+//   the use of `id` inside `db.query(id)` is a fact                             — passes, since the access capture
 //
-// **The JavaScript query emits `variable.def` but not `variable.access`.** The tag is in the vocabulary and
-// `groupCaptures` already handles it, so what is missing is the capture, not the machinery. Until it exists there is
-// no def-to-use edge, so the propagator has a source with nowhere to go — which is why the two tests below are
-// `it.fails`.
+// and then, by bisection, a fifth thing:
+//
+//   **`TaintPropagator` alone finds the finding**                                — **passes**: `findings=1`
+//   **`TaintPipeline` does not return it**                                       — **fails**
+//
+// Everything the propagator needs is present — one binding, one def, one use, one source, one sink, one fact — and it
+// produces a finding from them. **The pipeline discards it**, because `TaintPipeline.analyze` returns
+// `this.solver.solve()`, and the solver reports only what crosses a function boundary. The propagator's findings are
+// used to build each function's summary and then dropped from the result.
+//
+// That is the whole of the remaining distance, and the bisection is what made it visible: without the direct call
+// this would still be "the pipeline produces nothing", which is a hundred lines to search instead of one function.
 
 import { JavaScriptProvider } from '@code-analyzer/analyzer';
 import { describe, it, expect } from 'vitest';
 
 import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
+import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
 import { analyzeInterproceduralTaint } from '../security/interprocedural-entry.js';
+import { TaintPropagator } from '../security/taint-propagator.js';
 
 import type { ParsedFile } from '@code-analyzer/shared';
 
@@ -94,7 +104,29 @@ describe('a source in a real file', () => {
     expect(cfg?.stmtFacts.uses.size).toBeGreaterThan(0);
   });
 
-  it.fails('produces a finding, which needs more than the use fact above', () => {
+  it.fails(
+    'produces a finding through the pipeline, which discards what the propagator finds',
+    () => {
+      const extraction = new Map([
+        [
+          'src/a.js',
+          {
+            sources: provider.extractTaintSources(SOURCE),
+            sinks: provider.extractTaintSinks(SOURCE),
+          },
+        ],
+      ]);
+
+      const result = analyzeInterproceduralTaint([parsedFor(provider)], new Map(), extraction);
+
+      expect(result.findings.length).toBeGreaterThan(0);
+      expect(result.findings[0]?.sink.kind).toBe('sql_exec');
+    },
+  );
+
+  it('the propagator alone finds the flow, which says where the remaining gap is', () => {
+    // Bisection: the pipeline wraps this call, so if the propagator produces a finding here and the pipeline does
+    // not, the gap is in the wrapping — and if it produces nothing here, the gap is inside the propagator.
     const extraction = new Map([
       [
         'src/a.js',
@@ -104,10 +136,18 @@ describe('a source in a real file', () => {
         },
       ],
     ]);
+    const cfg = buildFunctionCfgs([parsedFor(provider)], new Map(), extraction).get(
+      'file:src/a.js:handler',
+    )!;
+    const facts = computeReachingDefinitions(cfg);
 
-    const result = analyzeInterproceduralTaint([parsedFor(provider)], new Map(), extraction);
+    const result = new TaintPropagator().analyze(cfg, facts);
 
+    console.log(
+      `  diagnostic: bindings=${cfg.bindings.length} defs=${cfg.stmtFacts.defs.size} uses=${cfg.stmtFacts.uses.size} ` +
+        `sources=${cfg.stmtFacts.sourceSites.size} sinks=${cfg.stmtFacts.sinkSites.size} facts=${facts.length} ` +
+        `findings=${result.findings.length}`,
+    );
     expect(result.findings.length).toBeGreaterThan(0);
-    expect(result.findings[0]?.sink.kind).toBe('sql_exec');
   });
 });
