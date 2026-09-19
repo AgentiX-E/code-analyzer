@@ -29,7 +29,10 @@ export function buildNameIndex(
 
   for (const [qualifiedName, cfg] of cfgs) {
     const simple = cfg.functionName;
-    if (typeof simple !== 'string' || simple.length === 0) continue;
+    // `functionName` is a `string` by its type, so `typeof` would be a branch no value can take — which is what the
+    // per-file coverage gate reports, and it reported it here after reporting the same shape twice before. The one
+    // check that can be false is the empty name.
+    if (simple.length === 0) continue;
 
     if (index.has(simple)) {
       // Seen before: two functions share this name, so it can no longer be resolved to either.
