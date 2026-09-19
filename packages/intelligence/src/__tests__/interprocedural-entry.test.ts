@@ -7,7 +7,10 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { analyzeInterproceduralTaint } from '../security/interprocedural-entry.js';
+import {
+  analyzeInterproceduralTaint,
+  toCallGraphEdges,
+} from '../security/interprocedural-entry.js';
 
 import type { CallSite, NodeLabel, ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
 
@@ -98,5 +101,23 @@ describe('analyzeInterproceduralTaint', () => {
 
     expect(result.summariesAnalyzed).toBe(1);
     expect(result.findings).toEqual([]);
+  });
+
+  it('builds no edges for a function that carries no call sites', () => {
+    // `FunctionCfg.callSites` is optional, so a producer may omit it even though the one in this repository always
+    // sets it. The guard is required by the type and covered here rather than left unreachable.
+    const edges = toCallGraphEdges(new Map([['fn', {}]]));
+
+    expect(edges).toEqual([]);
+  });
+
+  it('turns a call site into one edge, carrying the name it has', () => {
+    const edges = toCallGraphEdges(
+      new Map([['file:src/a.ts:handler', { callSites: [callSite(12, 'helper')] }]]),
+    );
+
+    expect(edges).toEqual([
+      { callerQn: 'file:src/a.ts:handler', calleeQn: 'helper', callLine: 12, argCount: 0 },
+    ]);
   });
 });

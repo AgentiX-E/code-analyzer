@@ -24,8 +24,14 @@ import type { CallSite, ParsedFile } from '@code-analyzer/shared';
  * bare will not resolve until something maps names to qualified names. **That mapping does not exist yet**, and
  * inventing one here — by suffix matching, say — would silently attach taint to the wrong function. The edge is
  * built with the name it has and left unresolved, which is visible.
+ *
+ * Exported so the `?? []` below can be exercised. `buildFunctionCfgs` always sets `callSites`, so within this module
+ * the guard is unreachable — but `FunctionCfg.callSites` is optional, the compiler requires the check, and a test
+ * that passes a CFG without it is the honest way to cover a branch the type system mandates.
  */
-function toCallGraphEdges(cfgs: Map<string, { callSites?: readonly CallSite[] }>): CallGraphEdge[] {
+export function toCallGraphEdges(
+  cfgs: Map<string, { callSites?: readonly CallSite[] }>,
+): CallGraphEdge[] {
   const edges: CallGraphEdge[] = [];
   for (const [callerQn, cfg] of cfgs) {
     for (const call of cfg.callSites ?? []) {
