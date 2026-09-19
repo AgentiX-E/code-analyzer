@@ -70,9 +70,9 @@ describe('a source in a real file', () => {
     expect(cfg?.stmtFacts.defs.size).toBeGreaterThan(0);
   });
 
-  // `it.fails` is the assertion written backwards: it passes while the gap is open and **fails the moment the
-  // gap closes**, which is when this should become `it` and be read again.
-  it.fails('gives the function a use fact for the tainted binding', () => {
+  // This was `it.fails` until the access capture landed. **It turned red the commit after, which is how it was
+  // meant to be read** — the gap closed, so the assertion is now stated forwards.
+  it('gives the function a use fact for the tainted binding', () => {
     const extraction = new Map([
       [
         'src/a.js',
@@ -94,7 +94,7 @@ describe('a source in a real file', () => {
     expect(cfg?.stmtFacts.uses.size).toBeGreaterThan(0);
   });
 
-  it.fails('produces a finding, which needs the use fact above', () => {
+  it.fails('produces a finding, which needs more than the use fact above', () => {
     const extraction = new Map([
       [
         'src/a.js',

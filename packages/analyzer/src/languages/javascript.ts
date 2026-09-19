@@ -131,6 +131,33 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
           }
         }
       }
+    } else if (nodeType === 'call_expression') {
+      // Arguments are reads of whatever they name, and that read is what carries taint into the call. `db.query(id)`
+      // reads `id`, on the same line as the call — which is where the sink is recorded, so a def-to-use edge and a
+      // sink land on statements the propagator can join.
+      //
+      // Only bare identifiers are captured. `db.query`'s own `db` and `query` are identifiers too and will be
+      // captured as well; they name no binding, so the facts builder drops them, and dropping is visible where a
+      // guess would not be.
+      // The identifier is not a direct child of the call: `db.query(id)` has a `member_expression` and an
+      // `arguments` node, and the arguments are one level further down. My first version looked only at the direct
+      // children and captured nothing, which the end-to-end test reported as `uses` still being empty.
+      for (const child of namedChildrenOf(node)) {
+        if (child.type !== 'arguments') continue;
+        for (const argument of namedChildrenOf(child)) {
+          if (argument.type !== 'identifier') continue;
+          captures.push({
+            tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+            text: argument.text,
+            startLine: argument.startPosition.row + 1,
+            endLine: argument.endPosition.row + 1,
+            startByte: argument.startIndex,
+            endByte: argument.endIndex,
+            name: argument.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      }
     } else if (nodeType === 'comment') {
       if (node.text.startsWith('/**')) {
         captures.push({
