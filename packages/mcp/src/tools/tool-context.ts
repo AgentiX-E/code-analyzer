@@ -14,6 +14,7 @@ import {
 } from '@code-analyzer/intelligence';
 
 import type { PipelineOrchestrator, PipelineResult } from '@code-analyzer/analyzer';
+import type { InterprocTaintFinding } from '@code-analyzer/intelligence';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,15 @@ export interface ToolContext {
 
   /** Pipeline orchestrator for running analysis phases. Lazy initialized. */
   getPipeline(): Promise<PipelineOrchestrator>;
+
+  /**
+   * Inter-procedural taint findings from the last pipeline run.
+   *
+   * They live here rather than in `phaseData` because they have to outlive the run: a tool asked for taint analysis
+   * hours after indexing must still find the result. Empty until a run produces them, which is distinguishable from
+   * "no findings" only by whether a run has happened — see `taintAnalysis`, which reports the method it used.
+   */
+  taintFindings: readonly InterprocTaintFinding[];
 
   /** Repository group manager — CRUD for repo groups with persistence. */
   getRepoGroupManager(): RepoGroupManager;
@@ -103,6 +113,9 @@ export class ToolContextImpl implements ToolContext {
   private _prReviewEngine: PRReviewEngine | null = null;
   private _impactAnalyzer: ImpactAnalyzer | null = null;
   private _pipeline: PipelineOrchestrator | null = null;
+
+  /** @see ToolContext.taintFindings */
+  taintFindings: readonly InterprocTaintFinding[] = [];
   private _repoGroupManager: RepoGroupManager | null = null;
   private _federatedSearch: FederatedSearchEngine | null = null;
   private _crossRepoIndexer: CrossRepoIndexer | null = null;

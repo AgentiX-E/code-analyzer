@@ -419,3 +419,7 @@ export type {
   TemplateRule,
   RegistryImportResult,
 } from './rules/rule-registry.js';
+
+// Taint analysis, from the analyser's output to a result. `mcp` calls these after a pipeline run.
+export { analyzeInterproceduralTaint, resolveCallSites } from './security/interprocedural-entry.js';
+export type { InterprocTaintFinding, InterprocTaintResult } from './security/interproc-solver.js';

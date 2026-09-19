@@ -3,11 +3,12 @@
 import { existsSync } from 'node:fs';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { analyzeInterproceduralTaint } from '@code-analyzer/intelligence';
 
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 
 import type { ToolResult } from './registry.js';
-import type { SupportedLanguage } from '@code-analyzer/shared';
+import type { ParsedFile, SupportedLanguage } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -117,6 +118,27 @@ export async function analyzeRepository(
 
       const result = await pipeline.execute(pipelineCtx);
       ctx.currentAnalysis = result;
+
+      // Inter-procedural taint, run here because this is the only place that holds all three of its inputs at once:
+      // the parse phase's parsed files and extraction, and the scope-resolution phase's call sites. They live in the
+      // context above for exactly this call and then go out of scope, so the findings are kept on the tool context.
+      const parseData = pipelineCtx.phaseData.get('parse') as
+        { parsedFiles: ParsedFile[]; taintExtraction: Map<string, never> } | undefined;
+      const scopeData = pipelineCtx.phaseData.get('scopeResolution') as
+        { callSites: Map<string, never> } | undefined;
+      if (parseData && scopeData) {
+        try {
+          const taint = analyzeInterproceduralTaint(
+            parseData.parsedFiles,
+            scopeData.callSites,
+            parseData.taintExtraction,
+          );
+          ctx.taintFindings = taint.findings;
+        } catch {
+          // A failing analysis must not fail indexing — the graph is still useful without taint findings.
+          ctx.taintFindings = [];
+        }
+      }
 
       const nodeCount = result.graph.nodes.size;
       const edgeCount = result.graph.edges.size;
