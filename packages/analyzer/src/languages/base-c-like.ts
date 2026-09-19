@@ -430,7 +430,9 @@ export function collectCLikeTaintSources(
   // the sink walk takes it, so `os.environ["KEY"]` and `os.getenv("KEY")` are both recognised.
   if (types.call.includes(node.type)) {
     const callee = node.text.split('(')[0]?.trim() ?? '';
-    const match = callee.length > 0 ? sourceFor(callee) : undefined;
+    // No length guard: `sourceFor('')` matches nothing, so an empty callee falls through on its own — and a guard
+    // here would be a branch no call can take, which is the shape the coverage gate reports.
+    const match = sourceFor(callee);
     if (match) {
       sources.push({
         name: callee,
