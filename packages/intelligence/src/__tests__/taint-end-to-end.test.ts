@@ -103,26 +103,24 @@ describe('a source in a real file', () => {
     // query emits `variable.access` for it is the next thing to establish.
     expect(cfg?.stmtFacts.uses.size).toBeGreaterThan(0);
   });
+  // This was `it.fails` for three commits. It turned green the commit after the one that named the cause:
+  // `TaintPipeline.analyze` returned `this.solver.solve()` under a comment reading "Merge and return".
+  it('produces a finding through the pipeline, which discards what the propagator finds', () => {
+    const extraction = new Map([
+      [
+        'src/a.js',
+        {
+          sources: provider.extractTaintSources(SOURCE),
+          sinks: provider.extractTaintSinks(SOURCE),
+        },
+      ],
+    ]);
 
-  it.fails(
-    'produces a finding through the pipeline, which discards what the propagator finds',
-    () => {
-      const extraction = new Map([
-        [
-          'src/a.js',
-          {
-            sources: provider.extractTaintSources(SOURCE),
-            sinks: provider.extractTaintSinks(SOURCE),
-          },
-        ],
-      ]);
+    const result = analyzeInterproceduralTaint([parsedFor(provider)], new Map(), extraction);
 
-      const result = analyzeInterproceduralTaint([parsedFor(provider)], new Map(), extraction);
-
-      expect(result.findings.length).toBeGreaterThan(0);
-      expect(result.findings[0]?.sink.kind).toBe('sql_exec');
-    },
-  );
+    expect(result.findings.length).toBeGreaterThan(0);
+    expect(result.findings[0]?.sink.kind).toBe('sql_exec');
+  });
 
   it('the propagator alone finds the flow, which says where the remaining gap is', () => {
     // Bisection: the pipeline wraps this call, so if the propagator produces a finding here and the pipeline does
