@@ -162,6 +162,57 @@ export async function taintAnalysis(
 
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
+
+    // Findings the pipeline produced when this project was indexed. They come from the real analysis — sources and
+    // sinks extracted by the language provider, defs and uses from captures, joined and propagated — so when they
+    // exist there is nothing a heuristic walk could add, and the note on the fallback path is not true of this
+    // answer. `analysisMethod` says which one ran rather than leaving the caller to guess.
+    if (ctx.taintFindings.length > 0) {
+      for (const finding of ctx.taintFindings) {
+        if (sourceKind && finding.source.category !== sourceKind) continue;
+        if (sinkKind && finding.sink.kind !== sinkKind) continue;
+        taintPaths.push({
+          id: finding.id,
+          source: {
+            kind: finding.source.category,
+            line: finding.source.line,
+            text: finding.source.description,
+          },
+          sink: {
+            kind: finding.sink.kind,
+            line: finding.sink.line,
+            text: finding.sink.description,
+          },
+          sourceFn: finding.sourceFn,
+          sinkFn: finding.sinkFn,
+          callChain: finding.callChain,
+          sanitized: finding.sanitized,
+          confidence: finding.confidence,
+        });
+      }
+      vulnerablePaths = taintPaths.length;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                sourceKind,
+                sinkKind,
+                filePath,
+                taintPaths,
+                vulnerablePaths,
+                analysisMethod: 'interprocedural-dataflow',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
+
     try {
       const gstore = ctx.store;
       const allNodes = gstore.getAllNodes();
