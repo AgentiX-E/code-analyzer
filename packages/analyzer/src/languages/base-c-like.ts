@@ -330,6 +330,11 @@ const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['request.GET', 'http_request'],
   ['request.POST', 'http_request'],
   ['request.args', 'http_request'],
+  // Java, Go and C# read the same things through calls rather than members.
+  ['System.getenv', 'env_var'],
+  ['getenv', 'env_var'],
+  ['GetEnvironmentVariable', 'env_var'],
+  ['Query', 'http_request'],
 ];
 
 /** Calls that pass their argument somewhere it will be interpreted, and what kind of sink it is. */
@@ -349,6 +354,8 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['os.popen', 'os_command'],
   ['subprocess.run', 'os_command'],
   ['subprocess.call', 'os_command'],
+  ['exec', 'os_command'],
+  ['Process.Start', 'os_command'],
 ];
 
 function sourceFor(text: string): readonly [string, string] | undefined {
