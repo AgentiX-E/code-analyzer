@@ -140,4 +140,15 @@ describe('buildFunctionCfgs', () => {
     expect(isCallableSymbol(symbol('f', 'Function', 1, 2))).toBe(true);
     expect(isCallableSymbol(symbol('C', 'Class', 1, 2))).toBe(false);
   });
+
+  it('treats a file whose captures are absent as having none, rather than failing', () => {
+    // `ParsedFile.ast` is `unknown`, so nothing guarantees it holds an array. A file parsed before the field was
+    // populated, or by a provider that sets it to null, must not break the producer.
+    const withoutCaptures = { ...parsed([symbol('handler', 'Function', 10, 20)]), ast: null };
+    const cfg = buildFunctionCfgs([withoutCaptures], new Map()).get('file:src/a.ts:handler');
+
+    expect(cfg?.bindings).toEqual([]);
+    expect(cfg?.stmtFacts.defs.size).toBe(0);
+    expect(cfg?.callSites).toEqual([]);
+  });
 });
