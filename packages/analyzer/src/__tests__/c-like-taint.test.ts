@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { JavaScriptProvider } from '../languages/javascript.js';
+import { PythonProvider } from '../languages/python.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 
 describe('c-like taint extraction', () => {
@@ -57,5 +58,26 @@ describe('c-like taint extraction', () => {
     expect(
       provider.extractTaintSources('const k = process.env.KEY;\n').map((s) => s.sourceType),
     ).toContain('env_var');
+  });
+
+  describe('python taint extraction', () => {
+    it('finds a request read, whose node is an attribute rather than a member expression', () => {
+      const provider = new PythonProvider();
+
+      expect(
+        provider.extractTaintSources("id = request.GET.get('id')\n").map((s) => s.sourceType),
+      ).toContain('http_request');
+    });
+
+    it('finds an environment read and a command sink', () => {
+      const provider = new PythonProvider();
+
+      expect(
+        provider.extractTaintSources('key = os.environ["KEY"]\n').map((s) => s.sourceType),
+      ).toContain('env_var');
+      expect(provider.extractTaintSinks('os.system(cmd)\n').map((s) => s.sinkType)).toContain(
+        'os_command',
+      );
+    });
   });
 });

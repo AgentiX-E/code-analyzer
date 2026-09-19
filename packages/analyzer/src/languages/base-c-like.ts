@@ -322,6 +322,14 @@ const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['window.location', 'url'],
   ['document.location', 'url'],
   ['location.search', 'url'],
+  // Python's readers of the same things. `os.environ` and the request objects are where untrusted input arrives in
+  // the languages this now covers; the walk matches on text, so the names are all it needs.
+  ['os.environ', 'env_var'],
+  ['os.getenv', 'env_var'],
+  ['sys.argv', 'argv'],
+  ['request.GET', 'http_request'],
+  ['request.POST', 'http_request'],
+  ['request.args', 'http_request'],
 ];
 
 /** Calls that pass their argument somewhere it will be interpreted, and what kind of sink it is. */
@@ -337,15 +345,26 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['outerHTML', 'html'],
   ['writeFile', 'file_write'],
   ['appendFile', 'file_write'],
+  ['os.system', 'os_command'],
+  ['os.popen', 'os_command'],
+  ['subprocess.run', 'os_command'],
+  ['subprocess.call', 'os_command'],
 ];
 
 function sourceFor(text: string): readonly [string, string] | undefined {
   return C_LIKE_SOURCES.find(([expr]) => text === expr || text.startsWith(`${expr}.`));
 }
 
+/**
+ * A sink, matched on the callee's last segment or on its full text.
+ *
+ * Both, because languages name sinks differently: `query(...)` is matched by its simple name, and `os.system(...)`
+ * only by its dotted one. Matching on the last segment alone silently drops every dotted entry in the list — which is
+ * what the Python case found.
+ */
 function sinkFor(text: string): readonly [string, string] | undefined {
   const simple = text.split('.').pop() ?? text;
-  return C_LIKE_SINKS.find(([name]) => simple === name);
+  return C_LIKE_SINKS.find(([name]) => simple === name || text === name);
 }
 
 /**
@@ -358,6 +377,22 @@ function sinkFor(text: string): readonly [string, string] | undefined {
  * following the assignment, which is a data-flow question this walk does not answer — and an invented name would be
  * worse than the expression, which is at least true.
  */
+export interface TaintNodeTypes {
+  /** Node types denoting `a.b` — a member or attribute read. */
+  readonly member: readonly string[];
+  /** Node types denoting a call. */
+  readonly call: readonly string[];
+  /** The node holding a call's arguments. */
+  readonly argumentContainer: readonly string[];
+}
+
+/** The C family's names for the three. Python calls them `attribute`, `call` and `argument_list`. */
+export const C_LIKE_TAINT_NODES: TaintNodeTypes = {
+  member: ['member_expression', 'field_expression'],
+  call: ['call_expression', 'new_expression'],
+  argumentContainer: ['arguments'],
+};
+
 export function collectCLikeTaintSources(
   node: {
     type: string;
@@ -367,8 +402,9 @@ export function collectCLikeTaintSources(
     child(i: number): unknown;
   },
   sources: TaintSource[],
+  types: TaintNodeTypes = C_LIKE_TAINT_NODES,
 ): void {
-  if (node.type === 'member_expression' || node.type === 'field_expression') {
+  if (types.member.includes(node.type)) {
     const match = sourceFor(node.text);
     if (match) {
       sources.push({
@@ -383,7 +419,7 @@ export function collectCLikeTaintSources(
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof collectCLikeTaintSources>[0] | null;
-    if (child) collectCLikeTaintSources(child, sources);
+    if (child) collectCLikeTaintSources(child, sources, types);
   }
 }
 
@@ -402,8 +438,9 @@ export function collectCLikeTaintSinks(
     child(i: number): unknown;
   },
   sinks: TaintSink[],
+  types: TaintNodeTypes = C_LIKE_TAINT_NODES,
 ): void {
-  if (node.type === 'call_expression' || node.type === 'new_expression') {
+  if (types.call.includes(node.type)) {
     const callee = node.text.split('(')[0]?.trim() ?? '';
     const match = sinkFor(callee);
     if (match && callee.length > 0) {
@@ -419,6 +456,6 @@ export function collectCLikeTaintSinks(
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof collectCLikeTaintSinks>[0] | null;
-    if (child) collectCLikeTaintSinks(child, sinks);
+    if (child) collectCLikeTaintSinks(child, sinks, types);
   }
 }

@@ -2,15 +2,28 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
-import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  TaintSink,
+  TaintSource,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const pyExtensions = ['.py', '.pyi', '.pyx', '.pxd'];
 const pyGlobs = ['**/*.py', '**/*.pyi', '**/*.pyx', '**/*.pxd'];
+
+/** Python's names for the three node kinds the collectors need. */
+const PYTHON_TAINT_NODES = {
+  member: ['attribute'],
+  call: ['call'],
+  argumentContainer: ['argument_list'],
+};
 
 export class PythonProvider extends TreeSitterBaseProvider {
   readonly language = 'python';
@@ -365,5 +378,14 @@ export class PythonProvider extends TreeSitterBaseProvider {
 
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
+  }
+  // Taint sources and sinks. The base class parses and recurses but recognises nothing, and only five providers
+  // override it — none of them Python, which is where a web application's untrusted input most often arrives.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources, PYTHON_TAINT_NODES);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks, PYTHON_TAINT_NODES);
   }
 }
