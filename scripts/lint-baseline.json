@@ -207,6 +207,7 @@
     "packages/intelligence/src/__tests__/pr-review-e2e.test.ts": 2,
     "packages/intelligence/src/__tests__/review-engine.test.ts": 8,
     "packages/intelligence/src/__tests__/review/llm-review-engine.test.ts": 6,
+    "packages/intelligence/src/__tests__/taint-end-to-end.test.ts": 1,
     "packages/intelligence/src/benchmark/benchmark-data.ts": 1,
     "packages/intelligence/src/benchmark/llm-benchmark-runner.ts": 1,
     "packages/intelligence/src/cfg/post-dominators.ts": 2,
