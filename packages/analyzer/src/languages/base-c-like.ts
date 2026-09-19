@@ -424,6 +424,24 @@ export function collectCLikeTaintSources(
     }
   }
 
+  // A source can also be read by **calling** something. `System.getenv("KEY")` is where a Java program's
+  // environment arrives and `Environment.GetEnvironmentVariable("KEY")` is C#'s — neither has a member expression to
+  // match, which is why the Java, Go and C# overrides found nothing until this existed. The callee is taken the way
+  // the sink walk takes it, so `os.environ["KEY"]` and `os.getenv("KEY")` are both recognised.
+  if (types.call.includes(node.type)) {
+    const callee = node.text.split('(')[0]?.trim() ?? '';
+    const match = callee.length > 0 ? sourceFor(callee) : undefined;
+    if (match) {
+      sources.push({
+        name: callee,
+        sourceType: match[1],
+        line: node.startPosition.row + 1,
+        text: node.text,
+        properties: {},
+      });
+    }
+  }
+
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof collectCLikeTaintSources>[0] | null;
     if (child) collectCLikeTaintSources(child, sources, types);

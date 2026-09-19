@@ -2,15 +2,28 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
-import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  TaintSink,
+  TaintSource,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const goExtensions = ['.go'];
 const goGlobs = ['**/*.go'];
+
+/** go's names for the three node kinds the collectors need. */
+const GO_TAINT_NODES = {
+  member: ['selector_expression'],
+  call: ['call_expression'],
+  argumentContainer: ['argument_list'],
+};
 
 export class GoProvider extends TreeSitterBaseProvider {
   readonly language = 'go';
@@ -427,5 +440,14 @@ export class GoProvider extends TreeSitterBaseProvider {
 
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
+  }
+  // Taint sources and sinks. The base class parses and recurses but recognises nothing, and only five providers
+  // override it — none of them a language where a web application's untrusted input arrives.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources, GO_TAINT_NODES);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks, GO_TAINT_NODES);
   }
 }

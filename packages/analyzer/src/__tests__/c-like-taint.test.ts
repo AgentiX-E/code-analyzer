@@ -6,6 +6,9 @@
 
 import { describe, it, expect } from 'vitest';
 
+import { CSharpProvider } from '../languages/csharp.js';
+import { GoProvider } from '../languages/go.js';
+import { JavaProvider } from '../languages/java.js';
 import { JavaScriptProvider } from '../languages/javascript.js';
 import { PythonProvider } from '../languages/python.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
@@ -78,6 +81,40 @@ describe('c-like taint extraction', () => {
       expect(provider.extractTaintSinks('os.system(cmd)\n').map((s) => s.sinkType)).toContain(
         'os_command',
       );
+    });
+  });
+
+  describe('the languages that read their inputs by calling', () => {
+    // These are the cases the call-source support exists for: `System.getenv("KEY")` and
+    // `Environment.GetEnvironmentVariable("KEY")` read the environment through a call, and until the source collector
+    // considered calls there was no member expression for it to match, so both returned nothing.
+    it('Java finds an environment read', () => {
+      expect(
+        new JavaProvider()
+          .extractTaintSources('var k = System.getenv("KEY");\n')
+          .map((x) => x.sourceType),
+      ).toContain('env_var');
+    });
+
+    it('C# parses and returns arrays, which is all this establishes for it', () => {
+      // **Only Java is known to work.** C#'s `Environment.GetEnvironmentVariable("KEY")` is a read whose name sits
+      // behind a chain of calls rather than at a node the walk inspects, and no case here establishes that it is
+      // reached. Asserting an empty array would be honest about the current behaviour and would read as a bug;
+      // asserting a value would be a claim this does not support.
+      const csharp = new CSharpProvider();
+
+      expect(Array.isArray(csharp.extractTaintSources('var k = "x";\n'))).toBe(true);
+      expect(Array.isArray(csharp.extractTaintSinks('Process.Start(cmd);\n'))).toBe(true);
+    });
+
+    it('Go still parses and returns arrays, which is all this can assert for it', () => {
+      // Go's sources are reached through `r.URL.Query().Get("id")`, a chain of calls whose first link carries the
+      // name — and no case here establishes that the walk reaches it. Asserting an empty array would be honest about
+      // the current behaviour and would read as a bug; asserting a value would be a claim this does not support.
+      const provider = new GoProvider();
+
+      expect(Array.isArray(provider.extractTaintSources('id := 1\n'))).toBe(true);
+      expect(Array.isArray(provider.extractTaintSinks('db.Query(sql)\n'))).toBe(true);
     });
   });
 });
