@@ -70,10 +70,25 @@ describe('taint reachability', () => {
     // producer. It now names that producer instead of forbidding all of them: **a second one would fail this**, and
     // that is the point — the count is one, and adding another is a decision rather than an accident.
     const files = filesUnder('packages').filter((file) => !file.includes('__tests__'));
-    const producing = files.filter((file) => /stmtFacts:\s*\{/.test(readFileSync(file, 'utf8')));
+    // The rule has to match both ways a producer writes the field: an object literal (`stmtFacts: {`) and the
+    // shorthand (`... bindings, stmtFacts,`). The first version matched only the literal, so when the CFG builder
+    // switched to the shorthand it silently dropped out of this list — **the pin was watching one of two producers
+    // while reporting that it watched them all.**
+    //
+    // A type annotation (`readonly stmtFacts: StatementFacts;`) is not a producer, and excluding it needs the
+    // whitespace *inside* the lookahead: `stmtFacts[,:]\s*(?!StatementFacts)` backtracks `\s*` to zero characters
+    // and then tests at the space, where the negative lookahead succeeds.
+    const producing = files
+      .filter((file) => /stmtFacts[,:](?!\s*StatementFacts)/.test(readFileSync(file, 'utf8')))
+      .sort();
 
     expect(files.length).toBeGreaterThan(100);
-    expect(producing).toEqual(['packages/intelligence/src/cfg/from-parsed-files.ts']);
+    // Two producers now: the module that derives def and use facts, and the CFG builder that calls it. The second
+    // was added deliberately, which is why this assertion names both rather than tolerating any number.
+    expect(producing).toEqual([
+      'packages/intelligence/src/cfg/from-parsed-files.ts',
+      'packages/intelligence/src/cfg/statement-facts.ts',
+    ]);
   });
 
   it('keeps the CFG-based subsystem itself intact and tested', () => {
