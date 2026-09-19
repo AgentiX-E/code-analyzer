@@ -2,11 +2,17 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
-import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  TaintSink,
+  TaintSource,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const jsExtensions = ['.js', '.jsx', '.mjs', '.cjs'];
@@ -453,5 +459,15 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
 
   private lineOff(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
+  }
+
+  // Taint sources and sinks. The base class parses and recurses but recognises nothing — it says so in a comment —
+  // and only bash, groovy, html, json and r override it, none of them a language where this matters most.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks);
   }
 }

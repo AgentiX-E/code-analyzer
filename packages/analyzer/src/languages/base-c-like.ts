@@ -4,6 +4,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import type { ParsedImport } from './provider.js';
+import type { TaintSink, TaintSource } from './tree-sitter-base.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
 export function lineNumberAt(source: string, offset: number): number {
@@ -302,5 +303,122 @@ export function extractImportsAsCaptures(
       name: imp.source,
       properties: { names: imp.names.join(','), importType: imp.type, filePath },
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Taint sources and sinks for the C-like languages
+// ---------------------------------------------------------------------------
+
+/** Source expressions whose value comes from outside the program, and what kind of input it is. */
+const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
+  ['process.env', 'env_var'],
+  ['process.argv', 'argv'],
+  ['req.body', 'http_request'],
+  ['req.query', 'http_request'],
+  ['req.params', 'http_request'],
+  ['request.body', 'http_request'],
+  ['request.query', 'http_request'],
+  ['window.location', 'url'],
+  ['document.location', 'url'],
+  ['location.search', 'url'],
+];
+
+/** Calls that pass their argument somewhere it will be interpreted, and what kind of sink it is. */
+const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
+  ['eval', 'eval'],
+  ['execSync', 'os_command'],
+  ['exec', 'os_command'],
+  ['spawn', 'os_command'],
+  ['query', 'sql_exec'],
+  ['execute', 'sql_exec'],
+  ['document.write', 'html'],
+  ['innerHTML', 'html'],
+  ['outerHTML', 'html'],
+  ['writeFile', 'file_write'],
+  ['appendFile', 'file_write'],
+];
+
+function sourceFor(text: string): readonly [string, string] | undefined {
+  return C_LIKE_SOURCES.find(([expr]) => text === expr || text.startsWith(`${expr}.`));
+}
+
+function sinkFor(text: string): readonly [string, string] | undefined {
+  const simple = text.split('.').pop() ?? text;
+  return C_LIKE_SINKS.find(([name]) => simple === name);
+}
+
+/**
+ * Collect taint sources under `node`, in the shape `TaintSource` expects.
+ *
+ * Matching is on the node's **text**, which is how the five providers that already implement this work: it keeps
+ * the rule readable, and it does not depend on a grammar field name that can differ between languages and versions.
+ *
+ * `name` is the source expression itself, not the variable that receives it. Naming the receiver would require
+ * following the assignment, which is a data-flow question this walk does not answer — and an invented name would be
+ * worse than the expression, which is at least true.
+ */
+export function collectCLikeTaintSources(
+  node: {
+    type: string;
+    text: string;
+    startPosition: { row: number };
+    childCount: number;
+    child(i: number): unknown;
+  },
+  sources: TaintSource[],
+): void {
+  if (node.type === 'member_expression' || node.type === 'field_expression') {
+    const match = sourceFor(node.text);
+    if (match) {
+      sources.push({
+        name: node.text,
+        sourceType: match[1],
+        line: node.startPosition.row + 1,
+        text: node.text,
+        properties: {},
+      });
+    }
+  }
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i) as Parameters<typeof collectCLikeTaintSources>[0] | null;
+    if (child) collectCLikeTaintSources(child, sources);
+  }
+}
+
+/**
+ * Collect taint sinks under `node`, in the shape `TaintSink` expects.
+ *
+ * The match is on the last segment of the callee, so `db.query(...)` and `query(...)` are both recognised. The
+ * full text is kept in `text`, so a caller that wants to distinguish them can.
+ */
+export function collectCLikeTaintSinks(
+  node: {
+    type: string;
+    text: string;
+    startPosition: { row: number };
+    childCount: number;
+    child(i: number): unknown;
+  },
+  sinks: TaintSink[],
+): void {
+  if (node.type === 'call_expression' || node.type === 'new_expression') {
+    const callee = node.text.split('(')[0]?.trim() ?? '';
+    const match = sinkFor(callee);
+    if (match && callee.length > 0) {
+      sinks.push({
+        name: callee,
+        sinkType: match[1],
+        line: node.startPosition.row + 1,
+        text: node.text,
+        properties: {},
+      });
+    }
+  }
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i) as Parameters<typeof collectCLikeTaintSinks>[0] | null;
+    if (child) collectCLikeTaintSinks(child, sinks);
   }
 }
