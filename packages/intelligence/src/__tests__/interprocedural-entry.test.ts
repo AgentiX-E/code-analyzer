@@ -7,9 +7,11 @@
 
 import { describe, it, expect } from 'vitest';
 
+import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
 import {
   analyzeInterproceduralTaint,
   toCallGraphEdges,
+  resolveCallSites,
 } from '../security/interprocedural-entry.js';
 
 import type { CallSite, NodeLabel, ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
@@ -119,5 +121,43 @@ describe('analyzeInterproceduralTaint', () => {
     expect(edges).toEqual([
       { callerQn: 'file:src/a.ts:handler', calleeQn: 'helper', callLine: 12, argCount: 0 },
     ]);
+  });
+
+  it('rewrites a unique callee name to its qualified name, which is what makes resolution reachable', () => {
+    const cfgs = buildFunctionCfgs(
+      [parsed([symbol('handler', 10, 20), symbol('helper', 30, 40)])],
+      new Map([['file:src/a.ts:handler', [callSite(12, 'helper')]]]),
+    );
+
+    const resolved = resolveCallSites(cfgs);
+
+    expect(resolved.get('file:src/a.ts:handler')?.callSites?.[0]?.calleeName).toBe(
+      'file:src/a.ts:helper',
+    );
+  });
+
+  it('leaves an ambiguous callee exactly as written', () => {
+    // Two functions answer to `helper`, so neither is chosen. The call stays unresolved and visible; guessing would
+    // attach taint to a function the call may not reach.
+    const cfgs = buildFunctionCfgs(
+      [parsed([symbol('handler', 10, 20)])],
+      new Map([['file:src/a.ts:handler', [callSite(12, 'helper')]]]),
+    );
+    const withDuplicate = new Map(cfgs);
+    withDuplicate.set('file:src/b.ts:helper', {
+      ...cfgs.get('file:src/a.ts:handler')!,
+      functionName: 'helper',
+    });
+
+    // Both functions must answer to `helper` for it to be ambiguous. My first version renamed only the
+    // added one, so `helper` was unique and resolved correctly: the assertion was right, the fixture wrong.
+    withDuplicate.set('file:src/a.ts:handler', {
+      ...cfgs.get('file:src/a.ts:handler')!,
+      functionName: 'helper',
+    });
+
+    const resolved = resolveCallSites(withDuplicate);
+
+    expect(resolved.get('file:src/a.ts:handler')?.callSites?.[0]?.calleeName).toBe('helper');
   });
 });

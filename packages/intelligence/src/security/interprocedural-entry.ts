@@ -10,20 +10,21 @@
 // cannot build the CFGs. **`intelligence` depends on `analyzer`**, so it can consume what the phase stored and build
 // what the pipeline reads. That is the direction the dependency graph allows, and this module is the seam.
 
+import { buildNameIndex, resolveFunctionName } from './name-index.js';
 import { TaintPipeline } from './taint-pipeline.js';
 import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
 
 import type { CallGraphEdge, InterprocTaintResult } from './interproc-solver.js';
+import type { FunctionCfg } from '../cfg/types.js';
 import type { CallSite, ParsedFile } from '@code-analyzer/shared';
 
 /**
  * Edges for the solver, from the call sites on each function.
  *
- * `calleeQn` is set from the name written at the call site, which is not necessarily a qualified name. The solver
- * resolves a callee by looking its name up among the functions it was given, so an edge whose name is written
- * bare will not resolve until something maps names to qualified names. **That mapping does not exist yet**, and
- * inventing one here — by suffix matching, say — would silently attach taint to the wrong function. The edge is
- * built with the name it has and left unresolved, which is visible.
+ * `calleeQn` is the resolved qualified name where one exists, and the written name otherwise, because
+ * `resolveCallSites` has already rewritten the call sites this reads. A name that is written in full resolves to
+ * itself; a unique simple name resolves to its function; **an ambiguous or unknown one stays as written**, and the
+ * solver skips it. Guessing — by suffix matching, say — would attach taint to a function the call may not reach.
  *
  * Exported so the `?? []` below can be exercised. `buildFunctionCfgs` always sets `callSites`, so within this module
  * the guard is unreachable — but `FunctionCfg.callSites` is optional, the compiler requires the check, and a test
@@ -56,6 +57,32 @@ export function analyzeInterproceduralTaint(
   parsedFiles: readonly ParsedFile[],
   callSites: ReadonlyMap<string, CallSite[]>,
 ): InterprocTaintResult {
-  const cfgs = buildFunctionCfgs(parsedFiles, callSites);
+  const cfgs = resolveCallSites(buildFunctionCfgs(parsedFiles, callSites));
   return new TaintPipeline().analyze(cfgs, toCallGraphEdges(cfgs));
+}
+
+/**
+ * Rewrite each function's call sites so the callee is a qualified name where that can be known.
+ *
+ * This is what makes `resolved` reachable: `buildFunctionSummary` asks `knownFunctions.has(call.calleeName)`, and
+ * `knownFunctions` holds qualified names, so a callee written `helper` never matches until it is rewritten.
+ *
+ * An unresolvable callee is left exactly as written — **not dropped, and not matched by suffix**. A call the
+ * analysis cannot place is information; a call placed wrongly is a false finding.
+ */
+export function resolveCallSites(cfgs: ReadonlyMap<string, FunctionCfg>): Map<string, FunctionCfg> {
+  const index = buildNameIndex(cfgs);
+  const knownQualifiedNames = new Set(cfgs.keys());
+  const out = new Map<string, FunctionCfg>();
+
+  for (const [qualifiedName, cfg] of cfgs) {
+    const callSites = (cfg.callSites ?? []).map((call) => ({
+      ...call,
+      calleeName:
+        resolveFunctionName(call.calleeName, index, knownQualifiedNames) ?? call.calleeName,
+    }));
+    out.set(qualifiedName, { ...cfg, callSites });
+  }
+
+  return out;
 }
