@@ -1,11 +1,11 @@
 // `stmtFacts` from captures: one definition, one use, and the reasons for every choice made.
 //
-// The half that is here is a derivation over captures the pipeline already produces. The half that is not — source
-// and sink sites — needs tags the vocabulary does not have, and these tests do not pretend otherwise.
+// The half that is here is a derivation over captures the pipeline already produces. Source and sink sites come from
+// the provider extraction instead, joined to bindings by line — that is `buildOccurrences` below.
 
 import { describe, it, expect } from 'vitest';
 
-import { buildStatementFacts } from '../cfg/statement-facts.js';
+import { buildOccurrences, buildStatementFacts } from '../cfg/statement-facts.js';
 
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
@@ -83,21 +83,19 @@ describe('buildStatementFacts', () => {
   });
 
   it('skips a capture past STRIDE lines into its function rather than letting keys collide', () => {
-    // `blockIndex * STRIDE + stmtIndex` would wrap into the next block's range. A dropped fact is visible; a
-    // colliding one is not.
     const { bindings, stmtFacts } = buildStatementFacts(
       [capture('variable.def', 'far', 10 + 1024)],
       10,
       1100,
     );
 
-    // The binding is still created: the variable exists whether or not its statement can be keyed.
-    // Only the def site is dropped, and a binding with no def site produces no source.
+    // The binding is still created: the variable exists whether or not its statement can be keyed. Only the def site
+    // is dropped, and a binding with no def site produces no source.
     expect(bindings.map((b) => b.name)).toEqual(['far']);
     expect(stmtFacts.defs.size).toBe(0);
   });
 
-  it('leaves the source and sink maps empty, which is the half that is still missing', () => {
+  it('leaves the source and sink maps empty here, because they come from the extraction', () => {
     const { stmtFacts } = buildStatementFacts([capture('variable.def', 'req', 12)], 10, 20);
 
     expect(stmtFacts.sourceSites.size).toBe(0);
@@ -109,5 +107,86 @@ describe('buildStatementFacts', () => {
     const { bindings } = buildStatementFacts([capture('variable.def', undefined, 12)], 10, 20);
 
     expect(bindings).toHaveLength(0);
+  });
+});
+
+describe('buildOccurrences', () => {
+  const bindings = [
+    {
+      index: 0,
+      name: 'key',
+      kind: 'local' as const,
+      declLine: 12,
+      declColumn: 0,
+      synthetic: false,
+    },
+  ];
+
+  it('joins a source to the binding its line declares', () => {
+    // The extraction names the expression — `process.env.API_KEY` — and the binding is `key`. The line is what they
+    // share, which is what `const key = process.env.API_KEY` puts them on.
+    const { sourceSites } = buildOccurrences(
+      [{ sourceType: 'env_var', line: 12, text: 'process.env.API_KEY' }],
+      [],
+      bindings,
+      10,
+    );
+
+    expect(sourceSites.get(2)).toEqual({
+      bindingIdx: 0,
+      point: { blockIndex: 0, stmtIndex: 2, line: 12 },
+      category: 'env_var',
+      description: 'process.env.API_KEY',
+      line: 12,
+    });
+  });
+
+  it('skips a source whose line declares no binding rather than inventing an index', () => {
+    // A taint fact pointing at a binding that does not exist would send the analysis somewhere arbitrary.
+    const { sourceSites } = buildOccurrences(
+      [{ sourceType: 'env_var', line: 14, text: 'process.env.X' }],
+      [],
+      bindings,
+      10,
+    );
+
+    expect(sourceSites.size).toBe(0);
+  });
+
+  it('keeps a sink, which needs no binding', () => {
+    const { sinkSites } = buildOccurrences(
+      [],
+      [{ sinkType: 'eval', line: 15, text: 'eval(input)' }],
+      [],
+      10,
+    );
+
+    expect(sinkSites.get(5)).toEqual({
+      point: { blockIndex: 0, stmtIndex: 5, line: 15 },
+      kind: 'eval',
+      description: 'eval(input)',
+      line: 15,
+    });
+  });
+
+  it('skips a line outside the function, on both sides', () => {
+    const { sourceSites, sinkSites } = buildOccurrences(
+      [{ sourceType: 'env_var', line: 5, text: 'x' }],
+      [{ sinkType: 'eval', line: 5, text: 'y' }],
+      [
+        {
+          index: 0,
+          name: 'k',
+          kind: 'local' as const,
+          declLine: 5,
+          declColumn: 0,
+          synthetic: false,
+        },
+      ],
+      10,
+    );
+
+    expect(sourceSites.size).toBe(0);
+    expect(sinkSites.size).toBe(0);
   });
 });

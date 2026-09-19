@@ -16,7 +16,14 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import type { BindingEntry, DefinitionSite, StatementFacts, UseSite } from './types.js';
+import type {
+  BindingEntry,
+  DefinitionSite,
+  StatementFacts,
+  TaintSinkOccurrence,
+  TaintSourceOccurrence,
+  UseSite,
+} from './types.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 /** The key convention `computeReachingDefinitions` and `TaintPropagator` share. */
@@ -124,4 +131,88 @@ export function buildStatementFacts(
       sanitizerSites: new Map(),
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Sources and sinks, from the provider extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * The part of an extracted source this needs.
+ *
+ * Structural rather than imported: `TaintSource` lives in `@code-analyzer/analyzer`, which this package depends on —
+ * so the import would work — but taking only the fields used keeps the join testable without constructing one, and
+ * makes it obvious which fields it reads.
+ */
+export interface ExtractedSource {
+  readonly sourceType: string;
+  readonly line: number;
+  readonly text: string;
+}
+
+/** The same for a sink. */
+export interface ExtractedSink {
+  readonly sinkType: string;
+  readonly line: number;
+  readonly text: string;
+}
+
+/**
+ * Sources and sinks, keyed the way the propagator reads them.
+ *
+ * `TaintSourceOccurrence.bindingIdx` is required, and the extraction names the **source expression** rather than the
+ * binding that receives it — `process.env.API_KEY`, not `key`. The join is therefore by line: **a source at line N
+ * belongs to the binding declared at line N**, which is what `const key = process.env.API_KEY` produces.
+ *
+ * **A source whose line declares no binding is skipped, not given `-1`.** A taint fact pointing at a binding index
+ * that does not exist would send the analysis somewhere arbitrary; a dropped one is a gap the count shows. `sinks`
+ * needs no binding, so every extracted sink is kept.
+ */
+export function buildOccurrences(
+  sources: readonly ExtractedSource[],
+  sinks: readonly ExtractedSink[],
+  bindings: readonly BindingEntry[],
+  startLine: number,
+): {
+  sourceSites: Map<number, TaintSourceOccurrence>;
+  sinkSites: Map<number, TaintSinkOccurrence>;
+} {
+  const sourceSites = new Map<number, TaintSourceOccurrence>();
+  const sinkSites = new Map<number, TaintSinkOccurrence>();
+
+  const bindingAt = new Map<number, number>();
+  for (const binding of bindings) bindingAt.set(binding.declLine, binding.index);
+
+  const stmtIndexFor = (line: number): number | null => {
+    const stmtIndex = line - startLine;
+    return stmtIndex < 0 || stmtIndex >= STRIDE ? null : stmtIndex;
+  };
+
+  for (const source of sources) {
+    const stmtIndex = stmtIndexFor(source.line);
+    const bindingIdx = bindingAt.get(source.line);
+    if (stmtIndex === null || bindingIdx === undefined) continue;
+
+    sourceSites.set(stmtIndex, {
+      bindingIdx,
+      point: { blockIndex: 0, stmtIndex, line: source.line },
+      category: source.sourceType,
+      description: source.text,
+      line: source.line,
+    });
+  }
+
+  for (const sink of sinks) {
+    const stmtIndex = stmtIndexFor(sink.line);
+    if (stmtIndex === null) continue;
+
+    sinkSites.set(stmtIndex, {
+      point: { blockIndex: 0, stmtIndex, line: sink.line },
+      kind: sink.sinkType,
+      description: sink.text,
+      line: sink.line,
+    });
+  }
+
+  return { sourceSites, sinkSites };
 }
