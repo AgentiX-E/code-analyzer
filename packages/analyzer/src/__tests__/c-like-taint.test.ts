@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { JavaScriptProvider } from '../languages/javascript.js';
+import { TypeScriptProvider } from '../languages/typescript.js';
 
 describe('c-like taint extraction', () => {
   it('finds an environment read in JavaScript', () => {
@@ -45,5 +46,16 @@ describe('c-like taint extraction', () => {
 
     expect(provider.extractTaintSources(code)).toEqual([]);
     expect(provider.extractTaintSinks(code)).toEqual([]);
+  });
+
+  it('does the same for TypeScript, which extends the base rather than the JavaScript provider', () => {
+    const provider = new TypeScriptProvider();
+
+    expect(
+      provider.extractTaintSinks('const html = eval(input);\n').map((s) => s.sinkType),
+    ).toContain('eval');
+    expect(
+      provider.extractTaintSources('const k = process.env.KEY;\n').map((s) => s.sourceType),
+    ).toContain('env_var');
   });
 });

@@ -3,11 +3,14 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type {
+  TaintSink,
+  TaintSource,
   NodeTypeMapping,
   TreeSitterLanguage,
   TreeSitterSyntaxNode,
@@ -627,6 +630,17 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       names.push(match[2] ?? match[1]!);
     }
     return names;
+  }
+
+  // Taint sources and sinks. The base class parses and recurses but recognises nothing — it says so in a
+  // comment — and TypeScript extends that base directly rather than the JavaScript provider, so it needs its
+  // own override. Both delegate to the same collectors.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks);
   }
 }
 
