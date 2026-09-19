@@ -59,20 +59,21 @@ describe('taint reachability', () => {
     expect(tool).toMatch(/Full taint analysis requires data-flow graph construction/);
   });
 
-  it('has no production input at all, which is the finding behind the finding', () => {
+  it('has exactly one production producer, and it is named', () => {
     // `FunctionCfg` is the type the whole CFG-based subsystem reads: the propagator, the reaching-definitions
     // analysis, the PDG builder, the pipeline. **Every assignment of its `stmtFacts` field in this repository is
     // inside a `__tests__` directory.** The analyser's own CFG builder produces a different type,
     // `ControlFlowGraph`, and nothing bridges the two.
     //
-    // So the subsystem is not merely unconnected to the tool; it has never run on real input. This test pins that
-    // so it is not mistaken for a working analyser with a wiring problem, and so the day a producer appears it is
-    // the same day this assertion is replaced.
+    // This assertion has already done its job once. It was written on 2026-09-18 to say "no production file
+    // assigns `stmtFacts`", and it failed the next morning, when `cfg/from-parsed-files.ts` became the first
+    // producer. It now names that producer instead of forbidding all of them: **a second one would fail this**, and
+    // that is the point — the count is one, and adding another is a decision rather than an accident.
     const files = filesUnder('packages').filter((file) => !file.includes('__tests__'));
-    const assigning = files.filter((file) => /stmtFacts:\s*\{/.test(readFileSync(file, 'utf8')));
+    const producing = files.filter((file) => /stmtFacts:\s*\{/.test(readFileSync(file, 'utf8')));
 
     expect(files.length).toBeGreaterThan(100);
-    expect(assigning).toEqual([]);
+    expect(producing).toEqual(['packages/intelligence/src/cfg/from-parsed-files.ts']);
   });
 
   it('keeps the CFG-based subsystem itself intact and tested', () => {
