@@ -333,7 +333,10 @@ const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   // Java, Go and C# read the same things through calls rather than members.
   ['System.getenv', 'env_var'],
   ['getenv', 'env_var'],
-  ['GetEnvironmentVariable', 'env_var'],
+  // The dotted name, because the source matcher compares the **whole** callee: `System.getenv` works for that
+  // reason, and this entry was the bare `GetEnvironmentVariable`, which nothing ever equals.
+  ['Environment.GetEnvironmentVariable', 'env_var'],
+  ['Environment.GetCommandLineArgs', 'argv'],
   // Go capitalises too. The probe showed the callee reaching the list as `os.Getenv`, whose last segment is
   // `Getenv` — and the entry beside it was `os.getenv`.
   ['os.Getenv', 'env_var'],

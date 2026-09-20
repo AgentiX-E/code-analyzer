@@ -121,6 +121,17 @@ describe('c-like taint extraction', () => {
       ).toContain('env_var');
     });
 
+    it('C# finds an environment read, whose name is dotted', () => {
+      // The probe said the node type, the callee and the list entry were all correct, and it was still empty —
+      // because the list held the bare `GetEnvironmentVariable` and the source matcher compares the **whole**
+      // callee, which is `Environment.GetEnvironmentVariable`.
+      expect(
+        new CSharpProvider()
+          .extractTaintSources('var k = Environment.GetEnvironmentVariable("KEY");\n')
+          .map((x) => x.sourceType),
+      ).toContain('env_var');
+    });
+
     it('C# parses and returns arrays, which is all this establishes for it', () => {
       // **Only Java is known to work.** C#'s `Environment.GetEnvironmentVariable("KEY")` is a read whose name sits
       // behind a chain of calls rather than at a node the walk inspects, and no case here establishes that it is
