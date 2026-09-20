@@ -247,4 +247,111 @@ describe('per-language extraction accuracy', () => {
       expect(recall).toBeGreaterThanOrEqual(0.9);
     });
   }
+
+  /**
+   * Decoy-only samples: the vocabulary's terms appear, but never as an expression that reads or writes anything.
+   *
+   * A term inside a **string literal** is a `string` node and a term inside a **comment** is a `comment` node, so
+   * neither should reach the matcher — but a walk that matched on the *file's* text rather than on nodes would find
+   * both. This is the precision question the positive fixtures cannot ask: they check that the right things are found,
+   * and this checks that nothing else is.
+   */
+  const DECOYS: ReadonlyArray<{ language: string; provider: Probe; source: string }> = [
+    {
+      language: 'javascript',
+      provider: new JavaScriptProvider(),
+      source: [
+        'const query = "db.query(id)";',
+        '// eval(key) is dangerous',
+        'items.map((x) => x);',
+      ].join('\n'),
+    },
+    {
+      language: 'typescript',
+      provider: new TypeScriptProvider(),
+      source: [
+        'const sql: string = "query(sql)";',
+        '// process.env is read elsewhere',
+        'items.map((x) => x);',
+      ].join('\n'),
+    },
+    {
+      language: 'python',
+      provider: new PythonProvider(),
+      source: ['sql = "os.system(cmd)"', '# request.GET is the read', 'items = sorted(items)'].join(
+        '\n',
+      ),
+    },
+    {
+      language: 'ruby',
+      provider: new RubyProvider(),
+      source: ['sql = "system(cmd)"', '# params is the read', 'items.map { |x| x }'].join('\n'),
+    },
+    {
+      language: 'php',
+      provider: new PhpProvider(),
+      source: ['<?php', '$sql = "shell_exec(cmd)";', '// $_GET is the read', 'sort($items);'].join(
+        '\n',
+      ),
+    },
+    {
+      language: 'java',
+      provider: new JavaProvider(),
+      source: ['class A { void m() {', '  String sql = "exec(cmd)";', '  list.size();', '} }'].join(
+        '\n',
+      ),
+    },
+    {
+      language: 'go',
+      provider: new GoProvider(),
+      source: [
+        'package main',
+        'func m() {',
+        '  sql := "db.Query(x)"',
+        '  list := make([]int, 0)',
+        '}',
+      ].join('\n'),
+    },
+    {
+      language: 'csharp',
+      provider: new CSharpProvider(),
+      source: [
+        'class A { void M() {',
+        '  var sql = "Process.Start(x)";',
+        '  list.Clear();',
+        '} }',
+      ].join('\n'),
+    },
+    {
+      language: 'c',
+      provider: new CProvider(),
+      source: ['void m(void) {', '  char *sql = "system(cmd)";', '  printf("%s", sql);', '}'].join(
+        '\n',
+      ),
+    },
+    {
+      language: 'cpp',
+      provider: new CppProvider(),
+      source: ['void m() {', '  std::string sql = "popen(cmd)";', '  vec.push_back(0);', '}'].join(
+        '\n',
+      ),
+    },
+  ];
+
+  describe('per-language extraction precision on decoys', () => {
+    for (const decoy of DECOYS) {
+      it(`${decoy.language} finds nothing in a sample where the terms only appear as text`, () => {
+        const sources = decoy.provider.extractTaintSources(decoy.source);
+        const sinks = decoy.provider.extractTaintSinks(decoy.source);
+
+        // eslint-disable-next-line no-console
+        console.log(
+          `DECOYS ${decoy.language}: sources ${JSON.stringify(sources.map((x) => x.name))} sinks ${JSON.stringify(sinks.map((x) => x.name))}`,
+        );
+
+        expect(sources).toHaveLength(0);
+        expect(sinks).toHaveLength(0);
+      });
+    }
+  });
 });
