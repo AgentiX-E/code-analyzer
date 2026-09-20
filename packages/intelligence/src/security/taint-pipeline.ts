@@ -179,11 +179,17 @@ function buildFunctionSummary(
     // belong, and `resolved` is a question with an answer: a callee is resolved when the caller was given a
     // function of that name.
     for (const call of cfg.callSites ?? []) {
+      // **The position, not a constant.** `argBindings[i]` is the binding passed at argument `i`, which
+      // `attachArgumentBindings` filled from the captures; a binding is passed at exactly one position, so its index
+      // is that position. Hardcoding 0 was the mistake `CallSite.argBindings` documents: an empty array means the
+      // positions are not known, and treating that as "first argument" is the one thing it forbids.
+      const argIndex = call.argBindings.indexOf(finding.source.bindingIdx);
+      if (argIndex < 0) continue;
       sourceToCallArgs.push({
         source: finding.source,
         calleeName: call.calleeName,
         callLine: call.line,
-        argIndex: 0,
+        argIndex,
         resolved: knownFunctions.has(call.calleeName),
       });
     }

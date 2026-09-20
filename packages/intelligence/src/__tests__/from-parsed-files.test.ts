@@ -151,4 +151,42 @@ describe('buildFunctionCfgs', () => {
     expect(cfg?.stmtFacts.defs.size).toBe(0);
     expect(cfg?.callSites).toEqual([]);
   });
+
+  it("fills each call site's argument bindings from the captures, in document order", () => {
+    // **The measurement this exists for.** `CallSite.argBindings` documents that an empty array means the positions
+    // are not known and that callers must not read it as "all -1" — and nothing filled it, so every call site was
+    // empty and the summary builder hardcoded `argIndex: 0`. Before this, `argCount` was zero for every call in
+    // every repository.
+    const cfg = buildFunctionCfgs(
+      [
+        parsed([symbol('handler', 'Function', 10, 20)], 'src/a.ts', [
+          capture('variable.def', 'row', 12),
+          capture('variable.def', 'id', 13),
+          capture('variable.access', 'row', 15),
+          capture('variable.access', 'id', 15),
+        ]),
+      ],
+      // `buildCallSites` runs in the phase and hands its result in, so the call site is supplied here; what this
+      // asserts is that its `argBindings` is no longer empty.
+      new Map([
+        [
+          'file:src/a.ts:handler',
+          [
+            {
+              blockIndex: 0,
+              stmtIndex: 0,
+              line: 15,
+              calleeName: 'query',
+              argBindings: [],
+              resultBinding: -1,
+            },
+          ],
+        ],
+      ]),
+    ).get('file:src/a.ts:handler');
+
+    // `row` is binding 0 and `id` is binding 1, so the call passes `row` first and `id` second. The position of a
+    // binding in this array is the argument position it arrived at.
+    expect(cfg?.callSites?.[0]?.argBindings).toEqual([0, 1]);
+  });
 });

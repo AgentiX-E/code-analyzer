@@ -14,10 +14,12 @@
 // So the propagator will find no flows through these yet. What becomes true is that `buildFunctionSummary` receives
 // real functions with real call sites, and `resolved` becomes a question with an answer.
 
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
 import { buildOccurrences, buildStatementFacts } from './statement-facts.js';
 
 import type { ExtractedSink, ExtractedSource } from './statement-facts.js';
-import type { FunctionCfg } from './types.js';
+import type { BindingEntry, FunctionCfg } from './types.js';
 import type { CallSite, ParsedFile, SymbolDefinition, UnifiedCapture } from '@code-analyzer/shared';
 
 /** Symbol kinds that become a function CFG. Shared with the call-site builder by intent, not by import. */
@@ -91,7 +93,13 @@ export function buildFunctionCfgs(
         },
         entryIndex: 0,
         exitIndex: 0,
-        callSites: callSites.get(symbol.qualifiedName) ?? [],
+        callSites: attachArgumentBindings(
+          callSites.get(symbol.qualifiedName) ?? [],
+          captures,
+          bindings,
+          symbol.startLine,
+          endLine,
+        ),
       });
     }
   }
@@ -102,4 +110,47 @@ export function buildFunctionCfgs(
 /** Whether a symbol becomes a CFG, so a caller can filter without duplicating the set. */
 export function isCallableSymbol(symbol: SymbolDefinition): boolean {
   return CALLABLE_KINDS.has(symbol.kind);
+}
+
+/**
+ * Fill in each call site's `argBindings` from the captures.
+ *
+ * `CallSite.argBindings` has said since it was written that an empty array means the positions are **not known**,
+ * and that callers must not treat that as "all arguments are -1". Nothing filled it, so every call site was empty
+ * and the summary builder hardcoded `argIndex: 0` — the one thing the contract forbids.
+ *
+ * The arguments of a call are the captures on the call's line that name a binding: the JavaScript provider emits a
+ * `VARIABLE_ACCESS` per argument, and `buildStatementFacts` has already turned those names into binding indices. **A
+ * binding is only passed at one position, so the index of the first match is that position.**
+ *
+ * A call whose arguments are not bindings — a literal, an expression — gets -1 at that position, which is what the
+ * field documents. `argBindings.length` is therefore the arity, which is what `argCount` reads.
+ */
+function attachArgumentBindings(
+  sites: readonly CallSite[],
+  captures: readonly UnifiedCapture[],
+  bindings: readonly BindingEntry[],
+  startLine: number,
+  endLine: number,
+): CallSite[] {
+  if (sites.length === 0) return [];
+
+  const bindingByName = new Map<string, number>();
+  for (const binding of bindings) bindingByName.set(binding.name, binding.index);
+
+  // Argument reads, per line, in document order.
+  const accessesByLine = new Map<number, string[]>();
+  for (const capture of captures) {
+    if (capture.tag !== CAPTURE_TAGS.VARIABLE_ACCESS || !capture.name) continue;
+    if (capture.startLine < startLine || capture.startLine > endLine) continue;
+    const names = accessesByLine.get(capture.startLine) ?? [];
+    names.push(capture.name);
+    accessesByLine.set(capture.startLine, names);
+  }
+
+  return sites.map((site) => {
+    const names = accessesByLine.get(site.line);
+    if (!names || names.length === 0) return site;
+    return { ...site, argBindings: names.map((name) => bindingByName.get(name) ?? -1) };
+  });
 }
