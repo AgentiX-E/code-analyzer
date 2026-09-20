@@ -1,12 +1,14 @@
-// Per-language extraction accuracy, which is the artifact the scorecard's `language-quality` target asks for.
+// Per-language extraction accuracy — recall AND precision, which is the artifact `language-quality` asks for.
 //
-// That target reads: *language support measured by accuracy rather than count*, and its blocker is *no per-language
-// accuracy artifacts; the whitepaper's M1 criterion is >=90% per language*. Ten languages were enrolled with a test
-// each asserting that a named string is found — **which is a count**. This measures recall against a fixture whose
-// sources and sinks are known, per language, so the number stops being a count.
+// The scorecard's target is *language support measured by accuracy rather than count*, blocked by *no per-language
+// accuracy artifacts; the whitepaper's M1 criterion is >=90% per language*. The first version measured recall only
+// and reported 1.00 for all ten languages **while every one of them over-reported**. Recall alone cannot see that.
 //
-// Recall, not precision, and deliberately: a language that misses a source is a language whose findings are
-// incomplete, while an extraction that over-reports is caught by the vocabulary tests. M1 is a recall criterion.
+// Matching is by the name's **last segment**: the extraction reports the expression as written (`req.body.id`,
+// `db.query`) because that is what it can prove, and the vocabulary matches on the term inside it. Scoring by
+// equality marked every one of those a miss. Counting is over **sets**, not occurrences: the first run printed
+// `recall 1.50`, which is impossible, because one language captured the same expression twice. Duplicates are
+// reported as their own fact rather than folded in.
 
 import { describe, it, expect } from 'vitest';
 
@@ -22,17 +24,52 @@ import { RubyProvider } from '../languages/ruby.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 
 interface Probe {
-  extractTaintSources(s: string): unknown[];
-  extractTaintSinks(s: string): unknown[];
+  extractTaintSources(s: string): Array<{ name: string }>;
+  extractTaintSinks(s: string): Array<{ name: string }>;
 }
 
 interface Fixture {
   readonly language: string;
   readonly provider: Probe;
-  /** One line per source, and one per sink, with the comment saying which is which. */
+  /** Real code, with ordinary variables and unrelated calls as decoys. */
   readonly source: string;
-  readonly sources: number;
-  readonly sinks: number;
+  /** The vocabulary terms genuinely present, by the name the extraction would report. */
+  readonly sources: readonly string[];
+  readonly sinks: readonly string[];
+}
+
+interface Scored {
+  recall: number;
+  precision: number;
+  extra: readonly string[];
+  duplicated: readonly string[];
+}
+
+/** The last segment of a name, splitting on `.` and on `->` as the sink matcher does. */
+function lastSegment(name: string): string {
+  return (
+    name
+      .split(/[.\-]>?|(?<![.\-])[.]/)
+      .filter(Boolean)
+      .pop() ?? name
+  );
+}
+
+function score(found: readonly string[], expected: readonly string[]): Scored {
+  const unique = [...new Set(found)];
+  const duplicated = unique.filter((name) => found.filter((other) => other === name).length > 1);
+  const isHit = (name: string): boolean =>
+    expected.some(
+      (term) =>
+        name === term || lastSegment(name) === term || lastSegment(name) === lastSegment(term),
+    );
+  const hit = unique.filter(isHit);
+  return {
+    recall: expected.length === 0 ? 1 : Math.min(1, hit.length / expected.length),
+    precision: unique.length === 0 ? 1 : hit.length / unique.length,
+    extra: unique.filter((name) => !isHit(name)),
+    duplicated,
+  };
 }
 
 const FIXTURES: readonly Fixture[] = [
@@ -40,68 +77,86 @@ const FIXTURES: readonly Fixture[] = [
     language: 'javascript',
     provider: new JavaScriptProvider(),
     source: [
+      'const total = 0;',
+      'const items = [1, 2];',
       'const id = req.body.id;',
       'const key = process.env.KEY;',
+      'items.reduce((a, b) => a + b, 0);',
       'db.query(id);',
       'eval(key);',
     ].join('\n'),
-    sources: 2,
-    sinks: 2,
+    sources: ['req.body.id', 'process.env.KEY'],
+    sinks: ['db.query', 'eval'],
   },
   {
     language: 'typescript',
     provider: new TypeScriptProvider(),
     source: [
+      'const total: number = 0;',
       'const id: string = req.body.id;',
       'const key: string = process.env.KEY;',
       'db.query(id);',
       'eval(key);',
     ].join('\n'),
-    sources: 2,
-    sinks: 2,
+    sources: ['req.body.id', 'process.env.KEY'],
+    sinks: ['db.query', 'eval'],
   },
   {
     language: 'python',
     provider: new PythonProvider(),
     source: [
+      'total = 0',
       "id = request.GET.get('id')",
       'key = os.environ["KEY"]',
+      'items = sorted(items)',
       'os.system(cmd)',
       'db.execute(sql)',
     ].join('\n'),
-    sources: 2,
-    sinks: 2,
+    sources: ['request.GET', 'os.environ'],
+    sinks: ['os.system', 'db.execute'],
   },
   {
     language: 'ruby',
     provider: new RubyProvider(),
-    source: ['id = params[:id]', 'key = ENV["KEY"]', 'system(cmd)', 'File.read(path)'].join('\n'),
-    sources: 2,
-    sinks: 2,
+    source: [
+      'total = 0',
+      'id = params[:id]',
+      'key = ENV["KEY"]',
+      'items.map { |x| x }',
+      'system(cmd)',
+      'File.read(path)',
+    ].join('\n'),
+    sources: ['params', 'ENV'],
+    sinks: ['system', 'File.read'],
   },
   {
     language: 'php',
     provider: new PhpProvider(),
     source: [
-      '<?php $id = $_GET["id"];',
+      '<?php',
+      '$total = 0;',
+      '$id = $_GET["id"];',
       '$key = getenv("KEY");',
+      'sort($items);',
       'shell_exec($cmd);',
       '$db->query($sql);',
     ].join('\n'),
-    sources: 2,
-    sinks: 2,
+    sources: ['$_GET', 'getenv'],
+    sinks: ['shell_exec', '$db->query'],
   },
   {
     language: 'java',
     provider: new JavaProvider(),
     source: [
       'class A { void m() {',
+      '  int total = 0;',
       '  var k = System.getenv("KEY");',
+      '  list.size();',
       '  Runtime.getRuntime().exec(cmd);',
       '} }',
     ].join('\n'),
-    sources: 1,
-    sinks: 1,
+    sources: ['System.getenv'],
+    sinks: ['Runtime.getRuntime().exec'],
   },
   {
     language: 'go',
@@ -109,65 +164,86 @@ const FIXTURES: readonly Fixture[] = [
     source: [
       'package main',
       'func m() {',
+      '  total := 0',
       '  key := os.Getenv("KEY")',
+      '  list := make([]int, 0)',
       '  db.Query(sql)',
       '}',
     ].join('\n'),
-    sources: 1,
-    sinks: 1,
+    sources: ['os.Getenv'],
+    sinks: ['db.Query'],
   },
   {
     language: 'csharp',
     provider: new CSharpProvider(),
     source: [
       'class A { void M() {',
+      '  int total = 0;',
       '  var k = Environment.GetEnvironmentVariable("KEY");',
+      '  list.Clear();',
       '  Process.Start(cmd);',
       '} }',
     ].join('\n'),
-    sources: 1,
-    sinks: 1,
+    sources: ['Environment.GetEnvironmentVariable'],
+    sinks: ['Process.Start'],
   },
   {
     language: 'c',
     provider: new CProvider(),
     source: [
       'void m(void) {',
+      '  int total = 0;',
       '  char *k = getenv("KEY");',
+      '  printf("%d", total);',
       '  system(cmd);',
       '  strcpy(buf, src);',
       '}',
     ].join('\n'),
-    sources: 1,
-    sinks: 2,
+    sources: ['getenv'],
+    sinks: ['system', 'strcpy'],
   },
   {
     language: 'cpp',
     provider: new CppProvider(),
-    source: ['void m() {', '  std::string k = getenv("KEY");', '  popen(cmd, "r");', '}'].join(
-      '\n',
-    ),
-    sources: 1,
-    sinks: 1,
+    source: [
+      'void m() {',
+      '  int total = 0;',
+      '  std::string k = getenv("KEY");',
+      '  vec.push_back(total);',
+      '  popen(cmd, "r");',
+      '}',
+    ].join('\n'),
+    sources: ['getenv'],
+    sinks: ['popen'],
   },
 ];
 
 describe('per-language extraction accuracy', () => {
   for (const fixture of FIXTURES) {
-    it(`${fixture.language} recalls every source and sink in its fixture`, () => {
-      const sources = fixture.provider.extractTaintSources(fixture.source).length;
-      const sinks = fixture.provider.extractTaintSinks(fixture.source).length;
-      const expected = fixture.sources + fixture.sinks;
-      const found = Math.min(sources, fixture.sources) + Math.min(sinks, fixture.sinks);
-      const recall = found / expected;
+    it(`${fixture.language} measures recall and precision against its fixture`, () => {
+      const raisedSources = fixture.provider.extractTaintSources(fixture.source).map((x) => x.name);
+      const raisedSinks = fixture.provider.extractTaintSinks(fixture.source).map((x) => x.name);
+      const s = score(raisedSources, fixture.sources);
+      const k = score(raisedSinks, fixture.sinks);
 
-      // The artifact, printed so a reader can see the number rather than infer it from a green tick.
+      const expected = fixture.sources.length + fixture.sinks.length;
+      const unique = new Set(raisedSources).size + new Set(raisedSinks).size;
+      const hits = s.recall * fixture.sources.length + k.recall * fixture.sinks.length;
+      const recall = Math.min(1, hits / expected);
+      const precision = unique === 0 ? 1 : hits / unique;
+      const extras = [...s.extra, ...k.extra];
+      const duplicated = [...s.duplicated, ...k.duplicated];
+
+      // The artifact, printed so a reader sees the numbers rather than a green tick.
       // eslint-disable-next-line no-console
       console.log(
-        `ACCURACY ${fixture.language}: sources ${sources}/${fixture.sources} sinks ${sinks}/${fixture.sinks} recall ${recall.toFixed(2)}`,
+        `ACCURACY ${fixture.language}: recall ${recall.toFixed(2)} precision ${precision.toFixed(2)}` +
+          ` (expected ${expected}, raised ${raisedSources.length + raisedSinks.length}, unique ${unique}` +
+          `, extra ${JSON.stringify(extras)}, duplicated ${JSON.stringify(duplicated)})`,
       );
 
-      // M1's criterion, per language.
+      // M1 is a recall floor. Precision is reported, not asserted: a threshold set before the numbers exist would be
+      // a number invented to pass.
       expect(recall).toBeGreaterThanOrEqual(0.9);
     });
   }
