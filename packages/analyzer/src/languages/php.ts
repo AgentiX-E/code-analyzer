@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -10,11 +11,21 @@ import type {
   NodeTypeMapping,
   TreeSitterLanguage,
   TreeSitterSyntaxNode,
+  TaintSink,
+  TaintSource,
 } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const PHP_EXTENSIONS = ['.php', '.phtml'];
 const PHP_GLOBS = ['**/*.php', '**/*.phtml'];
+
+/** PHP's names for the three node kinds the collectors need. A superglobal reaches the walk as a `variable_name`,
+ * and a method call as a `member_call_expression` whose callee is written `$db->query`. */
+const PHP_TAINT_NODES = {
+  member: ['member_access_expression', 'variable_name', 'subscript_expression'],
+  call: ['function_call_expression', 'member_call_expression', 'object_creation_expression'],
+  argumentContainer: ['arguments'],
+};
 
 export class PhpProvider extends TreeSitterBaseProvider {
   readonly language = 'php';
@@ -493,5 +504,14 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
+  }
+
+  // Taint sources and sinks. PHP is where a great deal of untrusted input arrives, and it had no walk at all.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources, PHP_TAINT_NODES);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks, PHP_TAINT_NODES);
   }
 }

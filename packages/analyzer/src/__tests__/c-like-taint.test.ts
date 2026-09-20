@@ -11,6 +11,7 @@ import { GoProvider } from '../languages/go.js';
 import { JavaProvider } from '../languages/java.js';
 import { JavaScriptProvider } from '../languages/javascript.js';
 import { PythonProvider } from '../languages/python.js';
+import { PhpProvider } from '../languages/php.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 
 describe('c-like taint extraction', () => {
@@ -151,6 +152,28 @@ describe('c-like taint extraction', () => {
 
       expect(Array.isArray(provider.extractTaintSources('id := 1\n'))).toBe(true);
       expect(Array.isArray(provider.extractTaintSinks('db.Query(sql)\n'))).toBe(true);
+    });
+  });
+
+  describe('php', () => {
+    it('finds a superglobal read, which is a variable name rather than a member', () => {
+      expect(
+        new PhpProvider()
+          .extractTaintSources('<?php $id = $_GET["id"];\n')
+          .map((x) => x.sourceType),
+      ).toContain('http_request');
+    });
+
+    it('finds a command sink and a method-call sink', () => {
+      const provider = new PhpProvider();
+
+      expect(
+        provider.extractTaintSinks('<?php shell_exec($cmd);\n').map((x) => x.sinkType),
+      ).toContain('os_command');
+      // The callee is `$db->query`, which the sink match has to segment on `->` as well as `.`.
+      expect(
+        provider.extractTaintSinks('<?php $db->query($sql);\n').map((x) => x.sinkType),
+      ).toContain('sql_exec');
     });
   });
 });

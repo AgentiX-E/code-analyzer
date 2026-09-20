@@ -344,6 +344,13 @@ const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['flag.Args', 'argv'],
   ['URL.Query', 'http_request'],
   ['FormValue', 'http_request'],
+  // PHP reads its input from superglobals, which reach the walk as `variable_name` nodes rather than members.
+  ['$_GET', 'http_request'],
+  ['$_POST', 'http_request'],
+  ['$_REQUEST', 'http_request'],
+  ['$_COOKIE', 'cookie'],
+  ['$_SERVER', 'server'],
+  ['getenv', 'env_var'],
   ['Query', 'http_request'],
 ];
 
@@ -372,6 +379,15 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['Query', 'sql_exec'],
   ['Execute', 'sql_exec'],
   ['Exec', 'sql_exec'],
+  // PHP's dangerous calls, of which only `exec` was already listed.
+  ['shell_exec', 'os_command'],
+  ['system', 'os_command'],
+  ['passthru', 'os_command'],
+  ['popen', 'os_command'],
+  ['proc_open', 'os_command'],
+  ['unserialize', 'deserialization'],
+  ['include', 'file_include'],
+  ['require', 'file_include'],
 ];
 
 function sourceFor(text: string): readonly [string, string] | undefined {
@@ -386,7 +402,12 @@ function sourceFor(text: string): readonly [string, string] | undefined {
  * what the Python case found.
  */
 function sinkFor(text: string): readonly [string, string] | undefined {
-  const simple = text.split('.').pop() ?? text;
+  // Splits on `->` as well as `.`: PHP writes `$db->query($sql)`, whose last dot-segment is the whole string.
+  const simple =
+    text
+      .split(/[.\-]>?|(?<![.\-])[.]/)
+      .filter(Boolean)
+      .pop() ?? text;
   return C_LIKE_SINKS.find(([name]) => simple === name || text === name);
 }
 
