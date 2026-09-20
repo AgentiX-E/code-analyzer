@@ -429,7 +429,7 @@ export function collectCLikeTaintSources(
   // match, which is why the Java, Go and C# overrides found nothing until this existed. The callee is taken the way
   // the sink walk takes it, so `os.environ["KEY"]` and `os.getenv("KEY")` are both recognised.
   if (types.call.includes(node.type)) {
-    const callee = node.text.split('(')[0]?.trim() ?? '';
+    const callee = node.text.slice(0, node.text.lastIndexOf('(')).trim();
     // No length guard: `sourceFor('')` matches nothing, so an empty callee falls through on its own — and a guard
     // here would be a branch no call can take, which is the shape the coverage gate reports.
     const match = sourceFor(callee);
@@ -468,7 +468,10 @@ export function collectCLikeTaintSinks(
   types: TaintNodeTypes = C_LIKE_TAINT_NODES,
 ): void {
   if (types.call.includes(node.type)) {
-    const callee = node.text.split('(')[0]?.trim() ?? '';
+    // The callee is everything before the **last** top-level `(`. Taking the first one truncates a chained call at
+    // its inner call: `Runtime.getRuntime().exec(cmd)` split at the first parenthesis is `Runtime.getRuntime`, whose
+    // last segment is `getRuntime` — which matches nothing. Java's sink case found this.
+    const callee = node.text.slice(0, node.text.lastIndexOf('(')).trim();
     const match = sinkFor(callee);
     if (match && callee.length > 0) {
       sinks.push({

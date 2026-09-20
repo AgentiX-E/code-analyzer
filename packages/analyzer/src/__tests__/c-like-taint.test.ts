@@ -96,6 +96,16 @@ describe('c-like taint extraction', () => {
       ).toContain('env_var');
     });
 
+    it('Java finds a command sink behind a chained call', () => {
+      // The sink case that proved the callee extraction was wrong: splitting at the **first** parenthesis gives
+      // `Runtime.getRuntime`, whose last segment is `getRuntime`, which matches nothing.
+      expect(
+        new JavaProvider()
+          .extractTaintSinks('Runtime.getRuntime().exec(cmd);\n')
+          .map((x) => x.sinkType),
+      ).toContain('os_command');
+    });
+
     it('C# parses and returns arrays, which is all this establishes for it', () => {
       // **Only Java is known to work.** C#'s `Environment.GetEnvironmentVariable("KEY")` is a read whose name sits
       // behind a chain of calls rather than at a node the walk inspects, and no case here establishes that it is
