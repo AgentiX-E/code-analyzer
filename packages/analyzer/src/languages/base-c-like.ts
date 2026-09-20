@@ -457,7 +457,39 @@ export const C_LIKE_TAINT_NODES: TaintNodeTypes = {
   argumentContainer: ['arguments'],
 };
 
+/**
+ * Collect taint sources under `node`, one entry per expression.
+ *
+ * A single expression is often **both** a member and a call — `os.Getenv("K")` is a call whose callee the list holds
+ * — and a nested member matches twice for the same term, `req.body.id` and the `req.body` inside it. Both arrive, so
+ * the walk reports the same source twice. The wrapper drops the repeat and keeps whichever came first, which is the
+ * outermost expression because the walk is pre-order.
+ */
 export function collectCLikeTaintSources(
+  node: {
+    type: string;
+    text: string;
+    startPosition: { row: number };
+    childCount: number;
+    child(i: number): unknown;
+  },
+  sources: TaintSource[],
+  types: TaintNodeTypes = C_LIKE_TAINT_NODES,
+): void {
+  const before = sources.length;
+  walkTaintSources(node, sources, types);
+
+  const seen = new Set<string>();
+  const added = sources.splice(before);
+  for (const entry of added) {
+    const key = `${entry.line}|${entry.sourceType}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sources.push(entry);
+  }
+}
+
+function walkTaintSources(
   node: {
     type: string;
     text: string;
@@ -503,7 +535,7 @@ export function collectCLikeTaintSources(
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof collectCLikeTaintSources>[0] | null;
-    if (child) collectCLikeTaintSources(child, sources, types);
+    if (child) walkTaintSources(child, sources, types);
   }
 }
 

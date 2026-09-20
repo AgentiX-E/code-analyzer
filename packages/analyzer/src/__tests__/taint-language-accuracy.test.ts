@@ -112,7 +112,7 @@ const FIXTURES: readonly Fixture[] = [
       'os.system(cmd)',
       'db.execute(sql)',
     ].join('\n'),
-    sources: ['request.GET', 'os.environ'],
+    sources: ['request.GET.get', 'os.environ'],
     sinks: ['os.system', 'db.execute'],
   },
   {
