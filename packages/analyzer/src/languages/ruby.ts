@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -10,11 +11,26 @@ import type {
   NodeTypeMapping,
   TreeSitterLanguage,
   TreeSitterSyntaxNode,
+  TaintSink,
+  TaintSource,
 } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const RUBY_EXTENSIONS = ['.rb'];
 const RUBY_GLOBS = ['**/*.rb'];
+
+/**
+ * Ruby's names for the three node kinds the collectors need. Ruby has one call node, so `params[:id]` and
+ * `File.read(path)` are both `call`; what distinguishes them is the text the collectors compare.
+ */
+const RUBY_TAINT_NODES = {
+  // `identifier`, because `params[:id]` is an `element_reference` whose **text is the whole expression** — the name
+  // `params` lives on the `identifier` inside it, and the source matcher compares the text. Ordinary identifiers are
+  // filtered out by the vocabulary, so listing them costs nothing.
+  member: ['call', 'element_reference', 'constant', 'identifier'],
+  call: ['call'],
+  argumentContainer: ['argument_list'],
+};
 
 export class RubyProvider extends TreeSitterBaseProvider {
   readonly language = 'ruby';
@@ -371,5 +387,14 @@ export class RubyProvider extends TreeSitterBaseProvider {
 
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
+  }
+
+  // Taint sources and sinks. Ruby reads its input from `params`, and Rails is where a great deal of it arrives.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources, RUBY_TAINT_NODES);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks, RUBY_TAINT_NODES);
   }
 }

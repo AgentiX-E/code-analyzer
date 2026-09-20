@@ -12,6 +12,7 @@ import { JavaProvider } from '../languages/java.js';
 import { JavaScriptProvider } from '../languages/javascript.js';
 import { PythonProvider } from '../languages/python.js';
 import { PhpProvider } from '../languages/php.js';
+import { RubyProvider } from '../languages/ruby.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 
 describe('c-like taint extraction', () => {
@@ -174,6 +175,31 @@ describe('c-like taint extraction', () => {
       expect(
         provider.extractTaintSinks('<?php $db->query($sql);\n').map((x) => x.sinkType),
       ).toContain('sql_exec');
+    });
+  });
+
+  describe('ruby', () => {
+    it('finds a params read, which Rails uses for every request parameter', () => {
+      expect(
+        new RubyProvider().extractTaintSources('id = params[:id]\n').map((x) => x.sourceType),
+      ).toContain('http_request');
+    });
+
+    it('finds an ENV read', () => {
+      expect(
+        new RubyProvider().extractTaintSources('key = ENV["KEY"]\n').map((x) => x.sourceType),
+      ).toContain('env_var');
+    });
+
+    it('finds a command sink, a bare one and one with a receiver', () => {
+      const provider = new RubyProvider();
+
+      expect(provider.extractTaintSinks('system(cmd)\n').map((x) => x.sinkType)).toContain(
+        'os_command',
+      );
+      expect(provider.extractTaintSinks('File.read(path)\n').map((x) => x.sinkType)).toContain(
+        'file_read',
+      );
     });
   });
 });

@@ -350,6 +350,11 @@ const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['$_REQUEST', 'http_request'],
   ['$_COOKIE', 'cookie'],
   ['$_SERVER', 'server'],
+  // Ruby. `params` is Rails' request object and reaches the walk as a call; `ENV` is a constant in a bracket.
+  ['params', 'http_request'],
+  ['ENV', 'env_var'],
+  ['ARGV', 'argv'],
+  ['cookies', 'cookie'],
   ['getenv', 'env_var'],
   ['Query', 'http_request'],
 ];
@@ -388,6 +393,13 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['unserialize', 'deserialization'],
   ['include', 'file_include'],
   ['require', 'file_include'],
+  // Ruby's process-spawning and file calls, most of which are written with a receiver.
+  ['Kernel.system', 'os_command'],
+  ['Open3', 'os_command'],
+  ['IO.popen', 'os_command'],
+  ['File.read', 'file_read'],
+  ['File.write', 'file_write'],
+  ['File.open', 'file_write'],
 ];
 
 function sourceFor(text: string): readonly [string, string] | undefined {
