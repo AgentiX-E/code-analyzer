@@ -80,6 +80,7 @@
     "packages/analyzer/src/__tests__/structure.test.ts": 1,
     "packages/analyzer/src/__tests__/svelte-provider.test.ts": 1,
     "packages/analyzer/src/__tests__/swift-provider.test.ts": 1,
+    "packages/analyzer/src/__tests__/taint-language-accuracy.test.ts": 1,
     "packages/analyzer/src/__tests__/tests-phase.test.ts": 1,
     "packages/analyzer/src/__tests__/toml-provider.test.ts": 1,
     "packages/analyzer/src/__tests__/tools.test.ts": 1,
