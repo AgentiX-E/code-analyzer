@@ -356,6 +356,12 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['subprocess.call', 'os_command'],
   ['exec', 'os_command'],
   ['Process.Start', 'os_command'],
+  // Go's database API capitalises: `db.Query(sql)` and `tx.Exec(sql)` are the calls a Go program makes, and the
+  // sink list held only the lowercase JavaScript spellings. The node name was never the problem — the probe showed
+  // `call_expression` all along — the name this list compares against was.
+  ['Query', 'sql_exec'],
+  ['Execute', 'sql_exec'],
+  ['Exec', 'sql_exec'],
 ];
 
 function sourceFor(text: string): readonly [string, string] | undefined {

@@ -106,6 +106,14 @@ describe('c-like taint extraction', () => {
       ).toContain('os_command');
     });
 
+    it('Go finds a query sink, whose callee is capitalised', () => {
+      // The probe showed Go's `db.Query(sql)` **is** a `call_expression`, so the node name was never wrong — the
+      // sink list held only the lowercase JavaScript spelling and Go capitalises. This is the case that says so.
+      expect(
+        new GoProvider().extractTaintSinks('db.Query(sql)\n').map((x) => x.sinkType),
+      ).toContain('sql_exec');
+    });
+
     it('C# parses and returns arrays, which is all this establishes for it', () => {
       // **Only Java is known to work.** C#'s `Environment.GetEnvironmentVariable("KEY")` is a read whose name sits
       // behind a chain of calls rather than at a node the walk inspects, and no case here establishes that it is
