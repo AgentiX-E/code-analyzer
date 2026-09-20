@@ -7,6 +7,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { CSharpProvider } from '../languages/csharp.js';
+import { CProvider } from '../languages/c.js';
+import { CppProvider } from '../languages/cpp.js';
 import { GoProvider } from '../languages/go.js';
 import { JavaProvider } from '../languages/java.js';
 import { JavaScriptProvider } from '../languages/javascript.js';
@@ -199,6 +201,33 @@ describe('c-like taint extraction', () => {
       );
       expect(provider.extractTaintSinks('File.read(path)\n').map((x) => x.sinkType)).toContain(
         'file_read',
+      );
+    });
+  });
+
+  describe('c and c++', () => {
+    it('C finds an environment read, a command sink and a buffer write', () => {
+      const provider = new CProvider();
+
+      expect(
+        provider.extractTaintSources('char *k = getenv("KEY");\n').map((x) => x.sourceType),
+      ).toContain('env_var');
+      expect(provider.extractTaintSinks('system(cmd);\n').map((x) => x.sinkType)).toContain(
+        'os_command',
+      );
+      expect(provider.extractTaintSinks('strcpy(buf, src);\n').map((x) => x.sinkType)).toContain(
+        'buffer_overflow',
+      );
+    });
+
+    it('C++ finds the same three, whose argument list is named the same way', () => {
+      const provider = new CppProvider();
+
+      expect(
+        provider.extractTaintSources('std::string k = getenv("KEY");\n').map((x) => x.sourceType),
+      ).toContain('env_var');
+      expect(provider.extractTaintSinks('popen(cmd, "r");\n').map((x) => x.sinkType)).toContain(
+        'os_command',
       );
     });
   });

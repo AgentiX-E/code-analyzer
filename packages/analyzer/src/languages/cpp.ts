@@ -2,15 +2,31 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
-import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+  TaintSink,
+  TaintSource,
+} from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const CPP_EXTENSIONS = ['.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx'];
 const CPP_GLOBS = ['**/*.cpp', '**/*.cc', '**/*.cxx', '**/*.hpp', '**/*.hh', '**/*.hxx'];
+
+/**
+ * cpp's names for the three node kinds the collectors need. C writes `getenv("K")` and `system(cmd)`, so the
+ * interesting nodes are calls; its argument list is `argument_list` rather than the C family default `arguments`.
+ */
+const CPP_TAINT_NODES = {
+  member: ['field_expression', 'subscript_expression', 'identifier'],
+  call: ['call_expression'],
+  argumentContainer: ['argument_list'],
+};
 
 export class CppProvider extends TreeSitterBaseProvider {
   readonly language = 'cpp';
@@ -381,5 +397,14 @@ export class CppProvider extends TreeSitterBaseProvider {
 
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
+  }
+
+  // Taint sources and sinks. C and C++ are where a buffer overflow starts, and neither had a walk.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources, CPP_TAINT_NODES);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks, CPP_TAINT_NODES);
   }
 }

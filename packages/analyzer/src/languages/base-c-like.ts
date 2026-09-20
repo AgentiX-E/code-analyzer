@@ -400,6 +400,14 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['File.read', 'file_read'],
   ['File.write', 'file_write'],
   ['File.open', 'file_write'],
+  // C and C++ write their dangerous calls as bare functions, most of which are already listed; these are the
+  // neighbouring ones a buffer-overflow finding starts from.
+  ['popen', 'os_command'],
+  ['strcpy', 'buffer_overflow'],
+  ['strcat', 'buffer_overflow'],
+  ['sprintf', 'buffer_overflow'],
+  ['gets', 'buffer_overflow'],
+  ['scanf', 'buffer_overflow'],
 ];
 
 function sourceFor(text: string): readonly [string, string] | undefined {
