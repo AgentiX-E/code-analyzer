@@ -114,6 +114,13 @@ describe('c-like taint extraction', () => {
       ).toContain('sql_exec');
     });
 
+    it('Go finds an environment read, whose callee is capitalised', () => {
+      // The same shape as Go's sink: the callee reaches the list as `os.Getenv`, and the entry was `os.getenv`.
+      expect(
+        new GoProvider().extractTaintSources('key := os.Getenv("KEY")\n').map((x) => x.sourceType),
+      ).toContain('env_var');
+    });
+
     it('C# parses and returns arrays, which is all this establishes for it', () => {
       // **Only Java is known to work.** C#'s `Environment.GetEnvironmentVariable("KEY")` is a read whose name sits
       // behind a chain of calls rather than at a node the walk inspects, and no case here establishes that it is

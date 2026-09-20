@@ -334,6 +334,13 @@ const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['System.getenv', 'env_var'],
   ['getenv', 'env_var'],
   ['GetEnvironmentVariable', 'env_var'],
+  // Go capitalises too. The probe showed the callee reaching the list as `os.Getenv`, whose last segment is
+  // `Getenv` — and the entry beside it was `os.getenv`.
+  ['os.Getenv', 'env_var'],
+  ['Getenv', 'env_var'],
+  ['flag.Args', 'argv'],
+  ['URL.Query', 'http_request'],
+  ['FormValue', 'http_request'],
   ['Query', 'http_request'],
 ];
 
