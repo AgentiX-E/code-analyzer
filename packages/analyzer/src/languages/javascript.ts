@@ -2,12 +2,17 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import { collectCLikeTaintSinks, collectCLikeTaintSources } from './base-c-like.js';
+import {
+  collectCLikeTaintSanitizers,
+  collectCLikeTaintSinks,
+  collectCLikeTaintSources,
+} from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type {
+  TaintSanitizer,
   TaintSink,
   TaintSource,
   TreeSitterLanguage,
@@ -496,5 +501,13 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
 
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     collectCLikeTaintSinks(node, sinks);
+  }
+
+  // Sanitizers. Nothing in this family recognised one before, so every finding was reported unsanitized.
+  protected override walkForSanitizers(
+    node: TreeSitterSyntaxNode,
+    sanitizers: TaintSanitizer[],
+  ): void {
+    collectCLikeTaintSanitizers(node, sanitizers);
   }
 }

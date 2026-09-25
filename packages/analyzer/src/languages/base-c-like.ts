@@ -4,7 +4,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import type { ParsedImport } from './provider.js';
-import type { TaintSink, TaintSource } from './tree-sitter-base.js';
+import type { TaintSanitizer, TaintSink, TaintSource } from './tree-sitter-base.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
 export function lineNumberAt(source: string, offset: number): number {
@@ -608,4 +608,119 @@ function calleeOf(text: string): string {
     }
   }
   return text.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Sanitizers
+// ---------------------------------------------------------------------------
+
+/**
+ * What a sanitizer is called, and what it neutralises.
+ *
+ * **Nothing in the C family recognised one until this existed.** `extractSanitizers` was implemented for `bash`,
+ * `css`, `sql`, `toml` and `markdown` — four of them languages that carry no taint — and the ten languages that do
+ * all fell through to the base, which returns nothing. So `sanitized` was false for every finding in real code, not
+ * because the code had no sanitizers but because nothing looked for them.
+ */
+const C_LIKE_SANITIZERS: ReadonlyArray<readonly [string, string]> = [
+  ['escape', 'escaping'],
+  ['escapeHtml', 'escaping'],
+  // Each of the three below was named by a fixture and absent from the list; the fixtures found them, not a reading.
+  ['EscapeString', 'escaping'],
+  ['HtmlEncode', 'escaping'],
+  ['urlencode', 'encoding'],
+  ['filename', 'path'],
+  ['htmlspecialchars', 'escaping'],
+  ['encodeURIComponent', 'encoding'],
+  ['encodeURI', 'encoding'],
+  ['sanitize', 'validation'],
+  ['sanitizeHtml', 'validation'],
+  ['strip_tags', 'validation'],
+  ['parseInt', 'validation'],
+  ['parseFloat', 'validation'],
+  ['Number', 'validation'],
+  ['basename', 'path'],
+  ['realpath', 'path'],
+  ['mysql_real_escape_string', 'escaping'],
+  ['quote', 'escaping'],
+  ['Parameterize', 'parameterisation'],
+  ['PreparedStatement', 'parameterisation'],
+];
+
+/**
+ * Collect taint sanitizers under `node`, in the shape `TaintSanitizer` expects, one entry per expression.
+ *
+ * The same two shapes as the sources: a call whose callee is a sanitizer, and a member whose text contains one. The
+ * last segment is what is matched, as it is for sinks, so `html.EscapeString(s)` resolves.
+ */
+export function collectCLikeTaintSanitizers(
+  node: {
+    type: string;
+    text: string;
+    startPosition: { row: number };
+    childCount: number;
+    child(i: number): unknown;
+  },
+  sanitizers: TaintSanitizer[],
+  types: TaintNodeTypes = C_LIKE_TAINT_NODES,
+): void {
+  const seen = new Set<string>();
+  const before = sanitizers.length;
+  walkSanitizers(node, sanitizers, types);
+
+  const added = sanitizers.splice(before);
+  for (const entry of added) {
+    const key = `${entry.line}|${entry.sanitizerType}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sanitizers.push(entry);
+  }
+}
+
+function sanitizerFor(text: string): readonly [string, string] | undefined {
+  const simple = lastSegmentOf(text);
+  return C_LIKE_SANITIZERS.find(
+    ([name]) => simple === name || text === name || text.endsWith(name),
+  );
+}
+
+function walkSanitizers(
+  node: {
+    type: string;
+    text: string;
+    startPosition: { row: number };
+    childCount: number;
+    child(i: number): unknown;
+  },
+  sanitizers: TaintSanitizer[],
+  types: TaintNodeTypes,
+): void {
+  if (types.member.includes(node.type) || types.call.includes(node.type)) {
+    const candidate = types.call.includes(node.type) ? calleeOf(node.text) : node.text;
+    const match = candidate.length > 0 ? sanitizerFor(candidate) : undefined;
+    if (match) {
+      sanitizers.push({
+        name: candidate,
+        sanitizerType: match[1],
+        line: node.startPosition.row + 1,
+        text: node.text,
+        properties: {},
+      });
+    }
+  }
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i) as Parameters<typeof walkSanitizers>[0] | null;
+    if (child) walkSanitizers(child, sanitizers, types);
+  }
+}
+
+/** The last segment of a name, splitting on `.` and on `->`. */
+function lastSegmentOf(name: string): string {
+  return (
+    name
+      .split(/[.\-]>?|(?<![.\-])[.]/)
+      .filter(Boolean)
+      .pop() ?? name
+  );
 }
