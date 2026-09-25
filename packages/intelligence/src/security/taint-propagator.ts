@@ -191,7 +191,15 @@ export class TaintPropagator {
                 sink,
                 path,
                 hops: path.length,
-                sanitized: false,
+                // **The path check, which is what the field is for.** `sanitizerIndex` was passed into the
+                // statement-local check and never used there, and the forward propagation did not look at it at all,
+                // so every finding was reported unsanitized. A sanitizer neutralises this flow when it sits on a
+                // statement between the source's and the sink's.
+                sanitized: this.isNeutralized(
+                  sanitizerIndex,
+                  state.point.stmtIndex,
+                  use.use.stmtIndex,
+                ),
                 truncated: path.length >= this.config.maxPathLength,
                 interproc: state.viaCall,
                 confidence: this.computeConfidence(state, use, path.length),
@@ -302,7 +310,7 @@ export class TaintPropagator {
     _cfg: FunctionCfg,
     source: TaintSourceOccurrence,
     sinkIndex: Map<number, TaintSinkOccurrence[]>,
-    _sanitizerIndex: Map<number, SanitizerOccurrence[]>,
+    sanitizerIndex: Map<number, SanitizerOccurrence[]>,
     findings: TaintFlowFinding[],
   ): void {
     const key = this.makeKey(source.point.blockIndex, source.point.stmtIndex);
@@ -316,7 +324,11 @@ export class TaintPropagator {
         sink,
         path: [source.point.blockIndex],
         hops: 1,
-        sanitized: false,
+        sanitized: this.isNeutralized(
+          sanitizerIndex,
+          source.point.stmtIndex,
+          source.point.stmtIndex,
+        ),
         truncated: false,
         interproc: false,
         confidence: 0.9, // Statement-local is high confidence
@@ -364,5 +376,26 @@ export class TaintPropagator {
 
   private stateKey(state: TaintState): string {
     return `${state.bindingIdx}:${state.point.blockIndex}:${state.point.stmtIndex}`;
+  }
+  /**
+   * Whether a sanitizer sits between two statements, inclusive.
+   *
+   * Inclusive because both ends are real: a sanitizer on the source's own statement (`escape(req.body.id)` as the
+   * declaration) and one on the sink's (`db.query(escape(id))`) both neutralise the flow. A statement-local flow -
+   * source and sink on one line - therefore has exactly one statement to check, which is why both bounds are the
+   * same there.
+   */
+  private isNeutralized(
+    sanitizerIndex: Map<number, SanitizerOccurrence[]>,
+    fromStmt: number,
+    toStmt: number,
+  ): boolean {
+    const low = Math.min(fromStmt, toStmt);
+    const high = Math.max(fromStmt, toStmt);
+    for (const [stmtIndex, occurrences] of sanitizerIndex) {
+      if (stmtIndex < low || stmtIndex > high) continue;
+      if (occurrences.length > 0) return true;
+    }
+    return false;
   }
 }

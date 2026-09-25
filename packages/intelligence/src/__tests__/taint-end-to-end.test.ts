@@ -227,11 +227,13 @@ describe('a source in a real file', () => {
         extraction,
       );
 
-      // eslint-disable-next-line no-console
       console.log(
         `SANITIZED-FLOW: findings ${result.findings.length}, sanitized ${JSON.stringify(result.findings.map((f) => f.sanitized))}`,
       );
       expect(result.findings.length).toBeGreaterThan(0);
+      // The criterion this was written against: `[false]` before the path check, `[true]` after. Asserted now that
+      // it holds, and the print stays so a regression shows as a number rather than a red line.
+      expect(result.findings[0]?.sanitized).toBe(true);
     });
   });
 });
