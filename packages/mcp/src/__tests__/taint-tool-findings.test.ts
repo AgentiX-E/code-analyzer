@@ -83,4 +83,18 @@ describe('taintAnalysis', () => {
     expect(body['analysisMethod']).toBe('pattern-based-heuristic');
     expect(typeof body['note']).toBe('string');
   });
+
+  it("carries a finding's sanitized flag through to the payload", async () => {
+    // **The other end of the chain.** The propagator now decides whether a sanitizer was on the path, and this is
+    // whether that decision survives to the caller: the tool maps `sanitized` straight from the finding, so a
+    // sanitized flow and an unsanitized one must be distinguishable in what a caller receives.
+    const ctx = context();
+    ctx.taintFindings = [{ ...finding(), sanitized: true }];
+
+    const body = bodyOf(await taintAnalysis({ projectId: 'p' }, ctx));
+
+    const paths = body['taintPaths'] as Array<Record<string, unknown>>;
+    expect(paths[0]?.['sanitized']).toBe(true);
+    expect(body['analysisMethod']).toBe('interprocedural-dataflow');
+  });
 });
