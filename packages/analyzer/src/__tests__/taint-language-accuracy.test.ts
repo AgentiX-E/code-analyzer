@@ -641,15 +641,6 @@ describe('per-language extraction accuracy', () => {
         const found = fixture.provider.extractSanitizers(fixture.source);
         const names = found.map((x) => (x as { name: string }).name);
 
-        // eslint-disable-next-line no-console
-        // **Python is an open gap, pinned rather than asserted.** Its sample uses `html.escape`, whose callee is
-        // `html.escape` and whose last segment is `escape` — which IS in the vocabulary — and it returns nothing
-        // while the same shape works for JavaScript and for Go's `html.EscapeString`. The cause is not
-        // established, so the gap is stated where it will be read.
-        if (fixture.language === 'python') {
-          expect(Array.isArray(names)).toBe(true);
-          return;
-        }
         console.log(
           `SANITIZER ${fixture.language}: ${JSON.stringify(names)} (expected ${fixture.expected})`,
         );

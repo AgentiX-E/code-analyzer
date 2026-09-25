@@ -399,6 +399,8 @@ export class PythonProvider extends TreeSitterBaseProvider {
     node: TreeSitterSyntaxNode,
     sanitizers: TaintSanitizer[],
   ): void {
-    collectCLikeTaintSanitizers(node, sanitizers);
+    // Python's own node names, not the C-family default: a Python call is a `call`, not a `call_expression`, so the
+    // default made this walk match nothing. JavaScript and TypeScript use the default legitimately.
+    collectCLikeTaintSanitizers(node, sanitizers, PYTHON_TAINT_NODES);
   }
 }
