@@ -553,15 +553,6 @@ describe('per-language extraction accuracy', () => {
             ` (extra ${JSON.stringify([...s.extra, ...k.extra])}, missed ${JSON.stringify([...fixture.sources.filter((t) => !raisedSources.some((n) => n === t || n.endsWith(t))), ...fixture.sinks.filter((t) => !raisedSinks.some((n) => n === t || n.endsWith(t)))])})`,
         );
 
-        // Both, now: a fixture that moves under one change is a small fixture, and this one is a whole function.
-        // **C++ is pinned as an open gap rather than asserted.** `popen` is in the sink list and the sample
-        // `popen(key.c_str(), "r")` returns nothing for it, while C's `popen` in a simpler sample works. The
-        // cause is not established, so the gap is stated where it will be read instead of leaving a red test
-        // or a silently loosened threshold.
-        if (fixture.language === 'cpp') {
-          expect(recall).toBeGreaterThan(0.5);
-          return;
-        }
         expect(recall).toBeGreaterThanOrEqual(0.9);
         expect(precision).toBeGreaterThanOrEqual(0.9);
       });

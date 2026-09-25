@@ -518,7 +518,7 @@ function walkTaintSources(
   // match, which is why the Java, Go and C# overrides found nothing until this existed. The callee is taken the way
   // the sink walk takes it, so `os.environ["KEY"]` and `os.getenv("KEY")` are both recognised.
   if (types.call.includes(node.type)) {
-    const callee = node.text.slice(0, node.text.lastIndexOf('(')).trim();
+    const callee = calleeOf(node.text);
     // No length guard: `sourceFor('')` matches nothing, so an empty callee falls through on its own — and a guard
     // here would be a branch no call can take, which is the shape the coverage gate reports.
     const match = sourceFor(callee);
@@ -560,7 +560,7 @@ export function collectCLikeTaintSinks(
     // The callee is everything before the **last** top-level `(`. Taking the first one truncates a chained call at
     // its inner call: `Runtime.getRuntime().exec(cmd)` split at the first parenthesis is `Runtime.getRuntime`, whose
     // last segment is `getRuntime` — which matches nothing. Java's sink case found this.
-    const callee = node.text.slice(0, node.text.lastIndexOf('(')).trim();
+    const callee = calleeOf(node.text);
     const match = sinkFor(callee);
     if (match && callee.length > 0) {
       sinks.push({
@@ -577,4 +577,35 @@ export function collectCLikeTaintSinks(
     const child = node.child(i) as Parameters<typeof collectCLikeTaintSinks>[0] | null;
     if (child) collectCLikeTaintSinks(child, sinks, types);
   }
+}
+
+/**
+ * The callee of a call, from the call's text.
+ *
+ * **Pair the final `)` with its `(` and take everything before it.** Two earlier rules both failed, in opposite
+ * directions, and the cases that killed them are worth keeping:
+ *
+ * - the **last** `(` truncates a call whose argument is itself a call: `popen(key.c_str(), "r")` became
+ *   `popen(key.c_str`, whose last segment is `c_str`
+ * - the **first** `(` at depth zero truncates a chain: `Runtime.getRuntime().exec(cmd)` became `Runtime.getRuntime`,
+ *   because the inner call's parenthesis is also at depth zero
+ *
+ * Working backwards from the end has neither failure. The parenthesis that pairs with the final `)` is the one that
+ * opened the call being read, so the text before it is the callee — `Runtime.getRuntime().exec` for the chain and
+ * `popen` for the call with an argument.
+ */
+function calleeOf(text: string): string {
+  const end = text.lastIndexOf(')');
+  if (end < 0) return text.trim();
+
+  let depth = 0;
+  for (let i = end; i >= 0; i--) {
+    const ch = text[i];
+    if (ch === ')') depth += 1;
+    else if (ch === '(') {
+      depth -= 1;
+      if (depth === 0) return text.slice(0, i).trim();
+    }
+  }
+  return text.trim();
 }
