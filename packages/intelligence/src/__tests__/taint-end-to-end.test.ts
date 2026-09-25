@@ -148,4 +148,90 @@ describe('a source in a real file', () => {
     );
     expect(result.findings.length).toBeGreaterThan(0);
   });
+
+  /**
+   * A sanitizer on the path, which is the one thing this chain has never shown.
+   *
+   * `FunctionCfg.sanitizerSites` is now filled, `buildSanitizerIndex` reads it, and the propagator passes that index
+   * into its statement-local check. **Whether any of that makes `sanitized` true is a separate question**, and this is
+   * the measurement: a source, a sanitizer that neutralises it, and a sink that receives the sanitised binding.
+   */
+  const SANITIZED = [
+    'function handler() {',
+    '  const id = req.body.id;',
+    '  const safe = escape(id);',
+    '  db.query(safe);',
+    '}',
+    '',
+  ].join('\n');
+
+  function parsedSanitizedFor(provider: JavaScriptProvider): ParsedFile {
+    const captures = provider.parse(SANITIZED, 'src/a.js');
+    return {
+      filePath: 'src/a.js',
+      language: 'javascript',
+      symbols: [
+        {
+          name: 'handler',
+          kind: 'Function',
+          qualifiedName: 'file:src/a.js:handler',
+          startLine: 1,
+          endLine: 5,
+          isExported: true,
+          properties: {},
+        },
+      ],
+      references: [],
+      scopeTree: {},
+      ast: captures,
+    } as unknown as ParsedFile;
+  }
+
+  describe('a sanitizer between the source and the sink', () => {
+    const provider = new JavaScriptProvider();
+
+    it('reaches the CFG as a sanitizer site, which is the producer working', () => {
+      const extraction = new Map([
+        [
+          'src/a.js',
+          {
+            sources: provider.extractTaintSources(SANITIZED),
+            sinks: provider.extractTaintSinks(SANITIZED),
+            sanitizers: provider.extractSanitizers(SANITIZED),
+          },
+        ],
+      ]);
+
+      const cfgs = buildFunctionCfgs([parsedSanitizedFor(provider)], new Map(), extraction);
+      const cfg = cfgs.get('file:src/a.js:handler');
+
+      expect(provider.extractSanitizers(SANITIZED).length).toBeGreaterThan(0);
+      expect(cfg?.stmtFacts.sanitizerSites.size).toBeGreaterThan(0);
+    });
+
+    it('marks the finding sanitized, if the propagator follows it that far', () => {
+      const extraction = new Map([
+        [
+          'src/a.js',
+          {
+            sources: provider.extractTaintSources(SANITIZED),
+            sinks: provider.extractTaintSinks(SANITIZED),
+            sanitizers: provider.extractSanitizers(SANITIZED),
+          },
+        ],
+      ]);
+
+      const result = analyzeInterproceduralTaint(
+        [parsedSanitizedFor(provider)],
+        new Map(),
+        extraction,
+      );
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `SANITIZED-FLOW: findings ${result.findings.length}, sanitized ${JSON.stringify(result.findings.map((f) => f.sanitized))}`,
+      );
+      expect(result.findings.length).toBeGreaterThan(0);
+    });
+  });
 });
