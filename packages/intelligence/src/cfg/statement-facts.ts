@@ -25,6 +25,7 @@ import type {
   UseSite,
 } from './types.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
+import type { SanitizerOccurrence } from './types.js';
 
 /** The key convention `computeReachingDefinitions` and `TaintPropagator` share. */
 const STRIDE = 1024;
@@ -157,6 +158,13 @@ export interface ExtractedSink {
   readonly text: string;
 }
 
+/** The same for a sanitizer, whose type names what it neutralises. */
+export interface ExtractedSanitizer {
+  readonly sanitizerType: string;
+  readonly line: number;
+  readonly text: string;
+}
+
 /**
  * Sources and sinks, keyed the way the propagator reads them.
  *
@@ -171,14 +179,17 @@ export interface ExtractedSink {
 export function buildOccurrences(
   sources: readonly ExtractedSource[],
   sinks: readonly ExtractedSink[],
+  sanitizers: readonly ExtractedSanitizer[],
   bindings: readonly BindingEntry[],
   startLine: number,
 ): {
   sourceSites: Map<number, TaintSourceOccurrence>;
   sinkSites: Map<number, TaintSinkOccurrence>;
+  sanitizerSites: Map<number, SanitizerOccurrence>;
 } {
   const sourceSites = new Map<number, TaintSourceOccurrence>();
   const sinkSites = new Map<number, TaintSinkOccurrence>();
+  const sanitizerSites = new Map<number, SanitizerOccurrence>();
 
   const bindingAt = new Map<number, number>();
   for (const binding of bindings) bindingAt.set(binding.declLine, binding.index);
@@ -214,5 +225,18 @@ export function buildOccurrences(
     });
   }
 
-  return { sourceSites, sinkSites };
+  // Sanitizers need no binding, as sinks do not: what matters is which line they sit on, because the propagator asks
+  // whether one lies on the path between a source and a sink.
+  for (const sanitizer of sanitizers) {
+    const stmtIndex = stmtIndexFor(sanitizer.line);
+    if (stmtIndex === null) continue;
+
+    sanitizerSites.set(stmtIndex, {
+      point: { blockIndex: 0, stmtIndex, line: sanitizer.line },
+      neutralizedKinds: new Set([sanitizer.sanitizerType]),
+      description: sanitizer.text,
+    });
+  }
+
+  return { sourceSites, sinkSites, sanitizerSites };
 }

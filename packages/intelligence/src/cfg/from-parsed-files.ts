@@ -18,7 +18,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { buildOccurrences, buildStatementFacts } from './statement-facts.js';
 
-import type { ExtractedSink, ExtractedSource } from './statement-facts.js';
+import type { ExtractedSanitizer, ExtractedSink, ExtractedSource } from './statement-facts.js';
 import type { BindingEntry, FunctionCfg } from './types.js';
 import type { CallSite, ParsedFile, SymbolDefinition, UnifiedCapture } from '@code-analyzer/shared';
 
@@ -36,7 +36,7 @@ export function buildFunctionCfgs(
   callSites: ReadonlyMap<string, CallSite[]>,
   extraction?: ReadonlyMap<
     string,
-    { sources: readonly ExtractedSource[]; sinks: readonly ExtractedSink[] }
+    { sources: readonly ExtractedSource[]; sinks: readonly ExtractedSink[]; sanitizers?: readonly ExtractedSanitizer[] }
   >,
 ): Map<string, FunctionCfg> {
   const out = new Map<string, FunctionCfg>();
@@ -60,6 +60,7 @@ export function buildFunctionCfgs(
       const occurrences = buildOccurrences(
         perFile?.sources ?? [],
         perFile?.sinks ?? [],
+        perFile?.sanitizers ?? [],
         bindings,
         symbol.startLine,
       );
@@ -90,6 +91,7 @@ export function buildFunctionCfgs(
           ...stmtFacts,
           sourceSites: occurrences.sourceSites,
           sinkSites: occurrences.sinkSites,
+          sanitizerSites: occurrences.sanitizerSites,
         },
         entryIndex: 0,
         exitIndex: 0,

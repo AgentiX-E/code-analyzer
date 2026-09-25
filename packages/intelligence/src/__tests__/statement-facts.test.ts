@@ -128,6 +128,7 @@ describe('buildOccurrences', () => {
     const { sourceSites } = buildOccurrences(
       [{ sourceType: 'env_var', line: 12, text: 'process.env.API_KEY' }],
       [],
+      [],
       bindings,
       10,
     );
@@ -146,6 +147,7 @@ describe('buildOccurrences', () => {
     const { sourceSites } = buildOccurrences(
       [{ sourceType: 'env_var', line: 14, text: 'process.env.X' }],
       [],
+      [],
       bindings,
       10,
     );
@@ -155,8 +157,7 @@ describe('buildOccurrences', () => {
 
   it('keeps a sink, which needs no binding', () => {
     const { sinkSites } = buildOccurrences(
-      [],
-      [{ sinkType: 'eval', line: 15, text: 'eval(input)' }],
+      [], [{ sinkType: 'eval', line: 15, text: 'eval(input)' }], [],
       [],
       10,
     );
@@ -173,6 +174,7 @@ describe('buildOccurrences', () => {
     const { sourceSites, sinkSites } = buildOccurrences(
       [{ sourceType: 'env_var', line: 5, text: 'x' }],
       [{ sinkType: 'eval', line: 5, text: 'y' }],
+[],
       [
         {
           index: 0,

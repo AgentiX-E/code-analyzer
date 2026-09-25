@@ -11,7 +11,7 @@ import {
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { getOrLoadProvider, groupCaptures, toPhaseFailure } from '../phase-helpers.js';
 
-import type { TaintProvider, TaintSink, TaintSource } from '../../languages/tree-sitter-base.js';
+import type { TaintProvider, TaintSanitizer, TaintSink, TaintSource } from '../../languages/tree-sitter-base.js';
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
@@ -43,7 +43,7 @@ export class ParsePhase implements ExecutablePhase {
 
       const parsedFiles: ParsedFile[] = [];
       // Extraction results, keyed by file, for whoever runs the taint analysis later.
-      const taintExtraction = new Map<string, { sources: TaintSource[]; sinks: TaintSink[] }>();
+      const taintExtraction = new Map<string, { sources: TaintSource[]; sinks: TaintSink[]; sanitizers: TaintSanitizer[] }>();
       let taintExtractedCount = 0;
       let successCount = 0;
 
@@ -77,10 +77,17 @@ export class ParsePhase implements ExecutablePhase {
         const taintProvider = provider as Partial<TaintProvider>;
         const taintSources: TaintSource[] = taintProvider.extractTaintSources?.(file.content) ?? [];
         const taintSinks: TaintSink[] = taintProvider.extractTaintSinks?.(file.content) ?? [];
-        if (taintSources.length > 0 || taintSinks.length > 0) {
-          taintExtraction.set(file.filePath, { sources: taintSources, sinks: taintSinks });
+        // Sanitizers are the third of the trio and were the last to be extracted. **Without them the propagator's
+        // sanitizer index is empty and every finding is reported unsanitized**, which is what happened until now.
+        const taintSanitizers: TaintSanitizer[] = taintProvider.extractSanitizers?.(file.content) ?? [];
+        if (taintSources.length > 0 || taintSinks.length > 0 || taintSanitizers.length > 0) {
+          taintExtraction.set(file.filePath, {
+            sources: taintSources,
+            sinks: taintSinks,
+            sanitizers: taintSanitizers,
+          });
         }
-        taintExtractedCount += taintSources.length + taintSinks.length;
+        taintExtractedCount += taintSources.length + taintSinks.length + taintSanitizers.length;
 
         parsedFiles.push({
           filePath: file.filePath,

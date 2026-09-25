@@ -189,4 +189,34 @@ describe('buildFunctionCfgs', () => {
     // binding in this array is the argument position it arrived at.
     expect(cfg?.callSites?.[0]?.argBindings).toEqual([0, 1]);
   });
+
+  it('carries a sanitizer into the CFG, which is what makes `sanitized` able to be true', () => {
+    // **The third of the trio, and the last to be wired.** `FunctionCfg.stmtFacts.sanitizerSites` is read by
+    // `buildSanitizerIndex`, and nothing filled it — so the propagator's sanitizer index was empty and every finding
+    // in every repository was reported unsanitized. This asserts the producer, and the propagator's own tests cover
+    // what it does with it.
+    const cfg = buildFunctionCfgs(
+      [
+        parsed([symbol('handler', 'Function', 10, 20)], 'src/a.ts', [
+          capture('variable.def', 'safe', 12),
+        ]),
+      ],
+      new Map(),
+      new Map([
+        [
+          'src/a.ts',
+          {
+            sources: [],
+            sinks: [],
+            sanitizers: [{ sanitizerType: 'escaping', line: 12, text: 'html.escape(q)' }],
+          },
+        ],
+      ]),
+    ).get('file:src/a.ts:handler');
+
+    expect(cfg?.stmtFacts.sanitizerSites.size).toBe(1);
+    const occurrence = [...(cfg?.stmtFacts.sanitizerSites.values() ?? [])][0];
+    expect(occurrence?.neutralizedKinds.has('escaping')).toBe(true);
+    expect(occurrence?.description).toBe('html.escape(q)');
+  });
 });
