@@ -4,6 +4,12 @@
 // sites are attached, and `stmtFacts` is empty because that needs statement-level analysis over an untyped AST.
 // Saying so in a test is what keeps it from being quietly filled in later with something plausible.
 
+import {
+  JavaProvider,
+  JavaScriptProvider,
+  GoProvider,
+  PythonProvider,
+} from '@code-analyzer/analyzer';
 import { describe, it, expect } from 'vitest';
 
 import { buildFunctionCfgs, isCallableSymbol } from '../cfg/from-parsed-files.js';
@@ -218,5 +224,61 @@ describe('buildFunctionCfgs', () => {
     const occurrence = [...(cfg?.stmtFacts.sanitizerSites.values() ?? [])][0];
     expect(occurrence?.neutralizedKinds.has('escaping')).toBe(true);
     expect(occurrence?.description).toBe('html.escape(q)');
+  });
+
+  it('records what each language actually contributes, which is not the same for all of them', () => {
+    // **The measurement that found the largest gap so far.** The taint extraction produces sources and sinks for ten
+    // languages, and the pipeline produces findings for one. This prints why, per language: `buildStatementFacts`
+    // derives defs and uses from the **captures**, and a provider whose `parse` emits only declarations contributes
+    // no defs and no uses at all — so the propagator has nothing to seed from and reports nothing.
+    //
+    //   javascript   function.def, constant.def, function.call, variable.access   -> defs 1, uses 1
+    //   python       function.def                                                 -> defs 0, uses 0
+    //   java         class.def, method.def                                        -> defs 0, uses 0
+    //   go           variable.def, function.def                                   -> defs 1, uses 0
+    //
+    // The assertion is deliberately about the capture vocabulary rather than about findings: a test that fails
+    // because a language cannot reach the end is a red line describing work not yet done, and this records the state
+    // where a reader will meet it.
+    const cases = [
+      {
+        language: 'python',
+        provider: new PythonProvider(),
+        code: 'def handler(request):\n    sql = request.GET.get("s")\n',
+      },
+      {
+        language: 'java',
+        provider: new JavaProvider(),
+        code: 'class A { void m() { String s = env("X"); } }\n',
+      },
+      {
+        language: 'go',
+        provider: new GoProvider(),
+        code: 'package main\nfunc m() { s := getenv("X") }\n',
+      },
+      {
+        language: 'javascript',
+        provider: new JavaScriptProvider(),
+        code: 'function h() {\n  const id = req.body.id;\n}\n',
+      },
+    ];
+
+    const summary: Record<string, number> = {};
+    for (const c of cases) {
+      const captures = (c.provider as unknown as { parse(s: string, f: string): unknown[] }).parse(
+        c.code,
+        'src/a',
+      );
+      summary[c.language] = captures.length;
+
+      console.log(
+        `CAPTURES ${c.language}: ${JSON.stringify([...new Set((captures as Array<{ tag?: string }>).map((x) => x.tag))])}`,
+      );
+    }
+
+    // Every provider parses; what differs is what it records.
+    for (const c of cases) expect(summary[c.language]).toBeGreaterThan(0);
+    // JavaScript is the one that names the statements, which is why it is the one that reaches a finding.
+    expect(summary['javascript']).toBeGreaterThan(summary['python'] ?? 0);
   });
 });

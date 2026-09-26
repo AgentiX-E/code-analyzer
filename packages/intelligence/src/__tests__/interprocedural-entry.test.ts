@@ -15,6 +15,7 @@ import {
 } from '../security/interprocedural-entry.js';
 
 import type { CallSite, NodeLabel, ParsedFile, SymbolDefinition } from '@code-analyzer/shared';
+import { TaintPropagator } from '../security/taint-propagator.js';
 
 function symbol(
   name: string,
@@ -172,5 +173,75 @@ describe('analyzeInterproceduralTaint', () => {
     const resolved = resolveCallSites(withoutSites);
 
     expect(resolved.get('file:src/a.ts:handler')?.callSites).toEqual([]);
+  });
+
+  describe('the sanitizer path check', () => {
+    /**
+     * Both halves of `isNeutralized`'s answer, which the end-to-end file only exercises in the positive.
+     *
+     * The function walks the sanitizer index looking for one whose statement lies between the source's and the sink's.
+     * A sanitizer outside that range must be skipped rather than counted, and an empty index must answer false rather
+     * than throw or default to true - **a sanitizer check that says yes when it has found nothing is worse than no
+     * check at all**, because it would report every flow as neutralised.
+     */
+
+    it('does not count a sanitizer outside the source-to-sink range', () => {
+      const propagator = new TaintPropagator();
+      const occurrences = new Map([
+        // Two statements past the sink: skipped by the range test rather than accepted.
+        [
+          9,
+          [
+            {
+              point: { blockIndex: 0, stmtIndex: 9, line: 11 },
+              neutralizedKinds: new Set(['escaping']),
+              description: 'escape',
+            },
+          ],
+        ],
+      ]);
+
+      const answer = (
+        propagator as unknown as {
+          isNeutralized(index: Map<number, unknown[]>, from: number, to: number): boolean;
+        }
+      ).isNeutralized(occurrences, 1, 2);
+
+      expect(answer).toBe(false);
+    });
+
+    it('answers false for an empty index rather than defaulting to true', () => {
+      const propagator = new TaintPropagator();
+
+      const answer = (
+        propagator as unknown as {
+          isNeutralized(index: Map<number, unknown[]>, from: number, to: number): boolean;
+        }
+      ).isNeutralized(new Map(), 1, 5);
+
+      expect(answer).toBe(false);
+    });
+
+    it('counts a sanitizer on either bound, because both ends are real', () => {
+      const propagator = new TaintPropagator();
+      const occurrence = [
+        {
+          point: { blockIndex: 0, stmtIndex: 2, line: 3 },
+          neutralizedKinds: new Set(['escaping']),
+          description: 'escape',
+        },
+      ];
+      const at = (index: number): Map<number, unknown[]> => new Map([[index, occurrence]]);
+      const ask = (from: number, to: number): boolean =>
+        (
+          propagator as unknown as {
+            isNeutralized(index: Map<number, unknown[]>, from: number, to: number): boolean;
+          }
+        ).isNeutralized(at(2), from, to);
+
+      expect(ask(2, 5)).toBe(true); // on the source's own statement
+      expect(ask(1, 2)).toBe(true); // on the sink's
+      expect(ask(3, 5)).toBe(false); // strictly between the sink's and beyond nothing
+    });
   });
 });
