@@ -44,10 +44,98 @@ export class JavaProvider extends TreeSitterBaseProvider {
     return require('tree-sitter-java') as TreeSitterLanguage;
   }
 
+  /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
+  private namesUnder(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (current.type === 'identifier') {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
+  }
+
+  /** Record every name under `node` as a use. */
+  private captureAccesses(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    for (const name of this.namesUnder(node)) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
-    if (nodeType === 'class_declaration') {
+    // **Java's statements, which it recorded none of.** It captured a class and a method and nothing inside either,
+    // so the pipeline had neither a definition nor a use to work from.
+    if (nodeType === 'local_variable_declaration' || nodeType === 'field_declaration') {
+      const declarator = namedChildrenOf(node).find((c) => c.type === 'variable_declarator');
+      const name = declarator
+        ? namedChildrenOf(declarator).find((c) => c.type === 'identifier')
+        : undefined;
+      if (name) {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: name.text,
+          startLine: name.startPosition.row + 1,
+          endLine: name.endPosition.row + 1,
+          startByte: name.startIndex,
+          endByte: name.endIndex,
+          name: name.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const value = declarator ? namedChildrenOf(declarator)[1] : undefined;
+      if (value) this.captureAccesses(value, captures);
+    } else if (nodeType === 'method_invocation') {
+      const nameNode = namedChildrenOf(node).find((c) => c.type === 'identifier');
+      const receiver = namedChildrenOf(node).find(
+        (c) => c.type === 'field_access' || c.type === 'identifier',
+      );
+      if (nameNode) {
+        captures.push({
+          tag:
+            receiver && receiver !== nameNode
+              ? CAPTURE_TAGS.METHOD_CALL
+              : CAPTURE_TAGS.FUNCTION_CALL,
+          text:
+            receiver && receiver !== nameNode ? `${receiver.text}.${nameNode.text}` : nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const args = namedChildrenOf(node).find((c) => c.type === 'argument_list');
+      if (args) this.captureAccesses(args, captures);
+    } else if (nodeType === 'expression_statement') {
+      const inner = node.child(0);
+      if (inner && inner.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+          text: inner.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: inner.startIndex,
+          endByte: inner.endIndex,
+          name: inner.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'class_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;
       let baseClasses = '';
       let interfaces = '';
