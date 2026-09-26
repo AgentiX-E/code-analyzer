@@ -44,6 +44,7 @@ describe('the chain over real sources', () => {
     let totalSinks = 0;
     let totalFindings = 0;
     let functionsSeen = 0;
+    let functionsCalled = 0;
     let functionsWithBoth = 0;
 
     for (const dir of DIRS) {
@@ -79,11 +80,26 @@ describe('the chain over real sources', () => {
         // **Where the thin finding column comes from.** A finding needs a source and a sink in one function with a
         // path between them, and counting the functions that hold both says whether the constraint is the
         // vocabulary, the connectivity or the parse - one line of arithmetic rather than an argument.
+        // **The cross-call question, cheaply.** `callSites` is empty here because this scan does not run the
+        // resolution phase, so the number of functions that something calls is taken from the captures instead: a
+        // `function.call` in a file names a callee, and a function whose name appears as one is reachable from
+        // somewhere. That is a proxy and it is labelled as one - the resolved answer needs `resolveCalls`.
+        const calledNames = new Set(
+          captures
+            .filter(
+              (c) =>
+                (c as { tag?: string }).tag === 'function.call' ||
+                (c as { tag?: string }).tag === 'method.call',
+            )
+            .map((c) => (c as { name?: string }).name ?? ''),
+        );
         const cfgs = buildFunctionCfgs([parsed], new Map(), extraction);
         let both = 0;
         for (const cfg of cfgs.values()) {
           functionsSeen++;
           const facts = cfg.stmtFacts;
+          const name = cfg.functionName;
+          if (name && calledNames.has(name)) functionsCalled++;
           if (facts.sourceSites.size > 0 && facts.sinkSites.size > 0) {
             both++;
             functionsWithBoth++;
@@ -104,6 +120,9 @@ describe('the chain over real sources', () => {
         `sinks ${totalSinks}, findings ${totalFindings}`,
     );
     console.log(`CO-LOCATION TOTAL: functions ${functionsSeen}, holding both ${functionsWithBoth}`);
+    console.log(
+      `CROSS-CALL (proxy): functions ${functionsSeen}, whose name appears at a call site ${functionsCalled}`,
+    );
 
     // `groupCaptures` supplies the symbols, so the CFG has functions and the finding column is a measurement rather
     // than an artefact of the scan. What it means is still open: a finding on this repository's own code may be real
