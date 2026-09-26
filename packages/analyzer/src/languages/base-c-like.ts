@@ -393,6 +393,24 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['unserialize', 'deserialization'],
   ['include', 'file_include'],
   ['require', 'file_include'],
+  // **The vocabulary knew what a server calls and not what a tool calls.** Scanning this repository's own sources
+  // found 166 sources and 75 sinks across 42,446 captures, and the sinks were almost all of them `query` or `exec` -
+  // while the code it was reading calls `readFileSync`, `JSON.parse` and `spawn`. These are what a build tool, a CLI
+  // or a web service calls when it reads a file, parses untrusted input or starts a process.
+  ['readFileSync', 'file_read'],
+  ['readFile', 'file_read'],
+  ['readdirSync', 'file_read'],
+  ['createReadStream', 'file_read'],
+  ['writeFileSync', 'file_write'],
+  ['createWriteStream', 'file_write'],
+  ['JSON.parse', 'deserialization'],
+  ['parse', 'deserialization'],
+  ['spawn', 'os_command'],
+  ['spawnSync', 'os_command'],
+  ['execSync', 'os_command'],
+  ['execFileSync', 'os_command'],
+  ['Function', 'code_execution'],
+  ['require', 'file_include'],
   // Ruby's process-spawning and file calls, most of which are written with a receiver.
   ['Kernel.system', 'os_command'],
   ['Open3', 'os_command'],
