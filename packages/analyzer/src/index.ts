@@ -83,3 +83,8 @@ export type {
 // Graph
 export { GraphBuilder } from './graph/graph-builder.js';
 export type { IntegrityReport } from './graph/graph-builder.js';
+
+// The capture grouping the parse phase uses to turn a provider's captures into symbols, references and a
+// scope tree. Exported because a scan that runs the chain over real files needs the same step - without it
+// the CFG has no functions and its finding count means nothing.
+export { groupCaptures } from './pipeline/phase-helpers.js';

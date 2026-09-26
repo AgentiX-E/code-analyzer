@@ -7,7 +7,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { TypeScriptProvider } from '@code-analyzer/analyzer';
+import { TypeScriptProvider, groupCaptures } from '@code-analyzer/analyzer';
 import { describe, it, expect } from 'vitest';
 
 import { analyzeInterproceduralTaint } from '../security/interprocedural-entry.js';
@@ -56,12 +56,18 @@ describe('the chain over real sources', () => {
         if (sources.length === 0) continue;
         withSources++;
 
+        // **The symbols a real parse produces**, which the first version of this scan left empty - and the finding
+        // column was zero for that reason rather than because the chain found nothing.
+        const { symbols, references, scopeTree } = groupCaptures(
+          captures as Parameters<typeof groupCaptures>[0],
+          file,
+        );
         const parsed = {
           filePath: file,
           language: 'typescript',
-          symbols: [],
-          references: [],
-          scopeTree: {},
+          symbols,
+          references,
+          scopeTree,
           ast: captures,
         } as unknown as ParsedFile;
         const extraction = new Map([
@@ -77,10 +83,9 @@ describe('the chain over real sources', () => {
         `sinks ${totalSinks}, findings ${totalFindings}`,
     );
 
-    // **What this measurement does not do yet: give the CFG its functions.** `symbols` is empty here, so
-    // `buildFunctionCfgs` has no function to build and the finding count is zero for that reason rather than because
-    // the chain found nothing. The captures, sources and sinks above are real and are the measurement; the findings
-    // are not interpretable until the scan supplies the symbols a real parse would.
+    // `groupCaptures` supplies the symbols, so the CFG has functions and the finding column is a measurement rather
+    // than an artefact of the scan. What it means is still open: a finding on this repository's own code may be real
+    // or may be a source and a sink that happen to share a function.
     //
     // What is asserted is what holds for any source tree this scans: real files parse, and real code has captures.
     // The counts below it are printed rather than asserted, because **they are the measurement** - and at this
