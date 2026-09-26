@@ -259,17 +259,19 @@ describe('buildFunctionCfgs', () => {
       {
         language: 'javascript',
         provider: new JavaScriptProvider(),
-        code: 'function h() {\n  const id = req.body.id;\n}\n',
+        code: 'function h() {\n  const id = req.body.id;\n  db.query(id);\n}\n',
       },
     ];
 
     const summary: Record<string, number> = {};
+    const tagSets: Record<string, Set<string>> = {};
     for (const c of cases) {
       const captures = (c.provider as unknown as { parse(s: string, f: string): unknown[] }).parse(
         c.code,
         'src/a',
       );
       summary[c.language] = captures.length;
+      tagSets[c.language] = new Set((captures as Array<{ tag?: string }>).map((x) => x.tag ?? ''));
 
       console.log(
         `CAPTURES ${c.language}: ${JSON.stringify([...new Set((captures as Array<{ tag?: string }>).map((x) => x.tag))])}`,
@@ -279,6 +281,14 @@ describe('buildFunctionCfgs', () => {
     // Every provider parses; what differs is what it records.
     for (const c of cases) expect(summary[c.language]).toBeGreaterThan(0);
     // JavaScript is the one that names the statements, which is why it is the one that reaches a finding.
-    expect(summary['javascript']).toBeGreaterThan(summary['python'] ?? 0);
+    // The assertion was written as `javascript` > `python`, which was true while Python emitted only a declaration.
+    // Fixing Python made it false, which is what a measurement is for: it now asks the question that matters, that
+    // each language records the statements its grammar has. Tags are collected per language for that reason.
+    for (const language of ['javascript', 'python']) {
+      const tags = tagSets[language] ?? new Set<string>();
+      expect(tags.has('function.def')).toBe(true);
+      expect([...tags].some((t) => t.endsWith('.def') && t !== 'function.def')).toBe(true);
+      expect([...tags].some((t) => t.includes('access') || t.includes('call'))).toBe(true);
+    }
   });
 });
