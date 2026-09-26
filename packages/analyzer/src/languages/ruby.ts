@@ -87,25 +87,104 @@ export class RubyProvider extends TreeSitterBaseProvider {
     return false;
   }
 
+  /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
+  private namesUnder(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (['identifier', 'constant'].includes(current.type)) {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
+  }
+
+  /** Record every name under `node` as a use. */
+  private captureAccesses(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    for (const name of this.namesUnder(node)) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
-    // Handle constants (assignment with constant left-hand side)
+    // **Ruby's statements, which it recorded none of.**
     if (nodeType === 'assignment') {
-      const constantChild = this.findNamedChild(node, 'constant');
-      if (constantChild) {
+      const target = node.child(0);
+      if (target && target.type === 'identifier') {
         captures.push({
-          tag: CAPTURE_TAGS.CONSTANT_DEF,
-          text: constantChild.text,
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: target.text,
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
-          startByte: constantChild.startIndex,
-          endByte: constantChild.endIndex,
-          name: constantChild.text,
+          startByte: target.startIndex,
+          endByte: target.endIndex,
+          name: target.text,
           properties: { filePath: this.filePath },
         });
       }
-    }
+      const value = node.child(2);
+      if (value) this.captureAccesses(value, captures);
+    } else if (nodeType === 'call') {
+      const callee = node.child(0);
+      if (callee) {
+        const isMethod = callee.type === 'identifier' && node.childCount > 1;
+        captures.push({
+          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+          text: callee.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: callee.startIndex,
+          endByte: callee.endIndex,
+          name: callee.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const args = namedChildrenOf(node).find((c) => c.type === 'argument_list');
+      if (args) this.captureAccesses(args, captures);
+    } else if (nodeType === 'expression_statement') {
+      const inner = node.child(0);
+      if (inner && inner.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+          text: inner.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: inner.startIndex,
+          endByte: inner.endIndex,
+          name: inner.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else
+      // Handle constants (assignment with constant left-hand side)
+      if (nodeType === 'assignment') {
+        const constantChild = this.findNamedChild(node, 'constant');
+        if (constantChild) {
+          captures.push({
+            tag: CAPTURE_TAGS.CONSTANT_DEF,
+            text: constantChild.text,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            startByte: constantChild.startIndex,
+            endByte: constantChild.endIndex,
+            name: constantChild.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      }
 
     // Handle method calls (attr_accessor, import/require)
     if (nodeType === 'call') {

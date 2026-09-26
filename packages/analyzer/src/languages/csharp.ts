@@ -44,7 +44,90 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     return require('tree-sitter-c-sharp') as TreeSitterLanguage;
   }
 
+  /** The declared name under a declarator, which may be wrapped. */
+  private nameIn(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | undefined {
+    if (node.type === 'identifier') return node;
+    for (const child of namedChildrenOf(node)) {
+      const found = this.nameIn(child);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
+  private namesUnder(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (['identifier', 'member_access_expression'].includes(current.type)) {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
+  }
+
+  /** Record every name under `node` as a use. */
+  private captureAccesses(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    for (const name of this.namesUnder(node)) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+    // **C#'s statements, which it recorded none of.**
+    if (nodeType === 'local_declaration_statement') {
+      const declaration = namedChildrenOf(node).find((c) => c.type === 'variable_declaration');
+      const declarator = declaration
+        ? namedChildrenOf(declaration).find((c) => c.type === 'variable_declarator')
+        : undefined;
+      const name = declarator ? this.nameIn(declarator) : undefined;
+      if (name) {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: name.text,
+          startLine: name.startPosition.row + 1,
+          endLine: name.endPosition.row + 1,
+          startByte: name.startIndex,
+          endByte: name.endIndex,
+          name: name.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      if (declarator) {
+        const value = namedChildrenOf(declarator)[1];
+        if (value) this.captureAccesses(value, captures);
+      }
+    } else if (nodeType === 'invocation_expression') {
+      const callee = node.child(0);
+      if (callee) {
+        const isMethod = callee.type === 'member_access_expression';
+        captures.push({
+          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+          text: callee.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: callee.startIndex,
+          endByte: callee.endIndex,
+          name: isMethod ? (callee.text.split('.').pop() ?? callee.text) : callee.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const args = namedChildrenOf(node).find((c) => c.type === 'argument_list');
+      if (args) this.captureAccesses(args, captures);
+    }
+
     if (node.type === 'class_declaration') {
       this.emitTypeDeclaration(node, captures, CAPTURE_TAGS.CLASS_DEF, 'class');
     } else if (node.type === 'interface_declaration') {
