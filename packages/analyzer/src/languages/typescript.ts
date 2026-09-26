@@ -184,6 +184,30 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
 
     // Handle import_statement as capture
+    // **The use side, which TypeScript never emitted.** It recorded a definition, a constant and a call, and nothing
+    // that says a name is *used* - so the pipeline had a definition and no use to follow and produced no finding.
+    if (nodeType === 'call_expression') {
+      const callee = node.child(0);
+      if (callee) {
+        const isMethod = callee.type === 'member_expression';
+        captures.push(
+          this.buildCapture(
+            node,
+            isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+            callee,
+          ),
+        );
+      }
+      const args = node.child(1);
+      if (args) {
+        for (const argument of namedChildrenOf(args)) {
+          if (argument.type === 'identifier') {
+            captures.push(this.buildCapture(argument, CAPTURE_TAGS.VARIABLE_ACCESS, argument));
+          }
+        }
+      }
+    }
+
     if (nodeType === 'import_statement') {
       captures.push(this.buildImportCapture(node));
     }
