@@ -45,6 +45,26 @@ export class PythonProvider extends TreeSitterBaseProvider {
     return py.python || (py as unknown as TreeSitterLanguage);
   }
 
+  /**
+   * Every identifier under `node`, in document order.
+   *
+   * The walk visits a node's children itself, so a capture taken from inside a subtree would be taken again when the
+   * walk arrives there. These names are therefore recorded **without** descending at this level - the branch above
+   * pushes them and the walk still reaches the leaf, where nothing further is claimed.
+   */
+  private namesIn(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (current.type === 'identifier' || current.type === 'attribute') {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
@@ -88,6 +108,87 @@ export class PythonProvider extends TreeSitterBaseProvider {
           name: nameNode.text,
           properties: { baseClasses, filePath: this.filePath },
         });
+      }
+    } else if (nodeType === 'call') {
+      // The call itself is a use of its callee and of every name among its arguments, and `uses` was still zero
+      // without it: a statement like `db.execute(sql)` is an expression statement, so nothing reached the propagator
+      // to say the tainted binding was used.
+      const callee = node.child(0);
+      if (callee) {
+        const isMethod = callee.type === 'attribute';
+        captures.push({
+          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+          text: callee.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: callee.startIndex,
+          endByte: callee.endIndex,
+          name: isMethod ? (callee.text.split('.').pop() ?? callee.text) : callee.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const args = node.child(1);
+      if (args) {
+        for (const name of this.namesIn(args)) {
+          captures.push({
+            tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+            text: name.text,
+            startLine: name.startPosition.row + 1,
+            endLine: name.endPosition.row + 1,
+            startByte: name.startIndex,
+            endByte: name.endIndex,
+            name: name.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      }
+    } else if (nodeType === 'expression_statement') {
+      // A bare call stands as its own statement; its arguments are the uses that carry taint to a sink.
+      const inner = node.child(0);
+      if (inner && inner.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+          text: inner.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: inner.startIndex,
+          endByte: inner.endIndex,
+          name: inner.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'assignment') {
+      // **Python contributed no defs and no uses, and these three branches are why.** A provider whose walk captures
+      // only declarations contributes nothing that `buildStatementFacts` can derive defs and uses from, so the
+      // propagator has no taint state to seed - the pipeline reached a finding for JavaScript and for nothing else.
+      const left = node.child(0);
+      const right = node.child(2);
+      if (left && left.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: left.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: left.startIndex,
+          endByte: left.endIndex,
+          name: left.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      // The right-hand side is a use of whatever names it mentions, which is what carries taint onward.
+      if (right) {
+        for (const name of this.namesIn(right)) {
+          captures.push({
+            tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+            text: name.text,
+            startLine: name.startPosition.row + 1,
+            endLine: name.endPosition.row + 1,
+            startByte: name.startIndex,
+            endByte: name.endIndex,
+            name: name.text,
+            properties: { filePath: this.filePath },
+          });
+        }
       }
     } else if (nodeType === 'decorated_definition') {
       // Extract decorators
