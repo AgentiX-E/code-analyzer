@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { TypeScriptProvider, groupCaptures } from '@code-analyzer/analyzer';
 import { describe, it, expect } from 'vitest';
 
+import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
 import { analyzeInterproceduralTaint } from '../security/interprocedural-entry.js';
 
 import type { ParsedFile } from '@code-analyzer/shared';
@@ -42,6 +43,8 @@ describe('the chain over real sources', () => {
     let totalSources = 0;
     let totalSinks = 0;
     let totalFindings = 0;
+    let functionsSeen = 0;
+    let functionsWithBoth = 0;
 
     for (const dir of DIRS) {
       for (const file of filesUnder(join(process.cwd(), dir))) {
@@ -73,6 +76,24 @@ describe('the chain over real sources', () => {
         const extraction = new Map([
           [file, { sources, sinks, sanitizers: typed.extractSanitizers(content) }],
         ]);
+        // **Where the thin finding column comes from.** A finding needs a source and a sink in one function with a
+        // path between them, and counting the functions that hold both says whether the constraint is the
+        // vocabulary, the connectivity or the parse - one line of arithmetic rather than an argument.
+        const cfgs = buildFunctionCfgs([parsed], new Map(), extraction);
+        let both = 0;
+        for (const cfg of cfgs.values()) {
+          functionsSeen++;
+          const facts = cfg.stmtFacts;
+          if (facts.sourceSites.size > 0 && facts.sinkSites.size > 0) {
+            both++;
+            functionsWithBoth++;
+          }
+        }
+        if (both > 0) {
+          console.log(
+            `CO-LOCATION ${file.split('/').slice(-2).join('/')}: functions ${cfgs.size}, both ${both}`,
+          );
+        }
         totalFindings += analyzeInterproceduralTaint([parsed], new Map(), extraction).findings
           .length;
       }
@@ -82,6 +103,7 @@ describe('the chain over real sources', () => {
       `REAL: scanned ${scanned}, withSources ${withSources}, captures ${totalCaptures}, sources ${totalSources}, ` +
         `sinks ${totalSinks}, findings ${totalFindings}`,
     );
+    console.log(`CO-LOCATION TOTAL: functions ${functionsSeen}, holding both ${functionsWithBoth}`);
 
     // `groupCaptures` supplies the symbols, so the CFG has functions and the finding column is a measurement rather
     // than an artefact of the scan. What it means is still open: a finding on this repository's own code may be real
