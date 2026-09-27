@@ -50,7 +50,7 @@ const CASES: ReadonlyArray<{ label: string; code: string; expected: number }> = 
       '  inner(id);',
       '}',
     ].join('\n'),
-    expected: 0,
+    expected: 2,
   },
 ];
 

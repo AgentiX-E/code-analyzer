@@ -158,6 +158,13 @@ export interface FunctionCfg {
   readonly edges: readonly CfgEdge[];
   /** Variable bindings. */
   readonly bindings: readonly BindingEntry[];
+  /**
+   * The binding indices of this function's parameters, in order.
+   *
+   * A parameter is the position a taint wave arrives as, and a sink receives it as an argument - so the summary
+   * needs to know which bindings are parameters and in what order, and no provider recorded that on the binding.
+   */
+  readonly parameterBindings?: readonly number[];
   /** Per-statement facts (defs, uses, sources, sinks, sanitizers). */
   readonly stmtFacts: StatementFacts;
   /** Index of the entry block. */

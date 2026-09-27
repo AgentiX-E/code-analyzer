@@ -175,6 +175,28 @@ function buildFunctionSummary(
     }
   }
 
+  // **The sink side of the same join.** A taint wave arrives at this function as *parameter N*, and the sink that
+  // should match it receives that parameter as an argument - so a sink whose argument is a parameter's binding
+  // belongs in `paramToSinks`. It used to be built only from `result.findings`, which needs the function to hold a
+  // source of its own; `inner` in the cross-function shape holds the sink and no source, so nothing was ever pushed
+  // and the wave arrived to find no sinks at all.
+  for (const [sinkStmtIndex, sinkOccurrence] of cfg.stmtFacts.sinkSites) {
+    for (const call of cfg.callSites ?? []) {
+      if (call.line !== sinkOccurrence.point.line) continue;
+      for (const bindingIdx of call.argBindings) {
+        const param = (cfg.parameterBindings ?? []).indexOf(bindingIdx);
+        if (param < 0) continue;
+        paramToSinks.push({
+          param,
+          sinkLine: sinkOccurrence.point.line,
+          sink: sinkOccurrence,
+          hops: 1,
+        });
+      }
+    }
+    void sinkStmtIndex;
+  }
+
   // TITO seeds, from the function's **sources** and its **call sites**.
   //
   // This loop used to live inside the findings loop above, which made a seed depend on the function already having a

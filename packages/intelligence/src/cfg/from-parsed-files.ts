@@ -36,7 +36,11 @@ export function buildFunctionCfgs(
   callSites: ReadonlyMap<string, CallSite[]>,
   extraction?: ReadonlyMap<
     string,
-    { sources: readonly ExtractedSource[]; sinks: readonly ExtractedSink[]; sanitizers?: readonly ExtractedSanitizer[] }
+    {
+      sources: readonly ExtractedSource[];
+      sinks: readonly ExtractedSink[];
+      sanitizers?: readonly ExtractedSanitizer[];
+    }
   >,
 ): Map<string, FunctionCfg> {
   const out = new Map<string, FunctionCfg>();
@@ -93,6 +97,14 @@ export function buildFunctionCfgs(
           sinkSites: occurrences.sinkSites,
           sanitizerSites: occurrences.sanitizerSites,
         },
+        // **`BindingEntry.kind` already says which bindings are parameters**, so no second rule is needed: the
+        // captures emit a def per parameter from `formal_parameters` and `buildStatementFacts` labels it.
+        // **Declared on the function's own line.** `BindingEntry.kind` has a `param` member that nothing ever
+        // assigns - a parameter arrives as a `VARIABLE_DEF` like any other and is labelled `local` - so the rule
+        // is the signature line, which is where a parameter is declared and a local body statement is not.
+        parameterBindings: bindings
+          .filter((b) => b.declLine === symbol.startLine)
+          .map((b) => b.index),
         entryIndex: 0,
         exitIndex: 0,
         callSites: attachArgumentBindings(
