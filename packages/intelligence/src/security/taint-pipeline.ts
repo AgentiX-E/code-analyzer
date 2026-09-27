@@ -158,6 +158,8 @@ function buildFunctionSummary(
     const source = finding.source;
     const sink = finding.sink;
 
+    // **Nothing** - see the seeding loop below for where the seeds actually come from.
+
     // Source → Sink flow
     if (source.category === 'source') {
       // Check if this is source→callArg (seed for fixpoint)
@@ -171,28 +173,39 @@ function buildFunctionSummary(
         });
       }
     }
+  }
 
-    // TITO seeds, from the function's own call sites rather than from its path blocks.
-    //
-    // This block used to push one entry per block of `finding.path`, with `calleeName: ''`, an approximate line
-    // derived from the block index, and `resolved: false`. It fabricated call sites. `cfg.callSites` is where they
-    // belong, and `resolved` is a question with an answer: a callee is resolved when the caller was given a
-    // function of that name.
+  // TITO seeds, from the function's **sources** and its **call sites**.
+  //
+  // This loop used to live inside the findings loop above, which made a seed depend on the function already having a
+  // finding of its own. **The caller in the cross-function case has no sink** - `handler` reads a source and passes it
+  // to `inner`, which holds the sink - so the loop body never ran, no seed was produced, and the interprocedural join
+  // had nothing to start from. That is why the cross-function shape reached zero while the call graph was built and
+  // resolved.
+  //
+  // The seed is a source bound to a definition and passed as an argument: the source is in `stmtFacts.sourceSites`,
+  // its binding is the def at the same statement, and the position is where that binding appears among the call's
+  // arguments.
+  //
+  // `argBindings[i]` is the binding passed at argument `i`; a binding is passed at exactly one position, so its index
+  // is that position. Hardcoding 0 was the mistake `CallSite.argBindings` documents: an empty array means the
+  // positions are not known, and treating that as "first argument" is the one thing it forbids.
+  for (const [stmtIndex, occurrence] of cfg.stmtFacts.sourceSites) {
+    const bindingIdx = occurrence.bindingIdx;
+    if (bindingIdx === undefined) continue;
+
     for (const call of cfg.callSites ?? []) {
-      // **The position, not a constant.** `argBindings[i]` is the binding passed at argument `i`, which
-      // `attachArgumentBindings` filled from the captures; a binding is passed at exactly one position, so its index
-      // is that position. Hardcoding 0 was the mistake `CallSite.argBindings` documents: an empty array means the
-      // positions are not known, and treating that as "first argument" is the one thing it forbids.
-      const argIndex = call.argBindings.indexOf(finding.source.bindingIdx);
+      const argIndex = call.argBindings.indexOf(bindingIdx);
       if (argIndex < 0) continue;
       sourceToCallArgs.push({
-        source: finding.source,
+        source: occurrence,
         calleeName: call.calleeName,
         callLine: call.line,
         argIndex,
         resolved: knownFunctions.has(call.calleeName),
       });
     }
+    void stmtIndex;
   }
 
   return {
