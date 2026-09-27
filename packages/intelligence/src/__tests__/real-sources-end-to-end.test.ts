@@ -7,7 +7,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { TypeScriptProvider, groupCaptures } from '@code-analyzer/analyzer';
+import { TypeScriptProvider, groupCaptures, buildCallSites } from '@code-analyzer/analyzer';
 import { describe, it, expect } from 'vitest';
 
 import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
@@ -93,7 +93,13 @@ describe('the chain over real sources', () => {
             )
             .map((c) => (c as { name?: string }).name ?? ''),
         );
-        const cfgs = buildFunctionCfgs([parsed], new Map(), extraction);
+        // **The calls, resolved the way the phase resolves them**: `buildCallSites` takes the parsed files and the
+        // references `groupCaptures` produced, which is exactly what `scope-resolution.ts` passes it.
+        const callSites = buildCallSites(
+          [parsed],
+          references,
+        );
+        const cfgs = buildFunctionCfgs([parsed], callSites, extraction);
         let both = 0;
         for (const cfg of cfgs.values()) {
           functionsSeen++;

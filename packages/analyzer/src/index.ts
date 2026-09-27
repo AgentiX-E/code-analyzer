@@ -88,3 +88,7 @@ export type { IntegrityReport } from './graph/graph-builder.js';
 // scope tree. Exported because a scan that runs the chain over real files needs the same step - without it
 // the CFG has no functions and its finding count means nothing.
 export { groupCaptures } from './pipeline/phase-helpers.js';
+
+// Where a file's call sites become the per-function map the taint subsystem reads. Exported for the same
+// reason as groupCaptures: a scan over real files has to run the steps the phases run.
+export { buildCallSites } from './resolution/call-sites.js';
