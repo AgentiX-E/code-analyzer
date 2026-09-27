@@ -37,8 +37,46 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     return require('tree-sitter-javascript') as TreeSitterLanguage;
   }
 
+  /**
+   * Record a def for each parameter of a function, which is what makes a parameter a binding.
+   *
+   * `attachArgumentBindings` resolves a call's arguments against the function's bindings, so without this a parameter
+   * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
+   * function" - can never be matched to the sink that receives it.
+   */
+  private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters');
+    if (!list) return;
+    for (const parameter of namedChildrenOf(list)) {
+      const name =
+        parameter.type === 'identifier'
+          ? parameter
+          : namedChildrenOf(parameter).find((c) => c.type === 'identifier');
+      if (!name) continue;
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
+
+    if (
+      nodeType === 'function_declaration' ||
+      nodeType === 'function_expression' ||
+      nodeType === 'arrow_function' ||
+      nodeType === 'method_definition'
+    ) {
+      this.emitParameterDefs(node, captures);
+    }
 
     if (nodeType === 'function_declaration') {
       const nameNode = this.findNamedChild(node, 'identifier');
