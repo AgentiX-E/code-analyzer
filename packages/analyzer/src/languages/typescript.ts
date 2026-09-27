@@ -198,6 +198,29 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
 
     // Handle import_statement as capture
+    // **A parameter is a binding too, and nothing recorded it.** `attachArgumentBindings` resolves a call's
+    // arguments against the function's bindings, so a parameter passed to a callee - `inner(x)` inside
+    // `function inner(x) { db.query(x) }` - was written as `-1` and could never be matched to the taint the wave
+    // carries as "parameter 0 of inner". Emitting a def per parameter is what puts it in that map.
+    if (nodeType === 'function_declaration' || nodeType === 'method_definition') {
+      const params = namedChildrenOf(node).find((c) => c.type === 'formal_parameters');
+      if (params) {
+        for (const parameter of namedChildrenOf(params)) {
+          // A parameter is a `required_parameter` (or an `optional_parameter`) wrapping the name, not a bare
+          // identifier - which is why the first version of this arm emitted nothing for `function inner(x)`.
+          const parameterName =
+            parameter.type === 'identifier'
+              ? parameter
+              : namedChildrenOf(parameter).find((c) => c.type === 'identifier');
+          if (parameterName) {
+            captures.push(
+              this.buildCapture(parameterName, CAPTURE_TAGS.VARIABLE_DEF, parameterName),
+            );
+          }
+        }
+      }
+    }
+
     // **The use side, which TypeScript never emitted.** It recorded a definition, a constant and a call, and nothing
     // that says a name is *used* - so the pipeline had a definition and no use to follow and produced no finding.
     if (nodeType === 'call_expression') {
