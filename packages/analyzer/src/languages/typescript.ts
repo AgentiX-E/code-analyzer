@@ -92,6 +92,20 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
   // ---- Override walk-and-capture for TypeScript-specific logic ----
 
+  /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
+  private namesIn(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (current.type === 'identifier') {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const mappings = this.getNodeMappings();
     const nodeType = node.type;
@@ -200,9 +214,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       }
       const args = node.child(1);
       if (args) {
+        // **Every name in an argument, not only the ones written bare.** `db.query(id + suffix)` passes taint
+        // through an expression, and recording only the direct identifier children left the sink statement
+        // contributing no use - a flow that stops one statement before the sink.
         for (const argument of namedChildrenOf(args)) {
-          if (argument.type === 'identifier') {
-            captures.push(this.buildCapture(argument, CAPTURE_TAGS.VARIABLE_ACCESS, argument));
+          for (const name of this.namesIn(argument)) {
+            captures.push(this.buildCapture(name, CAPTURE_TAGS.VARIABLE_ACCESS, name));
           }
         }
       }

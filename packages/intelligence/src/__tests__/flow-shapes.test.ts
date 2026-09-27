@@ -36,7 +36,7 @@ const CASES: ReadonlyArray<{ label: string; code: string; expected: number }> = 
       '  db.query(id + "x");',
       '}',
     ].join('\n'),
-    expected: 0,
+    expected: 1,
   },
   {
     label: 'a call that crosses into another function',
@@ -88,14 +88,10 @@ describe('what each flow shape reaches', () => {
           },
         ],
       ]);
-      const callSites = buildCallSites(
-        [parsed],
-        references,
-      );
+      const callSites = buildCallSites([parsed], references);
       const result = analyzeInterproceduralTaint([parsed], callSites, extraction);
       const alsoCfgs = buildFunctionCfgs([parsed], callSites, extraction);
 
-       
       console.log(
         `SHAPE ${testCase.label}: functions ${alsoCfgs.size}, findings ${result.findings.length} ` +
           `${JSON.stringify(result.findings.map((f) => f.sink.kind))}`,
