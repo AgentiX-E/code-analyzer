@@ -11,7 +11,10 @@ import { TypeScriptProvider, groupCaptures, buildCallSites } from '@code-analyze
 import { describe, it, expect } from 'vitest';
 
 import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
-import { analyzeInterproceduralTaint } from '../security/interprocedural-entry.js';
+import {
+  analyzeInterproceduralTaint,
+  resolveCallSites,
+} from '../security/interprocedural-entry.js';
 
 import type { ParsedFile } from '@code-analyzer/shared';
 
@@ -95,11 +98,10 @@ describe('the chain over real sources', () => {
         );
         // **The calls, resolved the way the phase resolves them**: `buildCallSites` takes the parsed files and the
         // references `groupCaptures` produced, which is exactly what `scope-resolution.ts` passes it.
-        const callSites = buildCallSites(
-          [parsed],
-          references,
-        );
-        const cfgs = buildFunctionCfgs([parsed], callSites, extraction);
+        const callSites = buildCallSites([parsed], references);
+        // The step the entry runs and this scan was missing: `buildFunctionSummary` compares the callee against a
+        // set of qualified names, so a call written `helper` never matches until the call sites are rewritten.
+        const cfgs = resolveCallSites(buildFunctionCfgs([parsed], callSites, extraction));
         let both = 0;
         for (const cfg of cfgs.values()) {
           functionsSeen++;
