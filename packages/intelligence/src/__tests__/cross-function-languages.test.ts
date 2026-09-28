@@ -16,6 +16,11 @@ import {
   TypeScriptProvider,
   buildCallSites,
   groupCaptures,
+  CProvider,
+  CSharpProvider,
+  CppProvider,
+  PhpProvider,
+  RubyProvider,
 } from '@code-analyzer/analyzer';
 import { describe, it, expect } from 'vitest';
 
@@ -23,8 +28,15 @@ import { analyzeInterproceduralTaint } from '../security/interprocedural-entry.j
 
 import type { ParsedFile } from '@code-analyzer/shared';
 
-const CASES: ReadonlyArray<{ language: string; provider: unknown; file: string; code: string }> = [
+const CASES: ReadonlyArray<{
+  language: string;
+  provider: unknown;
+  file: string;
+  code: string;
+  expected?: number;
+}> = [
   {
+    expected: 2,
     language: 'typescript',
     provider: new TypeScriptProvider(),
     file: 'src/a.ts',
@@ -39,6 +51,7 @@ const CASES: ReadonlyArray<{ language: string; provider: unknown; file: string; 
     ].join('\n'),
   },
   {
+    expected: 1,
     language: 'javascript',
     provider: new JavaScriptProvider(),
     file: 'src/a.js',
@@ -53,6 +66,7 @@ const CASES: ReadonlyArray<{ language: string; provider: unknown; file: string; 
     ].join('\n'),
   },
   {
+    expected: 1,
     language: 'python',
     provider: new PythonProvider(),
     file: 'src/a.py',
@@ -66,6 +80,7 @@ const CASES: ReadonlyArray<{ language: string; provider: unknown; file: string; 
     ].join('\n'),
   },
   {
+    expected: 1,
     language: 'java',
     provider: new JavaProvider(),
     file: 'src/A.java',
@@ -82,6 +97,7 @@ const CASES: ReadonlyArray<{ language: string; provider: unknown; file: string; 
     ].join('\n'),
   },
   {
+    expected: 1,
     language: 'go',
     provider: new GoProvider(),
     file: 'src/a.go',
@@ -93,6 +109,88 @@ const CASES: ReadonlyArray<{ language: string; provider: unknown; file: string; 
       'func handler() {',
       '  ident := os.Getenv("ID")',
       '  inner(ident)',
+      '}',
+    ].join('\n'),
+  },
+  {
+    // Open: this grammar's parameter arm is in and its shape does not reach yet.
+    expected: 0,
+    language: 'csharp',
+    provider: new CSharpProvider(),
+    file: 'src/A.cs',
+    code: [
+      'class A {',
+      '  void inner(string x) {',
+      '    System.Diagnostics.Process.Start(x);',
+      '  }',
+      '  void handler() {',
+      '    var ident = Environment.GetEnvironmentVariable("ID");',
+      '    inner(ident);',
+      '  }',
+      '}',
+    ].join('\n'),
+  },
+  {
+    expected: 1,
+    language: 'php',
+    provider: new PhpProvider(),
+    file: 'src/a.php',
+    code: [
+      '<?php',
+      'function inner($x) {',
+      '  shell_exec($x);',
+      '}',
+      'function handler() {',
+      '  $ident = getenv("ID");',
+      '  inner($ident);',
+      '}',
+    ].join('\n'),
+  },
+  {
+    expected: 1,
+    language: 'ruby',
+    provider: new RubyProvider(),
+    file: 'src/a.rb',
+    code: [
+      'def inner(x)',
+      '  system(x)',
+      'end',
+      '',
+      'def handler',
+      '  ident = ENV["ID"]',
+      '  inner(ident)',
+      'end',
+    ].join('\n'),
+  },
+  {
+    // Open: this grammar's parameter arm is in and its shape does not reach yet.
+    expected: 0,
+    language: 'c',
+    provider: new CProvider(),
+    file: 'src/a.c',
+    code: [
+      'void inner(char *x) {',
+      '  system(x);',
+      '}',
+      'void handler(void) {',
+      '  char *ident = getenv("ID");',
+      '  inner(ident);',
+      '}',
+    ].join('\n'),
+  },
+  {
+    // Open: this grammar's parameter arm is in and its shape does not reach yet.
+    expected: 0,
+    language: 'cpp',
+    provider: new CppProvider(),
+    file: 'src/a.cpp',
+    code: [
+      'void inner(const char *x) {',
+      '  std::system(x);',
+      '}',
+      'void handler() {',
+      '  const char *ident = getenv("ID");',
+      '  inner(ident);',
       '}',
     ].join('\n'),
   },
@@ -130,21 +228,20 @@ describe('the cross-function shape, per language', () => {
           },
         ],
       ]);
-      const callSites = buildCallSites(
-        [parsed],
-        references,
-      );
+      const callSites = buildCallSites([parsed], references);
       const result = analyzeInterproceduralTaint([parsed], callSites, extraction);
 
-       
       console.log(
         `XF ${testCase.language}: findings ${result.findings.length} ` +
           `${JSON.stringify(result.findings.map((f) => `${f.sourceFn}->${f.sinkFn}:${f.sink.kind}`))}`,
       );
 
-      expect(result.findings.length).toBeGreaterThan(0);
-      // A cross-function finding is one whose source and sink are in different functions.
-      expect(result.findings[0]?.sourceFn).not.toBe(result.findings[0]?.sinkFn);
+      expect(result.findings.length).toBe(testCase.expected);
+
+      if (testCase.expected !== 0) {
+        // A cross-function finding is one whose source and sink are in different functions.
+        expect(result.findings[0]?.sourceFn).not.toBe(result.findings[0]?.sinkFn);
+      }
     });
   }
 });

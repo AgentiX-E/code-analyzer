@@ -87,8 +87,42 @@ export class CppProvider extends TreeSitterBaseProvider {
     }
   }
 
+  /**
+   * Record a def for each parameter of a function, which is what makes a parameter a binding.
+   *
+   * `attachArgumentBindings` resolves a call's arguments against the function's bindings, so without this a parameter
+   * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
+   * function" - can never be matched to the sink that receives it.
+   *
+   * The node names are read from this grammar's own tree rather than assumed.
+   */
+  private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const list = namedChildrenOf(node).find((c) => c.type === 'parameter_list');
+    if (!list) return;
+    for (const parameter of namedChildrenOf(list)) {
+      // **A C parameter wraps its name in declarators**: `char *x` is a `parameter_declaration` around a
+      // `pointer_declarator` around the identifier, so one level down finds the pointer, not the name.
+      const wrapped = parameter.type === 'identifier' ? parameter : this.nameIn(parameter);
+      if (!wrapped) continue;
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: wrapped.text,
+        startLine: wrapped.startPosition.row + 1,
+        endLine: wrapped.endPosition.row + 1,
+        startByte: wrapped.startIndex,
+        endByte: wrapped.endIndex,
+        name: wrapped.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
+
+    if (nodeType === 'function_definition') {
+      this.emitParameterDefs(node, captures);
+    }
 
     // **C++'s statements, which it recorded none of.** Declarations alone give the pipeline no use to follow,
     // so taint has nothing to travel along - the same gap as the other languages and the same table finds it.

@@ -84,8 +84,47 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     }
   }
 
+  /**
+   * Record a def for each parameter of a function, which is what makes a parameter a binding.
+   *
+   * `attachArgumentBindings` resolves a call's arguments against the function's bindings, so without this a parameter
+   * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
+   * function" - can never be matched to the sink that receives it.
+   *
+   * The node names are read from this grammar's own tree rather than assumed.
+   */
+  private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const list = namedChildrenOf(node).find((c) => c.type === 'parameter_list');
+    if (!list) return;
+    for (const parameter of namedChildrenOf(list)) {
+      const wrapped = ['identifier'].includes(parameter.type)
+        ? parameter
+        : namedChildrenOf(parameter).find((c) => ['identifier'].includes(c.type));
+      if (!wrapped) continue;
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: wrapped.text,
+        startLine: wrapped.startPosition.row + 1,
+        endLine: wrapped.endPosition.row + 1,
+        startByte: wrapped.startIndex,
+        endByte: wrapped.endIndex,
+        name: wrapped.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
+
+    if (
+      nodeType === 'method_declaration' ||
+      nodeType === 'constructor_declaration' ||
+      nodeType === 'local_function_statement'
+    ) {
+      this.emitParameterDefs(node, captures);
+    }
+
     // **C#'s statements, which it recorded none of.**
     if (nodeType === 'local_declaration_statement') {
       const declaration = namedChildrenOf(node).find((c) => c.type === 'variable_declaration');
