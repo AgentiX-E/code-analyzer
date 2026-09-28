@@ -113,8 +113,8 @@ const CASES: ReadonlyArray<{
     ].join('\n'),
   },
   {
-    // Open: this grammar's parameter arm is in and its shape does not reach yet.
-    expected: 0,
+    // The sink list held `Process.Start` and the matcher compared only the last segment, `Start`.
+    expected: 1,
     language: 'csharp',
     provider: new CSharpProvider(),
     file: 'src/A.cs',

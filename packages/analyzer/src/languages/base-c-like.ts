@@ -441,12 +441,15 @@ function sourceFor(text: string): readonly [string, string] | undefined {
  */
 function sinkFor(text: string): readonly [string, string] | undefined {
   // Splits on `->` as well as `.`: PHP writes `$db->query($sql)`, whose last dot-segment is the whole string.
-  const simple =
-    text
-      .split(/[.\-]>?|(?<![.\-])[.]/)
-      .filter(Boolean)
-      .pop() ?? text;
-  return C_LIKE_SINKS.find(([name]) => simple === name || text === name);
+  //
+  // **And it has to know about `::` and about qualified spellings.** A C++ sink is written `std::system`, whose
+  // segments are `std` and `system` only once `::` splits it; and a C# sink is written
+  // `System.Diagnostics.Process.Start`, whose last segment is `Start` while the list holds `Process.Start`. **Both
+  // were in the list and neither matched** - the list was right and the comparison was too narrow.
+  const segments = text.split(/::|[.\-]>?|(?<![.\-])[.]/).filter(Boolean);
+  const simple = segments.pop() ?? text;
+  const qualified = segments.length > 0 ? `${segments[segments.length - 1]}.${simple}` : simple;
+  return C_LIKE_SINKS.find(([name]) => simple === name || qualified === name || text === name);
 }
 
 /**
@@ -698,7 +701,15 @@ export function collectCLikeTaintSanitizers(
 function sanitizerFor(text: string): readonly [string, string] | undefined {
   const simple = lastSegmentOf(text);
   return C_LIKE_SANITIZERS.find(
-    ([name]) => simple === name || text === name || text.endsWith(name),
+    ([name]) =>
+      simple === name ||
+      text === name ||
+      text.endsWith(name) ||
+      // **Two shapes the list holds and the simple name does not reach.** `System.Diagnostics.Process.Start` ends
+      // with `Process.Start`, which is the entry; and `std::system` is not split by the separator that handles `.`
+      // and `->`, so its last segment is the whole qualified name. Both were in the list and neither matched.
+      text.endsWith(`.${name}`) ||
+      text.split('::').pop() === name,
   );
 }
 
