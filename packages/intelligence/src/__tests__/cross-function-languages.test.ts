@@ -163,8 +163,8 @@ const CASES: ReadonlyArray<{
     ].join('\n'),
   },
   {
-    // Open: this grammar's parameter arm is in and its shape does not reach yet.
-    expected: 0,
+    // Open: the parameter arm is in and the shape reaches for C.
+    expected: 1,
     language: 'c',
     provider: new CProvider(),
     file: 'src/a.c',

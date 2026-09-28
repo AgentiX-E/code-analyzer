@@ -97,7 +97,12 @@ export class CppProvider extends TreeSitterBaseProvider {
    * The node names are read from this grammar's own tree rather than assumed.
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const list = namedChildrenOf(node).find((c) => c.type === 'parameter_list');
+    // **The parameter list is not a child of the function**: `function_definition` holds a `function_declarator`,
+    // and the `parameter_list` hangs off that. Looking at the function's own children finds nothing.
+    const declarator = namedChildrenOf(node).find((c) => c.type === 'function_declarator');
+    const list = declarator
+      ? namedChildrenOf(declarator).find((c) => c.type === 'parameter_list')
+      : undefined;
     if (!list) return;
     for (const parameter of namedChildrenOf(list)) {
       // **A C parameter wraps its name in declarators**: `char *x` is a `parameter_declaration` around a
