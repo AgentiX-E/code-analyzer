@@ -202,8 +202,13 @@ export class CppProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-    } else if (nodeType === 'function_declarator') {
-      const nameNode = this.extractFunctionNameNode(node);
+    } else if (nodeType === 'function_definition') {
+      // **The span has to be the function's, not its declarator's.** A `function_declarator` ends at the closing
+      // parenthesis of the signature, so `void inner(const char *x) { ... }` was recorded as ending on its first
+      // line - and `buildCallSites` keeps a reference only when `ref.sourceLine <= symbol.endLine`, which put every
+      // call in the body outside its own function and left an empty call-site map.
+      const signature = namedChildrenOf(node).find((c) => c.type === 'function_declarator');
+      const nameNode = signature ? this.extractFunctionNameNode(signature) : undefined;
       if (nameNode && this.isValidFnName(nameNode.text)) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,

@@ -179,8 +179,8 @@ const CASES: ReadonlyArray<{
     ].join('\n'),
   },
   {
-    // Open: this grammar's parameter arm is in and its shape does not reach yet.
-    expected: 0,
+    // The function def spanned its declarator, so every call in the body fell outside its own symbol.
+    expected: 1,
     language: 'cpp',
     provider: new CppProvider(),
     file: 'src/a.cpp',
