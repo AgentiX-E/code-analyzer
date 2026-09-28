@@ -132,6 +132,16 @@ describe('the chain over real sources', () => {
       `CROSS-CALL (proxy): functions ${functionsSeen}, whose name appears at a call site ${functionsCalled}`,
     );
 
+    // **And the finding column has not moved while the capture column grew.** Every fix of the last four days is in
+    // this scan - the parameter bindings, the argument accesses, the sink matcher, the C++ spans - and the captures
+    // went from 42,446 to 55,958 while the findings stayed at five. Those five are same-function findings, and the
+    // interprocedural join now has everything it needs here and still adds nothing, because this repository's sources
+    // and sinks rarely meet: 10 of 207 functions hold both ends, and of those the ones that reach already did.
+    //
+    // That is a statement about **this repository**, not about the chain: the chain's behaviour is asserted by the
+    // ten-language cross-function test, on samples written to exercise it. A repository that reads untrusted input
+    // and passes it to a shell will now produce the interprocedural finding; this one mostly does not do that.
+    //
     // `groupCaptures` supplies the symbols, so the CFG has functions and the finding column is a measurement rather
     // than an artefact of the scan. What it means is still open: a finding on this repository's own code may be real
     // or may be a source and a sink that happen to share a function.
