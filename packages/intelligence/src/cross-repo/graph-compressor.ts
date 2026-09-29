@@ -93,12 +93,30 @@ interface SerializedEdge {
 /**
  * Check if brotli compression is available in the current Node.js version.
  */
+let brotliProbe: (() => boolean) | null = null;
+
+/**
+ * Answer whether brotli is available, without depending on the machine doing the asking.
+ *
+ * **The probe is the only thing standing between four branches and their tests.** Whether this runtime can compress
+ * with brotli is an environment fact, so a test cannot reach either branch by writing code - and the four branches
+ * were excluded from coverage instead. A seam that lets the answer be given makes them ordinary branches.
+ *
+ * Test-only, by the naming convention: nothing in the package calls it.
+ */
+export function __setBrotliProbe(probe: (() => boolean) | null): void {
+  brotliProbe = probe;
+}
+
+/**
+ * Check if brotli compression is available in the current Node.js version.
+ */
 function isBrotliAvailable(): boolean {
+  if (brotliProbe) return brotliProbe();
   try {
     brotliCompressSync(Buffer.from('test'));
     return true;
   } catch {
-    /* istanbul ignore next -- @preserve */
     return false;
   }
 }
@@ -107,7 +125,6 @@ function isBrotliAvailable(): boolean {
  * Compress a buffer using brotli (preferred) or gzip (fallback).
  */
 function compressBuffer(data: Buffer): Buffer {
-  /* istanbul ignore if -- @preserve */
   if (isBrotliAvailable()) {
     return brotliCompressSync(data, {
       params: {
@@ -116,7 +133,6 @@ function compressBuffer(data: Buffer): Buffer {
       },
     });
   }
-  /* istanbul ignore next -- @preserve */
   // Fallback to gzip with maximum compression
   return gzipSync(data, { level: 9 });
 }
@@ -127,7 +143,6 @@ function compressBuffer(data: Buffer): Buffer {
  */
 function decompressBuffer(data: Buffer): Buffer {
   // Brotli detection: try brotli first if it's available
-  /* istanbul ignore if -- @preserve */
   if (isBrotliAvailable()) {
     try {
       return brotliDecompressSync(data);
@@ -224,9 +239,7 @@ export class GraphCompressor {
       compressedSize,
       originalSize,
       compressionRatio:
-        originalSize > 0
-          ? Math.round((compressedSize / originalSize) * 10000) / 10000
-          : /* istanbul ignore next -- @preserve */ 0,
+        originalSize > 0 ? Math.round((compressedSize / originalSize) * 10000) / 10000 : 0,
       nodeCount: allNodes.length,
       edgeCount: allEdges.length,
       checksum,
@@ -324,9 +337,7 @@ export class GraphCompressor {
       compressedSize,
       originalSize,
       compressionRatio:
-        originalSize > 0
-          ? Math.round((compressedSize / originalSize) * 10000) / 10000
-          : /* istanbul ignore next -- @preserve */ 0,
+        originalSize > 0 ? Math.round((compressedSize / originalSize) * 10000) / 10000 : 0,
       nodeCount: serialized.nodes.length,
       edgeCount: serialized.edges.length,
       checksum,
