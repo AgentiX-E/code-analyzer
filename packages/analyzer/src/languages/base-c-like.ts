@@ -583,7 +583,16 @@ export function collectCLikeTaintSinks(
     // last segment is `getRuntime` — which matches nothing. Java's sink case found this.
     const callee = calleeOf(node.text);
     const match = sinkFor(callee);
-    if (match && callee.length > 0) {
+    // **A call inside a call is the same statement, and the outer one is the call.** The walk arrives top down, so
+    // an existing sink whose text contains this node's is the outer call of a chain:
+    // `require('node:child_process').execSync(cmd).toString()` visits `execSync(cmd)` - which matches `execSync` -
+    // and then `require('node:child_process')`, which matches `require`. Reporting the inner one attributes the flow
+    // to a callee one level in, which is what the fixture showed.
+    const isInner = sinks.some(
+      (existing) =>
+        existing.line === node.startPosition.row + 1 && existing.text.includes(node.text),
+    );
+    if (match && callee.length > 0 && !isInner) {
       sinks.push({
         name: callee,
         sinkType: match[1],

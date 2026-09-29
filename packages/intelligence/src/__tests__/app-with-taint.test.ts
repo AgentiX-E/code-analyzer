@@ -110,5 +110,9 @@ describe('a fixture repository with taint across files', () => {
 
     // And the sanitized variant must not be reported at all.
     expect(result.findings.some((f) => (f.sourceFn ?? '').includes('handleList'))).toBe(false);
+
+    // **And the sink is the call the flow reaches, not one inside it.** The sink line is a chain of three calls;
+    // before this, the inner `require` was reported as `file_include` because its own text contains no other call.
+    expect(crossFile.every((f) => f.sink.kind === 'os_command')).toBe(true);
   });
 });
