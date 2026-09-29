@@ -240,9 +240,15 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         // **Every name in an argument, not only the ones written bare.** `db.query(id + suffix)` passes taint
         // through an expression, and recording only the direct identifier children left the sink statement
         // contributing no use - a flow that stops one statement before the sink.
-        for (const argument of namedChildrenOf(args)) {
+        for (const [argIndex, argument] of namedChildrenOf(args).entries()) {
           for (const name of this.namesIn(argument)) {
-            captures.push(this.buildCapture(name, CAPTURE_TAGS.VARIABLE_ACCESS, name));
+            // **The argument the name sits in.** A template literal with two substitutions is ONE argument, and
+            // without this its two names were counted as two - so the taint was held to be at a position the callee
+            // has no parameter for, and the flow reached no sink.
+            captures.push({
+              ...this.buildCapture(name, CAPTURE_TAGS.VARIABLE_ACCESS, name),
+              properties: { filePath: this.filePath, argIndex: String(argIndex) },
+            });
           }
         }
       }

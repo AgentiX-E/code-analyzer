@@ -153,18 +153,43 @@ function attachArgumentBindings(
   for (const binding of bindings) bindingByName.set(binding.name, binding.index);
 
   // Argument reads, per line, in document order.
+  //
+  // **And the argument each one sits in, where the capture says so.** Document order alone cannot tell a name inside
+  // one argument from a second argument, which is what a template literal makes visible: two substitutions in one
+  // argument were read as two arguments, and the taint was then looked for at a parameter the callee does not have.
   const accessesByLine = new Map<number, string[]>();
+  const argIndexByLine = new Map<number, Map<string, number>>();
   for (const capture of captures) {
     if (capture.tag !== CAPTURE_TAGS.VARIABLE_ACCESS || !capture.name) continue;
     if (capture.startLine < startLine || capture.startLine > endLine) continue;
     const names = accessesByLine.get(capture.startLine) ?? [];
     names.push(capture.name);
     accessesByLine.set(capture.startLine, names);
+    const raw = (capture.properties as { argIndex?: string } | undefined)?.argIndex;
+    const recorded = raw === undefined ? undefined : Number(raw);
+    if (recorded !== undefined) {
+      const perLine = argIndexByLine.get(capture.startLine) ?? new Map<string, number>();
+      if (!perLine.has(capture.name)) perLine.set(capture.name, recorded);
+      argIndexByLine.set(capture.startLine, perLine);
+    }
   }
 
   return sites.map((site) => {
     const names = accessesByLine.get(site.line);
     if (!names || names.length === 0) return site;
+    const recorded = argIndexByLine.get(site.line);
+    if (recorded && recorded.size > 0) {
+      // One entry per distinct argument, in the order the arguments appear.
+      const positions = new Map<number, string>();
+      for (const name of names) {
+        const index = recorded.get(name);
+        if (index !== undefined && !positions.has(index)) positions.set(index, name);
+      }
+      if (positions.size > 0) {
+        const ordered = [...positions.entries()].sort((a, b) => a[0] - b[0]);
+        return { ...site, argBindings: ordered.map(([, name]) => bindingByName.get(name) ?? -1) };
+      }
+    }
     return { ...site, argBindings: names.map((name) => bindingByName.get(name) ?? -1) };
   });
 }
