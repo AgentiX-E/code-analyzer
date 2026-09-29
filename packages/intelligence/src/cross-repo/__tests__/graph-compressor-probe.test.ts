@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { __setBrotliProbe, GraphCompressor } from '../graph-compressor.js';
 
-import type { InMemoryGraphStore } from '../graph-compressor.js';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 const made: string[] = [];
 
@@ -22,13 +22,9 @@ function tempArtifact(): string {
   return join(dir, 'graph.bin');
 }
 
-/** A store with nothing in it, which is what makes the ratio guard reachable. */
+/** A store with nothing in it, which is the input a graph of zero nodes needs. */
 function emptyStore(): InMemoryGraphStore {
-  // Only the two read methods are reached by the compressor, and the type is local to the module.
-  return {
-    getAllNodes: () => [],
-    getAllEdges: () => [],
-  } as unknown as InMemoryGraphStore;
+  return new InMemoryGraphStore();
 }
 
 afterEach(() => {
