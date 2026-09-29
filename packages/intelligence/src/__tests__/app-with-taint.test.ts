@@ -94,11 +94,11 @@ describe('a fixture repository with taint across files', () => {
     // layer could not express until `argArguments` carried it.
     expect(crossFile.some((f) => (f.sourceFn ?? '').includes('handleSearch'))).toBe(true);
 
-    // **`handleExport` does not reach, and its data is right.** It passes `\u0060tar -cf - ${target}\u0060`, one
-    // binding at argument 0, and its source is that binding - the same shape as `handleSearch` after the fix. It is
-    // asserted as absent so that whatever moves it is a visible edit; the difference between the two is the next
-    // measurement rather than a guess.
-    expect(crossFile.some((f) => (f.sourceFn ?? '').includes('handleExport'))).toBe(false);
+    // **Both handlers, and they differ only in one thing.** `handleSearch` passes a template with two substitutions
+    // and `handleExport` one, and both were absent from the solver's first result for the same reason: the key that
+    // decides whether a state has been processed used the source's statement index, which is per function, so the
+    // second handler's source collided with the first's and was discarded.
+    expect(crossFile.some((f) => (f.sourceFn ?? '').includes('handleExport'))).toBe(true);
 
     // And the sanitized variant must not be reported at all.
     expect(result.findings.some((f) => (f.sourceFn ?? '').includes('handleList'))).toBe(false);

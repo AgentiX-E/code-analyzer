@@ -398,7 +398,12 @@ export class InterprocSolver {
   // ---------------------------------------------------------------------------
 
   private shouldProcess(state: TaintedParameter, processed: Map<string, number>): boolean {
-    const key = `${state.fnQn}:${state.param}:${state.source.point.blockIndex}:${state.source.point.stmtIndex}`;
+    // **The source's function is part of the identity.** `blockIndex` and `stmtIndex` are per function, so two
+    // handlers whose sources sit at the same statement in their own bodies collided on one key and the second was
+    // discarded as already processed - which is why one handler of the fixture reported and the other did not, with
+    // both of their sources correct. `callChain[0]` is the function the source was read in.
+    const sourceFn = state.callChain[0] ?? state.fnQn;
+    const key = `${sourceFn}:${state.fnQn}:${state.param}:${state.source.point.blockIndex}:${state.source.point.stmtIndex}`;
     const prevNeutralized = processed.get(key);
     // Process if never seen, or if we have fewer neutralizations (more dangerous)
     if (prevNeutralized === undefined || state.neutralized.size < prevNeutralized) {
