@@ -58,10 +58,23 @@ function scanFixture(): ReturnType<typeof analyzeInterproceduralTaint> {
   return analyzeInterproceduralTaint(files, callSites, extraction as never);
 }
 
+// **Three things the fixture shows that nothing before it did**, all of them in the analysis rather than in what
+// feeds it:
+//
+//   1. `handleSearch` is missing. Both handlers have a source at statement 1 and both call the sink, and the probe
+//      prints the difference: `handleExport` calls `runCommand([1])` and `handleSearch` calls `runCommand([2,1])`.
+//      A template literal with two substitutions was recorded as **two arguments**, so the taint is held to be at
+//      position 1 - and the wave then asks for parameter 1 of `runCommand`, which has one parameter. **The argument
+//      list of a single template literal is not an argument list.**
+//   2. The sink kind is `file_include`, from the `require` beside the `execSync` on the same line.
+//   3. One finding is reported six times: the same flow, once per path.
+//
+// None is a capture-layer absence. This is the first input where the analysis itself is what to look at.
+
 describe('a fixture repository with taint across files', () => {
   it('reports a finding whose source and sink are in different files', () => {
     const result = scanFixture();
-     
+
     console.log(
       `APPTAIN files 4 findings ${result.findings.length} ` +
         `${JSON.stringify(result.findings.slice(0, 3).map((f) => `${f.sourceFn}->${f.sinkFn}:${f.sink.kind}`))}`,
