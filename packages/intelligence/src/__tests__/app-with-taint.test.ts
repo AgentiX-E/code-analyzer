@@ -83,10 +83,24 @@ describe('a fixture repository with taint across files', () => {
     // **The assertion that makes this different from every sample above it**: the two ends are in different files,
     // so nothing local to one function could have produced it.
     expect(result.findings.length).toBeGreaterThan(0);
-    expect(
-      result.findings.some(
-        (f) => (f.sourceFn ?? '').includes('server.ts') && (f.sinkFn ?? '').includes('shell.ts'),
-      ),
-    ).toBe(true);
+
+    const crossFile = result.findings.filter(
+      (f) => (f.sourceFn ?? '').includes('server.ts') && (f.sinkFn ?? '').includes('shell.ts'),
+    );
+    expect(crossFile.length).toBeGreaterThan(0);
+
+    // **Both handlers, not just the one whose argument is a plain name.** `handleSearch` passes a template literal,
+    // and its taint sits on the second of two substitutions inside ONE argument - which is the case the capture
+    // layer could not express until `argArguments` carried it.
+    expect(crossFile.some((f) => (f.sourceFn ?? '').includes('handleSearch'))).toBe(true);
+
+    // **`handleExport` does not reach, and its data is right.** It passes `\u0060tar -cf - ${target}\u0060`, one
+    // binding at argument 0, and its source is that binding - the same shape as `handleSearch` after the fix. It is
+    // asserted as absent so that whatever moves it is a visible edit; the difference between the two is the next
+    // measurement rather than a guess.
+    expect(crossFile.some((f) => (f.sourceFn ?? '').includes('handleExport'))).toBe(false);
+
+    // And the sanitized variant must not be reported at all.
+    expect(result.findings.some((f) => (f.sourceFn ?? '').includes('handleList'))).toBe(false);
   });
 });

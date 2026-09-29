@@ -217,8 +217,12 @@ function buildFunctionSummary(
     if (bindingIdx === undefined) continue;
 
     for (const call of cfg.callSites ?? []) {
-      const argIndex = call.argBindings.indexOf(bindingIdx);
-      if (argIndex < 0) continue;
+      const flat = call.argBindings.indexOf(bindingIdx);
+      if (flat < 0) continue;
+      // **The argument, which is what the callee has a parameter for.** `argBindings` is flat, so a template
+      // literal's second substitution sits at a position the callee does not have; `argArguments` says which
+      // argument that position belongs to.
+      const argIndex = call.argArguments?.[flat] ?? flat;
       sourceToCallArgs.push({
         source: occurrence,
         calleeName: call.calleeName,

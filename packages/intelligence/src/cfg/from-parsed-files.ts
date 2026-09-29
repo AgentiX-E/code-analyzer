@@ -186,8 +186,25 @@ function attachArgumentBindings(
         if (index !== undefined && !positions.has(index)) positions.set(index, name);
       }
       if (positions.size > 0) {
-        const ordered = [...positions.entries()].sort((a, b) => a[0] - b[0]);
-        return { ...site, argBindings: ordered.map(([, name]) => bindingByName.get(name) ?? -1) };
+        // **Every binding in the call, each with the argument it sits in.** The first of an argument is what aligns
+        // with a parameter; the rest are carried alongside so a taint on any of them can be found by its argument.
+        const flat: Array<{ argument: number; name: string }> = [];
+        for (const name of names) {
+          const argument = recorded.get(name);
+          if (argument !== undefined) flat.push({ argument, name });
+        }
+        const ordered = flat.sort((a, b) => a.argument - b.argument);
+        const bindings: number[] = [];
+        const argumentsOf: number[] = [];
+        for (const entry of ordered) {
+          const index = bindingByName.get(entry.name);
+          if (index === undefined) continue;
+          bindings.push(index);
+          argumentsOf.push(entry.argument);
+        }
+        if (bindings.length > 0) {
+          return { ...site, argBindings: bindings, argArguments: argumentsOf };
+        }
       }
     }
     return { ...site, argBindings: names.map((name) => bindingByName.get(name) ?? -1) };

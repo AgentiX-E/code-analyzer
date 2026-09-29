@@ -1224,6 +1224,14 @@ export interface CallSite {
    * same.
    */
   readonly argBindings: readonly number[];
+  /**
+   * The argument each binding in `argBindings` sits in, by the same index.
+   *
+   * **`argBindings` aligns positions with parameters, and one argument can hold several bindings.** A template
+   * literal with two substitutions is one argument - `runCommand(`\u0060${prefix} ${term}\u0060`)` - and a taint on the
+   * second of them has to be found at argument 0 rather than at the position it would take in a flat list.
+   */
+  readonly argArguments?: readonly number[];
   /** Binding index the return value is assigned to, or -1 when the result is discarded. */
   readonly resultBinding: number;
 }
