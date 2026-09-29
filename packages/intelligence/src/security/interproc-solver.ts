@@ -379,8 +379,22 @@ export class InterprocSolver {
       }
     }
 
+    // **One finding per flow, not one per path it arrived by.** The fixpoint visits a state again whenever a
+    // shorter or less-neutralized route to it appears, and each visit that sees an unneutralized sink pushes another
+    // finding for the same source and the same sink. The fixture reported one flow six times.
+    //
+    // The identity is the source, the sink and the two functions they sit in - **not** the source's statement index
+    // alone, which is per function and would merge two handlers again.
+    const seen = new Set<string>();
+    const unique = findings.filter((f) => {
+      const key = `${f.sourceFn}:${f.sinkFn}:${f.source.point.blockIndex}:${f.source.point.stmtIndex}:${f.sink.point.line}:${f.sink.kind}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     return {
-      findings,
+      findings: unique,
       iterations,
       summariesAnalyzed: this.summaries.size,
       statesProcessed,

@@ -82,7 +82,9 @@ describe('a fixture repository with taint across files', () => {
 
     // **The assertion that makes this different from every sample above it**: the two ends are in different files,
     // so nothing local to one function could have produced it.
-    expect(result.findings.length).toBeGreaterThan(0);
+    // **Two findings, one per handler** - not six per handler. A finding is a flow, not a path: the fixpoint reaches
+    // the same sink again by other routes and each visit used to push its own copy.
+    expect(result.findings.length).toBe(2);
 
     const crossFile = result.findings.filter(
       (f) => (f.sourceFn ?? '').includes('server.ts') && (f.sinkFn ?? '').includes('shell.ts'),

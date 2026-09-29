@@ -36,7 +36,7 @@ const CASES: ReadonlyArray<{
   expected?: number;
 }> = [
   {
-    expected: 2,
+    expected: 1,
     language: 'typescript',
     provider: new TypeScriptProvider(),
     file: 'src/a.ts',
