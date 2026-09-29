@@ -6,6 +6,12 @@
 //
 //   src/server.ts   handleSearch / handleExport read request.query and call runCommand
 //   src/shell.ts    runCommand calls child_process.execSync - the sink, one file away
+//
+// **And the finding's `kind` is `file_include`, which is right about a call that is really there.** The line is
+// `require('node:child_process').execSync(command).toString()`, three calls in a chain; the inner `require` is a
+// genuine call and `require` is genuinely a sink in the vocabulary. `calleeOf` takes everything before the **last**
+// top-level `(` - which for a chain is the outermost call, `toString` - so the outer call matches nothing and the
+// inner one is what the flow is attributed to. **One call written as a chain is reported by the callee one level in.**
 //   src/config.ts   readConfig returns configuration the handler concatenates into the command
 //   src/safe.ts     the same shape, sanitized before the sink, which must not be reported
 
