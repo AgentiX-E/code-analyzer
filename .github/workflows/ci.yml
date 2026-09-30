@@ -406,3 +406,21 @@ jobs:
             echo "❌ **Some jobs failed.** Review the details above." >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+
+  impact-of-change:
+    name: 'Impact of the Change'
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The script compares against the previous commit, which needs the history the default depth omits.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Which tests reach what changed
+        # **Printed, not enforced.** The suite that runs in the other jobs is the enforcement; this says which parts
+        # of it a reviewer should expect to matter. It exits zero by design - a listing that fails a build would be
+        # turned off the first time it was inconvenient, which is how a gate becomes a habit.
+        run: node scripts/impact-of-change.mjs --changed
