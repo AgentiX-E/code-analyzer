@@ -134,8 +134,15 @@ export async function analyzeRepository(
             parseData.taintExtraction,
           );
           ctx.taintFindings = taint.findings;
-        } catch {
+        } catch (error) {
           // A failing analysis must not fail indexing — the graph is still useful without taint findings.
+          //
+          // **And it must not be silent either.** This catch produced an empty array on failure, which is
+          // indistinguishable from an analysis that ran and found nothing - the shape that hid five defects in this
+          // subsystem. The findings are still empty and the indexing still succeeds; what changes is that a failure
+          // now says so.
+          // eslint-disable-next-line no-console
+          console.warn('taint analysis failed; continuing without its findings', error);
           ctx.taintFindings = [];
         }
       }
