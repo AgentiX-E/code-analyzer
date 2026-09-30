@@ -86,7 +86,10 @@ export default defineConfig({
         '**/*.test.ts',
         '**/*.spec.ts',
         '**/index.ts', // Barrel files — re-export only, exercised via consumer tests
-        '**/provider.ts', // Pure interface definitions (no executable code)
+        // **The one file a pattern for `provider.ts` would have hidden.** `**/provider.ts` matched this path as well
+        // as the pure one below, and this one carries fifteen executable constructs - so it was excluded from
+        // coverage by its name rather than by its content, which is the defect the comment above describes.
+        'packages/analyzer/src/languages/provider.ts', // Pure interface definitions (0 executable constructs)
         '**/fixtures/**', // Test fixtures (no executable code)
         '**/start.ts', // Process entry points — exercised via integration/e2e
         '**/benchmark-data.ts', // Static benchmark datasets (no executable code)
