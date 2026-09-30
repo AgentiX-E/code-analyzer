@@ -122,6 +122,18 @@ function isBrotliAvailable(): boolean {
 }
 
 /**
+ * The compressed size as a fraction of the original, to four decimal places.
+ *
+ * **A guard against dividing by zero was here and is not any more.** `originalSize` is the byte length of a buffer
+ * that always holds a serialization envelope - a version, a timestamp and two empty arrays for an empty graph - so it
+ * cannot be zero, and the `: 0` arm the guard carried was unreachable. **A probe removed for coverage reasons found
+ * this**: it expected an empty graph's ratio to be zero and got 0.85.
+ */
+function compressionRatioOf(compressedSize: number, originalSize: number): number {
+  return Math.round((compressedSize / originalSize) * 10000) / 10000;
+}
+
+/**
  * Compress a buffer using brotli (preferred) or gzip (fallback).
  */
 function compressBuffer(data: Buffer): Buffer {
@@ -238,8 +250,7 @@ export class GraphCompressor {
       version: ARTIFACT_VERSION,
       compressedSize,
       originalSize,
-      compressionRatio:
-        originalSize > 0 ? Math.round((compressedSize / originalSize) * 10000) / 10000 : 0,
+      compressionRatio: compressionRatioOf(compressedSize, originalSize),
       nodeCount: allNodes.length,
       edgeCount: allEdges.length,
       checksum,
@@ -336,8 +347,7 @@ export class GraphCompressor {
       version: serialized.version,
       compressedSize,
       originalSize,
-      compressionRatio:
-        originalSize > 0 ? Math.round((compressedSize / originalSize) * 10000) / 10000 : 0,
+      compressionRatio: compressionRatioOf(compressedSize, originalSize),
       nodeCount: serialized.nodes.length,
       edgeCount: serialized.edges.length,
       checksum,
