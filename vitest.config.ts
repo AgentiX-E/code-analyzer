@@ -90,6 +90,14 @@ export default defineConfig({
         // as the pure one below, and this one carries fifteen executable constructs - so it was excluded from
         // coverage by its name rather than by its content, which is the defect the comment above describes.
         'packages/analyzer/src/languages/provider.ts', // Pure interface definitions (0 executable constructs)
+        //
+        // **And the file the pattern was hiding, now counted, is at zero.** `packages/intelligence/src/review/
+        // llm/provider.ts` reports 0 statements, 0 branches, 0 functions, 0 lines, with the uncovered range 95-393:
+        // **299 lines of a DeepSeek-backed implementation that no test reaches.** Nineteen test files in the package
+        // pass and none of them touch it.
+        //
+        // It is **not** re-excluded. A file at zero that is counted is a number someone can act on; a file at zero
+        // that is excluded is a number nobody sees, which is what it was for as long as the pattern held.
         '**/fixtures/**', // Test fixtures (no executable code)
         '**/start.ts', // Process entry points — exercised via integration/e2e
         '**/benchmark-data.ts', // Static benchmark datasets (no executable code)
