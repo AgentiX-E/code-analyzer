@@ -91,11 +91,17 @@ export default defineConfig({
         // coverage by its name rather than by its content, which is the defect the comment above describes.
         'packages/analyzer/src/languages/provider.ts', // Pure interface definitions (0 executable constructs)
         //
-        // **`review/llm/provider.ts` was counted and now reads 100 / 87.5 / 100 / 100.** The four branch sites the
-        // report names are: two `err instanceof Error ? err : new Error(String(err))` fallbacks, reachable only by a
-        // `throw` of a non-Error, which `fetch` does not do; one `??` where a completion carries a tool call and no
-        // content, which is now a test; and the `lastError ?? new LLMError(...)` at the end of the retry loop, whose
-        // own comment says it is unreachable and satisfies TypeScript. **Three are named and one is covered.**
+        // **`review/llm/provider.ts` reads 100 / 90.32 / 100 / 100**, and the three branch sites the report still
+        // names are a category rather than three defects: two `err instanceof Error ? err : new Error(String(err))`
+        // fallbacks and one optional-chain arm inside the tool-call map.
+        //
+        // **They are defensive, not dead, and the difference is worth the words.** A `throw` of a non-`Error` is
+        // permitted by the language and produced by no `fetch` this project runs against - so the shape is possible
+        // and unobserved, which is what a defensive arm is for. **The `lastError` fallback that used to sit beside
+        // them was neither**: the loop cannot end without a throw, so no input could reach it, and it is gone.
+        //
+        //   dead      - no input reaches it, and the code that produced it is a guarantee not a condition
+        //   defensive - an input reaches it in principle, and this project has not seen one
         //
         // **And the file the pattern was hiding, now counted, is at zero.** `packages/intelligence/src/review/
         // llm/provider.ts` reports 0 statements, 0 branches, 0 functions, 0 lines, with the uncovered range 95-393:
