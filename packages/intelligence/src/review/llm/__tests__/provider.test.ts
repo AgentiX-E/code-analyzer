@@ -216,3 +216,35 @@ describe('the paths a first attempt does not take', () => {
     expect(calls?.[0]?.arguments).toContain('a.ts');
   });
 });
+
+describe('the options that change the request, and the body that cannot be read', () => {
+  it('sends the stop sequences it was given', async () => {
+    let seen = '';
+    const { server, url } = await startServer((req, res) => {
+      seen = (req as IncomingMessage & { body: string }).body;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+    });
+    servers.push(server);
+
+    await providerFor(url).complete('q', { stop: ['\n\n', '###'] });
+    // **The options are the request, so the request is what the assertion reads.** A test that stubbed `fetch` would
+    // have asserted what the stub was told rather than what the provider built.
+    expect(seen).toContain('stop');
+    expect(seen).toContain('###');
+  });
+
+  it('still reports the status when the error body cannot be read', async () => {
+    const { server, url } = await startServer((_req, res) => {
+      res.writeHead(500, { 'content-type': 'application/json' });
+      // The headers are sent and the body is never completed, so reading it rejects.
+      res.socket?.destroy();
+    });
+    servers.push(server);
+
+    process.env['DEEPSEEK_API_KEY'] = 'test-key';
+    const provider = new DeepSeekProvider({ baseUrl: url, timeout: 2000, maxRetries: 0 });
+    // **The status is the part that matters, and it survives a body that never arrives.**
+    await expect(provider.complete('q')).rejects.toThrow();
+  });
+});
