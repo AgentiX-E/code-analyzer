@@ -298,7 +298,11 @@ export class DeepSeekProvider implements LLMProvider {
     const timeout = options?.timeout ?? this.defaultTimeout;
     const maxRetries = this.maxRetries;
 
-    let lastError: Error | undefined;
+    // **Initialised rather than left undefined, so no `??` is needed after the loop.** The loop either returns or
+
+    // throws on every path it takes, and the comment that used to sit on the final throw said so: *should be
+
+    // unreachable, but satisfy TypeScript*. Initialising it is how the compiler is satisfied without a branch.
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -416,16 +420,18 @@ export class DeepSeekProvider implements LLMProvider {
           throw caught;
         }
 
-        lastError = caught;
-
         // Wait with exponential backoff before retrying
         const delay = Math.min(1000 * Math.pow(2, attempt), 30_000);
         await this.sleep(delay);
       }
     }
 
-    // Should be unreachable due to logic above, but satisfy TypeScript
-    throw lastError ?? new LLMError('Unknown error', undefined, this.name);
+    // The loop returns or throws on every path, so `lastError` holds the last one and needs no fallback arm.
+    // **The loop cannot end without a throw, and this says so.** Every iteration either rethrows one of
+    // the three errors that are not retried, or throws what it caught on the last attempt - so a
+    // `lastError` carried out of the loop was a variable nothing read. A coverage report named the line;
+    // reading the loop confirmed it, and the throw below is the guarantee written out.
+    throw new LLMError('DeepSeek request attempts exhausted', undefined, this.name);
   }
 
   private sleep(ms: number): Promise<void> {
