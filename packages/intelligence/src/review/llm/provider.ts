@@ -37,6 +37,14 @@ export interface CompletionResult {
   createdAt: string;
   /** Reason the completion stopped (stop, length, etc.). */
   finishReason: string;
+  /**
+   * The tools the model asked to call, when it asked for any.
+   *
+   * **The calls were rendered into `content` and nowhere else** - `read_file({\"path\":\"a.ts\"})` as a line of prose -
+   * so a caller that wanted the name and the arguments had to parse a string the provider had just formatted. Both
+   * are here: `content` keeps the rendering for a prompt that wants text, and this keeps the call.
+   */
+  toolCalls?: Array<{ id: string; name: string; arguments: string }>;
 }
 
 /** Definition of a tool/function the LLM can invoke. */
@@ -367,6 +375,11 @@ export class DeepSeekProvider implements LLMProvider {
 
         return {
           content,
+          toolCalls: choice.message.tool_calls?.map((tc) => ({
+            id: tc.id,
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+          })),
           model: data.model,
           usage: data.usage
             ? {
