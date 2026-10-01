@@ -122,3 +122,97 @@ describe('the DeepSeek provider, against a server', () => {
     expect(() => new DeepSeekProvider()).toThrow(LLMAuthError);
   });
 });
+
+describe('the paths a first attempt does not take', () => {
+  it('reports an empty choices array rather than reading past it', async () => {
+    const { server, url } = await startServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [] }));
+    });
+    servers.push(server);
+    await expect(providerFor(url).complete('q')).rejects.toThrow(/empty choices/i);
+  });
+
+  it('retries a 500 and returns the answer the second attempt gave', async () => {
+    let attempts = 0;
+    const { server, url } = await startServer((_req, res) => {
+      attempts += 1;
+      if (attempts === 1) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'server error' } }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'second try' } }] }),
+      );
+    });
+    servers.push(server);
+
+    process.env['DEEPSEEK_API_KEY'] = 'test-key';
+    // **`maxRetries` is the number of attempts after the first**, and the backoff between them is a real second -
+    // which is the point: the delay is the provider's, not a test's.
+    const provider = new DeepSeekProvider({ baseUrl: url, timeout: 2000, maxRetries: 1 });
+    const result = await provider.complete('q');
+    expect(result.content).toBe('second try');
+    expect(attempts).toBe(2);
+  }, 10_000);
+
+  it('throws the last error when every attempt fails', async () => {
+    let attempts = 0;
+    const { server, url } = await startServer((_req, res) => {
+      attempts += 1;
+      res.writeHead(500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'always broken' } }));
+    });
+    servers.push(server);
+
+    process.env['DEEPSEEK_API_KEY'] = 'test-key';
+    const provider = new DeepSeekProvider({ baseUrl: url, timeout: 2000, maxRetries: 1 });
+    await expect(provider.complete('q')).rejects.toThrow();
+    expect(attempts).toBe(2);
+  }, 10_000);
+
+  it('builds a tool request when tools are given, and reads the call back', async () => {
+    let seen = '';
+    const { server, url } = await startServer((req, res) => {
+      seen = (req as IncomingMessage & { body: string }).body;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: '',
+                tool_calls: [
+                  {
+                    id: 'call-1',
+                    type: 'function',
+                    function: { name: 'read_file', arguments: '{"path":"a.ts"}' },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    servers.push(server);
+
+    const result = await providerFor(url).completeWithTools('read it', [
+      {
+        name: 'read_file',
+        description: 'Read a file',
+        parameters: { type: 'object', properties: { path: { type: 'string' } } },
+      },
+    ]);
+    // The request the provider built carries the tool definition...
+    expect(seen).toContain('read_file');
+    expect(seen).toContain('tools');
+    // ...and the call the provider read back is on the result.
+    const calls = (result as { toolCalls?: Array<{ name: string; arguments: string }> }).toolCalls;
+    expect(calls?.[0]?.name).toBe('read_file');
+    expect(calls?.[0]?.arguments).toContain('a.ts');
+  });
+});
