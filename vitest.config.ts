@@ -91,6 +91,12 @@ export default defineConfig({
         // coverage by its name rather than by its content, which is the defect the comment above describes.
         'packages/analyzer/src/languages/provider.ts', // Pure interface definitions (0 executable constructs)
         //
+        // **`review/llm/provider.ts` was counted and now reads 100 / 87.5 / 100 / 100.** The four branch sites the
+        // report names are: two `err instanceof Error ? err : new Error(String(err))` fallbacks, reachable only by a
+        // `throw` of a non-Error, which `fetch` does not do; one `??` where a completion carries a tool call and no
+        // content, which is now a test; and the `lastError ?? new LLMError(...)` at the end of the retry loop, whose
+        // own comment says it is unreachable and satisfies TypeScript. **Three are named and one is covered.**
+        //
         // **And the file the pattern was hiding, now counted, is at zero.** `packages/intelligence/src/review/
         // llm/provider.ts` reports 0 statements, 0 branches, 0 functions, 0 lines, with the uncovered range 95-393:
         // **299 lines of a DeepSeek-backed implementation that no test reaches.** Nineteen test files in the package

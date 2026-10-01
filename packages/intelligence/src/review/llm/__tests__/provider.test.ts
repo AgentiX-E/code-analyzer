@@ -286,3 +286,38 @@ describe('the two answers the health check can give, and the body that breaks mi
     expect(String(error)).toMatch(/500/);
   });
 });
+
+describe('the branch where a tool call has no content beside it', () => {
+  it('renders the call into the content when content is null', async () => {
+    const { server, url } = await startServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      // **`content: null` with a tool call** is the one shape where the rendering branch is taken rather than the
+      // passthrough - a model that answers with a call and no prose, which is what a tool use looks like.
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: null,
+                tool_calls: [
+                  {
+                    id: 'c1',
+                    type: 'function',
+                    function: { name: 'grep', arguments: '{"q":"x"}' },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    servers.push(server);
+
+    const result = await providerFor(url).complete('q');
+    // The rendering is still there for a prompt that wants text...
+    expect(result.content).toContain('grep');
+    expect(result.toolCalls?.[0]?.name).toBe('grep');
+  });
+});
