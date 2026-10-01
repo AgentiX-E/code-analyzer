@@ -85,7 +85,18 @@ export default defineConfig({
       exclude: [
         '**/*.test.ts',
         '**/*.spec.ts',
+        // **`**/index.ts` held two files that are not barrels**, and the reason beside the pattern said "re-export
+        // only, exercised via consumer tests". Auditing the pattern against its matches, as `**/provider.ts` was:
+        //
+        //   packages/cli/src/index.ts                 11 constructs - an entry point, not a re-export
+        //   packages/core/src/lifecycle/index.ts       6 constructs - a lifecycle manager, counted from now on
+        //   packages/analyzer/src/pipeline/phases/index.ts   1 - a type's arrow, a real barrel
+        //   packages/core/src/metrics/index.ts               1 - the same
+        //
+        // **A pattern's reason is a claim about every file it matches**, and this one was true of most of them and
+        // false of two.
         '**/index.ts', // Barrel files — re-export only, exercised via consumer tests
+        'packages/cli/src/index.ts', // Process entry point — covered by the same reason as `**/start.ts`
         // **The one file a pattern for `provider.ts` would have hidden.** `**/provider.ts` matched this path as well
         // as the pure one below, and this one carries fifteen executable constructs - so it was excluded from
         // coverage by its name rather than by its content, which is the defect the comment above describes.
