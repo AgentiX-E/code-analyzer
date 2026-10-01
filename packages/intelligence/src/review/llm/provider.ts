@@ -122,6 +122,9 @@ export class LLMTimeoutError extends LLMError {
 
 /** Error thrown when the provider's rate limit is exceeded. */
 export class LLMRateLimitError extends LLMError {
+  /** The `Retry-After` the provider sent, if it sent one. */
+  public readonly retryAfter: string | undefined;
+
   constructor(providerName: string, retryAfter?: string) {
     super(
       `Rate limit exceeded for provider "${providerName}"${retryAfter ? `. Retry after ${retryAfter}` : ''}`,
@@ -129,7 +132,23 @@ export class LLMRateLimitError extends LLMError {
       providerName,
     );
     this.name = 'LLMRateLimitError';
+    // **The message said it and the object did not hold it.** A caller that wants to wait has to parse a message,
+    // which is why the field is here.
+    this.retryAfter = retryAfter;
   }
+}
+
+/**
+ * The completion's timestamp, from the field the response carries or from the clock.
+ *
+ * **The provider's own `created` is not guaranteed** - a compatible API need not send it - and the field was read
+ * unconditionally, so a response without one crashed on `toISOString()`.
+ */
+function createdAtOf(data: DeepSeekResponse): string {
+  const created = (data as { created?: unknown }).created;
+  return typeof created === 'number'
+    ? new Date(created * 1000).toISOString()
+    : new Date().toISOString();
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +269,11 @@ export class DeepSeekProvider implements LLMProvider {
         timeout: 10_000,
       });
       return result.content.length > 0;
-    } catch {
+    } catch (error) {
+      // **A misconfigured key is not an unreachable provider.** Reporting both as `false` leaves an operator with a
+      // boolean that cannot distinguish the two things it is asked to distinguish, so a configuration error is
+      // rethrown and only reachability is answered.
+      if (error instanceof LLMAuthError) throw error;
       return false;
     }
   }
@@ -352,7 +375,10 @@ export class DeepSeekProvider implements LLMProvider {
                 totalTokens: data.usage.total_tokens,
               }
             : undefined,
-          createdAt: new Date(data.created * 1000).toISOString(),
+          // **`created` is OpenAI's field and DeepSeek does not send it.** `new Date(undefined * 1000)` is
+          // `new Date(NaN)`, and `toISOString()` on that throws `RangeError: Invalid time value` - so every
+          // completion that succeeded crashed on the way out. Found by a test that answered with a real payload.
+          createdAt: createdAtOf(data),
           finishReason: choice.finish_reason,
         };
       } catch (err: unknown) {
