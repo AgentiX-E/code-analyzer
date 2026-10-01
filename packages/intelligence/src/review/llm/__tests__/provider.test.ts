@@ -248,3 +248,41 @@ describe('the options that change the request, and the body that cannot be read'
     await expect(provider.complete('q')).rejects.toThrow();
   });
 });
+
+describe('the two answers the health check can give, and the body that breaks mid-read', () => {
+  it('answers false for a provider that answers with an error', async () => {
+    const { server, url } = await startServer((_req, res) => {
+      res.writeHead(500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'broken' } }));
+    });
+    servers.push(server);
+    // **Reachability, answered false** - which is the whole job of this call for a provider that is not there.
+    expect(await providerFor(url).healthCheck()).toBe(false);
+  });
+
+  it('throws the configuration error rather than answering false for it', async () => {
+    const { server, url } = await startServer((_req, res) => {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'invalid key' } }));
+    });
+    servers.push(server);
+    // **A key that is wrong is not a provider that is down**, so the call refuses to fold it into `false`.
+    await expect(providerFor(url).healthCheck()).rejects.toBeInstanceOf(LLMAuthError);
+  });
+
+  it('reports the status when the body promises more than it sends', async () => {
+    const { server, url } = await startServer((_req, res) => {
+      // A length larger than the body, then a close: reading the body rejects, which is the `.catch` the report
+      // named as uncovered. **The status is the part that matters and it does not depend on the body arriving.**
+      res.writeHead(500, { 'content-type': 'application/json', 'content-length': '200' });
+      res.write('{"error":');
+      res.socket?.end();
+    });
+    servers.push(server);
+
+    process.env['DEEPSEEK_API_KEY'] = 'test-key';
+    const provider = new DeepSeekProvider({ baseUrl: url, timeout: 2000, maxRetries: 0 });
+    const error = await provider.complete('q').catch((e: unknown) => e);
+    expect(String(error)).toMatch(/500/);
+  });
+});
