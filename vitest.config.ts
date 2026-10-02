@@ -95,7 +95,25 @@ export default defineConfig({
         //
         // **A pattern's reason is a claim about every file it matches**, and this one was true of most of them and
         // false of two.
-        '**/index.ts', // Barrel files — re-export only, exercised via consumer tests
+        // **The pattern was narrowed to barrels that are barrels.** It used to be `**/index.ts` with the reason
+        // "re-export only", and the sentence above about a claim being about contents rather than a filename applies
+        // to it: `**/index.ts` matched `lifecycle/index.ts`, which is a lifecycle manager with six constructs and a
+        // test of its own. **A commit message saying a file is counted does nothing; the pattern has to stop
+        // matching it.** These are the ones whose content is a re-export list:
+        'packages/analyzer/src/pipeline/index.ts',
+        'packages/analyzer/src/cfg/index.ts',
+        'packages/analyzer/src/index.ts',
+        'packages/core/src/crash-recovery/index.ts',
+        'packages/core/src/config/index.ts',
+        'packages/core/src/security/index.ts',
+        'packages/core/src/plugins/index.ts',
+        'packages/core/src/operations/index.ts',
+        'packages/core/src/index.ts',
+        'packages/core/src/errors/index.ts',
+        'packages/core/src/i18n/index.ts',
+        'packages/core/src/logging/index.ts',
+        'packages/infra/src/resilience/index.ts',
+        'packages/infra/src/index.ts',
         'packages/cli/src/index.ts', // Process entry point — covered by the same reason as `**/start.ts`
         // **The one file a pattern for `provider.ts` would have hidden.** `**/provider.ts` matched this path as well
         // as the pure one below, and this one carries fifteen executable constructs - so it was excluded from
