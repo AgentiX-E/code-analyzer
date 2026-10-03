@@ -1,0 +1,92 @@
+{
+  "comment": [
+    "The repositories and queries the real ground-truth extractor draws from, and the rules it uses.",
+    "",
+    "**Why this file is committed rather than the extraction being ad hoc**: the dataset has to be",
+    "reproducible from public sources. Every issue the extractor emits carries its repo, commit sha, file",
+    "path and the author's own hunk ranges, so a reader can check any single entry against GitHub without",
+    "trusting this repository.",
+    "",
+    "**The rule the extractor obeys, and the reason the dataset is credible**: a human, not this project,",
+    "decided which lines were wrong - they are the lines that human's fix changed. `category` and",
+    "`severity` are NOT from the human; they are inferred from the commit message by the rules below and",
+    "are labelled `inferred` in every emitted issue. The line ranges are labelled `authored`.",
+    "Two quality bounds the first run showed were needed: `excludedPathPattern` now names the segments that mean not-production (it matched `test/` and let `testdata/baselines/` through), and `maxLinesPerHunk` drops a hunk that spans a rewrite - a sixty-nine-line hunk is not one reviewable issue.",
+    "`windowLines` bounds what each issue carries: the first extraction stored whole files, which came to 30 MB over six issues because a file like TypeScript's checker.ts is fifty thousand lines. A PR review examines a window, not a whole file - and a benchmark that carries whole files cannot reach a hundred issues at any usable size."
+  ],
+  "schemaVersion": 1,
+  "repos": [
+    {
+      "repo": "microsoft/TypeScript",
+      "license": "Apache-2.0",
+      "language": "typescript"
+    },
+    {
+      "repo": "tanstack/query",
+      "license": "MIT",
+      "language": "typescript"
+    },
+    {
+      "repo": "vercel/next.js",
+      "license": "MIT",
+      "language": "typescript"
+    },
+    {
+      "repo": "axios/axios",
+      "license": "MIT",
+      "language": "javascript"
+    },
+    {
+      "repo": "expressjs/express",
+      "license": "MIT",
+      "language": "javascript"
+    },
+    {
+      "repo": "nodejs/node",
+      "license": "MIT",
+      "language": "javascript"
+    },
+    {
+      "repo": "fastify/fastify",
+      "license": "MIT",
+      "language": "javascript"
+    }
+  ],
+  "queries": [
+    "repo:{repo}+fix+null",
+    "repo:{repo}+fix+crash",
+    "repo:{repo}+fix+race",
+    "repo:{repo}+fix+memory+leak",
+    "repo:{repo}+fix+security",
+    "repo:{repo}+fix+incorrect"
+  ],
+  "sourceFilePattern": "\\.(ts|tsx|js|jsx|mts|cts)$",
+  "excludedPathPattern": "(^|/)(test|tests|__tests__|testdata|baselines?|spec|specs|e2e|__mocks__|__snapshots__|docs?|examples?|samples?|benchmarks?|fixtures?|vendor|dist|build|lib|coverage)(/|\\.)|(\\.d\\.ts$)|(\\.(test|spec)\\.)|((package|pnpm|yarn)\\.?lock)",
+  "maxFilesPerCommit": 3,
+  "maxChangedLinesPerCommit": 60,
+  "categoryRules": [
+    {
+      "category": "security",
+      "severity": "high",
+      "pattern": "secur|xss|injection|csrf|sanitiz|escap|auth|traversal|redos"
+    },
+    {
+      "category": "bug",
+      "severity": "high",
+      "pattern": "crash|panic|throw|unhandled|reject|abort|deadlock|race|leak"
+    },
+    {
+      "category": "bug",
+      "severity": "medium",
+      "pattern": "null|undefined|nan|incorrect|wrong|broken|invalid|overflow|off.by"
+    },
+    {
+      "category": "bug",
+      "severity": "medium",
+      "pattern": "fix|bug|repair|correct|patch|regression"
+    }
+  ],
+  "maxLinesPerHunk": 30,
+  "maxGroundTruthRanges": 6,
+  "windowLines": 60
+}
