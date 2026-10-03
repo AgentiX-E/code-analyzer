@@ -65,7 +65,8 @@
     "docs:status": "node scripts/readme-status-gate.js",
     "docs:code-sync": "node scripts/doc-code-sync-gate.js",
     "embeddings:status": "node scripts/embedding-backend-status.js",
-    "impact": "node scripts/impact-of-change.mjs --changed"
+    "impact": "node scripts/impact-of-change.mjs --changed",
+    "measure": "node scripts/measure-candidate.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
