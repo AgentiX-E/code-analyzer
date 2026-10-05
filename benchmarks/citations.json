@@ -23,7 +23,11 @@
         "precision": 0.794,
         "recall": 0.73,
         "f1": 0.761
-      }
+      },
+      "sources": [
+        "packages/intelligence/src/benchmark/benchmark-data.ts",
+        "packages/intelligence/src/benchmark/benchmark-fixtures.ts"
+      ]
     },
     "real-bug-fix-commits-2026-10": {
       "artifact": "benchmarks/real-ground-truth/issues.json",
@@ -31,7 +35,10 @@
       "groundTruthIssues": 100,
       "groundTruthSource": "public bug-fix commits, extracted by scripts/extract-real-ground-truth.mjs from benchmarks/real-ground-truth/manifest.json; the line ranges are each commit's own patch hunk headers",
       "independentValidation": true,
-      "caveat": "The ground truth is authored by the humans who wrote the fixes - a line range is the range that fix changed - and each issue carries its repo, sha, commit URL and license so any entry can be checked against GitHub. **The category and severity are NOT authored**: they are inferred from the commit message by rules in the manifest, and every issue says so in the same field. The metrics are not recorded because the benchmark has not been run against this dataset yet; the count is, because the gate counts it."
+      "caveat": "The ground truth is authored by the humans who wrote the fixes - a line range is the range that fix changed - and each issue carries its repo, sha, commit URL and license so any entry can be checked against GitHub. **The category and severity are NOT authored**: they are inferred from the commit message by rules in the manifest, and every issue says so in the same field. The metrics are not recorded because the benchmark has not been run against this dataset yet; the count is, because the gate counts it.",
+      "sources": [
+        "benchmarks/real-ground-truth/issues.json"
+      ]
     }
   }
 }

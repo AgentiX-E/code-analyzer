@@ -24,13 +24,19 @@
 
 const fs = require('node:fs');
 
-const SOURCES = [
+/**
+ * **A citation names its own sources, and the gate counts those.** The list below is the default for a citation that
+ * declares none, which is what the internal suite did when there was one dataset. It became a defect the moment a
+ * second dataset existed: `counted` was global while `groundTruthIssues` was per-dataset, so the two agreed only by
+ * coincidence. A global value used where a per-item one was needed, once more.
+ */
+const DEFAULT_SOURCES = [
   'packages/intelligence/src/benchmark/benchmark-data.ts',
   'packages/intelligence/src/benchmark/benchmark-fixtures.ts',
 ];
 
-/** Entries carrying an `id`-like key, which is how the dataset declares a ground-truth issue. */
-const ENTRY = /^\s*(?:id|issueId):\s*'/gm;
+/** Entries carrying an `id`-like key, in TypeScript (`id: '...'`) or JSON (`"id": "..."`). */
+const ENTRY = /^\s*"?\s*(?:id|issueId)"?\s*:\s*['"]/gm;
 
 function parseArgs(argv) {
   const args = { citations: 'benchmarks/citations.json', json: false, requirePublishable: false };
@@ -56,22 +62,31 @@ function main() {
 
   let counted = 0;
   const perSource = [];
-  for (const file of SOURCES) {
-    if (!fs.existsSync(file)) {
-      failures.push(`dataset source missing: ${file}`);
-      continue;
-    }
-    const n = countEntries(file);
-    counted += n;
-    perSource.push(`${file.split('/').pop()}=${n}`);
-  }
+  const perCitation = {};
 
   for (const [name, entry] of Object.entries(citations.citations ?? {})) {
     if (typeof entry.groundTruthIssues !== 'number') continue;
-    if (entry.groundTruthIssues !== counted) {
+    // **Counted from the sources this citation names**, not from a global list.
+    const sources = Array.isArray(entry.sources) && entry.sources.length > 0 ? entry.sources : DEFAULT_SOURCES;
+    let own = 0;
+    const ownDetail = [];
+    for (const file of sources) {
+      if (!fs.existsSync(file)) {
+        failures.push(`dataset source missing: ${file} (named by citation \`${name}\`)`);
+        continue;
+      }
+      const n = countEntries(file);
+      own += n;
+      ownDetail.push(`${file.split('/').pop()}=${n}`);
+      if (!perSource.includes(`${file.split('/').pop()}=${n}`)) perSource.push(`${file.split('/').pop()}=${n}`);
+    }
+    perCitation[name] = { counted: own, sources: ownDetail };
+    counted = Math.max(counted, own);
+
+    if (entry.groundTruthIssues !== own) {
       failures.push(
         `citation \`${name}\` claims ${entry.groundTruthIssues} ground-truth issues, ` +
-          `the sources hold ${counted} (${perSource.join(', ')})`,
+          `its sources hold ${own} (${ownDetail.join(', ') || 'none'})`,
       );
     }
     // Below the minimum is a STATE, not a failure. The README gate already refuses to publish a figure from a
@@ -86,11 +101,18 @@ function main() {
     }
   }
 
+  // **Publishable means a citation whose OWN dataset reaches the minimum**, not that the largest one does: a figure
+  // is published from a dataset, and this gate's job is to say whether that dataset is big enough.
+  const publishableFrom = Object.entries(perCitation)
+    .filter(([, v]) => v.counted >= minimum)
+    .map(([k]) => k);
   const result = {
     minimum,
     counted,
     perSource,
-    publishable: counted >= minimum && failures.length === 0,
+    perCitation,
+    publishableFrom,
+    publishable: publishableFrom.length > 0 && failures.length === 0,
   };
   // A machine-readable mode emits the payload and nothing else: no summary, no confirmation line. Anything else
   // is a caller that has to strip lines off its own input.
