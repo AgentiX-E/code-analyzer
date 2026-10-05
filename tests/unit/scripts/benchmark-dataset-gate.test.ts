@@ -46,10 +46,14 @@ describe('benchmark-dataset-gate', () => {
     const out = execFileSync(process.execPath, [GATE, '--json'], { encoding: 'utf-8' });
     const result = JSON.parse(out) as { minimum: number; counted: number; publishable: boolean };
 
-    // 49 issues against a minimum of 100: the state I20.2 recorded, and the reason no figure is published.
+    // **This assertion used to read 49 and `publishable: false`** - the state I20.2 recorded, and the reason no
+    // PR-review figure was published: 49 hand-written fixtures against a minimum of 100, and not independent
+    // because this project wrote them. On 2026-10-05 the real dataset from public bug-fix commits reached the
+    // minimum, so the assertion states the new truth. **It is still an assertion about the world, not a wish**:
+    // if the count falls below the minimum again, this fails.
     expect(result.minimum).toBe(100);
-    expect(result.counted).toBe(49);
-    expect(result.publishable).toBe(false);
+    expect(result.counted).toBeGreaterThanOrEqual(100);
+    expect(result.publishable).toBe(true);
   });
 
   it('reports below-minimum without failing, because a small dataset is a state rather than a defect', () => {
