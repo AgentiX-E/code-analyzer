@@ -155,4 +155,6 @@ if (require.main === module) {
   }
 }
 
-module.exports = { countEntries, SOURCES };
+// **The export is the second half of a rename.** `SOURCES` became `DEFAULT_SOURCES` and this line was not changed
+// with it, so the gate printed its conclusion and then threw - an exit code of 1 on a run whose answer was 0.
+module.exports = { countEntries, DEFAULT_SOURCES, SOURCES: DEFAULT_SOURCES };

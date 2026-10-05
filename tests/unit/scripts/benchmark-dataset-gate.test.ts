@@ -91,7 +91,13 @@ describe('benchmark-dataset-gate', () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.stderr).toContain('the sources hold');
+    // **The gate says which sources it counted and what they hold.** The wording changed when a citation began
+    // counting the sources it names rather than a global list, so the assertion checks the substance: the
+    // discrepancy is named, and both numbers appear.
+    const said = result.stderr + result.stdout;
+    expect(said).toContain('sources hold');
+    expect(said).toContain('100');
+    expect(said).toContain('49');
   });
 
   it('passes only when the count matches and reaches the minimum', () => {
