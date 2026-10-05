@@ -59,6 +59,34 @@
       "large": "635.6 ms/file (17 indexed)"
     },
     "effect": "about ten per cent per file, and flat in the corpus size either way",
-    "andTheTestThatMeasuredItWasRemoved": "A scaling test asserted that four times the corpus costs less than ten times the time, and it **passed with the fix and without it** - because seventeen files is not enough corpus for a quadratic in files and nodes to show. It was deleted rather than kept: **a test that cannot fail is worse than no test, because it looks like coverage.** The guard for the allocation is the probe count, which went from 12,750 to under 1,500 and did fail before the fix."
+    "andTheTestThatMeasuredItWasRemoved": "A scaling test asserted that four times the corpus costs less than ten times the time, and it **passed with the fix and without it** - because seventeen files is not enough corpus for a quadratic in files and nodes to show. It was deleted rather than kept: **a test that cannot fail is worse than no test, because it looks like coverage.** The guard for the allocation is the probe count, which went from 12,750 to under 1,500 and did fail before the fix.",
+    "withBothFixes": {
+      "small": "595.5 ms/file (2 files, 226 nodes, 225 edges)"
+    },
+    "andTheWallClockDidNotMove": "A two-file corpus is 226 nodes and 225 edges, and the quadratic constant at that size is smaller than the noise: parse went 1,148 ms to 1,191 ms. **The probe count is the evidence and a small corpus cannot show a quadratic** - the same lesson as the deleted scaling test, learned twice in one day."
+  },
+  "parseSubSteps": {
+    "measured": "2026-10-05",
+    "file": "packages/shared/src/types/graph.ts, 1,238 lines",
+    "providerParseMs": 31,
+    "captures": 197,
+    "extractTaintSources": {
+      "ms": 14,
+      "results": 0
+    },
+    "extractTaintSinks": {
+      "ms": 13,
+      "results": 0
+    },
+    "extractSanitizers": {
+      "ms": 17,
+      "results": 0
+    },
+    "groupCaptures": {
+      "ms": 0,
+      "symbols": 110,
+      "references": 28
+    },
+    "andWhatItShows": "Seventy-five milliseconds of work per file against a phase reporting about 570. The rest was in the graph loop, where `addEdge` carried the same linear id probe `addNode` had - 12,750 probes for 500 edges through 50 builders, the identical number, and the two now share one `claimId` function. **And the three taint calls are 44 of those 75 milliseconds and return empty every time, for every TypeScript file**: 18 seconds over this corpus, spent computing nothing. That is the next target and it is more certain than the quadratic was."
   }
 }
