@@ -109,7 +109,31 @@ describe('indexing speed', () => {
     };
 
     mkdirSync(dirname(ARTIFACT), { recursive: true });
-    writeFileSync(ARTIFACT, JSON.stringify(artifact, null, 2) + '\n', 'utf8');
+    // **Write after the validity check, not before it.** The first version wrote first, so the run that indexed
+    // nothing - four milliseconds, zero files - left an artifact that read like a measurement. A throughput number
+    // with no graph behind it is a number about nothing, and the file has to be unable to say otherwise.
+    if (artifact.pipeline.graphFileCount === 0) {
+      writeFileSync(
+        ARTIFACT,
+        JSON.stringify(
+          {
+            comment: artifact.comment,
+            measuredAt: artifact.measuredAt,
+            valid: false,
+            reason:
+              'the pipeline completed without indexing a file, so there is no throughput to report; the graph is empty',
+            corpus: artifact.corpus,
+            durationMs,
+            pipeline: artifact.pipeline,
+          },
+          null,
+          2,
+        ) + '\n',
+        'utf8',
+      );
+    } else {
+      writeFileSync(ARTIFACT, JSON.stringify({ ...artifact, valid: true }, null, 2) + '\n', 'utf8');
+    }
 
     // eslint-disable-next-line no-console
     console.log(

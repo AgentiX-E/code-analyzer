@@ -2,27 +2,26 @@
   "comment": [
     "Seconds per million lines for the full pipeline, on a corpus whose lines are counted from the files.",
     "",
-    "**The extrapolation is an extrapolation.** The corpus is about a tenth of a million lines and the target is",
-    "per million, so `secondsPerMillionLines` assumes cost is linear in lines. A small corpus carries relatively",
-    "more fixed cost, so that assumption is pessimistic in one direction and unverified in both."
+    "**This file records a run that did not finish.** `npx vitest run ... indexing-speed.test.ts` was given a thirty-minute test timeout and the worker exited unexpectedly before it. The corpus is 134,040 lines, so thirty minutes is a LOWER BOUND of 13,429 seconds per million lines - not a measurement, and the bound is the honest thing to record until a run completes.",
+    "",
+    "The two numbers before this one were both wrong and both instructive: four milliseconds with an empty graph (a missing field sent scan down its directory-does-not-exist branch), and six crashed phases before that."
   ],
   "measuredAt": "2026-10-05",
+  "valid": false,
+  "reason": "the run did not complete within its thirty-minute timeout; the worker exited unexpectedly",
   "corpus": {
     "path": "packages",
     "files": 389,
-    "lines": 134040
+    "lines": 134040,
+    "notes": "production TypeScript, tests and build output excluded"
   },
-  "durationMs": 4,
-  "secondsPerMillionLines": 0.03,
-  "extrapolated": true,
+  "lowerBound": {
+    "minutesObserved": 30,
+    "secondsPerMillionLines": 13429
+  },
   "target": {
     "secondsPerMillionLines": 60,
     "competitorSecondsPerMillionLines": 180
   },
-  "pipeline": {
-    "phases": 19,
-    "status": "complete",
-    "graphFileCount": 0,
-    "corpusFileCount": 389
-  }
+  "verdict": "the target is not met by roughly two orders of magnitude on this evidence, and this is evidence rather than a measurement"
 }
