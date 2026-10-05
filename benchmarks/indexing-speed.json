@@ -46,5 +46,19 @@
       "crossFile": 22
     },
     "note": "embed and parse are 94% of the time. parse is our own code and is sequential per file with no parallelism; embed is the backend that cannot load here."
+  },
+  "parseScaling": {
+    "measured": "2026-10-05",
+    "method": "three corpora built from one real file, 4 and 16 copies, timing the parse phase",
+    "withFix": {
+      "small": "592.6 ms/file (5 indexed)",
+      "large": "569.5 ms/file (17 indexed)"
+    },
+    "withoutFix": {
+      "small": "665.2 ms/file (5 indexed)",
+      "large": "635.6 ms/file (17 indexed)"
+    },
+    "effect": "about ten per cent per file, and flat in the corpus size either way",
+    "andTheTestThatMeasuredItWasRemoved": "A scaling test asserted that four times the corpus costs less than ten times the time, and it **passed with the fix and without it** - because seventeen files is not enough corpus for a quadratic in files and nodes to show. It was deleted rather than kept: **a test that cannot fail is worse than no test, because it looks like coverage.** The guard for the allocation is the probe count, which went from 12,750 to under 1,500 and did fail before the fix."
   }
 }
