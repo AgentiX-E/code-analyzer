@@ -1,6 +1,8 @@
 // @code-analyzer/intelligence — Heuristic Analysis Rules
 // Static analysis rules for detecting code issues without LLM dependency.
 
+import { BUG_RULES } from './heuristics-bug-rules.js';
+
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -516,6 +518,13 @@ export function analyzeFileHeuristics(
   graphData?: Partial<GraphAnalysisData>,
 ): HeuristicRuleResult[] {
   const results: HeuristicRuleResult[] = [];
+
+  // **The bug-category rules, run alongside the style ones.** They were the missing half: sixteen families
+  // had thirteen about style and structure and two about bugs, and on a hundred real issues 2.2% of what this
+  // engine reported was a bug. Each of these is decidable from the syntax of one construct.
+  for (const rule of BUG_RULES) {
+    for (const r of rule(lines)) results.push(r);
+  }
   const gd: GraphAnalysisData = { ...EMPTY_GRAPH_DATA, ...graphData };
 
   // Code pattern rules

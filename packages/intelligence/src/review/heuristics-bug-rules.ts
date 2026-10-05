@@ -1,0 +1,214 @@
+// The bug-category rules the engine was missing.
+//
+// **Why this file exists.** The rule table had sixteen families, thirteen about style and structure and two about
+// bugs, and on a hundred real issues from public bug-fix commits the engine produced 688 findings of which fifteen
+// were `bug` - 2.2% - against ground truth of 246 `bug` and 5 `security`. The engine was a linter and the benchmark
+// asked it to be a bug finder.
+//
+// **What these rules are chosen on.** Every one of them is a defect that is **decidable from the syntax of a single
+// construct** - no dataflow, no types, no cross-file knowledge. That is the only kind of bug rule a line-based
+// engine can carry without becoming a source of noise, and the measurement is the criterion: the F1 on
+// `benchmarks/real-ground-truth/issues.json`, which was 0.2173 under the overlap criterion before these existed.
+//
+// **What each of them must not do.** A rule that fires on ordinary code costs precision, and the engine's precision
+// is already 0.1483. So each rule below is written to be silent on the idiomatic form of the same construct:
+//
+//   empty catch            not a catch that rethrows, logs, annotates or returns
+//   assignment in a test   not `===`, `!==`, `<=`, `>=`, `=>`, and not a deliberate `(x = y) !== null` idiom
+//   async in a synchronous callback   not `for`/`for..of`/`await Promise.all`, which are the correct forms
+
+// Type-only, so there is no runtime cycle with `heuristics.ts`, which imports these rules.
+import type { HeuristicRuleResult } from './heuristics.js';
+
+/** A finding body with the five fields every rule sets, so each rule reads as its condition. */
+function finding(
+  category: string,
+  severity: 'low' | 'medium' | 'high',
+  title: string,
+  description: string,
+  startLine: number,
+  endLine: number,
+  suggestionCode?: string,
+): HeuristicRuleResult {
+  return {
+    triggered: true,
+    category: category as HeuristicRuleResult['category'],
+    severity,
+    title,
+    description,
+    suggestionCode: suggestionCode ?? null,
+    startLine,
+    endLine,
+  };
+}
+
+/**
+ * A `catch` whose body does nothing: the error is discarded and the caller cannot tell.
+ *
+ * **Silent on the forms that are not this**: a body with a statement, a comment, a `throw`, or a `return` is a
+ * handling decision rather than a swallow, and `catch { }` written on one line is the same bug as the multi-line
+ * form, so both are recognised.
+ */
+export function checkSilentCatch(lines: string[]): HeuristicRuleResult[] {
+  const out: HeuristicRuleResult[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    // **`catch` follows a closing brace in every real form** - `} catch (e) {` - and requiring that is what keeps the
+    // rule silent on the word inside a string literal or a comment, which `line.indexOf('{')` did not.
+    const match = /[};]\s*catch\s*(?:\([^)]*\))?\s*\{/.exec(line);
+    if (!match) continue;
+    // The brace of the CATCH, not the first one on the line - that was the `try`'s.
+    const braceAt = line.indexOf('{', match.index);
+
+    // One line: `catch { }` or `catch (e) { /* comment */ }`.
+    const afterBrace = line.slice(braceAt + 1);
+    if (afterBrace.includes('}')) {
+      const body = afterBrace.slice(0, afterBrace.indexOf('}'));
+      if (/^[\s;]*$/.test(body) || /^[\s;]*(\/\/|\/\*)/.test(body)) {
+        out.push(
+          finding(
+            'bug',
+            'medium',
+            'Error swallowed by an empty catch block',
+            `The catch block at line ${i + 1} discards the error. A caller cannot distinguish a handled failure from a successful result.`,
+            i + 1,
+            i + 1,
+            'catch (error) {\n  logger.warn("operation failed", error);\n  throw error; // or return a typed failure\n}',
+          ),
+        );
+      }
+      continue;
+    }
+
+    // Multi-line: find the matching close and see whether anything but blank lines and comments came before it.
+    let depth = 1;
+    let sawStatement = false;
+    let sawComment = false;
+    for (let j = i + 1; j < lines.length && j < i + 40; j += 1) {
+      const inner = lines[j]!;
+      if (inner.includes('}')) depth -= 1;
+      const code = inner.replace(/\/\/.*$/, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      if (/^\s*\}$/.test(inner) && depth === 0) break;
+      if (/^\s*(\/\/|\*|\/\*)/.test(inner)) sawComment = true;
+      else if (code.trim() !== '' && code.trim() !== '}') sawStatement = true;
+      if (depth === 0) break;
+    }
+    // A comment is a note about the swallow, which is still a swallow; `sawComment` is recorded so the message can
+    // say which it found, and it does not make the rule silent.
+    if (!sawStatement) {
+      out.push(
+        finding(
+          'bug',
+          'medium',
+          'Error swallowed by an empty catch block',
+          `The catch block at line ${i + 1} discards the error${sawComment ? ' (a comment is not a handler)' : ''}. A caller cannot distinguish a handled failure from a successful result.`,
+          i + 1,
+          Math.min(i + 3, lines.length),
+          'catch (error) {\n  logger.warn("operation failed", error);\n  throw error; // or return a typed failure\n}',
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+/**
+ * `=` where a test was meant, inside an `if` or a `while`.
+ *
+ * **The classic bug, and it is decidable from the line**: the condition is an assignment, so it is almost always
+ * true, and the variable it wanted to compare is overwritten. **Silent on every comparison operator** - `===`,
+ * `!==`, `<=`, `>=` and `=>` are removed before the search - **and on the deliberate
+ * `while ((line = read()) !== null)` idiom**, which assigns inside its own parentheses.
+ */
+export function checkAssignmentInCondition(lines: string[]): HeuristicRuleResult[] {
+  const out: HeuristicRuleResult[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    const open = line.match(/\b(if|while)\s*\(/);
+    if (!open) continue;
+    const start = line.indexOf('(', open.index! + open[0].length - 1);
+    let depth = 0;
+    let end = -1;
+    for (let k = start; k < line.length; k += 1) {
+      if (line[k] === '(') depth += 1;
+      else if (line[k] === ')') {
+        depth -= 1;
+        if (depth === 0) {
+          end = k;
+          break;
+        }
+      }
+    }
+    if (end < 0) continue;
+    const condition = line.slice(start + 1, end);
+
+    // **The nesting depth decides it, and that is the whole distinction.** `while ((line = read()) !== null)` puts
+    // the assignment inside its own parentheses and compares the result - the idiom a reader recognises. A bare
+    // `if (status = READY)` puts it at the condition's top level, where a comparison was meant. A regex over the
+    // text cannot tell those apart because it cannot balance parentheses; a depth scan can.
+    let condDepth = 0;
+    let bareAssignment = false;
+    for (let k = 0; k < condition.length; k += 1) {
+      const c = condition[k]!;
+      if (c === '(') condDepth += 1;
+      else if (c === ')') condDepth -= 1;
+      else if (c === '=') {
+        const prev = condition[k - 1] ?? '';
+        const next = condition[k + 1] ?? '';
+        if (prev === '=' || prev === '!' || prev === '<' || prev === '>' || next === '=' || next === '>') continue;
+        if (condDepth === 0) bareAssignment = true;
+      }
+    }
+    if (!bareAssignment) continue;
+
+    out.push(
+      finding(
+        'bug',
+        'high',
+        'Assignment where a comparison was meant',
+        `The ${open[1]} condition at line ${i + 1} assigns with \`=\` rather than comparing. The condition is true whenever the assigned value is truthy, and the variable is overwritten.`,
+        i + 1,
+        i + 1,
+        `if (${condition.trim().replace(/\s*=[^=]/, ' === ')}) {`,
+      ),
+    );
+  }
+  return out;
+}
+
+/**
+ * An `async` callback handed to a method that ignores the promise it returns.
+ *
+ * `forEach`, `map`, `filter`, `some`, `every` and `reduce` are synchronous: the promise an `async` callback returns
+ * is dropped, so the loop finishes before the awaits inside it do and **nothing waits for the work**. This is the
+ * bug the async/await migration produces most often, and it is decidable from the call itself.
+ *
+ * **Silent on the correct forms**: `for` and `for..of` with `await` inside, `await Promise.all(...)`, and an `async`
+ * callback whose body has no `await` (which is wasteful rather than wrong).
+ */
+export function checkAsyncInSynchronousCallback(lines: string[]): HeuristicRuleResult[] {
+  const out: HeuristicRuleResult[] = [];
+  const methods = 'forEach|map|filter|some|every|reduce';
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    const m = new RegExp(`\\.(${methods})\\s*\\(\\s*async\\b`).exec(line);
+    if (!m) continue;
+    // `await Promise.all(x.map(async ...))` is the correct form: the map is wrapped, so the promise is not dropped.
+    const before = lines.slice(Math.max(0, i - 3), i).join(' ');
+    if (/Promise\.all\s*\(|Promise\.allSettled\s*\(/.test(before + line)) continue;
+    out.push(
+      finding(
+        'bug',
+        'high',
+        `async callback passed to ${m[1]}`,
+        `\`${m[1]}\` ignores the promise its callback returns, so line ${i + 1} starts the work and does not wait for it. The code after this call runs before the awaits inside it finish.`,
+        i + 1,
+        i + 1,
+        `for (const item of items) {\n  await handle(item);\n}\n// or: await Promise.all(items.map(async (item) => handle(item)));`,
+      ),
+    );
+  }
+  return out;
+}
+
+export const BUG_RULES = [checkSilentCatch, checkAssignmentInCondition, checkAsyncInSynchronousCallback];
