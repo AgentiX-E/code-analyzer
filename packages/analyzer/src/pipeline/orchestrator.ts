@@ -64,6 +64,15 @@ export class PipelineOrchestrator {
     const errors: PhaseError[] = [];
     const phaseResults: PhaseResult[] = [];
 
+    // **The channel the phases talk through, and the graph they write into, are the orchestrator's to guarantee.**
+    // `scan` opens with `ctx.phaseData.set('scan', ...)` and five later phases read what it wrote, and `PipelineContext`
+    // requires both fields - so a caller that assembles a context by hand has to remember them. The CLI did not, and
+    // **six of the eighteen phases crashed on `analyze` of an ordinary directory**: `scan` on the missing `phaseData`,
+    // and `crossFile`, `scopeResolution`, `routes`, `tools` and `di` on the map they could not read. The CLI needed
+    // `as unknown as PipelineContext` to compile, which is the type system saying the same thing.
+    if (!ctx.phaseData) ctx.phaseData = new Map();
+    if (!ctx.graph) ctx.graph = this.createEmptyGraph(ctx.projectId);
+
     // Validate first
     const validation = this.validatePipeline();
     if (!validation.valid) {
