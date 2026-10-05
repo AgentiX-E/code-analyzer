@@ -28,16 +28,21 @@ import type { KnowledgeGraph } from '@code-analyzer/shared';
 /** A graph whose `nodes.has` counts how many times it is asked - the probe the defect is made of. */
 function countingGraph(): { graph: KnowledgeGraph; probes: () => number } {
   let probes = 0;
-  const nodes = new Map<number, unknown>();
-  const realHas = nodes.has.bind(nodes);
-  nodes.has = (key: number) => {
-    probes += 1;
-    return realHas(key);
+  const counted = () => {
+    const map = new Map<number, unknown>();
+    const realHas = map.has.bind(map);
+    map.has = (key: number) => {
+      probes += 1;
+      return realHas(key);
+    };
+    return map;
   };
   const graph = {
     projectId: 'probe',
-    nodes,
-    edges: new Map(),
+    nodes: counted(),
+    // **Both tables, because both allocations probe.** `addEdge` carries the same loop as `addNode`, and edges
+    // outnumber nodes in real code, so a count that watched only nodes would miss the larger half.
+    edges: counted(),
     qnameIndex: new Map(),
     fileIndex: new Map(),
   } as unknown as KnowledgeGraph;
@@ -78,5 +83,32 @@ describe('GraphBuilder node-id allocation', () => {
     }
     expect(graph.nodes.size).toBe(80);
     expect(new Set(graph.nodes.keys()).size).toBe(80);
+  });
+});
+
+describe('GraphBuilder edge-id allocation', () => {
+  it('does not probe the edge table once per existing edge, either', () => {
+    const { graph, probes } = countingGraph();
+    const batches = 50;
+    const perBatch = 10;
+    // Nodes first, so the edges have something to join.
+    const builder0 = new GraphBuilder(null as never);
+    const ids: number[] = [];
+    for (let i = 0; i < batches * perBatch; i += 1) {
+      ids.push(builder0.addNode(graph, 'Function' as never, `n${i}`, props).id);
+    }
+    const before = probes();
+    for (let batch = 0; batch < batches; batch += 1) {
+      const builder = new GraphBuilder(null as never);
+      for (let i = 0; i < perBatch; i += 1) {
+        builder.addEdge(graph, ids[batch * perBatch + i]!, ids[(batch * perBatch + i + 1) % ids.length]!, 'CALLS' as never, 'probe');
+      }
+    }
+    const edgeProbes = probes() - before;
+
+    expect(graph.edges.size).toBe(batches * perBatch);
+    // **The same bound as the node table**, for the same reason: a builder that knows where the graph ends probes
+    // once per edge, and the linear probe costs one per edge that already exists.
+    expect(edgeProbes).toBeLessThan(batches * perBatch * 3);
   });
 });
