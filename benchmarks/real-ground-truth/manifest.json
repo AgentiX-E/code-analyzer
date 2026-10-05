@@ -12,7 +12,8 @@
     "`severity` are NOT from the human; they are inferred from the commit message by the rules below and",
     "are labelled `inferred` in every emitted issue. The line ranges are labelled `authored`.",
     "Two quality bounds the first run showed were needed: `excludedPathPattern` now names the segments that mean not-production (it matched `test/` and let `testdata/baselines/` through), and `maxLinesPerHunk` drops a hunk that spans a rewrite - a sixty-nine-line hunk is not one reviewable issue.",
-    "`windowLines` bounds what each issue carries: the first extraction stored whole files, which came to 30 MB over six issues because a file like TypeScript's checker.ts is fifty thousand lines. A PR review examines a window, not a whole file - and a benchmark that carries whole files cannot reach a hundred issues at any usable size."
+    "`windowLines` bounds what each issue carries: the first extraction stored whole files, which came to 30 MB over six issues because a file like TypeScript's checker.ts is fifty thousand lines. A PR review examines a window, not a whole file - and a benchmark that carries whole files cannot reach a hundred issues at any usable size.",
+    "`maxSearchPages` is what lets a second run find anything: the search returns twenty candidates per page, so without paging every run re-examines the same twenty and the dataset stops growing. Pages are walked per query until the limit is reached."
   ],
   "schemaVersion": 1,
   "repos": [
@@ -88,5 +89,6 @@
   ],
   "maxLinesPerHunk": 30,
   "maxGroundTruthRanges": 6,
-  "windowLines": 60
+  "windowLines": 60,
+  "maxSearchPages": 5
 }

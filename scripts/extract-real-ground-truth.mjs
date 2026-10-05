@@ -25,10 +25,15 @@
 // It needs `GITHUB_TOKEN` (or the credential helper) and network access to api.github.com.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
+
+// Written by `main` and read by `write`, which is top level so a killed run can still flush what it found.
+let outPath = resolve(ROOT, 'benchmarks/real-ground-truth/issues.json');
+let issues = [];
+let manifest = {};
 const API = 'https://api.github.com';
 
 function token() {
@@ -119,6 +124,7 @@ function oldSideRanges(patch) {
 
 let MAX_HUNK_LINES = Infinity;
 let windowLines = 0;
+let maxSearchPages = 1;
 
 function classify(message, rules) {
   const lower = message.toLowerCase();
@@ -144,32 +150,46 @@ function main() {
     }
   }
   const limit = Number(flags.get('--limit') ?? 100);
-  const outPath = resolve(ROOT, flags.get('--out') ?? 'benchmarks/real-ground-truth/issues.json');
+  outPath = resolve(ROOT, flags.get('--out') ?? 'benchmarks/real-ground-truth/issues.json');
 
-  const manifest = JSON.parse(readFileSync(resolve(ROOT, 'benchmarks/real-ground-truth/manifest.json'), 'utf8'));
+  manifest = JSON.parse(readFileSync(resolve(ROOT, 'benchmarks/real-ground-truth/manifest.json'), 'utf8'));
   // **Read after the manifest, not before it** - the first edit put this line above the `const` it reads.
   MAX_HUNK_LINES = Number(manifest.maxLinesPerHunk ?? Infinity);
   windowLines = Number(manifest.windowLines ?? 0);
+  maxSearchPages = Number(manifest.maxSearchPages ?? 1);
 
   const sourceRe = new RegExp(manifest.sourceFilePattern);
   const excludedRe = new RegExp(manifest.excludedPathPattern);
 
-  const seenCommits = new Set();
-  const issues = [];
+  // **A run grows the dataset; it does not replace it.** Extraction takes minutes and the network is not always
+  // there for all of them, so the useful unit is "add what you can". Existing issues are kept by id.
+  const existing = existsSync(outPath) ? JSON.parse(readFileSync(outPath, 'utf8')).issues ?? [] : [];
+  issues = [...existing];
+  const seenIds = new Set(issues.map((i) => i.id));
+  const seenCommits = new Set(issues.map((i) => i.provenance?.commit).filter(Boolean));
+  process.stdout.write(`  starting from ${issues.length} issue(s) already in the file\n`);
   const rejected = { paths: 0, size: 0, notAFix: 0, noRanges: 0 };
 
   outer: for (const repo of manifest.repos) {
     for (const template of manifest.queries) {
       if (issues.length >= limit) break outer;
       const query = template.replace('{repo}', repo.repo);
-      let found;
-      try {
-        found = api(`/search/commits?q=${query}&per_page=20&sort=committer-date&order=desc`);
-      } catch (e) {
-        process.stderr.write(`  search failed for ${query}: ${String(e).slice(0, 80)}\n`);
-        continue;
+      // **Page through, or a second run finds nothing new.** The search returns twenty candidates a page, and
+      // without paging every run re-examines the same twenty while the dataset stops growing.
+      const items = [];
+      for (let page = 1; page <= maxSearchPages; page += 1) {
+        let found;
+        try {
+          found = api(`/search/commits?q=${query}&per_page=20&page=${page}&sort=committer-date&order=desc`);
+        } catch (e) {
+          process.stderr.write(`  search failed for ${query} p${page}: ${String(e).slice(0, 80)}\n`);
+          break;
+        }
+        items.push(...(found.items ?? []));
+        if ((found.items ?? []).length < 20) break;
+        execFileSync('sleep', ['2']);
       }
-      for (const item of found.items ?? []) {
+      for (const item of items) {
         if (issues.length >= limit) break outer;
         if (seenCommits.has(item.sha)) continue;
         seenCommits.add(item.sha);
@@ -276,7 +296,8 @@ function main() {
           continue;
         }
 
-        issues.push({
+        // The record is built as a value, deduplicated and pushed - not pushed inline, so a run can be resumed.
+        const record = {
           id: `real-${repo.repo.replace('/', '-')}-${item.sha.slice(0, 10)}`,
           language: repo.language,
           description: message.split('\n')[0].slice(0, 200),
@@ -293,13 +314,30 @@ function main() {
             ranges: 'authored - read from the patch hunk headers',
             category: 'inferred - from the commit message by benchmarks/real-ground-truth/manifest.json',
           },
-        });
+        };
+        if (seenIds.has(record.id)) continue;
+        seenIds.add(record.id);
+        issues.push(record);
+        // **Flush every few, so a run that is killed keeps what it found.** The environment this was written in
+        // kills long commands, and an extractor that only writes at the end loses everything to one signal.
+        if (issues.length % 5 === 0) write();
       }
       // The search endpoint allows 30 requests a minute; one every two seconds stays under it.
       execFileSync('sleep', ['2']);
     }
   }
 
+  write();
+
+  process.stdout.write(
+    `\nextracted ${issues.length} real issues -> ${outPath.replace(ROOT + '/', '')}\n` +
+      `  rejected: ${JSON.stringify(rejected)}\n` +
+      `  repos: ${[...new Set(issues.map((i) => i.provenance.repo))].join(', ')}\n`,
+  );
+}
+
+// Defined before the loop so an interrupted run keeps what it found.
+function write() {
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(
     outPath,
@@ -325,12 +363,6 @@ function main() {
       2,
     ) + '\n',
     'utf8',
-  );
-
-  process.stdout.write(
-    `\nextracted ${issues.length} real issues -> ${outPath.replace(ROOT + '/', '')}\n` +
-      `  rejected: ${JSON.stringify(rejected)}\n` +
-      `  repos: ${[...new Set(issues.map((i) => i.provenance.repo))].join(', ')}\n`,
   );
 }
 
