@@ -3,6 +3,7 @@
 
 import type { ExecutablePhase } from './phases/index.js';
 import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
+import { getDefaultConfig } from '@code-analyzer/core';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -72,6 +73,15 @@ export class PipelineOrchestrator {
     // `as unknown as PipelineContext` to compile, which is the type system saying the same thing.
     if (!ctx.phaseData) ctx.phaseData = new Map();
     if (!ctx.graph) ctx.graph = this.createEmptyGraph(ctx.projectId);
+
+    // **And the two the phases read that a caller can get wrong without a type error.** `scan` reads `ctx.rootPath`
+    // and `ctx.config.maxFiles`; the CLI built its context with `rootDir` and no `config` at all, behind an
+    // `as unknown as PipelineContext` cast that silenced the compiler. `existsSync(undefined)` is false, so scan took
+    // its "directory does not exist" branch, **returned success, and reported zero files** - six phases crashing had
+    // become one phase quietly doing nothing, which is worse because the exit code says the run worked.
+    const loose = ctx as unknown as Record<string, unknown>;
+    if (!ctx.rootPath && typeof loose['rootDir'] === 'string') ctx.rootPath = loose['rootDir'] as string;
+    if (!ctx.config) ctx.config = getDefaultConfig();
 
     // Validate first
     const validation = this.validatePipeline();

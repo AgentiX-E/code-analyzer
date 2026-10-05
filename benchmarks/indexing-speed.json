@@ -1,0 +1,28 @@
+{
+  "comment": [
+    "Seconds per million lines for the full pipeline, on a corpus whose lines are counted from the files.",
+    "",
+    "**The extrapolation is an extrapolation.** The corpus is about a tenth of a million lines and the target is",
+    "per million, so `secondsPerMillionLines` assumes cost is linear in lines. A small corpus carries relatively",
+    "more fixed cost, so that assumption is pessimistic in one direction and unverified in both."
+  ],
+  "measuredAt": "2026-10-05",
+  "corpus": {
+    "path": "packages",
+    "files": 389,
+    "lines": 134040
+  },
+  "durationMs": 4,
+  "secondsPerMillionLines": 0.03,
+  "extrapolated": true,
+  "target": {
+    "secondsPerMillionLines": 60,
+    "competitorSecondsPerMillionLines": 180
+  },
+  "pipeline": {
+    "phases": 19,
+    "status": "complete",
+    "graphFileCount": 0,
+    "corpusFileCount": 389
+  }
+}
