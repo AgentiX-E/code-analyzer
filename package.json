@@ -67,7 +67,9 @@
     "embeddings:status": "node scripts/embedding-backend-status.js",
     "impact": "node scripts/impact-of-change.mjs --changed",
     "measure": "node scripts/measure-candidate.mjs",
-    "extract-ground-truth": "node scripts/extract-real-ground-truth.mjs"
+    "extract-ground-truth": "node scripts/extract-real-ground-truth.mjs",
+    "measure:semantic": "npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/real-ground-truth-semantic.test.ts",
+    "measure:heuristic": "npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/real-ground-truth-benchmark.test.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
