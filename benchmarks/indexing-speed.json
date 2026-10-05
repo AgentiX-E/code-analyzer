@@ -4,7 +4,8 @@
     "",
     "**This file records a run that did not finish.** `npx vitest run ... indexing-speed.test.ts` was given a thirty-minute test timeout and the worker exited unexpectedly before it. The corpus is 134,040 lines, so thirty minutes is a LOWER BOUND of 13,429 seconds per million lines - not a measurement, and the bound is the honest thing to record until a run completes.",
     "",
-    "The two numbers before this one were both wrong and both instructive: four milliseconds with an empty graph (a missing field sent scan down its directory-does-not-exist branch), and six crashed phases before that."
+    "The two numbers before this one were both wrong and both instructive: four milliseconds with an empty graph (a missing field sent scan down its directory-does-not-exist branch), and six crashed phases before that.",
+    "**And the run was contaminated.** The profiling of a smaller corpus found two failures that report themselves as success: the embedding backend cannot load in this repository at all - `NodeEmbedder.createFromPackage()` throws `Tokenizer not found` against `@agentix-e/embed-code-node` - and the `tools` phase returns `failed` while the run reports `status: partial` and exits zero. So the thirty minutes is not a measurement of how fast this pipeline indexes; it is a measurement of a pipeline whose embedder is missing. The number cannot be recorded as a rate until those two are separated from it."
   ],
   "measuredAt": "2026-10-05",
   "valid": false,
@@ -23,5 +24,27 @@
     "secondsPerMillionLines": 60,
     "competitorSecondsPerMillionLines": 180
   },
-  "verdict": "the target is not met by roughly two orders of magnitude on this evidence, and this is evidence rather than a measurement"
+  "verdict": "the target is not met by roughly two orders of magnitude on this evidence, and this is evidence rather than a measurement",
+  "contaminatedBy": [
+    {
+      "what": "the embedding backend cannot load",
+      "evidence": "NodeEmbedder.createFromPackage() throws Error: Tokenizer not found for @agentix-e/embed-code-node"
+    },
+    {
+      "what": "the tools phase failed while the run reported status partial",
+      "evidence": "profiling a two-file corpus: tools 1ms failed, result.status partial, one error"
+    }
+  ],
+  "profile": {
+    "corpus": "packages/shared/src/types, 2 files, 1,324 lines",
+    "totalMs": 4022,
+    "phases": {
+      "embed": 2271,
+      "parse": 1545,
+      "scan": 125,
+      "typeResolution": 45,
+      "crossFile": 22
+    },
+    "note": "embed and parse are 94% of the time. parse is our own code and is sequential per file with no parallelism; embed is the backend that cannot load here."
+  }
 }
