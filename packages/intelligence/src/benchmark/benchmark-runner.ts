@@ -45,7 +45,14 @@ export interface BenchmarkResult {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createDiff(
+/**
+ * Exported so a harness can build findings through the same code path this runner uses.
+ *
+ * **Why that matters**: a second implementation of "how a case becomes findings" would let the two drift, and the
+ * point of measuring a real dataset is to compare it with the internal suite's number. Same diff, same rule call,
+ * only the matching criterion differs.
+ */
+export function createDiff(
   filePath: string,
   changeType: GitDiff['changeType'] = 'modified',
   content: string,

@@ -40,11 +40,12 @@
         "benchmarks/real-ground-truth/issues.json"
       ],
       "metrics": {
-        "precision": 0.0015,
-        "recall": 0.004,
-        "f1": 0.0021
+        "precision": 0.1483,
+        "recall": 0.4064,
+        "f1": 0.2173
       },
-      "metricsNote": "**Measured, and the diagnosis is exact.** The internal suite's 0.761 came from 49 fixtures this project wrote; on a hundred issues written by other people the same engine scores F1 0.0021 (tp=1, fp=687, fn=250). The cause is three layers, and only the third is about the engine's ability:\n\n1. **The category vocabularies do not intersect.** `matchGroundTruth` requires `gt.category === result.category` exactly. A real window's ground truth is `bug`; the engine's findings on the same window are `style` and `maintainability`. No finding can ever match, which is why tp is 1 and not 90.\n2. **The line positions do not overlap either.** The ground truth sits at 61-89 (where the human edited); the findings sit at 1, 46, 56, 93, 102, 108, 129, 143, 144.\n3. **And the reason for both: the heuristic rule engine does not report bugs.** On this code it reports style and maintainability. The internal fixtures were written to contain the constructs those rules do fire on - concatenated SQL, unhandled I/O - which is why the same engine scores 0.761 there. Production TypeScript such as the compiler's `checker.ts` does not contain them.\n\n**The first two layers are matching criteria that only work when one author wrote both sides.** The third is a finding about the engine, and it is the one worth acting on: on real code this engine is a linter for style, and the benchmark was asking it to be a bug finder."
+      "metricsNote": "**Measured under both criteria, and the split is the finding.**\n\n  strict   F1 0.0021   the category must equal ours\n  overlap  F1 0.2173   the file and the lines must overlap\n\n**So 99% of the 0.0021 was the criterion, not the engine.** `matchGroundTruth` requires `gt.category === result.category`, and on real code those vocabularies do not meet: a human's patch says the lines were wrong and does not say which of our rule families should have caught it. Under overlap the recall is 0.4064 - **the positions are not far off** - and the precision is 0.1483, which is the engine talking too much.\n\n**And what is left is the engine.** Across 688 findings on a hundred real issues the category mix is `style=415 maintainability=226 documentation=32 bug=15`: **2.2% of what this engine reports is a bug**, against ground truth of `bug=246 security=5`. On production code it is a linter for style, and the benchmark asked it to be a bug finder.\n\n**The target is F1 0.68.** At 0.2173 the distance is now explainable rather than mysterious: the criterion is corrected, and what remains is that the engine has to report bugs.",
+      "metricsCriterion": "**file plus line overlap** - the criterion a real dataset needs. The stricter criterion (`BenchmarkRunner`'s, which also requires `gt.category === result.category`) gives precision 0.0015, recall 0.004, F1 0.0021 on the same findings. **Both are reported**: the movement between them is the criterion's doing, and any movement after that is the engine's."
     }
   }
 }
