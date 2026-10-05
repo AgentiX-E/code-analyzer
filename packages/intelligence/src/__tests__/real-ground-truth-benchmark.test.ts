@@ -58,7 +58,13 @@ function toBenchmarkCase(issue: RealIssue): BenchmarkCase {
     description: issue.description,
     files: issue.files.map((f) => ({
       filePath: f.filePath,
-      beforeContent: f.beforeContent,
+      // **`''` is not a placeholder, it is load-bearing.** `runSingleCase` computes
+      // `changeType = beforeContent === '' ? 'added' : 'modified'` and builds a diff from it, and the path-based rules
+      // fire on the diff's lines. The window IS the changed region, so it is `added` - and the first version of this
+      // harness set `beforeContent` to the same text as `afterContent`, which made the diff EMPTY and left those
+      // rules reporting static positions instead of the lines a human had changed. That produced F1 0.0021 against
+      // an engine whose findings were simply aimed elsewhere.
+      beforeContent: '',
       // The code the reviewer is looking at: the state the human's fix changed.
       afterContent: f.beforeContent,
     })),
