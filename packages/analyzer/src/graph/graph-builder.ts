@@ -23,6 +23,24 @@ export interface IntegrityReport {
   issues: string[];
 }
 
+/**
+ * The next id worth trying for a graph, kept beside it.
+ *
+ * **Why not on the graph**: `KnowledgeGraph` is a shared type with constructors in several packages, and a field
+ * added for this would be a field every one of them has to know about. **Why not per builder**: the whole defect is
+ * that a builder does not know what the other builders wrote.
+ */
+const NODE_ID_CURSORS = new WeakMap<object, { value: number }>();
+
+function nextNodeIdFor(graph: KnowledgeGraph): { value: number } {
+  let cursor = NODE_ID_CURSORS.get(graph as object);
+  if (!cursor) {
+    cursor = { value: 0 };
+    NODE_ID_CURSORS.set(graph as object, cursor);
+  }
+  return cursor;
+}
+
 export class GraphBuilder {
   private readonly store: InMemoryGraphStore;
   private nextNodeId: number;
@@ -168,9 +186,24 @@ export class GraphBuilder {
     }
 
     const node = this.createNode(label, name, properties);
-    // Ensure no ID conflicts with existing graph nodes (multiple builder instances)
-    while (graph.nodes.has(node.id)) {
-      node.id = this.nextNodeId++;
+    // **The graph's own high-water mark, not this builder's counter.** The check has to handle several builders
+    // writing into one graph, and the first version did it by stepping this builder's counter until it found a free
+    // id. A builder created per file starts that counter from the same low value every time, so the first node of
+    // the thousandth file probed a thousand ids: **O(files x nodes), which is the quadratic the parse phase was
+    // paying** - its provider parses a 1,238-line file in about 20 ms while the phase reported 770 ms per file.
+    //
+    // The cursor is kept beside the graph rather than on it, in a WeakMap keyed by the graph: O(1), shared by every
+    // builder writing into that graph, and no change to `KnowledgeGraph` or to anything that constructs one.
+    const nextId = nextNodeIdFor(graph);
+    if (graph.nodes.has(node.id)) {
+      const taken = graph.nodes.size;
+      // The mark only moves forward, so a collision costs one step rather than a scan from this builder's start.
+      let candidate = Math.max(node.id, nextId.value, taken);
+      while (graph.nodes.has(candidate)) candidate += 1;
+      node.id = candidate;
+      nextId.value = candidate + 1;
+    } else {
+      nextId.value = Math.max(nextId.value, node.id + 1);
     }
     if (qualifiedName) {
       node.qualifiedName = qualifiedName;
