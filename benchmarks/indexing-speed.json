@@ -149,6 +149,11 @@
     ],
     "theAnswerIsInTheScanColumn": "**`scan` is the superlinear one, and `parse` is not.** Per file: `scan` goes 50 ms, 256 ms, 760 ms as the corpus goes 45, 90, 180 - **four times the files costing fifteen times the per-file time** - while `parse` goes 634 ms, 600 ms, 627 ms, flat. **`scan` rises from 7% of the run at forty-five files to 53% at a hundred and eighty.**\n\n**That is what the twenty minutes were.** At 389 files `scan` extrapolates past twenty minutes on its own, and nothing about `parse` needed explaining.",
     "andWhyTheEarlierClaimWasWrong": "The earlier \"superlinear beyond thirty files\" was right about the shape and wrong about the phase: it was read from a total rather than a breakdown, and the total is dominated by `parse` at small sizes and by `scan` at large ones. **The breakdown was available the whole time and the conclusion was drawn without it** - the fourth correction in this stretch, and the first one that a table would have prevented.",
-    "next": "`scan` discovers files, so it walks a directory tree. A quadratic there is a path assembled per file, or a lookup per entry against a growing list - the same shape as the two allocations that were already fixed. **The curve names the phase; the phase names the file.**"
+    "next": "`scan` discovers files, so it walks a directory tree. A quadratic there is a path assembled per file, or a lookup per entry against a growing list - the same shape as the two allocations that were already fixed. **The curve names the phase; the phase names the file.**",
+    "andWhereInScanItIsNot": {
+      "ruledOut": "`walkDirectory` reads a directory, iterates its entries, stats and reads each file, and pushes - one pass per entry, with a single `readdir` per level. **Nothing in it is quadratic in the corpus.**",
+      "soItIsAroundIt": "The candidates left are `parseGitignore`, the gitignore match per entry, and the file and folder node insertion that follows the walk - **and the last of those already goes through the `claimId` fix, because `scan` builds nodes through the same `GraphBuilder` the parse phase does.**",
+      "andTheNextMeasurement": "**Count rather than guess.** Instrument the scan phase to report how many times it calls `readdir`, `stat`, `readFile`, and how many patterns it matches against, then run that at 45, 90 and 180 files. **Whichever counter grows faster than the file count is the defect**, and reading the code has already produced four wrong conclusions in this stretch."
+    }
   }
 }
