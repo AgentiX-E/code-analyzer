@@ -1,0 +1,27 @@
+{
+  "comment": [
+    "**Not a measurement yet: the input it would measure is missing.**",
+    "",
+    "The plan was to measure a symbol being found from its own doc comment, which is a query set written by the code's",
+    "authors rather than by a reviewer - the thing 'no recorded query set with committed expected results' was actually",
+    "blocking. **The corpus has the comments** (672 JSDoc-annotated exported declarations across `packages/`) and **the",
+    "graph has the field** (`GraphNode.docstring`), and the two never meet:"
+  ],
+  "measured": false,
+  "blockedBy": "GraphNode.docstring is empty for every node, so there is no query to ask",
+  "evidence": {
+    "measuredOn": "2026-10-06",
+    "corpus": "packages/analyzer/src/cfg, six files, 1,394 lines",
+    "nodes": 394,
+    "nodesWithADocstring": 0,
+    "nodesWithADocstringLongerThan30": 0,
+    "andWhatTheCorpusHas": "672 JSDoc-annotated exported declarations across packages/, counted with a regex over the files"
+  },
+  "andThisIsTheSecondCapabilityThatNeverWorked": [
+    "`tools` returned `failed` on every corpus since it was written - a regex with no capture group, read from `match[1]!` under a comment claiming the group was not optional.",
+    "`docstring` is `null` on every node in every language - so symbol documentation is not extracted at all, and anything that would use it has been empty from the start.",
+    "Both were invisible from outside: `tools` was one word - `partial` - in a result nobody read, and an empty docstring looks the same as a symbol that has none."
+  ],
+  "andTheAssertionThatCaughtIt": "The harness asserted that it had at least one query before computing a recall figure. **Without that line it would have reported a recall over zero queries** - a division with no error, in a file that would have looked like a measurement.",
+  "next": "Extract doc comments in the language providers, then this measurement has an input. Until then the semantic-search-accuracy row is blocked on something more basic than a query set: the descriptions exist in the source and are not in the graph."
+}
