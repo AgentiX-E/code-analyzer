@@ -442,7 +442,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       if (cn) containerName = cn.text;
     }
 
-    return {
+    // **`attachDocComment` because this method replaced the base's capture path.** The provider overrides
+    // `walkAndCapture` and builds its captures here, so the base's `emitCapture` never runs for this language - and the
+    // doc-comment mechanism lived there and reached nothing. **One call, and every declaration this provider emits
+    // carries the comment above it.**
+    return this.attachDocComment({
       tag,
       text: node.text,
       startLine: node.startPosition.row + 1,
@@ -452,7 +456,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       name: nameNode.text,
       containerName,
       properties: { filePath: this.filePath },
-    };
+    });
   }
 
   private buildImportCapture(node: TreeSitterSyntaxNode): UnifiedCapture {

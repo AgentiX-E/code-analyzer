@@ -8,7 +8,7 @@
     "graph has the field** (`GraphNode.docstring`), and the two never meet:"
   ],
   "measured": false,
-  "blockedBy": "GraphNode.docstring is empty for every node, so there is no query to ask",
+  "blockedBy": "doc comments reach the graph for typescript only; javascript builds captures inline, python uses string literals, and the remaining providers are unexamined",
   "evidence": {
     "measuredOn": "2026-10-06",
     "corpus": "packages/analyzer/src/cfg, six files, 1,394 lines",
@@ -32,5 +32,16 @@
     ],
     "andWhatIsLeft": "A `pendingDocComment` field and the consumption on the base path, which is correct and reaches no language today. **The next step is per-provider work**: typescript, javascript and any other override needs the same consumption in its own capture path, and python needs string-literal docstrings rather than comments. **The field is left in place because the mechanism is right and the remaining work is one line in each overriding provider.**",
     "andWhatWasNotDone": "**No test was committed red.** The failing test was removed, so the failure is recorded here rather than in the suite - because a red suite blocks everything else, and this is one capability rather than the whole build."
+  },
+  "andItNowWorksForTypeScript": {
+    "measured": "2026-10-06",
+    "whatChanged": "The consumption moved out of `emitCapture` and into `attachDocComment`, **a method any walk can call** - because a base-class change does not reach a subclass that replaced the method it lives in, and typescript and javascript both replace `walkAndCapture`. The typescript provider's `buildCapture` now calls it, and that is its only capture path.",
+    "result": "kineticEnergy gets its JSDoc and undocumented gets an empty string, which is the association and not just the text",
+    "theGuard": "packages/analyzer/src/languages/__tests__/docstring-extraction.test.ts, which asserts the prose arrives without its comment syntax, that a comment does not land on the symbol after the one it describes, that the single-line form works as well as the block form, and that exactly one symbol carries it",
+    "andWhatIsStillMissing": [
+      "**Javascript** overrides `walkAndCapture` and builds its captures inline rather than through a helper, so it has no single place to call `attachDocComment` - **the same call, at several sites**.",
+      "**Python** docstrings are string literals rather than comments, so the comment mechanism cannot reach them at all. **That is the second mechanism, still unbuilt.**",
+      "**The other thirty-one providers** were not examined: some will inherit the base path and work already, and some will override the walk like typescript does."
+    ]
   }
 }

@@ -327,6 +327,31 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   }
 
   /** Emit a UnifiedCapture for a matched AST node */
+  /**
+   * Attach the pending doc comment to a capture, or take the capture as the next pending comment.
+   *
+   * **This exists because a base-class change does not reach a subclass that replaced the method it lives in.** The
+   * consumption used to sit inside `emitCapture`, and **typescript and javascript override `walkAndCapture` and build
+   * their captures elsewhere** - so the mechanism reached no language at all. A method on the base can be called from
+   * any walk, which is what lets it reach them.
+   *
+   * **A comment capture is the source and not a consumer.** A grammar that maps its comment nodes to the `docstring`
+   * tag sends them down the same path as declarations, and the first version of this let a comment consume the pending
+   * comment - **it consumed itself**.
+   */
+  protected attachDocComment(capture: UnifiedCapture): UnifiedCapture {
+    if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
+      const text = stripCommentSyntax(capture.text);
+      if (text.length > 0) this.pendingDocComment = text;
+      return capture;
+    }
+    if (this.pendingDocComment !== null) {
+      (capture.properties as Record<string, unknown>)['docstring'] = this.pendingDocComment;
+      this.pendingDocComment = null;
+    }
+    return capture;
+  }
+
   protected emitCapture(
     node: TreeSitterSyntaxNode,
     mapping: NodeTypeMapping,
@@ -395,24 +420,13 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       properties,
     };
 
-    // **A comment capture IS the docstring; it does not consume one.** The TypeScript grammar maps its `comment` nodes
-    // to the `docstring` tag, so they arrive here like any other capture - and the first version of this change let
-    // them consume the pending comment, which meant **the comment consumed itself** and the declaration under it got
-    // nothing. A comment is also not a symbol, so it is not collected.
+    // **Both paths call the same step**, so the base and a subclass that replaced the walk cannot drift apart. A
+    // comment is not collected as a capture - it is the docstring of whatever comes next.
     if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
-      const text = stripCommentSyntax(capture.text);
-      if (text.length > 0) this.pendingDocComment = text;
+      this.attachDocComment(capture);
       return;
     }
-
-    // **A declaration consumes it, once.** Clearing it here is what keeps a comment off the symbol after the one it
-    // describes, which is the failure mode a carried-forward value produces.
-    if (this.pendingDocComment !== null) {
-      (capture.properties as Record<string, unknown>)['docstring'] = this.pendingDocComment;
-      this.pendingDocComment = null;
-    }
-
-    captures.push(capture);
+    captures.push(this.attachDocComment(capture));
   }
 
   /** Walk the AST to find import statements */
