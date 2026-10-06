@@ -61,5 +61,40 @@
   "languagesNowExtracting": [
     "typescript",
     "javascript"
-  ]
+  ],
+  "aScanAcrossTwentyLanguages": {
+    "measured": "2026-10-06",
+    "method": "One C-like source with two `//` lines above a function, parsed by every provider that has one, asking which symbols come back carrying a docstring. **The probe is deliberately one shape** - the C-like form - so it answers \"which languages do not read this shape\" rather than \"which languages work\", and the ones that returned no symbols at all are not failed by it.",
+    "results": {
+      "withADocstring": [
+        "groovy"
+      ],
+      "withoutOne": [
+        "typescript",
+        "javascript",
+        "c",
+        "cpp",
+        "csharp",
+        "dart",
+        "php",
+        "lua"
+      ],
+      "noSymbolsFromThisSource": [
+        "java",
+        "go",
+        "rust",
+        "kotlin",
+        "scala",
+        "swift",
+        "ruby",
+        "python",
+        "bash",
+        "r",
+        "elixir"
+      ]
+    },
+    "andTheFirstReadingOfThisWasWrong": "The scan looked like \"typescript does not attach `//` comments\" - and **that is by design**: its walk has a branch commented `only JSDoc-style` that accepts `/**` and ignores everything else. **A plain `//` is not documentation, and treating that as a defect would have meant widening a deliberate limit.** The probe found the answer it was built to find and **the reading put on it was the mistake**, the same shape as the grep that claimed two shell scripts had no functions.",
+    "andTheRealFindingIsGroovy": "**Groovy attached a docstring to `closure_3`** - a synthesised name - rather than to the function the comment was written above. **The comment and the symbol it belonged to were both found and the association between them was wrong**, which is the failure the guard in `docstring-extraction.test.ts` asserts against for typescript and javascript and which no test covers for the other providers.",
+    "next": "**Per-language source.** The C-like probe cannot ask about a language whose syntax it is not, so the languages that returned no symbols need a sample in their own grammar before anything can be said about them. **And `groovy` needs the association looked at regardless**, because it is the one provider this scan shows mis-attaching something."
+  }
 }
