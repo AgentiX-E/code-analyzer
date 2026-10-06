@@ -27,12 +27,12 @@
   "verdict": "the target is not met by roughly two orders of magnitude on this evidence, and this is evidence rather than a measurement",
   "contaminatedBy": [
     {
-      "what": "the embedding backend cannot load",
-      "evidence": "NodeEmbedder.createFromPackage() throws Error: Tokenizer not found for @agentix-e/embed-code-node"
+      "what": "a full-corpus run does not complete in the time available",
+      "evidence": "30 minutes of a vitest timeout, worker exited unexpectedly; the embed phase holds 6,571 vectors of 768 floats in one graph"
     },
     {
-      "what": "the tools phase failed while the run reported status partial",
-      "evidence": "profiling a two-file corpus: tools 1ms failed, result.status partial, one error"
+      "what": "the embedding backend is intermittent, not absent",
+      "evidence": "a two-file probe threw \"Tokenizer not found\" once; a later run and a 30-file run both report backend=onnx with reason=null"
     }
   ],
   "profile": {
@@ -61,7 +61,9 @@
     "effect": "about ten per cent per file, and flat in the corpus size either way",
     "andTheTestThatMeasuredItWasRemoved": "A scaling test asserted that four times the corpus costs less than ten times the time, and it **passed with the fix and without it** - because seventeen files is not enough corpus for a quadratic in files and nodes to show. It was deleted rather than kept: **a test that cannot fail is worse than no test, because it looks like coverage.** The guard for the allocation is the probe count, which went from 12,750 to under 1,500 and did fail before the fix.",
     "withBothFixes": {
-      "small": "595.5 ms/file (2 files, 226 nodes, 225 edges)"
+      "small": "1,148 ms for 2 files",
+      "large": "21,219 ms for 30 files",
+      "ratio": "20x the corpus, 19x the time"
     },
     "andTheWallClockDidNotMove": "A two-file corpus is 226 nodes and 225 edges, and the quadratic constant at that size is smaller than the noise: parse went 1,148 ms to 1,191 ms. **The probe count is the evidence and a small corpus cannot show a quadratic** - the same lesson as the deleted scaling test, learned twice in one day."
   },
@@ -88,5 +90,34 @@
       "references": 28
     },
     "andWhatItShows": "Seventy-five milliseconds of work per file against a phase reporting about 570. The rest was in the graph loop, where addEdge carried the same linear id probe addNode had - 12,750 probes for 500 edges through 50 builders, the identical number, and the two now share one claimId function. **And the reading of the three taint calls was corrected.** The first version of this note said their 44 ms were waste because the result was always empty. TypeScript overrides all three walks and delegates to `collectCLikeTaintSources`, so those milliseconds were **a correct scan of a file that holds no taint sources** - `graph.ts` is type definitions. The waste is narrower: the base class walks the whole tree and collects nothing, and only a language that never overrode the walks reaches that. `extract*` now answers from the prototype first, which is decidable without running anything, where \"will this walk collect anything\" is not."
+  },
+  "measuredOnAKnownCorpus": {
+    "measured": "2026-10-06",
+    "why": "A full-corpus run cannot finish, so the measurement is taken where the phase breakdown can be observed and the size is known exactly: thirty copies of one real file, every line counted.",
+    "corpus": {
+      "files": 30,
+      "lines": 37140,
+      "note": "thirty copies of packages/shared/src/types/graph.ts"
+    },
+    "totalMs": 38492,
+    "secondsPerMillionLines": 1036,
+    "target": {
+      "secondsPerMillionLines": 60,
+      "competitorSecondsPerMillionLines": 180
+    },
+    "verdict": "seventeen times the target, measured rather than bounded - and **thirteen times better than the earlier lower bound of 13,429 s**, which the two allocation fixes account for.",
+    "backend": {
+      "backend": "onnx",
+      "reason": null
+    },
+    "evidenceThatTheQuadraticIsGone": "Two files took 1,148 ms of parse and thirty took 21,219 ms: **twenty times the corpus for nineteen times the time**, where the quadratic would have paid about four hundred. That is the verification the probe counts could only assert mechanically.",
+    "phases": {
+      "parse": 21219,
+      "embed": 13876,
+      "scan": 1821,
+      "typeResolution": 895,
+      "crossFile": 538,
+      "similarity": 84
+    }
   }
 }
