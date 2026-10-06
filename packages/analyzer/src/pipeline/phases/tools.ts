@@ -64,9 +64,17 @@ export class ToolsPhase implements ExecutablePhase {
           const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
           let match: RegExpExecArray | null;
           while ((match = regex.exec(file.content)) !== null) {
-            // The pattern's first group is the tool name and is not optional, so a
-            // match always carries it.
-            const toolName = match[1]!;
+            // **The name is the first group where the pattern has one, and the whole match where it does not.** The
+            // comment here used to say the first group "is not optional, so a match always carries it" - and the Slack
+            // slash-command matcher is `/\/[a-z][a-z0-9_-]*\s+.+/g`, which captures nothing at all. So `match[1]` was
+            // `undefined`, the `!` told the compiler to stop asking, and `toolName.length` threw on **every corpus
+            // this phase has ever run on**: `tools` has been returning `failed` since it was written, while the run
+            // reported `partial` and carried on. **A comment asserted a property of the patterns and nothing checked
+            // the comment.**
+            //
+            // The fallback is the whole match's first word, which for a slash command is the command itself - the
+            // thing the pattern was written to find.
+            const toolName = (match[1] ?? match[0].split(/\s+/)[0] ?? '').trim();
             const description = match[2] ?? '';
             const lineNum = file.content.slice(0, match.index).split('\n').length;
 
