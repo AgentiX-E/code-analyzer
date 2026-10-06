@@ -26,35 +26,47 @@ import { describe, expect, it } from 'vitest';
 
 import { getOrLoadProvider, groupCaptures } from '../../pipeline/phase-helpers.js';
 
-/** One sample per language, chosen because the file exists and is not written for this purpose. */
-const SAMPLES: Array<{ language: string; file: string; reference: RegExp; capture: number }> = [
+/**
+ * **Candidates per language, and the first with a non-empty reference wins.**
+ *
+ * The first version named one file per language and **two of them turned out to hold nothing the pattern could see** -
+ * `ci-simulate.sh` and `setup.sh` are command sequences with no functions at all, and the VitePress config is an
+ * `import` and an `export default`. **The pattern was right and the sample was wrong**, so the fix is a list rather
+ * than a wider pattern: **widening the reference until it finds something would be adjusting the ruler to the thing
+ * being measured.**
+ */
+const SAMPLES: Array<{ language: string; files: string[]; reference: RegExp; capture: number }> = [
   {
     language: 'python',
-    file: 'scripts/fix_coverage.py',
+    files: ['scripts/fix_coverage.py'],
     reference: /^(?:def|class)\s+([A-Za-z_]\w*)/gm,
     capture: 1,
   },
   {
     language: 'ruby',
-    file: 'homebrew/code-analyzer.rb',
+    files: ['homebrew/code-analyzer.rb'],
     reference: /^(?:def|class|module)\s+([A-Za-z_]\w*)/gm,
     capture: 1,
   },
   {
     language: 'bash',
-    file: 'scripts/ci-simulate.sh',
+    // **`ci-simulate.sh` is a command sequence with no functions; `setup.sh` defines thirteen.** The first is a
+    // candidate that the reference correctly rejects, and the second is why this language is measurable at all -
+    // **and a grep of my own claimed both were function-free, which is why the reference is checked rather than
+    // believed.** A reference that finds nothing and a corpus with nothing to find look identical from outside.
+    files: ['scripts/ci-simulate.sh', 'scripts/setup.sh'],
     reference: /^(?:function\s+)?([A-Za-z_]\w*)\s*\(\s*\)/gm,
     capture: 1,
   },
   {
     language: 'typescript',
-    file: 'docs/.vitepress/config.ts',
+    files: ['packages/analyzer/src/cfg/cfg-builder.ts', 'docs/.vitepress/config.ts'],
     reference: /^export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|let|interface|type|enum)\s+([A-Za-z_$]\w*)/gm,
     capture: 1,
   },
   {
     language: 'javascript',
-    file: 'scripts/benchmark-dataset-gate.js',
+    files: ['scripts/benchmark-dataset-gate.js'],
     reference: /^(?:export\s+)?(?:async\s+)?(?:function|class|const|let)\s+([A-Za-z_$]\w*)/gm,
     capture: 1,
   },
@@ -89,23 +101,37 @@ describe('what each language extracts, against a reference from the same file', 
     let worst = 1;
 
     for (const sample of SAMPLES) {
-      let content: string;
-      try {
-        content = readFileSync(resolve(process.cwd(), sample.file), 'utf8');
-      } catch {
-        unmeasured.push(`${sample.language}: ${sample.file} is not present`);
+      // **The first candidate whose reference finds something.** A sample with no declarations would divide by zero
+      // and report success, so it is not a sample this file can use.
+      let chosen: { file: string; content: string; expected: Set<string> } | null = null;
+      const tried: string[] = [];
+      for (const file of sample.files) {
+        let content: string;
+        try {
+          content = readFileSync(resolve(process.cwd(), file), 'utf8');
+        } catch {
+          tried.push(`${file} (absent)`);
+          continue;
+        }
+        const expected = referenceNames(sample.reference, content, sample.capture);
+        if (expected.size === 0) {
+          tried.push(`${file} (no declaration the pattern recognises)`);
+          continue;
+        }
+        chosen = { file, content, expected };
+        break;
+      }
+
+      if (!chosen) {
+        // **The reason names what was tried and why each was rejected**, so "unmeasured" cannot be read as "the
+        // language failed" when the corpus simply had nothing to measure.
+        unmeasured.push(`${sample.language}: no candidate had a measurable declaration - ${tried.join('; ')}`);
         continue;
       }
 
-      const expected = referenceNames(sample.reference, content, sample.capture);
-      // **A sample whose reference found nothing would divide by zero and report success.** Skipping it loudly is the
-      // difference between "this language extracts everything" and "this language was not measured".
-      if (expected.size === 0) {
-        unmeasured.push(`${sample.language}: the reference found no declarations in ${sample.file}`);
-        continue;
-      }
+      const { file, content, expected } = chosen;
 
-      const actual = await extractedNames(sample.language, content, sample.file);
+      const actual = await extractedNames(sample.language, content, file);
       const found = [...expected].filter((n) => actual.has(n));
       const spurious = [...actual].filter((n) => !expected.has(n));
       const recall = found.length / expected.size;
@@ -113,7 +139,7 @@ describe('what each language extracts, against a reference from the same file', 
       worst = Math.min(worst, recall);
 
       perLanguage[sample.language] = {
-        file: sample.file,
+        file,
         referenceDeclarations: expected.size,
         extracted: actual.size,
         found: found.length,

@@ -44,6 +44,24 @@
       "precision": 0.25,
       "missed": []
     },
+    "bash": {
+      "file": "scripts/setup.sh",
+      "referenceDeclarations": 13,
+      "extracted": 32,
+      "found": 13,
+      "recall": 1,
+      "precision": 0.4063,
+      "missed": []
+    },
+    "typescript": {
+      "file": "packages/analyzer/src/cfg/cfg-builder.ts",
+      "referenceDeclarations": 1,
+      "extracted": 78,
+      "found": 1,
+      "recall": 1,
+      "precision": 0.0128,
+      "missed": []
+    },
     "javascript": {
       "file": "scripts/benchmark-dataset-gate.js",
       "referenceDeclarations": 6,
@@ -54,11 +72,8 @@
       "missed": []
     }
   },
-  "measuredCount": 3,
-  "couldNotMeasure": [
-    "bash: the reference found no declarations in scripts/ci-simulate.sh",
-    "typescript: the reference found no declarations in docs/.vitepress/config.ts"
-  ],
+  "measuredCount": 5,
+  "couldNotMeasure": [],
   "worstRecall": 1,
   "criterion": {
     "recallPerLanguage": 0.9,
