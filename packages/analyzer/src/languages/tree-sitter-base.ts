@@ -234,7 +234,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     this.filePath = filePath;
 
     if (!this.parser || !this.languageGrammar) {
-      return this.fallbackParse(sanitized, filePath);
+      return this.finishCaptures(this.fallbackParse(sanitized, filePath));
     }
 
     const captures: UnifiedCapture[] = [];
@@ -244,12 +244,12 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     if (rootNode.hasError) {
       // If the AST has parse errors, fall back to regex
-      return this.fallbackParse(sanitized, filePath);
+      return this.finishCaptures(this.fallbackParse(sanitized, filePath));
     }
 
     this.walkAndCapture(rootNode, captures);
 
-    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+    return this.finishCaptures(captures);
   }
 
   /**
@@ -339,6 +339,53 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * tag sends them down the same path as declarations, and the first version of this let a comment consume the pending
    * comment - **it consumed itself**.
    */
+  /**
+   * Give each declaration the comment above it, over a file's captures in source order.
+   *
+   * **This is the pass that makes the mechanism reach a language that replaced its walk.** `attachDocComment` is a
+   * method a walk *can* call, and a walk that was written before it and builds captures inline will not. **A pass over
+   * the finished list cannot be skipped by a walk**, because the walk does not own it.
+   *
+   * **Comments are not symbols and are dropped here**, which is also what keeps them out of the graph: they were
+   * emitted as captures by grammars that map their comment nodes, and nothing downstream wants them as declarations.
+   */
+  private attachDocCommentsInOrder(captures: UnifiedCapture[]): void {
+    let pending: string | null = null;
+    const kept: UnifiedCapture[] = [];
+    for (const capture of captures) {
+      if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
+        const text = stripCommentSyntax(capture.text);
+        if (text.length > 0) pending = text;
+        continue;
+      }
+      if (pending !== null) {
+        (capture.properties as Record<string, unknown>)['docstring'] = pending;
+        pending = null;
+      }
+      kept.push(capture);
+    }
+    captures.length = 0;
+    captures.push(...kept);
+  }
+
+  /**
+   * The last stage of a parse, whichever way the parse went.
+   *
+   * **Two exits and one stage.** A file that parses and a file that falls back to regex both leave through here, and
+   * the first version of this ran the doc-comment pass on one of them - so a file the grammar could not read got no
+   * docstrings, and the guard caught it **by being written for two languages, where the second one exercises the
+   * fallback.**
+   *
+   * **And it is the place a subclass cannot skip.** `attachDocComment` is a method a walk *may* call; a walk written
+   * before it and building captures inline will not. **A stage in `parse` belongs to no provider** - bar `php`, which
+   * replaces `parse` itself and is named as excluded.
+   */
+  private finishCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
+    const ordered = captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+    this.attachDocCommentsInOrder(ordered);
+    return ordered;
+  }
+
   protected attachDocComment(capture: UnifiedCapture): UnifiedCapture {
     if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
       const text = stripCommentSyntax(capture.text);
