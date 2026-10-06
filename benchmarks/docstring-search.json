@@ -66,13 +66,12 @@
     "measured": "2026-10-06",
     "method": "One C-like source with two `//` lines above a function, parsed by every provider that has one, asking which symbols come back carrying a docstring. **The probe is deliberately one shape** - the C-like form - so it answers \"which languages do not read this shape\" rather than \"which languages work\", and the ones that returned no symbols at all are not failed by it.",
     "results": {
-      "attachedCorrectly": [],
-      "attachedToTheWrongSymbol": [
-        "groovy"
-      ],
-      "noDocstring": [
+      "attachedCorrectly": [
         "typescript",
-        "javascript",
+        "javascript"
+      ],
+      "attachedToTheWrongSymbol": [],
+      "noDocstring": [
         "c",
         "cpp",
         "csharp",
@@ -92,11 +91,14 @@
         "bash",
         "r",
         "elixir"
-      ]
+      ],
+      "groovy": "the parser reports an error on the source used and the walk falls back, so no comment is captured at all"
     },
     "andTheFirstReadingOfThisWasWrong": "The scan looked like \"typescript does not attach `//` comments\" - and **that is by design**: its walk has a branch commented `only JSDoc-style` that accepts `/**` and ignores everything else. **A plain `//` is not documentation, and treating that as a defect would have meant widening a deliberate limit.** The probe found the answer it was built to find and **the reading put on it was the mistake**, the same shape as the grep that claimed two shell scripts had no functions.",
     "andTheRealFindingIsGroovy": "**Groovy attached a docstring to `closure_3`** - a synthesised name - rather than to the function the comment was written above. **The comment and the symbol it belonged to were both found and the association between them was wrong**, which is the failure the guard in `docstring-extraction.test.ts` asserts against for typescript and javascript and which no test covers for the other providers.",
     "next": "**Groovy needs both gaps looked at, and they are different bugs.** The comment form it accepts is not the one its authors write documentation in, and the symbol the comment reaches is not the one it was written above. **Neither is covered by a test**, because the guard for doc comments is parameterised over typescript and javascript only.",
-    "andTheScanHadTwoCategoriesWhereItNeededThree": "**\"Has a docstring\" was not the right question.** The scan reported groovy as the one language that attached one, and asking the same question with groovy's own documentation syntax shows it attaches **nothing**:\n\n    /**\\n     * Compute something useful.\\n     */\\n    def myFunction(a) { return a }\n\n    captures: function.def  myFunction  doc=null      and no docstring capture at all\n\n**So the scan's one positive was a mis-attachment rather than an attachment** - the comment found the wrong symbol, and a result table with \"yes\" and \"no\" columns cannot say that. **\"Attached to the wrong symbol\" is a third outcome and it is the one that mattered here.**\n\nAnd groovy has two separate gaps, which the scan reported as one: **it does not recognise `/** */`, which is its own documentation form**, and **it does recognise `//` and then attaches it to a synthesised closure rather than to the declaration under it.**"
+    "andTheScanHadTwoCategoriesWhereItNeededThree": "**\"Has a docstring\" was not the right question.** The scan reported groovy as the one language that attached one, and asking the same question with groovy's own documentation syntax shows it attaches **nothing**:\n\n    /**\\n     * Compute something useful.\\n     */\\n    def myFunction(a) { return a }\n\n    captures: function.def  myFunction  doc=null      and no docstring capture at all\n\n**So the scan's one positive was a mis-attachment rather than an attachment** - the comment found the wrong symbol, and a result table with \"yes\" and \"no\" columns cannot say that. **\"Attached to the wrong symbol\" is a third outcome and it is the one that mattered here.**\n\nAnd groovy has two separate gaps, which the scan reported as one: **it does not recognise `/** */`, which is its own documentation form**, and **it does recognise `//` and then attaches it to a synthesised closure rather than to the declaration under it.**",
+    "andTheTwoReadingsOfGroovyWereBothWrong": "Groovy was recorded as the one language that attached a docstring, then as one that attaches it to the wrong symbol. **Neither is what happens.** Three sources through the same provider:\n\n    /** a doc */  def myFunction(a) { return a }     hasError=true   captures: function.def myFunction\n    // a doc     function myFunction(a) { ... }     hasError=false  captures: function.def closure_2\n    (no comment) def myFunction(a) { return a }     hasError=true   captures: function.def myFunction\n\n**`def myFunction(a) { return a }` does not parse**, so the provider takes its regex fallback and no comment is captured. **And `function` is not groovy** - so in the one source that does parse, the declaration is a closure and `closure_2` is the correct name for it. **The comment was attached to the right thing after all.**\n\n**So both readings came from the sources this measurement wrote, not from the provider.** The first source was not valid groovy; the second used a keyword from another language and the provider handled it correctly. **That is the third time in this stretch that the probe was the problem** - after the grep that miscounted shell functions and the scan whose table had too few columns.",
+    "andTheOneRealFindingThatSurvives": "**Groovy's grammar rejects `def name(args) { ... }`** - a form a reader would call ordinary - and the provider silently falls back to regex, which loses comments, imports, annotations and gstrings with it. **That is a real limit and it is about the grammar rather than about this change**, and it is why every groovy line in the scan was unlike every other line."
   }
 }
