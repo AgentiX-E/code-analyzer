@@ -31,7 +31,21 @@
       "**Python docstrings are string literals, not comments.** A `\"\"\"...\"\"\"` immediately inside a `def` is an expression statement, so a comment-based association has nothing to associate. **That is a second mechanism, not a bug in the first.**"
     ],
     "andWhatIsLeft": "A `pendingDocComment` field and the consumption on the base path, which is correct and reaches no language today. **The next step is per-provider work**: typescript, javascript and any other override needs the same consumption in its own capture path, and python needs string-literal docstrings rather than comments. **The field is left in place because the mechanism is right and the remaining work is one line in each overriding provider.**",
-    "andWhatWasNotDone": "**No test was committed red.** The failing test was removed, so the failure is recorded here rather than in the suite - because a red suite blocks everything else, and this is one capability rather than the whole build."
+    "andWhatWasNotDone": "**No test was committed red.** The failing test was removed, so the failure is recorded here rather than in the suite - because a red suite blocks everything else, and this is one capability rather than the whole build.",
+    "andTheShapeOfTheFixChangedTwice": [
+      "**Inside `emitCapture`** - did not reach typescript or javascript, which replace `walkAndCapture` and build their captures elsewhere. **A change to the base never ran for them.**",
+      "**A method a walk may call** (`attachDocComment`) - reaches a walk that chooses to call it, and javascript builds its captures inline with no single site to call from.",
+      "**A stage in `parse`** (`finishCaptures`) - **belongs to no provider**, so no walk can skip it. Every language leaves through it, bar `php`, which replaces `parse` itself. **That is the difference between hooking a method and hooking a stage**: the first needs every provider to opt in and the second does not."
+    ],
+    "andTwoMoreThingsTheGuardCaught": [
+      "**There are two exits from a parse.** A file that parses and a file that falls back to regex both leave, and the first version of the stage ran on one of them - **so a file the grammar could not read got no docstrings.**",
+      "**And the test's own input was wrong.** The javascript case was fed typescript source, which it cannot read, so it took that same fallback - **a different path wearing the test's name.** Each language now gets source in its own grammar."
+    ],
+    "andWhatIsStillMissing": [
+      "**`php` replaces `parse` and does not reach the stage.**",
+      "**`python` docstrings are string literals rather than comments** - the second mechanism, still unbuilt.",
+      "**The other thirty-one providers are unexamined.** The guard is parameterised, so adding one is a line."
+    ]
   },
   "andItNowWorksForTypeScript": {
     "measured": "2026-10-06",
@@ -43,5 +57,9 @@
       "**Python** docstrings are string literals rather than comments, so the comment mechanism cannot reach them at all. **That is the second mechanism, still unbuilt.**",
       "**The other thirty-one providers** were not examined: some will inherit the base path and work already, and some will override the walk like typescript does."
     ]
-  }
+  },
+  "languagesNowExtracting": [
+    "typescript",
+    "javascript"
+  ]
 }
