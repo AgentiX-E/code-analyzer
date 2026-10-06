@@ -1,0 +1,71 @@
+{
+  "comment": [
+    "Recall and precision of symbol extraction, per language, against a reference taken from the same file.",
+    "",
+    "**The reference is a regular expression over top-level declarations**, chosen because it has to be something",
+    "other than the code under test - a reference that shares an implementation cannot disagree with it. **It finds",
+    "top-level `def`, `class` and `export` forms and not nested or generated ones**, so recall is measured against",
+    "the declarations a reader would name in a file, and not against every symbol a language can express.",
+    "",
+    "**Precision is reported and it is not a judgement of the parser.** The first run produced 0.12 for python and",
+    "0.25 for ruby, and reading that as \"the parser is mostly wrong\" would be a mistake: **the reference counts",
+    "top-level declarations while the parser extracts every symbol it can see** - parameters, methods, properties,",
+    "types - and the files here have four top-level declarations against thirty-four extracted symbols.",
+    "**The reference is too narrow to judge precision, and that is a property of the reference.** Recall is the",
+    "figure this file can speak to, because a name the reference found and the parser did not is a miss by",
+    "whichever of the two is wrong.",
+    "",
+    "**The samples are files that already existed in this repository**, written for other purposes: a hand-made",
+    "sample would be a file written to be parsed, which is the least useful test corpus there is.",
+    "",
+    "**This does not cover all thirty-four languages.** Five had a candidate sample and two of those - bash and",
+    "typescript - were not measured at all, because the reference found no declarations in the file it was pointed",
+    "at. **That is the reference failing and not the language**: `ci-simulate.sh` defines nothing the pattern",
+    "recognises and the VitePress config exports a default. **An unmeasured language is not a passing one, and the",
+    "two are named for that reason rather than quietly dropped.**"
+  ],
+  "measuredAt": "2026-10-06",
+  "languages": {
+    "python": {
+      "file": "scripts/fix_coverage.py",
+      "referenceDeclarations": 4,
+      "extracted": 34,
+      "found": 4,
+      "recall": 1,
+      "precision": 0.1176,
+      "missed": []
+    },
+    "ruby": {
+      "file": "homebrew/code-analyzer.rb",
+      "referenceDeclarations": 1,
+      "extracted": 4,
+      "found": 1,
+      "recall": 1,
+      "precision": 0.25,
+      "missed": []
+    },
+    "javascript": {
+      "file": "scripts/benchmark-dataset-gate.js",
+      "referenceDeclarations": 6,
+      "extracted": 27,
+      "found": 6,
+      "recall": 1,
+      "precision": 0.2222,
+      "missed": []
+    }
+  },
+  "measuredCount": 3,
+  "couldNotMeasure": [
+    "bash: the reference found no declarations in scripts/ci-simulate.sh",
+    "typescript: the reference found no declarations in docs/.vitepress/config.ts"
+  ],
+  "worstRecall": 1,
+  "criterion": {
+    "recallPerLanguage": 0.9,
+    "source": "the whitepaper's M1 criterion"
+  },
+  "competitorBaseline": {
+    "languages": 158,
+    "note": "CBM, by count and not by accuracy"
+  }
+}
