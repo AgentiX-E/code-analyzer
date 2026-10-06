@@ -155,5 +155,29 @@
       "soItIsAroundIt": "The candidates left are `parseGitignore`, the gitignore match per entry, and the file and folder node insertion that follows the walk - **and the last of those already goes through the `claimId` fix, because `scan` builds nodes through the same `GraphBuilder` the parse phase does.**",
       "andTheNextMeasurement": "**Count rather than guess.** Instrument the scan phase to report how many times it calls `readdir`, `stat`, `readFile`, and how many patterns it matches against, then run that at 45, 90 and 180 files. **Whichever counter grows faster than the file count is the defect**, and reading the code has already produced four wrong conclusions in this stretch."
     }
+  },
+  "theCountersAreTheEvidenceAndTheTimingsAreNot": {
+    "measured": "2026-10-06",
+    "how": "`node:fs/promises` is mocked with a factory that counts `readdir`, `stat` and `readFile` and delegates to the real module - the namespace cannot be patched directly, because its properties are read-only.",
+    "counts": [
+      {
+        "files": 45,
+        "scanMs": 2331,
+        "readdir": 2,
+        "stat": 45,
+        "readFile": 45
+      },
+      {
+        "files": 90,
+        "scanMs": 51004,
+        "readdir": 2,
+        "stat": 90,
+        "readFile": 90
+      }
+    ],
+    "whatTheCountsSay": "**The filesystem work is exactly linear**: one `readdir` per level, two levels, one `stat` and one `readFile` per file. **So the twenty-two-fold growth in `scan` is pure CPU**, on a corpus whose filesystem work doubled as the files doubled.",
+    "andWhatThatRevealsAboutTheTimings": "**The same ninety-file run measured 23,070 ms of scan in the bisection and 51,004 ms here - a factor of 2.2 between two runs of the same code on the same machine with the same corpus.** That is the size of this environment's noise, and **it is larger than every effect the timing curve was used to demonstrate.**\n\n**So the timing series is not evidence.** The counters are: they are deterministic, they do not move between runs, and they say the filesystem work is linear and that whatever grows lives in CPU.",
+    "andTheFiveCorrectionsHaveAShape": "Taint calls were waste (they were a scan); the offline backend did not exist (it is intermittent); a scaling test proved a fix (it proved nothing); the cost was superlinear beyond thirty files (the phase was wrong); and now the timings themselves (they carry more noise than signal). **Four of the five were claims about a measurement rather than about the code - and this one says the instrument was being trusted past its precision.**",
+    "next": "Find the per-entry CPU work by counting something else: candidates are the number of comparisons the gitignore match makes, and the number of times the discovered-file list is scanned. **A counter that grows faster than the file count is the defect, and the counter does not care what else the machine is doing.**"
   }
 }
