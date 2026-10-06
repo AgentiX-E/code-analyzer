@@ -65,16 +65,16 @@ describe('the taint capability claim', () => {
     const { TreeSitterBaseProvider } = await import('../tree-sitter-base.js');
     const bare = Object.assign(Object.create(TreeSitterBaseProvider.prototype), ts, { parser: counting });
     parses = 0;
-    expect((bare as { extractTaintSources(s: string): unknown[] }).extractTaintSources('const x = 1;')).toHaveLength(0);
-    expect((bare as { extractTaintSinks(s: string): unknown[] }).extractTaintSinks('const x = 1;')).toHaveLength(0);
-    expect((bare as { extractSanitizers(s: string): unknown[] }).extractSanitizers('const x = 1;')).toHaveLength(0);
+    expect((bare as unknown as { extractTaintSources(s: string): unknown[] }).extractTaintSources('const x = 1;')).toHaveLength(0);
+    expect((bare as unknown as { extractTaintSinks(s: string): unknown[] }).extractTaintSinks('const x = 1;')).toHaveLength(0);
+    expect((bare as unknown as { extractSanitizers(s: string): unknown[] }).extractSanitizers('const x = 1;')).toHaveLength(0);
     // **The assertion the artifact cites**: three empty results used to cost three parses and three tree walks.
     expect(parses).toBe(0);
 
     // Claimed: the language pays for the walk it declared.
     const claimed = Object.assign(withADeclaredWalk(ts), { parser: counting, languageGrammar: {} });
     parses = 0;
-    (claimed as { extractTaintSources(s: string): unknown[] }).extractTaintSources('const x = 1;');
+    (claimed as unknown as { extractTaintSources(s: string): unknown[] }).extractTaintSources('const x = 1;');
     expect(parses).toBe(1);
   });
 });
