@@ -45,7 +45,7 @@ export interface Embedder {
 export async function generateEmbeddings(
   nodes: Map<number, GraphNode>,
   loadEmbedder: () => Promise<Embedder | null> = loadRealEmbedder,
-): Promise<EmbeddingResult[]> {
+): Promise<{ results: EmbeddingResult[]; backend: 'onnx' | 'deterministic'; reason: string | null }> {
   const results: EmbeddingResult[] = [];
 
   // Collect embeddable nodes
@@ -66,15 +66,22 @@ export async function generateEmbeddings(
     });
   }
 
-  if (embeddable.length === 0) return results;
+  if (embeddable.length === 0) return { results, backend: 'deterministic', reason: null };
 
   // Try the real ONNX backend from @agentix-e/embed-code-node
   let embedder: Embedder | null = null;
 
+  // **The reason is kept, because a fallback that happens silently is indistinguishable from success.** The phase
+  // has a deterministic embedding that works, so `success` is honest - but "which backend did this run use, and why"
+  // is a question a measurement of this pipeline has to be able to answer, and swallowing the error made it
+  // unanswerable. In this repository `loadEmbedder()` always throws: the published `@agentix-e/embed-code-node`
+  // declares `files: ['dist', 'models']` and ships no `models/`, so `createFromPackage()` cannot find
+  // `nomic-embed-code-v1.5.int8.onnx` or the `tokenizer.json` beside it, on any machine.
+  let backendUnavailableReason: string | null = null;
   try {
     embedder = await loadEmbedder();
-  } catch {
-    // ONNX backend unavailable — use deterministic fallback
+  } catch (error) {
+    backendUnavailableReason = error instanceof Error ? error.message : String(error);
   }
 
   if (embedder) {
@@ -117,7 +124,12 @@ export async function generateEmbeddings(
     }
   }
 
-  return results;
+  // **Which backend ran, and why**, travelling out with the results so the phase can record it.
+  return {
+    results,
+    backend: backendUnavailableReason ? 'deterministic' : 'onnx',
+    reason: backendUnavailableReason,
+  };
 }
 
 /**
@@ -182,7 +194,9 @@ export class EmbedPhase implements ExecutablePhase {
         return { phaseId: this.id, status: 'success', output: { embeddingsGenerated: 0 } };
       }
 
-      const embeddings = await generateEmbeddings(ctx.graph.nodes);
+      const { results: embeddings, backend, reason: backendReason } = await generateEmbeddings(
+        ctx.graph.nodes,
+      );
 
       // Store embeddings in node properties
       for (const { nodeId, embedding } of embeddings) {
@@ -194,6 +208,12 @@ export class EmbedPhase implements ExecutablePhase {
           embedding,
         };
       }
+
+      // **Which backend, and why** - readable by whoever measures this pipeline. A fallback that happens
+      // silently is indistinguishable from success, and "which embeddings does this index hold" is a
+      // question a measurement of the pipeline has to be able to answer.
+      ctx.phaseData.set('embedBackend', { backend, reason: backendReason });
+
 
       ctx.phaseData.set('embed', { embeddingsGenerated: embeddings.length });
       return {
