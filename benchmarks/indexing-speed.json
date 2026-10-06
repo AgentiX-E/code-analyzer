@@ -105,7 +105,7 @@
       "secondsPerMillionLines": 60,
       "competitorSecondsPerMillionLines": 180
     },
-    "verdict": "seventeen times the target, measured rather than bounded - and **thirteen times better than the earlier lower bound of 13,429 s**, which the two allocation fixes account for.",
+    "verdict": "**Recorded, and not to be published as a rate.** 1,036 s per million lines is what one run on this machine produced on a thirty-file corpus. **The same ninety-file corpus produced two `scan` timings differing by 2.2x**, and the code is linear in every operation that can be counted, so this environment cannot resolve wall-clock better than the effects a rate would need. **What is trustworthy here is the counters, the phase shape, and the two allocation fixes whose defects were demonstrated directly.**",
     "backend": {
       "backend": "onnx",
       "reason": null
@@ -179,5 +179,12 @@
     "andWhatThatRevealsAboutTheTimings": "**The same ninety-file run measured 23,070 ms of scan in the bisection and 51,004 ms here - a factor of 2.2 between two runs of the same code on the same machine with the same corpus.** That is the size of this environment's noise, and **it is larger than every effect the timing curve was used to demonstrate.**\n\n**So the timing series is not evidence.** The counters are: they are deterministic, they do not move between runs, and they say the filesystem work is linear and that whatever grows lives in CPU.",
     "andTheFiveCorrectionsHaveAShape": "Taint calls were waste (they were a scan); the offline backend did not exist (it is intermittent); a scaling test proved a fix (it proved nothing); the cost was superlinear beyond thirty files (the phase was wrong); and now the timings themselves (they carry more noise than signal). **Four of the five were claims about a measurement rather than about the code - and this one says the instrument was being trusted past its precision.**",
     "next": "Find the per-entry CPU work by counting something else: candidates are the number of comparisons the gitignore match makes, and the number of times the discovered-file list is scanned. **A counter that grows faster than the file count is the defect, and the counter does not care what else the machine is doing.**"
+  },
+  "theCodeIsLinearEverywhereItCanBeCounted": {
+    "measured": "2026-10-06",
+    "walkDirectory": "One `maxFiles` bounds check, one `readdir` per level, one pass over the entries with an O(1) bounds check each, a gitignore match against a fixed pattern list, one `stat` and one `readFile` per file, and a `push`. **Every operation is constant per file, and one hash is linear in the file it hashes.**",
+    "counts": "readdir 2 at both sizes; stat and readFile equal to the file count at both sizes.",
+    "soThereIsNoQuadraticToFind": "**Neither in `scan` nor in the two allocations that were fixed** - those were real and their probe counts came down from 12,750 to under 1,500. **What is left is not a complexity defect on any evidence available here.**",
+    "andTheTimingSeriesSaysOtherwise": "The series put `scan` growth at twenty-two-fold, and two runs of the same ninety-file corpus differ by 2.2x. **A twenty-two-fold change across a doubling is larger than that noise, and no mechanism for it exists in the code** - so the honest reading is that the series has a source of variance this environment does not control, and it has not been identified."
   }
 }
