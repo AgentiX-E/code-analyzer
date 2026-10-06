@@ -119,5 +119,11 @@
       "crossFile": 538,
       "similarity": 84
     }
+  },
+  "andTheScalingIsNotLinearAfterAll": {
+    "observed": "A full-corpus run **without the embedding phase** exceeded twenty minutes on 134,040 lines and was stopped. Thirteen times the corpus of the thirty-file measurement would be about 4.6 minutes if the cost were linear.",
+    "contradiction": "The thirty-file corpus reports 1,036 s per million lines, and the full corpus is at least 8,900 s per million lines on the same arithmetic. **The two disagree by a factor of eight, which means the cost is superlinear beyond thirty files.**",
+    "andWhatThatMeansForTheRecordedNumber": "**1,036 s is a valid measurement of a thirty-file corpus and is recorded as exactly that.** It is not a rate for the pipeline at scale, and the earlier practice of extrapolating from a small corpus to a million lines is what this contradiction falsifies. **Two points are not a curve** - the same lesson as the scaling test that was deleted for passing with the fix and without it.",
+    "next": "Bisect the corpus size to find where the cost stops being linear: 30, 60, 120 files, timing the parse phase at each. **That is the measurement that would name the second quadratic**, and it is cheap next to a full run."
   }
 }
