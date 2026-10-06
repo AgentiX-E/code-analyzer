@@ -1,0 +1,35 @@
+{
+  "comment": [
+    "Recall at top-k over a symbol’s own name, on this repository’s own source.",
+    "",
+    "**What this measures, and what it does not.** A symbol’s own name is a query whose answer is known, so the",
+    "figure needs no hand labelling - **and it measures the index and the lexical retrieval, not semantic",
+    "generalisation.** \"Where is the pipeline context defined\" is a different question with answers nobody has",
+    "labelled, and the `semantic-search-accuracy` row is still blocked on that.",
+    "",
+    "**The semantic half is reported separately and only when a backend is present**, because the embedding",
+    "backend in this repository is intermittent: one probe threw `Tokenizer not found`, and later runs report a",
+    "loaded `onnx` backend. A recall figure that changes with the backend is a figure about the backend."
+  ],
+  "measuredAt": "2026-10-06",
+  "mode": "lexical",
+  "backend": {
+    "embeddingsRegistered": false,
+    "note": "BM25 alone, so the figure is deterministic"
+  },
+  "corpus": {
+    "path": "30 copies of packages/shared/src/types/graph.ts",
+    "files": 31,
+    "nodes": 6571
+  },
+  "topK": 10,
+  "queries": 40,
+  "found": 40,
+  "recall": 1,
+  "misses": [],
+  "target": {
+    "recall": 0.9,
+    "competitorRecall": 0.75,
+    "competitor": "Cody, quoted by the whitepaper"
+  }
+}
