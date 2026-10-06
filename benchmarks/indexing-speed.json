@@ -121,9 +121,34 @@
     }
   },
   "andTheScalingIsNotLinearAfterAll": {
-    "corrected": "**The bisection says the opposite, and it is the better instrument.** Fifteen, thirty and forty-five files through the same phases, timing parse at each:\n\n  15 files    834 ms/file    3,286 nodes\n  30 files    942 ms/file    6,571 nodes   growth 1.13x\n  45 files    936 ms/file    9,856 nodes   growth 0.99x\n\n**Three points, and the per-file cost is flat.** `parse` is linear over this range.",
-    "soWhatTheTwentyMinutesWere": "**Unexplained, and that is the honest answer.** At 937 ms per file, 389 files is about 6.1 minutes, and the run exceeded twenty - so something changes between 45 and 389, or that run carried a cost this bisection does not. **The bisection cannot say which, and inventing a reason would be the fourth wrong conclusion in a row.** The next measurement extends the series to 90 and 180 files, where the answer is.",
-    "andTheNumberThatMatters": "**937 ms per file against `provider.parse` at 31 ms is thirty times the parser's own cost**, flat in the corpus size, and that is the actionable figure. It is not a quadratic in files any more - the two allocations that were fixed are fixed, and three points now demonstrate what two could not.",
-    "whatTwoPointsCouldNotShow": "Twenty times the corpus for nineteen times the time looked like linearity at two sizes. Three points confirm it for `parse` and falsify the extrapolation I drew from the stopped full run. **A curve needs a third point**, which is the same lesson as the scaling test that was deleted for passing with the fix and without it."
+    "theSeries": [
+      {
+        "files": 45,
+        "totalMs": 33273,
+        "parseMs": 28536,
+        "scanMs": 2271,
+        "msPerFile": 739,
+        "nodes": 9856
+      },
+      {
+        "files": 90,
+        "totalMs": 81531,
+        "parseMs": 54034,
+        "scanMs": 23070,
+        "msPerFile": 906,
+        "nodes": 19711
+      },
+      {
+        "files": 180,
+        "totalMs": 259872,
+        "parseMs": 112790,
+        "scanMs": 136778,
+        "msPerFile": 1444,
+        "nodes": 39421
+      }
+    ],
+    "theAnswerIsInTheScanColumn": "**`scan` is the superlinear one, and `parse` is not.** Per file: `scan` goes 50 ms, 256 ms, 760 ms as the corpus goes 45, 90, 180 - **four times the files costing fifteen times the per-file time** - while `parse` goes 634 ms, 600 ms, 627 ms, flat. **`scan` rises from 7% of the run at forty-five files to 53% at a hundred and eighty.**\n\n**That is what the twenty minutes were.** At 389 files `scan` extrapolates past twenty minutes on its own, and nothing about `parse` needed explaining.",
+    "andWhyTheEarlierClaimWasWrong": "The earlier \"superlinear beyond thirty files\" was right about the shape and wrong about the phase: it was read from a total rather than a breakdown, and the total is dominated by `parse` at small sizes and by `scan` at large ones. **The breakdown was available the whole time and the conclusion was drawn without it** - the fourth correction in this stretch, and the first one that a table would have prevented.",
+    "next": "`scan` discovers files, so it walks a directory tree. A quadratic there is a path assembled per file, or a lookup per entry against a growing list - the same shape as the two allocations that were already fixed. **The curve names the phase; the phase names the file.**"
   }
 }
