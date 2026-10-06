@@ -22,7 +22,7 @@
     "files": 31,
     "nodes": 6571
   },
-  "topK": 10,
+  "topK": 20,
   "queries": 40,
   "found": 40,
   "recall": 1,

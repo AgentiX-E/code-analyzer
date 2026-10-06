@@ -42,7 +42,13 @@ const ROOT = process.cwd();
 const SOURCE = 'packages/shared/src/types/graph.ts';
 const COPIES = 30;
 const ARTIFACT = resolve(ROOT, 'benchmarks/lexical-search-recall.json');
-const TOP_K = 10;
+/**
+ * **`SearchOptions` names this `limit`, and its default is 20.** The first version of this file passed `topK`, which
+ * the compiler rejected and the runtime ignored - **so it reported "found in top 10" while asking for twenty**, and the
+ * test passed either way. That is the same defect as everything else in this stretch: a claim about what a measurement
+ * did, checked by a green line instead of by the thing itself. **`tsc` caught it; the test did not.**
+ */
+const TOP_K = 20;
 /** Queries are sampled by stride rather than by random, so the set is the same on every run. */
 const QUERIES = 40;
 
@@ -104,7 +110,7 @@ describe('retrieval, measured on a symbol\u2019s own name', () => {
     const results: QueryResult[] = [];
     for (let i = 0; i < symbols.length && results.length < QUERIES; i += stride) {
       const symbol = symbols[i]!;
-      const hits = await engine.search({ query: symbol.name, topK: TOP_K });
+      const hits = await engine.search({ query: symbol.name, limit: TOP_K });
       const rank = hits.findIndex((h) => h.node?.name === symbol.name);
       results.push({ query: symbol.name, found: rank >= 0, rank: rank >= 0 ? rank + 1 : null });
     }
