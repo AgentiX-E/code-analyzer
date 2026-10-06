@@ -1,6 +1,5 @@
 // @code-analyzer/analyzer — Pipeline Phase: Tools
 
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { PhaseLogger, createNoopPhaseLogger, EDGE_HANDLES_TOOL } from '@code-analyzer/shared';
 
 import { GraphBuilder } from '../../graph/graph-builder.js';
@@ -56,7 +55,9 @@ export class ToolsPhase implements ExecutablePhase {
         return { phaseId: this.id, status: 'success', output: { toolsFound: 0 } };
       }
 
-      const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
+      const builder = // **No store, and the type now says so.** This phase builds nodes and never dumps, so an optional
+        // parameter describes it exactly - where a cast to a non-null store described the opposite.
+        new GraphBuilder();
       let toolsFound = 0;
 
       for (const file of scanData.discoveredFiles) {

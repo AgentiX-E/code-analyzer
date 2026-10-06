@@ -112,3 +112,25 @@ describe('GraphBuilder edge-id allocation', () => {
     expect(edgeProbes).toBeLessThan(batches * perBatch * 3);
   });
 });
+
+describe('a builder without a store', () => {
+  it('builds nodes, which is what the two phases that pass no store actually do', () => {
+    const { graph } = countingGraph();
+    // `parse` and `tools` both construct one of these, build nodes, and never dump. **The optional parameter is what
+    // lets them say so without a cast**, and this asserts that the usage they have is supported.
+    const builder = new GraphBuilder();
+    const node = builder.addNode(graph, 'Function' as never, 'f', props);
+    const other = builder.addNode(graph, 'Function' as never, 'g', props);
+    expect(node.id).not.toBe(other.id);
+    expect(graph.nodes.size).toBe(2);
+  });
+
+  it('refuses to dump, and says why rather than dereferencing null', () => {
+    const { graph } = countingGraph();
+    const builder = new GraphBuilder();
+    // **The error a cast used to postpone**: `parse.ts` wrote `null as unknown as InMemoryGraphStore`, which compiles
+    // and then throws `cannot read properties of null (reading 'insertNode')` the first time a caller dumps.
+    expect(() => builder.dumpToStore(graph, 'probe')).toThrow(/without a store/);
+    expect(() => builder.dumpToStore(graph, 'probe')).toThrow(/addNode or addEdge/);
+  });
+});

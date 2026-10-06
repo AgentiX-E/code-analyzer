@@ -60,11 +60,21 @@ function claimId(table: Map<number, unknown>, cursor: { value: number }, preferr
 }
 
 export class GraphBuilder {
-  private readonly store: InMemoryGraphStore;
+  // **Nullable, because the constructor allows it** - and the type saying so is the point of the change.
+  private readonly store: InMemoryGraphStore | null;
   private nextNodeId: number;
   private nextEdgeId: number;
 
-  constructor(store: InMemoryGraphStore) {
+  /**
+   * **The store is optional because building a graph does not need one.** `addNode` and `addEdge` write into the
+   * `KnowledgeGraph` they are given; only `dumpToStore` touches the store. **Two phases - `parse` and `tools` - build
+   * nodes and never dump**, and both used to pass `null as unknown as InMemoryGraphStore` to say so. That cast told
+   * the compiler the dependency was satisfied while the field held `null`, and it is the same expression that failed
+   * at runtime the first time anything called `dumpToStore` on one - `cannot read properties of null (reading
+   * 'insertNode')`. **An optional parameter says the same thing without lying to the compiler**, and `dumpToStore`
+   * now fails with a sentence rather than a null dereference.
+   */
+  constructor(store: InMemoryGraphStore | null = null) {
     this.store = store;
     this.nextNodeId = 1;
     this.nextEdgeId = 1;
@@ -109,6 +119,14 @@ export class GraphBuilder {
 
   /** Dump in-memory graph to store */
   dumpToStore(graph: KnowledgeGraph, projectId: string): void {
+    // **A builder without a store cannot dump into one, and says so.** The alternative was `this.store.insertNode`
+    // throwing `cannot read properties of null`, which names the line but not the mistake.
+    if (!this.store) {
+      throw new Error(
+        'GraphBuilder.dumpToStore was called on a builder constructed without a store. ' +
+          'Pass one when the graph is to be dumped; a builder that only calls addNode or addEdge does not need one.',
+      );
+    }
     // Map old graph node IDs to new store node IDs
     const idMap = new Map<number, number>();
 
