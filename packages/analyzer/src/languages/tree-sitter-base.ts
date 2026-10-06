@@ -183,6 +183,25 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * all existed, and no provider ever emitted anything to go in them.
    */
   protected pendingDocComment: string | null = null;
+
+  /**
+   * Whether the last `parse` gave up on the grammar and used the regex reader instead.
+   *
+   * **A fallback nobody reports is a different extraction wearing the same name.** When a grammar cannot read a file,
+   * the provider quietly switches to a regex reader that finds a smaller and differently-shaped set of symbols - no
+   * comments, no imports, no annotations. **The caller sees a successful parse and a shorter list**, and there has
+   * been no way to tell the two apart.
+   *
+   * **It was found by asking groovy a question**: `def name(a) { ... }` reports a parse error, the fallback runs, and
+   * every groovy line in a twenty-language scan differed from every other line for that reason rather than for a
+   * reason about doc comments. **A fact that changes what the symbols are belongs where a caller can read it.**
+   */
+  protected parseFellBack = false;
+
+  /** Whether the last `parse` used the regex reader rather than the grammar. */
+  get lastParseWasARegularExpressionFallback(): boolean {
+    return this.parseFellBack;
+  }
   protected filePath: string = '';
 
   abstract readonly language: string;
@@ -228,12 +247,14 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   parse(source: string, filePath: string): UnifiedCapture[] {
     // **Per file**, so the last comment of one file cannot land on the first symbol of the next.
     this.pendingDocComment = null;
+    this.parseFellBack = false;
     // Strip BOM (Byte Order Mark) and zero-width characters before parsing.
     const sanitized = this.sanitizeSource(source);
     this.source = sanitized;
     this.filePath = filePath;
 
     if (!this.parser || !this.languageGrammar) {
+      this.parseFellBack = true;
       return this.finishCaptures(this.fallbackParse(sanitized, filePath));
     }
 
@@ -244,6 +265,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     if (rootNode.hasError) {
       // If the AST has parse errors, fall back to regex
+      this.parseFellBack = true;
       return this.finishCaptures(this.fallbackParse(sanitized, filePath));
     }
 
