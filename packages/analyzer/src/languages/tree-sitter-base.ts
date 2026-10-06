@@ -170,6 +170,19 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected parser: TreeSitterParser | null = null;
   protected languageGrammar: TreeSitterLanguage | null = null;
   protected source: string = '';
+
+  /**
+   * The doc comment most recently passed, waiting for the declaration it describes.
+   *
+   * **A walk sees a comment immediately before the declaration it belongs to**, because the two are siblings in the
+   * tree and the walk is depth-first in source order. That is the whole association: no parent lookup, no range
+   * arithmetic. **And it is cleared the moment a declaration consumes it**, which is what stops a comment ending up on
+   * the symbol *after* the one it describes.
+   *
+   * `GraphNode.docstring` was `null` on every node in every language before this - the field, the tag and the reader
+   * all existed, and no provider ever emitted anything to go in them.
+   */
+  protected pendingDocComment: string | null = null;
   protected filePath: string = '';
 
   abstract readonly language: string;
@@ -213,6 +226,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // -----------------------------------------------------------------------
 
   parse(source: string, filePath: string): UnifiedCapture[] {
+    // **Per file**, so the last comment of one file cannot land on the first symbol of the next.
+    this.pendingDocComment = null;
     // Strip BOM (Byte Order Mark) and zero-width characters before parsing.
     const sanitized = this.sanitizeSource(source);
     this.source = sanitized;
@@ -379,6 +394,23 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       containerName,
       properties,
     };
+
+    // **A comment capture IS the docstring; it does not consume one.** The TypeScript grammar maps its `comment` nodes
+    // to the `docstring` tag, so they arrive here like any other capture - and the first version of this change let
+    // them consume the pending comment, which meant **the comment consumed itself** and the declaration under it got
+    // nothing. A comment is also not a symbol, so it is not collected.
+    if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
+      const text = stripCommentSyntax(capture.text);
+      if (text.length > 0) this.pendingDocComment = text;
+      return;
+    }
+
+    // **A declaration consumes it, once.** Clearing it here is what keeps a comment off the symbol after the one it
+    // describes, which is the failure mode a carried-forward value produces.
+    if (this.pendingDocComment !== null) {
+      (capture.properties as Record<string, unknown>)['docstring'] = this.pendingDocComment;
+      this.pendingDocComment = null;
+    }
 
     captures.push(capture);
   }
@@ -778,4 +810,21 @@ export function claimsTaintExtraction(provider: unknown): boolean {
     proto = Object.getPrototypeOf(proto) as Record<string, unknown> | null;
   }
   return false;
+}
+
+/**
+ * A comment's text without its markers, so a docstring reads as prose rather than as syntax.
+ *
+ * **Deliberately not comment-type aware.** Block, line and hash comments all reduce
+ * to their lines, and the languages that use a form this does not know still get their text - **just with its markers
+ * left on**, which is a worse docstring than a clean one and a better one than none.
+ */
+function stripCommentSyntax(text: string): string {
+  return text
+    .replace(/^\s*\/\*\*?/, '')
+    .replace(/\*\/\s*$/, '')
+    .split('\n')
+    .map((line) => line.replace(/^\s*\*\s?/, '').replace(/^\s*(\/\/|#|--|<!--|-->)\s?/, '').trimEnd())
+    .join('\n')
+    .trim();
 }

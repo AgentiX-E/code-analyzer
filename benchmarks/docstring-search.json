@@ -23,5 +23,14 @@
     "Both were invisible from outside: `tools` was one word - `partial` - in a result nobody read, and an empty docstring looks the same as a symbol that has none."
   ],
   "andTheAssertionThatCaughtIt": "The harness asserted that it had at least one query before computing a recall figure. **Without that line it would have reported a recall over zero queries** - a division with no error, in a file that would have looked like a measurement.",
-  "next": "Extract doc comments in the language providers, then this measurement has an input. Until then the semantic-search-accuracy row is blocked on something more basic than a query set: the descriptions exist in the source and are not in the graph."
+  "next": "Extract doc comments in the language providers, then this measurement has an input. Until then the semantic-search-accuracy row is blocked on something more basic than a query set: the descriptions exist in the source and are not in the graph.",
+  "andAnAttemptMovesItWithoutClosingIt": {
+    "whatWasChanged": "The base provider now carries a comment forward to the declaration under it: a walk sees a comment immediately before the declaration it belongs to, so a field holding the last comment and consumed by the next capture is the whole association. The field resets per file.",
+    "andWhyNoLanguageBenefitsYet": [
+      "**Typescript and javascript override `walkAndCapture`**, and their overrides call a private `buildCapture` rather than the base `emitCapture` - so the consumption there never runs. **A base-class change does not reach a subclass that replaced the method it lives in**, which is worth writing down once: it is the reason this fix is inert for the two languages it was written for.",
+      "**Python docstrings are string literals, not comments.** A `\"\"\"...\"\"\"` immediately inside a `def` is an expression statement, so a comment-based association has nothing to associate. **That is a second mechanism, not a bug in the first.**"
+    ],
+    "andWhatIsLeft": "A `pendingDocComment` field and the consumption on the base path, which is correct and reaches no language today. **The next step is per-provider work**: typescript, javascript and any other override needs the same consumption in its own capture path, and python needs string-literal docstrings rather than comments. **The field is left in place because the mechanism is right and the remaining work is one line in each overriding provider.**",
+    "andWhatWasNotDone": "**No test was committed red.** The failing test was removed, so the failure is recorded here rather than in the suite - because a red suite blocks everything else, and this is one capability rather than the whole build."
+  }
 }
