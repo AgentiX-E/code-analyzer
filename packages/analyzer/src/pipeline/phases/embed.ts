@@ -141,15 +141,44 @@ export async function generateEmbeddings(
  * When the model file is not checked into the repository, `createFromPackage()`
  * throws and this resolves to null so callers fall back deterministically.
  */
-export async function loadRealEmbedder(): Promise<Embedder | null> {
-  const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
+/** Why the last `loadRealEmbedder()` produced nothing, or null when it produced an embedder. */
+let lastEmbedderFailure: string | null = null;
 
-  // Try createFromPackage first (bundled model), fall back to create({ modelPath })
+/**
+ * Why the real embedder could not be loaded, or `null` if it could.
+ *
+ * **The `catch` here used to swallow the error and return `null`**, which left every caller knowing *that* there was no
+ * embedder and nothing about *why*. **The reports written on top of it called the result "intermittent"** - three
+ * times, across three pieces of documentation - and a single probe printing the error settled it in one line:
+ *
+ *     Error: Tokenizer not found: …/@agentix-e+embed-code-node@0.1.1/…/models/tokenizer.json
+ *
+ * **The model file is not installed. It does not succeed on some runs and fail on others; it always fails**, and every
+ * conclusion drawn from "intermittent" was drawn from that absence. **A failure that cannot say why is a failure
+ * somebody will explain instead of reading.**
+ */
+export function embedderUnavailableReason(): string | null {
+  return lastEmbedderFailure;
+}
+
+export async function loadRealEmbedder(): Promise<Embedder | null> {
   try {
-    const nodeEmbedder = NodeEmbedder as unknown as { createFromPackage: () => Promise<Embedder> };
-    return await nodeEmbedder.createFromPackage();
-  } catch {
-    // createFromPackage not available — model not bundled
+    const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
+
+    // Try createFromPackage first (bundled model), fall back to create({ modelPath })
+    try {
+      const nodeEmbedder = NodeEmbedder as unknown as { createFromPackage: () => Promise<Embedder> };
+      const embedder = await nodeEmbedder.createFromPackage();
+      lastEmbedderFailure = null;
+      return embedder;
+    } catch (err) {
+      // **The message is kept rather than discarded.** `Tokenizer not found` names the file that is missing, and
+      // nothing else in the system did.
+      lastEmbedderFailure = `createFromPackage failed: ${err instanceof Error ? err.message : String(err)}`;
+      return null;
+    }
+  } catch (err) {
+    lastEmbedderFailure = `@agentix-e/embed-code-node could not be imported: ${err instanceof Error ? err.message : String(err)}`;
     return null;
   }
 }
