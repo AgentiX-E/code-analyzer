@@ -77,6 +77,18 @@
       "andThatReordersTheWork": "The ambiguity the previous round fixed a symptom of **cannot reach anybody**: a caller cannot be misled by an empty list it never receives. **The larger fact is that these three are not wired to anything**, which is a different question with a different next step - **connect or remove, rather than make the failure describe itself.**",
       "andItMatchesSomethingAlreadyKnown": "A previous pass on this repository found three feature flags in the ablation runner that were never connected. **Same shape: the capability is written and nothing calls it.** That is now two occurrences of a pattern worth looking for deliberately - **not \"does this work\" but \"is this reached\".**",
       "andItIsWhyReportingFirstWasRight": "**The reporting step found the wiring problem.** Had the fix gone straight to changing three return types, every caller would have been updated - **of which there are none** - and this would still not have been noticed."
+    },
+    "andTheReachabilityCheckWasWrittenAndWrong": {
+      "measured": "2026-10-07",
+      "whatWasAsked": "**Not \"does this work\" but \"is this reached\"** - the question no test asks, because a test calls the thing it tests. Every exported top-level function and method across four packages, counted for calls anywhere in the tree **including tests**.",
+      "theNumbers": {
+        "exportedFunctionsAndMethods": 1038,
+        "neverCalledByThisCount": 72
+      },
+      "andTheFirstNamesCheckedWereWrong": "`checkNoEvalAst`, `checkNoXssAst`, `checkNoUndef` and a dozen more appeared in the list, and they are **live rule implementations**. They are reached through a registry:\n\n    rule-runner.ts:1817    'no-undef': checkNoUndef,\n    rule-runner.ts:1827    'no-eval': astChecker(checkNoEvalAst),\n\n**Neither line has parentheses after the name.** The scan counted `name(` and a function passed as a value has none - **so it reported live code as unreachable.**",
+      "andThatIsTheEleventhTime": "**The scan answered a nearby question - \"is this name followed by a parenthesis\" - and the question asked was \"is this reached\".** `checkNoEvalAst` is reached by being mentioned in a table; **no regex over call syntax can see a value being passed.**",
+      "andSoTheNumberIsNotReported": "**72 is a property of the check and not of the code, so it is recorded here as wrong rather than published.** Roughly forty of the seventy-two are rule functions in two registries, which alone puts the true figure far below it. **Reporting it would have been a number that looked like a finding.**",
+      "andTheRightInstrumentIsTheProductItself": "**A reference analysis is what `code-analyzer` does**: it builds a symbol graph and resolves references across files. **This check was written with a regular expression while the tool that answers it properly was in the same repository** - and it is the reason the number is wrong."
     }
   }
 }
