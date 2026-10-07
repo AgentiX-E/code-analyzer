@@ -111,7 +111,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          properties: { filePath: this.filePath },
+          properties: { filePath: this.filePath, ...docstringProperty(node) },
         });
       }
     } else if (nodeType === 'class_definition') {
@@ -156,7 +156,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
           startByte: callee.startIndex,
           endByte: callee.endIndex,
           name: isMethod ? (callee.text.split('.').pop() ?? callee.text) : callee.text,
-          properties: { filePath: this.filePath },
+          properties: { filePath: this.filePath, ...docstringProperty(node) },
         });
       }
       const args = node.child(1);
@@ -314,7 +314,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
               endLine: child.endPosition.row + 1,
               startByte: child.startIndex,
               endByte: child.endIndex,
-              properties: { filePath: this.filePath },
+              properties: { filePath: this.filePath, ...docstringProperty(node) },
             });
           }
         }
@@ -536,4 +536,35 @@ export class PythonProvider extends TreeSitterBaseProvider {
     // default made this walk match nothing. JavaScript and TypeScript use the default legitimately.
     collectCLikeTaintSanitizers(node, sanitizers, PYTHON_TAINT_NODES);
   }
+}
+/**
+ * A python declaration's docstring, which is **not a comment**.
+ *
+ * **Every other language here gets its doc comments through the comment machinery, and python cannot.** PEP 257 says a
+ * docstring is *the first statement in the body* - so it is an `expression_statement` holding a string, **inside** the
+ * declaration rather than above it, and **after** it in source order. **A pass over a file's captures in source order
+ * therefore cannot associate the two**, which is why this lives in the provider: it knows where a body begins.
+ *
+ * **Only the three-quoted forms**, which is what the convention is about. A single-quoted first statement is an
+ * ordinary expression, and treating it as documentation would put `x = "hello"` on a symbol as its description.
+ */
+function docstringProperty(node: TreeSitterSyntaxNode): Record<string, string> {
+  const docstring = pythonDocstringOf(node);
+  // **Absent rather than empty.** `properties` holds strings, and an empty one would reach the graph as a docstring
+  // that is `''` - which reads as "documented, and the documentation says nothing" instead of "not documented".
+  return docstring === undefined ? {} : { docstring };
+}
+
+function pythonDocstringOf(node: TreeSitterSyntaxNode): string | undefined {
+  const block = childrenOf(node).find((c) => c.type === 'block');
+  const first = block?.namedChild(0);
+  if (first?.type !== 'expression_statement') return undefined;
+  const text = first.text.trim();
+  const triple = /^[rubf]{0,2}(?:"""|''')/;
+  if (!triple.test(text)) return undefined;
+  const opener = triple.exec(text)?.[0] ?? '';
+  const closer = opener.endsWith('"""') ? '"""' : "'''";
+  if (!text.endsWith(closer) || text.length <= opener.length + closer.length) return undefined;
+  const body = text.slice(opener.length, text.length - closer.length).trim();
+  return body.length > 0 ? body : undefined;
 }

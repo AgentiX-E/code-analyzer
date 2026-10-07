@@ -100,3 +100,37 @@ describe.each(SOURCES)('the doc comment above a declaration in $language', ({ la
     expect(symbols.filter((s) => (s.docstring ?? '').includes('kinetic energy')).length).toBe(1);
   }, 300_000);
 });
+
+// Python gets its documentation through a different mechanism, and the same assertion applies.
+//
+// **A docstring is not a comment.** PEP 257 says it is *the first statement in the body* - so it is **inside** the
+// declaration rather than above it, and **after** it in source order. **A pass over a file's captures in source order
+// cannot associate the two**, which is why python's lives in its own provider.
+describe('the docstring inside a python declaration', () => {
+  const PYTHON = [
+    'def kinetic_energy(mass, velocity):',
+    '    """Compute the kinetic energy of a moving body."""',
+    '    return 0.5 * mass * velocity ** 2',
+    '',
+    '',
+    'def undocumented(a):',
+    '    return a',
+    '',
+  ].join('\n');
+
+  it('reaches the declaration it documents, and not the one after it', async () => {
+    const provider = await getOrLoadProvider('python');
+    expect(provider).not.toBeNull();
+    const grouped = groupCaptures(provider!.parse(PYTHON, '/kinetic.py') as never, '/kinetic.py') as {
+      symbols?: Array<{ name: string; docstring?: string | null }>;
+    };
+    const docOf = (name: string) => (grouped.symbols ?? []).find((s) => s.name === name)?.docstring ?? '';
+
+    expect(docOf('kinetic_energy')).toContain('kinetic energy of a moving body');
+    // **And not the next one**, which is what a carried-forward value produces.
+    expect(docOf('undocumented')).toBe('');
+    // **And the parameters get nothing**: they are inside the same body and a naive walk would hand them the same text.
+    expect(docOf('mass')).toBe('');
+    expect(docOf('velocity')).toBe('');
+  }, 300_000);
+});
