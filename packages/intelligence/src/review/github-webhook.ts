@@ -251,8 +251,13 @@ export class GitHubPRWebhook {
       const data: PRFile[] = JSON.parse(response);
       // Guard against a non-array payload (e.g. an unexpected API envelope).
       return Array.isArray(data) ? data : [];
-    } catch {
-      // Malformed JSON must not crash the handler; surface an empty list.
+    } catch (err) {
+      // **Malformed JSON must not crash the handler, and it must not look like an empty pull request either.**
+      this.logger.error(
+        'fetchPRFiles could not parse the response',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: 'github-webhook.request' },
+      );
       return [];
     }
   }

@@ -2,7 +2,7 @@
 // Bridges single-repo PR review with cross-repo context analysis.
 // Orchestrates contract validation, impact graph, and review engine.
 
-import { EDGE_IMPORTS } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_IMPORTS } from '@code-analyzer/shared';
 
 import { ContractValidator, type ContractValidationResult } from './contract-validator.js';
 import {
@@ -50,6 +50,7 @@ export interface CrossRepoPRContext {
 // ---------------------------------------------------------------------------
 
 export class PRReviewBridge {
+  private logger: PhaseLogger = createNoopPhaseLogger();
   private contractValidator: ContractValidator;
   private impactGraph: ImpactGraphBuilder;
 
@@ -176,7 +177,15 @@ export class PRReviewBridge {
     try {
       const impact = await this.indexer.analyzeCrossRepoImpact(groupId, sourceRepoId);
       return impact.affectedRepos.filter((r) => r !== sourceRepoId);
-    } catch {
+    } catch (err) {
+      // **Reported rather than swallowed.** An empty list here means either *there are none* or *the
+      // question failed*, and the caller cannot tell - so the failure is written down where it can be
+      // read. The return value is unchanged: this makes the failure visible without changing behaviour.
+      this.logger.error(
+        'discoverRelatedRepos could not read the cross-repo impact',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: 'cross-repo.index' },
+      );
       return [];
     }
   }

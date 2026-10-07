@@ -2,6 +2,8 @@
 // Extracts and validates API contracts across repository boundaries.
 // Detects breaking changes: removed exports, changed signatures, renamed symbols.
 
+import { createNoopPhaseLogger } from '@code-analyzer/shared';
+import type { PhaseLogger } from '@code-analyzer/shared';
 import type { CrossRepoIndexer } from './cross-repo-indexer.js';
 import type { GraphNode } from '@code-analyzer/shared';
 
@@ -44,6 +46,7 @@ export interface ExtractedContract {
 // ---------------------------------------------------------------------------
 
 export class ContractValidator {
+  private logger: PhaseLogger = createNoopPhaseLogger();
   constructor(private indexer: CrossRepoIndexer) {}
 
   /**
@@ -296,7 +299,15 @@ export class ContractValidator {
         symbolName,
       );
       return [...new Set(traces.map((t) => t.targetRepo))];
-    } catch {
+    } catch (err) {
+      // **Reported rather than swallowed.** An empty list here means either *there are none* or *the
+      // question failed*, and the caller cannot tell - so the failure is written down where it can be
+      // read. The return value is unchanged: this makes the failure visible without changing behaviour.
+      this.logger.error(
+        'findReposConsumingSymbol could not trace symbol dependencies',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: 'cross-repo.validator' },
+      );
       return [];
     }
   }
