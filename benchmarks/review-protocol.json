@@ -1,0 +1,56 @@
+{
+  "comment": [
+    "Review scoring under the Martian Code Review Bench and CR-Bench protocols, over a diff with three planted",
+    "defects. **The corpus is small and reproducible offline**; the protocols are the field of the field, the corpus is not.",
+    "",
+    "**This is not a Martian-comparable figure and must not be quoted as one.** A score from a different corpus",
+    "is not a comparison. What it is: a protocol-faithful number on a corpus we control, which is what an",
+    "iteration needs as input.",
+    "",
+    "**SNR is reported because precision alone hides over-generation**, which the field own numbers show -",
+    "single-pass GPT-5.2 reaches 27.0% recall at 3.6% precision."
+  ],
+  "measuredAt": "2026-10-07",
+  "protocol": {
+    "review": "Martian Code Review Bench shape: per-diff precision / recall / F1",
+    "signalToNoise": "CR-Bench: true positives over all comments emitted"
+  },
+  "corpus": {
+    "diffs": 1,
+    "plantedDefects": 3,
+    "language": "typescript",
+    "reproducible": "offline, no network"
+  },
+  "reported": 1,
+  "truePositives": 0,
+  "falsePositives": 1,
+  "falseNegatives": 3,
+  "precision": 0,
+  "recall": 0,
+  "f1": 0,
+  "signalToNoise": 0,
+  "andTheFieldForScale": {
+    "martianLeader_30July2026": {
+      "tool": "Greptile",
+      "f1": 0.608,
+      "precision": 0.762,
+      "recall": 0.506
+    },
+    "humanBaseline_CRBench": {
+      "precision": 0.85,
+      "recall": 0.78,
+      "signalToNoise": 0.69,
+      "f1": 0.81
+    },
+    "singlePassGPT52": {
+      "precision": 0.036,
+      "recall": 0.27
+    },
+    "note": "Quoted with their dates and arms, as the competitive analysis insists; none of them is this corpus."
+  },
+  "andWhatThisCannotSay": [
+    "**Nothing about Martian.** Its corpus is ~300,000 real PRs, continuously sampled to resist memorisation; ours is one diff written for this file.",
+    "**Nothing about generalisation.** Three planted defects in one language say nothing about the long tail.",
+    "**Nothing about the arms.** Martian runs two arms designed to disagree, and which one is reported changes the number."
+  ]
+}
