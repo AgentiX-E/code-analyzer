@@ -60,7 +60,6 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     const addedLines = DIFF.split('\n')
       .filter((l) => l.startsWith('+') && !l.startsWith('+++'))
       .map((l) => l.slice(1));
-    const content = addedLines.join('\n');
     // **The signature, read rather than assumed:** `(filePath, lines: string[], diff?, graphData?)` and it returns
     // `HeuristicRuleResult[]` directly. The first attempt passed a single string and read `.comments`/`.rules` off
     // the result, **and both mistakes produced an empty list that looked like an empty review.**
