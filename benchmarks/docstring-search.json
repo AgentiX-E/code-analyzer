@@ -19,15 +19,15 @@
     "note": "BM25 alone, so the figure is deterministic"
   },
   "corpus": {
-    "path": "packages/analyzer/src/graph",
-    "nodes": 157,
-    "nodesWithADocstring": 10,
-    "queries": 7
+    "path": "packages/analyzer/src/languages",
+    "nodes": 3953,
+    "nodesWithADocstring": 173,
+    "queries": 173
   },
   "topK": 20,
-  "found": 7,
+  "found": 173,
   "recall": 1,
-  "meanReciprocalRank": 1,
+  "meanReciprocalRank": 0.9921,
   "misses": [],
   "target": {
     "recall": 0.9,

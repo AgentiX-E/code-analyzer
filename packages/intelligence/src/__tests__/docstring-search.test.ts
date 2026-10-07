@@ -28,8 +28,12 @@ import { HybridSearchEngine } from '../search/hybrid-search.js';
 
 import type { PipelineContext } from '@code-analyzer/shared';
 
-/** Real code with real documentation, small enough to index here. */
-const CORPUS = 'packages/analyzer/src/graph';
+/**
+ * **The largest documented corpus in this repository that indexes in the time available.** Twenty-one files carry
+ * block comments, against one in the directory this measurement started on - and **seven queries cannot separate a
+ * good retriever from a lucky one**, which is the reason for moving.
+ */
+const CORPUS = 'packages/analyzer/src/languages';
 const TOP_K = 20;
 /** A doc comment shorter than this is a label rather than a description. */
 const MIN_QUERY_LENGTH = 30;
