@@ -57,5 +57,19 @@
     },
     "andTheSourceAlreadySaidSo": "`embed.ts` carries a comment saying exactly this - \"the package declares `files: ['dist', 'models']` and ships no `models/`, so `createFromPackage()` cannot find it\". **The code was right and three rounds of documentation were wrong**: they called the result *intermittent*, which is what a swallowed error looks like from outside.",
     "andItIsNotFixableFromHere": "**Installing the model needs the model.** It is not in the package, it is not in this repository, and fetching it needs network access this environment does not have. **So the semantic half of the search row is blocked on an artefact rather than on work** - and `embedderUnavailableReason()` now says so in one sentence."
+  },
+  "theFamilyWasCounted": {
+    "measured": "2026-10-07",
+    "method": "Every TypeScript file under `packages/*/src` that is not a test, scanned for a `catch` whose only statement is a return of a plausible-looking value - `null`, `[]`, `{}`, `''`, `false`, `undefined`. **That is the static projection of a failure that cannot be told from success.**",
+    "scanned": {
+      "files": 239,
+      "sites": 20
+    },
+    "andTheClassificationMattersMoreThanTheCount": {
+      "optionalDependencyProbes": "**Thirteen of the twenty.** `loadBetterSqlite3`, `brotliCompressSync`, `project-detector`'s filesystem checks, `agent-setup`'s absent config: **the catch is asking whether an optional thing is present**, and returning `false` or `null` is exactly the answer to that question. **These are correct.**",
+      "absenceIsTheAnswer": "**Four more.** A cache path that does not exist, a session file that is not there, a webhook secret that is unset: **the caller is asking whether something exists**, and `null` is the true answer rather than a swallowed failure.",
+      "emptyResultVersusFailure": "**The three worth looking at.** `fetchPRFiles`, `discoverRelatedRepos` and `findReposConsumingSymbol` **return `[]` when a network call or an index lookup fails**, and the caller cannot distinguish *\"there are none\"* from *\"it could not be determined\". **That is the same ambiguity as the four confirmed members of this family, in a smaller form.**"
+    },
+    "andThisIsNotTwentyDefects": "**A count from a regex is not a finding and this records it as a count.** The precedent in this repository is that reading these sites settles most of them: an earlier pass over thirty-seven `catch` blocks that return a value found eight of eight deliberate across two shapes. **What the scan is good for is narrowing twenty sites to the three that need a reader.**"
   }
 }
