@@ -46,6 +46,8 @@ export class ParsePhase implements ExecutablePhase {
       let taintExtractedCount = 0;
       let successCount = 0;
 
+      const regexFallbackFiles: string[] = [];
+
       for (const file of scanData.discoveredFiles) {
         const lang = file.language;
         if (!lang) continue;
@@ -54,6 +56,15 @@ export class ParsePhase implements ExecutablePhase {
         if (!provider) continue;
 
         const captures = provider.parse(file.content, file.filePath);
+
+        // **A file whose symbols came from the regex reader rather than the grammar.** The provider reports it, and
+        // nothing was reading that report - so "how much of this index is a fallback" had no answer. **The symbols a
+        // fallback produces are a smaller and differently-shaped set**, which makes the count something a caller
+        // needs rather than a curiosity: an index that is 30% regex-derived is a different product from one that is
+        // not, and both report identical success.
+        if (provider.lastParseWasARegularExpressionFallback === true) {
+          regexFallbackFiles.push(file.filePath);
+        }
 
         // Determine if items are exported. Providers may emit captures
         // without a `name` (e.g. regex docstring/decorator captures), which
@@ -172,7 +183,14 @@ export class ParsePhase implements ExecutablePhase {
         successCount++;
       }
 
-      ctx.phaseData.set('parse', { parsedFiles, taintExtraction, taintExtractedCount });
+      ctx.phaseData.set('parse', {
+        parsedFiles,
+        taintExtraction,
+        taintExtractedCount,
+        // **The count and the paths**, because a count alone does not say which files to look at.
+        regexFallbackFiles: regexFallbackFiles.length,
+        regexFallbackPaths: regexFallbackFiles.slice(0, 20),
+      });
 
       return {
         phaseId: this.id,
