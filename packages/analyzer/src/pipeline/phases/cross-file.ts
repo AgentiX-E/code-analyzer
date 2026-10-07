@@ -144,7 +144,64 @@ export class CrossFilePhase implements ExecutablePhase {
         }
       }
 
-      ctx.phaseData.set('crossFile', { resolvedImports, importEdgesCreated });
+      // **Call edges, from captures the providers were already emitting and nothing was reading.**
+      //
+      // `FUNCTION_CALL` and `METHOD_CALL` captures have been produced by the language providers since they were
+      // written, and **no phase consumed them** - so `CALLS` was in the relationship vocabulary with zero references
+      // anywhere in this package. **The input was there and the edge was not**, which is why the reachability
+      // question had no instrument but a regular expression to answer it.
+      //
+      // **Same-file only, deliberately.** A call name is resolved against the functions declared in the file it
+      // appears in, so there is no cross-file guesswork and no false edge: **a caller that is not in the same file is
+      // left unresolved rather than resolved wrongly.** The narrower statement is worth more than a wider one with a
+      // guessed target, and the cross-file case is a separate step with a scope rule of its own.
+      let callEdgesCreated = 0;
+      for (const parsedFile of parseData.parsedFiles) {
+        const ast = parsedFile.ast as UnifiedCapture[] | undefined;
+        if (!Array.isArray(ast) || !ctx.graph) continue;
+
+        // What this file calls, by name, deduplicated.
+        const calledNames = new Set<string>();
+        for (const c of ast) {
+          if (c.tag !== CAPTURE_TAGS.FUNCTION_CALL && c.tag !== CAPTURE_TAGS.METHOD_CALL) continue;
+          const name = c.name;
+          if (typeof name === 'string' && name.length > 0) calledNames.add(name);
+        }
+        if (calledNames.size === 0) continue;
+
+        // What this file declares, by name -> node id. Both ends of a call are in one place, which is what makes
+        // this resolution safe to do without a scope model.
+        const declaredHere = new Map<string, number[]>();
+        for (const node of ctx.graph.nodes.values()) {
+          if (node.filePath !== parsedFile.filePath) continue;
+          if (!/Function|Method/i.test(String(node.label))) continue;
+          if (typeof node.name !== 'string') continue;
+          const list = declaredHere.get(node.name) ?? [];
+          list.push(node.id);
+          declaredHere.set(node.name, list);
+        }
+
+        const builder = new GraphBuilder();
+        for (const callerNodeIds of declaredHere.values()) {
+          for (const callerId of callerNodeIds) {
+            for (const calleeName of calledNames) {
+              for (const calleeId of declaredHere.get(calleeName) ?? []) {
+                // **Not a self-edge.** A function calling itself is a recursion fact, not a call graph edge, and the
+                // recursion markers elsewhere already record it.
+                if (callerId === calleeId) continue;
+                try {
+                  builder.addEdge(ctx.graph, callerId, calleeId, 'CALLS', ctx.projectId);
+                  callEdgesCreated++;
+                } catch {
+                  // Edge may already exist or node missing
+                }
+              }
+            }
+          }
+        }
+      }
+
+      ctx.phaseData.set('crossFile', { resolvedImports, importEdgesCreated, callEdgesCreated });
 
       return {
         phaseId: this.id,
