@@ -92,3 +92,4 @@ export { groupCaptures } from './pipeline/phase-helpers.js';
 // Where a file's call sites become the per-function map the taint subsystem reads. Exported for the same
 // reason as groupCaptures: a scan over real files has to run the steps the phases run.
 export { buildCallSites } from './resolution/call-sites.js';
+export { loadRealEmbedder } from './pipeline/phases/embed.js';

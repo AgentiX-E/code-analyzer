@@ -13,10 +13,16 @@
     "intermittent: one probe threw `Tokenizer not found` and later runs report `onnx`."
   ],
   "measuredAt": "2026-10-07",
-  "mode": "lexical",
+  "mode": "lexical-then-registered",
   "backend": {
-    "embeddingsRegistered": false,
-    "note": "BM25 alone, so the figure is deterministic"
+    "loaded": "none",
+    "note": "the first figure is BM25 alone; the second had vectors registered on the same engine"
+  },
+  "withVectorsRegistered": {
+    "backend": "none",
+    "found": 173,
+    "recall": 1,
+    "note": "only meaningful when `backend` is not `none` - with no embedder this is the lexical figure again"
   },
   "corpus": {
     "path": "packages/analyzer/src/languages",

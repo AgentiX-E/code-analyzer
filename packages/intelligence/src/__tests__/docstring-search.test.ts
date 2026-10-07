@@ -20,7 +20,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { GraphBuilder, PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
+import { GraphBuilder, PipelineOrchestrator, createAllPhases, loadRealEmbedder } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
@@ -51,7 +51,9 @@ function namesItsOwnSymbol(query: string, name: string): boolean {
 
 describe('finding a symbol from its own doc comment', () => {
   it('reports recall for the lexical half, and names the backend for the semantic half', async () => {
-    const phases = createAllPhases().filter((p) => p.id !== 'embed');
+    // **`embed` runs, because the semantic half needs vectors on the nodes.** It is left out of the retrieval
+    // *count* below rather than out of the run: the same graph serves both searches.
+    const phases = createAllPhases();
     const ctx = {
       projectId: 'docstring-search',
       rootPath: resolve(process.cwd(), CORPUS),
@@ -66,8 +68,27 @@ describe('finding a symbol from its own doc comment', () => {
 
     const store = new InMemoryGraphStore();
     new GraphBuilder(store).dumpToStore(result.graph, ctx.projectId);
+
+    // **The two engines differ by one call.** One has vectors registered and one does not, so the difference between
+    // their figures is the contribution of the embedding rather than the difference between two runs.
     const engine = new HybridSearchEngine(store);
     engine.initialize();
+
+    let backend: string = 'none';
+    const embedder = await loadRealEmbedder().catch(() => null);
+    if (embedder) {
+      backend = 'onnx';
+      const byId = new Map<number, Float32Array>();
+      for (const node of result.graph.nodes.values()) {
+        const vector = (node.properties as { embedding?: number[] } | undefined)?.embedding;
+        if (Array.isArray(vector) && vector.length > 0) byId.set(node.id, Float32Array.from(vector));
+      }
+      engine.registerEmbeddings(
+        (nodeId) => byId.get(nodeId) ?? null,
+        async (content) => (await embedder.embedBatch([content]))[0] ?? new Float32Array(0),
+      );
+      await embedder.dispose().catch(() => undefined);
+    }
 
     // **The queries are the doc comments that do not name their own symbol**, which is what makes this semantic.
     const candidates: Array<{ name: string; query: string }> = [];
@@ -90,6 +111,17 @@ describe('finding a symbol from its own doc comment', () => {
       cases.push({ name: candidate.name, query: candidate.query, rank: rank >= 0 ? rank + 1 : null });
     }
 
+    // **A second pass with vectors registered**, over the same queries and the same engine - so the two figures
+    // differ by the embedding and by nothing else.
+    const semanticCases: QueryCase[] = [];
+    for (const candidate of candidates) {
+      const hits = await engine.search({ query: candidate.query, limit: TOP_K });
+      const rank = hits.findIndex((h) => h.node?.name === candidate.name);
+      semanticCases.push({ name: candidate.name, query: candidate.query, rank: rank >= 0 ? rank + 1 : null });
+    }
+    const semanticFound = semanticCases.filter((c) => c.rank !== null).length;
+    const semanticRecall = Math.round((semanticFound / semanticCases.length) * 10000) / 10000;
+
     const found = cases.filter((c) => c.rank !== null).length;
     const recall = Math.round((found / cases.length) * 10000) / 10000;
     const mrr =
@@ -110,8 +142,17 @@ describe('finding a symbol from its own doc comment', () => {
         'intermittent: one probe threw `Tokenizer not found` and later runs report `onnx`.',
       ],
       measuredAt: new Date().toISOString().slice(0, 10),
-      mode: 'lexical',
-      backend: { embeddingsRegistered: false, note: 'BM25 alone, so the figure is deterministic' },
+      mode: 'lexical-then-registered',
+      backend: {
+        loaded: backend,
+        note: 'the first figure is BM25 alone; the second had vectors registered on the same engine',
+      },
+      withVectorsRegistered: {
+        backend,
+        found: semanticFound,
+        recall: semanticRecall,
+        note: 'only meaningful when `backend` is not `none` - with no embedder this is the lexical figure again',
+      },
       corpus: {
         path: CORPUS,
         nodes: result.graph.nodes.size,
@@ -132,7 +173,8 @@ describe('finding a symbol from its own doc comment', () => {
     // eslint-disable-next-line no-console
     console.log(
       `DOCSTRING-SEARCH recall=${recall} (${found}/${cases.length} in top ${TOP_K}) mrr=${mrr} ` +
-        `over ${artifact.corpus.nodes} nodes, ${artifact.corpus.nodesWithADocstring} documented`,
+        `over ${artifact.corpus.nodes} nodes, ${artifact.corpus.nodesWithADocstring} documented; ` +
+        `with vectors backend=${backend} recall=${semanticRecall}`,
     );
 
     expect(cases.length).toBeGreaterThan(0);
