@@ -39,5 +39,23 @@
     "recall": 0.9,
     "competitorRecall": 0.75,
     "competitor": "Cody, quoted by the whitepaper"
+  },
+  "andTheEmbedderIsNotIntermittentItIsAbsent": {
+    "measured": "2026-10-07",
+    "theError": "Tokenizer not found: …/@agentix-e+embed-code-node@0.1.1/…/models/tokenizer.json",
+    "andWhyThereIsNoModel": {
+      "packageDirectory": "present",
+      "packageSize": "32 KB",
+      "contents": [
+        "README.md",
+        "dist",
+        "package.json"
+      ],
+      "modelsDirectory": "absent",
+      "declaredInPackageJson": "files: ['dist', 'models']",
+      "reading": "**The package declares that it ships `models/` and ships none.** 32 KB is a source package; a bundled ONNX model with its tokenizer is two orders of magnitude larger. **So `createFromPackage` fails every time it is called, and always has.**"
+    },
+    "andTheSourceAlreadySaidSo": "`embed.ts` carries a comment saying exactly this - \"the package declares `files: ['dist', 'models']` and ships no `models/`, so `createFromPackage()` cannot find it\". **The code was right and three rounds of documentation were wrong**: they called the result *intermittent*, which is what a swallowed error looks like from outside.",
+    "andItIsNotFixableFromHere": "**Installing the model needs the model.** It is not in the package, it is not in this repository, and fetching it needs network access this environment does not have. **So the semantic half of the search row is blocked on an artefact rather than on work** - and `embedderUnavailableReason()` now says so in one sentence."
   }
 }
