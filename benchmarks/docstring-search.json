@@ -1,130 +1,37 @@
 {
   "comment": [
-    "**Not a measurement yet: the input it would measure is missing.**",
+    "Recall at top-k over a symbol queried by its own doc comment, on real code in this repository.",
     "",
-    "The plan was to measure a symbol being found from its own doc comment, which is a query set written by the code's",
-    "authors rather than by a reviewer - the thing 'no recorded query set with committed expected results' was actually",
-    "blocking. **The corpus has the comments** (672 JSDoc-annotated exported declarations across `packages/`) and **the",
-    "graph has the field** (`GraphNode.docstring`), and the two never meet:"
+    "**The query set was written by the authors of the code, not by a reviewer.** A doc comment describes the",
+    "symbol that follows it, so the expected answer is read off the file rather than chosen - which is what \"no recorded",
+    "query set\" was actually blocking.",
+    "",
+    "**Comments that name their own symbol are excluded**, because those are lexical lookups wearing the clothes",
+    "of a description. What remains is the size of this measurement, and it is smaller on purpose.",
+    "",
+    "**The semantic half is reported only with a backend named**, because the embedding backend here is",
+    "intermittent: one probe threw `Tokenizer not found` and later runs report `onnx`."
   ],
-  "measured": false,
-  "blockedBy": "doc comments reach the graph for typescript only; javascript builds captures inline, python uses string literals, and the remaining providers are unexamined",
-  "evidence": {
-    "measuredOn": "2026-10-06",
-    "corpus": "packages/analyzer/src/cfg, six files, 1,394 lines",
-    "nodes": 394,
-    "nodesWithADocstring": 0,
-    "nodesWithADocstringLongerThan30": 0,
-    "andWhatTheCorpusHas": "672 JSDoc-annotated exported declarations across packages/, counted with a regex over the files"
+  "measuredAt": "2026-10-07",
+  "mode": "lexical",
+  "backend": {
+    "embeddingsRegistered": false,
+    "note": "BM25 alone, so the figure is deterministic"
   },
-  "andThisIsTheSecondCapabilityThatNeverWorked": [
-    "`tools` returned `failed` on every corpus since it was written - a regex with no capture group, read from `match[1]!` under a comment claiming the group was not optional.",
-    "`docstring` is `null` on every node in every language - so symbol documentation is not extracted at all, and anything that would use it has been empty from the start.",
-    "Both were invisible from outside: `tools` was one word - `partial` - in a result nobody read, and an empty docstring looks the same as a symbol that has none."
-  ],
-  "andTheAssertionThatCaughtIt": "The harness asserted that it had at least one query before computing a recall figure. **Without that line it would have reported a recall over zero queries** - a division with no error, in a file that would have looked like a measurement.",
-  "next": "Extract doc comments in the language providers, then this measurement has an input. Until then the semantic-search-accuracy row is blocked on something more basic than a query set: the descriptions exist in the source and are not in the graph.",
-  "andAnAttemptMovesItWithoutClosingIt": {
-    "whatWasChanged": "The base provider now carries a comment forward to the declaration under it: a walk sees a comment immediately before the declaration it belongs to, so a field holding the last comment and consumed by the next capture is the whole association. The field resets per file.",
-    "andWhyNoLanguageBenefitsYet": [
-      "**Typescript and javascript override `walkAndCapture`**, and their overrides call a private `buildCapture` rather than the base `emitCapture` - so the consumption there never runs. **A base-class change does not reach a subclass that replaced the method it lives in**, which is worth writing down once: it is the reason this fix is inert for the two languages it was written for.",
-      "**Python docstrings are string literals, not comments.** A `\"\"\"...\"\"\"` immediately inside a `def` is an expression statement, so a comment-based association has nothing to associate. **That is a second mechanism, not a bug in the first.**"
-    ],
-    "andWhatIsLeft": "A `pendingDocComment` field and the consumption on the base path, which is correct and reaches no language today. **The next step is per-provider work**: typescript, javascript and any other override needs the same consumption in its own capture path, and python needs string-literal docstrings rather than comments. **The field is left in place because the mechanism is right and the remaining work is one line in each overriding provider.**",
-    "andWhatWasNotDone": "**No test was committed red.** The failing test was removed, so the failure is recorded here rather than in the suite - because a red suite blocks everything else, and this is one capability rather than the whole build.",
-    "andTheShapeOfTheFixChangedTwice": [
-      "**Inside `emitCapture`** - did not reach typescript or javascript, which replace `walkAndCapture` and build their captures elsewhere. **A change to the base never ran for them.**",
-      "**A method a walk may call** (`attachDocComment`) - reaches a walk that chooses to call it, and javascript builds its captures inline with no single site to call from.",
-      "**A stage in `parse`** (`finishCaptures`) - **belongs to no provider**, so no walk can skip it. Every language leaves through it, bar `php`, which replaces `parse` itself. **That is the difference between hooking a method and hooking a stage**: the first needs every provider to opt in and the second does not."
-    ],
-    "andTwoMoreThingsTheGuardCaught": [
-      "**There are two exits from a parse.** A file that parses and a file that falls back to regex both leave, and the first version of the stage ran on one of them - **so a file the grammar could not read got no docstrings.**",
-      "**And the test's own input was wrong.** The javascript case was fed typescript source, which it cannot read, so it took that same fallback - **a different path wearing the test's name.** Each language now gets source in its own grammar."
-    ],
-    "andWhatIsStillMissing": [
-      "**`php` replaces `parse` and does not reach the stage.**",
-      "**`python` docstrings are string literals rather than comments** - the second mechanism, still unbuilt.",
-      "**The other thirty-one providers are unexamined.** The guard is parameterised, so adding one is a line."
-    ]
+  "corpus": {
+    "path": "packages/analyzer/src/graph",
+    "nodes": 157,
+    "nodesWithADocstring": 10,
+    "queries": 7
   },
-  "andItNowWorksForTypeScript": {
-    "measured": "2026-10-06",
-    "whatChanged": "The consumption moved out of `emitCapture` and into `attachDocComment`, **a method any walk can call** - because a base-class change does not reach a subclass that replaced the method it lives in, and typescript and javascript both replace `walkAndCapture`. The typescript provider's `buildCapture` now calls it, and that is its only capture path.",
-    "result": "kineticEnergy gets its JSDoc and undocumented gets an empty string, which is the association and not just the text",
-    "theGuard": "packages/analyzer/src/languages/__tests__/docstring-extraction.test.ts, which asserts the prose arrives without its comment syntax, that a comment does not land on the symbol after the one it describes, that the single-line form works as well as the block form, and that exactly one symbol carries it",
-    "andWhatIsStillMissing": [
-      "**Javascript** overrides `walkAndCapture` and builds its captures inline rather than through a helper, so it has no single place to call `attachDocComment` - **the same call, at several sites**.",
-      "**Python** docstrings are string literals rather than comments, so the comment mechanism cannot reach them at all. **That is the second mechanism, still unbuilt.**",
-      "**The other thirty-one providers** were not examined: some will inherit the base path and work already, and some will override the walk like typescript does."
-    ]
-  },
-  "languagesNowExtracting": [
-    "typescript",
-    "javascript"
-  ],
-  "aScanAcrossTwentyLanguages": {
-    "measured": "2026-10-06",
-    "method": "One C-like source with two `//` lines above a function, parsed by every provider that has one, asking which symbols come back carrying a docstring. **The probe is deliberately one shape** - the C-like form - so it answers \"which languages do not read this shape\" rather than \"which languages work\", and the ones that returned no symbols at all are not failed by it.",
-    "results": {
-      "attachedCorrectly": [
-        "typescript",
-        "javascript"
-      ],
-      "attachedToTheWrongSymbol": [],
-      "noDocstring": [
-        "c",
-        "cpp",
-        "csharp",
-        "dart",
-        "php",
-        "lua"
-      ],
-      "noSymbolsFromThisSource": [
-        "java",
-        "go",
-        "rust",
-        "kotlin",
-        "scala",
-        "swift",
-        "ruby",
-        "python",
-        "bash",
-        "r",
-        "elixir"
-      ],
-      "groovy": "the parser reports an error on the source used and the walk falls back, so no comment is captured at all"
-    },
-    "andTheFirstReadingOfThisWasWrong": "The scan looked like \"typescript does not attach `//` comments\" - and **that is by design**: its walk has a branch commented `only JSDoc-style` that accepts `/**` and ignores everything else. **A plain `//` is not documentation, and treating that as a defect would have meant widening a deliberate limit.** The probe found the answer it was built to find and **the reading put on it was the mistake**, the same shape as the grep that claimed two shell scripts had no functions.",
-    "andTheRealFindingIsGroovy": "**Groovy attached a docstring to `closure_3`** - a synthesised name - rather than to the function the comment was written above. **The comment and the symbol it belonged to were both found and the association between them was wrong**, which is the failure the guard in `docstring-extraction.test.ts` asserts against for typescript and javascript and which no test covers for the other providers.",
-    "next": "**Groovy needs both gaps looked at, and they are different bugs.** The comment form it accepts is not the one its authors write documentation in, and the symbol the comment reaches is not the one it was written above. **Neither is covered by a test**, because the guard for doc comments is parameterised over typescript and javascript only.",
-    "andTheScanHadTwoCategoriesWhereItNeededThree": "**\"Has a docstring\" was not the right question.** The scan reported groovy as the one language that attached one, and asking the same question with groovy's own documentation syntax shows it attaches **nothing**:\n\n    /**\\n     * Compute something useful.\\n     */\\n    def myFunction(a) { return a }\n\n    captures: function.def  myFunction  doc=null      and no docstring capture at all\n\n**So the scan's one positive was a mis-attachment rather than an attachment** - the comment found the wrong symbol, and a result table with \"yes\" and \"no\" columns cannot say that. **\"Attached to the wrong symbol\" is a third outcome and it is the one that mattered here.**\n\nAnd groovy has two separate gaps, which the scan reported as one: **it does not recognise `/** */`, which is its own documentation form**, and **it does recognise `//` and then attaches it to a synthesised closure rather than to the declaration under it.**",
-    "andTheTwoReadingsOfGroovyWereBothWrong": "Groovy was recorded as the one language that attached a docstring, then as one that attaches it to the wrong symbol. **Neither is what happens.** Three sources through the same provider:\n\n    /** a doc */  def myFunction(a) { return a }     hasError=true   captures: function.def myFunction\n    // a doc     function myFunction(a) { ... }     hasError=false  captures: function.def closure_2\n    (no comment) def myFunction(a) { return a }     hasError=true   captures: function.def myFunction\n\n**`def myFunction(a) { return a }` does not parse**, so the provider takes its regex fallback and no comment is captured. **And `function` is not groovy** - so in the one source that does parse, the declaration is a closure and `closure_2` is the correct name for it. **The comment was attached to the right thing after all.**\n\n**So both readings came from the sources this measurement wrote, not from the provider.** The first source was not valid groovy; the second used a keyword from another language and the provider handled it correctly. **That is the third time in this stretch that the probe was the problem** - after the grep that miscounted shell functions and the scan whose table had too few columns.",
-    "andTheOneRealFindingThatSurvives": "**Groovy's grammar rejects `def name(args) { ... }`** - a form a reader would call ordinary - and the provider silently falls back to regex, which loses comments, imports, annotations and gstrings with it. **That is a real limit and it is about the grammar rather than about this change**, and it is why every groovy line in the scan was unlike every other line."
-  },
-  "theFallbackRateOnRealFiles": {
-    "measured": "2026-10-07",
-    "why": "The provider now reports when a grammar cannot read a file and the regex reader runs instead, and the parse phase counts it - **so the question \"how much of this index is a fallback\" has an answer, and this is the first time it has been asked.**",
-    "corpus": {
-      "path": "scripts/",
-      "files": 25,
-      "extensions": [
-        ".js",
-        ".mjs",
-        ".ts",
-        ".sh",
-        ".py",
-        ".rb",
-        ".json"
-      ],
-      "note": "**the files this repository already had**, written for other purposes"
-    },
-    "result": {
-      "parsed": 25,
-      "regexFallbackFiles": 0,
-      "regexFallbackPaths": []
-    },
-    "andWhatThatSays": "**Every one of the twenty-five was read by its grammar.** Seven extensions across four languages - javascript, typescript, shell, python, ruby - and none of them fell back. **That is a real result and it is a positive one**: the fallback path exists, it is reachable, and on this corpus nothing needed it.",
-    "andWhatItDoesNotSay": "**Twenty-five files is a small sample and they are all from one repository.** It says nothing about a corpus with generated code, unusual dialects, or a language whose grammar is less mature - **and groovy is the counter-example sitting in the same scan**: its grammar rejects an ordinary `def name(args) { ... }`, so a repository of groovy would report a fallback rate near one.",
-    "andTheChainItVerifies": "The count reached a measurement end to end: **the provider records it, the phase totals it, and this reads it out of `phaseData`** - which is what makes it a number rather than a field that is set and never looked at."
+  "topK": 20,
+  "found": 7,
+  "recall": 1,
+  "meanReciprocalRank": 1,
+  "misses": [],
+  "target": {
+    "recall": 0.9,
+    "competitorRecall": 0.75,
+    "competitor": "Cody, quoted by the whitepaper"
   }
 }
