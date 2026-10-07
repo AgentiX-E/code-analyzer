@@ -100,5 +100,31 @@
     "andTheScanHadTwoCategoriesWhereItNeededThree": "**\"Has a docstring\" was not the right question.** The scan reported groovy as the one language that attached one, and asking the same question with groovy's own documentation syntax shows it attaches **nothing**:\n\n    /**\\n     * Compute something useful.\\n     */\\n    def myFunction(a) { return a }\n\n    captures: function.def  myFunction  doc=null      and no docstring capture at all\n\n**So the scan's one positive was a mis-attachment rather than an attachment** - the comment found the wrong symbol, and a result table with \"yes\" and \"no\" columns cannot say that. **\"Attached to the wrong symbol\" is a third outcome and it is the one that mattered here.**\n\nAnd groovy has two separate gaps, which the scan reported as one: **it does not recognise `/** */`, which is its own documentation form**, and **it does recognise `//` and then attaches it to a synthesised closure rather than to the declaration under it.**",
     "andTheTwoReadingsOfGroovyWereBothWrong": "Groovy was recorded as the one language that attached a docstring, then as one that attaches it to the wrong symbol. **Neither is what happens.** Three sources through the same provider:\n\n    /** a doc */  def myFunction(a) { return a }     hasError=true   captures: function.def myFunction\n    // a doc     function myFunction(a) { ... }     hasError=false  captures: function.def closure_2\n    (no comment) def myFunction(a) { return a }     hasError=true   captures: function.def myFunction\n\n**`def myFunction(a) { return a }` does not parse**, so the provider takes its regex fallback and no comment is captured. **And `function` is not groovy** - so in the one source that does parse, the declaration is a closure and `closure_2` is the correct name for it. **The comment was attached to the right thing after all.**\n\n**So both readings came from the sources this measurement wrote, not from the provider.** The first source was not valid groovy; the second used a keyword from another language and the provider handled it correctly. **That is the third time in this stretch that the probe was the problem** - after the grep that miscounted shell functions and the scan whose table had too few columns.",
     "andTheOneRealFindingThatSurvives": "**Groovy's grammar rejects `def name(args) { ... }`** - a form a reader would call ordinary - and the provider silently falls back to regex, which loses comments, imports, annotations and gstrings with it. **That is a real limit and it is about the grammar rather than about this change**, and it is why every groovy line in the scan was unlike every other line."
+  },
+  "theFallbackRateOnRealFiles": {
+    "measured": "2026-10-07",
+    "why": "The provider now reports when a grammar cannot read a file and the regex reader runs instead, and the parse phase counts it - **so the question \"how much of this index is a fallback\" has an answer, and this is the first time it has been asked.**",
+    "corpus": {
+      "path": "scripts/",
+      "files": 25,
+      "extensions": [
+        ".js",
+        ".mjs",
+        ".ts",
+        ".sh",
+        ".py",
+        ".rb",
+        ".json"
+      ],
+      "note": "**the files this repository already had**, written for other purposes"
+    },
+    "result": {
+      "parsed": 25,
+      "regexFallbackFiles": 0,
+      "regexFallbackPaths": []
+    },
+    "andWhatThatSays": "**Every one of the twenty-five was read by its grammar.** Seven extensions across four languages - javascript, typescript, shell, python, ruby - and none of them fell back. **That is a real result and it is a positive one**: the fallback path exists, it is reachable, and on this corpus nothing needed it.",
+    "andWhatItDoesNotSay": "**Twenty-five files is a small sample and they are all from one repository.** It says nothing about a corpus with generated code, unusual dialects, or a language whose grammar is less mature - **and groovy is the counter-example sitting in the same scan**: its grammar rejects an ordinary `def name(args) { ... }`, so a repository of groovy would report a fallback rate near one.",
+    "andTheChainItVerifies": "The count reached a measurement end to end: **the provider records it, the phase totals it, and this reads it out of `phaseData`** - which is what makes it a number rather than a field that is set and never looked at."
   }
 }
