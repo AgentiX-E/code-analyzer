@@ -89,6 +89,40 @@
       "andThatIsTheEleventhTime": "**The scan answered a nearby question - \"is this name followed by a parenthesis\" - and the question asked was \"is this reached\".** `checkNoEvalAst` is reached by being mentioned in a table; **no regex over call syntax can see a value being passed.**",
       "andSoTheNumberIsNotReported": "**72 is a property of the check and not of the code, so it is recorded here as wrong rather than published.** Roughly forty of the seventy-two are rule functions in two registries, which alone puts the true figure far below it. **Reporting it would have been a number that looked like a finding.**",
       "andTheRightInstrumentIsTheProductItself": "**A reference analysis is what `code-analyzer` does**: it builds a symbol graph and resolves references across files. **This check was written with a regular expression while the tool that answers it properly was in the same repository** - and it is the reason the number is wrong."
+    },
+    "andTheIndexCannotAnswerItYet": {
+      "measured": "2026-10-07",
+      "whyWeAskedTheIndex": "The previous round ended with *\"ask the index instead of the text\"* - a reference analysis is what this product does, so the count should come from it rather than from a regex.",
+      "whatTheIndexHas": {
+        "edgeTypes": {
+          "DEFINES": 90,
+          "MEMBER_OF": 77,
+          "HAS_METHOD": 9,
+          "HANDLES_TOOL": 2,
+          "CONTAINS": 1
+        },
+        "callsEdges": 0
+      },
+      "andThatIsTheFinding": "**`CALLS` is in the relationship vocabulary and no edge of that type is ever produced.** Every edge in this graph is structural - *defines*, *is a member of*, *has a method*, *contains* - and **none of them is a call.** So the index cannot answer *\"is this reached\"* either: **the reachability question needs a call graph and there is not one.**",
+      "andItIsTheSixthOfItsFamily": [
+        "**`tools`** returned `failed` on every corpus",
+        "**`docstring`** was `null` on every node",
+        "**the parse fallback** returned regex output on every grammar error",
+        "**the embedder** returned `null` on every call",
+        "**three functions** were written, tested and never called",
+        "**and `CALLS`** - declared, never produced"
+      ],
+      "andWhatItCosts": "**Impact analysis, dead-code detection and reachability all need call edges**, and the regular-expression reachability count was written because there was no alternative. **That is the same shape as the doc-comment scan being written because the field was empty** - the instrument gets worse when the thing it should use is missing, and **the workaround then looks like a choice rather than a consequence.**",
+      "andMyProbeWasWrongThreeTimesGettingHere": {
+        "attempts": [
+          "edge.label",
+          "edge.relationship",
+          "edge.type"
+        ],
+        "right": "edge.type",
+        "note": "**The field list was printed only on the third attempt**, after two reads of a field that does not exist. Both wrong answers read \"0 edges of type CALLS\", which is **the correct reading of a wrong question** - and **the first thing to do with an unfamiliar record is print its keys.**",
+        "andItIsTheTwelfthAndThirteenthTime": "The same defect twice inside one probe: a check that could not answer the question asked. **The count of those in this stretch is now thirteen**, and this one was caught by printing the record rather than reasoning about it - **which is the cheapest method available and was used third.**"
+      }
     }
   }
 }
