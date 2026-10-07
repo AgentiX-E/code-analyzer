@@ -70,6 +70,13 @@
       "absenceIsTheAnswer": "**Four more.** A cache path that does not exist, a session file that is not there, a webhook secret that is unset: **the caller is asking whether something exists**, and `null` is the true answer rather than a swallowed failure.",
       "emptyResultVersusFailure": "**The three worth looking at.** `fetchPRFiles`, `discoverRelatedRepos` and `findReposConsumingSymbol` **return `[]` when a network call or an index lookup fails**, and the caller cannot distinguish *\"there are none\"* from *\"it could not be determined\". **That is the same ambiguity as the four confirmed members of this family, in a smaller form.**"
     },
-    "andThisIsNotTwentyDefects": "**A count from a regex is not a finding and this records it as a count.** The precedent in this repository is that reading these sites settles most of them: an earlier pass over thirty-seven `catch` blocks that return a value found eight of eight deliberate across two shapes. **What the scan is good for is narrowing twenty sites to the three that need a reader.**"
+    "andThisIsNotTwentyDefects": "**A count from a regex is not a finding and this records it as a count.** The precedent in this repository is that reading these sites settles most of them: an earlier pass over thirty-seven `catch` blocks that return a value found eight of eight deliberate across two shapes. **What the scan is good for is narrowing twenty sites to the three that need a reader.**",
+    "andTheThreeHaveNoCallers": {
+      "measured": "2026-10-07",
+      "finding": "**All three functions have zero references outside their own declaration**, including from tests: `discoverRelatedRepos`, `findReposConsumingSymbol` and `fetchPRFiles` are never called.",
+      "andThatReordersTheWork": "The ambiguity the previous round fixed a symptom of **cannot reach anybody**: a caller cannot be misled by an empty list it never receives. **The larger fact is that these three are not wired to anything**, which is a different question with a different next step - **connect or remove, rather than make the failure describe itself.**",
+      "andItMatchesSomethingAlreadyKnown": "A previous pass on this repository found three feature flags in the ablation runner that were never connected. **Same shape: the capability is written and nothing calls it.** That is now two occurrences of a pattern worth looking for deliberately - **not \"does this work\" but \"is this reached\".**",
+      "andItIsWhyReportingFirstWasRight": "**The reporting step found the wiring problem.** Had the fix gone straight to changing three return types, every caller would have been updated - **of which there are none** - and this would still not have been noticed."
+    }
   }
 }
