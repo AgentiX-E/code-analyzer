@@ -138,7 +138,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          properties: { baseClasses, filePath: this.filePath },
+          properties: { baseClasses, filePath: this.filePath, ...docstringProperty(node) },
         });
       }
     } else if (nodeType === 'call') {
@@ -156,7 +156,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
           startByte: callee.startIndex,
           endByte: callee.endIndex,
           name: isMethod ? (callee.text.split('.').pop() ?? callee.text) : callee.text,
-          properties: { filePath: this.filePath, ...docstringProperty(node) },
+          properties: { filePath: this.filePath },
         });
       }
       const args = node.child(1);

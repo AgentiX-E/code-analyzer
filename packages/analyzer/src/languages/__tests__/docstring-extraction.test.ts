@@ -134,3 +134,33 @@ describe('the docstring inside a python declaration', () => {
     expect(docOf('velocity')).toBe('');
   }, 300_000);
 });
+
+// And a call inside a documented function does not inherit the documentation.
+//
+// **That is the failure a wrong wire produces**, and it happened: the class site was missed and a function-call site
+// was wired instead, so **every call under a doc comment would have carried that comment as its own description**.
+// The symbols were all correct, which is why a guard that only looked at symbols did not catch it.
+describe('what a docstring must not reach', () => {
+  const PYTHON = [
+    'def kinetic_energy(mass, velocity):',
+    '    """Compute the kinetic energy of a moving body."""',
+    '    return logged(mass)',
+    '',
+  ].join('\n');
+
+  it('does not put the comment on calls or on parameters', async () => {
+    const provider = await getOrLoadProvider('python');
+    const grouped = groupCaptures(provider!.parse(PYTHON, '/k.py') as never, '/k.py') as {
+      symbols?: Array<{ name: string; docstring?: string | null }>;
+      references?: Array<{ name?: string }>;
+    };
+    const docOf = (name: string) => (grouped.symbols ?? []).find((s) => s.name === name)?.docstring ?? '';
+
+    expect(docOf('kinetic_energy')).toContain('kinetic energy of a moving body');
+    expect(docOf('mass')).toBe('');
+    // **The call is not a symbol**, so the assertion is that no symbol named for the callee carries the comment
+    // either - which is what a docstring wired onto the call capture would produce.
+    const carrying = (grouped.symbols ?? []).filter((s) => (s.docstring ?? '').includes('kinetic energy'));
+    expect(carrying.map((s) => s.name)).toEqual(['kinetic_energy']);
+  }, 300_000);
+});
