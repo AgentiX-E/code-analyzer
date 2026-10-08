@@ -29,6 +29,23 @@
   "recall": 0,
   "f1": 0,
   "signalToNoise": 0,
+  "andAfterTheGroundingGate": {
+    "reported": 0,
+    "truePositives": 0,
+    "falsePositives": 0,
+    "falseNegatives": 3,
+    "precision": null,
+    "recall": 0,
+    "f1": null,
+    "signalToNoise": null
+  },
+  "andTheGatesEffect": {
+    "groundingsDropped": 1,
+    "reasons": [
+      "the quoted code does not appear at lines 8-8"
+    ],
+    "note": "**The prediction was written down before this ran**: QASecClaw (arXiv 2605.01885) takes a scanner from F1 78.39% to 90.93% by cutting false positives 88.6% at a 3.1% recall cost, so precision should rise more than recall falls. **This figure is the test of that**, and it is recorded whether or not it agrees."
+  },
   "andTheFieldForScale": {
     "martianLeader_30July2026": {
       "tool": "Greptile",

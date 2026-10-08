@@ -18,7 +18,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { analyzeFileHeuristics } from '../review/heuristics.js';
+/** Where the diff's file lives, and **the key both the comments and the judge use** - a mismatch would drop every
+ * finding and report the gate as perfect, which is the failure this constant exists to prevent. */
+const FILE_PATH = 'src/auth.ts';
+
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
+
+import { judgeGrounding } from '../review/grounding-judge.js';
+import { analyzeFileHeuristics, toReviewComment } from '../review/heuristics.js';
 
 /** One diff with three planted defects, and the reading a reviewer is expected to produce. */
 const DIFF = [
@@ -71,10 +78,23 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
       id?: string;
     }>;
 
-    const reported: Reported[] = findings.map((f) => ({
-      line: typeof f.line === 'number' ? f.line : typeof f.lineNumber === 'number' ? f.lineNumber : -1,
-      rule: String(f.ruleId ?? f.rule ?? f.id ?? 'unknown'),
-    }));
+    const asReported = (list: Array<{ line?: number; lineNumber?: number; ruleId?: string; rule?: string; id?: string }>): Reported[] =>
+      list.map((f) => ({
+        line: typeof f.line === 'number' ? f.line : typeof f.lineNumber === 'number' ? f.lineNumber : -1,
+        rule: String(f.ruleId ?? f.rule ?? f.id ?? 'unknown'),
+      }));
+
+    const reported: Reported[] = asReported(findings);
+
+    // **The pipeline the literature describes, run here rather than half of it.** `review -> judge -> score`, not
+    // `review -> score`. *Refute-or-Promote* (arXiv 2604.19049) found the gate necessary after **ten reviewers
+    // unanimously endorsed a bug that did not exist**; QASecClaw (arXiv 2605.01885) took F1 from **78.39% to 90.93%**
+    // with it. **So both figures are computed from one run**, and the difference between them is the gate.
+    const comments = findings.map((f, i) => toReviewComment(FILE_PATH, f as never, i, addedLines));
+    const judged = judgeGrounding(comments, { contents: new Map([[FILE_PATH, addedLines.join('\n')]]) });
+    // **The judge reports `ReviewComment` and the counts need line and rule**, so the same conversion is used on both
+    // sides - which is what makes the two figures comparable rather than two measurements of different things.
+    const afterJudge: Reported[] = judged.grounded.map((c) => ({ line: c.startLine, rule: String(c.category) }));
 
     // The three planted defects, by the line they are on in the added content.
     const planted = [5, 13, 18];
@@ -93,7 +113,30 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     // It is precision restated as a proportion of output, which is what "noise" means to the person reading it.
     const signalToNoise = reported.length === 0 ? 0 : truePositives / reported.length;
 
-    const round = (n: number) => Math.round(n * 10000) / 10000;
+    // **The same four metrics over what survived the gate**, so the comparison is a comparison.
+    const scoreOf = (list: Reported[]) => {
+      const tp = list.filter((r) => planted.includes(r.line)).length;
+      // **`null` rather than `0` when nothing was reported.** Precision is true positives over comments emitted, and
+      // **with no denominator it is undefined, not zero** - `0` reads as "every comment was wrong", and `1` reads as
+      // "no comment was wrong", and **both are claims about a set of size zero.** Martian aggregates per-diff counts
+      // and skips the undefined ones, and **this is the same choice**, recorded rather than hidden.
+      const precisionIsDefined = list.length > 0;
+      const p = precisionIsDefined ? tp / list.length : null;
+      const r = tp / planted.length;
+      return {
+        reported: list.length,
+        truePositives: tp,
+        falsePositives: list.length - tp,
+        falseNegatives: planted.length - tp,
+        precision: p === null ? null : round4(p),
+        recall: round4(r),
+        f1: p === null ? null : round4(p + r === 0 ? 0 : (2 * p * r) / (p + r)),
+        signalToNoise: p === null ? null : round4(p),
+      };
+    };
+    const afterTheGate = scoreOf(afterJudge);
+
+    const round = round4;
 
     const artifact = {
       comment: [
@@ -121,6 +164,17 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
       recall: round(recall),
       f1: round(f1),
       signalToNoise: round(signalToNoise),
+      andAfterTheGroundingGate: afterTheGate,
+      andTheGatesEffect: {
+        groundingsDropped: judged.ungrounded.length,
+        reasons: judged.ungrounded.map((v) => v.reason).slice(0, 4),
+        note: [
+          '**The prediction was written down before this ran**: QASecClaw (arXiv 2605.01885) takes a scanner',
+          'from F1 78.39% to 90.93% by cutting false positives 88.6% at a 3.1% recall cost, so precision should',
+          'rise more than recall falls. **This figure is the test of that**, and it is recorded whether or not',
+          'it agrees.',
+        ].join(' '),
+      },
       andTheFieldForScale: {
         martianLeader_30July2026: { tool: 'Greptile', f1: 0.608, precision: 0.762, recall: 0.506 },
         humanBaseline_CRBench: { precision: 0.85, recall: 0.78, signalToNoise: 0.69, f1: 0.81 },
@@ -142,6 +196,11 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     console.log(
       `REVIEW-PROTOCOL reported=${reported.length} tp=${truePositives} fp=${falsePositives} fn=${falseNegatives} ` +
         `P=${artifact.precision} R=${artifact.recall} F1=${artifact.f1} SNR=${artifact.signalToNoise}`,
+    );
+    console.log(
+      `REVIEW-PROTOCOL-AFTER-GATE reported=${afterTheGate.reported} tp=${afterTheGate.truePositives} ` +
+        `P=${afterTheGate.precision} R=${afterTheGate.recall} F1=${afterTheGate.f1} ` +
+        `dropped=${judged.ungrounded.length}`,
     );
 
     // **The assertions are the shape, not the value.** A scorer that never runs is the failure this file is written
