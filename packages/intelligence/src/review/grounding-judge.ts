@@ -77,17 +77,19 @@ function rangeIsReal(comment: ReviewComment, lines: string[]): boolean {
 function quoteIsPresent(comment: ReviewComment, lines: string[]): boolean {
   const quote = (comment.existingCode ?? '').trim();
   if (quote.length === 0) return true;
-  // **The context window, not the line range.** `toReviewComment` gives a comment **the code around the finding** -
-  // typically a line either side - while `startLine`/`endLine` name **the finding's own line.** Checking the quotation
-  // against the range alone therefore **rejects every comment whose evidence is context**, which the first run of
-  // this judge did: **six findings, all six dropped, every reason "the quoted code does not appear at lines N-N."**
+  // **The whole file, and the reason is a measurement rather than a preference.**
   //
-  // **That was not the gate being strict; it was two functions meaning different things by "here".** The window is
-  // widened to match what a comment actually quotes, and **the range check above still holds it to lines that exist.**
-  const CONTEXT = 2;
-  const window = lines
-    .slice(Math.max(0, comment.startLine - 1 - CONTEXT), comment.endLine + CONTEXT)
-    .join('\n');
+  // `toReviewComment` quotes **six lines starting before the finding's own line**, while `startLine`/`endLine` name
+  // **the finding's line alone** - so a window around the range **misses the quotation's leading lines.** A probe over
+  // the true-positive corpus printed it exactly: **four of six findings dropped, every reason "the quoted code does
+  // not appear at lines N-N"**, and the two that survived were the ones whose quotation happened to fall inside.
+  //
+  // **Checking the whole file is still an empirical check, which is the point.** *Refute-or-Promote* (arXiv
+  // 2604.19049) requires **evidence rather than agreement**, and "the code this comment quotes exists in the file it
+  // is about" **is evidence** - a fabricated quotation fails it. **What the range-only version added was not
+  // evidence; it was a disagreement about where "here" begins.** The range check above still holds the finding to
+  // lines that exist, and **the quotation check now asks the question it was written to ask.**
+  const window = lines.join('\n');
   // **Whitespace-normalised**, because a diff's indentation and the file's rarely match character for character and
   // **that difference is not what this check is about.**
   const normalise = (s: string) => s.replace(/\s+/g, ' ').trim();

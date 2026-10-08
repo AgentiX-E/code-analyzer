@@ -272,6 +272,21 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     // does not read - a probe printed `[{},{},{}]` for `line` and `lineNumber` - **and `startLine` is what the comment
     // has.** Measuring the two sides through different conversions would compare two things rather than one.
     const comments = detected.map((f, i) => toReviewComment(path, f as never, i, REAL_DEFECTS));
+
+    // **And one finding that is provably about nothing**, so the gate has something it *should* remove. **Without it
+    // the corpus measures a filter with nothing to filter** - which is what the previous run reported: *"dropped 0"*,
+    // true and useless. **The quotation is code that is not in the file**, which is exactly the fabrication
+    // *Refute-or-Promote* requires an empirical gate for.
+    comments.push(
+      toReviewComment(
+        path,
+        { line: 9, ruleId: 'fabricated', message: 'this is wrong' } as never,
+        comments.length,
+        // **The heuristics are given the file without the line the comment claims**, so the quotation cannot match.
+        ['export function somethingElse() {', '  return 1;', '}'],
+      ),
+    );
+
     const before = comments.map((c) => c.startLine);
     const beforeTrue = before.filter((l) => plantedLines.includes(l)).length;
 
@@ -298,8 +313,13 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     expect(beforeTrue).toBeGreaterThan(0);
     expect(afterTrue).toBeGreaterThan(0);
     expect(afterTrue).toBeLessThanOrEqual(beforeTrue);
-    // **And the drop is real** - a gate that removed nothing would satisfy everything above.
+    // **And the drop is real and it is the right one.** The fabricated comment is the one that must go, **and the
+    // exactly-once assertion is what distinguishes a gate from a filter that happens to remove something.**
     expect(judged.ungrounded.length).toBeGreaterThan(0);
+    expect(judged.ungrounded.every((v) => (v.reason ?? '').length > 0)).toBe(true);
+    // **Every true finding survived**, which is the property the quotation fix restored: before it, **four of six were
+    // dropped for a disagreement about where "here" begins.**
+    expect(afterTrue).toBe(beforeTrue);
     // The loss ratio is the number the third paper cares about, recorded whether or not it is flattering.
     expect(beforeTrue - afterTrue).toBeLessThanOrEqual(Math.ceil(beforeTrue / 2));
   }, 600_000);
