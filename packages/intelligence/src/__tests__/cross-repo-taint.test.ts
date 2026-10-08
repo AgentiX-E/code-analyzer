@@ -24,7 +24,7 @@ function graphWith(
 const finding: JoinableFinding = {
   sourceNodeId: 1,
   sinkNodeId: 2,
-  category: 'injection',
+  category: 'sql_injection',
   severity: 'high',
   cweId: 'CWE-89',
   sourceDescription: 'request.body',
