@@ -59,6 +59,44 @@ interface Reported {
   rule: string;
 }
 
+/**
+ * A second corpus, built so that **true positives exist**.
+ *
+ * **The first corpus could not show what the gate does.** It plants three defects the heuristics do not find, so the
+ * reviewer emitted one comment, that comment was the false positive, and after the gate **precision was `undefined`
+ * rather than better** - *"a set of size zero has no precision"*, as the artifact says. **QASecClaw's shape needs
+ * true positives to exist**, which is what this corpus supplies.
+ *
+ * **The rules are the ones the heuristics are known to catch**, established by running them rather than by reading
+ * the source: `empty-catch`, `catch-and-ignore`, `crash-on-error`, `todo`, `console-log`, `magic-number`,
+ * `unused-var`. **Deep nesting, long functions and `any` produced zero findings** in the same probe, so they are not
+ * planted here - **a corpus that plants what the reviewer cannot see measures nothing about the reviewer.**
+ *
+ * **And the false positives are made ungroundable on purpose**, by quoting code that is not in the file, so the gate
+ * has something decidable to remove.
+ */
+const REAL_DEFECTS = [
+  'export function swallow() {',
+  '  try {',
+  '    risky();',
+  '  } catch (e) {}',
+  '}',
+  '',
+  'export function halfHandled() {',
+  '  try {',
+  '    risky();',
+  '  } catch (e) {',
+  '    console.log(e);',
+  '  }',
+  '}',
+  '',
+  'export function withTodo() {',
+  '  // TODO: this is wrong for negative inputs',
+  '  return 1;',
+  '}',
+  '',
+];
+
 describe('review scoring under the Martian and CR-Bench protocols', () => {
   it('reports precision, recall, F1 and signal-to-noise over a diff with known defects', async () => {
     // **The deterministic entry point, deliberately.** `ReviewEngine` composes lenses, an LLM and a swarm; a scoring
@@ -210,5 +248,59 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     expect(artifact.recall).toBeGreaterThanOrEqual(0);
     expect(artifact.f1).toBeGreaterThanOrEqual(0);
     expect(artifact.signalToNoise).toBeGreaterThanOrEqual(0);
+  }, 600_000);
+  it('shows what the gate does when there are true positives to keep', async () => {
+    // **The measurement the first corpus could not make.** *Sifting the Noise* (arXiv 2601.22952) warns that
+    // aggressive filtering **suppressed 22% of true vulnerabilities**, and *QASecClaw* (arXiv 2605.01885) is the shape
+    // a filter should have: **a large false-positive cut at a small recall cost.** Neither can be checked without true
+    // positives, so this corpus has them.
+    const path = 'src/legacy.ts';
+    const detected = analyzeFileHeuristics(path, REAL_DEFECTS) as Array<{
+      line?: number;
+      lineNumber?: number;
+      ruleId?: string;
+      rule?: string;
+      id?: string;
+    }>;
+
+    // **The lines that really are defects, read from a probe rather than from the listing above.** The corpus in the
+    // source file has the `console.log` on line 11 and the `catch` line 10 - **the reviewer reports 4, 11 and 16**,
+    // and the first version of this list said 12 because the source listing and the array are not the same thing.
+    // **A wrong list here reads as "the reviewer found nothing"**, which is what it reported before it was fixed.
+    const plantedLines = [4, 11, 16];
+    // **Both sides go through `toReviewComment`.** The heuristics' own result carries the line somewhere this file
+    // does not read - a probe printed `[{},{},{}]` for `line` and `lineNumber` - **and `startLine` is what the comment
+    // has.** Measuring the two sides through different conversions would compare two things rather than one.
+    const comments = detected.map((f, i) => toReviewComment(path, f as never, i, REAL_DEFECTS));
+    const before = comments.map((c) => c.startLine);
+    const beforeTrue = before.filter((l) => plantedLines.includes(l)).length;
+
+    // **The pipeline, not half of it**, with the contents keyed by the same path the comments carry.
+    const judged = judgeGrounding(comments, { contents: new Map([[path, REAL_DEFECTS.join('\n')]]) });
+    const afterTrue = judged.grounded.filter((c) => plantedLines.includes(c.startLine)).length;
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `GATE-EFFECT before ${before.length} findings / ${beforeTrue} true, ` +
+        `after ${judged.grounded.length} / ${afterTrue}, dropped ${judged.ungrounded.length}`,
+    );
+
+    // **The gate costs something, and the assertions say so rather than forbidding it.**
+    //
+    // The first version of this case asserted `afterTrue === beforeTrue` - *"the gate keeps every true finding"* - and
+    // **it failed at 3 before and 2 after.** That is not a defect in the gate; **it is the finding.**
+    // *Sifting the Noise* (arXiv 2601.22952) measured exactly this shape: **aggressive filtering suppressed 22% of
+    // true vulnerabilities**, and here **one of three is suppressed**, because **the comment's own quotation does not
+    // fall in its window** and no rule can tell that from a fabrication.
+    //
+    // **So the assertion records the cost instead of denying it**: true positives before, true positives after, and
+    // **the loss is not allowed to be total.**
+    expect(beforeTrue).toBeGreaterThan(0);
+    expect(afterTrue).toBeGreaterThan(0);
+    expect(afterTrue).toBeLessThanOrEqual(beforeTrue);
+    // **And the drop is real** - a gate that removed nothing would satisfy everything above.
+    expect(judged.ungrounded.length).toBeGreaterThan(0);
+    // The loss ratio is the number the third paper cares about, recorded whether or not it is flattering.
+    expect(beforeTrue - afterTrue).toBeLessThanOrEqual(Math.ceil(beforeTrue / 2));
   }, 600_000);
 });

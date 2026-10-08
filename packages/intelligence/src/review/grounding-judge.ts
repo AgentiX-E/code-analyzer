@@ -77,7 +77,17 @@ function rangeIsReal(comment: ReviewComment, lines: string[]): boolean {
 function quoteIsPresent(comment: ReviewComment, lines: string[]): boolean {
   const quote = (comment.existingCode ?? '').trim();
   if (quote.length === 0) return true;
-  const window = lines.slice(Math.max(0, comment.startLine - 1), comment.endLine).join('\n');
+  // **The context window, not the line range.** `toReviewComment` gives a comment **the code around the finding** -
+  // typically a line either side - while `startLine`/`endLine` name **the finding's own line.** Checking the quotation
+  // against the range alone therefore **rejects every comment whose evidence is context**, which the first run of
+  // this judge did: **six findings, all six dropped, every reason "the quoted code does not appear at lines N-N."**
+  //
+  // **That was not the gate being strict; it was two functions meaning different things by "here".** The window is
+  // widened to match what a comment actually quotes, and **the range check above still holds it to lines that exist.**
+  const CONTEXT = 2;
+  const window = lines
+    .slice(Math.max(0, comment.startLine - 1 - CONTEXT), comment.endLine + CONTEXT)
+    .join('\n');
   // **Whitespace-normalised**, because a diff's indentation and the file's rarely match character for character and
   // **that difference is not what this check is about.**
   const normalise = (s: string) => s.replace(/\s+/g, ' ').trim();
