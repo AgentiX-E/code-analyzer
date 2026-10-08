@@ -33,6 +33,14 @@ export interface WebhookResult {
   message: string;
   sessionId?: string;
   commentsCount?: number;
+  /**
+   * The files the pull request touches, by name.
+   *
+   * **`fetchPRFiles` was written for this and had no caller**, which is how a webhook handler ends up reporting on a
+   * diff without knowing which files it covers. The diff text carries the same information in a form the review
+   * pipeline has to re-parse; **the API endpoint returns it as a list.**
+   */
+  changedFiles?: string[];
 }
 
 export interface PRFile {
@@ -137,6 +145,19 @@ export class GitHubPRWebhook {
       const diffText = await this.fetchPRDiff(owner, repo, prNumber);
       const diffs = this.diffParser.parseUnifiedDiff(diffText);
 
+      // **The changed-file list, which the diff text also contains and this handler did not read.** A failure here
+      // is not a failure of the review - the diff is what the review runs on - **so it degrades to an empty list
+      // rather than aborting**, and the field's absence in the result is what says it could not be read.
+      let changedFiles: string[] = [];
+      try {
+        changedFiles = (await this.fetchPRFiles(owner, repo, prNumber)).map((f) => f.filename);
+      } catch (err) {
+        this.logger.warn('fetchPRFiles failed; the review continues without the file list', {
+          phaseId: 'github-webhook.request',
+        });
+        void err;
+      }
+
       // Convert GitHub PREvent to PullRequest type
       const pr: PullRequest = {
         number: prNumber,
@@ -214,6 +235,7 @@ export class GitHubPRWebhook {
         message: 'PR review completed',
         sessionId: result.sessionId,
         commentsCount: result.comments.length,
+        changedFiles,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
