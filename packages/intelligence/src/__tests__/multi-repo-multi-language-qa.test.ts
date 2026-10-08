@@ -22,9 +22,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, expect, it } from 'vitest';
 
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import { FederatedSearchEngine } from '../cross-repo/federated-search.js';
@@ -163,7 +163,7 @@ describe('three repositories, three languages, asked across both', () => {
       // spellings both contain it, so a language boundary that is crossed shows up here.
       const acrossLanguages = await engine.search('kinetic', {});
       expect(acrossLanguages.totalResults).toBeGreaterThan(0);
-      // eslint-disable-next-line no-console
+       
       console.log(`MRI crossRepo=${all.totalResults} filtered=${oneRepo.totalResults} acrossLanguages=${acrossLanguages.totalResults}`);
     } finally {
       store.close();

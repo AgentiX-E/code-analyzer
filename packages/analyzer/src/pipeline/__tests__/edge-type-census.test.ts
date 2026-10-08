@@ -19,9 +19,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { getDefaultConfig } from '@code-analyzer/core';
 import { describe, expect, it } from 'vitest';
 
-import { getDefaultConfig } from '@code-analyzer/core';
 
 import { PipelineOrchestrator } from '../orchestrator.js';
 import { createAllPhases } from '../phases/index.js';
@@ -88,7 +88,7 @@ describe('the edge types a known corpus produces', () => {
     expect(counts.get('DEFINES') ?? 0).toBeGreaterThan(0);
     expect(counts.get('CALLS') ?? 0).toBeGreaterThan(0);
 
-    // eslint-disable-next-line no-console
+     
     console.log(`CENSUS ${[...counts.entries()].map(([t, n]) => `${t}×${n}`).join(' ')}`);
   }, 600_000);
 });

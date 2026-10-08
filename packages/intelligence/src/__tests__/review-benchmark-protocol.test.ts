@@ -98,13 +98,13 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     const artifact = {
       comment: [
         'Review scoring under the Martian Code Review Bench and CR-Bench protocols, over a diff with three planted',
-        'defects. **The corpus is small and reproducible offline**; the protocols are the field\ of the field, the corpus is not.',
+        'defects. **The corpus is small and reproducible offline**; the protocols are the field standard, the corpus is not.',
         '',
         '**This is not a Martian-comparable figure and must not be quoted as one.** A score from a different corpus',
         'is not a comparison. What it is: a protocol-faithful number on a corpus we control, which is what an',
         'iteration needs as input.',
         '',
-        '**SNR is reported because precision alone hides over-generation**, which the field\ own numbers show -',
+        '**SNR is reported because precision alone hides over-generation**, which the field numbers show -',
         'single-pass GPT-5.2 reaches 27.0% recall at 3.6% precision.',
       ],
       measuredAt: new Date().toISOString().slice(0, 10),
@@ -138,7 +138,7 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     fs.mkdirSync('benchmarks', { recursive: true });
     fs.writeFileSync('benchmarks/review-protocol.json', JSON.stringify(artifact, null, 2) + '\n', 'utf8');
 
-    // eslint-disable-next-line no-console
+     
     console.log(
       `REVIEW-PROTOCOL reported=${reported.length} tp=${truePositives} fp=${falsePositives} fn=${falseNegatives} ` +
         `P=${artifact.precision} R=${artifact.recall} F1=${artifact.f1} SNR=${artifact.signalToNoise}`,

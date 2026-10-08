@@ -18,11 +18,11 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
 
 import { GraphBuilder, PipelineOrchestrator, createAllPhases, loadRealEmbedder } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, expect, it } from 'vitest';
 
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
@@ -170,7 +170,7 @@ describe('finding a symbol from its own doc comment', () => {
     mkdirSync(resolve(process.cwd(), 'benchmarks'), { recursive: true });
     writeFileSync(resolve(process.cwd(), 'benchmarks/docstring-search.json'), JSON.stringify(artifact, null, 2) + '\n', 'utf8');
 
-    // eslint-disable-next-line no-console
+     
     console.log(
       `DOCSTRING-SEARCH recall=${recall} (${found}/${cases.length} in top ${TOP_K}) mrr=${mrr} ` +
         `over ${artifact.corpus.nodes} nodes, ${artifact.corpus.nodesWithADocstring} documented; ` +
