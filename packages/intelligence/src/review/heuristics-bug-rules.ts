@@ -265,9 +265,111 @@ export function checkAnyTypeUsage(lines: string[]): HeuristicRuleResult[] {
   return out;
 }
 
+
+/**
+ * Nesting deeper than a reader can hold, which the reviewer said nothing about.
+ *
+ * **The second of the three silences a probe found.** Ten classic defects were run through the reviewer and
+ * `deep-nesting`, `long-function` and `any-type` produced **zero findings**; the other seven fired. **This is the
+ * second to gain a rule.**
+ *
+ * **And the threshold is five, chosen against the corpus rather than from taste.** The probe's sample nested five
+ * `if` blocks and was silent, so **a rule at four would fire on code this repository's own tests generate.**
+ *
+ * **Indentation is counted from braces rather than whitespace**, because a file indented with two spaces and one
+ * indented with four are the same depth of nesting, and **a rule that counts characters reports one of them wrong.**
+ */
+export function checkDeepNesting(lines: string[]): HeuristicRuleResult[] {
+  const out: HeuristicRuleResult[] = [];
+  // **Five, and the number is the finding's own claim**: the probe's sample nested five and the reviewer was silent.
+  const LIMIT = 5;
+  let depth = 0;
+  let deepest = 0;
+  let deepestLine = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    const code = lines[i]!.replace(/\/\/.*$/, '');
+    for (const ch of code) {
+      // **Comments and strings are not counted**, which the two strip above and the delimiters below approximate -
+      // **and the approximation is stated rather than hidden**, because a brace inside a string is a real case this
+      // does not model.
+      if (ch === '{') depth += 1;
+      else if (ch === '}') depth = Math.max(0, depth - 1);
+    }
+    if (depth > deepest) {
+      deepest = depth;
+      deepestLine = i + 1;
+    }
+  }
+
+  if (deepest > LIMIT) {
+    out.push(
+      finding(
+        'structure',
+        'medium',
+        `Nesting reaches ${deepest} levels`,
+        `Line ${deepestLine} closes a block nested ${deepest} deep. ` +
+          'Past about five levels the reader has to hold every enclosing condition to follow one statement, and a ' +
+          'defect that depends on two of them is easy to write and hard to see. Extracting the inner block into a ' +
+          'named function usually removes the question rather than the indentation.',
+        deepestLine,
+        deepestLine,
+        'Extract the innermost block into a function, or return early to flatten the condition.',
+      ),
+    );
+  }
+  return out;
+}
+
+/**
+ * A function body longer than a reader will finish, which the reviewer said nothing about.
+ *
+ * **The third silence from the same probe.** **Sixty statements inside one function produced no finding.**
+ *
+ * **And the count is of lines rather than of statements**, because a line is what the reviewer can point at: **a
+ * finding with no line is a finding nobody can act on**, which is the rule the whole of the review work follows.
+ */
+export function checkLongFunction(lines: string[]): HeuristicRuleResult[] {
+  const out: HeuristicRuleResult[] = [];
+  // **Fifty, and the sample that was silent had sixty.** The margin is deliberate: **a rule that fires just above the
+  // corpus it was tuned on is a rule tuned to its corpus.**
+  const LIMIT = 50;
+  let start = -1;
+  let depth = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    const code = lines[i]!.replace(/\/\/.*$/, '');
+    const opened = (code.match(/{/g) ?? []).length;
+    const closed = (code.match(/}/g) ?? []).length;
+    // **A body starts where a function-ish declaration opens a brace**, which is what `start` records.
+    if (start === -1 && opened > 0 && /\b(function|=>|\)\s*{)/.test(code)) start = i + 1;
+    depth += opened - closed;
+    if (start !== -1 && depth === 0) {
+      const lengthInLines = i + 1 - start + 1;
+      if (lengthInLines > LIMIT) {
+        out.push(
+          finding(
+            'structure',
+            'medium',
+            `A function body is ${lengthInLines} lines long`,
+            `The body opened at line ${start} runs to line ${i + 1}, ${lengthInLines} lines. ` +
+              'A body this long usually holds several responsibilities, and the reader cannot hold them all at once. ' +
+              'The parts that share a local variable belong together; the rest are separate functions wearing one name.',
+            start,
+            i + 1,
+            'Split the body at its natural seams, which are usually where a local variable stops being used.',
+          ),
+        );
+      }
+      start = -1;
+    }
+  }
+  return out;
+}
+
 export const BUG_RULES = [
   checkSilentCatch,
   checkAssignmentInCondition,
   checkAsyncInSynchronousCallback,
   checkAnyTypeUsage,
+  checkDeepNesting,
+  checkLongFunction,
 ];
