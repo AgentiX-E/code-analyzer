@@ -52,6 +52,8 @@ import {
   routeMapSchema,
   checkCycles,
   checkCyclesSchema,
+  testsFor,
+  testsForSchema,
 } from './change-impact.js';
 
 // Code Review
@@ -239,6 +241,16 @@ export function createToolRegistry(): ToolRegistry {
     'Detect code changes between references',
     detectChangesSchema,
     detectChanges,
+    'analysis',
+  );
+  // **The surface the arena ships as `tests_for`.** Its `EDGE_TESTS` edges have been produced and read all along -
+  // by `structure-lens` and `impact-analyzer` - **and there was no way for an agent to ask**, which is the fifth
+  // time this stretch has found a fact that existed and was one surface short of being usable.
+  registry.register(
+    'tests_for',
+    'Find the tests that cover a symbol',
+    testsForSchema,
+    testsFor,
     'analysis',
   );
   registry.register(

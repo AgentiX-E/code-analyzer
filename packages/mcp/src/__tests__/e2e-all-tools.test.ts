@@ -1,4 +1,4 @@
-// @code-analyzer/mcp — E2E Integration Test: All 48 MCP Tools
+// @code-analyzer/mcp — E2E Integration Test: All 49 MCP Tools
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -378,7 +378,7 @@ function populateStore(store: InMemoryGraphStore): void {
 // Test Suite
 // ---------------------------------------------------------------------------
 
-describe('MCP E2E — All 48 Tools Integration', () => {
+describe('MCP E2E — All 49 Tools Integration', () => {
   let store: InMemoryGraphStore;
   let ctx: ToolContext;
   let registry: ToolRegistry;
@@ -405,13 +405,13 @@ describe('MCP E2E — All 48 Tools Integration', () => {
   // =========================================================================
 
   describe('Tool Registry Structure', () => {
-    it('should register exactly 48 tools', () => {
-      expect(registry.size).toBe(48);
+    it('should register exactly 49 tools', () => {
+      expect(registry.size).toBe(49);
     });
 
     it('should list all tools without handlers in output', () => {
       const list = registry.list();
-      expect(list.length).toBe(48);
+      expect(list.length).toBe(49);
       for (const tool of list) {
         expect(tool.name).toBeTruthy();
         expect(tool.description).toBeTruthy();
@@ -422,9 +422,12 @@ describe('MCP E2E — All 48 Tools Integration', () => {
     it('should filter by profile', () => {
       const all = registry.listByProfile('all');
       const analysis = registry.listByProfile('analysis');
-      expect(all.length).toBe(48);
+      // **Derived rather than written down.** A hardcoded count here is a count that has to be edited whenever a tool
+      // is added - **which is what just happened, twice in one file.** The number that matters is that `all` is the
+      // whole registry and a profile is a subset of it, and **both are properties rather than values.**
+      expect(all.length).toBe(registry.size);
       expect(analysis.length).toBeGreaterThan(0);
-      expect(analysis.length).toBeLessThanOrEqual(48);
+      expect(analysis.length).toBeLessThanOrEqual(all.length);
     });
   });
 

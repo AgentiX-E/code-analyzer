@@ -7,6 +7,7 @@ import {
   EDGE_IMPLEMENTS,
   EDGE_IMPORTS,
   EDGE_MEMBER_OF,
+  EDGE_TESTS,
 } from '@code-analyzer/shared';
 
 import { buildImpactResponse } from './smart-response.js';
@@ -572,4 +573,100 @@ function detectCycle(
 
   path.pop();
   recStack.delete(nodeId);
+}
+
+// ---------------------------------------------------------------------------
+// tests_for
+// ---------------------------------------------------------------------------
+
+interface TestsForParams {
+  symbol: string;
+  projectId: string;
+}
+
+export const testsForSchema = {
+  type: 'object',
+  properties: {
+    symbol: { type: 'string', description: 'Symbol name or qualified name to find tests for' },
+    projectId: { type: 'string', description: 'Project ID' },
+  },
+  required: ['symbol', 'projectId'],
+};
+
+/**
+ * The tests that cover a symbol.
+ *
+ * **The surface the arena ships as `tests_for` and this product did not**, and **the edge it needs has existed all
+ * along**: `EDGE_TESTS` is produced by the tests phase and read by `structure-lens` and `impact-analyzer`. **What was
+ * missing was a way for an agent to ask**, which is a smaller thing than it looked and **exactly the kind of gap the
+ * last four rounds kept finding** - a field, an edge or a fact that existed and one surface short of being usable.
+ *
+ * **And it answers the question a change actually raises**: *"a symbol that changed and is used at four sites the
+ * author never opened"* is about consumers, **and about which of those consumers is a test** - because a symbol with
+ * a covering test is one a refactor can trust, and **a symbol with none is the one to be careful about.**
+ */
+export async function testsFor(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+  const graphStore = getStore(store);
+  if (!graphStore) {
+    return { content: [{ type: 'text', text: JSON.stringify({ error: 'No graph store available' }) }], isError: true };
+  }
+  const { symbol } = args as unknown as TestsForParams;
+
+  // **The symbol, by name or by qualified name**, because an agent has one or the other and should not have to know
+  // which this tool prefers.
+  const targets = graphStore
+    .getAllNodes()
+    .filter((n) => typeof n.name === 'string' && (n.name === symbol || n.qualifiedName === symbol));
+
+  if (targets.length === 0) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            symbol,
+            found: false,
+            // **Not found is not the same as untested**, and the two are reported differently because a reader acts
+            // on them differently: one means the graph does not hold this symbol, the other means nothing covers it.
+            note: 'the symbol is not in the graph, so nothing can be said about its tests',
+            tests: [],
+          }),
+        },
+      ],
+    };
+  }
+
+  const targetIds = new Set(targets.map((t) => t.id));
+  const tests = new Map<string, { filePath: string; line: number }>();
+  for (const edge of graphStore.getAllEdges()) {
+    if (String(edge.type) !== EDGE_TESTS) continue;
+    if (!targetIds.has(edge.targetId)) continue;
+    const source = graphStore.getAllNodes().find((n) => n.id === edge.sourceId);
+    if (!source) continue;
+    const filePath = String(source.filePath ?? '');
+    // **One entry per test file**, because that is the unit a reader acts on - opening the same file twice from a list
+    // of two findings is a list that lied about its length.
+    tests.set(filePath, { filePath, line: source.startLine ?? 0 });
+  }
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            symbol,
+            found: true,
+            // **`tested` is the field to branch on**, and it is computed rather than left to the caller: an empty
+            // array is a fact, and a reader comparing it to nothing is a reader making the same comparison twice.
+            tested: tests.size > 0,
+            tests: [...tests.values()].sort((a, b) => a.filePath.localeCompare(b.filePath)),
+            symbolsMatched: targets.length,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
 }
