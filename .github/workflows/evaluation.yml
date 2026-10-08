@@ -1,0 +1,138 @@
+# The benchmark scorers, run where anyone can reproduce them.
+#
+# **Why this workflow exists.** Every figure this project publishes was produced on one laptop, under a protocol
+# written into a test file but never executed anywhere else. **A number nobody can reproduce is a number nobody can
+# check**, and the competitive analysis's own lesson is harsher than that: three vendors printed the *same*
+# benchmark's figure three different ways within five months, each on the day and arm that favoured it.
+#
+# **So the scoring runs here**, on a machine we do not control, from a commit anybody can check out:
+#
+#   review-protocol.json   Martian + CR-Bench shape: precision, recall, F1, signal-to-noise
+#   docstring-search.json  173 queries, lexical
+#   lexical-search-recall.json  40 queries, lexical
+#   indexing-speed.json    recorded as unmeasurable, with the reason
+#
+# **And the artifacts are uploaded**, so the figures are downloadable rather than transcribed. **The baseline is the
+# committed file in `benchmarks/`**: a run that produces a different figure without producing a better one is a
+# regression, and this job fails on it.
+
+name: Evaluation
+
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'benchmarks/**'
+      - '.github/workflows/evaluation.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'packages/**'
+      - 'benchmarks/**'
+      - '.github/workflows/evaluation.yml'
+  schedule:
+    # Weekly, so a figure that drifts with a dependency update is found without a commit.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  protocol-evaluation:
+    name: Evaluation - protocol scorers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Keep the committed figures
+        # Copied before the run, so the comparison is against what is in the repository rather than against itself.
+        run: cp -r benchmarks benchmarks-baseline
+
+      - name: Run the protocol scorers
+        run: |
+          npx vitest run --config vitest.config.ts \
+            packages/intelligence/src/__tests__/review-benchmark-protocol.test.ts \
+            packages/intelligence/src/__tests__/docstring-search.test.ts \
+            packages/intelligence/src/__tests__/lexical-search-recall.test.ts
+
+      - name: Report the figures
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const read = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
+            const review = read("benchmarks/review-protocol.json");
+            console.log("## Protocol evaluation\n");
+            if (review) {
+              console.log("| metric | value |");
+              console.log("|---|---|");
+              for (const k of ["precision", "recall", "f1", "signalToNoise"]) {
+                console.log(`| ${k} | ${review[k]} |`);
+              }
+              console.log("");
+              console.log(`corpus: ${JSON.stringify(review.corpus)}`);
+            } else {
+              console.log("review-protocol.json was not produced");
+              process.exitCode = 1;
+            }
+            for (const [name, file] of [["docstring-search", "benchmarks/docstring-search.json"], ["lexical-search-recall", "benchmarks/lexical-search-recall.json"]]) {
+              const d = read(file);
+              if (d) console.log(`\n${name}: recall=${d.recall} mode=${d.mode} queries=${d.queries ?? d.corpus?.queries}`);
+            }
+          '
+
+      - name: Fail on a regression
+        # **The comparison is here rather than in the report above**, because a figure that is printed and not checked
+        # is the same defect this repository has spent a stretch removing: an output nobody reads decides nothing.
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const read = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
+            const keys = ["recall", "f1", "signalToNoise", "precision"];
+            let regressed = [];
+            for (const name of ["review-protocol.json", "docstring-search.json", "lexical-search-recall.json"]) {
+              const before = read(`benchmarks-baseline/${name}`);
+              const after = read(`benchmarks/${name}`);
+              if (!before || !after) continue;
+              for (const k of keys) {
+                if (typeof before[k] !== "number" || typeof after[k] !== "number") continue;
+                if (after[k] < before[k]) regressed.push(`${name}:${k} ${before[k]} -> ${after[k]}`);
+              }
+            }
+            if (regressed.length) {
+              console.error("figures regressed:\n  " + regressed.join("\n  "));
+              process.exit(1);
+            }
+            console.log("no figure regressed against the committed baseline");
+          '
+
+      - name: Upload the figures
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluation-figures
+          path: benchmarks/*.json
+          retention-days: 90
