@@ -14,7 +14,15 @@
 // **`ReviewComment` already has a `filtered: boolean` field and nothing wrote it** - the same shape as the empty
 // `docstring`, the unproduced `CALLS` edge and the unread `changedFiles`. **This is the thing that field was for.**
 //
-// **And "grounded" is defined narrowly here, on purpose.** Three checks, each of which can be decided from the file
+// **The literature this follows, found by searching rather than by guessing.** *Refute-or-Promote* (arXiv 2604.19049)
+// reports **~79% of candidates killed** before disclosure and **one case where ten reviewers unanimously endorsed a
+// bug that did not exist**, killed only by an empirical test - **the argument for a gate that requires evidence
+// rather than agreement.** QASecClaw (arXiv 2605.01885) takes a scanner from **F1 78.39% to 90.93%** by cutting false
+// positives **88.6%** while losing **3.1%** of recall, which is the shape a filter should have. And *Sifting the
+// Noise* (arXiv 2601.22952) is the warning: aggressive filtering **suppressed 22% of true vulnerabilities**, so
+// **every check below is written to drop only what is decidable.**
+//
+// **And "grounded" is defined narrowly here, on purpose.** Four checks, each of which can be decided from the file
 // and the ranges, and **none of which claims to judge whether the finding is correct** - that needs the judge model
 // the analysis describes and this does not have. **What it can do is drop the ones that are provably about nothing.**
 
@@ -77,6 +85,34 @@ function quoteIsPresent(comment: ReviewComment, lines: string[]): boolean {
 }
 
 /**
+ * Whether a name the comment mentions actually occurs in the quoted region.
+ *
+ * **The empirical gate the literature describes.** *Refute-or-Promote* (arXiv 2604.19049) reports that **ten dedicated
+ * reviewers unanimously endorsed a non-existent Bleichenbacher oracle in OpenSSL's CMS module**, and that it was
+ * **killed only by a single empirical test** - which is why their pipeline ends with a gate that requires concrete
+ * evidence rather than agreement. **The same paper's summary is the thesis of this file**: *"no defect was discovered
+ * autonomously; the contribution is external structure that filters LLM agents' persistent false positives."*
+ *
+ * **Here the empirical test is a symbol lookup.** When a comment names an identifier in backticks, **that identifier
+ * has to appear in the code the comment is about.** A name that occurs nowhere in the region is a claim about
+ * something that is not there - **and unlike a matter of judgement, it is decidable.**
+ *
+ * **Only backticked identifiers are checked**, so prose is not mistaken for code. **A comment that names nothing is
+ * kept**, for the same reason a comment that quotes nothing is: **the evidence is required when it is offered.**
+ */
+function namesOccurInRegion(comment: ReviewComment, lines: string[]): boolean {
+  const body = `${comment.content ?? ''} ${comment.suggestionCode ?? ''}`;
+  const named = [...body.matchAll(/`([A-Za-z_$][\w$]{2,})`/g)].map((m) => m[1]!);
+  if (named.length === 0) return true;
+
+  // **The region, plus the whole file as a fallback.** A comment may legitimately name a symbol declared elsewhere in
+  // the same file, so the region is where it must be *shown* and the file is where it must *exist*.
+  const region = lines.slice(Math.max(0, comment.startLine - 1), comment.endLine).join('\n');
+  const file = lines.join('\n');
+  return named.every((name) => region.includes(name) || file.includes(name));
+}
+
+/**
  * Splits findings into the ones about something that exists and the ones that are not.
  *
  * **The order of the checks is the order of their strength**: a path the review never read is unfixable by any
@@ -113,6 +149,15 @@ export function judgeGrounding(comments: ReviewComment[], sources: GroundingSour
         comment,
         grounded: false,
         reason: `the quoted code does not appear at lines ${comment.startLine}-${comment.endLine}`,
+      });
+      continue;
+    }
+
+    if (!namesOccurInRegion(comment, lines)) {
+      ungrounded.push({
+        comment,
+        grounded: false,
+        reason: 'the finding names an identifier that occurs nowhere in the file it is about',
       });
       continue;
     }

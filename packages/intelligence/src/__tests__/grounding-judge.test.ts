@@ -70,6 +70,32 @@ describe('a finding that cannot be grounded is dropped', () => {
     expect(report.ungrounded[0]!.reason).toMatch(/does not appear/);
   });
 
+  it('drops a finding that names an identifier the file does not contain', () => {
+    // **The empirical gate, from the literature.** *Refute-or-Promote* (arXiv 2604.19049) reports ten reviewers
+    // unanimously endorsing a bug that did not exist, **killed only by an empirical test** - so the gate requires
+    // **evidence rather than agreement**. Here the evidence is a symbol lookup: `applyTimingPad` is named in the
+    // comment and occurs nowhere in the file, which makes the finding a claim about something that is not there.
+    const report = judgeGrounding(
+      [comment({ content: 'the loop in `applyTimingPad` leaks the length' })],
+      { contents: CONTENTS },
+    );
+
+    expect(report.grounded).toEqual([]);
+    expect(report.ungrounded[0]!.reason).toMatch(/occurs nowhere in the file/);
+  });
+
+  it('keeps a finding that names an identifier the file does contain', () => {
+    // **The other direction, again.** `add` is in the file, so the same rule passes it - **a gate that dropped every
+    // comment naming a symbol would suppress the true findings too**, which is the failure mode *Sifting the Noise*
+    // (arXiv 2601.22952) measured: aggressive filtering suppressed 22% of real vulnerabilities.
+    const report = judgeGrounding(
+      [comment({ content: '`add` can overflow on large inputs' })],
+      { contents: CONTENTS },
+    );
+
+    expect(report.grounded.map((c) => c.id)).toContain('c1');
+  });
+
   it('keeps a finding with no quotation, because absence is not evidence of absence', () => {
     // **A comment that quotes nothing is not checked rather than dropped.** The quotation is evidence when present;
     // treating its absence as a failure would drop every comment the heuristics write.
