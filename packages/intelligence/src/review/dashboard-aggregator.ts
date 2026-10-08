@@ -52,6 +52,16 @@ export interface DashboardMetrics {
   mergeRecommendationDistribution: Record<string, number>;
   avgReviewDuration: number;
   totalFindings: number;
+  /**
+   * Findings that a reader would act on, over everything emitted.
+   *
+   * **CR-Bench's contribution to this family of metrics**, and the one the competitive analysis insists on: *"precision
+   * alone hides the over-generation that makes reviewers ignore a tool"*. The field's own numbers show why - single-pass
+   * GPT-5.2 reaches **27.0% recall at 3.6% precision**, and the human baseline sits at **0.69 SNR**.
+   *
+   * **`1` when nothing was emitted**, which is the honest reading of "nothing was noise" rather than `0`.
+   */
+  signalToNoise: number;
   reviewsOverTime: Array<{ date: string; count: number }>;
 }
 
@@ -125,6 +135,12 @@ export class ReviewDashboardAggregator {
 
     const totalReviews = reviews.length;
     const totalFindings = reviews.reduce((sum, r) => sum + r.comments.length, 0);
+    // **The numerator comes from the grounding judge**, which writes `filtered` on what it dropped. Before that field
+    // was written there was nothing to divide by anything, which is why this metric could not exist earlier.
+    const keptFindings = reviews.reduce(
+      (sum, r) => sum + r.comments.filter((c) => !c.filtered).length,
+      0,
+    );
 
     // Severity distribution
     const severityDist: Record<Severity, number> = {
@@ -193,6 +209,7 @@ export class ReviewDashboardAggregator {
       mergeRecommendationDistribution: mergeDist,
       avgReviewDuration: avgDuration,
       totalFindings,
+      signalToNoise: totalFindings === 0 ? 1 : Math.round((keptFindings / totalFindings) * 10000) / 10000,
       reviewsOverTime,
     };
   }
@@ -715,6 +732,9 @@ export class ReviewDashboardAggregator {
       mergeRecommendationDistribution: {},
       avgReviewDuration: 0,
       totalFindings: 0,
+      // **`1`, not `0`.** Nothing was emitted, so nothing was noise - **a zero here would say every one of zero
+      // comments was noise**, which reads as the worst possible score for the best possible case.
+      signalToNoise: 1,
       reviewsOverTime: [],
     };
   }
