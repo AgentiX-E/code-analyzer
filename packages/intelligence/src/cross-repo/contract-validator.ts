@@ -3,9 +3,9 @@
 // Detects breaking changes: removed exports, changed signatures, renamed symbols.
 
 import { createNoopPhaseLogger } from '@code-analyzer/shared';
-import type { PhaseLogger } from '@code-analyzer/shared';
+
 import type { CrossRepoIndexer } from './cross-repo-indexer.js';
-import type { GraphNode } from '@code-analyzer/shared';
+import type { GraphNode, PhaseLogger } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces

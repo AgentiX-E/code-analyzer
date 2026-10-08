@@ -141,7 +141,6 @@ export async function analyzeRepository(
           // indistinguishable from an analysis that ran and found nothing - the shape that hid five defects in this
           // subsystem. The findings are still empty and the indexing still succeeds; what changes is that a failure
           // now says so.
-          // eslint-disable-next-line no-console
           console.warn('taint analysis failed; continuing without its findings', error);
           ctx.taintFindings = [];
         }

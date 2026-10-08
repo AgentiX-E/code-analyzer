@@ -21,11 +21,11 @@ import type {
   DefinitionSite,
   StatementFacts,
   TaintSinkOccurrence,
+  SanitizerOccurrence,
   TaintSourceOccurrence,
   UseSite,
 } from './types.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { SanitizerOccurrence } from './types.js';
 
 /** The key convention `computeReachingDefinitions` and `TaintPropagator` share. */
 const STRIDE = 1024;
