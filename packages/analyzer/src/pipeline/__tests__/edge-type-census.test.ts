@@ -91,10 +91,19 @@ describe('the edge types a known corpus produces', () => {
     expect(result.errors).toEqual([]);
     expect(counts.size).toBeGreaterThan(0);
 
-    // **The two that were zero.** A corpus with a definition and a call has to produce both, and **this assertion is
-    // the whole point of the file**: it fails on the day either stops being produced.
+    // **The three that were zero, at different times.** A corpus with a definition, a call and an import has to
+    // produce all three, and **this file is the reason each was found**:
+    //
+    //   `DEFINES`   never zero, the assertion this file was written with
+    //   `CALLS`     zero until the captures were read; asserted here from the day it was fixed
+    //   `IMPORTS`   **zero until today**, and the line below was deliberately absent until it was not
+    //
+    // **The last one is the point.** A previous revision said: *"asserting `IMPORTS > 0` today would be a failing
+    // test in the suite, and the finding is recorded in the artifact instead."* **The finding was a resolver that
+    // appended extensions to `./math.js` and never rewrote it to `math.ts`** - the TypeScript convention, missed.
     expect(counts.get('DEFINES') ?? 0).toBeGreaterThan(0);
     expect(counts.get('CALLS') ?? 0).toBeGreaterThan(0);
+    expect(counts.get('IMPORTS') ?? 0).toBeGreaterThan(0);
 
      
     console.log(`CENSUS ${[...counts.entries()].map(([t, n]) => `${t}×${n}`).join(' ')}`);

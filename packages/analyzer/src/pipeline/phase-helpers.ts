@@ -533,8 +533,29 @@ export function resolveImportPath(
     const sourceDir = dirname(sourceFilePath);
     const resolved = resolve(sourceDir, importPath);
 
-    // Try common extensions
+    // **The TypeScript convention, which this function did not know.** Source in a TS project writes
+    // `import { x } from './math.js'` and **the file on disk is `math.ts`** - the `.js` is what the *emitted* file
+    // will be called. **A resolver that only appends extensions to the specifier therefore fails on every relative
+    // import in the corpus**, which is why `IMPORTS` edges were zero on every run and `importers_of` had nothing to
+    // return. **Rewriting the emitted extension back to its source form comes first**, because it is the common case
+    // in this project and in every TS project with `moduleResolution: node16`.
+    const rewritten: string[] = [];
+    for (const [from, to] of [
+      ['.js', '.ts'],
+      ['.js', '.tsx'],
+      ['.mjs', '.mts'],
+      ['.cjs', '.cts'],
+    ] as const) {
+      if (resolved.endsWith(from)) rewritten.push(`${resolved.slice(0, -from.length)}${to}`);
+    }
+
+    // Then the plain candidates, for specifiers that already name a source file.
     const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.js'];
+    for (const candidate of rewritten) {
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
     for (const ext of extensions) {
       const candidate = ext.startsWith('/') ? resolved + ext : `${resolved}${ext}`;
       if (existsSync(candidate)) {
