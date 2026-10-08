@@ -279,7 +279,7 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     const judged = judgeGrounding(comments, { contents: new Map([[path, REAL_DEFECTS.join('\n')]]) });
     const afterTrue = judged.grounded.filter((c) => plantedLines.includes(c.startLine)).length;
 
-    // eslint-disable-next-line no-console
+     
     console.log(
       `GATE-EFFECT before ${before.length} findings / ${beforeTrue} true, ` +
         `after ${judged.grounded.length} / ${afterTrue}, dropped ${judged.ungrounded.length}`,
