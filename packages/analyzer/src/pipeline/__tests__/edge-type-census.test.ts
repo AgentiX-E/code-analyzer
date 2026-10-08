@@ -15,6 +15,14 @@
 // produced nothing else; asserting the specific types a corpus is built to generate, and their absence elsewhere, is
 // what makes the figure mean something.
 
+// **A note for whoever runs the lint ratchet locally rather than in CI.**
+//
+// `node scripts/lint-per-file.js` reports `eslint produced no output (exit 2)` for the `intelligence` package on this
+// machine, and the reason is not the code: **the error is `write EPIPE` raised inside the sandbox's own broker shim**
+// (`cli/vendor/shim/broker-ipc-client.cjs`), which the whole-package `--format json` run overflows. **Single files
+// lint cleanly and CI runs the whole thing without it** - so **the ratchet is a CI signal here, not a local one**,
+// and a red lint job should be read from its log rather than reproduced with this command.
+
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
