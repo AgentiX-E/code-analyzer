@@ -151,10 +151,28 @@ export class CrossFilePhase implements ExecutablePhase {
       // anywhere in this package. **The input was there and the edge was not**, which is why the reachability
       // question had no instrument but a regular expression to answer it.
       //
-      // **Same-file only, deliberately.** A call name is resolved against the functions declared in the file it
-      // appears in, so there is no cross-file guesswork and no false edge: **a caller that is not in the same file is
-      // left unresolved rather than resolved wrongly.** The narrower statement is worth more than a wider one with a
-      // guessed target, and the cross-file case is a separate step with a scope rule of its own.
+      // **Same-file first, then one hop through an explicit import.**
+      //
+      // The first version was same-file only, and deliberately: a name that is not declared where it is called has no
+      // obvious target, and **a guessed target is worse than no edge.** What makes the second step safe is that it is
+      // **not a guess** - it follows the `resolvedImports` built above, so a name reaches another file **only through
+      // an import that names it.** That is the product's own sentence: *"a symbol that changed and is used at four
+      // sites the author never opened"* - **and most of those sites are in other files.**
+      //
+      // **One hop, not a transitive closure.** A name imported from a file that re-exports it is not followed, because
+      // following it needs a module graph rather than a file graph. **The narrower claim is the true one.**
+      const importedFrom = new Map<string, Set<string>>();
+      for (const resolved of resolvedImports) {
+        if (resolved.resolvedFiles.length === 0) continue;
+        const target = resolved.resolvedFiles[0]!;
+        for (const symbol of resolved.importedSymbols) {
+          const key = `${resolved.sourceFile}\u0000${symbol}`;
+          const set = importedFrom.get(key) ?? new Set<string>();
+          set.add(target);
+          importedFrom.set(key, set);
+        }
+      }
+
       let callEdgesCreated = 0;
       for (const parsedFile of parseData.parsedFiles) {
         const ast = parsedFile.ast as UnifiedCapture[] | undefined;
@@ -181,11 +199,32 @@ export class CrossFilePhase implements ExecutablePhase {
           declaredHere.set(node.name, list);
         }
 
+        // **Where a name this file calls could live if it is not here.** Only through an import that names it, and
+        // only in the files that import resolved to.
+        const declaredElsewhere = new Set<string>();
+        for (const calleeName of calledNames) {
+          if (declaredHere.has(calleeName)) continue;
+          for (const target of importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`) ?? []) {
+            declaredElsewhere.add(target);
+          }
+        }
+
         const builder = new GraphBuilder();
         for (const callerNodeIds of declaredHere.values()) {
           for (const callerId of callerNodeIds) {
             for (const calleeName of calledNames) {
-              for (const calleeId of declaredHere.get(calleeName) ?? []) {
+              const targets = [
+                ...(declaredHere.get(calleeName) ?? []),
+                // The cross-file half: every function of that name in a file this one imports it from.
+                ...[...declaredElsewhere]
+                  .filter((file) => importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`)?.has(file))
+                  .flatMap((file) =>
+                    [...ctx.graph!.nodes.values()]
+                      .filter((n) => n.filePath === file && n.name === calleeName)
+                      .map((n) => n.id),
+                  ),
+              ];
+              for (const calleeId of targets) {
                 // **Not a self-edge.** A function calling itself is a recursion fact, not a call graph edge, and the
                 // recursion markers elsewhere already record it.
                 if (callerId === calleeId) continue;
