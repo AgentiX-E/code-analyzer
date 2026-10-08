@@ -93,3 +93,7 @@ export { groupCaptures } from './pipeline/phase-helpers.js';
 // reason as groupCaptures: a scan over real files has to run the steps the phases run.
 export { buildCallSites } from './resolution/call-sites.js';
 export { loadRealEmbedder, embedderUnavailableReason } from './pipeline/phases/embed.js';
+
+// **A parser by language, for callers outside this package.** The cross-repo indexer extracts symbols with its
+// own regexes because it could not reach a provider; a provider is exactly what it needs.
+export { getOrLoadProvider } from './pipeline/phase-helpers.js';

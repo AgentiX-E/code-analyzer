@@ -6,8 +6,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join, posix, relative } from 'node:path';
 
+import { getOrLoadProvider } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
+  CAPTURE_TAGS,
   EDGE_IMPORTS,
   EDGE_CALLS,
   EDGE_IMPLEMENTS,
@@ -19,7 +21,14 @@ import {
 } from '@code-analyzer/shared';
 
 import type { RepoGroupManager } from './repo-group-manager.js';
-import type { GraphNode, GraphEdge, GroupRepo, NodeLabel, Contract } from '@code-analyzer/shared';
+import type {
+  Contract,
+  GraphEdge,
+  GraphNode,
+  GroupRepo,
+  NodeLabel,
+  UnifiedCapture,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -301,7 +310,7 @@ export class CrossRepoIndexer {
     for (const file of selected) {
       try {
         const content = readFileSync(file.filePath, 'utf-8');
-        const symbols = this.extractSymbols(
+        const symbols = await this.extractSymbols(
           file.filePath,
           content,
           projectId,
@@ -389,17 +398,103 @@ export class CrossRepoIndexer {
   // Symbol Extraction (lightweight, regex-based)
   // -----------------------------------------------------------------------
 
-  private extractSymbols(
+  /**
+   * A file's symbols, **asked of the language's parser first**.
+   *
+   * **The regexes below are a fallback and were the only path.** `.py` is in `SOURCE_EXTENSIONS`, so a python file was
+   * admitted - **and every pattern here is a javascript shape**, so `energy.py` became a file node and
+   * `compute_kinetic_energy` never became a symbol. **An end-to-end test over three repositories in three languages
+   * is what made that visible**, and it is why this method now asks `getOrLoadProvider` before falling back.
+   *
+   * **The fallback stays**, because a provider may be absent for a language the extension list still admits - **and a
+   * partial answer under a known narrower rule is better than none.** What changed is which of the two is tried
+   * first, and the answer for the 31 languages the pipeline already supports.
+   */
+  /**
+   * A provider's captures as graph nodes.
+   *
+   * **Only the capture tags that name a symbol become nodes.** A capture list also carries docstrings, imports and
+   * call sites, and those are not nodes. **The mapping is by tag rather than by guessing from the text**, which is
+   * the whole reason to ask a parser instead of a regex.
+   */
+  private nodesFromCaptures(
+    captures: UnifiedCapture[],
+    relPath: string,
+    projectId: string,
+    language: string,
+    now: string,
+  ): GraphNode[] {
+    const labelFor: Record<string, NodeLabel> = {
+      [CAPTURE_TAGS.FUNCTION_DEF]: 'Function',
+      [CAPTURE_TAGS.CLASS_DEF]: 'Class',
+      [CAPTURE_TAGS.INTERFACE_DEF]: 'Interface',
+      [CAPTURE_TAGS.TYPE_DEF]: 'TypeAlias',
+      [CAPTURE_TAGS.ENUM_DEF]: 'Enum',
+      [CAPTURE_TAGS.METHOD_DEF]: 'Method',
+      [CAPTURE_TAGS.VARIABLE_DEF]: 'Variable',
+    };
+
+    const nodes: GraphNode[] = [];
+    const seen = new Set<string>();
+    for (const capture of captures) {
+      const label = labelFor[String(capture.tag)];
+      if (!label) continue;
+      const name = typeof capture.name === 'string' ? capture.name : '';
+      if (name.length === 0) continue;
+      // **A declaration can be captured twice** and the graph wants one node per name per file.
+      if (seen.has(name)) continue;
+      seen.add(name);
+
+      const startLine = Number(capture.startLine) || 1;
+      const endLine = Number(capture.endLine) || startLine;
+      nodes.push({
+        id: 0, // Will be assigned by store
+        projectId,
+        label,
+        name,
+        qualifiedName: `project:${projectId}:${relPath}:${name}`,
+        filePath: relPath,
+        startLine,
+        endLine,
+        language,
+        properties: { name, filePath: relPath, startLine, endLine, language },
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return nodes;
+  }
+
+  private async extractSymbols(
     filePath: string,
     content: string,
     projectId: string,
     rootPath: string,
     language: string,
-  ): GraphNode[] {
-    const nodes: GraphNode[] = [];
+  ): Promise<GraphNode[]> {
     const relPath = relative(rootPath, filePath);
     const now = new Date().toISOString();
 
+    // **The provider's answer, when there is one.** The captures carry the symbol kinds and the byte ranges, which is
+    // what the graph wants; the regexes below produce only names.
+    try {
+      const provider = await getOrLoadProvider(language);
+      if (provider) {
+        const captures = provider.parse(content, filePath);
+        const fromProvider = this.nodesFromCaptures(captures, relPath, projectId, language, now);
+        if (fromProvider.length > 0) return fromProvider;
+      }
+    } catch {
+      // A provider that throws is the fallback's reason to exist, not an error to propagate: this method's contract
+      // is symbols for a file, and it can still keep it.
+    }
+
+    const nodes: GraphNode[] = [];
     let nodeCounter = 0;
 
     // Match function declarations: function name, export function,

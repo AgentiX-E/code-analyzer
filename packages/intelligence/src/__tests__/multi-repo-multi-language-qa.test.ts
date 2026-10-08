@@ -115,19 +115,14 @@ describe('three repositories, three languages, asked across both', () => {
       expect(nodes.some((n) => String(n.filePath ?? '').endsWith('energy.py'))).toBe(true);
       expect(symbols).toContain('computeKineticEnergy');
 
-      // **And the python symbol is not, which is a finding rather than a pass.** `energy.py` is indexed as a file and
-      // its function never becomes a symbol, while the same function in `.ts` and `.js` does:
+      // **And the python symbol is there, which it was not when this line was written.**
       //
-      //   names  computeKineticEnergy, energy.ts, energy.py, computeKineticEnergy, energy.js
-      //
-      // `.py` **is** in `SOURCE_EXTENSIONS`, so the file is admitted - **and the extraction that follows is a set of
-      // regexes written for javascript shapes** (`cross-repo-indexer.ts`, the `pattern.source.includes(...)` chain)
-      // rather than the 31-provider registry the single-repository pipeline uses. **The cross-repo index therefore
-      // supports fewer languages than the product does**, and nothing said so: the file appeared in the results.
-      //
-      // **The assertion records the true state**, so that the day this is fixed the line fails and has to be updated.
+      // The previous version of this assertion read `expect(pythonSymbols).toEqual([])` **and said so in a comment**:
+      // *"the day this is fixed the line fails and has to be updated."* **It failed today**, which is how the fix is
+      // known to have worked - and it is the reason to write an assertion for the true state rather than for the
+      // desired one. `extractSymbols` now asks `getOrLoadProvider` before falling back to its regexes.
       const pythonSymbols = symbols.filter((n) => typeof n === 'string' && n.includes('kinetic_energy'));
-      expect(pythonSymbols).toEqual([]);
+      expect(pythonSymbols).toContain('compute_kinetic_energy');
     } finally {
       store.close();
       rmSync(root, { recursive: true, force: true });
