@@ -1,0 +1,44 @@
+{
+  "comment": [
+    "What a question costs through the index, against reading the corpus it answers from.",
+    "",
+    "**The ratio grows with repository size**, so a small corpus is the honest choice - **measuring on a large",
+    "one would flatter the number.** This corpus is small, and that is stated rather than hidden.",
+    "",
+    "**Both numbers use the products own token estimator**, so the ratio is a ratio of content and not of two",
+    "different estimators.",
+    "",
+    "**Comparable to the categorys figures only in shape, not in value**: `code-review-graph` reports a median",
+    "82x and a peak 528x, Graphify 71.5x - each on its own corpus and its own query set, neither published here."
+  ],
+  "measuredAt": "2026-10-08",
+  "protocol": {
+    "baseline": "every byte of the corpus in context",
+    "ours": "the declaration of the symbol that answers the question (8 lines)",
+    "countsQueries": 2,
+    "estimator": "the product's own countTokens"
+  },
+  "corpus": {
+    "path": "packages/analyzer/src/graph",
+    "files": 1,
+    "tokens": 3313
+  },
+  "corpusTokens": 3313,
+  "perQueryTokens": 47,
+  "tokenReduction": 70.5,
+  "andTheCategoryForScale": {
+    "codeReviewGraph": {
+      "median": 82,
+      "peak": 528
+    },
+    "graphify": {
+      "value": 71.5
+    },
+    "note": "their corpora, their query sets, quoted from the competitive analysis; none of them is this corpus"
+  },
+  "andWhatThisCannotSay": [
+    "**Nothing about a large repository.** The ratio improves with size, so a small corpus understates it - which is the safer direction to be wrong in.",
+    "**Nothing about answer quality.** A cheap answer that is wrong is cheaper and worthless; retrieval quality is measured separately.",
+    "**Nothing about the competitor figures as values**, only as shapes."
+  ]
+}
