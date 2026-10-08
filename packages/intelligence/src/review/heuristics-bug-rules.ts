@@ -211,4 +211,63 @@ export function checkAsyncInSynchronousCallback(lines: string[]): HeuristicRuleR
   return out;
 }
 
-export const BUG_RULES = [checkSilentCatch, checkAssignmentInCondition, checkAsyncInSynchronousCallback];
+
+/**
+ * `any` in a type position, which the reviewer reported nothing about.
+ *
+ * **A probe over ten classic defects found this one silent**: `deep-nesting`, `long-function` and `any-type` all
+ * produced **zero findings**, while the seven others fired. **A reviewer that is silent about a whole class of defect
+ * cannot be measured on it**, which is why this exists rather than a note saying it does not.
+ *
+ * **And the pattern is deliberately narrow.** `any` appears in prose, in strings and in a comment saying not to use
+ * it - and **a rule that fires on those is a false-positive generator**, which is exactly what the grounding gate
+ * was built to remove. **Only three shapes count**: an annotation (`: any`), a generic argument (`<any>`), and a cast
+ * (`as any`). **Each is a place the type system stops**, which is the defect.
+ */
+export function checkAnyTypeUsage(lines: string[]): HeuristicRuleResult[] {
+  const out: HeuristicRuleResult[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i]!;
+    // **Comments are not code**, and a file that documents "do not use `any`" is not using it.
+    const code = raw.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
+    if (code.trim().length === 0) continue;
+
+    // The three positions the type system stops at, and nothing else.
+    const annotation = /:\s*any\b/.exec(code);
+    const generic = /<\s*any\s*[>,]/.exec(code);
+    const cast = /\bas\s+any\b/.exec(code);
+    const at = annotation ?? generic ?? cast;
+    if (!at) continue;
+    // **A string or a code span containing `: any` is not an annotation.** The three patterns cannot tell, so the
+    // delimiters before the match decide it. **Backticks are in the list because of a test rather than a guess**:
+    // without them this rule fired on **its own documentation**, which mentions `` `: any` `` in a code span - and
+    // **a rule that reports a comment about `any` is a false-positive generator**, which is the thing the grounding
+    // gate was built to remove. A rule adding noise upstream of the filter that exists to remove noise is worse than
+    // no rule.
+    const before = code.slice(0, at.index);
+    const oddDelimiters = ['"', "'", '`'].some((q) => (before.split(q).length - 1) % 2 === 1);
+    if (oddDelimiters) continue;
+
+    out.push(
+      finding(
+        'bug',
+        'medium',
+        '`any` disables the type system at this point',
+        `Line ${i + 1} uses \`any\`, which turns off checking for everything flowing through it. ` +
+          'The values it carries are unchecked at every later use, and a defect that enters here is reported at the ' +
+          'call site rather than at the cause.',
+        i + 1,
+        i + 1,
+        'Replace `any` with the type the value actually has, or `unknown` if it is genuinely not known here.',
+      ),
+    );
+  }
+  return out;
+}
+
+export const BUG_RULES = [
+  checkSilentCatch,
+  checkAssignmentInCondition,
+  checkAsyncInSynchronousCallback,
+  checkAnyTypeUsage,
+];
