@@ -244,6 +244,18 @@ jobs:
           CORPUS_REPO: ${{ steps.corpus.outputs.repo }}
           CORPUS_REF: ${{ steps.corpus.outputs.ref }}
 
+      - name: Ask the compiler about the corpus
+        # **The user story about somebody else's repository**, measured in CI - **and only one of the four corpora is
+        # even TypeScript**, so **the other three must report a skip rather than a zero.** `if: always()` for the same
+        # reason as the step above it: a measurement that is skipped on failure is a measurement that is not taken.
+        if: always()
+        run: node .github/scripts/compile-evidence.cjs
+        env:
+          CORPUS_PATH: /tmp/corpus
+          CORPUS_REPO: ${{ steps.corpus.outputs.repo }}
+          CORPUS_REF: ${{ steps.corpus.outputs.ref }}
+          CORPUS_LANGUAGE: ${{ matrix.corpus.language }}
+
       - name: Upload the figure
         uses: actions/upload-artifact@v4
         if: always()
@@ -252,4 +264,5 @@ jobs:
           path: |
             benchmarks/indexing-speed.json
             benchmarks/token-reduction.json
+            benchmarks/compile-evidence.json
           retention-days: 90
