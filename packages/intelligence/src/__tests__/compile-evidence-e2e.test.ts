@@ -13,9 +13,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { collectCompileEvidence } from '@code-analyzer/analyzer';
 import { describe, expect, it } from 'vitest';
 
-import { collectCompileEvidence } from '@code-analyzer/analyzer';
 import { compilerToComments } from '../review/compiler-comments.js';
 import { judgeGrounding } from '../review/grounding-judge.js';
 
