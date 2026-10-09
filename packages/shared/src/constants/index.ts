@@ -144,6 +144,11 @@ export const LANGUAGE_EXTENSIONS: Record<SupportedLanguage, string[]> = {
   sql: ['.sql', '.psql'],
   bash: ['.sh', '.bash', '.zsh'],
   markdown: ['.md', '.mdx', '.markdown'],
+  // **The member the exhaustive map was missing**, and the reason the CI build failed: **this is a
+  // `Record<SupportedLanguage, string[]>`**, so **adding `pdf` to the union made every map that enumerates it
+  // incomplete** - and **`tsc` said so at this line rather than at the place the member was added.** That is the
+  // exhaustive-record trade: **a new member is a compile error in every map, which is exactly what it should be.**
+  pdf: ['.pdf'],
   html: ['.html', '.htm'],
   css: ['.css', '.scss', '.less'],
   r: ['.r', '.R'],
