@@ -10,10 +10,10 @@
 // this product that is not produced by a heuristic**, so **the gate that removes ungrounded comments must be able to
 // check it too**, and it can, because **the line it points at is in the file it names.**
 
+import type { CompilerDiagnostic } from '@code-analyzer/analyzer';
 import type { ReviewComment } from '@code-analyzer/shared';
 
 // **From the package's entry, not its internals.**
-import type { CompilerDiagnostic } from '@code-analyzer/analyzer';
 
 /** How many lines either side of the diagnostic the comment quotes, matching `toReviewComment`. */
 const CONTEXT = 3;
