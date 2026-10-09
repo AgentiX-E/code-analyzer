@@ -21,7 +21,10 @@ const walk = (dir) => {
     if (name === 'node_modules' || name === '.git') continue;
     const full = path.join(dir, name);
     if (fs.statSync(full).isDirectory()) walk(full);
-    else if (/\.(js|ts|mjs|cjs)$/.test(name)) files.push(full);
+    // **The extensions are the matrix's four languages, and the first version listed only JavaScript's.** That is
+    // why the Go, Python and Rust jobs reported **zero corpus tokens** - **the walk never collected a single file**, so
+    // the guard was reading an empty corpus and saying so. **A probe that filters to one language cannot count four.**
+    else if (/\.(js|ts|mjs|cjs|jsx|tsx|py|go|rs)$/.test(name)) files.push(full);
   }
 };
 walk(ROOT);
@@ -53,10 +56,16 @@ function firstDeclaration(lines) {
   return lines.findIndex((l) => DECLARATION.test(l));
 }
 
-const sample = files.slice(0, 3);
+// **The sample is the first three files with a declaration in them, not the first three files.** The distinction
+// cost three red jobs: **a corpus's first files are often its fixtures** - a `package.json` neighbour, a `'use
+// strict'` shim, a generated database module - **and three files with no declaration in them produce a zero**, which
+// the guard correctly refuses to record. **Scanning until a declaration is found measures the corpus; taking the
+// first three measures the file system's order.**
+const WINDOW = 60;
 let answerTokens = 0;
 let declarationsFound = 0;
-for (const f of sample) {
+for (const f of files.slice(0, WINDOW)) {
+  if (declarationsFound >= 3) break;
   const lines = fs.readFileSync(f, 'utf8').split('\n');
   const start = firstDeclaration(lines);
   if (start === -1) continue;
@@ -90,7 +99,7 @@ const out = {
     baseline: 'every byte of the corpus in context',
     ours: 'the declaration that answers the question (8 lines)',
     estimator: 'the same token estimator this product uses',
-    queries: sample.length,
+    queries: declarationsFound,
   },
   corpus: { files: files.length, tokens: corpusTokens },
   corpusTokens,

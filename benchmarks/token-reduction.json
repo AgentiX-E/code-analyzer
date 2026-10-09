@@ -16,15 +16,15 @@
     "baseline": "every byte of the corpus in context",
     "ours": "the declaration that answers the question (8 lines)",
     "estimator": "the same token estimator this product uses",
-    "queries": 1
+    "queries": 3
   },
   "corpus": {
-    "files": 1,
-    "tokens": 13
+    "files": 4,
+    "tokens": 51
   },
-  "corpusTokens": 13,
+  "corpusTokens": 51,
   "perQueryTokens": 13,
-  "tokenReduction": 1,
+  "tokenReduction": 3.9,
   "andTheCategoryForScale": {
     "codeReviewGraph": {
       "median": 82,
