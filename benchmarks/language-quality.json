@@ -24,7 +24,7 @@
     "recognises and the VitePress config exports a default. **An unmeasured language is not a passing one, and the",
     "two are named for that reason rather than quietly dropped.**"
   ],
-  "measuredAt": "2026-10-06",
+  "measuredAt": "2026-10-09",
   "languages": {
     "python": {
       "file": "scripts/fix_coverage.py",
