@@ -94,7 +94,14 @@ jobs:
         # on a 21,164-line corpus, **because the step had no id and `steps.index.outputs.*` were therefore empty** -
         # a record that looked successful and measured nothing. **The guard in the next step now makes that
         # impossible rather than unlikely.**
+        #
+        # **`continue-on-error` is not a concession, it is the semantics of a measurement.** The command under test is
+        # *expected* to be able to fail, and the step's job is to record **how it failed and how long it took** - so a
+        # failure here is **data**, and letting GitHub abort the job on it is what discarded the previous run's
+        # evidence. `set +e` did not help, because a `run` step is already `bash -e` and the abort happens outside the
+        # script's control.
         id: index
+        continue-on-error: true
         run: |
           # **The timing wraps the CLI rather than the test**, so the measurement is of the product and not of vitest.
           # **`/usr/bin/time` reports wall clock and peak RSS**, both of which a reader wants and neither of which a
