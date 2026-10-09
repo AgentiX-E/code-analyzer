@@ -90,6 +90,11 @@ jobs:
           echo "lines=$LINES" >> "$GITHUB_OUTPUT"
 
       - name: Index it, with a clock on it
+        # **The `id` is not decoration.** The first run of this workflow produced `seconds=0` with `completed=true`
+        # on a 21,164-line corpus, **because the step had no id and `steps.index.outputs.*` were therefore empty** -
+        # a record that looked successful and measured nothing. **The guard in the next step now makes that
+        # impossible rather than unlikely.**
+        id: index
         run: |
           # **The timing wraps the CLI rather than the test**, so the measurement is of the product and not of vitest.
           # **`/usr/bin/time` reports wall clock and peak RSS**, both of which a reader wants and neither of which a
@@ -119,6 +124,13 @@ jobs:
             const seconds = Number(process.env.SECONDS);
             const exit = Number(process.env.EXIT);
             const lines = Number(process.env.LINES);
+            // **A measurement of zero seconds is not a fast run, it is a missing one.** 21,164 lines cannot be
+            // indexed in no time, so **a zero here means the outputs did not arrive** - and **failing the job is the
+            // only honest response**, because the alternative is an artifact that reads as a very good figure.
+            if (!Number.isFinite(seconds) || seconds <= 0) {
+              console.error(`the clock returned ${seconds}, which is not a measurement of ${lines} lines`);
+              process.exit(1);
+            }
             const out = {
               comment: [
                 "Seconds to index a real repository, measured on a GitHub runner rather than on a development machine.",
