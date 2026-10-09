@@ -250,7 +250,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     this.parseFellBack = false;
     // Strip BOM (Byte Order Mark) and zero-width characters before parsing.
     const sanitized = this.sanitizeSource(source);
-    this.source = sanitized;
     this.filePath = filePath;
 
     if (!this.parser || !this.languageGrammar) {
@@ -295,6 +294,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // -----------------------------------------------------------------------
 
   extractImports(source: string): ParsedImport[] {
+    // **Written here, read by providers.** `rust.ts` and `python.ts` slice `this.source` to decide publicness and to
+    // read the text either side of a node, so **this assignment is live even though nothing in this file reads it** -
+    // and an attempt to remove it as a dead field broke those two providers. **A field with a different audience is
+    // not a dead field.**
+    this.source = source;
     this.source = source;
 
     if (!this.parser || !this.languageGrammar) {
@@ -315,11 +319,12 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // -----------------------------------------------------------------------
 
   /** **The tree for `parsedFor`**, so repeated questions about one file parse it once. */
-  protected parsedTree: { rootNode: TreeSitterSyntaxNode } | null = null;
+  protected parsedTree: TreeSitterTree | null = null;
   /** The source the cached tree describes, compared by reference and length. */
   protected parsedFor: string | null = null;
 
   isExported(source: string, symbolName: string): boolean {
+
     this.source = source;
 
     if (!this.parser || !this.languageGrammar) {
