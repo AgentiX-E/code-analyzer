@@ -31,6 +31,16 @@ export interface LanguageProvider {
   extractImports(source: string): ParsedImport[];
 
   isExported(source: string, symbolName: string): boolean;
+  /**
+   * Every name this file exports, in one walk.
+   *
+   * **The interface carried a predicate and the pipeline needed a set.** `isExported` recurses the whole tree per
+   * name, so a file with 66 distinct exported names was walked 66 times - **10,036ms of a 20,908ms index on a real
+   * repository.** **Optional, because a provider that cannot answer is better than one that guesses**: the phase
+   * falls back to the predicate when this is absent.
+   */
+  exportedNames?(source: string): Set<string>;
+
 
   readonly importSemantics: ImportSemantics;
 }

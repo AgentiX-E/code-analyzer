@@ -69,18 +69,28 @@ export class ParsePhase implements ExecutablePhase {
         // Determine if items are exported. Providers may emit captures
         // without a `name` (e.g. regex docstring/decorator captures), which
         // cannot be export-checked and are skipped.
-        // **One answer per name, because the same name appears many times.** Measured on two real files: **776
-        // captures carry 66 distinct names, and 1,933 carry 178** - so the same question was being asked about
-        // eleven times per symbol, and **an answer to a pure function of (file, name) cannot differ between them.**
-        // Asking once per name took `isExported` from **14,736ms to 1,329ms** on the second file: **an 11x saving with
-        // no change in behaviour at all.**
-
+        // **The set, in one walk, instead of a question per name.** Two earlier fixes removed most of this cost -
+        // **a cache so the file is parsed once**, and **deduplication so each name is asked about once** - and the
+        // remainder was the shape of the check itself: **`checkExported` is a predicate that recurses the whole tree
+        // for every name**, so 66 names meant 66 walks. **Measured at 10,036ms of a 20,908ms index on a real
+        // repository, and this is the replacement.**
+        //
+        // **The set is collected once and the loop reads from it**, and **`exported-names.test.ts` is a differential
+        // rather than a fixture** - it compares the set against the predicate on real files, **because a faster
+        // wrong answer is worse than a slow right one.**
+        // **The set when the provider provides one**, and **the predicate when it does not** - because a provider
+        // that cannot answer is better than one that guesses, **and a fallback is what makes the method safe to add
+        // as optional rather than as a breaking change across the interface.**
+        const exportedNames = provider.exportedNames?.(file.content) ?? null;
         const exportedBy = new Map<string, boolean>();
         for (const capture of captures) {
           if (capture.name && capture.properties) {
-            let isExported = exportedBy.get(capture.name);
-            if (isExported === undefined) {
-              isExported = provider.isExported(file.content, capture.name);
+            let isExported: boolean;
+            if (exportedNames) {
+              isExported = exportedNames.has(capture.name);
+            } else {
+              const known = exportedBy.get(capture.name);
+              isExported = known ?? provider.isExported(file.content, capture.name);
               exportedBy.set(capture.name, isExported);
             }
             // Every named capture carries a `properties` bag.

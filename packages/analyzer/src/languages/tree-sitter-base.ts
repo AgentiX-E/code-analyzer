@@ -536,6 +536,57 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     }
   }
 
+  /**
+   * Every name this file exports, collected in **one** walk.
+   *
+   * **The fix for a quadratic phase that had been sitting in the shape of the API.** `checkExported` is a
+   * *predicate* - give it a node and a name and it recurses the whole tree to answer - **and the `parse` phase had
+   * 66 distinct names to ask about, so it recursed the tree 66 times.** **Measured at 10,036ms of a 20,908ms
+   * index**, on a real repository.
+   *
+   * **A set is what the phase actually needs**, and this returns one. **The default implementation reads the
+   * grammar rather than re-deriving it**: an `export_statement` is where exports live in most of these languages,
+   * so **the walk descends into every such node and collects the identifiers under it.** Providers with a different
+   * export syntax override this, **and providers that implement neither get an empty set, which is what the base
+   * `checkExported` already returns for them.**
+   *
+   * **It collects rather than verifies**, deliberately: **verifying each candidate with `checkExported` would be
+   * `O(candidates x nodes)` and that is the cost being removed.** The equality of this set against the per-symbol
+   * predicate is **a test rather than an assumption** - see `exported-names.test.ts`.
+   */
+  exportedNames(source: string): Set<string> {
+    const names = new Set<string>();
+    if (!this.parser || !this.languageGrammar) {
+      return names;
+    }
+    // **The same cached tree the predicate uses**, so a file parsed once is not parsed again here.
+    const tree = this.parsedFor === source && this.parsedTree ? this.parsedTree : this.parser.parse(source);
+    if (!(this.parsedFor === source && this.parsedTree)) {
+      this.parsedFor = source;
+      this.parsedTree = tree;
+    }
+
+    const collect = (node: TreeSitterSyntaxNode): void => {
+      // **Every identifier under an export statement**, because the exported name can be the declaration itself
+      // (`export function foo`), a clause (`export { foo as bar }`) or a default (`export default foo`).
+      if (/identifier|property_identifier|type_identifier|shorthand_property_identifier/.test(node.type)) {
+        const text = String(node.text ?? '');
+        if (text.length > 0) names.add(text);
+      }
+      for (const child of childrenOf(node)) collect(child);
+    };
+
+    const visit = (node: TreeSitterSyntaxNode): void => {
+      // **An export statement is a subtree**, so the walk descends into it and collects, then continues outside it.
+      if (node.type === 'export_statement') {
+        collect(node);
+      }
+      for (const child of childrenOf(node)) visit(child);
+    };
+    visit(tree.rootNode);
+    return names;
+  }
+
   /** Walk the AST to check if a symbol is exported */
   protected checkExported(_node: TreeSitterSyntaxNode, _symbolName: string): boolean {
     // Base default: no export detection. 19 of 21 subclasses override this with
