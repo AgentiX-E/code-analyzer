@@ -41,10 +41,23 @@ env:
 
 jobs:
   real-corpus:
-    name: Index a real repository and measure it
+    name: ${{ matrix.corpus.language }} - ${{ matrix.corpus.repo }}
     runs-on: ubuntu-latest
     # **Six hours is the runner's limit and the reason this job exists at all.**
     timeout-minutes: 340
+
+    # **Four real repositories in four languages**, because **a product that claims multi-language analysis has to be
+    # measured in more than one language** - and because **a corpus nobody else can check out is not evidence.** Each
+    # is pinned to a tag so two runs measure the same bytes, and each is a widely-used project rather than a fixture.
+    strategy:
+      # **One language failing must not hide the other three**, so the matrix does not stop early.
+      fail-fast: false
+      matrix:
+        corpus:
+          - { repo: 'expressjs/express', ref: 'v5.1.0',  language: javascript, glob: '*.js' }
+          - { repo: 'pallets/flask',     ref: '3.1.0',   language: python,     glob: '*.py' }
+          - { repo: 'gin-gonic/gin',     ref: 'v1.10.0', language: go,         glob: '*.go' }
+          - { repo: 'BurntSushi/ripgrep', ref: '14.1.1', language: rust,       glob: '*.rs' }
 
     steps:
       - name: Checkout
@@ -70,8 +83,11 @@ jobs:
       - name: Check out the corpus
         id: corpus
         run: |
-          REPO="${{ github.event.inputs.repository || 'expressjs/express' }}"
-          REF="${{ github.event.inputs.ref || 'v5.1.0' }}"
+          # **The matrix decides unless a manual dispatch overrides it**, so the scheduled and manual paths share one
+          # body and neither is a special case.
+          REPO="${{ github.event.inputs.repository || matrix.corpus.repo }}"
+          REF="${{ github.event.inputs.ref || matrix.corpus.ref }}"
+          GLOB="${{ matrix.corpus.glob }}"
           # **A full clone of the tag**, not a shallow one: the pipeline walks the tree, and a shallow checkout has a
           # different file set. **Pinned to a tag so two runs measure the same bytes.**
           git clone --depth 1 --branch "$REF" "https://github.com/$REPO.git" /tmp/corpus
@@ -80,10 +96,10 @@ jobs:
           echo "## Corpus" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- repository: \`$REPO\` at \`$REF\`" >> "$GITHUB_STEP_SUMMARY"
-          FILES=$(find /tmp/corpus -type f \( -name '*.js' -o -name '*.ts' -o -name '*.mjs' -o -name '*.cjs' \) \
-            -not -path '*/node_modules/*' -not -path '*/.git/*' | wc -l | tr -d ' ')
-          LINES=$(find /tmp/corpus -type f \( -name '*.js' -o -name '*.ts' -o -name '*.mjs' -o -name '*.cjs' \) \
-            -not -path '*/node_modules/*' -not -path '*/.git/*' -exec cat {} + | wc -l | tr -d ' ')
+          # **The extension comes from the matrix**, because **counting a JavaScript corpus with a Python glob would
+          # report zero files and a figure about nothing.**
+          FILES=$(find /tmp/corpus -type f -name "$GLOB" -not -path '*/node_modules/*' -not -path '*/.git/*' | wc -l | tr -d ' ')
+          LINES=$(find /tmp/corpus -type f -name "$GLOB" -not -path '*/node_modules/*' -not -path '*/.git/*' -exec cat {} + | wc -l | tr -d ' ')
           echo "- files: **$FILES**" >> "$GITHUB_STEP_SUMMARY"
           echo "- lines: **$LINES**" >> "$GITHUB_STEP_SUMMARY"
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
@@ -220,7 +236,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: indexing-speed-real-corpus
+          name: real-corpus-${{ matrix.corpus.language }}
           path: |
             benchmarks/indexing-speed.json
             benchmarks/token-reduction.json
