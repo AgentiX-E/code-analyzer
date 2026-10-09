@@ -21,14 +21,16 @@ on:
   # **Manual by default**, because a large checkout is minutes of runner time and the figure moves slowly.
   workflow_dispatch:
     inputs:
+      # **No defaults, and that is the fix rather than a style choice.** With a default, `github.event.inputs.repository`
+      # is **never empty on a dispatch**, so `inputs.repository || matrix.corpus.repo` **always took the input** - and
+      # **all four languages measured express with their own glob, reporting zero files and `completed=true`.**
+      # **A default is a value that overrides the matrix it was meant to fall back to.**
       repository:
-        description: 'Repository to clone, as owner/name'
+        description: 'Override the matrix repository (leave empty to use the matrix)'
         required: false
-        default: 'expressjs/express'
       ref:
-        description: 'Tag or SHA to pin the checkout to'
+        description: 'Override the matrix ref (leave empty to use the matrix)'
         required: false
-        default: 'v5.1.0'
   schedule:
     # Monthly, so drift is found without a commit.
     - cron: '0 4 1 * *'
@@ -85,6 +87,7 @@ jobs:
         run: |
           # **The matrix decides unless a manual dispatch overrides it**, so the scheduled and manual paths share one
           # body and neither is a special case.
+          # **Empty means "use the matrix"**, and that only works because the inputs above have no defaults.
           REPO="${{ github.event.inputs.repository || matrix.corpus.repo }}"
           REF="${{ github.event.inputs.ref || matrix.corpus.ref }}"
           GLOB="${{ matrix.corpus.glob }}"
@@ -100,6 +103,15 @@ jobs:
           # report zero files and a figure about nothing.**
           FILES=$(find /tmp/corpus -type f -name "$GLOB" -not -path '*/node_modules/*' -not -path '*/.git/*' | wc -l | tr -d ' ')
           LINES=$(find /tmp/corpus -type f -name "$GLOB" -not -path '*/node_modules/*' -not -path '*/.git/*' -exec cat {} + | wc -l | tr -d ' ')
+
+          # **A corpus with no files is not a fast index, it is a wrong glob.** The run this guard was added after
+          # reported **zero files and `completed=true` in four seconds** on three languages, **because every one of
+          # them had measured express** - and **the figure it wrote was absent rather than wrong, which is the only
+          # reason the defect was visible at all.**
+          if [ "$FILES" -eq 0 ]; then
+            echo "::error::the glob '$GLOB' matched no files in $REPO@$REF; this is a wrong corpus, not a measurement"
+            exit 1
+          fi
           echo "- files: **$FILES**" >> "$GITHUB_STEP_SUMMARY"
           echo "- lines: **$LINES**" >> "$GITHUB_STEP_SUMMARY"
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
