@@ -152,6 +152,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Record what happened, as a figure or as a bound
+        # **`if: always()` is what makes the chain work**, and the run before this one showed why: with
+        # `continue-on-error` the index step is marked green **and GitHub still skips every step after a failed one
+        # unless it opts in.** The result was an artifact upload and a record step that never ran - **the same defect
+        # one level down from the previous fix.**
+        if: always()
         run: |
           node -e '
             const fs = require("node:fs");
