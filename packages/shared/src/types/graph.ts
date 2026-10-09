@@ -217,6 +217,10 @@ export const PIPELINE_PHASE_IDS = [
   'structure',
   'parse',
   'markdown',
+  // **A document rather than a language**, and the reason it is in this union is that **the scan phase's job is to
+  // produce indexable text**, and a PDF is indexable text that arrives in a container. **It is enumerated here so
+  // that the extraction has a name to dispatch on** rather than being a special case inside the walk.
+  'pdf',
   'config',
   'crossFile',
   'scopeResolution',
@@ -406,6 +410,11 @@ export const SUPPORTED_LANGUAGES = [
   'sql',
   'bash',
   'markdown',
+  // **A document rather than a language**, but **the scan phase's job is to produce indexable text**, and a PDF is
+  // indexable text in a container. **It is enumerated here so the extraction has a name to dispatch on** rather than
+  // being a special case inside the walk. **The first attempt at this edited a different array that also contains
+  // `markdown`** - see the commit message.
+  'pdf',
   'html',
   'css',
   'r',
@@ -726,6 +735,10 @@ export function getLanguageFromFilename(filePath: string): SupportedLanguage | n
     '.tf': 'hcl',
     '.tfvars': 'hcl',
     '.svelte': 'svelte',
+    // **Anchored on the map's own closing line**, because the two previous attempts at this row used a token that
+    // appears in more than one list - `'markdown'` - and **edited the wrong array twice.** **A single-token anchor is
+    // not an anchor when the token is not unique**, and the third attempt is the one that reads the file first.
+    '.pdf': 'pdf',
   };
 
   return EXT_MAP[ext] ?? null;

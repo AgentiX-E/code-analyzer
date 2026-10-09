@@ -7,6 +7,10 @@ import { basename, dirname, relative, resolve, join } from 'node:path';
 
 import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger } from '@code-analyzer/shared';
 
+// **A document extractor, not a language provider.** A PDF has no grammar and no symbols; **what it has is text**,
+// and the scan phase is where text becomes indexable - so the extraction belongs here rather than in a parser.
+import { extractPdfText } from '../languages/pdf-text.js';
+
 import type { LanguageProvider } from '../languages/provider.js';
 import type {
   PipelinePhase,
@@ -178,7 +182,18 @@ export async function walkDirectory(
         const fileStat = await stat(fullPath);
         if (fileStat.size > maxFileSize) continue;
 
-        const content = await readFile(fullPath, 'utf-8');
+        // **A PDF is read as bytes and decoded, not read as text.** Handing its bytes to `readFile(..., 'utf-8')`
+        // would produce a string of garbage that **looks like content to every later phase** - and the extraction
+        // reports how many streams it read, **so a document with no recoverable text contributes nothing rather than
+        // noise.** See `pdf-text.ts` and the audit in `2026-10-09-deliberate-omissions-audited.md`.
+        let content: string;
+        if (language === 'pdf') {
+          const bytes = await readFile(fullPath);
+          content = extractPdfText(bytes).text;
+          if (content.length === 0) continue;
+        } else {
+          content = await readFile(fullPath, 'utf-8');
+        }
         const hash = computeHash(content);
 
         results.push({
