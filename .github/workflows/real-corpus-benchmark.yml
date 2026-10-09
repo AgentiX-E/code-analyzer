@@ -117,6 +117,28 @@ jobs:
           echo "exit=$EXIT" >> "$GITHUB_OUTPUT"
           echo "seconds=$((END - START))" >> "$GITHUB_OUTPUT"
 
+          # **The command's output went to files, so a failure left no evidence in the log.** The first run exited
+          # non-zero in two seconds on 21,164 lines and the only thing visible was the wrapper's own echo - **which
+          # is a defect in the measurement, not in the product, and one this step now cannot repeat**: whatever the
+          # command wrote is printed **on failure and on success**, because a figure nobody can explain is a figure
+          # nobody can trust.
+          echo "## What the command said"
+          echo '```'
+          head -40 /tmp/out/time.txt 2>/dev/null || echo "(no time output)"
+          echo '```'
+          echo "## And what it wrote"
+          echo '```'
+          head -c 1200 /tmp/out/graph.json 2>/dev/null || echo "(no graph output)"
+          echo '```'
+          # **The same, for the reader who only opens the job summary.**
+          {
+            echo "## Indexing"
+            echo ""
+            echo "- exit code: **$EXIT**"
+            echo "- wall clock: **$((END - START))s**"
+            echo "- command: \`code-analyzer analyze\` on the corpus above"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Record what happened, as a figure or as a bound
         run: |
           node -e '
