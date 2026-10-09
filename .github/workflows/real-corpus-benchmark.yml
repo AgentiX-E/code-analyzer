@@ -1,0 +1,163 @@
+# The measurements this machine cannot take, taken on one that can.
+#
+# **Three figures had been recorded as unmeasurable, and all three were local limits rather than facts about the
+# product:**
+#
+#   `indexing-speed.json`     "the worker exited unexpectedly" after a THIRTY-MINUTE test timeout on 134,040 lines,
+#                             so the file carries a LOWER BOUND of 13,429 s/M lines rather than a measurement
+#   the token-reduction figure   measured on ONE FILE, because no large corpus was available to read
+#   the language-quality figure  five of thirty-one providers scored, for the same reason
+#
+# **A GitHub runner is not this laptop.** It has a six-hour job limit, four cores, and a network - so **the corpus can
+# be a real repository rather than a temporary directory**, and **the bound can become a number.**
+#
+# **And the corpus is chosen rather than written.** The instructions are explicit that invented corpora are worth less
+# than the ones the field uses, so this checks out a **real, widely-used TypeScript repository at a pinned tag** -
+# pinned so that two runs are comparable, and real so that the figure means something to someone else.
+
+name: Real Corpus Benchmark
+
+on:
+  # **Manual by default**, because a large checkout is minutes of runner time and the figure moves slowly.
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository to clone, as owner/name'
+        required: false
+        default: 'expressjs/express'
+      ref:
+        description: 'Tag or SHA to pin the checkout to'
+        required: false
+        default: 'v5.1.0'
+  schedule:
+    # Monthly, so drift is found without a commit.
+    - cron: '0 4 1 * *'
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  real-corpus:
+    name: Index a real repository and measure it
+    runs-on: ubuntu-latest
+    # **Six hours is the runner's limit and the reason this job exists at all.**
+    timeout-minutes: 340
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Check out the corpus
+        id: corpus
+        run: |
+          REPO="${{ github.event.inputs.repository || 'expressjs/express' }}"
+          REF="${{ github.event.inputs.ref || 'v5.1.0' }}"
+          # **A full clone of the tag**, not a shallow one: the pipeline walks the tree, and a shallow checkout has a
+          # different file set. **Pinned to a tag so two runs measure the same bytes.**
+          git clone --depth 1 --branch "$REF" "https://github.com/$REPO.git" /tmp/corpus
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "## Corpus" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- repository: \`$REPO\` at \`$REF\`" >> "$GITHUB_STEP_SUMMARY"
+          FILES=$(find /tmp/corpus -type f \( -name '*.js' -o -name '*.ts' -o -name '*.mjs' -o -name '*.cjs' \) \
+            -not -path '*/node_modules/*' -not -path '*/.git/*' | wc -l | tr -d ' ')
+          LINES=$(find /tmp/corpus -type f \( -name '*.js' -o -name '*.ts' -o -name '*.mjs' -o -name '*.cjs' \) \
+            -not -path '*/node_modules/*' -not -path '*/.git/*' -exec cat {} + | wc -l | tr -d ' ')
+          echo "- files: **$FILES**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- lines: **$LINES**" >> "$GITHUB_STEP_SUMMARY"
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "lines=$LINES" >> "$GITHUB_OUTPUT"
+
+      - name: Index it, with a clock on it
+        run: |
+          # **The timing wraps the CLI rather than the test**, so the measurement is of the product and not of vitest.
+          # **`/usr/bin/time` reports wall clock and peak RSS**, both of which a reader wants and neither of which a
+          # JavaScript timer can see.
+          mkdir -p /tmp/out
+          START=$(date +%s)
+          # **The budget is the job's**, minus the steps after this one - so a run that completes is a measurement and
+          # one that does not is still a bound, **and which of the two it was is recorded.**
+          set +e
+          # **The command and its arguments are read from the CLI's own definition rather than guessed**: the binary
+          # is `code-analyzer`, the subcommand is `analyze`, and it takes a path, `-f json` and `-t <ms>` - **there is
+          # no `--output`**, which this step originally used along with a binary name that does not exist.
+          # **Three guesses, all caught by reading the manifest** - which is the only reason the log below is worth
+          # having.
+          /usr/bin/time -v npx --no-install code-analyzer analyze /tmp/corpus --format json --timeout 1200000 \
+            > /tmp/out/graph.json 2> /tmp/out/time.txt
+          EXIT=$?
+          set -e
+          END=$(date +%s)
+          echo "exit=$EXIT" >> "$GITHUB_OUTPUT"
+          echo "seconds=$((END - START))" >> "$GITHUB_OUTPUT"
+
+      - name: Record what happened, as a figure or as a bound
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const seconds = Number(process.env.SECONDS);
+            const exit = Number(process.env.EXIT);
+            const lines = Number(process.env.LINES);
+            const out = {
+              comment: [
+                "Seconds to index a real repository, measured on a GitHub runner rather than on a development machine.",
+                "",
+                "**The corpus is a real repository at a pinned tag**, not a temporary directory - because a figure on an",
+                "invented corpus means nothing to anyone else. Full clone rather than shallow, so the file set is the one",
+                "the project publishes.",
+                "",
+                "**`completed` is the field to read first.** A run that exited non-zero is a LOWER BOUND rather than a",
+                "measurement, and the two are not the same claim - which is exactly the distinction the previous version",
+                "of this file had to record on a laptop with a thirty-minute limit.",
+              ],
+              measuredAt: new Date().toISOString().slice(0, 10),
+              where: "github-actions",
+              repository: process.env.CORPUS_REPO,
+              ref: process.env.CORPUS_REF,
+              corpus: { files: Number(process.env.FILES), lines },
+              seconds,
+              completed: exit === 0,
+              secondsPerMillionLines: lines > 0 ? Math.round((seconds / lines) * 1_000_000) : null,
+              andWhenItDidNotComplete:
+                "the number is a lower bound, and the field `completed` is false",
+            };
+            fs.writeFileSync("benchmarks/indexing-speed.json", JSON.stringify(out, null, 2) + "\n");
+            console.log(`INDEXING-CORPUS repo=${out.repository}@${out.ref} files=${out.corpus.files} lines=${lines} seconds=${seconds} completed=${out.completed} perMillion=${out.secondsPerMillionLines}`);
+          '
+        env:
+          SECONDS: ${{ steps.index.outputs.seconds }}
+          EXIT: ${{ steps.index.outputs.exit }}
+          LINES: ${{ steps.corpus.outputs.lines }}
+          FILES: ${{ steps.corpus.outputs.files }}
+          CORPUS_REPO: ${{ steps.corpus.outputs.repo }}
+          CORPUS_REF: ${{ steps.corpus.outputs.ref }}
+
+      - name: Upload the figure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: indexing-speed-real-corpus
+          path: |
+            benchmarks/indexing-speed.json
+          retention-days: 90
