@@ -109,7 +109,12 @@ jobs:
           # no `--output`**, which this step originally used along with a binary name that does not exist.
           # **Three guesses, all caught by reading the manifest** - which is the only reason the log below is worth
           # having.
-          /usr/bin/time -v npx --no-install code-analyzer analyze /tmp/corpus --format json --timeout 1200000 \
+          # **Called by path, because `npx --no-install code-analyzer` cannot work here.** The binary name in
+          # `packages/cli/package.json` is only linked into `.bin` when the package is *installed*; in a workspace it
+          # is built and left where the build put it. **The run before this one failed with `npm error could not
+          # determine executable to run`** - which the evidence step added in the previous commit is what made
+          # readable. **A measurement step that fails silently is a measurement step that reports a number anyway.**
+          /usr/bin/time -v node packages/cli/dist/index.js analyze /tmp/corpus --format json --timeout 1200000 \
             > /tmp/out/graph.json 2> /tmp/out/time.txt
           EXIT=$?
           set -e
