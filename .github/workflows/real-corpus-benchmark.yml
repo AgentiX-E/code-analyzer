@@ -135,7 +135,12 @@ jobs:
           # **`/usr/bin/time` reports wall clock and peak RSS**, both of which a reader wants and neither of which a
           # JavaScript timer can see.
           mkdir -p /tmp/out
-          START=$(date +%s)
+          # **Milliseconds rather than seconds, because a second is not the resolution of the thing being measured.**
+          # **The Go corpus indexes 19,149 lines in under a second**, so a whole-second clock reports **zero**, and
+          # **the guard below read that as a missing measurement and failed the job** - **correctly, for the guard it
+          # was, and incorrectly for the fact it was.** **A unit that cannot represent a fast result turns a fast
+          # result into an absent one.**
+          START=$(date +%s%3N)
           # **The budget is the job's**, minus the steps after this one - so a run that completes is a measurement and
           # one that does not is still a bound, **and which of the two it was is recorded.**
           set +e
@@ -153,9 +158,9 @@ jobs:
             > /tmp/out/graph.json 2> /tmp/out/time.txt
           EXIT=$?
           set -e
-          END=$(date +%s)
+          END=$(date +%s%3N)
           echo "exit=$EXIT" >> "$GITHUB_OUTPUT"
-          echo "seconds=$((END - START))" >> "$GITHUB_OUTPUT"
+          echo "millis=$((END - START))" >> "$GITHUB_OUTPUT"
 
           # **The command's output went to files, so a failure left no evidence in the log.** The first run exited
           # non-zero in two seconds on 21,164 lines and the only thing visible was the wrapper's own echo - **which
@@ -188,14 +193,18 @@ jobs:
         run: |
           node -e '
             const fs = require("node:fs");
-            const seconds = Number(process.env.SECONDS);
+            const millis = Number(process.env.MILLIS);
+            const seconds = millis / 1000;
             const exit = Number(process.env.EXIT);
             const lines = Number(process.env.LINES);
             // **A measurement of zero seconds is not a fast run, it is a missing one.** 21,164 lines cannot be
             // indexed in no time, so **a zero here means the outputs did not arrive** - and **failing the job is the
             // only honest response**, because the alternative is an artifact that reads as a very good figure.
-            if (!Number.isFinite(seconds) || seconds <= 0) {
-              console.error(`the clock returned ${seconds}, which is not a measurement of ${lines} lines`);
+            // **The guard asks whether a measurement happened, in the unit the clock reports**, because **a
+            // whole-second clock cannot distinguish "fast" from "absent"** - and **that distinction failed the Go job
+            // once already.**
+            if (!Number.isFinite(millis) || millis <= 0) {
+              console.error(`the clock returned ${millis}ms, which is not a measurement of ${lines} lines`);
               process.exit(1);
             }
             const out = {
@@ -215,7 +224,7 @@ jobs:
               repository: process.env.CORPUS_REPO,
               ref: process.env.CORPUS_REF,
               corpus: { files: Number(process.env.FILES), lines },
-              seconds,
+              seconds: Math.round(seconds * 1000) / 1000,
               completed: exit === 0,
               secondsPerMillionLines: lines > 0 ? Math.round((seconds / lines) * 1_000_000) : null,
               andWhenItDidNotComplete:
@@ -225,7 +234,7 @@ jobs:
             console.log(`INDEXING-CORPUS repo=${out.repository}@${out.ref} files=${out.corpus.files} lines=${lines} seconds=${seconds} completed=${out.completed} perMillion=${out.secondsPerMillionLines}`);
           '
         env:
-          SECONDS: ${{ steps.index.outputs.seconds }}
+          MILLIS: ${{ steps.index.outputs.millis }}
           EXIT: ${{ steps.index.outputs.exit }}
           LINES: ${{ steps.corpus.outputs.lines }}
           FILES: ${{ steps.corpus.outputs.files }}
