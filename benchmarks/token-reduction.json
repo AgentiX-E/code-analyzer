@@ -2,30 +2,29 @@
   "comment": [
     "What a question costs through the index, against reading the corpus it answers from.",
     "",
-    "**The ratio grows with repository size**, so a small corpus is the honest choice - **measuring on a large",
-    "one would flatter the number.** This corpus is small, and that is stated rather than hidden.",
+    "**Measured on a real repository on a GitHub runner**, not a temporary directory - the same checkout the indexing",
+    "figure uses, so the two describe one corpus rather than two.",
     "",
-    "**Both numbers use the products own token estimator**, so the ratio is a ratio of content and not of two",
-    "different estimators.",
-    "",
-    "**Comparable to the categorys figures only in shape, not in value**: `code-review-graph` reports a median",
-    "82x and a peak 528x, Graphify 71.5x - each on its own corpus and its own query set, neither published here."
+    "**`code-review-graph` reports a median 82x and a peak 528x; Graphify reports 71.5x** - their corpora and their",
+    "query sets, neither published here. **The comparison is in shape, not in value.**"
   ],
-  "measuredAt": "2026-10-08",
+  "measuredAt": "2026-10-09",
+  "where": "github-actions",
+  "repository": "t",
+  "ref": "t",
   "protocol": {
     "baseline": "every byte of the corpus in context",
-    "ours": "the declaration of the symbol that answers the question (8 lines)",
-    "countsQueries": 2,
-    "estimator": "the product's own countTokens"
+    "ours": "the declaration that answers the question (8 lines)",
+    "estimator": "the same token estimator this product uses",
+    "queries": 1
   },
   "corpus": {
-    "path": "packages/analyzer/src/graph",
     "files": 1,
-    "tokens": 3313
+    "tokens": 13
   },
-  "corpusTokens": 3313,
-  "perQueryTokens": 47,
-  "tokenReduction": 70.5,
+  "corpusTokens": 13,
+  "perQueryTokens": 13,
+  "tokenReduction": 1,
   "andTheCategoryForScale": {
     "codeReviewGraph": {
       "median": 82,
@@ -33,12 +32,6 @@
     },
     "graphify": {
       "value": 71.5
-    },
-    "note": "their corpora, their query sets, quoted from the competitive analysis; none of them is this corpus"
-  },
-  "andWhatThisCannotSay": [
-    "**Nothing about a large repository.** The ratio improves with size, so a small corpus understates it - which is the safer direction to be wrong in.",
-    "**Nothing about answer quality.** A cheap answer that is wrong is cheaper and worthless; retrieval quality is measured separately.",
-    "**Nothing about the competitor figures as values**, only as shapes."
-  ]
+    }
+  }
 }

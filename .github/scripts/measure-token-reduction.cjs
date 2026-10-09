@@ -28,16 +28,42 @@ walk(ROOT);
 
 const corpusTokens = files.reduce((sum, f) => sum + countTokens(fs.readFileSync(f, 'utf8')), 0);
 
-// **A declaration, not a file**: eight lines around the first export of three real files, which is what a symbol
-// lookup returns - and the same shape the single-file measurement used, so the two are comparable.
+// **A declaration, not a file**: eight lines around the first declaration of three real files, which is what a
+// symbol lookup returns - and the same shape the single-file measurement used, so the two are comparable.
+//
+// **The declaration syntax is per language, and the first version of this hardcoded `^export `** - **which is
+// JavaScript.** On the other three corpora it matched nothing, `perQuery` was zero, and **the guard below failed
+// three of four jobs** - **correctly**, because **a zero ratio is not a very good result, it is a missing
+// measurement.** **So the fix is here rather than in the guard**: **a probe that only speaks one language cannot
+// measure four.**
+// **One shape rather than five**, and the first two attempts at this are why. **`export` alone is JavaScript**;
+// **declaration keywords alone miss CommonJS**, and **express's first three files are CommonJS** - `var express =
+// require('..')`, `'use strict'`, `var users = []` - **so a probe that spoke TypeScript, Python, Go and Rust still
+// matched nothing on a JavaScript corpus.**
+//
+// **Every language in this matrix declares things with a keyword at the start of a line**, so **the pattern is the
+// union of those keywords rather than a set of language-specific rules.** It is deliberately broad: **this measures
+// what a symbol lookup would return**, and **the question is not which keyword was used but whether a declaration
+// starts here.**
+const DECLARATION = /^\s*(export|import|var|const|let|function|class|def|func|fn|pub|type|struct|enum|trait|impl|interface|package|namespace|module)\s/;
+
+/** The first line that looks like a declaration in any of the languages this matrix contains. */
+/** The first line that looks like a declaration, in any of the languages this matrix contains. */
+function firstDeclaration(lines) {
+  return lines.findIndex((l) => DECLARATION.test(l));
+}
+
 const sample = files.slice(0, 3);
 let answerTokens = 0;
+let declarationsFound = 0;
 for (const f of sample) {
   const lines = fs.readFileSync(f, 'utf8').split('\n');
-  const start = Math.max(0, lines.findIndex((l) => /^export /.test(l)));
+  const start = firstDeclaration(lines);
+  if (start === -1) continue;
+  declarationsFound += 1;
   answerTokens += countTokens(lines.slice(start, start + 8).join('\n'));
 }
-const perQuery = sample.length > 0 ? Math.round(answerTokens / sample.length) : 0;
+const perQuery = declarationsFound > 0 ? Math.round(answerTokens / declarationsFound) : 0;
 const ratio = perQuery > 0 ? Math.round((corpusTokens / perQuery) * 10) / 10 : null;
 
 // **A zero would not be a very good ratio, it would be a missing measurement.**
