@@ -417,7 +417,7 @@ AI Agent (Claude, Cursor, Codex, etc.)
 
 ### Server Capabilities
 
-- **Tools**: 48 tools with list-changed notifications
+- **Tools**: 49 tools with list-changed notifications
 - **Resources**: 15 resources with subscribe and list-changed support
 - **Prompts**: 5 reusable prompt templates with list-changed notifications
 - **Logging**: Structured request logging with duration tracking
@@ -435,7 +435,7 @@ AI Agent (Claude, Cursor, Codex, etc.)
 
 Tools can be filtered by profile to limit exposure:
 
-- **all**: All 48 tools (default)
+- **all**: All 49 tools (default)
 - **analysis**: 28 query, review, and impact tools
 - **scout**: Discovery-focused tools only
 
@@ -549,5 +549,5 @@ Source Files (*.ts, *.py, *.go, ...)
     �?
     ├──�? [Standards Engine] (regex + metric + ast-pattern checks)
     �?
-    └──�? [MCP Server] (48 tools exposed to AI agents)
+    └──�? [MCP Server] (49 tools exposed to AI agents)
 ```

@@ -1,6 +1,6 @@
 # MCP Server Guide
 
-> Setup and usage guide for the Code Analyzer MCP server — expose 48 tools, 15 resources, and 5 prompts to AI coding agents.
+> Setup and usage guide for the Code Analyzer MCP server — expose 49 tools, 15 resources, and 5 prompts to AI coding agents.
 
 > **Alpha Status**: The MCP server framework, middleware, transports, and Cypher query engine are fully functional. The 38 tool definitions exist and are callable, but most tool implementations currently return placeholder or empty data. The table below summarizes per-tool status. Use the legends `[Functional]` (tested and working), `[Partial]` (may return real data in some cases), and `[Experimental]` (placeholder data only) to understand what to expect.
 
@@ -51,9 +51,9 @@ Code Analyzer works with every major MCP-compatible AI coding client. Below are 
 }
 ```
 
-**After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 48 tools are available.
+**After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 49 tools are available.
 
-**Tools available:** All 48 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
+**Tools available:** All 49 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
 
 **Example queries you can ask Claude:**
 
@@ -729,7 +729,7 @@ const policy = new ToolPolicy('analysis');
 // Only analysis-profile tools are available
 
 policy.setProfile('all');
-// All 48 tools are now available
+// All 49 tools are now available
 ```
 
 ---

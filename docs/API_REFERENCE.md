@@ -188,7 +188,7 @@ Base URL: `http://localhost:3000/api/v1`
 
 ## MCP Tools Reference
 
-Code Analyzer exposes **48 tools** via the MCP (Model Context Protocol) interface.
+Code Analyzer exposes **49 tools** via the MCP (Model Context Protocol) interface.
 
 > **On the counts in this section.** The headings below are _this document's_ grouping, and they add up to 40. The
 > registry declares three categories — `analysis` (35), `all` (9) and `scout` (1) — which add up to 45. The two
