@@ -1,0 +1,16 @@
+{
+  "comment": [
+    "The semantic review against the real ground-truth dataset, measured where a credential exists.",
+    "",
+    "**The heuristic path has a committed figure and this one does not**, because this one calls a model. **A job",
+    "reports it whenever `DEEPSEEK_API_KEY` is configured, and reports a skip with its reason whenever it is not** -",
+    "because **an unrun measurement and a zero must not look alike.**"
+  ],
+  "measuredAt": "2026-10-10",
+  "where": "github-actions",
+  "criterion": "overlap (file + line over overlap), the same one the heuristic figure uses",
+  "issueCount": 100,
+  "skipped": {
+    "reason": "DEEPSEEK_API_KEY is not configured"
+  }
+}

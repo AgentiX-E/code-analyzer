@@ -1,0 +1,72 @@
+name: Semantic Review Benchmark
+
+# **The figure the repository cannot commit**, because it comes from a model.
+#
+# **The heuristic path has a number in the docs and this one has a job instead**, for the reason the docs give: a
+# committed figure that nobody can reproduce is a claim, and **a job that produces the figure whenever a credential
+# is configured is a measurement.** **The credential is `DEEPSEEK_API_KEY`; without it the job reports a skip with its
+# reason rather than a zero**, so **an unrun measurement cannot be mistaken for a bad one.**
+#
+# **And it is dispatched rather than scheduled**, because **each run calls a model once per file window and costs
+# money** - so a human decides when to spend it, and **the artifact records when it was measured.**
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/intelligence/src/review/llm/**'
+      - 'packages/intelligence/src/review/real-ground-truth*'
+      - 'benchmarks/real-ground-truth/**'
+      - '.github/scripts/measure-semantic-review.mjs'
+      - '.github/workflows/semantic-review.yml'
+
+concurrency:
+  group: semantic-review
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  semantic-review:
+    name: Review the real dataset with a model
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Review the dataset, or say why not
+        env:
+          # **The credential is read from the environment and never written anywhere.** The script logs no part of it,
+          # and the artifact carries only counts.
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: node .github/scripts/measure-semantic-review.mjs
+
+      - name: Upload the figure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semantic-review
+          path: benchmarks/semantic-review.json
+          if-no-files-found: warn
+          retention-days: 90
