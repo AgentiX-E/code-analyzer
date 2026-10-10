@@ -1,0 +1,58 @@
+{
+  "comment": [
+    "Every candidate filter, re-scored against the same stored findings and the same ground truth.",
+    "",
+    "**No model was called to produce this table.** Calling it is the expensive half, so the findings are kept",
+    "and a filter becomes a re-score - which is what makes a direction cheap enough to test before committing",
+    "to it, and what the measured-gap page argues for."
+  ],
+  "measuredAt": "2026-10-10",
+  "where": "github-actions",
+  "sourceFinding": 21,
+  "rows": [
+    {
+      "filter": "bug",
+      "describe": "only findings the model called a bug",
+      "kept": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 250,
+      "precision": 1,
+      "recall": 0.004,
+      "f1": 0.0079
+    },
+    {
+      "filter": "high",
+      "describe": "only findings the model marked high or critical",
+      "kept": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 250,
+      "precision": 1,
+      "recall": 0.004,
+      "f1": 0.0079
+    },
+    {
+      "filter": "none",
+      "describe": "every finding the lanes produced",
+      "kept": 21,
+      "tp": 1,
+      "fp": 20,
+      "fn": 250,
+      "precision": 0.0476,
+      "recall": 0.004,
+      "f1": 0.0074
+    },
+    {
+      "filter": "ranged",
+      "describe": "only findings with a range of at least one line",
+      "kept": 21,
+      "tp": 1,
+      "fp": 20,
+      "fn": 250,
+      "precision": 0.0476,
+      "recall": 0.004,
+      "f1": 0.0074
+    }
+  ]
+}
