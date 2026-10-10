@@ -88,12 +88,35 @@ export default tseslint.config(
   // The suites belong to `tsconfig.tests.json`, not to a package project, so the project service is
   // told where to find them. `defaultProject` is that mechanism; unlike `allowDefaultProject` it has
   // no cap on the number of files it covers, which is why the suites are handled here.
+  // **The package test directories get an explicit `project`, because `defaultProject` is not enough for them.**
+  // **`defaultProject` applies only when a file belongs to no other project**, and **`packages/*/src/__tests__` does
+  // have a nearer config** - `packages/*/tsconfig.json` - **whose `exclude` list omits the suites.** **So the file
+  // was claimed by a project that does not contain it, and typed linting reported that as a parse error.** Three
+  // files surfaced it; **the pattern is what makes all of them work.**
+  {
+    languageOptions: {
+      parserOptions: {
+        // **`projectService` has to be off for `project` to mean anything** - the config system itself says so:
+        // *"Enabling `project` does nothing when `projectService` is enabled."* **The two are alternatives, and this
+        // block chooses the explicit one because `defaultProject` cannot reach these files.**
+        projectService: false,
+        project: ['./tsconfig.tests.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    files: ['packages/*/src/__tests__/**/*.ts', 'tests/**/*.ts'],
+  },
   {
     languageOptions: {
       parserOptions: {
         projectService: { defaultProject: 'tsconfig.tests.json' },
       },
     },
+    // **The package test directories are handled by the block above and must not be matched again here**, because
+    // **two matching blocks are not merged - the later `parserOptions` wins**, and **the later one re-enables
+    // `projectService`, which makes the earlier `project` inert again.** **Mutually exclusive `files` is what makes
+    // the explicit project survive.**
+    ignores: ['packages/*/src/__tests__/**'],
     files: [
       '**/*.test.ts',
       '**/*.test.tsx',
