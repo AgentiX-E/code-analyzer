@@ -67,7 +67,10 @@ describe('RelationshipType', () => {
 
 describe('PipelinePhaseId', () => {
   it('has exactly the expected number of phases', () => {
-    expect(PIPELINE_PHASE_IDS).toHaveLength(19);
+    // **Twenty rather than nineteen**, and the number is a fact about the pipeline that this assertion exists to
+    // notice: a phase was added and the count moved, **which is exactly what the test is for.** The alternative -
+    // asserting a subset - would stop noticing.
+    expect(PIPELINE_PHASE_IDS).toHaveLength(20);
   });
 
   it('contains the core pipeline phases', () => {
@@ -93,7 +96,10 @@ describe('PipelinePhaseId', () => {
 
 describe('SupportedLanguage', () => {
   it('has the expected number of languages', () => {
-    expect(SUPPORTED_LANGUAGES).toHaveLength(31);
+    // **Thirty-two**, because `pdf` joined the union: **a document rather than a language, and indexable text in a
+    // container** - see `getLanguageFromFilename` and the scan phase's extraction branch. **The count is the point of
+    // this assertion**, so it moves with the union.
+    expect(SUPPORTED_LANGUAGES).toHaveLength(32);
   });
 
   it('includes TypeScript first (primary priority)', () => {
