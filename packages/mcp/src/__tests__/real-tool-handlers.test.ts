@@ -1390,7 +1390,7 @@ describe('MCP Server Integration', () => {
     server = new CodeAnalyzerMCPServer();
     expect(server.getToolContext()).toBeDefined();
     expect(server.getStore()).toBeDefined();
-    expect(server.getRegistry().size).toBe(48);
+    expect(server.getRegistry().size).toBe(49);
   });
 
   it('should execute tools through ToolContext', async () => {

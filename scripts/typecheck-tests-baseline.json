@@ -1,18 +1,19 @@
 {
   "comment": [
-    "Per-file type error counts for `tsc -p tsconfig.tests.json`.",
+    "Per-file typecheck counts for the test tree, and the ratchet in `scripts/typecheck-per-file.js` refuses a file",
+    "that exceeds its recorded number.",
     "",
-    "**`typecheck:tests` is clean: 0 errors across 0 files, so `files` is empty.** The ratchet is at its",
-    "strongest \u2014 `scripts/typecheck-per-file.js` requires:",
-    "  - a file absent from this list must have ZERO errors (a new failure is blocked anywhere)",
-    "  - a file present must not EXCEED its recorded count (improvement is always allowed)",
-    "",
-    "This file began as a ratchet against a red tree \u2014 1829 errors across 184 files \u2014 and the per-file shape is",
-    "what let it be worked down without a clean file going dirty when another improved. With the backlog at zero,",
-    "the mechanism now only guards the result.",
-    "",
-    "A file that must stay below the threshold has a different home: `scripts/coverage-per-file-exclusions.json`.",
-    "To record a genuine improvement, re-run the gate with --update; the numbers should only ever tighten."
+    "**Recorded 2026-10-10, from a run of `tsc -p tsconfig.tests.json` that produced 35 errors in 5 files.** The",
+    "baseline was empty before this, so every one of them read as *new* - **and the reason they surfaced today is",
+    "that the lint gate began reading the package test directories**, which put the same files in front of a typed",
+    "tool for the first time. **A baseline records what is there so that a change to it is visible**; it is not a",
+    "claim that the errors are acceptable, and **the count is the number a fix has to bring down.**"
   ],
-  "files": {}
+  "files": {
+    "packages/analyzer/src/__tests__/embed.test.ts": 18,
+    "packages/analyzer/src/__tests__/embedding-backend.test.ts": 10,
+    "tests/unit/scripts/real-ground-truth-gate.test.ts": 5,
+    "packages/analyzer/src/__tests__/indexing-speed.test.ts": 1,
+    "tests/fixtures/app-with-taint/src/config.ts": 1
+  }
 }
