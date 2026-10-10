@@ -376,5 +376,8 @@ export const BUG_RULES = [
   checkAsyncInSynchronousCallback,
   checkAnyTypeUsage,
   checkDeepNesting,
-  checkLongFunction,
+  // **`checkLongFunction` is not here, and the reason is the same one that put it in the file.** A function's length
+  // is **a style fact, not a defect**, and **the style table already reports it as `Long function: <name>`** - so
+  // having this table report it as a `bug` produced **two findings for one thing, in two categories**, which is
+  // **worse than either alone**: a reader sees a duplicate and stops trusting both.
 ];

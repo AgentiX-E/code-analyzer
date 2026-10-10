@@ -565,7 +565,7 @@ describe('EngineBridge', () => {
         // this fixture: a bare return inside a forEach, and a JSON.parse with no guard. **The count is a fact
       // the engine, so it moves when the engine does**; what must not move is the *absence* of false positives, and
       // that is asserted separately below.
-      expect(comments).toHaveLength(6);
+      expect(comments).toHaveLength(4);
       expect(comments[0]).toEqual({
         severity: 'medium',
         title: 'Long function: freshOne',
