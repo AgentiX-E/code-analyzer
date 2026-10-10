@@ -55,30 +55,46 @@ async function main() {
     return;
   }
 
-  // **The engine is reached through the built package**, so this measures what ships rather than what a test imports.
+  // **The engine and the diff builder are reached through the built packages**, so this measures what ships rather
+  // than what a test imports - and **`createDiff` is the same function the heuristic harness uses**, which is what
+  // makes the two figures comparable: *"how a window becomes a diff" has one implementation.*
   const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
+  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
 
-  const provider = new DeepSeekProvider({ apiKey: process.env['DEEPSEEK_API_KEY'] });
-  const engine = new LLMReviewEngine(provider);
+  // **The provider reads the key from the environment itself**, which is why it takes no argument here - and why
+  // **no part of the key passes through this file.**
+  const engine = new LLMReviewEngine(new DeepSeekProvider());
 
   let tp = 0;
   let fp = 0;
   let fn = 0;
   let reviewed = 0;
+  let failed = 0;
 
   for (const issue of data.issues ?? []) {
     for (const file of issue.files ?? []) {
-      const findings = await engine.review(file.beforeContent, file.filePath);
+      // **The window IS the changed region**, the same construction the heuristic harness uses, so the diff is
+      // `added` and the context is the file's own content.
+      const diff = createDiff(file.filePath, 'added', file.beforeContent);
+      const lanes = await engine.reviewDiff(diff, file.beforeContent);
       reviewed += 1;
+      const ok = lanes.filter((l) => l.success);
+      if (ok.length === 0) {
+        // **A lane that failed is counted as a failure**, not as a clean review - the distinction that this whole
+        // script exists to keep.
+        failed += 1;
+        continue;
+      }
       const ranges = issue.groundTruth.filter((g) => g.filePath === file.filePath);
+      const findings = ok.flatMap((l) => l.findings.map((f) => ({ filePath: l.filePath || file.filePath, ...f })));
       // **The same matching rule the heuristic benchmark uses**: a finding counts when its line range overlaps a
       // ground-truth range in the same file. **A different rule here would make the two figures incomparable**, which
       // is the one thing a comparison cannot afford.
-      const hit = findings.some((f) => ranges.some((g) => f.startLine <= g.endLine && g.startLine <= f.endLine));
-      if (hit && ranges.length > 0) tp += 1;
-      else if (ranges.length > 0) fn += 1;
-      else fp += 1;
+      const hits = findings.filter((f) => ranges.some((g) => f.startLine <= g.endLine && g.startLine <= f.endLine)).length;
+      tp += Math.min(hits, ranges.length);
+      fn += Math.max(0, ranges.length - hits);
+      fp += Math.max(0, findings.length - hits);
     }
   }
 
@@ -87,6 +103,7 @@ async function main() {
     ...base,
     issueCount: data.count,
     reviewedWindows: reviewed,
+    failedLanes: failed,
     truePositives: tp,
     falsePositives: fp,
     falseNegatives: fn,
