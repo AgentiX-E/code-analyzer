@@ -365,7 +365,12 @@ export function checkLongFunction(lines: string[]): HeuristicRuleResult[] {
   return out;
 }
 
+// **The three flow shapes join the table here**, imported as values rather than as a separate array so that
+// `heuristics.ts` needs one import and the ordering lives in one place.
+import { FLOW_BUG_RULES } from './heuristics-bug-rules-flow.js';
+
 export const BUG_RULES = [
+  ...FLOW_BUG_RULES,
   checkSilentCatch,
   checkAssignmentInCondition,
   checkAsyncInSynchronousCallback,
