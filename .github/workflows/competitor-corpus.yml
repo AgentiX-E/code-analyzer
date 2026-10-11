@@ -1,0 +1,91 @@
+name: Competitor Corpus
+
+# **The five repositories the field's benchmark names, reviewed by us.**
+#
+# **Why this job exists.** Every figure this repository publishes is on a corpus it chose, and **a corpus you chose
+# cannot be compared with a competitor's** - the page says so in as many words. **The field's independent benchmark is
+# Martian's Code Review Bench, and its offline arm is open-sourced with its dataset: "50 PRs from 5 major open-source
+# projects, each with human-verified golden comments" - Sentry, Grafana, Cal.com, Discourse and Keycloak.**
+#
+# **So this job clones those five and reviews them**, which makes the comparison **a thing we run rather than a claim
+# we make.** **It does not reproduce Martian's judge** - that scores whether a developer *acted* on a comment, and
+# only their pipeline can do it - **so what this produces is our own precision and recall against the same
+# repositories on the same dates**, and **the artifact says both facts rather than one.**
+#
+# **And it is dispatched rather than scheduled**, because **five real repositories is a lot of reading and each run
+# calls a model.**
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/scripts/measure-competitor-corpus.mjs'
+      - '.github/workflows/competitor-corpus.yml'
+      - 'packages/intelligence/src/review/llm/**'
+
+concurrency:
+  group: competitor-corpus
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  competitor-corpus:
+    name: Review the five repositories the field measures on
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **Shallow and pinned**, so **a figure has a date and a commit** and **two runs of this job can be compared.**
+      - name: Clone the five
+        run: |
+          set -e
+          mkdir -p /tmp/field
+          clone() {
+            name="$1"; ref="$2"
+            echo "cloning $name at $ref"
+            git clone --depth 1 --branch "$ref" "https://github.com/$name" "/tmp/field/$(basename "$name")"
+          }
+          clone getsentry/sentry 24.10.0
+          clone grafana/grafana v11.2.0
+          clone calcom/cal.com v4.5.0
+          clone discourse/discourse v3.4.0
+          clone keycloak/keycloak 26.0.0
+          du -sh /tmp/field/*
+
+      - name: Review them, or say why not
+        env:
+          # **Read from the environment and never written anywhere**, the same boundary the semantic job draws.
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: node .github/scripts/measure-competitor-corpus.mjs
+
+      - name: Upload the figure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: competitor-corpus
+          path: benchmarks/competitor-corpus.json
+          if-no-files-found: warn
+          retention-days: 90
