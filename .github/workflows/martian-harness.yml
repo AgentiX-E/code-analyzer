@@ -24,6 +24,7 @@ on:
     branches: [master]
     paths:
       - '.github/scripts/run-martian-harness.mjs'
+      - '.github/scripts/field-comparison.mjs'
       - '.github/workflows/martian-harness.yml'
       - 'packages/intelligence/src/review/llm/**'
 
@@ -125,6 +126,21 @@ jobs:
           uv run python -m code_review_benchmark.step3_judge_comments --tool agentix-e
           find results -name 'evaluations*.json' -maxdepth 3 | head -5
           ls -la results/
+
+      # **Every tool in the field, judged by one judge on one corpus, beside ours.**
+      #
+      # **This is the part that makes the comparison first-hand rather than recomputed.** Their repository ships
+      # `offline/results/benchmark_data.json`, which holds **every tool's raw review comments for all 50 PRs** - so
+      # **every tool's comments can be re-judged by one model**, and **ours is judged by the same one.** **The earlier
+      # figure for the field was recomputed from their committed evaluations**, which **can be checked and cannot be
+      # re-taken** - and **a number two parties do not produce the same way is not a comparison.**
+      - name: Score the whole field with one judge
+        env:
+          MARTIAN_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MARTIAN_BASE_URL: https://api.deepseek.com/v1
+          MARTIAN_MODEL: deepseek-chat
+          MARTIAN_DIR: /tmp/martian
+        run: node .github/scripts/field-comparison.mjs
 
       - name: Collect the figure
         if: always()
