@@ -214,9 +214,26 @@ async function main() {
         filtered: false,
         createdAt: new Date().toISOString(),
       }));
+      // **And the gate as it was written removed nothing, which is the finding this round produced.** It checks that
+      // a comment's quotation appears in the file it names - **and the quotation was taken from that file at the
+      // range the comment itself gave**, so **a range that is merely wrong still passes.** **The check that would
+      // catch it is whether the range lands on a line that could be the thing described**: an empty line, or a line
+      // with no identifier characters in it, is not where a defect is.
+      const nonEmpty = new Set();
+      fileLines.forEach((l, i) => {
+        if (/[A-Za-z0-9_]/.test(l)) nonEmpty.add(i + 1);
+      });
+      const plausible = raw.filter((_, i) => {
+        const c = asComments[i];
+        // **Every line of the range must at least look like code**, because **a finding whose range is blank is a
+        // finding about nothing** - and **that is a fact about the file rather than a preference about the finding.**
+        for (let ln = c.startLine; ln <= c.endLine; ln += 1) if (!nonEmpty.has(ln)) return false;
+        return true;
+      });
+      const plausibleIds = new Set(plausible.map((_, i) => `sem-${i}`));
       const gate = judgeGrounding(asComments, { contents: new Map([[file.filePath, file.beforeContent]]) });
       const keptIds = new Set(gate.grounded.map((c) => c.id));
-      const findings = raw.filter((_, i) => keptIds.has(`sem-${i}`));
+      const findings = raw.filter((_, i) => keptIds.has(`sem-${i}`) && plausibleIds.has(`sem-${i}`));
       gatedOut += raw.length - findings.length;
       gateChecked += raw.length;
       if (!truthsByFile.has(file.filePath)) truthsByFile.set(file.filePath, ranges);
