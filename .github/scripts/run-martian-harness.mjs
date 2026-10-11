@@ -132,6 +132,27 @@ async function main() {
   mkdirSync(join(OFFLINE, 'results'), { recursive: true });
   writeFileSync(join(OFFLINE, 'results', 'benchmark_data.json'), JSON.stringify(benchmark, null, 2) + '\n');
 
+  // **And `step3` reads a second file that `step2` would have written**, which is why running our own review instead
+  // of theirs needs this too. **`step2_extract_comments` calls a model to turn a comment body into issue
+  // statements** - and **our script already produced exactly that**, because a candidate is a finding's title.
+  //
+  // **So this is their schema filled in without a second model call**, and **the shape is theirs**:
+  // `{ "<golden_url>": { "<tool>": [ { text, path, line, source } ] } }` at
+  // `results/{sanitized_model}/candidates.json`, where **the model component is `MARTIAN_MODEL` with its slash
+  // replaced**, which their `sanitize_model_name` does and this mirrors rather than guesses.
+  const sanitized = (process.env['MARTIAN_MODEL'] ?? 'openai/gpt-4o-mini').trim().replace(/\//g, '_');
+  const modelDir = join(OFFLINE, 'results', sanitized);
+  mkdirSync(modelDir, { recursive: true });
+  const candidates = {};
+  for (const [url, entry] of Object.entries(benchmark)) {
+    const findings = entry.reviews?.[0]?.candidates ?? [];
+    candidates[url] = {
+      [TOOL]: findings.map((text) => ({ text, path: null, line: null, source: 'extracted' })),
+    };
+  }
+  writeFileSync(join(modelDir, 'candidates.json'), JSON.stringify(candidates, null, 2) + '\n');
+  console.log(`MARTIAN-HARNESS wrote ${Object.keys(candidates).length} candidate sets to ${modelDir}/candidates.json`);
+
   write({
     ...base,
     prsScored: scored,
