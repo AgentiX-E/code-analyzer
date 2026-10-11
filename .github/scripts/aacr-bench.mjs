@@ -119,6 +119,10 @@ async function main() {
     return;
   }
 
+  // **Their real schema, read from `claude-code-demo/utils/model.py` rather than guessed.** `PRDataItem` carries
+  // `githubPrUrl`, `source_commit`, `target_commit` and `comments[]`; a `Comment` carries `note` (the text), `path`,
+  // `from_line`/`to_line`, `category` and `context`. **And the dataset holds no diff** - so this job fetches each PR
+  // from GitHub, which **is what their own demo does** and **why the input is a URL rather than a patch.**
   const positives = JSON.parse(readFileSync(positive, 'utf8'));
   const negatives = negative && existsSync(negative) ? JSON.parse(readFileSync(negative, 'utf8')) : [];
   const rows = (Array.isArray(positives) ? positives : Object.values(positives)).slice(0, MAX_PRS);
@@ -132,18 +136,53 @@ async function main() {
   let fp = 0;
   let unanswered = 0;
   let reviewed = 0;
+  let unfetched = 0;
   const categories = {};
+  const contextLevels = {};
+
+  /** The pull request's unified diff, through the API, because **the corpus stores a URL and not a patch.** */
+  async function fetchPrDiff(url) {
+    const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url ?? ''));
+    if (!m) return null;
+    const [, owner, repo, num] = m;
+    const token = process.env['GITHUB_TOKEN'] ?? process.env['GITHUB_TOKEN'] ?? '';
+    try {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${num}`, {
+        headers: {
+          accept: 'application/vnd.github.v3.diff',
+          'user-agent': 'agentix-e-aacr-bench',
+          ...(token ? { authorization: `token ${token}` } : {}),
+        },
+      });
+      return res.ok ? await res.text() : null;
+    } catch {
+      return null;
+    }
+  }
 
   for (const pr of rows) {
-    // **Their schema carries the diff or the code under review per comment**, so the unit here is the comment's own
-    // context rather than a whole file - and **a PR whose context this job cannot fetch is counted, not skipped.**
+    // **Their field names, and the diff fetched rather than read from the corpus.** **A PR whose diff cannot be
+    // fetched is counted separately and not skipped quietly**, because **"the corpus had no data for it" and "we could
+    // not read it" are different facts** - the distinction this repository keeps drawing.
     const comments = pr.comments ?? [];
-    const issueTexts = comments.map((c) => String(c.comment ?? c.content ?? '')).filter(Boolean);
-    const context = String(pr.diff ?? pr.code ?? pr.context ?? '');
-    if (!context) continue;
-    const lanes = await engine.reviewDiff({ filePath: pr.file ?? 'unknown', changeType: 'added', content: context }, context);
+    const issueTexts = comments.map((c) => String(c.note ?? '')).filter(Boolean);
+    const diff = await fetchPrDiff(pr.githubPrUrl);
+    if (diff === null) {
+      unfetched += 1;
+      continue;
+    }
+    const firstPath = String(comments[0]?.path ?? 'unknown');
+    const lanes = await engine.reviewDiff({ filePath: firstPath, changeType: 'added', content: diff }, diff);
     const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
     reviewed += 1;
+    // **Their two context dimensions are recorded per PR**, because **a `Repo Level` issue needs the repository and a
+    // `Diff Level` one does not** - and **that is the axis this corpus was chosen for.**
+    for (const c of comments) {
+      const ctx = String(c.context ?? 'unknown');
+      contextLevels[ctx] = (contextLevels[ctx] ?? 0) + 1;
+      const cat = String(c.category ?? 'unknown');
+      categories[cat] = (categories[cat] ?? 0) + 1;
+    }
 
     const matched = new Set();
     for (const f of findings) {
@@ -159,7 +198,6 @@ async function main() {
         }
       }
       if (!hit) fp += 1;
-      categories[String(f.category ?? 'other')] = (categories[String(f.category ?? 'other')] ?? 0) + 1;
     }
     tp += matched.size;
     fn += issueTexts.length - matched.size;
@@ -172,6 +210,7 @@ async function main() {
     ...base,
     prsInDataset: rows.length,
     prsReviewed: reviewed,
+    prsWithoutDiff: unfetched,
     positiveSamples: positives.length ?? rows.length,
     negativeSamples: Array.isArray(negatives) ? negatives.length : null,
     truePositives: tp,
@@ -182,6 +221,8 @@ async function main() {
     recall: round(r),
     f1: round(p + r > 0 ? (2 * p * r) / (p + r) : 0),
     reviewCategories: categories,
+    // **The context split, which is the reason this corpus was chosen**: `Repo Level` is cross-file by construction.
+    groundTruthContextLevels: contextLevels,
     skipped: null,
   });
   console.log(`AACR-BENCH reviewed ${reviewed} PRs · tp ${tp} fp ${fp} fn ${fn} · P ${round(p)} R ${round(r)}`);
