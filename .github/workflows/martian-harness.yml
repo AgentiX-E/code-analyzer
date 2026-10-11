@@ -90,19 +90,26 @@ jobs:
           MARTIAN_DIR: /tmp/martian
         run: node .github/scripts/run-martian-harness.mjs
 
-      # **Their judge, unmodified, and it needs a credential this repository may not have yet.**
+      # **Their judge, with our model behind it - which is their design working as documented.**
       #
       # **The first run of this job failed here and reported success**, because the steps carried `|| true` - and
-      # `LLMJudge(...)` raised on a missing key, so **the evaluations file in the artifact was theirs, not ours.**
-      # **The `|| true` is removed**, so **a missing credential is now a red job rather than a green lie**, and
-      # **`ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is what makes it run**: their judge is one of three fixed models
-      # (`claude-opus-4-5`, `claude-sonnet-4-5`, `gpt-5.2`) and **none of them is DeepSeek**, so **the key this
-      # repository already has does not open this door.**
+      # `LLMJudge(...)` raised on a missing `MARTIAN_API_KEY`. **The `|| true` is removed**, so **a failure is a red
+      # job rather than a green lie.**
+      #
+      # **And the judge does not have to be theirs.** Their `LLMJudge` builds **`AsyncOpenAI(api_key, base_url)`**,
+      # reads **`MARTIAN_BASE_URL`** with a default of their own gateway, and reads **`MARTIAN_MODEL`** **with no
+      # allowlist at all** - so **any OpenAI-compatible endpoint can judge**, and **`MARTIAN_BASE_URL` and
+      # `MARTIAN_MODEL` are the documented knobs for exactly that.** **This job points them at DeepSeek**, which
+      # **removes the credential blocker and, more importantly, removes the judge as a confound**: **the same judge
+      # scoring our output and (in a later run) theirs is the only way to tell a difference in the reviewer from a
+      # difference in the judge.**
       - name: Their dedup step
         working-directory: /tmp/martian/offline
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # **Their client is `AsyncOpenAI`, and these three variables are its documented knobs.**
+          MARTIAN_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MARTIAN_BASE_URL: https://api.deepseek.com/v1
+          MARTIAN_MODEL: deepseek-chat
         run: |
           uv run python -m code_review_benchmark.step2_5_dedup_candidates --tool agentix-e
           ls -la results/
@@ -110,8 +117,10 @@ jobs:
       - name: Their judge step
         working-directory: /tmp/martian/offline
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # **The same three knobs, so the judge and the reviewer share one credential and nothing else is needed.**
+          MARTIAN_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MARTIAN_BASE_URL: https://api.deepseek.com/v1
+          MARTIAN_MODEL: deepseek-chat
         run: |
           uv run python -m code_review_benchmark.step3_judge_comments --tool agentix-e
           find results -name 'evaluations*.json' -maxdepth 3 | head -5
