@@ -12,7 +12,7 @@
     "**The semantic half is reported only with a backend named**, because the embedding backend here is",
     "intermittent: one probe threw `Tokenizer not found` and later runs report `onnx`."
   ],
-  "measuredAt": "2026-10-07",
+  "measuredAt": "2026-10-11",
   "mode": "lexical-then-registered",
   "backend": {
     "loaded": "none",
@@ -20,109 +20,24 @@
   },
   "withVectorsRegistered": {
     "backend": "none",
-    "found": 173,
+    "found": 180,
     "recall": 1,
     "note": "only meaningful when `backend` is not `none` - with no embedder this is the lexical figure again"
   },
   "corpus": {
     "path": "packages/analyzer/src/languages",
-    "nodes": 3953,
-    "nodesWithADocstring": 173,
-    "queries": 173
+    "nodes": 3550,
+    "nodesWithADocstring": 181,
+    "queries": 180
   },
   "topK": 20,
-  "found": 173,
+  "found": 180,
   "recall": 1,
-  "meanReciprocalRank": 0.9921,
+  "meanReciprocalRank": 0.9924,
   "misses": [],
   "target": {
     "recall": 0.9,
     "competitorRecall": 0.75,
     "competitor": "Cody, quoted by the whitepaper"
-  },
-  "andTheEmbedderIsNotIntermittentItIsAbsent": {
-    "measured": "2026-10-07",
-    "theError": "Tokenizer not found: …/@agentix-e+embed-code-node@0.1.1/…/models/tokenizer.json",
-    "andWhyThereIsNoModel": {
-      "packageDirectory": "present",
-      "packageSize": "32 KB",
-      "contents": [
-        "README.md",
-        "dist",
-        "package.json"
-      ],
-      "modelsDirectory": "absent",
-      "declaredInPackageJson": "files: ['dist', 'models']",
-      "reading": "**The package declares that it ships `models/` and ships none.** 32 KB is a source package; a bundled ONNX model with its tokenizer is two orders of magnitude larger. **So `createFromPackage` fails every time it is called, and always has.**"
-    },
-    "andTheSourceAlreadySaidSo": "`embed.ts` carries a comment saying exactly this - \"the package declares `files: ['dist', 'models']` and ships no `models/`, so `createFromPackage()` cannot find it\". **The code was right and three rounds of documentation were wrong**: they called the result *intermittent*, which is what a swallowed error looks like from outside.",
-    "andItIsNotFixableFromHere": "**Installing the model needs the model.** It is not in the package, it is not in this repository, and fetching it needs network access this environment does not have. **So the semantic half of the search row is blocked on an artefact rather than on work** - and `embedderUnavailableReason()` now says so in one sentence."
-  },
-  "theFamilyWasCounted": {
-    "measured": "2026-10-07",
-    "method": "Every TypeScript file under `packages/*/src` that is not a test, scanned for a `catch` whose only statement is a return of a plausible-looking value - `null`, `[]`, `{}`, `''`, `false`, `undefined`. **That is the static projection of a failure that cannot be told from success.**",
-    "scanned": {
-      "files": 239,
-      "sites": 20
-    },
-    "andTheClassificationMattersMoreThanTheCount": {
-      "optionalDependencyProbes": "**Thirteen of the twenty.** `loadBetterSqlite3`, `brotliCompressSync`, `project-detector`'s filesystem checks, `agent-setup`'s absent config: **the catch is asking whether an optional thing is present**, and returning `false` or `null` is exactly the answer to that question. **These are correct.**",
-      "absenceIsTheAnswer": "**Four more.** A cache path that does not exist, a session file that is not there, a webhook secret that is unset: **the caller is asking whether something exists**, and `null` is the true answer rather than a swallowed failure.",
-      "emptyResultVersusFailure": "**The three worth looking at.** `fetchPRFiles`, `discoverRelatedRepos` and `findReposConsumingSymbol` **return `[]` when a network call or an index lookup fails**, and the caller cannot distinguish *\"there are none\"* from *\"it could not be determined\". **That is the same ambiguity as the four confirmed members of this family, in a smaller form.**"
-    },
-    "andThisIsNotTwentyDefects": "**A count from a regex is not a finding and this records it as a count.** The precedent in this repository is that reading these sites settles most of them: an earlier pass over thirty-seven `catch` blocks that return a value found eight of eight deliberate across two shapes. **What the scan is good for is narrowing twenty sites to the three that need a reader.**",
-    "andTheThreeHaveNoCallers": {
-      "measured": "2026-10-07",
-      "finding": "**All three functions have zero references outside their own declaration**, including from tests: `discoverRelatedRepos`, `findReposConsumingSymbol` and `fetchPRFiles` are never called.",
-      "andThatReordersTheWork": "The ambiguity the previous round fixed a symptom of **cannot reach anybody**: a caller cannot be misled by an empty list it never receives. **The larger fact is that these three are not wired to anything**, which is a different question with a different next step - **connect or remove, rather than make the failure describe itself.**",
-      "andItMatchesSomethingAlreadyKnown": "A previous pass on this repository found three feature flags in the ablation runner that were never connected. **Same shape: the capability is written and nothing calls it.** That is now two occurrences of a pattern worth looking for deliberately - **not \"does this work\" but \"is this reached\".**",
-      "andItIsWhyReportingFirstWasRight": "**The reporting step found the wiring problem.** Had the fix gone straight to changing three return types, every caller would have been updated - **of which there are none** - and this would still not have been noticed."
-    },
-    "andTheReachabilityCheckWasWrittenAndWrong": {
-      "measured": "2026-10-07",
-      "whatWasAsked": "**Not \"does this work\" but \"is this reached\"** - the question no test asks, because a test calls the thing it tests. Every exported top-level function and method across four packages, counted for calls anywhere in the tree **including tests**.",
-      "theNumbers": {
-        "exportedFunctionsAndMethods": 1038,
-        "neverCalledByThisCount": 72
-      },
-      "andTheFirstNamesCheckedWereWrong": "`checkNoEvalAst`, `checkNoXssAst`, `checkNoUndef` and a dozen more appeared in the list, and they are **live rule implementations**. They are reached through a registry:\n\n    rule-runner.ts:1817    'no-undef': checkNoUndef,\n    rule-runner.ts:1827    'no-eval': astChecker(checkNoEvalAst),\n\n**Neither line has parentheses after the name.** The scan counted `name(` and a function passed as a value has none - **so it reported live code as unreachable.**",
-      "andThatIsTheEleventhTime": "**The scan answered a nearby question - \"is this name followed by a parenthesis\" - and the question asked was \"is this reached\".** `checkNoEvalAst` is reached by being mentioned in a table; **no regex over call syntax can see a value being passed.**",
-      "andSoTheNumberIsNotReported": "**72 is a property of the check and not of the code, so it is recorded here as wrong rather than published.** Roughly forty of the seventy-two are rule functions in two registries, which alone puts the true figure far below it. **Reporting it would have been a number that looked like a finding.**",
-      "andTheRightInstrumentIsTheProductItself": "**A reference analysis is what `code-analyzer` does**: it builds a symbol graph and resolves references across files. **This check was written with a regular expression while the tool that answers it properly was in the same repository** - and it is the reason the number is wrong."
-    },
-    "andTheIndexCannotAnswerItYet": {
-      "measured": "2026-10-07",
-      "whyWeAskedTheIndex": "The previous round ended with *\"ask the index instead of the text\"* - a reference analysis is what this product does, so the count should come from it rather than from a regex.",
-      "whatTheIndexHas": {
-        "edgeTypes": {
-          "DEFINES": 90,
-          "MEMBER_OF": 77,
-          "HAS_METHOD": 9,
-          "HANDLES_TOOL": 2,
-          "CONTAINS": 1
-        },
-        "callsEdges": 0
-      },
-      "andThatIsTheFinding": "**`CALLS` is in the relationship vocabulary and no edge of that type is ever produced.** Every edge in this graph is structural - *defines*, *is a member of*, *has a method*, *contains* - and **none of them is a call.** So the index cannot answer *\"is this reached\"* either: **the reachability question needs a call graph and there is not one.**",
-      "andItIsTheSixthOfItsFamily": [
-        "**`tools`** returned `failed` on every corpus",
-        "**`docstring`** was `null` on every node",
-        "**the parse fallback** returned regex output on every grammar error",
-        "**the embedder** returned `null` on every call",
-        "**three functions** were written, tested and never called",
-        "**and `CALLS`** - declared, never produced"
-      ],
-      "andWhatItCosts": "**Impact analysis, dead-code detection and reachability all need call edges**, and the regular-expression reachability count was written because there was no alternative. **That is the same shape as the doc-comment scan being written because the field was empty** - the instrument gets worse when the thing it should use is missing, and **the workaround then looks like a choice rather than a consequence.**",
-      "andMyProbeWasWrongThreeTimesGettingHere": {
-        "attempts": [
-          "edge.label",
-          "edge.relationship",
-          "edge.type"
-        ],
-        "right": "edge.type",
-        "note": "**The field list was printed only on the third attempt**, after two reads of a field that does not exist. Both wrong answers read \"0 edges of type CALLS\", which is **the correct reading of a wrong question** - and **the first thing to do with an unfamiliar record is print its keys.**",
-        "andItIsTheTwelfthAndThirteenthTime": "The same defect twice inside one probe: a check that could not answer the question asked. **The count of those in this stretch is now thirteen**, and this one was caught by printing the record rather than reasoning about it - **which is the cheapest method available and was used third.**"
-      }
-    }
   }
 }

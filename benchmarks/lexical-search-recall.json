@@ -11,7 +11,7 @@
     "backend in this repository is intermittent: one probe threw `Tokenizer not found`, and later runs report a",
     "loaded `onnx` backend. A recall figure that changes with the backend is a figure about the backend."
   ],
-  "measuredAt": "2026-10-06",
+  "measuredAt": "2026-10-11",
   "mode": "lexical",
   "backend": {
     "embeddingsRegistered": false,
@@ -20,7 +20,7 @@
   "corpus": {
     "path": "30 copies of packages/shared/src/types/graph.ts",
     "files": 31,
-    "nodes": 6571
+    "nodes": 6631
   },
   "topK": 20,
   "queries": 40,

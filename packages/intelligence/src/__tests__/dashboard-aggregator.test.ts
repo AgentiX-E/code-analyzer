@@ -70,6 +70,10 @@ describe('ReviewDashboardAggregator', () => {
         avgReviewDuration: 0,
         totalFindings: 0,
         reviewsOverTime: [],
+        // **`signalToNoise` joined the aggregate and the expectation did not follow.** **On an empty set it is 1**,
+        // which is **the neutral value rather than a division by zero** - and **the field is the one the review
+        // quality page reports**, so **the test has to know about it.**
+        signalToNoise: 1,
       });
     });
 
