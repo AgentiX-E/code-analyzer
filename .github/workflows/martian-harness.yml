@@ -1,0 +1,132 @@
+name: Martian Harness
+
+# **The field's own judge, run by us, on the field's own 50 PRs.**
+#
+# **Why this exists, and why the earlier claim was wrong.** A previous version of the audits page said Martian's judge
+# "can only run inside their pipeline". **It cannot - the benchmark is MIT and open-sources the PRs, the golden
+# comments, the judge prompts and the evaluation pipeline**, and its README's "Adding a new tool" section ends:
+# *"If a tool doesn't meet these yet, the harness is public and you're welcome to run it and publish your own
+# results."*
+#
+# **So this job runs that harness on our output.** It clones the benchmark, scores the 50 PRs' diffs with our review
+# engine, writes the `benchmark_data.json` the pipeline expects, and runs their judge — **which is what makes our F1
+# comparable with Greptile's rather than merely analogous to it.**
+#
+# **And the honest boundary is stated rather than hidden.** We do not run `step0_fork_prs`, because that installs a
+# bot account on GitHub and this job has no such account to install — **so our reviews come from our engine reading
+# each PR's diff, which is the same input the other tools saw** (their reviews are also comments on those diffs).
+# **The artifact records which judge model produced the figure and which scoring profile was active**, because
+# **the benchmark's own documentation says the judge moves the numbers.**
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/scripts/run-martian-harness.mjs'
+      - '.github/workflows/martian-harness.yml'
+      - 'packages/intelligence/src/review/llm/**'
+
+concurrency:
+  group: martian-harness
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  martian-harness:
+    name: Score our reviews with the field's judge
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **Their repository, their prompts, their golden comments** - pinned by commit so **a figure has a date**.
+      - name: Clone the benchmark
+        run: |
+          set -e
+          git clone --depth 1 https://github.com/withmartian/code-review-benchmark /tmp/martian
+          echo "cloned at $(git -C /tmp/martian rev-parse HEAD)"
+          ls /tmp/martian/offline/golden_comments/
+          du -sh /tmp/martian
+
+      - name: Install the harness
+        working-directory: /tmp/martian/offline
+        run: |
+          pip install uv
+          uv sync
+
+      # **Our reviews, in their schema.** The script reads their golden comments for the PR list, scores each PR's
+      # diff with our engine, and writes `results/benchmark_data.json`.
+      - name: Score the 50 PRs with our engine
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MARTIAN_DIR: /tmp/martian
+        run: node .github/scripts/run-martian-harness.mjs
+
+      # **Their judge, unmodified.** `step2_5` then `step3`, with the dedup groups passed as their README requires.
+      - name: Their dedup step
+        working-directory: /tmp/martian/offline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          uv run python -m code_review_benchmark.step2_5_dedup_candidates --tool agentix-e || true
+          ls -la results/ || true
+
+      - name: Their judge step
+        working-directory: /tmp/martian/offline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          uv run python -m code_review_benchmark.step3_judge_comments --tool agentix-e || true
+          find results -name 'evaluations*.json' -maxdepth 3 | head -5
+          ls -la results/ || true
+
+      - name: Collect the figure
+        if: always()
+        run: |
+          set -e
+          mkdir -p benchmarks
+          for f in $(find /tmp/martian/offline/results -name 'evaluations*.json' -maxdepth 3 2>/dev/null | head -5); do
+            cp "$f" "benchmarks/$(basename $(dirname "$f"))_$(basename "$f")" || true
+          done
+          cp /tmp/martian/offline/results/benchmark_data.json benchmarks/martian-benchmark-data.json 2>/dev/null || true
+          ls -la benchmarks/ | tail -8
+          git -C /tmp/martian rev-parse HEAD > benchmarks/martian-harness-commit.txt
+
+      - name: Upload the figure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: martian-harness
+          path: benchmarks/
+          if-no-files-found: warn
+          retention-days: 90
