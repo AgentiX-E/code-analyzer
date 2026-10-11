@@ -53,13 +53,47 @@ const OUTPUT_SCHEMA = `{
       "startLine": <number>,
       "endLine": <number>,
       "severity": "critical" | "high" | "medium" | "low" | "info",
-      "category": "security" | "performance" | "maintainability" | "test" | "architecture" | "bug" | "style" | "documentation" | "other",
+      "category": "bug" | "security" | "performance" | "maintainability" | "test" | "architecture" | "style" | "documentation" | "other",
       "title": "<one-line summary>",
       "description": "<detailed explanation>",
       "suggestion": "<suggested fix> | null
     }
   ]
 }`;
+
+  /**
+   * What every lane is told about choosing and how many to return, stated once for all six.
+   *
+   * **Why it exists, in the measurement's own words.** The first scored run produced **2,763 findings and not one
+   * categorised `bug`**, against a dataset containing **246 `bug` and 5 `security` ranges**. The schema listed nine
+   * categories and **said nothing about which to prefer or how many to return**, so the model did what a reviewer
+   * does: **it reported everything it noticed, in its own vocabulary** - `test` 1,071, `maintainability` 703,
+   * `architecture` 542. **That is fifteen findings per window, and a precision of 0.0007.** **The re-score of the
+   * same output under a severity filter multiplied F1 by 2.6** - which is **what a filter can do; it cannot
+   * translate.**
+   *
+   * **So the contract says it, and says it once**, because **it is a property of the output rather than of any one
+   * kind of review** - and **a lane that spelled it differently would be a lane whose numbers could not be compared
+   * with the others'.**
+   *
+   * **And it is two rules, not one.** The category rule makes the model's vocabulary overlap the dataset's; the count
+   * rule makes the output a human would read. **Neither alone suffices**: a correct category fifteen times per window
+   * is unreadable, and three findings per window in the wrong vocabulary are still unmatchable.
+   */
+  const SELECTION_RULES = `
+How to choose and how many to return - this is part of the contract, not advice:
+
+1. **A defect first.** A finding whose category is "bug" or "security" is a defect: the code does something other
+   than what it was meant to do. "maintainability", "style", "test", "documentation" and "architecture" are
+   improvements, and a review that reports only improvements has missed the point of the exercise. If you can see a
+   defect, report it as "bug" or "security" rather than as the improvement it also happens to be.
+2. **One finding per defect, not one per observation.** Four style problems in one function are at most one finding
+   about its style. Reporting each as its own finding is not thoroughness; it is a list nobody can act on.
+3. **At most 3 findings per file.** If you can see more than three defects, return the three most likely to break and
+   say so in the first one's description. An empty findings array is a valid and useful answer.
+4. **Lines are required and must be real.** "startLine" and "endLine" are the lines of the problem in the file. A
+   finding whose range does not point at the code it describes cannot be checked and will be discarded.
+`;
 
 // ---------------------------------------------------------------------------
 // Security Review Prompt
@@ -90,7 +124,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure. Only include findings you are confident about — an empty findings array is acceptable if no issues are found:
-${OUTPUT_SCHEMA}
+${SELECTION_RULES}${OUTPUT_SCHEMA}
 
 Few-shot example — SQL injection:
 Input: diff showing \`db.query("SELECT * FROM users WHERE id = " + userId)\`
@@ -158,7 +192,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${OUTPUT_SCHEMA}
+${SELECTION_RULES}${OUTPUT_SCHEMA}
 
 Few-shot example — N+1 query:
 Input: diff showing \`for (const user of users) { const posts = await db.query("SELECT * FROM posts WHERE user_id = $1", [user.id]); }\`
@@ -210,7 +244,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${OUTPUT_SCHEMA}
+${SELECTION_RULES}${OUTPUT_SCHEMA}
 
 Few-shot example — magic number:
 Input: diff showing \`if (items.length > 100) { ... }\`
@@ -261,7 +295,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${OUTPUT_SCHEMA}
+${SELECTION_RULES}${OUTPUT_SCHEMA}
 
 Few-shot example — weak assertion:
 Input: diff showing \`expect(result).toBeTruthy();\`
@@ -312,7 +346,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${OUTPUT_SCHEMA}
+${SELECTION_RULES}${OUTPUT_SCHEMA}
 
 Few-shot example — layer violation:
 Input: diff showing a component importing directly from a database module

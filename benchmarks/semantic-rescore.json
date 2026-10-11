@@ -6,53 +6,53 @@
     "and a filter becomes a re-score - which is what makes a direction cheap enough to test before committing",
     "to it, and what the measured-gap page argues for."
   ],
-  "measuredAt": "2026-10-10",
+  "measuredAt": "2026-10-11",
   "where": "github-actions",
-  "sourceFinding": 21,
+  "sourceFinding": 2763,
   "rows": [
-    {
-      "filter": "bug",
-      "describe": "only findings the model called a bug",
-      "kept": 1,
-      "tp": 1,
-      "fp": 0,
-      "fn": 250,
-      "precision": 1,
-      "recall": 0.004,
-      "f1": 0.0079
-    },
     {
       "filter": "high",
       "describe": "only findings the model marked high or critical",
-      "kept": 1,
+      "kept": 332,
       "tp": 1,
-      "fp": 0,
+      "fp": 331,
       "fn": 250,
-      "precision": 1,
+      "precision": 0.003,
       "recall": 0.004,
-      "f1": 0.0079
+      "f1": 0.0034
     },
     {
       "filter": "none",
       "describe": "every finding the lanes produced",
-      "kept": 21,
-      "tp": 1,
-      "fp": 20,
-      "fn": 250,
-      "precision": 0.0476,
-      "recall": 0.004,
-      "f1": 0.0074
+      "kept": 2763,
+      "tp": 2,
+      "fp": 2761,
+      "fn": 249,
+      "precision": 0.0007,
+      "recall": 0.008,
+      "f1": 0.0013
     },
     {
       "filter": "ranged",
       "describe": "only findings with a range of at least one line",
-      "kept": 21,
-      "tp": 1,
-      "fp": 20,
-      "fn": 250,
-      "precision": 0.0476,
-      "recall": 0.004,
-      "f1": 0.0074
+      "kept": 2763,
+      "tp": 2,
+      "fp": 2761,
+      "fn": 249,
+      "precision": 0.0007,
+      "recall": 0.008,
+      "f1": 0.0013
+    },
+    {
+      "filter": "bug",
+      "describe": "only findings the model called a bug",
+      "kept": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 251,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
     }
   ]
 }
