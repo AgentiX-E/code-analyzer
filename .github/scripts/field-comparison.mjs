@@ -146,25 +146,50 @@ async function main() {
     }
   }
 
+  // **F-beta as well as F1, because a single F1 hides the trade the field is making.** Their own dashboard offers
+  // beta from 0.5 to 3.0 and their documentation says why: *missed bugs are worse than false alarms* on some teams
+  // and **the reverse on others** - so **a table that prints one F1 has chosen a side without saying so.** **F0.5
+  // weights precision, F2 weights recall**, and **all three are reported per tool** because **a tool that looks
+  // fifth on F1 can be first on F2 and that is a fact about the tool**.
+  const fBeta = (p, r, beta) => {
+    const b2 = beta * beta;
+    const denom = b2 * p + r;
+    return denom > 0 ? ((1 + b2) * p * r) / denom : 0;
+  };
   const rows = [...per.entries()].map(([tool, a]) => {
     const p = a.tp + a.fp > 0 ? a.tp / (a.tp + a.fp) : 0;
     const r = a.tp + a.fn > 0 ? a.tp / (a.tp + a.fn) : 0;
-    const f1 = p + r > 0 ? (2 * p * r) / (p + r) : 0;
+    const round = (x) => Math.round(x * 10000) / 10000;
     return {
       tool,
       isOurs: tool === TOOL,
-      precision: Math.round(p * 10000) / 10000,
-      recall: Math.round(r * 10000) / 10000,
-      f1: Math.round(f1 * 10000) / 10000,
+      precision: round(p),
+      recall: round(r),
+      f05: round(fBeta(p, r, 0.5)),
+      f1: round(fBeta(p, r, 1)),
+      f2: round(fBeta(p, r, 2)),
       ...a,
     };
   });
   rows.sort((a, b) => b.f1 - a.f1);
+  // **And the rank under each weighting**, because **the ordering is the thing a reader takes away** and **an ordering
+  // under F2 can differ from the one under F0.5 in a way a single column cannot show.**
+  const rankBy = (key) =>
+    [...rows]
+      .sort((a, b) => b[key] - a[key])
+      .reduce((acc, row, i) => {
+        acc[row.tool] = i + 1;
+        return acc;
+      }, {});
+  const ranks = { f05: rankBy('f05'), f1: rankBy('f1'), f2: rankBy('f2') };
+  for (const row of rows) row.ranks = { f05: ranks.f05[row.tool], f1: ranks.f1[row.tool], f2: ranks.f2[row.tool] };
 
   write({ ...base, prsScored: urls.length, toolsScored: rows.length, judgedPairs: judged, judgeUnanswered: unanswered, rows, skipped: null });
   console.log(`FIELD-COMPARISON scored ${rows.length} tools over ${urls.length} PRs · judge unanswered ${unanswered}`);
   for (const row of rows.slice(0, 8)) {
-    console.log(`  ${row.isOurs ? '*' : ' '} ${row.tool.padEnd(18)} P ${row.precision} R ${row.recall} F1 ${row.f1}`);
+    console.log(
+      `  ${row.isOurs ? '*' : ' '} ${row.tool.padEnd(18)} P ${row.precision} R ${row.recall} f05 ${row.f05} F1 ${row.f1} f2 ${row.f2} (rank ${row.ranks.f1})`,
+    );
   }
 }
 
