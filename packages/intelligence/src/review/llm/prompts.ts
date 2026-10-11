@@ -89,8 +89,10 @@ How to choose and how many to return - this is part of the contract, not advice:
    defect, report it as "bug" or "security" rather than as the improvement it also happens to be.
 2. **One finding per defect, not one per observation.** Four style problems in one function are at most one finding
    about its style. Reporting each as its own finding is not thoroughness; it is a list nobody can act on.
-3. **At most 3 findings per file.** If you can see more than three defects, return the three most likely to break and
-   say so in the first one's description. An empty findings array is a valid and useful answer.
+3. **At most 8 findings per file.** If you can see more than eight defects, return the eight most likely to break and
+   say so in the first one's description. An empty findings array is a valid and useful answer. **Eight rather than
+   three, because the first measured run showed the cap was the binding constraint: it removed one of the two true
+   positives while the category rule was still improving precision, so the cap was raised and the category rule kept.**
 4. **Lines are required and must be real.** "startLine" and "endLine" are the lines of the problem in the file. A
    finding whose range does not point at the code it describes cannot be checked and will be discarded.
 `;

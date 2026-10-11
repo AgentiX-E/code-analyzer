@@ -160,6 +160,9 @@ async function main() {
   const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
   const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  // **The gate the heuristic path already uses**, and the second lever the re-score's table named: **887 false
+  // positives is five per window, and a finding whose quotation is not in the file it names cannot be checked.**
+  const { judgeGrounding } = await import('../../packages/intelligence/dist/review/grounding-judge.js');
 
   // **The provider reads the key from the environment itself**, which is why it takes no argument here - and why
   // **no part of the key passes through this file.**
@@ -170,6 +173,8 @@ async function main() {
   let fn = 0;
   let reviewed = 0;
   let failed = 0;
+  let gatedOut = 0;
+  let gateChecked = 0;
   // **Every finding, with the file it was about and the ground truth for that file**, so a re-score needs nothing
   // but this array.
   const allFindings = [];
@@ -190,7 +195,30 @@ async function main() {
         continue;
       }
       const ranges = issue.groundTruth.filter((g) => g.filePath === file.filePath);
-      const findings = ok.flatMap((l) => l.findings.map((f) => ({ filePath: l.filePath || file.filePath, ...f })));
+      const raw = ok.flatMap((l) => l.findings.map((f) => ({ filePath: l.filePath || file.filePath, ...f })));
+
+      // **The gate, applied to the semantic path for the first time.** The window IS the file, so the quotation a
+      // finding should carry is the text of the lines it points at - **and a finding whose range is wrong, or which
+      // describes code that is not there, is dropped rather than counted.** **It can only remove**, which is the
+      // point: **it is the one filter that is a fact rather than a preference.**
+      const fileLines = file.beforeContent.split('\n');
+      const asComments = raw.map((f, i) => ({
+        id: `sem-${i}`,
+        path: f.filePath,
+        content: String(f.title ?? ''),
+        existingCode: fileLines.slice(Math.max(0, (f.startLine ?? 1) - 1), f.endLine ?? f.startLine ?? 1).join('\n'),
+        startLine: f.startLine ?? 1,
+        endLine: f.endLine ?? f.startLine ?? 1,
+        category: String(f.category ?? 'other'),
+        severity: String(f.severity ?? 'info'),
+        filtered: false,
+        createdAt: new Date().toISOString(),
+      }));
+      const gate = judgeGrounding(asComments, { contents: new Map([[file.filePath, file.beforeContent]]) });
+      const keptIds = new Set(gate.grounded.map((c) => c.id));
+      const findings = raw.filter((_, i) => keptIds.has(`sem-${i}`));
+      gatedOut += raw.length - findings.length;
+      gateChecked += raw.length;
       if (!truthsByFile.has(file.filePath)) truthsByFile.set(file.filePath, ranges);
       allFindings.push(
         ...findings.map((f) => ({
@@ -223,6 +251,9 @@ async function main() {
     falseNegatives: fn,
     ...metrics,
     skipped: null,
+    // **How many findings the gate removed, and out of how many**, because **a gate that removes everything and a
+    // gate that removes nothing look the same in a score** and are different facts about the prompt.
+    grounding: { checked: gateChecked, removed: gatedOut },
     // **The findings are kept, and that is the change this whole page argues for.** **Calling the model is the
     // expensive half and it cannot be repeated per candidate filter**, so **the output is stored** and **a filter
     // becomes a re-score**: `node measure-semantic-review.mjs --rescore benchmarks/semantic-review.json
