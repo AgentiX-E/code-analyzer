@@ -90,15 +90,22 @@ jobs:
           MARTIAN_DIR: /tmp/martian
         run: node .github/scripts/run-martian-harness.mjs
 
-      # **Their judge, unmodified.** `step2_5` then `step3`, with the dedup groups passed as their README requires.
+      # **Their judge, unmodified, and it needs a credential this repository may not have yet.**
+      #
+      # **The first run of this job failed here and reported success**, because the steps carried `|| true` - and
+      # `LLMJudge(...)` raised on a missing key, so **the evaluations file in the artifact was theirs, not ours.**
+      # **The `|| true` is removed**, so **a missing credential is now a red job rather than a green lie**, and
+      # **`ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is what makes it run**: their judge is one of three fixed models
+      # (`claude-opus-4-5`, `claude-sonnet-4-5`, `gpt-5.2`) and **none of them is DeepSeek**, so **the key this
+      # repository already has does not open this door.**
       - name: Their dedup step
         working-directory: /tmp/martian/offline
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          uv run python -m code_review_benchmark.step2_5_dedup_candidates --tool agentix-e || true
-          ls -la results/ || true
+          uv run python -m code_review_benchmark.step2_5_dedup_candidates --tool agentix-e
+          ls -la results/
 
       - name: Their judge step
         working-directory: /tmp/martian/offline
@@ -106,9 +113,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          uv run python -m code_review_benchmark.step3_judge_comments --tool agentix-e || true
+          uv run python -m code_review_benchmark.step3_judge_comments --tool agentix-e
           find results -name 'evaluations*.json' -maxdepth 3 | head -5
-          ls -la results/ || true
+          ls -la results/
 
       - name: Collect the figure
         if: always()
