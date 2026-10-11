@@ -8,47 +8,47 @@
   ],
   "measuredAt": "2026-10-11",
   "where": "github-actions",
-  "sourceFinding": 1769,
+  "sourceFinding": 547,
   "rows": [
     {
       "filter": "high",
       "describe": "only findings the model marked high or critical",
-      "kept": 82,
+      "kept": 14,
       "tp": 1,
-      "fp": 81,
+      "fp": 13,
       "fn": 250,
-      "precision": 0.0122,
+      "precision": 0.0714,
       "recall": 0.004,
-      "f1": 0.006
+      "f1": 0.0075
     },
     {
       "filter": "none",
       "describe": "every finding the lanes produced",
-      "kept": 1769,
+      "kept": 547,
       "tp": 2,
-      "fp": 1767,
+      "fp": 545,
       "fn": 249,
-      "precision": 0.0011,
+      "precision": 0.0037,
       "recall": 0.008,
-      "f1": 0.002
+      "f1": 0.005
     },
     {
       "filter": "ranged",
       "describe": "only findings with a range of at least one line",
-      "kept": 1769,
+      "kept": 547,
       "tp": 2,
-      "fp": 1767,
+      "fp": 545,
       "fn": 249,
-      "precision": 0.0011,
+      "precision": 0.0037,
       "recall": 0.008,
-      "f1": 0.002
+      "f1": 0.005
     },
     {
       "filter": "bug",
       "describe": "only findings the model called a bug",
-      "kept": 24,
+      "kept": 6,
       "tp": 0,
-      "fp": 24,
+      "fp": 6,
       "fn": 251,
       "precision": 0,
       "recall": 0,

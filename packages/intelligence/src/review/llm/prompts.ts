@@ -94,8 +94,18 @@ How to choose and how many to return - this is part of the contract, not advice:
    raised to eight for one run and put back**: **the raise recovered a true positive (1 to 2) and halved precision
    (0.0256 to 0.0122)**, so **the best filter's F1 fell from 0.0069 to 0.006.** **The cap was not the binding
    constraint; the precision was**, and **the reading that it was is the mistake the re-score corrected.**
-4. **Lines are required and must be real.** "startLine" and "endLine" are the lines of the problem in the file. A
-   finding whose range does not point at the code it describes cannot be checked and will be discarded.
+4. **Lines are required, must be real, and must cover the whole problem.** "startLine" and "endLine" are the lines of
+   the problem in the file. **A finding whose range does not point at the code it describes cannot be checked and will
+   be discarded** - and **a range of one or two lines around a defect that is really a wrong function, a mis-set
+   condition or a missing guard under-describes it.** **Extend the range to the whole construct that has to change**:
+   if the fix is to rewrite a function's body, the range is that body. **The measurement says this matters**: the
+   committed figures show findings whose ranges are one to three lines while the defects they describe are larger, and
+   **a range that stops short is a finding that cannot be matched to the repair it is about.**
+5. **Severity is what a human would stop a merge for.** "critical" is data loss, a security hole or a crash on a
+   common path. "high" is a defect a reviewer would block on. "medium" is a defect worth fixing before release. "low"
+   is an improvement. **"info" is not a defect**, so **do not use it for one** - and **when you are unsure between two
+   levels, choose the lower one**, because **a severity that is claimed and not justified costs precision on every
+   row of the measurement that filters by it.**
 `;
 
 // ---------------------------------------------------------------------------
