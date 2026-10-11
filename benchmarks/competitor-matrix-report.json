@@ -1,0 +1,135 @@
+{
+  "comment": [
+    "The competitor matrix as the gate sees it: every cell, its state, and the MISSING count.",
+    "",
+    "**MISSING may fall and may not rise.** A cell is measured only when its artifact carries a value produced with the",
+    "component the cell names switched on."
+  ],
+  "generatedAt": "2026-10-11",
+  "competitors": 67,
+  "byCategory": {
+    "A": 49,
+    "B": 7,
+    "C": 11
+  },
+  "cells": 16,
+  "measured": [
+    {
+      "name": "review.f1.martian",
+      "category": "A",
+      "axis": "review F1 on the field's corpus",
+      "artifact": "benchmarks/semantic-rescore.json",
+      "value": 0.0075
+    },
+    {
+      "name": "retrieval.lexical.recall",
+      "category": "C",
+      "axis": "lexical search recall",
+      "artifact": "benchmarks/lexical-search-recall.json",
+      "value": 1
+    },
+    {
+      "name": "tokens.reduction",
+      "category": "A",
+      "axis": "token reduction versus a full-context baseline",
+      "artifact": "benchmarks/token-reduction.json",
+      "value": 70.5
+    },
+    {
+      "name": "quality.languageCoverage",
+      "category": "A",
+      "axis": "providers whose output has been scored",
+      "artifact": "benchmarks/language-quality.json",
+      "value": 5
+    }
+  ],
+  "invalid": [
+    {
+      "name": "retrieval.docstring.recall.withVectors",
+      "category": "C",
+      "axis": "docstring search recall with vectors registered",
+      "artifact": "benchmarks/docstring-search.json",
+      "because": "withVectorsRegistered.backend is \"none\" — the artifact itself says a `none` backend makes this the lexical figure again"
+    },
+    {
+      "name": "indexing.secondsPerMillionLines",
+      "category": "A",
+      "axis": "indexing seconds per million lines",
+      "artifact": "benchmarks/indexing-speed.json",
+      "because": "valid is \"false\" — the artifact sets `valid: false` — the run hit its timeout, so this is a lower bound and not a rate"
+    }
+  ],
+  "missing": [
+    {
+      "name": "review.findingsPerKLine",
+      "category": "A",
+      "axis": "findings per 1,000 lines on the field's repositories",
+      "artifact": "benchmarks/competitor-corpus.json",
+      "why": "artifact absent: benchmarks/competitor-corpus.json"
+    },
+    {
+      "name": "review.f1.martian.ourRow",
+      "category": "A",
+      "axis": "review.f1.martian.ourRow",
+      "artifact": "benchmarks/martian-harness.json",
+      "why": "the harness runs; our row is absent from the evaluations until the judge scores it"
+    },
+    {
+      "name": "review.f1.aacr",
+      "category": "A",
+      "axis": "review.f1.aacr",
+      "artifact": "benchmarks/aacr-bench.json",
+      "why": "the job exists and the schema is fixed; no figure has been collected yet"
+    },
+    {
+      "name": "review.f1.martian.fieldComparison",
+      "category": "A",
+      "axis": "review.f1.martian.fieldComparison",
+      "artifact": "benchmarks/field-comparison.json",
+      "why": "the job scores the whole field with one judge; no artifact yet"
+    },
+    {
+      "name": "qa.accuracy.crossCodeEval",
+      "category": "C",
+      "axis": "qa.accuracy.crossCodeEval",
+      "artifact": "(none declared)",
+      "why": "needs a QA surface backed by an embedding backend, which is not wired"
+    },
+    {
+      "name": "qa.accuracy.longCodeArena",
+      "category": "C",
+      "axis": "qa.accuracy.longCodeArena",
+      "artifact": "(none declared)",
+      "why": "same prerequisite"
+    },
+    {
+      "name": "sast.recall.owasp",
+      "category": "B",
+      "axis": "sast.recall.owasp",
+      "artifact": "(none declared)",
+      "why": "no SAST category comparison exists"
+    },
+    {
+      "name": "sast.precision.primevul",
+      "category": "B",
+      "axis": "sast.precision.primevul",
+      "artifact": "(none declared)",
+      "why": "same"
+    },
+    {
+      "name": "review.f1.crBench",
+      "category": "A",
+      "axis": "review.f1.crBench",
+      "artifact": "(none declared)",
+      "why": "CR-Bench is not wired"
+    },
+    {
+      "name": "review.f1.macroscope",
+      "category": "A",
+      "axis": "review.f1.macroscope",
+      "artifact": "(none declared)",
+      "why": "Macroscope's corpus is not wired"
+    }
+  ],
+  "missingCount": 12
+}

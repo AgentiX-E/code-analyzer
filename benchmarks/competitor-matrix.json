@@ -1,0 +1,548 @@
+{
+  "comment": [
+    "The competitor matrix, and the gate reads it rather than a human summarising it.",
+    "",
+    "**Why this file exists.** Every audit in this repository has listed competitors and corpora, and **each list was",
+    "shorter than the field** - one entry appeared as a name inside a shared row for weeks. **So the list is data now, and",
+    "the gate prints what is not measured rather than a page asserting what is.**",
+    "",
+    "**A cell is (a competitor axis, our figure for it).** A cell with no figure is `MISSING`, **printed by name**, and",
+    "**the MISSING count is ratcheted** - it may fall and it may not rise. **A cell whose artifact reports a disabled",
+    "backend is MISSING too**, because **a number produced without the component it names is not that number**."
+  ],
+  "categories": {
+    "A": "AI pull-request review",
+    "B": "static analysis and SAST",
+    "C": "codebase question answering and agentic search"
+  },
+  "whyTheseCategories": {
+    "A": "the field's independent benchmark scores these, and they are what the current ranking covers",
+    "B": "the oldest evidence in the field - false positives are what kill analysers (Bessey et al., CACM 2010)",
+    "C": "requirement 5's own axis: question answering should comprehensively exceed every competitor"
+  },
+  "competitors": [
+    {
+      "name": "greptile",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "greptile-v4",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "greptile-v5",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "coderabbit",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "cubic-dev",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "cubic-v2",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "augment",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "bugbot",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "cursor-bugbot",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "devin",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "claude",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "claude-code",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "copilot",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "copilot-v2",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "gitlab",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "graphite",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "macroscope",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "qodo",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "qodo-v2",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "qodo-extended",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "qodo-v22",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "codeant",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "codeant-v2",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "kodus",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "kodus-v2",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "sourcery",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "baz",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "gitar",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "bito",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "linearb",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mergemonkey",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "entelligence",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "propel",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "propel-v2",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mesa",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "kg",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "gemini",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "gemini-v2",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-a",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-b",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-max",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-nano",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-ultra",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-claude",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-openai",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "mra-mix",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "open-code-review",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "alibaba-ocr-clone",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "codacy",
+      "category": "A",
+      "corpus": "martian-offline",
+      "source": "withmartian/code-review-benchmark"
+    },
+    {
+      "name": "sonarqube",
+      "category": "B",
+      "corpus": "owasp-or-primevul",
+      "source": "vendor documentation"
+    },
+    {
+      "name": "snyk-code",
+      "category": "B",
+      "corpus": "owasp-or-primevul",
+      "source": "vendor documentation"
+    },
+    {
+      "name": "semgrep",
+      "category": "B",
+      "corpus": "owasp-or-primevul",
+      "source": "vendor documentation"
+    },
+    {
+      "name": "codeql",
+      "category": "B",
+      "corpus": "owasp-or-primevul",
+      "source": "vendor documentation"
+    },
+    {
+      "name": "codacy-sast",
+      "category": "B",
+      "corpus": "owasp-or-primevul",
+      "source": "vendor documentation"
+    },
+    {
+      "name": "deepsource",
+      "category": "B",
+      "corpus": "owasp-or-primevul",
+      "source": "vendor documentation"
+    },
+    {
+      "name": "coverity",
+      "category": "B",
+      "corpus": "owasp-or-primevul",
+      "source": "vendor documentation"
+    },
+    {
+      "name": "sourcegraph-cody",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "sourcegraph-amp",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "cursor",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "aider",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "cline",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "probe",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "ast-grep",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "windsurf-swe-grep",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "chroma-context-1",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "tabnine",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    },
+    {
+      "name": "continue",
+      "category": "C",
+      "corpus": "crosscodeeval-or-long-code-arena",
+      "source": "vendor reporting"
+    }
+  ],
+  "ourMetrics": {
+    "review.f1.martian": {
+      "category": "A",
+      "axis": "review F1 on the field's corpus",
+      "artifact": "benchmarks/semantic-rescore.json",
+      "read": [
+        "rows",
+        0,
+        "f1"
+      ],
+      "note": "the best filter's F1 under our judge"
+    },
+    "review.findingsPerKLine": {
+      "category": "A",
+      "axis": "findings per 1,000 lines on the field's repositories",
+      "artifact": "benchmarks/competitor-corpus.json",
+      "read": [
+        "findingsPerThousandLines"
+      ],
+      "note": "produced in CI as an artifact; absent from a local checkout, and reported as such"
+    },
+    "retrieval.lexical.recall": {
+      "category": "C",
+      "axis": "lexical search recall",
+      "artifact": "benchmarks/lexical-search-recall.json",
+      "read": [
+        "recall"
+      ]
+    },
+    "retrieval.docstring.recall.withVectors": {
+      "category": "C",
+      "axis": "docstring search recall with vectors registered",
+      "artifact": "benchmarks/docstring-search.json",
+      "read": [
+        "withVectorsRegistered",
+        "recall"
+      ],
+      "invalidWhen": {
+        "path": [
+          "withVectorsRegistered",
+          "backend"
+        ],
+        "equals": "none"
+      },
+      "note": "the artifact itself says a `none` backend makes this the lexical figure again"
+    },
+    "indexing.secondsPerMillionLines": {
+      "category": "A",
+      "axis": "indexing seconds per million lines",
+      "artifact": "benchmarks/indexing-speed.json",
+      "read": [
+        "lowerBound",
+        "secondsPerMillionLines"
+      ],
+      "invalidWhen": {
+        "path": [
+          "valid"
+        ],
+        "equals": false
+      },
+      "note": "the artifact sets `valid: false` \u2014 the run hit its timeout, so this is a lower bound and not a rate"
+    },
+    "tokens.reduction": {
+      "category": "A",
+      "axis": "token reduction versus a full-context baseline",
+      "artifact": "benchmarks/token-reduction.json",
+      "read": [
+        "tokenReduction"
+      ]
+    },
+    "quality.languageCoverage": {
+      "category": "A",
+      "axis": "providers whose output has been scored",
+      "artifact": "benchmarks/language-quality.json",
+      "read": [
+        "measuredCount"
+      ],
+      "note": "languages whose provider output has been scored against a reference"
+    }
+  },
+  "pendingOurMetrics": {
+    "review.f1.martian.ourRow": {
+      "category": "A",
+      "artifact": "benchmarks/martian-harness.json",
+      "why": "the harness runs; our row is absent from the evaluations until the judge scores it"
+    },
+    "review.f1.aacr": {
+      "category": "A",
+      "artifact": "benchmarks/aacr-bench.json",
+      "why": "the job exists and the schema is fixed; no figure has been collected yet"
+    },
+    "review.f1.martian.fieldComparison": {
+      "category": "A",
+      "artifact": "benchmarks/field-comparison.json",
+      "why": "the job scores the whole field with one judge; no artifact yet"
+    },
+    "qa.accuracy.crossCodeEval": {
+      "category": "C",
+      "why": "needs a QA surface backed by an embedding backend, which is not wired"
+    },
+    "qa.accuracy.longCodeArena": {
+      "category": "C",
+      "why": "same prerequisite"
+    },
+    "sast.recall.owasp": {
+      "category": "B",
+      "why": "no SAST category comparison exists"
+    },
+    "sast.precision.primevul": {
+      "category": "B",
+      "why": "same"
+    },
+    "review.f1.crBench": {
+      "category": "A",
+      "why": "CR-Bench is not wired"
+    },
+    "review.f1.macroscope": {
+      "category": "A",
+      "why": "Macroscope's corpus is not wired"
+    }
+  }
+}

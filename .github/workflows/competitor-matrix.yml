@@ -1,0 +1,96 @@
+name: Competitor Matrix
+
+# **The gatekeeper the other benchmarks are judged by.**
+#
+# Every audit in this repository listed competitors and corpora, and **each list was shorter than the field** - one
+# competitor sat as a name inside a shared row for weeks while four pages read as complete. **A list in prose cannot be
+# checked; a list in data can.** `benchmarks/competitor-matrix.json` declares **67 competitors across three categories
+# and every cell this project has or has not measured**, and this job reports what is missing, by name.
+#
+# **And it is a ratchet**: the MISSING count may fall and may not rise. That is what turns "we should measure this some
+# day" into "we can never quietly stop measuring it" - **a cell that was measured and is not any more fails the job.**
+#
+# **It downloads the other jobs' artifacts first**, because **a figure produced in CI and not visible to the gate reads
+# as a missing figure**, which is the honest state for a local checkout and the wrong state here.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'benchmarks/competitor-matrix.json'
+      - 'benchmarks/competitor-matrix-baseline.json'
+      - 'scripts/competitor-matrix-gate.js'
+      - 'tests/unit/scripts/competitor-matrix-gate.test.ts'
+      - '.github/workflows/competitor-matrix.yml'
+  schedule:
+    # Weekly, so a cell that has gone stale is found without waiting for a push to that file.
+    - cron: '17 6 * * 1'
+
+concurrency:
+  group: competitor-matrix
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  matrix:
+    name: Report every cell, and ratchet the missing count
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # **The gate is a script and a test file, so it needs no build** - which is deliberate: a gatekeeper that needs
+      # the product to compile cannot report on a tree where the product does not compile.
+      - name: Contract tests for the gate itself
+        run: npx vitest run --config vitest.config.ts tests/unit/scripts/competitor-matrix-gate.test.ts
+
+      - name: Pull the figures other jobs produced
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: /tmp/ci-artifacts
+          merge-multiple: true
+
+      # **Artifacts land under a temporary path and are copied into the tree only where the gate reads them**, so the
+      # gate's view is the workspace and nothing else.
+      - name: Place them where the gate reads
+        run: |
+          set -e
+          mkdir -p benchmarks
+          for name in competitor-corpus.json aacr-bench.json martian-harness.json field-comparison.json; do
+            found=$(find /tmp/ci-artifacts -name "$name" 2>/dev/null | head -1)
+            if [ -n "$found" ]; then cp "$found" "benchmarks/$name"; echo "placed $name"; fi
+          done
+          ls benchmarks/*.json | head -20
+
+      - name: The matrix, and the ratchet
+        run: node scripts/competitor-matrix-gate.js --json benchmarks/competitor-matrix-report.json
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: competitor-matrix-report
+          path: benchmarks/competitor-matrix-report.json
+          if-no-files-found: warn
+          retention-days: 90
