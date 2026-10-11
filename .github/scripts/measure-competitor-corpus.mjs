@@ -75,7 +75,7 @@ async function main() {
     ],
     measuredAt: new Date().toISOString().slice(0, 10),
     where: 'github-actions',
-    corpus: 'Martian's Code Review Bench offline arm repositories (MIT, open-sourced dataset)',
+    corpus: "Martian's Code Review Bench offline arm repositories (MIT, open-sourced dataset)",
     groundTruth: null,
     note: 'No golden comments in this job, so precision and recall are not computable here - only the finding rate.',
   };
