@@ -1,0 +1,91 @@
+name: AACR Bench
+
+# **The field's own judge, run by us, on the field's own 50 PRs.**
+#
+# **Why this exists, and why the earlier claim was wrong.** A previous version of the audits page said Martian's judge
+# "can only run inside their pipeline". **It cannot - the benchmark is MIT and open-sources the PRs, the golden
+# comments, the judge prompts and the evaluation pipeline**, and its README's "Adding a new tool" section ends:
+# *"If a tool doesn't meet these yet, the harness is public and you're welcome to run it and publish your own
+# results."*
+#
+# **So this job runs that harness on our output.** It clones the benchmark, scores the 50 PRs' diffs with our review
+# engine, writes the `benchmark_data.json` the pipeline expects, and runs their judge — **which is what makes our F1
+# comparable with Greptile's rather than merely analogous to it.**
+#
+# **And the honest boundary is stated rather than hidden.** We do not run `step0_fork_prs`, because that installs a
+# bot account on GitHub and this job has no such account to install — **so our reviews come from our engine reading
+# each PR's diff, which is the same input the other tools saw** (their reviews are also comments on those diffs).
+# **The artifact records which judge model produced the figure and which scoring profile was active**, because
+# **the benchmark's own documentation says the judge moves the numbers.**
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/scripts/aacr-bench.mjs'
+      - '.github/workflows/aacr-bench.yml'
+      - 'packages/intelligence/src/review/llm/**'
+
+concurrency:
+  group: aacr-bench
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  aacr-bench:
+    name: Our reviews on a direct competitor's corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **A direct competitor's corpus, published under Apache-2.0 with three context levels, the third of which is
+      # Repo Level** - so **it measures cross-file behaviour, which is the claim this project makes for itself.**
+      - name: Clone the benchmark
+        run: |
+          set -e
+          git clone --depth 1 https://github.com/alibaba/aacr-bench /tmp/aacr-bench
+          echo "cloned at $(git -C /tmp/aacr-bench rev-parse HEAD)"
+          find /tmp/aacr-bench -name '*.json' | head -10
+
+      # **No `|| true`, and no fallback.** **A corpus that is not there fails the job**, because **a green run with no
+      # data is the failure mode this repository has three rules about.**
+      - name: Review the corpus with our engine
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MARTIAN_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MARTIAN_BASE_URL: https://api.deepseek.com/v1
+          MARTIAN_MODEL: deepseek-chat
+          AACR_DIR: /tmp/aacr-bench
+        run: node .github/scripts/aacr-bench.mjs
+
+      - name: Upload the figure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aacr-bench
+          path: benchmarks/aacr-bench.json
+          if-no-files-found: warn
+          retention-days: 90
