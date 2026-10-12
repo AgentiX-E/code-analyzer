@@ -25,7 +25,7 @@ const KEY = 'test-key-not-a-credential';
 interface Call {
   url: string;
   headers: Record<string, string>;
-  body: { model?: string; input?: string | string[] };
+  body: { model?: string; input?: string | string[]; dimensions?: number };
 }
 
 let calls: Call[] = [];
@@ -72,7 +72,7 @@ describe('the API embedding backend', () => {
     mockFetch((body) => ({
       payload: { data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({ embedding: [1, 0], index: i })) },
     }));
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
     expect(loaded).not.toBeNull();
     for (const call of calls) {
       expect(call.url).not.toContain(KEY);
@@ -84,7 +84,7 @@ describe('the API embedding backend', () => {
     mockFetch((body) => ({
       payload: { data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({ embedding: [3, 4], index: i })) },
     }));
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
     const [first] = await loaded!.embedder.embedBatch(['x']);
     const norm = Math.sqrt([...first!].reduce((sum, v) => sum + v * v, 0));
     expect(norm).toBeCloseTo(1, 5);
@@ -103,7 +103,7 @@ describe('the API embedding backend', () => {
         .reverse();
       return { payload: { data: ordered } };
     });
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
     expect(loaded).not.toBeNull();
     const [first, second] = await loaded!.embedder.embedBatch(['alpha', 'beta']);
     // A unit-normalised `[1,0]` is `[1,0]` and `[0,1]` is `[0,1]`, so the first component identifies the text.
@@ -113,7 +113,7 @@ describe('the API embedding backend', () => {
 
   it('fails when the response carries a different number of vectors than were sent', async () => {
     mockFetch(() => ({ payload: { data: [{ embedding: [1, 0], index: 0 }] } }));
-    const result = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
+    const result = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
     // The probe sends one text and receives one, so the probe succeeds; the failure appears on a larger batch.
     expect(result).not.toBeNull();
     await expect(result!.embedder.embedBatch(['a', 'b'])).rejects.toThrow('expected 2');
@@ -123,13 +123,39 @@ describe('the API embedding backend', () => {
     mockFetch((body) => ({
       payload: { data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({ embedding: [1, 0], index: i })) },
     }));
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
     calls = [];
     const texts = Array.from({ length: 33 }, (_, i) => `t${i}`);
     const vectors = await loaded!.embedder.embedBatch(texts);
     expect(vectors).toHaveLength(33);
     // 33 texts at a maximum of 16 per request is three requests, and the last one carries one.
     expect(calls.map((c) => (c.body.input as string[]).length)).toEqual([16, 16, 1]);
+  });
+
+  it('requests the width the graph holds, and refuses an answer of a different one', async () => {
+    // **This case exists because the real endpoint returned 2048 floats against a graph of 768**, and the failure
+    // surfaced one layer up as `Vector dimension mismatch: 2048 vs 768` - **a message that names the symptom and not
+    // the request that caused it.** So the width is requested, checked here, and the check is tested.
+    mockFetch((body) => {
+      const inputs = Array.isArray(body.input) ? body.input : [body.input];
+      // **Three floats rather than 768**, so the assertion is about the check rather than about vector size.
+      return { payload: { data: inputs.map((_, i) => ({ embedding: [1, 0, 0], index: i })) } };
+    });
+    const result = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
+    expect(result).toBeNull();
+    expect(apiEmbedderUnavailableReason()).toContain('3 floats');
+    expect(apiEmbedderUnavailableReason()).toContain('768');
+  });
+
+  it('asks the endpoint for 768 dimensions, because that is what the graph holds', async () => {
+    mockFetch((body) => {
+      const inputs = Array.isArray(body.input) ? body.input : [body.input];
+      const width = (body as { dimensions?: number }).dimensions ?? 3;
+      return { payload: { data: inputs.map((_, i) => ({ embedding: new Array(width).fill(0).map((_, j) => (j === 0 ? 1 : 0)), index: i })) } };
+    });
+    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
+    expect(loaded).not.toBeNull();
+    expect((calls[0]!.body as { dimensions?: number }).dimensions).toBe(768);
   });
 
   it('sends the configured model and endpoint on every request', async () => {
