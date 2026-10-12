@@ -110,7 +110,10 @@ describe('doc-code-sync-gate', () => {
     };
 
     expect(parsed.failures).toEqual([]);
-    expect(parsed.summary.mcpToolCalls).toBe(48);
+    // **49, and the gate itself is the authority on which side moved.** `failures` is empty, so the committed
+    // documents already agree with the committed code; this literal was the only place still saying 48, which is
+    // what a hard-coded count does when a tool is added and the gate is left to catch up on its own.
+    expect(parsed.summary.mcpToolCalls).toBe(49);
     expect(parsed.summary.pipelinePhases).toBe(19);
     expect(parsed.summary.nodeTypes).toBe(36);
     expect(parsed.summary.relationshipTypes).toBe(43);
