@@ -310,16 +310,76 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
 }
 artifact.configuredRuns = inProcess;
 
-// **And the comparison against our own engine on the same directory**, which is what makes the count meaningful.
-if (typeof artifact.configuredRuns?.['open-code-review']?.scan?.findings === 'number') {
-  const ours = tryRun('node', ['-e', `process.stdout.write(String(require('node:fs').readFileSync('${CORPUS}/typescript.ts','utf8').split('\n').length))`], 30_000);
-  artifact.sameCorpus = {
-    corpus: CORPUS,
-    competitorFindings: artifact.configuredRuns['open-code-review'].scan.findings,
-    note: 'our own engine is reviewed on the same corpus by the competitor-corpus job, so the two counts are comparable per repository rather than per file',
-    referenceLines: ours.ok ? Number(ours.stdout.tail ?? ours.stdout.head) : null,
+// **And the same corpus, through our own engine, in the same whole-file mode.**
+//
+// **Why this turns a count into a comparison.** `measure-competitor-corpus.mjs` reviews a whole file by handing it to
+// `reviewDiff` as a synthetic `added` diff - **and `ocr scan` reviews a whole file with no diff at all.** **The two are
+// the same shape of input over the same directory**, so **counting both over one denominator is a comparison rather
+// than two numbers in a table.**
+//
+// **And the denominator has to be shared, not similar.** **The tool reported `files_reviewed: 37`, and this loop walks
+// the same directory** - because **a rate per file from two different file sets is the defect this page has recorded
+// twice under another name.**
+const ourEngine = { corpus: CORPUS, files: 0, lines: 0, findings: 0, perFile: [] };
+if (KEY) {
+  const { readdirSync } = await import('node:fs');
+  const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|rb|kt|swift|c|cc|cpp|h|hpp|cs|php|lua|scala|zig|ex|exs|dart|sh)$/;
+  const walk = (dir, out = []) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full, out);
+      else if (SOURCE.test(entry.name)) out.push(full);
+    }
+    return out;
   };
+  const root = resolve(process.cwd(), CORPUS);
+  const files = walk(root);
+  const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
+  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  const engine = new LLMReviewEngine(new DeepSeekProvider());
+  for (const file of files) {
+    const content = readFileSync(file, 'utf8');
+    const rel = file.slice(root.length + 1);
+    ourEngine.files += 1;
+    ourEngine.lines += content.split(String.fromCharCode(10)).length;
+    try {
+      // **The identical call `measure-competitor-corpus.mjs` makes**, so **the two figures are one measurement applied
+      // to one directory rather than two measurements that happen to sit adjacent.**
+      const lanes = await engine.reviewDiff(createDiff(rel, 'added', content), content);
+      const count = lanes.filter((l) => l.success).flatMap((l) => l.findings).length;
+      ourEngine.findings += count;
+      ourEngine.perFile.push({ file: rel, findings: count });
+    } catch {
+      // **A file the engine could not review is not a file it reviewed cleanly**, so **it is counted and contributes
+      // no findings** - the distinction this project has now drawn twelve times.
+    }
+  }
 }
+
+const ocrScan = artifact.configuredRuns?.['open-code-review']?.scan;
+const overFiles = (findings) =>
+  ourEngine.files > 0 && typeof findings === 'number' ? Math.round((findings / ourEngine.files) * 100) / 100 : null;
+artifact.sameCorpus = {
+  corpus: CORPUS,
+  // **One denominator, two numerators**, both describing the same directory - **which is what makes the pair a
+  // comparison rather than an adjacency.**
+  denominator: { files: ourEngine.files, lines: ourEngine.lines },
+  toolReportedFiles: ocrScan?.toolSummary?.files_reviewed ?? null,
+  ourEngine: {
+    findings: ourEngine.findings,
+    findingsPerFile: overFiles(ourEngine.findings),
+    findingsPerThousandLines:
+      ourEngine.lines > 0 ? Math.round((ourEngine.findings / ourEngine.lines) * 1000 * 100) / 100 : null,
+  },
+  openCodeReview: {
+    findings: ocrScan?.findings ?? null,
+    findingsPerFile: overFiles(ocrScan?.findings),
+    tokens: ocrScan?.toolSummary?.total_tokens ?? null,
+    elapsed: ocrScan?.toolSummary?.elapsed ?? null,
+  },
+  note: 'both reviewed the same directory the same way - a whole file with no diff - so the two counts share a denominator',
+};
 
 const invocable = Object.entries(artifact.tools)
   .filter(([, t]) => t.runnableHere)

@@ -67,7 +67,7 @@ describe('generateEmbeddings — deterministic fallback', () => {
   it('returns empty when there are no embeddable nodes', async () => {
     const { graph } = buildGraph();
     // graph only has Project + Folder (structural) nodes
-    const { results } = await generateEmbeddings(graph.nodes);
+    const results = await generateEmbeddings(graph.nodes);
     expect(results).toEqual([]);
   });
 
@@ -80,7 +80,7 @@ describe('generateEmbeddings — deterministic fallback', () => {
     builder.addNode(graph, 'Project', 'p', { name: 'p' });
     builder.addNode(graph, 'Function', '', { name: '' }); // nameless
 
-    const { results } = await generateEmbeddings(graph.nodes);
+    const results = await generateEmbeddings(graph.nodes);
     const ids = results.map((r) => r.nodeId).sort();
     expect(ids).toEqual([fn.id, cls.id].sort());
   });
@@ -89,7 +89,7 @@ describe('generateEmbeddings — deterministic fallback', () => {
     const { graph, builder } = buildGraph();
     builder.addNode(graph, 'Function', 'foo', { name: 'foo' });
 
-    const { results } = await generateEmbeddings(graph.nodes);
+    const results = await generateEmbeddings(graph.nodes);
     expect(results).toHaveLength(1);
     const embedding = results[0]!.embedding;
     expect(embedding).toHaveLength(768);
@@ -105,7 +105,7 @@ describe('generateEmbeddings — deterministic fallback', () => {
     const { graph, builder } = buildGraph();
     builder.addNode(graph, 'Function', 'foo', { name: 'foo' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () => {
+    const results = await generateEmbeddings(graph.nodes, async () => {
       throw new Error('ONNX unavailable');
     });
     expect(results).toHaveLength(1);
@@ -121,7 +121,7 @@ describe('generateEmbeddings — deterministic fallback', () => {
     const unsigned = builder.addNode(graph, 'Function', 'unsigned', { name: 'unsigned' });
 
     // Different text (with vs. without signature) must yield different embeddings.
-    const { results } = await generateEmbeddings(graph.nodes);
+    const results = await generateEmbeddings(graph.nodes);
     const byId = new Map(results.map((r) => [r.nodeId, r.embedding]));
     const signedEmb = byId.get(signed.id)!;
     const unsignedEmb = byId.get(unsigned.id)!;
@@ -139,7 +139,7 @@ describe('generateEmbeddings — ONNX backend', () => {
     const a = builder.addNode(graph, 'Function', 'a', { name: 'a' });
     const b = builder.addNode(graph, 'Class', 'b', { name: 'b' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
+    const results = await generateEmbeddings(graph.nodes, async () =>
       makeEmbedder({
         embedBatch: async () => [new Float32Array([42]), new Float32Array([43])],
       }),
@@ -155,7 +155,7 @@ describe('generateEmbeddings — ONNX backend', () => {
     const a = builder.addNode(graph, 'Function', 'a', { name: 'a' });
     builder.addNode(graph, 'Function', 'b', { name: 'b' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
+    const results = await generateEmbeddings(graph.nodes, async () =>
       makeEmbedder({
         embedBatch: async () => [new Float32Array([42]), null as unknown as Float32Array],
       }),
@@ -169,7 +169,7 @@ describe('generateEmbeddings — ONNX backend', () => {
     const a = builder.addNode(graph, 'Function', 'a', { name: 'a' });
     const b = builder.addNode(graph, 'Function', 'b', { name: 'b' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
+    const results = await generateEmbeddings(graph.nodes, async () =>
       makeEmbedder({
         embedBatch: async () => {
           throw new Error('batch failed');
@@ -187,7 +187,7 @@ describe('generateEmbeddings — ONNX backend', () => {
     const { graph, builder } = buildGraph();
     builder.addNode(graph, 'Function', 'a', { name: 'a' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
+    const results = await generateEmbeddings(graph.nodes, async () =>
       makeEmbedder({
         embedBatch: async () => {
           throw new Error('batch failed');
@@ -205,7 +205,7 @@ describe('generateEmbeddings — ONNX backend', () => {
     const { graph, builder } = buildGraph();
     builder.addNode(graph, 'Function', 'a', { name: 'a' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
+    const results = await generateEmbeddings(graph.nodes, async () =>
       makeEmbedder({
         dispose: async () => {
           throw new Error('dispose failed');

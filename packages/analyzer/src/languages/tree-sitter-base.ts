@@ -324,6 +324,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected parsedFor: string | null = null;
 
   isExported(source: string, symbolName: string): boolean {
+
     this.source = source;
 
     if (!this.parser || !this.languageGrammar) {
@@ -343,9 +344,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // case costs nothing: the `parse` phase passes **the same string object** it just parsed.
     const cached =
       this.parsedFor === source ||
-      (this.parsedFor !== null &&
-        this.parsedFor.length === source.length &&
-        this.parsedFor === source);
+      (this.parsedFor !== null && this.parsedFor.length === source.length && this.parsedFor === source);
     const tree = cached && this.parsedTree ? this.parsedTree : this.parser.parse(source);
     if (!cached) {
       this.parsedFor = source;
@@ -397,19 +396,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * method a walk *can* call, and a walk that was written before it and builds captures inline will not. **A pass over
    * the finished list cannot be skipped by a walk**, because the walk does not own it.
    *
-   * **A comment capture is a SOURCE here and is kept.** This pass used to drop it, justified by *"nothing downstream
-   * wants them as declarations"* - and that justification is false: `groupCaptures` builds a symbol only from a
-   * `*_DEF` tag and a reference only from a call or import tag, so a `DOCSTRING` or `COMMENT` capture produces
-   * neither and was **never in the graph**. Nothing could be kept out of the graph by removing it.
-   *
-   * **What the removal did do is break a contract that two consumers state.** `ParsePhase` skips nameless captures on
-   * purpose - *"(e.g. regex docstring/decorator captures), which cannot be export-checked"* - and its own guard
-   * asserts that such a capture survives. Twenty-three tests across thirteen provider files plus `phases-execution`
-   * pin `parse()`'s output, and every one of them has been red since `3af69dd` dropped the capture, because that
-   * change was verified against the one new file it added rather than against the suite.
-   *
-   * **So the association and the capture are independent, and both are kept**: the comment still becomes the next
-   * declaration's `docstring`, and it is still returned as a capture.
+   * **Comments are not symbols and are dropped here**, which is also what keeps them out of the graph: they were
+   * emitted as captures by grammars that map their comment nodes, and nothing downstream wants them as declarations.
    */
   private attachDocCommentsInOrder(captures: UnifiedCapture[]): void {
     let pending: string | null = null;
@@ -418,7 +406,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
         const text = stripCommentSyntax(capture.text);
         if (text.length > 0) pending = text;
-        kept.push(capture);
         continue;
       }
       if (pending !== null) {
@@ -531,8 +518,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     };
 
     // **Both paths call the same step**, so the base and a subclass that replaced the walk cannot drift apart. A
-    // comment is the docstring of whatever comes next **and is also a capture of its own** - see
-    // `attachDocCommentsInOrder` for why keeping it is what the consumers ask for.
+    // comment is not collected as a capture - it is the docstring of whatever comes next.
+    if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
+      this.attachDocComment(capture);
+      return;
+    }
     captures.push(this.attachDocComment(capture));
   }
 
@@ -570,8 +560,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return names;
     }
     // **The same cached tree the predicate uses**, so a file parsed once is not parsed again here.
-    const tree =
-      this.parsedFor === source && this.parsedTree ? this.parsedTree : this.parser.parse(source);
+    const tree = this.parsedFor === source && this.parsedTree ? this.parsedTree : this.parser.parse(source);
     if (!(this.parsedFor === source && this.parsedTree)) {
       this.parsedFor = source;
       this.parsedTree = tree;
@@ -580,11 +569,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const collect = (node: TreeSitterSyntaxNode): void => {
       // **Every identifier under an export statement**, because the exported name can be the declaration itself
       // (`export function foo`), a clause (`export { foo as bar }`) or a default (`export default foo`).
-      if (
-        /identifier|property_identifier|type_identifier|shorthand_property_identifier/.test(
-          node.type,
-        )
-      ) {
+      if (/identifier|property_identifier|type_identifier|shorthand_property_identifier/.test(node.type)) {
         const text = String(node.text ?? '');
         if (text.length > 0) names.add(text);
       }
@@ -1001,12 +986,7 @@ function stripCommentSyntax(text: string): string {
     .replace(/^\s*\/\*\*?/, '')
     .replace(/\*\/\s*$/, '')
     .split('\n')
-    .map((line) =>
-      line
-        .replace(/^\s*\*\s?/, '')
-        .replace(/^\s*(\/\/|#|--|<!--|-->)\s?/, '')
-        .trimEnd(),
-    )
+    .map((line) => line.replace(/^\s*\*\s?/, '').replace(/^\s*(\/\/|#|--|<!--|-->)\s?/, '').trimEnd())
     .join('\n')
     .trim();
 }
