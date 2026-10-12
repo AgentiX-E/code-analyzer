@@ -127,6 +127,36 @@ async function main() {
   const negatives = negative && existsSync(negative) ? JSON.parse(readFileSync(negative, 'utf8')) : [];
   const rows = (Array.isArray(positives) ? positives : Object.values(positives)).slice(0, MAX_PRS);
 
+  // **And a second reviewer, on the same ground truth, with the same judge.**
+  //
+  // **Why this is the step that turns a volume figure into a correctness one.** Everything measured so far in this
+  // comparison has been a **count** - findings per file, comments per commit - and **a count cannot rank a reviewer**,
+  // because **a tool that says everything and a tool that says only true things produce the same kind of number.**
+  // **AACR-Bench supplies ground truth**, so **running a competitor on it produces an F1 that can be placed beside this
+  // repository's 0.0377 on the same 1,505 annotated issues.**
+  //
+  // **And the mechanics are its own documented ones**: the dataset names `githubPrUrl`, `source_commit` and
+  // `target_commit`, so **a checkout at those two commits is what its `review --from --to` needs** - **the same
+  // three fields this repository already reads to fetch the diff.**
+  const YOU_FILES = { enabled: false };
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+
+  /**
+   * `owner/repo` from a pull request URL.
+   *
+   * **Split rather than matched.** The first version used a regular expression, and **the `/` inside `[^/]` ended the
+   * literal early** - `SyntaxError: Unexpected token '^'` - which is **the twelfth time in this stretch that a quoted
+   * pattern met text it was not written for.** **A URL has a fixed shape and `split` states that shape without an
+   * escape**: `https://github.com/owner/repo/pull/123` is **five `/`-separated pieces from the scheme onward**.
+   */
+  const shortRepo = (url) => {
+    const parts = String(url ?? '').split('/');
+    const at = parts.indexOf('github.com');
+    return at >= 0 && parts.length > at + 2 ? `${parts[at + 1]}/${parts[at + 2]}` : null;
+  };
+
   const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
   const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
