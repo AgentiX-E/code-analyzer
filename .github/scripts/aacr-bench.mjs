@@ -162,6 +162,18 @@ async function main() {
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
   const engine = new LLMReviewEngine(new DeepSeekProvider());
 
+  const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
+  const competitor = {
+    tool: 'open-code-review',
+    prsAttempted: 0,
+    prsFailed: 0,
+    firstFailure: null,
+    findings: 0,
+    truePositives: 0,
+    falsePositives: 0,
+    falseNegatives: 0,
+    judgeUnanswered: 0,
+  };
   let tp = 0;
   let fn = 0;
   let fp = 0;
@@ -202,6 +214,54 @@ async function main() {
       unfetched += 1;
       continue;
     }
+    // **The competitor, on this pull request, judged by the same judge against the same goldens.**
+    //
+    // **And its findings are extracted the way its own output shapes them** - a `comments` array carrying `content` and
+    // `path` - because **the key was learned from a previous run rather than assumed**, and **an extractor that guesses
+    // returns an empty list that reads as a silent reviewer.**
+    if (ocrKey) {
+      const outcome = reviewWithOcr(
+        process.env['OCR_LLM_URL'] ?? '',
+        ocrKey,
+        pr.githubPrUrl,
+        pr.source_commit,
+        pr.target_commit,
+      );
+      competitor.prsAttempted += 1;
+      if (!outcome.ok) {
+        competitor.prsFailed += 1;
+        if (competitor.firstFailure === null) competitor.firstFailure = outcome.reason;
+      } else {
+        try {
+          const parsed = JSON.parse(outcome.stdout);
+          const list = Array.isArray(parsed) ? parsed : (parsed.comments ?? parsed.findings ?? []);
+          competitor.findings += list.length;
+          // **Each competitor comment is judged once against the goldens**, with the same judge and the same prompt our
+          // own findings get - so **the two F1 values below are one measurement applied to two reviewers.**
+          const matchedByCompetitor = new Set();
+          for (const entry of list) {
+            const text = typeof entry === 'string' ? entry : String(entry.content ?? entry.body ?? '');
+            if (!text) continue;
+            for (let g = 0; g < issueTexts.length; g += 1) {
+              if (matchedByCompetitor.has(g)) continue;
+              const verdict = await judge(text, issueTexts[g]);
+              if (verdict === null) competitor.judgeUnanswered += 1;
+              else if (verdict) {
+                matchedByCompetitor.add(g);
+                break;
+              }
+            }
+          }
+          competitor.truePositives += matchedByCompetitor.size;
+          competitor.falseNegatives += issueTexts.length - matchedByCompetitor.size;
+          competitor.falsePositives += Math.max(0, list.length - matchedByCompetitor.size);
+        } catch (error) {
+          competitor.prsFailed += 1;
+          if (competitor.firstFailure === null) competitor.firstFailure = `its output did not parse: ${error.message}`;
+        }
+      }
+    }
+
     const firstPath = String(comments[0]?.path ?? 'unknown');
     // **`createDiff` and not a hand-made object.** The first version passed `{ filePath, changeType, content }`, and
     // the engine read `diff.ranges` - which a plain object does not have - so **the job failed with
@@ -259,9 +319,23 @@ async function main() {
     reviewCategories: categories,
     // **The context split, which is the reason this corpus was chosen**: `Repo Level` is cross-file by construction.
     groundTruthContextLevels: contextLevels,
+    // **The competitor's F1, computed with the same formula over the same goldens** - so **the two numbers are
+    // comparable because they were produced by one measurement, not because they were printed side by side.**
+    secondReviewer: {
+      ...competitor,
+      precision: round(competitor.truePositives + competitor.falsePositives > 0 ? competitor.truePositives / (competitor.truePositives + competitor.falsePositives) : 0),
+      recall: round(competitor.truePositives + competitor.falseNegatives > 0 ? competitor.truePositives / (competitor.truePositives + competitor.falseNegatives) : 0),
+      f1: round(
+        competitor.truePositives + competitor.falsePositives + competitor.falseNegatives > 0
+          ? (2 * competitor.truePositives) /
+            (2 * competitor.truePositives + competitor.falsePositives + competitor.falseNegatives)
+          : 0,
+      ),
+    },
     skipped: null,
   });
   console.log(`AACR-BENCH reviewed ${reviewed} PRs · tp ${tp} fp ${fp} fn ${fn} · P ${round(p)} R ${round(r)}`);
+  console.log(`AACR-BENCH competitor ${competitor.tool} · findings ${competitor.findings} · tp ${competitor.truePositives} fp ${competitor.falsePositives} fn ${competitor.falseNegatives}`);
 }
 
 function write(payload) {
