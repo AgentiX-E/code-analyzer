@@ -61,6 +61,19 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      # **The competitor this job now scores beside us, installed from its own registry entry.**
+      #
+      # **The first run of the second reviewer reported `spawnSync ocr ENOENT` five times**, which is **the honest way
+      # to be missing a tool and the reason `firstFailure` exists as a field.** **A reviewer that cannot be invoked
+      # contributes zero findings and reads as a silent one** - and **the difference between those two is a field, not
+      # a footnote.**
+      - name: Install the competitor whose corpus this is
+        run: |
+          set -e
+          npm install -g @alibaba-group/open-code-review
+          command -v ocr
+          ocr --version
+
       # **A direct competitor's corpus, published under Apache-2.0 with three context levels, the third of which is
       # Repo Level** - so **it measures cross-file behaviour, which is the claim this project makes for itself.**
       - name: Clone the benchmark
@@ -79,6 +92,11 @@ jobs:
           MARTIAN_BASE_URL: https://api.deepseek.com/v1
           MARTIAN_MODEL: deepseek-chat
           AACR_DIR: /tmp/aacr-bench
+          # **And the second reviewer's own configuration**, pointing at the same provider the judge uses - so
+          # **the reviewer and the judge are the same model, which is requirement 2 satisfied by construction.**
+          OCR_LLM_URL: https://api.deepseek.com/anthropic
+          OCR_LLM_TOKEN: ${{ secrets.DEEPSEEK_API_KEY }}
+          OCR_LLM_MODEL: deepseek-chat
         run: node .github/scripts/aacr-bench.mjs
 
       - name: Upload the figure

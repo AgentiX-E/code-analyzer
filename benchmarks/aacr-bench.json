@@ -1,32 +1,64 @@
 {
   "comment": [
-    "Our review on AACR-Bench, the corpus a direct competitor published, judged by one model on the labelled issues.",
+    "Our review engine on AACR-Bench, the corpus a direct competitor published, judged by one model.",
     "",
-    "**F1 0.0377 - precision 0.3333 and recall 0.02 over 5 PRs, tp 1 fp 2 fn 49.**",
+    "**And this file is the run's own output rather than a copy of one.** **An earlier version of it was written by",
+    "hand from a previous run's numbers, and a later run of the same script on the same corpus produced different",
+    "ones** - **tp 1 fp 2 fn 49 on one run and tp 0 fp 4 fn 50 on the next.** **A judge is a model and a model is not",
+    "deterministic at temperature zero in the way a pure function is**, so **the artifact has to be the run, and the",
+    "run has to be re-taken rather than remembered.**",
     "",
-    "**And the corpus is the one whose ground truth includes cross-file issues**: the 5 PRs scored carry 50 labelled",
-    "issues, split **Diff Level 36, File Level 12, Repo Level 2** - so **the axis this project claims for itself is",
-    "present in the data and is being missed along with the rest.**",
+    "**And the second reviewer was attempted and could not run**: **`spawnSync ocr ENOENT`, five times** - **the",
+    "competitor was not installed in this job**, which **the `firstFailure` field recorded rather than leaving as an",
+    "empty numerator.**",
     "",
-    "**And the comparison basis is stated rather than implied**: their own reported absolute precision is 0.339,",
-    "**which is 1.02x ours on this run** - and **Alibaba built both the tool and the benchmark it wins on**, which an",
-    "independent party said plainly: *an instrument that agrees with itself is not evidence.*"
+    "**And the caveat stands**: **Alibaba built both the tool and the benchmark it wins on.** **Their reported",
+    "absolute precision is 33.9%**, and **that figure is theirs, not a run reproduced here.**"
   ],
   "measuredAt": "2026-10-12",
   "where": "github-actions",
-  "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0)",
+  "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
+  "judge": {
+    "model": "deepseek-chat",
+    "endpoint": "https://api.deepseek.com/v1"
+  },
+  "route": "our engine reading each PR diff; no bot account installed",
+  "comparisonBasis": "their published figures, not a run we performed",
+  "prsInDataset": 5,
   "prsReviewed": 5,
-  "tp": 1,
-  "fp": 2,
-  "fn": 49,
-  "precision": 0.3333,
-  "recall": 0.02,
-  "f1": 0.0377,
-  "judge": "deepseek-chat",
+  "prsWithoutDiff": 0,
+  "positiveSamples": 196,
+  "negativeSamples": 155,
+  "truePositives": 0,
+  "falsePositives": 4,
+  "falseNegatives": 50,
+  "judgeUnanswered": 0,
+  "precision": 0,
+  "recall": 0,
+  "f1": 0,
+  "reviewCategories": {
+    "Performance": 5,
+    "Maintainability and Readability": 28,
+    "Code Defect": 17
+  },
   "groundTruthContextLevels": {
-    "Diff Level": 36,
     "File Level": 12,
+    "Diff Level": 36,
     "Repo Level": 2
   },
-  "comparisonBasis": "their published absolute precision 0.339; not a run we performed"
+  "secondReviewer": {
+    "tool": "open-code-review",
+    "prsAttempted": 5,
+    "prsFailed": 5,
+    "firstFailure": "spawnSync ocr ENOENT",
+    "findings": 0,
+    "truePositives": 0,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "judgeUnanswered": 0,
+    "precision": 0,
+    "recall": 0,
+    "f1": 0
+  },
+  "skipped": null
 }
