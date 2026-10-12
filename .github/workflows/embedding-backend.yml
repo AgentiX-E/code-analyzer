@@ -1,0 +1,113 @@
+name: Embedding Backend
+
+# **The backend that could not run, and the one key that makes it run.**
+#
+# For weeks this repository reported a semantic retrieval figure whose own artifact said `backend: "none"` and, in its
+# own note, *"with no embedder this is the lexical figure again."* **Three reports described the ONNX backend as
+# "intermittent"**, and a single probe settled it: **`@agentix-e/embed-code-node` declares `files: ['dist', 'models']`
+# and ships no `models/`**, so `createFromPackage()` throws on every machine. **A backend that cannot run is not a
+# fallback; it is an absence, and it was being reported as a figure.**
+#
+# **The API backend needs one thing: `ZHIPU_API_KEY`.** No ~137MB model, no native runtime, no per-platform build - and
+# **the protocol is the one `scripts/validate-embeddings.ts` already exercised**, so it is not a new integration.
+#
+# **This job is where that backend is allowed to run**, and it is separate from the default test job on purpose:
+# **a test that needs a credential belongs in a job that can say the credential was missing**, rather than in one that
+# silently falls back and reports a lexical number under a semantic name.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/analyzer/src/pipeline/phases/embed*.ts'
+      - 'packages/intelligence/src/__tests__/docstring-search.test.ts'
+      - '.github/workflows/embedding-backend.yml'
+
+concurrency:
+  group: embedding-backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Score retrieval with the embedding backend reachable
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The contract tests for the API backend, against a mocked transport.** They run without a credential, which is
+      # the point: **the refusal paths - no key, a rejected probe, a wrong vector count - are checked before anything
+      # that depends on a key being right.**
+      - name: Contract tests for the API embedding backend
+        run: npx vitest run --config vitest.config.ts packages/analyzer/src/pipeline/phases/__tests__/embed-api.test.ts
+
+      # **The credential, and the job says so when it is absent rather than reporting a fallback as a result.**
+      - name: Is the embedding credential present?
+        id: credential
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          if [ -n "$ZHIPU_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "ZHIPU_API_KEY is present -- the vector backend can run"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ZHIPU_API_KEY is not configured, so the vector backend cannot run and the figure will record that."
+          fi
+
+      - name: Score retrieval with vectors registered
+        id: retrieval
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_EMBEDDING_MODEL: embedding-3
+        run: |
+          set -o pipefail
+          npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/docstring-search.test.ts 2>&1 | tee /tmp/docstring.log
+          grep -o 'with vectors backend=[a-z]* recall=[0-9.]*' /tmp/docstring.log | tail -1
+
+      # **The artifact is the evidence, and the gate reads it.** A job that kept the number in its log would leave the
+      # matrix's cell as MISSING, which is the honest state and not the useful one.
+      - name: Upload the artifact the matrix reads
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docstring-search
+          path: benchmarks/docstring-search.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      # **And a failure when the backend ran but produced nothing**, because **a figure that says `none` after this job
+      # went to the trouble of providing a key is the exact defect the job exists to remove.**
+      - name: Fail when the credential was present and the backend still did not run
+        if: steps.credential.outputs.present == 'true'
+        run: |
+          set -e
+          backend=$(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.withVectorsRegistered.backend)")
+          echo "recorded backend: $backend"
+          if [ "$backend" = "none" ]; then
+            echo "::error::ZHIPU_API_KEY was present and the vector backend did not run; the artifact records: $(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.backend.reason)")"
+            exit 1
+          fi

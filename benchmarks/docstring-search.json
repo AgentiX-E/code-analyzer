@@ -12,10 +12,11 @@
     "**The semantic half is reported only with a backend named**, because the embedding backend here is",
     "intermittent: one probe threw `Tokenizer not found` and later runs report `onnx`."
   ],
-  "measuredAt": "2026-10-11",
+  "measuredAt": "2026-10-12",
   "mode": "lexical-then-registered",
   "backend": {
     "loaded": "none",
+    "reason": "onnx: createFromPackage failed: Tokenizer not found: /Users/lambertyan/Workbuddy/2026-08-17-18-51-38/repos/code-analyzer/node_modules/.pnpm/@agentix-e+embed-code-node@0.1.1/node_modules/@agentix-e/embed-code-node/models/tokenizer.json · api: ZHIPU_API_KEY is not set",
     "note": "the first figure is BM25 alone; the second had vectors registered on the same engine"
   },
   "withVectorsRegistered": {

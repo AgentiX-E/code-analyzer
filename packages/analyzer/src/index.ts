@@ -92,7 +92,10 @@ export { groupCaptures } from './pipeline/phase-helpers.js';
 // Where a file's call sites become the per-function map the taint subsystem reads. Exported for the same
 // reason as groupCaptures: a scan over real files has to run the steps the phases run.
 export { buildCallSites } from './resolution/call-sites.js';
-export { loadRealEmbedder, embedderUnavailableReason } from './pipeline/phases/embed.js';
+// **The backend chain, not one backend.** `loadEmbedder` tries ONNX and then the API, and **returns which one won**,
+// because **the artifact has to be able to say which embedder produced its vectors** - the field whose absence let a
+// lexical figure be quoted as a semantic one.
+export { loadEmbedder, loadRealEmbedder, embedderUnavailableReason } from './pipeline/phases/embed.js';
 
 // **A parser by language, for callers outside this package.** The cross-repo indexer extracts symbols with its
 // own regexes because it could not reach a provider; a provider is exactly what it needs.

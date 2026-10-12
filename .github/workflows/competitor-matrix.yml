@@ -77,7 +77,8 @@ jobs:
         run: |
           set -e
           mkdir -p benchmarks
-          for name in competitor-corpus.json aacr-bench.json martian-harness.json field-comparison.json; do
+          # **Every artifact a cell points at**, because **a figure produced in CI and invisible to the gate reads as missing**.
+          for name in competitor-corpus.json aacr-bench.json martian-harness.json field-comparison.json docstring-search.json lexical-search-recall.json; do
             found=$(find /tmp/ci-artifacts -name "$name" 2>/dev/null | head -1)
             if [ -n "$found" ]; then cp "$found" "benchmarks/$name"; echo "placed $name"; fi
           done

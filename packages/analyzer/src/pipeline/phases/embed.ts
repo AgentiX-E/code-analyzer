@@ -161,6 +161,32 @@ export function embedderUnavailableReason(): string | null {
   return lastEmbedderFailure;
 }
 
+/**
+ * The embedder this pipeline should use, in the order the backends can actually run.
+ *
+ * **ONNX first, because it needs no network and no key** - and **the API second, because the ONNX model is not shipped
+ * and the API needs only a key.** **The order is a consequence of what each one requires, not of preference**, and
+ * **the name of the backend that won is returned**, so an artifact can record which one produced its vectors.
+ *
+ * **The reason from the losing backend is kept when neither wins**, because **"no embedder" is a conclusion and the
+ * reason is the evidence for it.**
+ */
+export async function loadEmbedder(): Promise<{ embedder: Embedder; backend: 'onnx' | 'api' } | null> {
+  const onnx = await loadRealEmbedder();
+  if (onnx) return { embedder: onnx, backend: 'onnx' };
+
+  const { loadApiEmbedder } = await import('./embed-api.js');
+  const api = await loadApiEmbedder();
+  if (api) return api;
+
+  // **Both reasons are recorded**, because a single message would name one backend's failure and hide the other's.
+  const onnxReason = lastEmbedderFailure ?? 'the ONNX embedder returned null without a reason';
+  const { apiEmbedderUnavailableReason } = await import('./embed-api.js');
+  const apiReason = apiEmbedderUnavailableReason() ?? 'the API embedder returned null without a reason';
+  lastEmbedderFailure = `onnx: ${onnxReason} · api: ${apiReason}`;
+  return null;
+}
+
 export async function loadRealEmbedder(): Promise<Embedder | null> {
   try {
     const { NodeEmbedder } = await import('@agentix-e/embed-code-node');

@@ -19,7 +19,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 
-import { GraphBuilder, PipelineOrchestrator, createAllPhases, loadRealEmbedder } from '@code-analyzer/analyzer';
+import { GraphBuilder, PipelineOrchestrator, createAllPhases, loadEmbedder, embedderUnavailableReason } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, expect, it } from 'vitest';
@@ -74,10 +74,16 @@ describe('finding a symbol from its own doc comment', () => {
     const engine = new HybridSearchEngine(store);
     engine.initialize();
 
+    // **`loadEmbedder()` and not `loadRealEmbedder()`**, because the ONNX backend **cannot run on any machine** - the
+    // published package declares `files: ['dist', 'models']` and ships no `models/` - while **the API backend needs a
+    // key and nothing else.** **The backend that won is recorded by name**, which is the field whose absence let this
+    // figure be quoted as a semantic one while it was lexical.
     let backend: string = 'none';
-    const embedder = await loadRealEmbedder().catch(() => null);
-    if (embedder) {
-      backend = 'onnx';
+    let unavailableReason: string | null = null;
+    const loaded = await loadEmbedder().catch(() => null);
+    const embedder = loaded?.embedder ?? null;
+    if (loaded && embedder) {
+      backend = loaded.backend;
       const byId = new Map<number, Float32Array>();
       for (const node of result.graph.nodes.values()) {
         const vector = (node.properties as { embedding?: number[] } | undefined)?.embedding;
@@ -88,6 +94,10 @@ describe('finding a symbol from its own doc comment', () => {
         async (content) => (await embedder.embedBatch([content]))[0] ?? new Float32Array(0),
       );
       await embedder.dispose().catch(() => undefined);
+    } else {
+      // **The reason travels into the artifact.** "No backend" is a conclusion, and **three reports called this
+      // "intermittent" until the error was printed** - a conclusion without its evidence is what invited that.
+      unavailableReason = embedderUnavailableReason();
     }
 
     // **The queries are the doc comments that do not name their own symbol**, which is what makes this semantic.
@@ -145,6 +155,7 @@ describe('finding a symbol from its own doc comment', () => {
       mode: 'lexical-then-registered',
       backend: {
         loaded: backend,
+        reason: unavailableReason,
         note: 'the first figure is BM25 alone; the second had vectors registered on the same engine',
       },
       withVectorsRegistered: {
