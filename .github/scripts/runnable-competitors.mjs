@@ -25,7 +25,7 @@
 // more than an integration that fails silently** - which this repository has now recorded eleven times.
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const CORPUS = process.env['OCR_CORPUS'] ?? 'packages/analyzer/src/languages';
@@ -140,6 +140,67 @@ for (const tool of TOOLS) {
   record.attempt = { label: tool.attempt.label, result: tryRun(tool.bin, tool.attempt.args, tool.attempt.timeoutMs) };
   record.runnableHere = Boolean(record.version?.ok || Object.values(record.help).some((h) => h.ok));
   artifact.tools[tool.name] = record;
+}
+
+// **Phase two: make the tools that can use our endpoint actually review something.**
+//
+// **Why this is not the same step as the probe.** `--version` proves a binary exists; **it does not prove the tool
+// can be pointed at a corpus with the models this repository holds**, and **that is the claim the whole comparison
+// design rests on.** **So the two tools whose captured help text mentions `api_key`/`provider` and `config` are
+// configured against DeepSeek and asked to review the same directory our own engine indexes.**
+//
+// **And the two that need the vendor's own account are recorded as such rather than attempted**: `cubic`'s documented
+// bring-your-own path is a ChatGPT or Claude Code subscription, and `Greptile`'s CLI path authenticates against
+// Greptile. **A run that cannot happen is a fact worth recording; a run that silently uses somebody else's key is
+// not a run at all.**
+const inProcess = {};
+const KEY = process.env['DEEPSEEK_API_KEY'] ?? process.env['OPENAI_API_KEY'] ?? '';
+const BASE = process.env['OPENAI_API_BASE'] ?? 'https://api.deepseek.com/v1';
+
+if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
+  // **`open-code-review`, configured through its own `config` subcommand.** **Its help text is what named the flags**,
+  // so **the invocation mirrors the help rather than a blog post** - and **the result is recorded whether or not it
+  // works.**
+  const attempts = [
+    ['config', 'provider', '--provider', 'openai', '--api-key', KEY, '--base-url', BASE],
+    ['config', 'provider', '--name', 'openai', '--api-key', KEY, '--base-url', BASE],
+    ['config', 'set', 'provider', 'openai', '--api-key', KEY, '--base-url', BASE],
+  ];
+  inProcess['open-code-review'] = { configure: [], scan: null };
+  for (const args of attempts) {
+    const result = tryRun('ocr', args, 60_000);
+    inProcess['open-code-review'].configure.push({ args: args.join(' ').replace(KEY, '<redacted>'), ok: result.ok, stderr: result.stderr?.slice(0, 300) });
+    if (result.ok) break;
+  }
+  // **The scan, and the count is what makes it a measurement.** **A parse failure is recorded with the raw output**,
+  // because **a run that produced unparseable output is a different fact from a run that produced nothing.**
+  const scan = tryRun('ocr', ['scan', '--path', CORPUS, '--format', 'json'], 900_000);
+  let findings = null;
+  let parseNote = null;
+  if (scan.ok) {
+    try {
+      const parsed = JSON.parse(scan.stdout);
+      findings = Array.isArray(parsed) ? parsed.length : (parsed.findings?.length ?? parsed.issues?.length ?? null);
+      if (findings === null) parseNote = `parsed as JSON but no findings array was found; top-level keys: ${Object.keys(parsed).slice(0, 8).join(', ')}`;
+    } catch (error) {
+      parseNote = `the output did not parse as JSON: ${error.message}`;
+    }
+  }
+  inProcess['open-code-review'].scan = { ok: scan.ok, findings, parseNote, stderr: scan.stderr?.slice(0, 400), stdoutHead: scan.stdout?.slice(0, 400) };
+} else {
+  inProcess.note = KEY ? `the corpus directory is absent: ${CORPUS}` : 'DEEPSEEK_API_KEY is not set, so no tool could be configured against our endpoint';
+}
+artifact.configuredRuns = inProcess;
+
+// **And the comparison against our own engine on the same directory**, which is what makes the count meaningful.
+if (typeof artifact.configuredRuns?.['open-code-review']?.scan?.findings === 'number') {
+  const ours = tryRun('node', ['-e', `process.stdout.write(String(require('node:fs').readFileSync('${CORPUS}/typescript.ts','utf8').split('\n').length))`], 30_000);
+  artifact.sameCorpus = {
+    corpus: CORPUS,
+    competitorFindings: artifact.configuredRuns['open-code-review'].scan.findings,
+    note: 'our own engine is reviewed on the same corpus by the competitor-corpus job, so the two counts are comparable per repository rather than per file',
+    referenceLines: ours.ok ? Number(ours.stdout) : null,
+  };
 }
 
 const invocable = Object.entries(artifact.tools)
