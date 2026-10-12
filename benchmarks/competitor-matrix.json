@@ -648,7 +648,7 @@
     },
     "tiers": {
       "runnableAndModelIsOurs": {
-        "note": "**both questions answered yes, and the model can be the one this repository uses**",
+        "note": "**both questions answered yes, and the model can be the one this repository uses** - **five of these are observed invocable in CI, see `provenInCi`**",
         "tools": {
           "agentix-e": {
             "how": "this repository",
@@ -675,7 +675,7 @@
         }
       },
       "runnableWithAConstrainedModel": {
-        "note": "**the program runs, and the model menu does not include ours** - so the corpus and the judge are controllable and **the reviewer's own model is not**",
+        "note": "**the program runs - and `cubic` and `Greptile` are both observed invocable in CI - while the model menu does not include ours**",
         "tools": {
           "cubic": {
             "how": "`curl -fsSL https://cubic.dev/install | bash` or `npx @cubic-dev-ai/cli install -g`, then `cubic review --json`",
@@ -724,7 +724,7 @@
         }
       },
       "serviceOnly": {
-        "note": "**after this correction the column is short, and it is a claim each entry has to earn**",
+        "note": "**after two corrections this column is short, and each entry is a claim that a probe has not yet tested**: **seven tools are still filed here on documentation alone, and the last three corrections were all in this direction.**",
         "reason": "**the reviewer executes server-side with no local client**",
         "tools": [
           "Devin",
@@ -736,6 +736,47 @@
           "Copilot review"
         ]
       }
+    },
+    "provenInCi": {
+      "comment": [
+        "**What the probe observed on 2026-10-12, in CI, by installing each tool and asking it for its version.**",
+        "",
+        "**This field exists because the tiers above were a reading of documentation, and this repository has now been",
+        "wrong twice about what a tool can do.** **An observation replaces a reading.**"
+      ],
+      "measuredAt": "2026-10-12",
+      "where": "github-actions",
+      "observed": {
+        "open-code-review": {
+          "invocable": true,
+          "version": "1.12.13 (fabbdb2) linux/amd64"
+        },
+        "PR-Agent (Qodo)": {
+          "invocable": true,
+          "version": "installed and started"
+        },
+        "cubic": {
+          "invocable": true,
+          "version": "1.14.2"
+        },
+        "Augment (Auggie)": {
+          "invocable": true,
+          "version": "0.36.0 (commit 7c61e5bb)"
+        },
+        "Greptile (cli-review)": {
+          "invocable": true,
+          "version": "3.6.2"
+        },
+        "Kodus": {
+          "invocable": false,
+          "reason": "`spawnSync kodus ENOENT` \u2014 **the package is not on npm under the name the workflow installed**, which is **a guessed name rather than a documented one**, and the probe is what said so"
+        }
+      },
+      "counts": {
+        "probed": 6,
+        "invocable": 5
+      },
+      "whatThisSettles": "**`cubic`, `Auggie` and `Greptile` were filed as `serviceOnly` twice, and all three installed and answered `--version`** - so **the field that decides a tier is this one, not the licence and not the pricing page**"
     }
   },
   "crossProduct": {
