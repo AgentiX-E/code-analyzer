@@ -552,5 +552,769 @@
       "category": "A",
       "why": "Macroscope's corpus is not wired"
     }
+  },
+  "comparisonDesign": {
+    "comment": [
+      "**The three requirements, and the one dimension that cannot be held constant for a closed product.**",
+      "",
+      "**1. Run every competitor's own harness in CI and compare with ours.** **Possible for a tool we can execute** -",
+      "**which is why `open-code-review` matters: it is Apache-2.0, it runs locally, and it is a direct competitor.**",
+      "**Impossible for a closed SaaS**, because **there is no API through which to point Greptile at a corpus** -",
+      "**its reviews exist only where Martian captured them.**",
+      "",
+      "**2. The judge and the embedder must be ours.** **The judge can be, for every cell**: a shipped review is text,",
+      "**and text can be re-judged.** **The embedder cannot be, for a shipped review**: it was produced by their pipeline,",
+      "**and re-producing it is the same impossibility as (1).**",
+      "",
+      "**3. Every tool must be scored on its own corpus, ours, and every other's.** **The cross-product's holes are fixed",
+      "by where each tool's outputs were captured**, so **the matrix records which cells can exist rather than pretending",
+      "the grid is complete.**"
+    ],
+    "requirements": {
+      "selfRunEveryHarness": {
+        "possible": "for tools we can execute",
+        "runnable": [
+          "agentix-e",
+          "open-code-review"
+        ],
+        "blocked": "every closed SaaS, because its reviews are a capture and not a program"
+      },
+      "ourJudgeAndEmbedder": {
+        "judge": "ours for every cell - a shipped review is text and text can be re-judged",
+        "embedder": "ours only where we run the tool; frozen where the tool ran itself"
+      },
+      "fullCrossProduct": {
+        "whatIsComputable": "for each corpus, the tools whose outputs exist on it",
+        "whatIsNot": "a corpus a closed tool was never pointed at"
+      }
+    },
+    "corpora": {
+      "martian-offline": {
+        "size": "50 PRs \u00b7 173 golden comments",
+        "license": "MIT, dataset and shipped reviews public",
+        "hosts": "all 49 shipped tools, ours, and open-code-review",
+        "why": "it is the only corpus where the field's own outputs are published"
+      },
+      "aacr-bench": {
+        "size": "200 PRs \u00b7 1,505 expert-confirmed issues \u00b7 10 languages",
+        "license": "Apache-2.0, goldens public, diffs fetched by URL",
+        "hosts": "ours and open-code-review - the two tools that can be executed",
+        "why": "its ground truth carries Repo Level issues, which are cross-file by construction"
+      },
+      "ours-real-ground-truth": {
+        "size": "100 issues \u00b7 246 bug ranges",
+        "license": "ours",
+        "hosts": "ours, and any tool we can execute",
+        "why": "the only corpus whose ground truth this project controls end to end"
+      }
+    },
+    "knownHoles": [
+      "a closed tool cannot be scored on aacr-bench, because no API exists to point it at that corpus",
+      "a closed tool cannot be scored on our corpus, for the same reason",
+      "the embedder dimension is frozen for every shipped review, and no amount of engineering changes that"
+    ]
+  },
+  "toolRunnability": {
+    "comment": [
+      "**Which tools this repository can execute, and therefore which cells can have all three of the judge, the",
+      "embedder and the corpus under our control.**",
+      "",
+      "**Two entries are runnable, and one of them is a direct competitor.**"
+    ],
+    "runnable": {
+      "agentix-e": {
+        "how": "this repository",
+        "license": "ours",
+        "corpora": [
+          "martian-offline",
+          "aacr-bench",
+          "ours-real-ground-truth"
+        ]
+      },
+      "open-code-review": {
+        "how": "npm install -g @alibaba-group/open-code-review, then `ocr review`",
+        "license": "Apache-2.0",
+        "corpora": [
+          "martian-offline",
+          "aacr-bench",
+          "ours-real-ground-truth"
+        ],
+        "note": "a direct competitor whose harness can be executed, so it is the one party this project can face on every corpus"
+      }
+    },
+    "frozen": {
+      "reason": "the review is a capture taken by Martian's fork-and-install step; there is no program to run again",
+      "tools": [
+        "greptile",
+        "greptile-v4",
+        "greptile-v5",
+        "coderabbit",
+        "cubic-dev",
+        "cubic-v2",
+        "augment",
+        "bugbot",
+        "cursor-bugbot",
+        "devin",
+        "claude",
+        "claude-code",
+        "copilot",
+        "copilot-v2",
+        "gitlab",
+        "graphite",
+        "macroscope",
+        "qodo",
+        "qodo-v2",
+        "qodo-extended",
+        "qodo-v22",
+        "codeant",
+        "codeant-v2",
+        "kodus",
+        "kodus-v2",
+        "sourcery",
+        "baz",
+        "gitar",
+        "bito",
+        "linearb",
+        "mergemonkey",
+        "entelligence",
+        "propel",
+        "propel-v2",
+        "mesa",
+        "kg",
+        "gemini",
+        "gemini-v2",
+        "mra-a",
+        "mra-b",
+        "mra-max",
+        "mra-nano",
+        "mra-ultra",
+        "mra-claude",
+        "mra-openai",
+        "mra-mix",
+        "open-code-review",
+        "alibaba-ocr-clone",
+        "codacy",
+        "sonarqube",
+        "snyk-code",
+        "semgrep",
+        "codeql",
+        "codacy-sast",
+        "deepsource",
+        "coverity",
+        "sourcegraph-cody",
+        "sourcegraph-amp",
+        "cursor",
+        "aider",
+        "cline",
+        "probe",
+        "ast-grep",
+        "windsurf-swe-grep",
+        "chroma-context-1",
+        "tabnine",
+        "continue"
+      ],
+      "corpora": [
+        "martian-offline"
+      ]
+    }
+  },
+  "crossProduct": {
+    "comment": [
+      "**Every cell that can exist, with the two dimensions that decide how much of it is under our control.**",
+      "",
+      "`outputs` is `shipped` or `self-run`; `embedder` is `frozen` or `zhipu`; `controllable` is true only when both are",
+      "ours - **which is the number that can rise, and the one the gate reports.**"
+    ],
+    "cells": [
+      {
+        "corpus": "martian-offline",
+        "tool": "greptile",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "greptile-v4",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "greptile-v5",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "coderabbit",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "cubic-dev",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "cubic-v2",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "augment",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "bugbot",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "cursor-bugbot",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "devin",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "claude",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "claude-code",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "copilot",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "copilot-v2",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "gitlab",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "graphite",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "macroscope",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "qodo",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "qodo-v2",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "qodo-extended",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "qodo-v22",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "codeant",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "codeant-v2",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "kodus",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "kodus-v2",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "sourcery",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "baz",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "gitar",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "bito",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "linearb",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mergemonkey",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "entelligence",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "propel",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "propel-v2",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mesa",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "kg",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "gemini",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "gemini-v2",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-a",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-b",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-max",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-nano",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-ultra",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-claude",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-openai",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "mra-mix",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "open-code-review",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "alibaba-ocr-clone",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "codacy",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "sonarqube",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "snyk-code",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "semgrep",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "codeql",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "codacy-sast",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "deepsource",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "coverity",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "sourcegraph-cody",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "sourcegraph-amp",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "cursor",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "aider",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "cline",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "probe",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "ast-grep",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "windsurf-swe-grep",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "chroma-context-1",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "tabnine",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "continue",
+        "outputs": "shipped",
+        "judge": "deepseek",
+        "embedder": "frozen",
+        "controllable": false
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "agentix-e",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "aacr-bench",
+        "tool": "agentix-e",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "ours-real-ground-truth",
+        "tool": "agentix-e",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "open-code-review",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "aacr-bench",
+        "tool": "open-code-review",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "ours-real-ground-truth",
+        "tool": "open-code-review",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      }
+    ],
+    "totals": {
+      "cells": 73,
+      "controllable": 6,
+      "shipped": 67
+    }
   }
 }

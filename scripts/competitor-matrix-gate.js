@@ -147,12 +147,38 @@ function main() {
   }
 
   const total = measured.length + missing.length + invalid.length + unreasoned.length;
+
+  // **The cross-product is reported as a second count, because it answers a question the cell list cannot: how much
+  // of the comparison has every dimension under our control.** **A cell is controllable only when the tool's outputs
+  // are produced by a run of ours *and* the embedder is ours** - so **a shipped review scored by our judge counts as
+  // measured and not as controllable**, which is exactly the distinction the three requirements turn on.
+  const cross = matrix.crossProduct && Array.isArray(matrix.crossProduct.cells) ? matrix.crossProduct.cells : [];
+  const controllable = cross.filter((c) => c.controllable === true);
+  const byCorpus = {};
+  for (const cell of cross) {
+    const key = cell.corpus ?? 'unknown';
+    byCorpus[key] = byCorpus[key] ?? { cells: 0, controllable: 0 };
+    byCorpus[key].cells += 1;
+    if (cell.controllable === true) byCorpus[key].controllable += 1;
+  }
   const missingCount = missing.length + invalid.length;
 
   console.log('COMPETITOR-MATRIX');
   console.log(`  competitors: ${competitors.length} (A ${competitors.filter((c) => c.category === 'A').length} · B ${competitors.filter((c) => c.category === 'B').length} · C ${competitors.filter((c) => c.category === 'C').length})`);
   console.log(`  cells: ${total} · measured ${measured.length} · missing ${missingCount}`);
 
+  if (cross.length > 0) {
+    console.log(
+      `  cross-product: ${cross.length} cell(s) that can exist · **${controllable.length} controllable** ` +
+        '(our outputs and our embedder) · ' +
+        `${cross.length - controllable.length} frozen`,
+    );
+    for (const [corpus, t] of Object.entries(byCorpus)) {
+      console.log(`    ${corpus.padEnd(26)} ${t.cells} cell(s) · controllable ${t.controllable}`);
+    }
+    const runnable = Object.keys(matrix.toolRunnability?.runnable ?? {});
+    if (runnable.length > 0) console.log(`    runnable tools: ${runnable.join(', ')}`);
+  }
   if (measured.length > 0) {
     console.log('  measured:');
     for (const m of measured) console.log(`    ${m.name.padEnd(42)} [${m.category}] ${String(m.value).slice(0, 40)}`);
@@ -183,6 +209,13 @@ function main() {
       C: competitors.filter((c) => c.category === 'C').length,
     },
     cells: total,
+    crossProduct: {
+      cells: cross.length,
+      controllable: controllable.length,
+      frozen: cross.length - controllable.length,
+      byCorpus,
+      runnableTools: Object.keys(matrix.toolRunnability?.runnable ?? {}),
+    },
     measured,
     invalid,
     missing,

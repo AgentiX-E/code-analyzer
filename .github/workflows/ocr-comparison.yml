@@ -1,0 +1,103 @@
+name: OCR Comparison
+
+# **The one competitor whose harness this repository can execute.**
+#
+# **The design question this job answers.** A closed reviewer's output is a *capture*: Martian installed the tool on a
+# fork and it reviewed once, so **there is no program to point at a second corpus**, and **the embedder that produced
+# those reviews is frozen inside them.** **That is why `cubic`, `augment` and `greptile` cannot be scored on
+# AACR-Bench or on this repository's corpus** - not a policy, an absence of anything to run.
+#
+# **`open-code-review` is the exception**: Apache-2.0, a Go CLI, installable from npm, **runnable against any
+# directory.** **It is a direct competitor**, so **it is the one party this project can face on every corpus with the
+# judge *and* the embedder under our control.**
+#
+# **And this job probes rather than assumes.** `ocr` is configured interactively by its own documentation, so **a job
+# that hard-coded the non-interactive path would fail in a way nobody could read.** It asks the CLI what it does,
+# records every line, attempts a scan, and writes an artifact that says which stage worked.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/scripts/ocr-comparison.mjs'
+      - '.github/workflows/ocr-comparison.yml'
+
+concurrency:
+  group: ocr-comparison
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ocr:
+    name: Run a direct competitor's harness and record what it does
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The competitor's own package, from its own registry entry** - not a clone, not a fork.
+      - name: Install the competitor's CLI
+        run: |
+          set -e
+          npm install -g @alibaba-group/open-code-review
+          which ocr || true
+          ocr --version || echo "the CLI did not report a version"
+
+      # **Its own documented non-interactive path, if one exists.** The provider is OpenAI-compatible, and the
+      # credential is read from the environment rather than written anywhere - the same boundary every other job draws.
+      # **A failure here is recorded by the next step rather than hidden**, because the point of the job is to learn
+      # what the CLI does, and an unreported failure teaches nothing.
+      - name: Point it at an OpenAI-compatible endpoint
+        continue-on-error: true
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          ocr config provider --provider openai --api-key "$ZHIPU_API_KEY" \
+            --base-url "https://open.bigmodel.cn/api/paas/v4" 2>&1 | tail -20 || true
+          ocr config model --model glm-4-flash 2>&1 | tail -20 || true
+
+      - name: Probe the CLI and attempt a scan
+        run: node .github/scripts/ocr-comparison.mjs
+
+      - name: Upload the probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-comparison
+          path: benchmarks/ocr-comparison.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      # **A probe that could not even invoke the CLI is a failure**, because **that is a fact about the job rather
+      # than about the competitor**, and **an artifact saying "the CLI was not there" must not read as a result.**
+      - name: Fail when the CLI could not be invoked at all
+        run: |
+          set -e
+          ok=$(node -e "const a=require('./benchmarks/ocr-comparison.json');console.log(Boolean(a.steps?.version?.ok || a.steps?.help?.ok))")
+          echo "CLI invocable: $ok"
+          if [ "$ok" != "true" ]; then
+            echo "::error::the competitor CLI could not be invoked, so this job measured nothing about it"
+            exit 1
+          fi
