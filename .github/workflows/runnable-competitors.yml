@@ -121,12 +121,16 @@ jobs:
           OCR_LLM_MODEL: deepseek-chat
         run: node .github/scripts/runnable-competitors.mjs
 
-      - name: Upload the probe
+      - name: Upload the probe, and the output it produced
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: runnable-competitors
-          path: benchmarks/runnable-competitors.json
+          # **The summary and the originals**, because **the summary is a head and a tail and the answer was 207,811
+          # characters** - **a field cannot hold it and a truncation cannot be told from a failure.**
+          path: |
+            benchmarks/runnable-competitors.json
+            benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
           retention-days: 90
 

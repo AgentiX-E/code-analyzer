@@ -25,7 +25,7 @@
 // more than an integration that fails silently** - which this repository has now recorded eleven times.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const CORPUS = process.env['OCR_CORPUS'] ?? 'packages/analyzer/src/languages';
@@ -40,7 +40,34 @@ const OUT = resolve(process.cwd(), 'benchmarks', 'runnable-competitors.json');
  * and the signal**, because **the head says what it started doing and the tail says what stopped it**, and **a
  * truncated record cannot tell a reader which of the two it is missing.**
  */
-function tryRun(bin, args, timeoutMs = 120_000) {
+/**
+ * **Where a command's full output goes when it is too large to be a field.**
+ *
+ * **Two runs were lost to truncation**: the first kept 2,000 characters of stderr and cut the reason, and the second
+ * kept 3,200 of a **207,811-character** answer and cut the payload. **The artifact is a summary; the output is a file.**
+ * **A record that summarises without keeping the original is a record that has to be re-taken.**
+ */
+const OUTPUTS_DIR = resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs');
+
+/** **Write both streams to files and return the paths**, so **the summary can stay small and the answer can stay whole.** */
+function spill(label, stdout, stderr) {
+  if (!label) return {};
+  mkdirSync(OUTPUTS_DIR, { recursive: true });
+  const written = {};
+  if (stdout && String(stdout).length > 0) {
+    const path = join(OUTPUTS_DIR, `${label}.stdout.txt`);
+    writeFileSync(path, String(stdout));
+    written.stdoutFile = path;
+  }
+  if (stderr && String(stderr).length > 0) {
+    const path = join(OUTPUTS_DIR, `${label}.stderr.txt`);
+    writeFileSync(path, String(stderr));
+    written.stderrFile = path;
+  }
+  return written;
+}
+
+function tryRun(bin, args, timeoutMs = 120_000, label = null) {
   const keep = (text) => {
     const value = String(text ?? '');
     const lines = value.split('\n');
@@ -53,7 +80,7 @@ function tryRun(bin, args, timeoutMs = 120_000) {
   };
   try {
     const stdout = execFileSync(bin, args, { encoding: 'utf8', timeout: timeoutMs, stdio: 'pipe' });
-    return { ok: true, status: 0, signal: null, stdout: keep(stdout), stderr: keep('') };
+    return { ok: true, status: 0, signal: null, stdout: keep(stdout), stderr: keep(''), ...spill(label, stdout, '') };
   } catch (error) {
     const e = error;
     return {
@@ -65,6 +92,7 @@ function tryRun(bin, args, timeoutMs = 120_000) {
       stdout: keep(e.stdout),
       stderr: keep(e.stderr),
       message: String(e.message ?? '').slice(0, 300),
+      ...spill(label, e.stdout, e.stderr),
     };
   }
 }
@@ -208,18 +236,30 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
   };
   // **The scan, and the count is what makes it a measurement.** **A parse failure is recorded with the raw output**,
   // because **a run that produced unparseable output is a different fact from a run that produced nothing.**
-  const scan = tryRun('ocr', ['scan', '--path', CORPUS, '--format', 'json'], 1_500_000);
+  const scan = tryRun('ocr', ['scan', '--path', CORPUS, '--format', 'json'], 1_500_000, 'open-code-review-scan');
   let findings = null;
   let parseNote = null;
   // **The stdout is reassembled from head and tail before parsing**, because **a JSON document cut in the middle is
   // not a JSON document** - and **the truncation was losing the payload as well as the reason.**
   if (scan.ok) {
     try {
-      const parsed = JSON.parse(scan.stdout.tail ?? scan.stdout.head ?? '');
+      // **The file when there is one, the summary otherwise** - because **the summary is a head and a tail, and the
+      // answer was 207,811 characters long.**
+      const full = scan.stdoutFile && existsSync(scan.stdoutFile) ? readFileSync(scan.stdoutFile, 'utf8') : (scan.stdout.tail ?? '');
+      // **And the JSON is looked for inside the output rather than assumed to be all of it.** **The run that
+      // succeeded emitted a structured report whose tail carried a `session_id`**, so **`JSON.parse` on the whole
+      // document was never going to work** - and **the fix is to find the object rather than to demand the file be
+      // one.**
+      let candidate = full.trim();
+      if (!candidate.startsWith('{') && !candidate.startsWith('[')) {
+        const start = candidate.search(/[[{]/);
+        if (start >= 0) candidate = candidate.slice(start);
+      }
+      const parsed = JSON.parse(candidate);
       findings = Array.isArray(parsed) ? parsed.length : (parsed.findings?.length ?? parsed.issues?.length ?? null);
       if (findings === null) parseNote = `parsed as JSON but no findings array was found; top-level keys: ${Object.keys(parsed).slice(0, 8).join(', ')}`;
     } catch (error) {
-      parseNote = `the output did not parse as JSON: ${error.message}`;
+      parseNote = `the output did not parse as JSON: ${error.message}; the full output is at ${scan.stdoutFile ?? '(no file)'}`;
     }
   } else {
     // **A failed scan says what its recorded streams held**, so **the next reader knows whether the reason is in the
