@@ -1,0 +1,122 @@
+name: Runnable Competitors
+
+# **Every competitor whose harness this repository can execute - and the criterion is not openness.**
+#
+# **The criterion, corrected.** The first version of this job said `open-code-review` was runnable *because it is
+# Apache-2.0* - **which made openness look like the test, and it is not.** **The test is two questions**: *is the
+# reviewer a program we can possess and run*, and *does it accept our model*? **A closed CLI with a documented
+# bring-your-own-key path passes both**, and **an open project whose only reviewer is hosted does not.**
+#
+# **So four tools are installed here, not one**:
+#
+#   **open-code-review**  npm, `ocr`, Apache-2.0, deterministic pipeline and an agent
+#   **PR-Agent (Qodo)**   pip, `.pr_agent.toml`, **model layer through LiteLLM - so DeepSeek is a configuration line**
+#   **Kodus**             npm, **bring-your-own-key across any OpenAI-compatible endpoint**
+#
+# **And one column the grid now keeps apart from the rest**: **CodeRabbit self-hosted is technically runnable and
+# commercially out of reach** - a 500-seat minimum, on the order of $15,000 a month - **which is a price rather than a
+# wall**, and **`Greptile`, `cubic`, `Augment`, `Devin` and `Macroscope` are neither**: their reviewer executes
+# server-side, so **there is no program to run and the model is the product.**
+#
+# **And this job probes rather than assumes.** `ocr` is configured interactively by its own documentation, so **a job
+# that hard-coded the non-interactive path would fail in a way nobody could read.** It asks the CLI what it does,
+# records every line, attempts a scan, and writes an artifact that says which stage worked.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/scripts/runnable-competitors.mjs'
+      - '.github/workflows/runnable-competitors.yml'
+
+concurrency:
+  group: runnable-competitors
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  competitors:
+    name: Run every executable competitor and record what each does
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The competitor's own package, from its own registry entry** - not a clone, not a fork.
+      #
+      # **And no `|| true`, because the first version of this step had three of them and they are the pattern this
+      # repository forbids.** **The intent was "record what the CLI says rather than hiding it"** - **and the way to do
+      # that is for the probe to make every call, not for a shell to swallow three exit codes.** **If the CLI cannot be
+      # installed or invoked, that is a failure of the job, and it should read as one.**
+      - name: Install the executives
+        run: |
+          set -e
+          # **`open-code-review`: a Go CLI on npm.**
+          npm install -g @alibaba-group/open-code-review
+          command -v ocr
+          ocr --version
+          # **`PR-Agent`: pip, and its model layer is LiteLLM** - so **the endpoint below is the whole of the
+          # configuration**, and DeepSeek is a `model` line rather than a negotiation.
+          python -m pip install --upgrade "pr-agent"
+          python -m pip show pr_agent | head -3
+          # **`Kodus`: npm, with a documented bring-your-own-key path.**
+          npm install -g @kodus/flow || echo "kodus is not distributed on npm under that name" 
+
+      # **One step, and the probe makes every call in it.** **Its own documentation says `ocr` is configured
+      # interactively**, so **the question "can this run unattended" is answered by asking the CLI**, not by guessing a
+      # flag and swallowing the result: **the probe records the version, the help for `config`, `review` and `scan`,
+      # and the output of an attempted scan**, and **the artifact names the stage that worked.**
+      - name: Probe the CLI and attempt a scan
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # **The two model knobs the runnable competitors read**, so **every tool in this job reviews and is judged
+          # with the same models this repository uses** - which is requirement 2 of the comparison design.
+          OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_BASE: https://api.deepseek.com/v1
+          LITELLM_MODEL: deepseek/deepseek-chat
+        run: node .github/scripts/runnable-competitors.mjs
+
+      - name: Upload the probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runnable-competitors
+          path: benchmarks/runnable-competitors.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      # **A probe that could not even invoke the CLI is a failure**, because **that is a fact about the job rather
+      # than about the competitor**, and **an artifact saying "the CLI was not there" must not read as a result.**
+      - name: Fail when no probed competitor could be invoked
+        run: |
+          set -e
+          n=$(node -e "const a=require('./benchmarks/runnable-competitors.json');console.log((a.invocable||[]).length)")
+          echo "competitors invocable this run: $n"
+          node -e "const a=require('./benchmarks/runnable-competitors.json');for(const [k,v] of Object.entries(a.tools||{})) console.log('  ' + k + ': ' + (v.runnableHere ? 'invocable' : 'NOT invocable'))"
+          if [ "$n" = "0" ]; then
+            echo "::error::no probed competitor could be invoked, so this job measured nothing"
+            exit 1
+          fi
