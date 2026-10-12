@@ -1,0 +1,41 @@
+{
+  "comment": [
+    "One directory, same whole-file mode, same model - this repository's engine and a competitor, side by side.",
+    "",
+    "**And the two file counts disagree, so both denominators are kept.** **The tool reported 37 files reviewed; this",
+    "repository's walk of the same directory found 45.** **Dividing a numerator by a denominator the tool did not use",
+    "is not the tool's rate**, so **both are computed and the disagreement is stated** rather than resolved toward",
+    "whichever number was written first.",
+    "",
+    "**And this is what the pair is for, not what it settles.** **Volume is one axis and correctness is the other**, and",
+    "**only the second ranks a reviewer** - which needs ground truth that a whole-directory scan does not have."
+  ],
+  "measuredAt": "2026-10-12",
+  "where": "github-actions",
+  "corpus": "packages/analyzer/src/languages",
+  "mode": "whole file, no diff",
+  "model": "deepseek-chat",
+  "denominator": {
+    "ourWalkFiles": 45,
+    "lines": 15557,
+    "toolReportedFiles": 37
+  },
+  "fileCountsAgree": false,
+  "ourEngine": {
+    "findings": 190,
+    "findingsPerFileOverOurWalk": 4.22,
+    "findingsPerThousandLines": 12.21
+  },
+  "openCodeReview": {
+    "findings": 236,
+    "findingsPerFileOverOurWalk": 5.24,
+    "findingsPerFileOverItsOwnCount": 6.38,
+    "tokens": 3453917,
+    "elapsed": "2m12s"
+  },
+  "pairing": "over this repository's walk of 45 files: ours 4.22 per file, the tool's 5.24",
+  "whatThisDoesNotSay": [
+    "which of the two findings sets is correct - that needs ground truth, and neither this directory nor a whole-file scan supplies it",
+    "why the file counts differ - the tool filters by path and extension rules of its own, and the difference is 8 files"
+  ]
+}

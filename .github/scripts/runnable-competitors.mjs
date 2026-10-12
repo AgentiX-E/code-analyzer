@@ -357,28 +357,48 @@ if (KEY) {
   }
 }
 
-const ocrScan = artifact.configuredRuns?.['open-code-review']?.scan;
-const overFiles = (findings) =>
-  ourEngine.files > 0 && typeof findings === 'number' ? Math.round((findings / ourEngine.files) * 100) / 100 : null;
+// **`toolSummary` lives on the tool's record, not inside its scan step**, and the first version read it one level too
+// deep - so `toolReportedFiles` came back `None` **in the very run that needed it**, because **the two file counts
+// disagreed**: the tool reviewed **37** and this repository's walk found **45**.
+//
+// **And that disagreement is the finding, not a nuisance.** **A rate divided by a denominator the tool did not use is
+// not the tool's rate** - so **both are reported, and the difference is named** rather than silently resolved in favour
+// of whichever number was written first.
+const ocrRecord = artifact.configuredRuns?.['open-code-review'] ?? {};
+const ocrScan = ocrRecord.scan;
+const toolFiles = ocrRecord.toolSummary?.files_reviewed ?? null;
+const ourFiles = ourEngine.files;
+const ourFindings = ourEngine.findings;
+const ocrFindings = ocrScan?.findings ?? null;
+const rate = (files, findings) =>
+  files > 0 && typeof findings === 'number' ? Math.round((findings / files) * 100) / 100 : null;
 artifact.sameCorpus = {
   corpus: CORPUS,
-  // **One denominator, two numerators**, both describing the same directory - **which is what makes the pair a
-  // comparison rather than an adjacency.**
-  denominator: { files: ourEngine.files, lines: ourEngine.lines },
-  toolReportedFiles: ocrScan?.toolSummary?.files_reviewed ?? null,
+  // **Two denominators, both stated.** **Our walk is the one both numerators are divided by**, and **the tool's own
+  // count is kept beside it**, so **the reader can divide by either and see which one the comparison used.**
+  denominator: { ourWalkFiles: ourFiles, lines: ourEngine.lines, toolReportedFiles: toolFiles },
+  // **When the two counts differ, both rates are given**, because **choosing one silently is how a rate becomes a
+  // number nobody can reproduce.**
+  fileCountsAgree: toolFiles === null ? null : toolFiles === ourFiles,
   ourEngine: {
-    findings: ourEngine.findings,
-    findingsPerFile: overFiles(ourEngine.findings),
-    findingsPerThousandLines:
-      ourEngine.lines > 0 ? Math.round((ourEngine.findings / ourEngine.lines) * 1000 * 100) / 100 : null,
+    findings: ourFindings,
+    findingsPerFileOverOurWalk: rate(ourFiles, ourFindings),
+    findingsPerThousandLines: ourEngine.lines > 0 ? Math.round((ourFindings / ourEngine.lines) * 1000 * 100) / 100 : null,
   },
   openCodeReview: {
-    findings: ocrScan?.findings ?? null,
-    findingsPerFile: overFiles(ocrScan?.findings),
-    tokens: ocrScan?.toolSummary?.total_tokens ?? null,
-    elapsed: ocrScan?.toolSummary?.elapsed ?? null,
+    findings: ocrFindings,
+    findingsPerFileOverOurWalk: rate(ourFiles, ocrFindings),
+    findingsPerFileOverItsOwnCount: rate(toolFiles, ocrFindings),
+    tokens: ocrRecord.toolSummary?.total_tokens ?? null,
+    elapsed: ocrRecord.toolSummary?.elapsed ?? null,
+    model: ocrRecord.llm?.model ?? null,
   },
-  note: 'both reviewed the same directory the same way - a whole file with no diff - so the two counts share a denominator',
+  // **The sentence the pair exists to support**, written from the numbers rather than asserted beside them.
+  pairing:
+    rate(ourFiles, ocrFindings) !== null && rate(ourFiles, ourFindings) !== null
+      ? `over this repository's walk of ${ourFiles} files: ours ${rate(ourFiles, ourFindings)} per file, the tool's ${rate(ourFiles, ocrFindings)}`
+      : 'one side is absent, so there is no pair to state',
+
 };
 
 const invocable = Object.entries(artifact.tools)

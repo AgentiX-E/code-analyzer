@@ -529,6 +529,16 @@
         "findingsPerFile"
       ],
       "note": "the corpus is the directory the engine indexes; both counts are reported so the two are comparable per file"
+    },
+    "review.findingsPerFile.sameDenominator": {
+      "category": "A",
+      "axis": "our engine and a competitor over one directory, same mode, same model",
+      "artifact": "benchmarks/same-denominator.json",
+      "read": [
+        "ourEngine",
+        "findingsPerFileOverOurWalk"
+      ],
+      "note": "both numerators are divided by our own walk of the directory; the tool reported a different file count, and both rates are recorded"
     }
   },
   "pendingOurMetrics": {
