@@ -158,6 +158,42 @@ async function main() {
   };
 
   const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  /**
+   * Run a competitor over one labelled pull request, and return its findings as text.
+   *
+   * **This function was deleted by the edit that replaced `shortRepo`**, because **it sat between that edit's two
+   * markers** - **the thirteenth time in this stretch that a bulk edit matched text it was not written for, and the
+   * first time it removed a definition rather than changing one.** **The job said so in one line** -
+   * `AACR-BENCH failed: reviewWithOcr is not defined` - **which is what a missing binding reports.**
+   *
+   * **A checkout of two commits and `review --from --to`**, because **that is the interface its own documentation names
+   * for a local review of a range** - and **the checkout is shallow and temporary**, because **the corpus is 200 pull
+   * requests** and **a full clone per pull request is a cost this job would pay 200 times for history it never reads.**
+   */
+  const reviewWithOcr = (endpoint, key, url, source, target) => {
+    const repo = shortRepo(url);
+    if (!repo) return { ok: false, reason: 'the pull request URL did not name a repository' };
+    const dir = mkdtempSync(`${tmpdir()}/ocr-`);
+    try {
+      execFileSync('git', ['init', '-q', dir], { stdio: 'pipe' });
+      execFileSync('git', ['-C', dir, 'remote', 'add', 'origin', `https://github.com/${repo}.git`], { stdio: 'pipe' });
+      for (const sha of [source, target]) {
+        execFileSync('git', ['-C', dir, 'fetch', '-q', '--depth', '1', 'origin', sha], { stdio: 'pipe', timeout: 180_000 });
+      }
+      execFileSync('git', ['-C', dir, 'checkout', '-q', target], { stdio: 'pipe' });
+      const stdout = execFileSync('ocr', ['review', '--from', source, '--to', target, '--json'], {
+        cwd: dir,
+        encoding: 'utf8',
+        stdio: 'pipe',
+        timeout: 600_000,
+        env: { ...process.env, OCR_LLM_URL: endpoint, OCR_LLM_TOKEN: key },
+      });
+      return { ok: true, stdout };
+    } catch (error) {
+      return { ok: false, reason: String(error.stdout ?? error.message ?? '').slice(0, 400) };
+    }
+  };
+
   const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
   const engine = new LLMReviewEngine(new DeepSeekProvider());
