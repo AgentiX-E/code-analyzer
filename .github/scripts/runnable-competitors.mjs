@@ -31,17 +31,40 @@ import { join, resolve } from 'node:path';
 const CORPUS = process.env['OCR_CORPUS'] ?? 'packages/analyzer/src/languages';
 const OUT = resolve(process.cwd(), 'benchmarks', 'runnable-competitors.json');
 
+/**
+ * Run a command and record **enough of it to explain what happened**.
+ *
+ * **The first version kept 2,000 characters of each stream and lost the reason.** **A scan that ran for minutes and
+ * skipped hundreds of files reported `ok: false` with a stderr whose every recorded line was a `Skipping …` notice** -
+ * **the failure was past the cut.** **So the record now keeps the head *and* the tail of both streams, the exit status
+ * and the signal**, because **the head says what it started doing and the tail says what stopped it**, and **a
+ * truncated record cannot tell a reader which of the two it is missing.**
+ */
 function tryRun(bin, args, timeoutMs = 120_000) {
+  const keep = (text) => {
+    const value = String(text ?? '');
+    const lines = value.split('\n');
+    return {
+      chars: value.length,
+      head: lines.slice(0, 6).join('\n').slice(0, 1200),
+      // **The tail is where a failure message lives**, and **a log that ends in a skip notice has not ended.**
+      tail: lines.slice(-12).join('\n').slice(-2000),
+    };
+  };
   try {
     const stdout = execFileSync(bin, args, { encoding: 'utf8', timeout: timeoutMs, stdio: 'pipe' });
-    return { ok: true, stdout: stdout.slice(0, 4000) };
+    return { ok: true, status: 0, signal: null, stdout: keep(stdout), stderr: keep('') };
   } catch (error) {
     const e = error;
     return {
       ok: false,
-      stdout: String(e.stdout ?? '').slice(0, 2000),
-      stderr: String(e.stderr ?? '').slice(0, 2000),
-      message: e.message,
+      // **The exit status and the signal are recorded separately**, because **a timeout is a different fact from a
+      // failure**: `SIGTERM` says the run was cut short and `1` says the tool decided to stop.
+      status: typeof e.status === 'number' ? e.status : null,
+      signal: e.signal ?? null,
+      stdout: keep(e.stdout),
+      stderr: keep(e.stderr),
+      message: String(e.message ?? '').slice(0, 300),
     };
   }
 }
@@ -185,19 +208,33 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
   };
   // **The scan, and the count is what makes it a measurement.** **A parse failure is recorded with the raw output**,
   // because **a run that produced unparseable output is a different fact from a run that produced nothing.**
-  const scan = tryRun('ocr', ['scan', '--path', CORPUS, '--format', 'json'], 900_000);
+  const scan = tryRun('ocr', ['scan', '--path', CORPUS, '--format', 'json'], 1_500_000);
   let findings = null;
   let parseNote = null;
+  // **The stdout is reassembled from head and tail before parsing**, because **a JSON document cut in the middle is
+  // not a JSON document** - and **the truncation was losing the payload as well as the reason.**
   if (scan.ok) {
     try {
-      const parsed = JSON.parse(scan.stdout);
+      const parsed = JSON.parse(scan.stdout.tail ?? scan.stdout.head ?? '');
       findings = Array.isArray(parsed) ? parsed.length : (parsed.findings?.length ?? parsed.issues?.length ?? null);
       if (findings === null) parseNote = `parsed as JSON but no findings array was found; top-level keys: ${Object.keys(parsed).slice(0, 8).join(', ')}`;
     } catch (error) {
       parseNote = `the output did not parse as JSON: ${error.message}`;
     }
+  } else {
+    // **A failed scan says what its recorded streams held**, so **the next reader knows whether the reason is in the
+    // record or was cut out of it.**
+    parseNote = `the scan exited with status ${scan.status ?? 'null'} and signal ${scan.signal ?? 'null'}; stdout ${scan.stdout.chars} chars, stderr ${scan.stderr.chars} chars`;
   }
-  inProcess['open-code-review'].scan = { ok: scan.ok, findings, parseNote, stderr: scan.stderr?.slice(0, 400), stdoutHead: scan.stdout?.slice(0, 400) };
+  inProcess['open-code-review'].scan = {
+    ok: scan.ok,
+    status: scan.status,
+    signal: scan.signal,
+    findings,
+    parseNote,
+    stderr: scan.stderr,
+    stdout: scan.stdout,
+  };
 } else {
   inProcess.note = KEY ? `the corpus directory is absent: ${CORPUS}` : 'DEEPSEEK_API_KEY is not set, so no tool could be configured against our endpoint';
 }
@@ -210,7 +247,7 @@ if (typeof artifact.configuredRuns?.['open-code-review']?.scan?.findings === 'nu
     corpus: CORPUS,
     competitorFindings: artifact.configuredRuns['open-code-review'].scan.findings,
     note: 'our own engine is reviewed on the same corpus by the competitor-corpus job, so the two counts are comparable per repository rather than per file',
-    referenceLines: ours.ok ? Number(ours.stdout) : null,
+    referenceLines: ours.ok ? Number(ours.stdout.tail ?? ours.stdout.head) : null,
   };
 }
 
