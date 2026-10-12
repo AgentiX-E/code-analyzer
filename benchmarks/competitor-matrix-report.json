@@ -12,7 +12,27 @@
     "B": 7,
     "C": 11
   },
-  "cells": 16,
+  "cells": 17,
+  "crossProduct": {
+    "cells": 67,
+    "controllable": 51,
+    "frozen": 16,
+    "byCorpus": {
+      "martian-offline": {
+        "cells": 27,
+        "controllable": 17
+      },
+      "aacr-bench": {
+        "cells": 20,
+        "controllable": 17
+      },
+      "ours-real-ground-truth": {
+        "cells": 20,
+        "controllable": 17
+      }
+    },
+    "runnableTools": []
+  },
   "measured": [
     {
       "name": "review.f1.martian",
@@ -62,6 +82,13 @@
       "axis": "our review F1 on a competitor's published corpus",
       "artifact": "benchmarks/aacr-bench.json",
       "value": 0.0377
+    },
+    {
+      "name": "review.findingsPerFile.ocrOnOurCorpus",
+      "category": "A",
+      "axis": "a competitor's findings per file on this repository's corpus, run by us",
+      "artifact": "benchmarks/ocr-on-our-corpus.json",
+      "value": 6.81
     }
   ],
   "invalid": [

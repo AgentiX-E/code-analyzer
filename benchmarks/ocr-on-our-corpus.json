@@ -1,0 +1,43 @@
+{
+  "comment": [
+    "A competitor's own harness, executed here, on this repository's corpus, with this repository's models.",
+    "",
+    "**And the four things that make it a measurement rather than a description**: the tool is named, **the model is",
+    "`deepseek-chat` because `OCR_LLM_URL` points at DeepSeek's Anthropic-compatible endpoint**, the corpus is the",
+    "directory this project's own engine indexes, and **the tool reported its own denominator, cost and duration.**",
+    "",
+    "**The OpenAI-compatible base was tried first and failed** with `POST https://api.deepseek.com/v1/v1/messages` -",
+    "a doubled path whose `/messages` shape named the protocol. **Both the wrong value and the right one are recorded",
+    "here**, because a record showing only what worked cannot explain why the obvious thing does not."
+  ],
+  "measuredAt": "2026-10-12",
+  "where": "github-actions",
+  "tool": "open-code-review",
+  "toolVersion": "1.12.13",
+  "mode": "scan --path <corpus> --format json",
+  "corpus": "packages/analyzer/src/languages",
+  "llm": {
+    "model": "deepseek-chat",
+    "endpoint": "https://api.deepseek.com/anthropic"
+  },
+  "status": "success",
+  "filesReviewed": 37,
+  "comments": 252,
+  "totalTokens": 3544985,
+  "inputTokens": 3429271,
+  "outputTokens": 115714,
+  "cacheReadTokens": 3039232,
+  "elapsed": "2m40s",
+  "entryKeys": [
+    "path",
+    "content",
+    "suggestion_code",
+    "existing_code",
+    "start_line",
+    "end_line",
+    "category",
+    "severity"
+  ],
+  "findingsPerFile": 6.81,
+  "tokensPerComment": 14067.4
+}

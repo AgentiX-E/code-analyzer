@@ -256,8 +256,31 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
         if (start >= 0) candidate = candidate.slice(start);
       }
       const parsed = JSON.parse(candidate);
-      findings = Array.isArray(parsed) ? parsed.length : (parsed.findings?.length ?? parsed.issues?.length ?? null);
-      if (findings === null) parseNote = `parsed as JSON but no findings array was found; top-level keys: ${Object.keys(parsed).slice(0, 8).join(', ')}`;
+      // **`comments` is the key, and the output said so itself.** **The candidate list was `findings` and `issues`,
+      // both guesses**, and **the note the previous run wrote listed the real top-level keys** -
+      // `status, llm, summary, tool_calls, comments, project_summary, session_id`. **So the key is read off the
+      // output rather than guessed a fourth time**, and **`summary` is captured beside it**, because **the tool's own
+      // report carries `files_reviewed`, `comments`, `total_tokens` and `elapsed`** - **a denominator and a cost that
+      // no amount of counting the array would produce.**
+      const candidateKeys = ['comments', 'findings', 'issues', 'results', 'items'];
+      const key = candidateKeys.find((k) => Array.isArray(parsed[k]));
+      findings = key ? parsed[key].length : null;
+      if (findings === null) {
+        parseNote = `parsed as JSON but no array was found among ${candidateKeys.join(', ')}; top-level keys: ${Object.keys(parsed).join(', ')}`;
+      } else {
+        inProcess['open-code-review'].countedUnder = key;
+        if (parsed.summary && typeof parsed.summary === 'object') {
+          // **The tool's own summary, kept whole**: **`files_reviewed` is the denominator this project's finding rate
+          // needs**, and **`total_tokens` and `elapsed` are the cost**, which **a count of the array cannot supply.**
+          inProcess['open-code-review'].toolSummary = parsed.summary;
+        }
+        if (parsed.llm) inProcess['open-code-review'].llm = parsed.llm;
+        if (Array.isArray(parsed[key]) && parsed[key][0] && typeof parsed[key][0] === 'object') {
+          // **And the shape of one entry**, because **a finding with a `category` and a `severity` can be judged
+          // against ground truth and one without cannot.**
+          inProcess['open-code-review'].entryKeys = Object.keys(parsed[key][0]);
+        }
+      }
     } catch (error) {
       parseNote = `the output did not parse as JSON: ${error.message}; the full output is at ${scan.stdoutFile ?? '(no file)'}`;
     }

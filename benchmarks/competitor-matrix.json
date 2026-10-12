@@ -520,6 +520,15 @@
         "f1"
       ],
       "note": "the corpus carries Repo Level ground truth, which is the cross-file axis"
+    },
+    "review.findingsPerFile.ocrOnOurCorpus": {
+      "category": "A",
+      "axis": "a competitor's findings per file on this repository's corpus, run by us",
+      "artifact": "benchmarks/ocr-on-our-corpus.json",
+      "read": [
+        "findingsPerFile"
+      ],
+      "note": "the corpus is the directory the engine indexes; both counts are reported so the two are comparable per file"
     }
   },
   "pendingOurMetrics": {
