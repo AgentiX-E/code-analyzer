@@ -15,14 +15,14 @@
   "measuredAt": "2026-10-12",
   "mode": "lexical-then-registered",
   "backend": {
-    "loaded": "none",
-    "reason": "onnx: createFromPackage failed: Tokenizer not found: /Users/lambertyan/Workbuddy/2026-08-17-18-51-38/repos/code-analyzer/node_modules/.pnpm/@agentix-e+embed-code-node@0.1.1/node_modules/@agentix-e/embed-code-node/models/tokenizer.json · api: ZHIPU_API_KEY is not set",
+    "loaded": "api",
+    "reason": null,
     "note": "the first figure is BM25 alone; the second had vectors registered on the same engine"
   },
   "withVectorsRegistered": {
-    "backend": "none",
-    "found": 180,
-    "recall": 1,
+    "backend": "api",
+    "found": 117,
+    "recall": 0.65,
     "note": "only meaningful when `backend` is not `none` - with no embedder this is the lexical figure again"
   },
   "corpus": {
@@ -32,10 +32,19 @@
     "queries": 180
   },
   "topK": 20,
-  "found": 180,
-  "recall": 1,
-  "meanReciprocalRank": 0.9924,
-  "misses": [],
+  "found": 117,
+  "recall": 0.65,
+  "meanReciprocalRank": 0.1322,
+  "misses": [
+    "GROOVY_THAT_FAILS: Source the groovy grammar rejects: `def name(args) { ... }` reports a ",
+    "TYPESCRIPT_THAT_PARSES: Source the typescript grammar reads.",
+    "extractClassLike: Extract class-like definitions (class, interface, enum, struct, trait,",
+    "extractCalls: Extract method calls: obj.method(...) or method(...)",
+    "extractAnnotations: Extract decorators/annotations: @Override, #[derive(...)], etc.",
+    "extractDocComments: Extract doc comments: /** ... * /, /// ..., etc.",
+    "extractImportsAsCaptures: Convert parsed imports into UnifiedCapture entries. Shared across C-li",
+    "lastSegmentOf: The last segment of a name, splitting on `.` and on `->`."
+  ],
   "target": {
     "recall": 0.9,
     "competitorRecall": 0.75,

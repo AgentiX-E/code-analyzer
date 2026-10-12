@@ -5,7 +5,7 @@
     "**MISSING may fall and may not rise.** A cell is measured only when its artifact carries a value produced with the",
     "component the cell names switched on."
   ],
-  "generatedAt": "2026-10-11",
+  "generatedAt": "2026-10-12",
   "competitors": 67,
   "byCategory": {
     "A": 49,
@@ -29,6 +29,13 @@
       "value": 1
     },
     {
+      "name": "retrieval.docstring.recall.withVectors",
+      "category": "C",
+      "axis": "docstring search recall with vectors registered",
+      "artifact": "benchmarks/docstring-search.json",
+      "value": 0.65
+    },
+    {
       "name": "tokens.reduction",
       "category": "A",
       "axis": "token reduction versus a full-context baseline",
@@ -44,13 +51,6 @@
     }
   ],
   "invalid": [
-    {
-      "name": "retrieval.docstring.recall.withVectors",
-      "category": "C",
-      "axis": "docstring search recall with vectors registered",
-      "artifact": "benchmarks/docstring-search.json",
-      "because": "withVectorsRegistered.backend is \"none\" — the artifact itself says a `none` backend makes this the lexical figure again"
-    },
     {
       "name": "indexing.secondsPerMillionLines",
       "category": "A",
@@ -131,5 +131,5 @@
       "why": "Macroscope's corpus is not wired"
     }
   ],
-  "missingCount": 12
+  "missingCount": 11
 }
