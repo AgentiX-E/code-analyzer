@@ -127,6 +127,7 @@ async function main() {
   const negatives = negative && existsSync(negative) ? JSON.parse(readFileSync(negative, 'utf8')) : [];
   const rows = (Array.isArray(positives) ? positives : Object.values(positives)).slice(0, MAX_PRS);
 
+  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
   const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
   const engine = new LLMReviewEngine(new DeepSeekProvider());
@@ -172,7 +173,12 @@ async function main() {
       continue;
     }
     const firstPath = String(comments[0]?.path ?? 'unknown');
-    const lanes = await engine.reviewDiff({ filePath: firstPath, changeType: 'added', content: diff }, diff);
+    // **`createDiff` and not a hand-made object.** The first version passed `{ filePath, changeType, content }`, and
+    // the engine read `diff.ranges` - which a plain object does not have - so **the job failed with
+    // `diff.ranges is not iterable`** and **the failure named the engine rather than the caller.** **Every other
+    // script in this directory builds its input through `createDiff`**, which is what made the difference visible:
+    // **`createDiff(path, changeType, content)` is the contract, and a shape that looks like it is not it.**
+    const lanes = await engine.reviewDiff(createDiff(firstPath, 'added', diff), diff);
     const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
     reviewed += 1;
     // **Their two context dimensions are recorded per PR**, because **a `Repo Level` issue needs the repository and a
