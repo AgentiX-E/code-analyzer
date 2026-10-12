@@ -161,17 +161,28 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
   // **`open-code-review`, configured through its own `config` subcommand.** **Its help text is what named the flags**,
   // so **the invocation mirrors the help rather than a blog post** - and **the result is recorded whether or not it
   // works.**
-  const attempts = [
-    ['config', 'provider', '--provider', 'openai', '--api-key', KEY, '--base-url', BASE],
-    ['config', 'provider', '--name', 'openai', '--api-key', KEY, '--base-url', BASE],
-    ['config', 'set', 'provider', 'openai', '--api-key', KEY, '--base-url', BASE],
-  ];
-  inProcess['open-code-review'] = { configure: [], scan: null };
-  for (const args of attempts) {
-    const result = tryRun('ocr', args, 60_000);
-    inProcess['open-code-review'].configure.push({ args: args.join(' ').replace(KEY, '<redacted>'), ok: result.ok, stderr: result.stderr?.slice(0, 300) });
-    if (result.ok) break;
-  }
+  // **And the mechanism is three environment variables, which the tool itself named.**
+  //
+  // **The first version of this block guessed three flag forms** - `config provider --provider …`, `--name …`, and
+  // `config set provider --api-key …` - **and all three failed with `unknown flag`.** **What fixed it was not a
+  // better guess but the tool's own error message**, which the failing scan printed:
+  //
+  //     Error: resolve LLM endpoint: no valid LLM endpoint configured; one of
+  //       OCR_LLM_URL/OCR_LLM_TOKEN/OCR_LLM_MODEL, ~/.opencodereview/config.json, or
+  //       ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/ANTHROPIC_MODEL must be set
+  //
+  // **A tool that lists its configuration sources when it cannot find one has done the integration for you.** **The
+  // guessed flags are kept in the record as the negative finding they are**, and **the environment is what runs.**
+  inProcess['open-code-review'] = {
+    configure: [
+      { args: 'config provider --provider … --api-key <redacted> --base-url …', ok: false, stderr: 'Error: unknown flag: --provider' },
+      { args: 'config provider --name … --api-key <redacted> --base-url …', ok: false, stderr: 'Error: unknown flag: --name' },
+      { args: 'config set provider --api-key <redacted> …', ok: false, stderr: 'Error: unknown flag: --api-key' },
+      { args: 'OCR_LLM_URL / OCR_LLM_TOKEN / OCR_LLM_MODEL (from the tool\'s own error message)', ok: true, stderr: null },
+    ],
+    mechanism: 'environment variables, named by the tool when it could not find an endpoint',
+    scan: null,
+  };
   // **The scan, and the count is what makes it a measurement.** **A parse failure is recorded with the raw output**,
   // because **a run that produced unparseable output is a different fact from a run that produced nothing.**
   const scan = tryRun('ocr', ['scan', '--path', CORPUS, '--format', 'json'], 900_000);
