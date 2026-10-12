@@ -82,7 +82,13 @@ jobs:
           python -m pip install --upgrade "pr-agent"
           python -m pip show pr_agent | head -3
           # **`Kodus`: npm, with a documented bring-your-own-key path.**
-          npm install -g @kodus/flow || echo "kodus is not distributed on npm under that name" 
+          npm install -g @kodus/flow || echo "kodus is not distributed on npm under that name"
+          # **The three this job twice filed as `serviceOnly`.** **Each installs a CLI, and the probe records whether
+          # it starts** - because **the claim that a tool cannot be run is a claim this repository has now got wrong
+          # twice, and a probe is what settles it.**
+          curl -fsSL https://cubic.dev/install | bash || echo "the cubic installer did not complete"
+          npm install -g @augmentcode/auggie || echo "auggie is not installable from npm in this environment"
+          npm install -g greptile || echo "greptile is not distributed on npm under that name"
 
       # **One step, and the probe makes every call in it.** **Its own documentation says `ocr` is configured
       # interactively**, so **the question "can this run unattended" is answered by asking the CLI**, not by guessing a

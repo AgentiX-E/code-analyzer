@@ -572,17 +572,19 @@
     ],
     "requirements": {
       "selfRunEveryHarness": {
-        "possible": "for a tool that is a program we can possess and that accepts our model",
-        "runnableAndByo": [
+        "possible": "**for any competitor that ships a local client** - which is more than the first two versions of this block allowed",
+        "runnableAndModelIsOurs": [
           "agentix-e",
           "open-code-review",
           "PR-Agent (Qodo)",
-          "Kodus"
+          "Kodus",
+          "Augment (Auggie)"
         ],
-        "runnableWithTheirModel": [
-          "CodeRabbit CLI"
+        "runnableWithAConstrainedModel": [
+          "cubic",
+          "Greptile (cli-review)"
         ],
-        "blocked": "a reviewer that executes server-side - **and the earlier claim that openness was the test was wrong; the test is possession and model choice**"
+        "stillBlocked": "a reviewer whose only interface is a webhook, **which after this correction is a short list rather than a category**"
       },
       "ourJudgeAndEmbedder": {
         "judge": "ours for every cell - a shipped review is text and text can be re-judged",
@@ -621,59 +623,81 @@
   },
   "toolRunnability": {
     "comment": [
-      "**Which competitors this repository can execute - and the criterion is not whether they are open source.**",
+      "**Which competitors this repository can execute - and the criterion is not openness.**",
       "",
-      "**The first version of this block said `open-code-review` was runnable *because it is Apache-2.0*, which made",
-      "openness look like the test.** **It is not.** **The test is two questions**: *is the reviewer a program this",
-      "repository can possess and run*, and *does it accept our model*? **A closed-source CLI with a documented",
-      "bring-your-own-key path passes both**, and **an open-source project whose hosted edition is the only reviewer does",
-      "not.**",
+      "**This block has been wrong twice, and the second correction is larger than the first.**",
       "",
-      "**And the correction moves the runnable set from two entries to four**, the most important of which is",
-      "**`PR-Agent`** - **Apache-2.0, CLI and Docker, and its model layer goes through LiteLLM**, which is what makes",
-      "**DeepSeek a configuration line rather than a negotiation.**"
+      "**First version**: `open-code-review` was runnable *because it is Apache-2.0*, which made **the licence look",
+      "like the gate.** **Wrong**: the test is *is the reviewer a program we possess* and *does it accept our model*.",
+      "",
+      "**Second version**, after the first correction: **`Greptile`, `cubic` and `Augment` were filed as",
+      "`serviceOnly`** - *no program to run*. **Also wrong, and the error was the same one twice**: **a hosted product",
+      "is not the same thing as a client that runs locally, and I judged three tools by the shape of their business.**",
+      "",
+      "**What is actually true, from their own documentation**:",
+      "  **cubic** ships a CLI - `cubic review --json`, a personal API key for CI, and `cubic auth connect codex|claude-code`",
+      "  **Greptile** ships `cli-review`, which runs a review **from a local checkout**, and its Enterprise tier",
+      "    self-hosts **with your own models**",
+      "  **Augment** ships `Auggie` - `auggie --print` is documented as *\"great for CI\"*, its custom commands include",
+      "    `/code-review`, it has an official `review-pr` action, and **its pricing page lists `Model-agnostic (BYO key)`**"
     ],
     "criterion": {
       "question1": "is the reviewer a program we can possess and run ourselves?",
-      "question2": "does it accept our model (or our endpoint)?",
-      "notTheCriterion": "whether the source is published - **a closed CLI with a BYO-key path is runnable, and an open project whose only reviewer is hosted is not**"
+      "question2": "does it accept our model (or an endpoint we choose)?",
+      "notTheCriterion": "whether the source is published, **and not whether the vendor's hosted product is a service** - **a hosted product with a local client is runnable, and that is the distinction the first two versions both missed**"
     },
     "tiers": {
-      "runnableAndBringYourOwnModel": {
-        "note": "**both questions answered yes** - so the judge *and* the embedder *and* the corpus are ours",
+      "runnableAndModelIsOurs": {
+        "note": "**both questions answered yes, and the model can be the one this repository uses**",
         "tools": {
           "agentix-e": {
             "how": "this repository",
             "license": "ours"
           },
           "open-code-review": {
-            "how": "npm install -g @alibaba-group/open-code-review, then `ocr`",
+            "how": "npm i -g @alibaba-group/open-code-review, then `ocr`",
             "license": "Apache-2.0"
           },
           "PR-Agent (Qodo)": {
-            "how": "pip install / docker, CLI or GitHub Action, configured by `.pr_agent.toml`",
-            "license": "Apache-2.0 (the community project Qodo donated; Qodo Merge is the hosted edition)",
-            "why": "**its model layer goes through LiteLLM**, so **DeepSeek, Zhipu through an OpenAI-compatible endpoint, or Ollama are configuration rather than a negotiation**",
-            "evidence": "**the project also publishes its own benchmark - 60.1% F1 over 580 real-world issues** - which is a corpus we could add"
+            "how": "pip or docker, `.pr_agent.toml`",
+            "why": "**its model layer is LiteLLM**, so DeepSeek is a configuration line",
+            "evidence": "**the project publishes its own benchmark - 60.1% F1 over 580 real-world issues**"
           },
           "Kodus": {
-            "how": "self-hosted or Docker; documented bring-your-own-key with zero markup",
-            "license": "open source",
-            "why": "**BYOK across Claude, GPT, Gemini, Llama and any OpenAI-compatible endpoint**"
+            "how": "self-hosted or docker",
+            "why": "**bring-your-own-key with zero markup, across any OpenAI-compatible endpoint**"
+          },
+          "Augment (Auggie)": {
+            "how": "npm i -g @augmentcode/auggie, then `auggie --print`",
+            "why": "**its pricing page lists `Model-agnostic (BYO key)`**, and **its documentation calls `--print` *\"great for CI\"***",
+            "evidence": "**an official `augmentcode/review-pr` action, and the company open-sourced its SWE-bench agent at 65.4% on SWE-bench Verified**"
           }
         }
       },
-      "runnableWithTheirModel": {
-        "note": "**runs locally, but the model is theirs** - so the corpus is ours and the judge is ours, and **the reviewer's own model is not**",
+      "runnableWithAConstrainedModel": {
+        "note": "**the program runs, and the model menu does not include ours** - so the corpus and the judge are controllable and **the reviewer's own model is not**",
+        "tools": {
+          "cubic": {
+            "how": "`curl -fsSL https://cubic.dev/install | bash` or `npx @cubic-dev-ai/cli install -g`, then `cubic review --json`",
+            "limit": "**its bring-your-own path is a ChatGPT or Claude Code subscription** - *\"cubic runs your local Claude Code as a subprocess over ACP\"* - **so it can be run with a subscription this repository does not hold, and not with DeepSeek**",
+            "credit": "**a personal API key is documented for CI and cloud agents, and `--json` is a documented output format**"
+          },
+          "Greptile (cli-review)": {
+            "how": "the `cli-review` path runs a review **from a local checkout**",
+            "limit": "**its Enterprise tier self-hosts *with your own models*, and the CLI path uses its own model**"
+          }
+        }
+      },
+      "runnableWithTheirModelOnly": {
         "tools": {
           "CodeRabbit CLI": {
-            "how": "the vendor's CLI, free tier covers IDE and CLI reviews for private repositories",
-            "limit": "the review model is the vendor's, so the embedder/model dimension is theirs even though the program is local"
+            "how": "the vendor's CLI; the free tier covers IDE and CLI reviews",
+            "limit": "**the review model is the vendor's**"
           }
         }
       },
       "runnableStaticAnalysers": {
-        "note": "**the B category is entirely local** - these are programs with no service behind them",
+        "note": "**programs with no service behind them**",
         "tools": [
           "Semgrep",
           "Snyk CLI",
@@ -684,7 +708,7 @@
         ]
       },
       "runnableLocalAgents": {
-        "note": "**the C category is mostly local** - and several accept any OpenAI-compatible endpoint",
+        "note": "**several accept any OpenAI-compatible endpoint**",
         "tools": [
           "Aider",
           "Cline",
@@ -695,23 +719,18 @@
         ]
       },
       "commerciallyUnreachable": {
-        "note": "**technically runnable and not affordable** - a distinction the first version did not have",
         "tools": {
-          "CodeRabbit self-hosted": "**Enterprise plan, a 500-seat minimum, on the order of $15,000 per month** - so **this is a price, not a wall**, and it belongs in a different column from the next one"
+          "CodeRabbit self-hosted": "**Enterprise plan, a 500-seat minimum, on the order of $15,000 per month** - **a price, not a wall**"
         }
       },
       "serviceOnly": {
-        "note": "**there is no program to run** - the reviewer executes server-side, is reached through a GitHub App, and the model is the product",
-        "reason": "Martian's fork-and-install step is the only way these outputs were ever produced, which is why their reviews are a capture on one corpus",
+        "note": "**after this correction the column is short, and it is a claim each entry has to earn**",
+        "reason": "**the reviewer executes server-side with no local client**",
         "tools": [
-          "Greptile",
-          "cubic",
-          "Augment",
           "Devin",
           "Macroscope",
           "Graphite",
           "CodeAnt",
-          "Qodo (hosted)",
           "Cursor BugBot",
           "GitLab Duo",
           "Copilot review"
@@ -727,30 +746,6 @@
       "ours - **which is the number that can rise, and the one the gate reports.**"
     ],
     "cells": [
-      {
-        "corpus": "martian-offline",
-        "tool": "Greptile",
-        "outputs": "shipped",
-        "judge": "deepseek",
-        "embedder": "frozen",
-        "controllable": false
-      },
-      {
-        "corpus": "martian-offline",
-        "tool": "cubic",
-        "outputs": "shipped",
-        "judge": "deepseek",
-        "embedder": "frozen",
-        "controllable": false
-      },
-      {
-        "corpus": "martian-offline",
-        "tool": "Augment",
-        "outputs": "shipped",
-        "judge": "deepseek",
-        "embedder": "frozen",
-        "controllable": false
-      },
       {
         "corpus": "martian-offline",
         "tool": "Devin",
@@ -785,14 +780,6 @@
       },
       {
         "corpus": "martian-offline",
-        "tool": "Qodo (hosted)",
-        "outputs": "shipped",
-        "judge": "deepseek",
-        "embedder": "frozen",
-        "controllable": false
-      },
-      {
-        "corpus": "martian-offline",
         "tool": "Cursor BugBot",
         "outputs": "shipped",
         "judge": "deepseek",
@@ -817,10 +804,130 @@
       },
       {
         "corpus": "martian-offline",
+        "tool": "agentix-e",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "aacr-bench",
+        "tool": "agentix-e",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "ours-real-ground-truth",
+        "tool": "agentix-e",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "open-code-review",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "aacr-bench",
+        "tool": "open-code-review",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "ours-real-ground-truth",
+        "tool": "open-code-review",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "PR-Agent (Qodo)",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "aacr-bench",
+        "tool": "PR-Agent (Qodo)",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "ours-real-ground-truth",
+        "tool": "PR-Agent (Qodo)",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "Kodus",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "aacr-bench",
+        "tool": "Kodus",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "ours-real-ground-truth",
+        "tool": "Kodus",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "martian-offline",
+        "tool": "Augment (Auggie)",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "aacr-bench",
+        "tool": "Augment (Auggie)",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "ours-real-ground-truth",
+        "tool": "Augment (Auggie)",
+        "outputs": "self-run",
+        "judge": "deepseek",
+        "embedder": "zhipu",
+        "controllable": true
+      },
+      {
+        "corpus": "martian-offline",
         "tool": "Semgrep",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -828,7 +935,7 @@
         "tool": "Semgrep",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -836,7 +943,7 @@
         "tool": "Semgrep",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -844,7 +951,7 @@
         "tool": "Snyk CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -852,7 +959,7 @@
         "tool": "Snyk CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -860,7 +967,7 @@
         "tool": "Snyk CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -868,7 +975,7 @@
         "tool": "CodeQL",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -876,7 +983,7 @@
         "tool": "CodeQL",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -884,7 +991,7 @@
         "tool": "CodeQL",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -892,7 +999,7 @@
         "tool": "SonarQube",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -900,7 +1007,7 @@
         "tool": "SonarQube",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -908,7 +1015,7 @@
         "tool": "SonarQube",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -916,7 +1023,7 @@
         "tool": "Codacy CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -924,7 +1031,7 @@
         "tool": "Codacy CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -932,7 +1039,7 @@
         "tool": "Codacy CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -940,7 +1047,7 @@
         "tool": "DeepSource CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -948,7 +1055,7 @@
         "tool": "DeepSource CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -956,7 +1063,7 @@
         "tool": "DeepSource CLI",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "n-a (static)",
+        "embedder": "zhipu",
         "controllable": true
       },
       {
@@ -1105,99 +1212,51 @@
       },
       {
         "corpus": "martian-offline",
-        "tool": "agentix-e",
+        "tool": "cubic",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
+        "embedder": "theirs",
+        "controllable": false
       },
       {
         "corpus": "aacr-bench",
-        "tool": "agentix-e",
+        "tool": "cubic",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
+        "embedder": "theirs",
+        "controllable": false
       },
       {
         "corpus": "ours-real-ground-truth",
-        "tool": "agentix-e",
+        "tool": "cubic",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
+        "embedder": "theirs",
+        "controllable": false
       },
       {
         "corpus": "martian-offline",
-        "tool": "open-code-review",
+        "tool": "Greptile (cli-review)",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
+        "embedder": "theirs",
+        "controllable": false
       },
       {
         "corpus": "aacr-bench",
-        "tool": "open-code-review",
+        "tool": "Greptile (cli-review)",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
+        "embedder": "theirs",
+        "controllable": false
       },
       {
         "corpus": "ours-real-ground-truth",
-        "tool": "open-code-review",
+        "tool": "Greptile (cli-review)",
         "outputs": "self-run",
         "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
-      },
-      {
-        "corpus": "martian-offline",
-        "tool": "PR-Agent (Qodo)",
-        "outputs": "self-run",
-        "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
-      },
-      {
-        "corpus": "aacr-bench",
-        "tool": "PR-Agent (Qodo)",
-        "outputs": "self-run",
-        "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
-      },
-      {
-        "corpus": "ours-real-ground-truth",
-        "tool": "PR-Agent (Qodo)",
-        "outputs": "self-run",
-        "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
-      },
-      {
-        "corpus": "martian-offline",
-        "tool": "Kodus",
-        "outputs": "self-run",
-        "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
-      },
-      {
-        "corpus": "aacr-bench",
-        "tool": "Kodus",
-        "outputs": "self-run",
-        "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
-      },
-      {
-        "corpus": "ours-real-ground-truth",
-        "tool": "Kodus",
-        "outputs": "self-run",
-        "judge": "deepseek",
-        "embedder": "zhipu",
-        "controllable": true
+        "embedder": "theirs",
+        "controllable": false
       },
       {
         "corpus": "martian-offline",
@@ -1225,9 +1284,9 @@
       }
     ],
     "totals": {
-      "cells": 62,
-      "controllable": 48,
-      "notControllable": 14
+      "cells": 67,
+      "controllable": 51,
+      "notControllable": 16
     }
   }
 }

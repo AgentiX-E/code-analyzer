@@ -6,7 +6,9 @@
 // **A closed CLI with a documented bring-your-own-key path passes both**, and **an open project whose only reviewer
 // is hosted does not.**
 //
-// **And the correction moved the set from one entry to four**:
+// **And there have been two corrections, the second larger than the first.** **The first moved the set from one
+// entry to four**; **the second added the three tools this file had filed as `serviceOnly`, because they all ship a
+// CLI and two of them accept a key we could hold.** **The list is now seven.**
 //
 //   **agentix-e**          this repository
 //   **open-code-review**   npm, `ocr`, Apache-2.0
@@ -75,6 +77,34 @@ const TOOLS = [
     version: [['--version']],
     help: [['--help']],
     attempt: { label: 'probe', args: ['--help'], timeoutMs: 120_000 },
+  },
+  // **The three I twice filed as `serviceOnly`, and both times for the same wrong reason**: **a hosted product is
+  // not the same thing as a client that runs locally.** **Each of these ships a CLI, and two of them accept a key we
+  // could hold.**
+  {
+    name: 'cubic',
+    bin: process.env['PROBED_CUBIC'] ?? 'cubic',
+    version: [['--version']],
+    help: [['--help'], ['review', '--help'], ['auth', '--help']],
+    // **`cubic review --json` is the documented machine-readable path**, and **`--help` is the attempt** because a
+    // review needs an account this job does not have.
+    attempt: { label: 'review-help', args: ['review', '--help'], timeoutMs: 120_000 },
+  },
+  {
+    name: 'Augment (Auggie)',
+    bin: process.env['PROBED_AUGGIE'] ?? 'auggie',
+    version: [['--version']],
+    // **`--print` is the CI path its own documentation names**, so **the attempt asks for its help rather than
+    // starting an agent run that would need a login.**
+    help: [['--help'], ['--print', '--help']],
+    attempt: { label: 'help', args: ['--help'], timeoutMs: 120_000 },
+  },
+  {
+    name: 'Greptile (cli-review)',
+    bin: process.env['PROBED_GREPTILE'] ?? 'greptile',
+    version: [['--version']],
+    help: [['--help'], ['review', '--help']],
+    attempt: { label: 'help', args: ['--help'], timeoutMs: 120_000 },
   },
 ];
 
