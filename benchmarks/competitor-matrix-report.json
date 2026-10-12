@@ -55,6 +55,13 @@
       "axis": "our review F1 under the field harness and its own judge",
       "artifact": "benchmarks/martian-our-row.json",
       "value": 0.1081
+    },
+    {
+      "name": "review.f1.aacr",
+      "category": "A",
+      "axis": "our review F1 on a competitor's published corpus",
+      "artifact": "benchmarks/aacr-bench.json",
+      "value": 0.0377
     }
   ],
   "invalid": [
@@ -73,13 +80,6 @@
       "axis": "findings per 1,000 lines on the field's repositories",
       "artifact": "benchmarks/competitor-corpus.json",
       "why": "artifact absent: benchmarks/competitor-corpus.json"
-    },
-    {
-      "name": "review.f1.aacr",
-      "category": "A",
-      "axis": "review.f1.aacr",
-      "artifact": "benchmarks/aacr-bench.json",
-      "why": "the job exists and the schema is fixed; no figure has been collected yet"
     },
     {
       "name": "review.f1.martian.fieldComparison",
@@ -131,5 +131,5 @@
       "why": "Macroscope's corpus is not wired"
     }
   ],
-  "missingCount": 10
+  "missingCount": 9
 }

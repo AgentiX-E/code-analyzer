@@ -151,6 +151,15 @@ jobs:
             cp "$f" "benchmarks/$(basename $(dirname "$f"))_$(basename "$f")" || true
           done
           cp /tmp/martian/offline/results/benchmark_data.json benchmarks/martian-benchmark-data.json 2>/dev/null || true
+          # **And the candidates file**, because `benchmark_data.json` carries `review_comments` and the issue
+          # statements live in `results/{model}/candidates.json`. **The comparison job read the wrong one and reported
+          # 50 rows of zero**; shipping both means the next job cannot make that mistake silently.
+          for f in /tmp/martian/offline/results/*/candidates.json; do
+            [ -f "$f" ] || continue
+            model=$(basename "$(dirname "$f")")
+            cp "$f" "benchmarks/candidates-${model}.json" || true
+            echo "packaged candidates for ${model}"
+          done
           ls -la benchmarks/ | tail -8
           git -C /tmp/martian rev-parse HEAD > benchmarks/martian-harness-commit.txt
 

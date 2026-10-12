@@ -2,7 +2,7 @@
   "comment": [
     "The ratchet floor for the competitor matrix: MISSING may fall and may not rise."
   ],
-  "missing": 10,
+  "missing": 9,
   "cells": 16,
   "updatedAt": "2026-10-12"
 }

@@ -105,30 +105,77 @@ async function main() {
   const oursPath = join(OFFLINE, 'results', MODEL.replace(/\//g, '_'), 'candidates.json');
   const ours = existsSync(oursPath) ? JSON.parse(readFileSync(oursPath, 'utf8')) : {};
 
+  // **And the field's candidates are in a second file, which the first run did not read.**
+  //
+  // **What went wrong, because it is the whole reason this block exists.** The run that produced 50 rows of zero read
+  // `review.candidates` out of `benchmark_data.json` - **and that file has no `candidates` field on a review.** Its
+  // keys are `tool`, `repo_name`, `pr_url` and `review_comments`; **the issue statements live in
+  // `results/{model}/candidates.json`**, which is **what their `step2_extract_comments` writes and what `step3` reads.**
+  // **So every tool looked silent**, the table was 50 rows of zero, and **the job reported success** - **the same
+  // failure shape as the overwrite it was fixed alongside.**
+  const shippedCandidates = {};
+  for (const candidateFile of [
+    join(MARTIAN_CANDIDATES_DIR, 'candidates.json'),
+    join(OFFLINE, 'results', 'openai_gpt-5.2', 'candidates.json'),
+    join(OFFLINE, 'results', 'anthropic_claude-opus-4-5-20251101', 'candidates.json'),
+  ]) {
+    if (!existsSync(candidateFile)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(candidateFile, 'utf8'));
+      for (const [url, byTool] of Object.entries(parsed)) {
+        shippedCandidates[url] = { ...(shippedCandidates[url] ?? {}), ...byTool };
+      }
+      console.log(`FIELD-COMPARISON read candidates from ${candidateFile}`);
+    } catch (error) {
+      console.log(`FIELD-COMPARISON could not parse ${candidateFile}: ${error.message}`);
+    }
+  }
+
+  /** The issue statements for one tool on one PR, from whichever source has them. */
+  function candidatesFor(url, tool, shipped) {
+    const fromFile = shippedCandidates[url]?.[tool];
+    if (Array.isArray(fromFile) && fromFile.length > 0) {
+      return fromFile.map((c) => (typeof c === 'string' ? c : c.text ?? '')).filter(Boolean);
+    }
+    const inline = shipped?.candidates;
+    if (Array.isArray(inline) && inline.length > 0) {
+      return inline.map((c) => (typeof c === 'string' ? c : c.text ?? '')).filter(Boolean);
+    }
+    // **The fallback reads the comment bodies**, because **a tool whose candidates were never extracted still made
+    // comments**, and **a comparison that counts them as silent would report a field-wide zero** - which is exactly
+    // what the first run did.
+    return (shipped?.review_comments ?? []).map((c) => String(c.body ?? '')).filter(Boolean);
+  }
+
   const urls = Object.keys(data).slice(0, MAX_PRS);
   const tools = new Set([TOOL]);
   for (const url of urls) for (const r of data[url].reviews ?? []) tools.add(r.tool);
 
   const per = new Map();
+  const toolsWithCandidates = new Set();
   let judged = 0;
   let unanswered = 0;
+  let pairsJudged = 0;
 
   for (const url of urls) {
     const entry = data[url];
     const goldens = entry.golden_comments ?? [];
     for (const tool of tools) {
       const shipped = (entry.reviews ?? []).find((r) => r.tool === tool);
-      // **Ours comes from our own candidates file; theirs from the shipped review.** One lookup, two sources.
+      // **Ours comes from our own candidates file; theirs from whichever source holds them.** One lookup, three
+      // sources, and **the count is logged** so a field-wide zero cannot pass as a measurement again.
       const texts =
         tool === TOOL
           ? (ours[url]?.[tool] ?? []).map((c) => c.text ?? '')
-          : (shipped?.candidates ?? []).map((c) => (typeof c === 'string' ? c : c.text ?? ''));
+          : candidatesFor(url, tool, shipped);
+      if (texts.length > 0) toolsWithCandidates.add(tool);
       const acc = per.get(tool) ?? { tp: 0, fp: 0, fn: 0, judgeFailed: 0 };
       const matched = new Set();
       for (const text of texts) {
         if (!text) continue;
         for (let g = 0; g < goldens.length; g += 1) {
           if (matched.has(g)) continue;
+          pairsJudged += 1;
           const verdict = await judge(text, goldens[g].comment);
           if (verdict === null) acc.judgeFailed += 1;
           else if (verdict) {
@@ -185,7 +232,17 @@ async function main() {
   for (const row of rows) row.ranks = { f05: ranks.f05[row.tool], f1: ranks.f1[row.tool], f2: ranks.f2[row.tool] };
 
   write({ ...base, prsScored: urls.length, toolsScored: rows.length, judgedPairs: judged, judgeUnanswered: unanswered, rows, skipped: null });
-  console.log(`FIELD-COMPARISON scored ${rows.length} tools over ${urls.length} PRs · judge unanswered ${unanswered}`);
+  console.log(
+    `FIELD-COMPARISON scored ${rows.length} tools over ${urls.length} PRs · tools with candidates ${toolsWithCandidates.size} · ` +
+      `candidate-golden pairs judged ${pairsJudged} · judge unanswered ${unanswered}`,
+  );
+  // **A run where no tool had a candidate is a failure rather than a table**, because **it cannot distinguish "the
+  // field is silent" from "this job did not find the field's statements"** - and the first run proved which of those
+  // it actually was.
+  if (toolsWithCandidates.size === 0) {
+    console.error('FIELD-COMPARISON failed: no tool had a candidate, so every row would be zero for a reason that is not about the tools');
+    process.exit(1);
+  }
   for (const row of rows.slice(0, 8)) {
     console.log(
       `  ${row.isOurs ? '*' : ' '} ${row.tool.padEnd(18)} P ${row.precision} R ${row.recall} f05 ${row.f05} F1 ${row.f1} f2 ${row.f2} (rank ${row.ranks.f1})`,

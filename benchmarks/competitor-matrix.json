@@ -511,14 +511,18 @@
         "f1"
       ],
       "note": "produced in CI; the artifact is written by the harness job from its evaluations file"
+    },
+    "review.f1.aacr": {
+      "category": "A",
+      "axis": "our review F1 on a competitor's published corpus",
+      "artifact": "benchmarks/aacr-bench.json",
+      "read": [
+        "f1"
+      ],
+      "note": "the corpus carries Repo Level ground truth, which is the cross-file axis"
     }
   },
   "pendingOurMetrics": {
-    "review.f1.aacr": {
-      "category": "A",
-      "artifact": "benchmarks/aacr-bench.json",
-      "why": "the job exists and the schema is fixed; no figure has been collected yet"
-    },
     "review.f1.martian.fieldComparison": {
       "category": "A",
       "artifact": "benchmarks/field-comparison.json",
