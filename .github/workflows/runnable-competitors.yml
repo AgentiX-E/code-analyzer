@@ -104,11 +104,19 @@ jobs:
           OPENAI_API_BASE: https://api.deepseek.com/v1
           LITELLM_MODEL: deepseek/deepseek-chat
           DEEPSEEK_BASE_URL: https://api.deepseek.com/v1
-          # **And the three `open-code-review` names in its own error message.** **The first attempt guessed three
-          # flag forms and all three failed with `unknown flag`; what worked was reading the tool's own list of
-          # configuration sources**, which is **the third time in this stretch that a failure message was the
-          # documentation.**
-          OCR_LLM_URL: https://api.deepseek.com/v1
+          # **And the three `open-code-review` names in its own error message**, with **the base URL corrected by a
+          # second failure.**
+          #
+          # **What the scan printed once the record stopped truncating**:
+          #
+          #     LLM completion error: POST "https://api.deepseek.com/v1/v1/messages"
+          #     Error: scan failed: all 37 file scan(s) failed — check your LLM configuration and API key
+          #
+          # **Two facts in one line**: **`/v1` appears twice**, so **the tool appends `/v1/messages` to whatever base it
+          # is given**; and **the path it appends is `/messages`, which is Anthropic's shape rather than OpenAI's.**
+          # **So the base is DeepSeek's Anthropic-compatible one**, which resolves to `/anthropic/v1/messages` - **and
+          # the OpenAI-compatible values are kept in the workflow as the wrong answer, because they were tried.**
+          OCR_LLM_URL: https://api.deepseek.com/anthropic
           OCR_LLM_TOKEN: ${{ secrets.DEEPSEEK_API_KEY }}
           OCR_LLM_MODEL: deepseek-chat
         run: node .github/scripts/runnable-competitors.mjs

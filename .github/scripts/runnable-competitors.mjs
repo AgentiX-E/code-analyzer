@@ -224,7 +224,14 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
   } else {
     // **A failed scan says what its recorded streams held**, so **the next reader knows whether the reason is in the
     // record or was cut out of it.**
-    parseNote = `the scan exited with status ${scan.status ?? 'null'} and signal ${scan.signal ?? 'null'}; stdout ${scan.stdout.chars} chars, stderr ${scan.stderr.chars} chars`;
+    // **And the endpoint the tool actually called is extracted from its own output**, because **the failure names a
+    // URL and the URL is the whole diagnosis**: `…/v1/v1/messages` said both that the base was doubled and that the
+    // shape was Anthropic's. **A record that keeps the stream and not the URL sends the next reader to the stream.**
+    const endpointMatch = /POST\s+"([^"]+)"/.exec(String(scan.stderr.tail ?? ''));
+    parseNote =
+      `the scan exited with status ${scan.status ?? 'null'} and signal ${scan.signal ?? 'null'}; ` +
+      `stdout ${scan.stdout.chars} chars, stderr ${scan.stderr.chars} chars` +
+      (endpointMatch ? `; the endpoint it called was ${endpointMatch[1]}` : '');
   }
   inProcess['open-code-review'].scan = {
     ok: scan.ok,
