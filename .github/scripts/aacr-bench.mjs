@@ -190,7 +190,18 @@ async function main() {
       });
       return { ok: true, stdout };
     } catch (error) {
-      return { ok: false, reason: String(error.stdout ?? error.message ?? '').slice(0, 400) };
+      // **Both streams, because the reason can be in either.** **A tool that fails silently on stdout and explains
+      // itself on stderr is the common case**, and **the first version read only the first of the two.**
+      const out = String(error.stdout ?? '').trim();
+      const err = String(error.stderr ?? '').trim();
+      const message = String(error.message ?? '').trim();
+      const reason = out || err || message || '';
+      return {
+        ok: false,
+        reason: reason.slice(0, 600),
+        status: typeof error.status === 'number' ? error.status : null,
+        signal: error.signal ?? null,
+      };
     }
   };
 
@@ -266,7 +277,24 @@ async function main() {
       competitor.prsAttempted += 1;
       if (!outcome.ok) {
         competitor.prsFailed += 1;
-        if (competitor.firstFailure === null) competitor.firstFailure = outcome.reason;
+        // **A failure with an empty reason is a failure this file has already seen.**
+        //
+        // **The first version recorded the reason only when it was the first failure AND the field was `null`**, and
+        // **the run that installed the tool reported `firstFailure: ""`** - **an empty string, not a null** - so
+        // **the reason was lost at the one moment it mattered.** **An empty reason reads exactly like no reason**, and
+        // **the difference between "it did not run" and "it did not run and here is why" is the whole value of the
+        // field.**
+        //
+        // **So the guard is on the content rather than on the sentinel**, and **the raw stderr is the fallback**,
+        // because **`spawnSync ocr ENOENT` arrived in a field named `reason` and a lower-case message arrived in
+        // neither.**
+        const reason =
+          typeof outcome.reason === 'string' && outcome.reason.trim() !== ''
+            ? outcome.reason.trim()
+            : '(the tool reported a failure with no message)';
+        if (!competitor.firstFailure || competitor.firstFailure === '(the tool reported a failure with no message)') {
+          competitor.firstFailure = reason;
+        }
       } else {
         try {
           const parsed = JSON.parse(outcome.stdout);
