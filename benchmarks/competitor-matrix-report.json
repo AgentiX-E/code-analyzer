@@ -48,6 +48,13 @@
       "axis": "providers whose output has been scored",
       "artifact": "benchmarks/language-quality.json",
       "value": 5
+    },
+    {
+      "name": "review.f1.martian.ourRow",
+      "category": "A",
+      "axis": "our review F1 under the field harness and its own judge",
+      "artifact": "benchmarks/martian-our-row.json",
+      "value": 0.1081
     }
   ],
   "invalid": [
@@ -66,13 +73,6 @@
       "axis": "findings per 1,000 lines on the field's repositories",
       "artifact": "benchmarks/competitor-corpus.json",
       "why": "artifact absent: benchmarks/competitor-corpus.json"
-    },
-    {
-      "name": "review.f1.martian.ourRow",
-      "category": "A",
-      "axis": "review.f1.martian.ourRow",
-      "artifact": "benchmarks/martian-harness.json",
-      "why": "the harness runs; our row is absent from the evaluations until the judge scores it"
     },
     {
       "name": "review.f1.aacr",
@@ -131,5 +131,5 @@
       "why": "Macroscope's corpus is not wired"
     }
   ],
-  "missingCount": 11
+  "missingCount": 10
 }

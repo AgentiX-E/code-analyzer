@@ -128,9 +128,55 @@ async function main() {
     console.log(`MARTIAN-HARNESS ${pr.repo} ${pr.url} findings=${findings.length}`);
   }
 
-  // **Their pipeline reads this path**, which is why it is written rather than merely reported.
-  mkdirSync(join(OFFLINE, 'results'), { recursive: true });
-  writeFileSync(join(OFFLINE, 'results', 'benchmark_data.json'), JSON.stringify(benchmark, null, 2) + '\n');
+  // **Their pipeline reads this path, and it already has content.**
+  //
+  // **The first version of this file wrote it whole, and that destroyed the field.** `results/benchmark_data.json`
+  // ships with **every other tool's reviews for all 50 PRs**, and **replacing it with a file holding only ours** meant
+  // the comparison job downstream saw **one tool** and reported a table with one row - **a job that looked like it ran
+  // and measured nothing.** **A write to a directory somebody else owns is a merge or it is a deletion.**
+  const resultsDir = join(OFFLINE, 'results');
+  mkdirSync(resultsDir, { recursive: true });
+  const shippedPath = join(resultsDir, 'benchmark_data.json');
+  let existing = {};
+  if (existsSync(shippedPath)) {
+    try {
+      existing = JSON.parse(readFileSync(shippedPath, 'utf8'));
+    } catch {
+      // **A file that will not parse is reported rather than silently replaced**, because **the difference between
+      // "there was nothing here" and "there was something here and it was unreadable" is the difference between a
+      // fresh start and a loss.**
+      console.log('MARTIAN-HARNESS warning: the shipped benchmark_data.json did not parse, so only our reviews will be written');
+      existing = {};
+    }
+  }
+  const shippedTools = new Set();
+  for (const entry of Object.values(existing)) {
+    for (const review of entry?.reviews ?? []) if (review?.tool) shippedTools.add(review.tool);
+  }
+  let merged = 0;
+  for (const [url, entry] of Object.entries(benchmark)) {
+    const target = existing[url];
+    if (!target) {
+      existing[url] = entry;
+      continue;
+    }
+    // **Our review replaces any earlier one for the same tool, and nothing else is touched** - so **a rerun is
+    // idempotent and a shipped tool is never dropped by a run that only knows about ours.**
+    target.reviews = (target.reviews ?? []).filter((r) => r.tool !== TOOL);
+    target.reviews.push(...(entry.reviews ?? []));
+    // **The golden comments come from the shipped entry when it has them**, because **they are the ground truth and
+    // a run of ours has no business rewriting it.**
+    if (!target.golden_comments && entry.golden_comments) target.golden_comments = entry.golden_comments;
+    merged += 1;
+  }
+  writeFileSync(shippedPath, JSON.stringify(existing, null, 2) + '\n');
+  const nowTools = new Set();
+  for (const entry of Object.values(existing)) {
+    for (const review of entry?.reviews ?? []) if (review?.tool) nowTools.add(review.tool);
+  }
+  console.log(
+    `MARTIAN-HARNESS merged our reviews into ${Object.keys(existing).length} PRs · tools before ${shippedTools.size} · after ${nowTools.size} · merged rows ${merged}`,
+  );
 
   // **And `step3` reads a second file that `step2` would have written**, which is why running our own review instead
   // of theirs needs this too. **`step2_extract_comments` calls a model to turn a comment body into issue

@@ -1,0 +1,27 @@
+{
+  "comment": [
+    "Our review under the field's harness, scored by the field's judge, on the six PRs the harness run covered.",
+    "",
+    "**F1 0.1081 - precision 0.1176 and recall 0.10 over 6 PRs, tp 2 fp 15 fn 18.**",
+    "",
+    "**And the comparison it enables is the point**: under a judge that also scored the field, **cubic-v2 holds 0.578**",
+    "and **greptile 0.3768**, so **this project is 3.5x behind the weaker of the two and 5.3x behind the stronger** -",
+    "**which is the first time that sentence could be written with both numbers produced by the same judge.**",
+    "",
+    "**And the route is recorded rather than implied**: their `step0_fork_prs` installs each tool on a fork; this run",
+    "has no bot account, so our reviews come from the engine reading each diff."
+  ],
+  "measuredAt": "2026-10-11",
+  "where": "github-actions",
+  "toolsScored": 1,
+  "prsScored": 6,
+  "tp": 2,
+  "fp": 15,
+  "fn": 18,
+  "precision": 0.1176,
+  "recall": 0.1,
+  "f1": 0.1081,
+  "judge": "deepseek-chat",
+  "comparisonBasis": "the same judge scored the field; cubic-v2 0.578 and greptile 0.3768 under gpt-5.2",
+  "route": "engine-reads-diff (no bot account installed)"
+}
