@@ -328,13 +328,30 @@ async function main() {
           // **The output is looked at before it is parsed**, because **its shape has not been seen** - **the same
           // lesson `scan` taught when the array turned out to be `comments` rather than `findings`.**
           const text = String(outcome.stdout).trim();
-          const start = text.search(/[[{]/);
-          const parsed = JSON.parse(start >= 0 ? text.slice(start) : text);
+          // **Its logging and its JSON share one stream, and the first character of a log line is `[`.**
+          //
+          // **What the previous run printed**: `its output did not parse: Unexpected token 'o', "[ocr] 35 fi"` -
+          // **the locator found the `[` of `[ocr]` and started parsing a log line.** **`35 file(s) changed, reviewing
+          // 35` is in the same string**, which is **how the range was known to have resolved** - **so the evidence and
+          // the bug were one line apart.**
+          //
+          // **So the log lines are removed before the JSON is located**, and **only lines that do not start with the
+          // tool's own prefix are considered** - **a filter on the writer rather than a search for a bracket.**
+          const body = text
+            .split(String.fromCharCode(10))
+            .filter((line) => !line.trimStart().startsWith('[ocr]'))
+            .join(String.fromCharCode(10))
+            .trim();
+          const start = body.search(/[[{]/);
+          const parsed = JSON.parse(start >= 0 ? body.slice(start) : body);
           const list = Array.isArray(parsed)
             ? parsed
             : (parsed.comments ?? parsed.findings ?? parsed.issues ?? parsed.results ?? []);
           competitor.outputKeys = Array.isArray(parsed) ? ['(array)'] : Object.keys(parsed).slice(0, 12);
           competitor.outputChars = text.length;
+          // **And how many lines the tool wrote outside its JSON**, because **a stream that mixes two formats is a fact
+          // about the tool** and **a parse that succeeds does not say how close it came to failing.**
+          competitor.logLines = text.split(String.fromCharCode(10)).length - body.split(String.fromCharCode(10)).length;
           competitor.findings += list.length;
           // **Each competitor comment is judged once against the goldens**, with the same judge and the same prompt our
           // own findings get - so **the two F1 values below are one measurement applied to two reviewers.**
