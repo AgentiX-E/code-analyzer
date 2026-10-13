@@ -155,6 +155,80 @@ const YOU_FILES = { enabled: false };
   const { tmpdir } = await import('node:os');
 
   /**
+   * **The prose parser, written from a report that was read rather than guessed.**
+   *
+   * **`ocr review` has no machine-readable mode.** **`scan --json` works and `review --json` reports `unknown flag`**
+   * - so **four extraction strategies over a stream containing no document all failed**, and **the only way forward
+   * was to keep one whole output and read it.**
+   *
+   * **And the format is regular**, which is what the whole output showed:
+   *
+   *     Review complete: 9 finding(s) across 35 selected item(s).
+   *
+   *     --- src/Mod/TechDraw/App/DrawViewPart.cpp:1299-1300 ---
+   *     [bug . medium] `angle` is declared uninitialized and only assigned inside the two `if` branches. ...
+   *     -     double angle;
+   *     +     double angle = 0.0;
+   *
+   * **Three shapes, one regular each**: **a header carrying the tool's own count**, **a separator carrying the file and
+   * a line range**, and **a bracketed tag carrying a category and a severity**, followed by prose and **sometimes a
+   * suggested diff**. **The separator uses U+2500 box-drawing characters**, which is why it is matched on the code
+   * point rather than on a dash.
+   *
+   * **And the tool's own count is kept**, because **a parser that returns fewer findings than the tool reported is
+   * indistinguishable from a tool that found fewer** - which is **the same distinction `prsFailed` draws one level
+   * up, applied to a parser instead of a run.**
+   */
+  const REVIEW_SEPARATOR = /^\u2500{3}\s+(.+?):(\d+)-(\d+)\s+\u2500{3}$/;
+  const REVIEW_TAG = /^\[([^\u00b7\]]+?)\s*\u00b7\s*([^\]]+?)\]\s*(.*)$/;
+  const REVIEW_COUNT = /Review complete:\s*(\d+)\s+finding/i;
+
+  function parseProseReport(text) {
+    const lines = String(text).split(String.fromCharCode(10));
+    const findings = [];
+    let declaredCount = null;
+    let current = null;
+    for (const raw of lines) {
+      const line = raw.replace(/\r$/, '');
+      const countMatch = REVIEW_COUNT.exec(line);
+      if (countMatch) {
+        declaredCount = Number(countMatch[1]);
+        continue;
+      }
+      const sep = REVIEW_SEPARATOR.exec(line);
+      if (sep) {
+        if (current) findings.push(current);
+        // **A separator closes the previous finding**, so **prose that spans lines is gathered rather than truncated
+        // to its first line.**
+        current = {
+          path: sep[1],
+          startLine: Number(sep[2]),
+          endLine: Number(sep[3]),
+          category: null,
+          severity: null,
+          body: [],
+        };
+        continue;
+      }
+      if (!current) continue;
+      const tag = REVIEW_TAG.exec(line);
+      if (tag && current.category === null) {
+        current.category = tag[1].trim();
+        current.severity = tag[2].trim();
+        current.body.push(tag[3]);
+        continue;
+      }
+      // **A diff line is part of the finding**, and **a blank line ends nothing** - the next separator does.
+      current.body.push(line);
+    }
+    if (current) findings.push(current);
+    return {
+      declaredCount,
+      findings: findings.map((f) => ({ ...f, body: f.body.join(String.fromCharCode(10)).trim() })),
+    };
+  }
+
+  /**
    * `owner/repo` from a pull request URL.
    *
    * **Split rather than matched.** The first version used a regular expression, and **the `/` inside `[^/]` ended the
