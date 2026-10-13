@@ -248,6 +248,9 @@ async function main() {
     outputKeys: null,
     outputChars: null,
     firstOutputHead: null,
+    // **A provider that refused for want of credit is a fact about the account, not about the reviewer** - and **it is
+    // the one failure class that also explains a variance in this repository's own numbers.**
+    creditExhausted: false,
   };
   let tp = 0;
   let fn = 0;
@@ -316,10 +319,30 @@ async function main() {
         // **So the guard is on the content rather than on the sentinel**, and **the raw stderr is the fallback**,
         // because **`spawnSync ocr ENOENT` arrived in a field named `reason` and a lower-case message arrived in
         // neither.**
-        const reason =
-          typeof outcome.reason === 'string' && outcome.reason.trim() !== ''
-            ? outcome.reason.trim()
+        const raw = typeof outcome.reason === 'string' ? outcome.reason.trim() : '';
+        // **And one class of failure is not about the tool at all.**
+        //
+        // **What the run that got furthest reported**:
+        //
+        //     [ocr] 35 file(s) changed, reviewing 35
+        //     [ocr] LLM grouping failed (POST "https://api.deepseek.com/anthropic/v1/messages":
+        //           402 Payment Required {"error":{"message":"Insufficient Balance"}})
+        //
+        // **The range resolved, the endpoint was accepted, and the provider refused the call for want of credit.**
+        // **That is a fact about the account rather than about the reviewer**, and **it is also the likeliest
+        // explanation for this repository's own AACR figure moving between 0 and 0.1724 across four runs on one corpus
+        // and one script** - because **our engine and the judge spend from the same key.**
+        //
+        // **So it is named rather than folded into a generic sentence**, because **a run that had credit and a run
+        // that did not produce the same zero and mean different things** - **the same distinction `prsFailed` draws one
+        // level up.**
+        const creditFailure = /402|Insufficient Balance|Payment Required/i.test(raw);
+        const reason = creditFailure
+          ? `the provider refused the call for want of credit: ${raw.slice(0, 300)}`
+          : raw !== ''
+            ? raw
             : '(the tool reported a failure with no message)';
+        if (creditFailure) competitor.creditExhausted = true;
         if (!competitor.firstFailure || competitor.firstFailure === '(the tool reported a failure with no message)') {
           competitor.firstFailure = reason;
         }
