@@ -632,13 +632,61 @@ const YOU_FILES = { enabled: false };
       }
     }
 
-    const firstPath = String(comments[0]?.path ?? 'unknown');
-    // **`createDiff` and not a hand-made object.** The first version passed `{ filePath, changeType, content }`, and
-    // the engine read `diff.ranges` - which a plain object does not have - so **the job failed with
-    // `diff.ranges is not iterable`** and **the failure named the engine rather than the caller.** **Every other
-    // script in this directory builds its input through `createDiff`**, which is what made the difference visible:
-    // **`createDiff(path, changeType, content)` is the contract, and a shape that looks like it is not it.**
-    const lanes = await engine.reviewDiff(createDiff(firstPath, 'added', diff), diff);
+    // **The diff is split by file, and no golden path is read.**
+    //
+    // **What the head-to-head found and this explains**: **the engine emitted 2 findings across five pull requests
+    // while a competitor emitted 24**, and **the cause was in the two lines that used to stand here.**
+    //
+    //     const firstPath = String(comments[0]?.path ?? 'unknown');   // the first GOLDEN comment's path
+    //     engine.reviewDiff(createDiff(firstPath, 'added', diff), diff);
+    //
+    // **Two defects in two lines.** **The path came from the answer key** - **so the engine was told where the first
+    // labelled issue lives** - and **a multi-file pull request diff was handed over as the content of one file**, so
+    // **the engine read one file's story and emitted one file's findings.**
+    //
+    // **And the first defect made the second invisible**: **an engine given the right path by accident looks like an
+    // engine that found it**, and **the recall it produced was low enough to look like a ranking problem** - which is
+    // where every tuning attempt in this repository's history had been aimed.
+
+    /** The per-file sections of a unified diff, `a/` and `b/` prefixes stripped. */
+    const splitDiffByFile = (unified) => {
+      const sections = [];
+      let current = null;
+      for (const line of String(unified).split(String.fromCharCode(10))) {
+        const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+        if (header) {
+          if (current) sections.push(current);
+          current = { path: header[2], lines: [line] };
+          continue;
+        }
+        if (current) current.lines.push(line);
+      }
+      if (current) sections.push(current);
+      return sections.filter((section) => section.lines.length > 1);
+    };
+
+    const sections = splitDiffByFile(diff);
+    if (!sections.length) {
+      // **A pull request with no per-file sections is a fact about the input**, so **it is recorded rather than
+      // counted as a review that found nothing.**
+      competitor.emptyDiffs = (competitor.emptyDiffs ?? 0) + 1;
+    }
+    competitor.filesReviewed = (competitor.filesReviewed ?? 0) + sections.length;
+    const lanes = [];
+    for (const section of sections) {
+      const sectionDiff = section.lines.join(String.fromCharCode(10));
+      try {
+        // **One file per call, and the file's own path** - **so neither the count nor the location depends on the
+        // answer key.**
+        const produced = await engine.reviewDiff(createDiff(section.path, 'added', sectionDiff), sectionDiff);
+        lanes.push(...produced);
+      } catch (error) {
+        // **A file the engine could not read contributes no findings and is counted**, which is **the distinction
+        // this repository draws wherever a per-item loop exists.**
+        competitor.fileFailures = (competitor.fileFailures ?? 0) + 1;
+        if (!competitor.firstFileFailure) competitor.firstFileFailure = String(error.message ?? '').slice(0, 200);
+      }
+    }
     const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
     reviewed += 1;
     // **Their two context dimensions are recorded per PR**, because **a `Repo Level` issue needs the repository and a
