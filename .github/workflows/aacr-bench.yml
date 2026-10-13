@@ -104,6 +104,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aacr-bench
-          path: benchmarks/aacr-bench.json
+          # **The figure and the competitor's whole output**, because **that output's format is what the next
+          # iteration has to read** and **a field cannot hold a document**.
+          path: |
+            benchmarks/aacr-bench.json
+            benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
           retention-days: 90

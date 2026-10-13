@@ -211,7 +211,17 @@ async function main() {
         timeout: 600_000,
         env: { ...process.env, OCR_LLM_URL: endpoint, OCR_LLM_TOKEN: key },
       });
-      return { ok: true, stdout };
+      // **And the output is spilled to a file, because its format has never been seen.**
+      //
+      // **Four extraction strategies were tried and all four failed**, and **the last one's error was the informative
+      // one**: `Unexpected token 'R', "Review com"…` - **the output is prose, and there is no JSON anywhere in it.**
+      // **`--json` is accepted by `scan` and rejected by `review`**, so **this subcommand has no machine-readable
+      // mode**, and **the only way to learn its format is to keep one whole** - **which is what
+      // `firstOutputHead`'s six hundred characters could not do.**
+      mkdirSync(OUTPUTS_DIR, { recursive: true });
+      const spilled = join(OUTPUTS_DIR, `open-code-review-review-${String(source).slice(0, 8)}.txt`);
+      writeFileSync(spilled, stdout);
+      return { ok: true, stdout, outputFile: spilled };
     } catch (error) {
       // **Both streams, because the reason can be in either.** **A tool that fails silently on stdout and explains
       // itself on stderr is the common case**, and **the first version read only the first of the two.**
@@ -293,6 +303,8 @@ async function main() {
     outputKeys: null,
     outputChars: null,
     firstOutputHead: null,
+    // **Where the whole output of the first run that spoke is kept**, because **its format is the thing being learned.**
+    firstOutputFile: null,
     // **A provider that refused for want of credit is a fact about the account, not about the reviewer** - and **it is
     // the one failure class that also explains a variance in this repository's own numbers.**
     creditExhausted: false,
@@ -484,6 +496,9 @@ async function main() {
           // **The head of the output is kept when it cannot be parsed**, because **the shape is what the next
           // iteration needs and the message alone does not carry it.**
           competitor.firstOutputHead = String(outcome.stdout ?? '').slice(0, 600);
+          // **And where the whole of it is**, because **a six-hundred-character head is a sample and a format is not a
+          // sample** - the same distinction the `scan` output taught when a 207,811-character answer was cut to 3,200.
+          competitor.firstOutputFile = outcome.outputFile ?? null;
           const reason = `its output did not parse: ${error.message}`;
           if (!competitor.firstFailure) competitor.firstFailure = reason;
         }
