@@ -175,12 +175,26 @@ async function main() {
     if (!repo) return { ok: false, reason: 'the pull request URL did not name a repository' };
     const dir = mkdtempSync(`${tmpdir()}/ocr-`);
     try {
-      execFileSync('git', ['init', '-q', dir], { stdio: 'pipe' });
-      execFileSync('git', ['-C', dir, 'remote', 'add', 'origin', `https://github.com/${repo}.git`], { stdio: 'pipe' });
-      for (const sha of [source, target]) {
-        execFileSync('git', ['-C', dir, 'fetch', '-q', '--depth', '1', 'origin', sha], { stdio: 'pipe', timeout: 180_000 });
-      }
-      execFileSync('git', ['-C', dir, 'checkout', '-q', target], { stdio: 'pipe' });
+      // **The two commits have to share a history, and the first version made sure they did not.**
+      //
+      // **What the tool said, once `firstFailure` was carrying a sentence rather than nothing**:
+      //
+      //     [ocr] Summary: 0 file(s) reviewed, 0 comment(s), ~0 token(s) used, 0s elapsed
+      //     Review failed (input): 0 finding(s); 0 of 0 selected item(s) failed.
+      //
+      // **`0 file(s) reviewed` and `0 of 0 selected item(s)` is a range it could not resolve** - because **two
+      // independent `--depth 1` fetches produce a repository with two root commits and no merge base**, so
+      // **`--from A --to B` had nothing between them.**
+      //
+      // **So the history is fetched without its blobs**, which is **the one shape that gives a merge base cheaply**:
+      // **`--filter=blob:none` downloads every commit and no file contents**, and **the checkout then fetches only the
+      // blobs that commit needs.** **A shallow fetch was cheaper and wrong; this is cheap and right.**
+      execFileSync('git', ['clone', '-q', '--filter=blob:none', '--no-checkout', `https://github.com/${repo}.git`, dir], {
+        stdio: 'pipe',
+        timeout: 600_000,
+      });
+      execFileSync('git', ['-C', dir, 'fetch', '-q', 'origin', source, target], { stdio: 'pipe', timeout: 300_000 });
+      execFileSync('git', ['-C', dir, 'checkout', '-q', target], { stdio: 'pipe', timeout: 300_000 });
       // **`--json` is for `scan` and not for `review`, and the field said so.**
       //
       // **`firstFailure` reported `Error: unknown flag: --json` on the first run after it was fixed** - **which is what
