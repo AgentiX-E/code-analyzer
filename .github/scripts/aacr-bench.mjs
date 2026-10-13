@@ -405,26 +405,27 @@ async function main() {
           //
           // **So the log lines are removed before the JSON is located**, and **only lines that do not start with the
           // tool's own prefix are considered** - **a filter on the writer rather than a search for a bracket.**
-          // **And a second prefix, because the tool has two.**
+          // **And a second prefix, because the tool has two - and the first attempt at this condition was wrong.**
           //
           // **The run with credit reported**: `its output did not parse: Unexpected token 'b', "[bug · high"` -
-          // **so a review's own findings begin with `[bug`, severity-tagged** - while **the first filter removed only
-          // `[ocr]` lines** and **left that one to be mistaken for JSON for the same reason.**
+          // **a review's findings begin with `[bug`, severity-tagged** - while **the first filter removed only
+          // `[ocr]` lines.**
           //
-          // **So the rule is on the shape of a bracketed log line rather than on one prefix**: **a line whose first
-          // non-space character is `[` and whose bracket closes before any `{` is a heading, not a document** -
-          // **which is the distinction the locator needs and could not make from a single `[`.**
+          // **And the second attempt was wrong in a way that reading it once would have caught.** It measured
+          // "where does a brace appear" with `search(/[{[]/)`, which **on `[ocr]` matches the `[` at position zero** -
+          // **the same bracket being tested** - so the comparison came out false and **every heading was kept.**
+          //
+          // **So the rule is stated as what a heading is rather than as where a bracket is**: **a line is a heading
+          // when it opens a bracket, the closing bracket arrives within eighty characters, and there is no `{` before
+          // it.** **That last clause is what keeps a JSON document** - `[{"path": …}]` **has a `{` inside its first
+          // bracket and therefore survives.**
+          const isHeading = (line) => {
+            const match = /^\s*\[([^\]]{0,80})\]/.exec(line);
+            return match !== null && !match[1].includes('{');
+          };
           const body = text
             .split(String.fromCharCode(10))
-            .filter((line) => {
-              const trimmed = line.trimStart();
-              if (!trimmed.startsWith('[')) return true;
-              const close = trimmed.indexOf(']');
-              const brace = trimmed.search(/[{[]/);
-              // **A bracketed heading is one where the closing bracket comes first**, or where the line carries a
-              // separator the document format does not use at that position.
-              return close < 0 ? true : close < (brace < 0 ? Number.MAX_SAFE_INTEGER : brace) ? false : true;
-            })
+            .filter((line) => !isHeading(line))
             .join(String.fromCharCode(10))
             .trim();
           const start = body.search(/[[{]/);
