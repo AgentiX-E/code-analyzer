@@ -138,7 +138,18 @@ async function main() {
   // **And the mechanics are its own documented ones**: the dataset names `githubPrUrl`, `source_commit` and
   // `target_commit`, so **a checkout at those two commits is what its `review --from --to` needs** - **the same
   // three fields this repository already reads to fetch the diff.**
-  const YOU_FILES = { enabled: false };
+  /**
+ * **Where the competitor's own output goes when a field cannot hold it.**
+ *
+ * **This constant was missing when the spill was first written, and the field reported it in one line**:
+ * `firstFailure: "OUTPUTS_DIR is not defined"` - **because the spill was copied from `runnable-competitors.mjs`,
+ * where the constant exists, and this file never had one.** **A name that resolves in one file and not another is
+ * exactly what a copy does not tell you**, and **the reason the failure was legible is that every fallible step here
+ * writes its reason into a field.**
+ */
+const OUTPUTS_DIR = resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs');
+
+const YOU_FILES = { enabled: false };
   const { execFileSync } = await import('node:child_process');
   const { mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
