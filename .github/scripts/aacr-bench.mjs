@@ -405,9 +405,26 @@ async function main() {
           //
           // **So the log lines are removed before the JSON is located**, and **only lines that do not start with the
           // tool's own prefix are considered** - **a filter on the writer rather than a search for a bracket.**
+          // **And a second prefix, because the tool has two.**
+          //
+          // **The run with credit reported**: `its output did not parse: Unexpected token 'b', "[bug · high"` -
+          // **so a review's own findings begin with `[bug`, severity-tagged** - while **the first filter removed only
+          // `[ocr]` lines** and **left that one to be mistaken for JSON for the same reason.**
+          //
+          // **So the rule is on the shape of a bracketed log line rather than on one prefix**: **a line whose first
+          // non-space character is `[` and whose bracket closes before any `{` is a heading, not a document** -
+          // **which is the distinction the locator needs and could not make from a single `[`.**
           const body = text
             .split(String.fromCharCode(10))
-            .filter((line) => !line.trimStart().startsWith('[ocr]'))
+            .filter((line) => {
+              const trimmed = line.trimStart();
+              if (!trimmed.startsWith('[')) return true;
+              const close = trimmed.indexOf(']');
+              const brace = trimmed.search(/[{[]/);
+              // **A bracketed heading is one where the closing bracket comes first**, or where the line carries a
+              // separator the document format does not use at that position.
+              return close < 0 ? true : close < (brace < 0 ? Number.MAX_SAFE_INTEGER : brace) ? false : true;
+            })
             .join(String.fromCharCode(10))
             .trim();
           const start = body.search(/[[{]/);
