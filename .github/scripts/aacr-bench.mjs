@@ -390,6 +390,13 @@ const YOU_FILES = { enabled: false };
     firstOutputHead: null,
     // **Where the whole output of the first run that spoke is kept**, because **its format is the thing being learned.**
     firstOutputFile: null,
+    // **The parser's own account**: which strategy worked, how many the tool claimed, how many were parsed, and
+    // whether the two agree.
+    extraction: null,
+    declaredCount: null,
+    parsedCount: null,
+    countsAgree: null,
+    firstFinding: null,
     // **A provider that refused for want of credit is a fact about the account, not about the reviewer** - and **it is
     // the one failure class that also explains a variance in this repository's own numbers.**
     creditExhausted: false,
@@ -549,9 +556,34 @@ const YOU_FILES = { enabled: false };
               lastError = `${candidate.name}: ${error.message}`;
             }
           }
-          if (parsed === null) throw new Error(lastError ?? 'no candidate parsed');
-          competitor.extraction = strategy;
-          competitor.outputKeys = Array.isArray(parsed) ? ['(array)'] : Object.keys(parsed).slice(0, 12);
+          // **And when no candidate is a document, the output is a report and the parser reads it.**
+          //
+          // **The ladder is not deleted**, because **`scan` writes JSON and this repository has read 207,811
+          // characters of it** - so **a future `review` that grows a machine-readable mode is already handled.** **But
+          // `review` has none today**, and **four candidates over a stream with no document is four failures** - so
+          // **the fallback speaks the format this tool actually writes.**
+          let list;
+          if (parsed === null) {
+            const prose = parseProseReport(text);
+            list = prose.findings;
+            competitor.extraction = 'prose';
+            competitor.declaredCount = prose.declaredCount;
+            // **The tool's own count against what was parsed**, because **a parser that quietly drops findings is
+            // indistinguishable from a tool that found fewer** - **the distinction `prsFailed` draws one level up,
+            // applied to a parser instead of a run.**
+            competitor.parsedCount = list.length;
+            competitor.countsAgree = prose.declaredCount === null ? null : prose.declaredCount === list.length;
+            if (!list.length) {
+              throw new Error(`the report parsed to no findings (${prose.findings.length} prose, no JSON candidate parsed)`);
+            }
+          } else {
+            competitor.extraction = strategy;
+            list = Array.isArray(parsed)
+              ? parsed
+              : (parsed.comments ?? parsed.findings ?? parsed.issues ?? parsed.results ?? []);
+          }
+          competitor.firstFinding = list[0] ? JSON.stringify(list[0]).slice(0, 240) : null;
+          competitor.outputKeys = parsed === null ? null : Array.isArray(parsed) ? ['(array)'] : Object.keys(parsed).slice(0, 12);
           competitor.outputChars = text.length;
           // **And how many lines the tool wrote outside its JSON**, because **a stream that mixes two formats is a fact
           // about the tool** and **a parse that succeeds does not say how close it came to failing.**
