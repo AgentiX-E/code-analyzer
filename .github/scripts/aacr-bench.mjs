@@ -232,6 +232,51 @@ async function main() {
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
   const engine = new LLMReviewEngine(new DeepSeekProvider());
 
+  /**
+   * **The second parameter of every draw this job takes.**
+   *
+   * **Why a credit reading belongs in the artifact.** **Five runs of this script on one corpus produced F1 values of
+   * 0.0377, 0, 0.1724, 0.037 and 0**, and **the run that got furthest reported `402 Payment Required` with
+   * `Insufficient Balance`** - so **the engine, the judge and the competitor all spend from one key**, and **a balance
+   * that runs out mid-run lowers recall in a way indistinguishable from a worse reviewer.**
+   *
+   * **`GET /user/balance` is the provider's own reading of that**, so **it is taken before the loop and after it**,
+   * and **both are stored** - because **a figure that moved while the account moved is a figure with a second
+   * parameter, and the parameter belongs in the same file as the figure.**
+   */
+  const creditPosition = async () => {
+    const key = process.env['DEEPSEEK_API_KEY'] ?? process.env['MARTIAN_API_KEY'] ?? '';
+    if (!key) return { probed: false, reason: 'no key in the environment' };
+    try {
+      const response = await fetch('https://api.deepseek.com/user/balance', {
+        headers: { authorization: `Bearer ${key}`, accept: 'application/json' },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        // **A balance endpoint that refuses is itself the reading** - `402` here means the same thing it means on a
+        // completion call, and **it arrives before any work is done**.
+        return { probed: true, ok: false, status: response.status, body: body.slice(0, 240) };
+      }
+      const payload = await response.json();
+      const info = Array.isArray(payload?.balance_infos) ? payload.balance_infos[0] : null;
+      return {
+        probed: true,
+        ok: true,
+        isAvailable: payload?.is_available ?? null,
+        currency: info?.currency ?? null,
+        totalBalance: info?.total_balance ?? null,
+        grantedBalance: info?.granted_balance ?? null,
+        toppedUpBalance: info?.topped_up_balance ?? null,
+      };
+    } catch (error) {
+      return { probed: true, ok: false, reason: String(error.message ?? '').slice(0, 240) };
+    }
+  };
+
+  const creditBefore = await creditPosition();
+  console.log(`AACR-BENCH credit before: ${JSON.stringify(creditBefore).slice(0, 200)}`);
+
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
   const competitor = {
     tool: 'open-code-review',
@@ -476,6 +521,9 @@ async function main() {
           : 0,
       ),
     },
+    // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
+    // account is labelled rather than reported as a reviewer's result.**
+    credit: { before: creditBefore, after: await creditPosition() },
     skipped: null,
   });
   console.log(`AACR-BENCH reviewed ${reviewed} PRs · tp ${tp} fp ${fp} fn ${fn} · P ${round(p)} R ${round(r)}`);
