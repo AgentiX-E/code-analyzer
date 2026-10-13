@@ -587,7 +587,17 @@ const YOU_FILES = { enabled: false };
           competitor.outputChars = text.length;
           // **And how many lines the tool wrote outside its JSON**, because **a stream that mixes two formats is a fact
           // about the tool** and **a parse that succeeds does not say how close it came to failing.**
-          competitor.logLines = text.split(String.fromCharCode(10)).length - body.split(String.fromCharCode(10)).length;
+          // **`body` was the filtered variable the ladder replaced, and this line still referred to it.**
+          //
+          // **The run reported `its output did not parse: body is not defined`** - **one line, one name, and it was
+          // the fourth time in this stretch that a replacement left a reference to what it removed.** **The heading
+          // count is what this line wanted**, so **it counts headings rather than subtracting a variable that no
+          // longer exists.**
+          const allLines = text.split(String.fromCharCode(10));
+          competitor.logLines = allLines.filter((line) => {
+            const match = /^\s*\[([^\]]{0,80})\]/.exec(line);
+            return match !== null && !match[1].includes('{');
+          }).length;
           competitor.findings += list.length;
           // **Each competitor comment is judged once against the goldens**, with the same judge and the same prompt our
           // own findings get - so **the two F1 values below are one measurement applied to two reviewers.**
