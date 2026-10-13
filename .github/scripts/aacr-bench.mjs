@@ -372,6 +372,10 @@ const YOU_FILES = { enabled: false };
   const creditBefore = await creditPosition();
   console.log(`AACR-BENCH credit before: ${JSON.stringify(creditBefore).slice(0, 200)}`);
 
+  // **The engine's counters belong to the engine.** **The first version wrote them onto `competitor`, which is the
+  // other reviewer's record, so the artifact reported 199 files under the competitor's name** - **a unit-of-attribution
+  // defect in the file that exists to attribute.**
+  const engineCounters = { filesReviewed: 0, emptyDiffs: 0, fileFailures: 0, firstFileFailure: null, laneStats: null };
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
   const competitor = {
     tool: 'open-code-review',
@@ -669,9 +673,9 @@ const YOU_FILES = { enabled: false };
     if (!sections.length) {
       // **A pull request with no per-file sections is a fact about the input**, so **it is recorded rather than
       // counted as a review that found nothing.**
-      competitor.emptyDiffs = (competitor.emptyDiffs ?? 0) + 1;
+      engineCounters.emptyDiffs += 1;
     }
-    competitor.filesReviewed = (competitor.filesReviewed ?? 0) + sections.length;
+    engineCounters.filesReviewed += sections.length;
     const lanes = [];
     for (const section of sections) {
       const sectionDiff = section.lines.join(String.fromCharCode(10));
@@ -680,11 +684,32 @@ const YOU_FILES = { enabled: false };
         // answer key.**
         const produced = await engine.reviewDiff(createDiff(section.path, 'added', sectionDiff), sectionDiff);
         lanes.push(...produced);
+        // **And the lanes are counted, because a lane that failed produced a zero and said nothing.**
+        //
+        // **What the run after the split showed**: **199 files reviewed and one finding emitted.** **The input was
+        // fixed** - one file's story became 199 files - **and the emission did not move.** **So the count in this
+        // artifact said the engine was reading everything and producing nothing, without saying which step dropped
+        // it** - and **`lanes.filter((l) => l.success)` is exactly the kind of line that turns a failure into an
+        // absence.**
+        const laneStats = engineCounters.laneStats ?? { attempted: 0, succeeded: 0, failed: 0, findings: 0, firstError: null };
+        laneStats.attempted += produced.length;
+        for (const lane of produced) {
+          if (lane.success) {
+            laneStats.succeeded += 1;
+            laneStats.findings += (lane.findings ?? []).length;
+          } else {
+            laneStats.failed += 1;
+            if (!laneStats.firstError) {
+              laneStats.firstError = String(lane.error ?? lane.reason ?? '(no error recorded on the lane)').slice(0, 240);
+            }
+          }
+        }
+        engineCounters.laneStats = laneStats;
       } catch (error) {
         // **A file the engine could not read contributes no findings and is counted**, which is **the distinction
         // this repository draws wherever a per-item loop exists.**
-        competitor.fileFailures = (competitor.fileFailures ?? 0) + 1;
-        if (!competitor.firstFileFailure) competitor.firstFileFailure = String(error.message ?? '').slice(0, 200);
+        engineCounters.fileFailures += 1;
+        if (!engineCounters.firstFileFailure) engineCounters.firstFileFailure = String(error.message ?? '').slice(0, 200);
       }
     }
     const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
@@ -753,6 +778,9 @@ const YOU_FILES = { enabled: false };
     // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
     // account is labelled rather than reported as a reviewer's result.**
     credit: { before: creditBefore, after: await creditPosition() },
+    // **The engine's own account of what it did**, because **a figure that says "one finding" without saying "199
+    // files and 199 lanes" is a figure whose cause is not in the file.**
+    engineCounters,
     skipped: null,
   });
   console.log(`AACR-BENCH reviewed ${reviewed} PRs · tp ${tp} fp ${fp} fn ${fn} · P ${round(p)} R ${round(r)}`);
