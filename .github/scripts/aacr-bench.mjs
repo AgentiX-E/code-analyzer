@@ -405,34 +405,55 @@ async function main() {
           //
           // **So the log lines are removed before the JSON is located**, and **only lines that do not start with the
           // tool's own prefix are considered** - **a filter on the writer rather than a search for a bracket.**
-          // **And a second prefix, because the tool has two - and the first attempt at this condition was wrong.**
+          // **A ladder of strategies, and the one that worked is recorded.**
           //
-          // **The run with credit reported**: `its output did not parse: Unexpected token 'b', "[bug · high"` -
-          // **a review's findings begin with `[bug`, severity-tagged** - while **the first filter removed only
-          // `[ocr]` lines.**
+          // **Four attempts at one extraction, and each failure named the next**:
           //
-          // **And the second attempt was wrong in a way that reading it once would have caught.** It measured
-          // "where does a brace appear" with `search(/[{[]/)`, which **on `[ocr]` matches the `[` at position zero** -
-          // **the same bracket being tested** - so the comparison came out false and **every heading was kept.**
+          //   1. `JSON.parse(whole)`            -> `Unexpected token 'o', "[ocr] 35 fi"`
+          //   2. strip `[ocr]` lines            -> `Unexpected token 'b', "[bug · high"`
+          //   3. strip every bracketed heading  -> `Expected property name or '}' … (line 2 column 15)`
           //
-          // **So the rule is stated as what a heading is rather than as where a bracket is**: **a line is a heading
-          // when it opens a bracket, the closing bracket arrives within eighty characters, and there is no `{` before
-          // it.** **That last clause is what keeps a JSON document** - `[{"path": …}]` **has a `{` inside its first
-          // bracket and therefore survives.**
-          const isHeading = (line) => {
-            const match = /^\s*\[([^\]]{0,80})\]/.exec(line);
-            return match !== null && !match[1].includes('{');
-          };
-          const body = text
-            .split(String.fromCharCode(10))
-            .filter((line) => !isHeading(line))
-            .join(String.fromCharCode(10))
-            .trim();
-          const start = body.search(/[[{]/);
-          const parsed = JSON.parse(start >= 0 ? body.slice(start) : body);
-          const list = Array.isArray(parsed)
-            ? parsed
-            : (parsed.comments ?? parsed.findings ?? parsed.issues ?? parsed.results ?? []);
+          // **The third is the informative one.** **Stripping heading lines *removed bytes from the middle of a
+          // document*** - because **the tool writes progress headings into the same stream as its output, and a line
+          // removed from between two lines of JSON joins them.** **A filter that removes lines cannot repair a
+          // document it is editing.**
+          //
+          // **So the strategies are tried in order of how little they alter the input**, and **the one that produced
+          // the parse is stored in `extraction`** - because **which strategy worked is a fact about the tool's output,
+          // and the next iteration should read it rather than rediscover it.**
+          const candidates = [
+            // **The least alteration first**: the document is the longest suffix that parses.
+            { name: 'whole', value: text },
+            // **From the first object rather than the first bracket**, because **a `[` at position zero is as likely
+            // to be a heading as an array**, and **the tool's document is an object** - so **`{` is the character that
+            // carries information here.**
+            { name: 'from-first-object', value: (() => { const i = text.indexOf('{'); return i >= 0 ? text.slice(i) : text; })() },
+            { name: 'from-last-line-starting-with-brace', value: (() => {
+                const lines = text.split(String.fromCharCode(10));
+                for (let i = lines.length - 1; i >= 0; i -= 1) if (lines[i].trimStart().startsWith('{')) return lines.slice(i).join(String.fromCharCode(10));
+                return text;
+              })() },
+            // **And the heading-stripping last**, because it is the one that edits the document.
+            { name: 'headings-removed', value: text.split(String.fromCharCode(10)).filter((line) => {
+                const match = /^\s*\[([^\]]{0,80})\]/.exec(line);
+                return !(match !== null && !match[1].includes('{'));
+              }).join(String.fromCharCode(10)).trim() },
+          ];
+          let parsed = null;
+          let strategy = null;
+          let lastError = null;
+          for (const candidate of candidates) {
+            if (candidate.value === '') continue;
+            try {
+              parsed = JSON.parse(candidate.value);
+              strategy = candidate.name;
+              break;
+            } catch (error) {
+              lastError = `${candidate.name}: ${error.message}`;
+            }
+          }
+          if (parsed === null) throw new Error(lastError ?? 'no candidate parsed');
+          competitor.extraction = strategy;
           competitor.outputKeys = Array.isArray(parsed) ? ['(array)'] : Object.keys(parsed).slice(0, 12);
           competitor.outputChars = text.length;
           // **And how many lines the tool wrote outside its JSON**, because **a stream that mixes two formats is a fact
