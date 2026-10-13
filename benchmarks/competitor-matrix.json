@@ -549,7 +549,7 @@
         0,
         "f1"
       ],
-      "note": "the competitor scores 0.3784 and this engine scores 0; the competitor ran on the same model"
+      "note": "the competitor holds 0.3235-0.3784 over three draws and this engine 0-0.0392 over two; 995 lanes succeeded and produced one finding, so the deficit is capability rather than handling"
     }
   },
   "pendingOurMetrics": {
