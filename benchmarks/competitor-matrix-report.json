@@ -5,14 +5,14 @@
     "**MISSING may fall and may not rise.** A cell is measured only when its artifact carries a value produced with the",
     "component the cell names switched on."
   ],
-  "generatedAt": "2026-10-12",
+  "generatedAt": "2026-10-13",
   "competitors": 67,
   "byCategory": {
     "A": 49,
     "B": 7,
     "C": 11
   },
-  "cells": 17,
+  "cells": 19,
   "crossProduct": {
     "cells": 67,
     "controllable": 51,
@@ -81,7 +81,7 @@
       "category": "A",
       "axis": "our review F1 on a competitor's published corpus",
       "artifact": "benchmarks/aacr-bench.json",
-      "value": 0.0377
+      "value": 0
     },
     {
       "name": "review.findingsPerFile.ocrOnOurCorpus",
@@ -89,6 +89,20 @@
       "axis": "a competitor's findings per file on this repository's corpus, run by us",
       "artifact": "benchmarks/ocr-on-our-corpus.json",
       "value": 6.81
+    },
+    {
+      "name": "review.findingsPerFile.sameDenominator",
+      "category": "A",
+      "axis": "our engine and a competitor over one directory, same mode, same model",
+      "artifact": "benchmarks/same-denominator.json",
+      "value": 4.22
+    },
+    {
+      "name": "review.f1.aacr.headToHead",
+      "category": "A",
+      "axis": "our engine and a competitor on one corpus, one judge, one ground truth",
+      "artifact": "benchmarks/aacr-head-to-head.json",
+      "value": 0
     }
   ],
   "invalid": [

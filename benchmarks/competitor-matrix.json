@@ -539,6 +539,17 @@
         "findingsPerFileOverOurWalk"
       ],
       "note": "both numerators are divided by our own walk of the directory; the tool reported a different file count, and both rates are recorded"
+    },
+    "review.f1.aacr.headToHead": {
+      "category": "A",
+      "axis": "our engine and a competitor on one corpus, one judge, one ground truth",
+      "artifact": "benchmarks/aacr-head-to-head.json",
+      "read": [
+        "rows",
+        0,
+        "f1"
+      ],
+      "note": "the competitor scores 0.3784 and this engine scores 0; the competitor ran on the same model"
     }
   },
   "pendingOurMetrics": {

@@ -1,0 +1,60 @@
+{
+  "comment": [
+    "Two reviewers on one corpus, one judge, one ground truth - the first comparison this project has that is not",
+    "a volume and not a recollection.",
+    "",
+    "**And the result is a loss, stated first.** **A competitor scores F1 0.3784 and this repository's engine scores",
+    "0** - **on the same 50 labelled issues, judged by the same `deepseek-chat`, over the same pull requests.**",
+    "",
+    "**And the competitor used this repository's own model.** **`OCR_LLM_URL` points at the same DeepSeek endpoint the",
+    "judge uses**, so **the gap is not a model difference** - **it is a difference in what each system does with the",
+    "same model.**",
+    "",
+    "**And both numbers carry the balance they were drawn on**, because **five earlier runs of this same job produced",
+    "F1 values between 0 and 0.1724 on this corpus with insufficient credit on some of them.**"
+  ],
+  "measuredAt": "2026-10-13",
+  "where": "github-actions",
+  "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0)",
+  "judge": "deepseek-chat",
+  "prsScored": 5,
+  "labelledIssues": 50,
+  "rows": [
+    {
+      "reviewer": "agentix-e",
+      "runBy": "this repository",
+      "findings": null,
+      "truePositives": 0,
+      "falsePositives": 2,
+      "falseNegatives": 50,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    },
+    {
+      "reviewer": "open-code-review",
+      "version": "1.12.13",
+      "runBy": "this repository",
+      "model": "deepseek-chat",
+      "findings": 24,
+      "truePositives": 14,
+      "falsePositives": 10,
+      "falseNegatives": 36,
+      "precision": 0.5833,
+      "recall": 0.28,
+      "f1": 0.3784,
+      "extraction": "prose",
+      "countsAgree": true
+    }
+  ],
+  "rootCauseNotes": [
+    "**the engine emitted 2 findings across 5 pull requests and matched none of 50** - so the gap is not ranking, it is emission: the competitor produced 24 candidates and this engine produced 2",
+    "**the same model produced both sets**, so the difference is in how each system frames the task for it",
+    "**the competitor's findings carry a category and a severity and a suggested diff**; this project's carry a lane",
+    "**and the engine's recall on this corpus has never exceeded 0.10 across eight runs**, so this is not a draw that went badly - it is a ceiling"
+  ],
+  "whatThisDoesNotSay": [
+    "that the competitor's 10 false positives are wrong - that needs a second judge or a human, and this run has neither",
+    "that AACR-Bench is neutral - Alibaba built both the tool and the benchmark it wins on, and this comparison holds that constant rather than resolving it"
+  ]
+}
