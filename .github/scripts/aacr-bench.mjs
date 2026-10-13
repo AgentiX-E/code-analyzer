@@ -181,7 +181,16 @@ async function main() {
         execFileSync('git', ['-C', dir, 'fetch', '-q', '--depth', '1', 'origin', sha], { stdio: 'pipe', timeout: 180_000 });
       }
       execFileSync('git', ['-C', dir, 'checkout', '-q', target], { stdio: 'pipe' });
-      const stdout = execFileSync('ocr', ['review', '--from', source, '--to', target, '--json'], {
+      // **`--json` is for `scan` and not for `review`, and the field said so.**
+      //
+      // **`firstFailure` reported `Error: unknown flag: --json` on the first run after it was fixed** - **which is what
+      // a repaired reason field buys**: **the next iteration gets a sentence instead of a guess.** **`scan --json`
+      // works, because that is where this project already succeeded**; **`review` does not take it.**
+      //
+      // **And the default output is kept rather than parsed blind**, because **the shape of `review`'s output has not
+      // been seen yet** - **so the raw text travels in the artifact, and the next iteration reads the shape instead of
+      // assuming one**, which is **the fifth time in this stretch that a shape was learned rather than guessed.**
+      const stdout = execFileSync('ocr', ['review', '--from', source, '--to', target], {
         cwd: dir,
         encoding: 'utf8',
         stdio: 'pipe',
@@ -220,6 +229,11 @@ async function main() {
     falsePositives: 0,
     falseNegatives: 0,
     judgeUnanswered: 0,
+    // **The shape and size of its output, and the head of it when it will not parse** - because **a reviewer that
+    // spoke and was not understood is a fact worth keeping**, the same distinction as `prsFailed`.
+    outputKeys: null,
+    outputChars: null,
+    firstOutputHead: null,
   };
   let tp = 0;
   let fn = 0;
@@ -297,8 +311,16 @@ async function main() {
         }
       } else {
         try {
-          const parsed = JSON.parse(outcome.stdout);
-          const list = Array.isArray(parsed) ? parsed : (parsed.comments ?? parsed.findings ?? []);
+          // **The output is looked at before it is parsed**, because **its shape has not been seen** - **the same
+          // lesson `scan` taught when the array turned out to be `comments` rather than `findings`.**
+          const text = String(outcome.stdout).trim();
+          const start = text.search(/[[{]/);
+          const parsed = JSON.parse(start >= 0 ? text.slice(start) : text);
+          const list = Array.isArray(parsed)
+            ? parsed
+            : (parsed.comments ?? parsed.findings ?? parsed.issues ?? parsed.results ?? []);
+          competitor.outputKeys = Array.isArray(parsed) ? ['(array)'] : Object.keys(parsed).slice(0, 12);
+          competitor.outputChars = text.length;
           competitor.findings += list.length;
           // **Each competitor comment is judged once against the goldens**, with the same judge and the same prompt our
           // own findings get - so **the two F1 values below are one measurement applied to two reviewers.**
@@ -321,7 +343,11 @@ async function main() {
           competitor.falsePositives += Math.max(0, list.length - matchedByCompetitor.size);
         } catch (error) {
           competitor.prsFailed += 1;
-          if (competitor.firstFailure === null) competitor.firstFailure = `its output did not parse: ${error.message}`;
+          // **The head of the output is kept when it cannot be parsed**, because **the shape is what the next
+          // iteration needs and the message alone does not carry it.**
+          competitor.firstOutputHead = String(outcome.stdout ?? '').slice(0, 600);
+          const reason = `its output did not parse: ${error.message}`;
+          if (!competitor.firstFailure) competitor.firstFailure = reason;
         }
       }
     }
