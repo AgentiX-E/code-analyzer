@@ -83,7 +83,9 @@
       "**a credit defect** - `creditExhausted` is false and the balance is recorded"
     ],
     "whatItPointsAt": [
-      "**the output shape**: **a prompt that asks for a lane gets a lane's silence**, and **the competitor's `[category \u00b7 severity] path:start-end` requires the model to commit to a location** - which is **what a judge can match against a labelled issue**"
+      "**not the finding cap**: the prompt records that the cap was raised to eight for one run and put back, because **the raise recovered one true positive and halved precision**, so **the cap is not what sets the candidate count.**",
+      "**the lane granularity**: **995 lanes over 199 files is five per file**, and **each lane sees one file in isolation** - so **a defect that spans files is invisible to every lane that could report it**, and **the ground truth carries 2 Repo Level issues by construction.**",
+      "**the competitor reviews the whole pull request in one call**, which is **the difference between a view that can contain a cross-file defect and one that cannot.**"
     ]
   },
   "samples": {
@@ -107,5 +109,24 @@
         "f1": 0.3235
       }
     ]
+  },
+  "shapeComparison": {
+    "ours": {
+      "lanes": 995,
+      "files": 199,
+      "lanesPerFile": 5.0,
+      "findings": 1,
+      "findingsPerLane": 0.001,
+      "precision": 1.0,
+      "recall": 0.02,
+      "f1": 0.0392
+    },
+    "openCodeReview": {
+      "findings": 21,
+      "precision": 0.5238,
+      "recall": 0.234,
+      "f1": 0.3235
+    },
+    "reading": "**the competitor produces about twenty times the candidates at half the precision and wins F1 by eight** - so **precision is not this engine's constraint, it is at its maximum, and the deficits that remain are candidate count and view scope rather than ranking or filtering.**"
   }
 }
