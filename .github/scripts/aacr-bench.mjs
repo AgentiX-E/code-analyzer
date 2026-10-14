@@ -713,6 +713,31 @@ const YOU_FILES = { enabled: false };
       }
     }
     const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
+
+    // **ARM TWO: the whole pull request, in one call - the competitor's view.**
+    //
+    // **Why an arm rather than a replacement.** **The structural finding was that 995 lanes each see one file**, and
+    // **the ground truth carries Repo Level issues that a single file cannot contain** - so **the hypothesis is that
+    // the view is the constraint.** **The competitor reviews the whole diff in one call**, and **reproducing that with
+    // this repository's own prompt is the control**: **if F1 rises, the view was the constraint; if it does not, the
+    // capability is**, and **either answer is one this project has never had.**
+    //
+    // **And it runs in the same job as the per-file arm**, over the same pull requests, judged by the same judge
+    // against the same goldens - so **the two numbers differ by the arm and by nothing else.**
+    //
+    // **The path is the diff's own first file**, which **the diff names itself** - **not a golden path**, which is what
+    // the defect removed three runs ago.
+    const wholePrLanes = [];
+    try {
+      const wholePath = sections[0]?.path ?? 'pull-request.diff';
+      wholePrLanes.push(...(await engine.reviewDiff(createDiff(wholePath, 'added', diff), diff)));
+    } catch (error) {
+      engineCounters.wholePrFailure = String(error.message ?? '').slice(0, 200);
+    }
+    const wholePrFindings = wholePrLanes.filter((l) => l.success).flatMap((l) => l.findings);
+    wholePrLanesTotal += wholePrLanes.length;
+    wholePrFindingsTotal += wholePrFindings.length;
+
     reviewed += 1;
     // **Their two context dimensions are recorded per PR**, because **a `Repo Level` issue needs the repository and a
     // `Diff Level` one does not** - and **that is the axis this corpus was chosen for.**
@@ -740,6 +765,29 @@ const YOU_FILES = { enabled: false };
     }
     tp += matched.size;
     fn += issueTexts.length - matched.size;
+
+    // **And the same judging, for the second arm.**
+    //
+    // **A separate `matched` set over the same goldens**, because **the whole-PR arm's findings are a different set and
+    // must be scored independently** - **sharing one set would let the two arms consume each other's goldens and report
+    // a sum as if it were a maximum.**
+    const matchedWhole = new Set();
+    for (const f of wholePrFindings) {
+      let hit = false;
+      for (let i = 0; i < issueTexts.length; i += 1) {
+        if (matchedWhole.has(i)) continue;
+        const verdict = await judge(String(f.title ?? '') + ' :: ' + String(f.description ?? ''), issueTexts[i]);
+        if (verdict === null) unansweredWhole += 1;
+        else if (verdict) {
+          matchedWhole.add(i);
+          hit = true;
+          break;
+        }
+      }
+      if (!hit) fpWhole += 1;
+    }
+    tpWhole += matchedWhole.size;
+    fnWhole += issueTexts.length - matchedWhole.size;
   }
 
   const p = tp + fp > 0 ? tp / (tp + fp) : 0;
