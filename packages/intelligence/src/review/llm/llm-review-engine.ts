@@ -166,7 +166,15 @@ export class LLMReviewEngine {
       };
 
       const result = await this.provider.complete(prompt, llmOptions);
-      const findings = this.filterFindings(parseLLMResponse(result.content), ctx);
+      // **The parse and the filter are counted separately**, because **`parseLLMResponse` returning an empty array and
+      // `filterFindings` removing everything produce the same zero and are different defects.**
+      const parsedFindings = parseLLMResponse(result.content);
+      const findings = this.filterFindings(parsedFindings, ctx);
+      this.lastCounts = {
+        parsed: parsedFindings.length,
+        kept: findings.length,
+        dropped: this.lastDropped,
+      };
 
       return {
         filePath: ctx.filePath,
@@ -196,15 +204,42 @@ export class LLMReviewEngine {
    * Filter LLM findings to ensure they reference valid line ranges
    * within the diff content.
    */
+  /** **What the last lane's parse and filter did**, for a caller that needs to know why a count is zero. */
+  lastCounts: { parsed: number; kept: number; dropped: { invalidLine: number; beyondDiffLength: number; kept: number; total: number } } | null = null;
+
+  private lastDropped = { invalidLine: 0, beyondDiffLength: 0, kept: 0, total: 0 };
+
   private filterFindings(findings: LLMFinding[], ctx: PromptContext): LLMFinding[] {
     const lines = ctx.diffContent.split('\n');
     const maxLine = lines.length;
 
+    // **And the filter counts what it removes, because it was removing almost everything in silence.**
+    //
+    // **What the measurement found and this explains**: **995 lanes succeeded and produced one finding**, and **the
+    // competitor produced twenty-nine on the same pull requests with the same model.** **The emission chain is
+    // `complete` -> `parseLLMResponse` -> `filterFindings`, and the last of the three ran a check with the wrong
+    // coordinate system**: **`maxLine` is the DIFF's line count**, while **the prompt requires the model to give the
+    // line numbers of the problem *in the file*.** **A 1,500-line file produces a 40-line diff, so a correct finding
+    // at line 900 has `startLine > maxLine` and is discarded.**
+    //
+    // **So the counters are per rule**, because **a filter with three rules and one counter cannot say which rule a
+    // finding died of** - **the same distinction this repository draws in every other loop.**
+    const dropped = { invalidLine: 0, beyondDiffLength: 0, kept: 0, total: findings.length };
+    this.lastDropped = dropped;
     return findings
       .filter((f) => {
         // Must have valid line numbers
-        if (f.startLine < 1 || f.endLine < 1) return false;
-        if (f.startLine > maxLine) return false;
+        if (f.startLine < 1 || f.endLine < 1) {
+          dropped.invalidLine += 1;
+          return false;
+        }
+        if (f.startLine > maxLine) {
+          // **A finding whose line is past the end of a unified diff is usually a correct finding about a large
+          // file** - so **it is counted rather than only discarded**, and **the count is what tells the difference
+          // between a reviewer with nothing to say and a filter that is eating its answer.**
+          dropped.beyondDiffLength += 1;
+          return false;
+        }
         // End line cannot exceed the diff
         if (f.endLine > maxLine) {
           f.endLine = maxLine;

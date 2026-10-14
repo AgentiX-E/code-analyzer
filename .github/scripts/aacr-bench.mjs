@@ -691,6 +691,32 @@ const YOU_FILES = { enabled: false };
         // answer key.**
         const produced = await engine.reviewDiff(createDiff(section.path, 'added', sectionDiff), sectionDiff);
         lanes.push(...produced);
+        // **And what the engine's own parse and filter did with this file's findings.**
+        //
+        // **The chain is `complete` -> `parseLLMResponse` -> `filterFindings`**, and **the third ran a check with the
+        // wrong coordinate system**: **it compared the model's file line numbers against the DIFF's line count**, so a
+        // correct finding at line 900 of a 1,500-line file died on a 40-line diff. **The engine now counts its drops
+        // per rule, and those counts are what this job needs** - because **a filter that eats the answer and a reviewer
+        // with nothing to say produce the same zero.**
+        const counts = engine.lastCounts;
+        if (counts) {
+          const d2 = engineCounters.filterDrops;
+          if (d2) {
+            d2.parsed += counts.parsed;
+            d2.kept += counts.kept;
+            d2.invalidLine += counts.dropped.invalidLine;
+            d2.beyondDiffLength += counts.dropped.beyondDiffLength;
+            d2.lanes += 1;
+          } else {
+            engineCounters.filterDrops = {
+              parsed: counts.parsed,
+              kept: counts.kept,
+              invalidLine: counts.dropped.invalidLine,
+              beyondDiffLength: counts.dropped.beyondDiffLength,
+              lanes: 1,
+            };
+          }
+        }
         // **And the lanes are counted, because a lane that failed produced a zero and said nothing.**
         //
         // **What the run after the split showed**: **199 files reviewed and one finding emitted.** **The input was
