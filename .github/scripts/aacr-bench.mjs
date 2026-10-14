@@ -409,6 +409,13 @@ const YOU_FILES = { enabled: false };
   let fn = 0;
   let fp = 0;
   let unanswered = 0;
+  // **The second arm's accumulators, kept separate so neither can consume the other's matches.**
+  let tpWhole = 0;
+  let fpWhole = 0;
+  let fnWhole = 0;
+  let unansweredWhole = 0;
+  let wholePrFindingsTotal = 0;
+  let wholePrLanesTotal = 0;
   let reviewed = 0;
   let unfetched = 0;
   const categories = {};
@@ -806,6 +813,19 @@ const YOU_FILES = { enabled: false };
     judgeUnanswered: unanswered,
     precision: round(p),
     recall: round(r),
+    // **The control arm, reported beside the first rather than instead of it.**
+    wholePrArm: {
+      view: 'one call over the whole pull request diff',
+      lanes: wholePrLanesTotal,
+      findings: wholePrFindingsTotal,
+      truePositives: tpWhole,
+      falsePositives: fpWhole,
+      falseNegatives: fnWhole,
+      judgeUnanswered: unansweredWhole,
+      precision: round(tpWhole + fpWhole > 0 ? tpWhole / (tpWhole + fpWhole) : 0),
+      recall: round(tpWhole + fnWhole > 0 ? tpWhole / (tpWhole + fnWhole) : 0),
+      f1: round(tpWhole + fpWhole + fnWhole > 0 ? (2 * tpWhole) / (2 * tpWhole + fpWhole + fnWhole) : 0),
+    },
     f1: round(p + r > 0 ? (2 * p * r) / (p + r) : 0),
     reviewCategories: categories,
     // **The context split, which is the reason this corpus was chosen**: `Repo Level` is cross-file by construction.
