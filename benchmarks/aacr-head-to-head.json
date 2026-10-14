@@ -128,5 +128,55 @@
       "f1": 0.3235
     },
     "reading": "**the competitor produces about twenty times the candidates at half the precision and wins F1 by eight** - so **precision is not this engine's constraint, it is at its maximum, and the deficits that remain are candidate count and view scope rather than ranking or filtering.**"
+  },
+  "wholePrArm": {
+    "view": "one call over the whole pull request diff",
+    "lanes": 25,
+    "findings": 2,
+    "truePositives": 1,
+    "falsePositives": 1,
+    "falseNegatives": 49,
+    "precision": 0.5,
+    "recall": 0.02,
+    "f1": 0.0385
+  },
+  "armComparison": {
+    "measuredAt": "2026-10-14",
+    "perFile": {
+      "lanes": 995,
+      "files": 199,
+      "findings": 1,
+      "precision": 1.0,
+      "recall": 0.02,
+      "f1": 0.0392
+    },
+    "wholePr": {
+      "lanes": 25,
+      "findings": 2,
+      "precision": 0.5,
+      "recall": 0.02,
+      "f1": 0.0385
+    },
+    "competitorSameRun": {
+      "findings": 29,
+      "precision": 0.483,
+      "recall": 0.28,
+      "f1": 0.3419
+    },
+    "verdict": "**the view is not the constraint**",
+    "why": [
+      "**The whole-PR arm replaced 995 per-file lanes with 25 whole-diff lanes** - **a forty-fold reduction in calls and the competitor's own view** - **and F1 moved from 0.0392 to 0.0385.**",
+      "**Both arms found exactly one true positive**, so **the change of view changed neither the recall nor the count of what was found.**",
+      "**And both arms use the same engine**, which produced one or two findings under either view - so **the constraint is in the emission mechanism rather than in what the mechanism is shown.**",
+      "**And the competitor, in the same run, found fourteen** - so **the difference is not the corpus, the judge, the model or the view**, all four of which are now held constant."
+    ],
+    "whatItRulesOut": [
+      "the lane granularity",
+      "the per-file view",
+      "the whole-PR view"
+    ],
+    "whatItLeaves": [
+      "**the emission mechanism itself**: the prompt's selection rules, the finding schema, and whatever filters a lane's findings before they reach the counter."
+    ]
   }
 }
