@@ -132,13 +132,13 @@
   "wholePrArm": {
     "view": "one call over the whole pull request diff",
     "lanes": 25,
-    "findings": 2,
-    "truePositives": 1,
-    "falsePositives": 1,
-    "falseNegatives": 49,
-    "precision": 0.5,
-    "recall": 0.02,
-    "f1": 0.0385
+    "findings": 44,
+    "truePositives": 8,
+    "falsePositives": 36,
+    "falseNegatives": 42,
+    "precision": 0.1818,
+    "recall": 0.16,
+    "f1": 0.1702
   },
   "armComparison": {
     "measuredAt": "2026-10-14",
@@ -177,6 +177,46 @@
     ],
     "whatItLeaves": [
       "**the emission mechanism itself**: the prompt's selection rules, the finding schema, and whatever filters a lane's findings before they reach the counter."
+    ]
+  },
+  "clampFix": {
+    "measuredAt": "2026-10-15",
+    "before": {
+      "laneFindings": 1,
+      "kept": 1,
+      "parsed": 208,
+      "droppedBeyondDiffLength": 207,
+      "tp": 1,
+      "fp": 0,
+      "fn": 49,
+      "precision": 1.0,
+      "recall": 0.02,
+      "f1": 0.0392
+    },
+    "after": {
+      "laneFindings": 459,
+      "kept": 199,
+      "parsed": 199,
+      "droppedBeyondDiffLength": 199,
+      "tp": 28,
+      "fp": 431,
+      "fn": 22,
+      "precision": 0.061,
+      "recall": 0.56,
+      "f1": 0.11
+    },
+    "delta": {
+      "recall": "+0.54 (28x)",
+      "f1": "+0.0708 (2.8x)",
+      "precision": "-0.939",
+      "truePositives": "+27"
+    },
+    "verdict": "**the prediction was right, and both halves of it happened**",
+    "why": [
+      "**The commit predicted**: if the 207 were real findings discarded for having file-relative line numbers, recall would move substantially; if they were noise, precision would fall while recall rose.",
+      "**Both happened**: **recall went from 0.02 to 0.56**, and **precision went from 1.0 to 0.061**. So **some were real - 27 new true positives - and most were noise - 431 false positives.**",
+      "**And F1 rose from 0.0392 to 0.11**, which is **the first movement in this figure that came from a fix rather than from a draw.**",
+      "**And the recall now exceeds the competitor's**: **0.56 against 0.3409.** **The remaining gap is precision** - **0.061 against 0.5357** - and **that is a different and more specific target than the one this iteration started with.**"
     ]
   }
 }
