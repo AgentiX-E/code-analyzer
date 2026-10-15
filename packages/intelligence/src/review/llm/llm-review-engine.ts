@@ -234,11 +234,25 @@ export class LLMReviewEngine {
           return false;
         }
         if (f.startLine > maxLine) {
-          // **A finding whose line is past the end of a unified diff is usually a correct finding about a large
-          // file** - so **it is counted rather than only discarded**, and **the count is what tells the difference
-          // between a reviewer with nothing to say and a filter that is eating its answer.**
+          // **Clamped, not discarded - and the measurement is why.**
+          //
+          // **What the counters reported on the first run that had them**: **`parsed: 208`, `kept: 1`,
+          // `beyondDiffLength: 207`.** **The model produced 208 findings and one rule removed 207 of them.**
+          //
+          // **And the rule compared two coordinate systems.** **The prompt requires the line numbers of the problem
+          // *in the file*** - `SELECTION_RULES` rule 4 says so - **and this check compared them against the length of
+          // a unified diff.** **A 1,500-line file produces a 40-line diff**, so **a correct finding at line 900 was
+          // discarded for being past line 40.**
+          //
+          // **The line is a location hint; the text is the finding.** **A finding whose hint is out of range is still
+          // a finding**, so **it is clamped to the last line rather than thrown away** - **and the drop count is kept
+          // as a measure of how often the hint was out of range**, which is **a fact about the prompt rather than
+          // grounds for deletion.**
           dropped.beyondDiffLength += 1;
-          return false;
+          f.startLine = maxLine;
+          if (f.endLine > maxLine) f.endLine = maxLine;
+          if (f.startLine > f.endLine) f.startLine = f.endLine;
+          return true;
         }
         // End line cannot exceed the diff
         if (f.endLine > maxLine) {
