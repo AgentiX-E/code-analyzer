@@ -58,7 +58,7 @@ jobs:
 
       - name: Restore baseline from cache
         id: cache-baseline
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: bench-baseline.json
           key: bench-baseline-${{ github.ref == 'refs/heads/master' && github.run_id || 'master-latest' }}
@@ -157,7 +157,7 @@ jobs:
 
       - name: Save baseline to cache (master only)
         if: github.ref == 'refs/heads/master' && steps.run-bench.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: bench-results.json
           key: bench-baseline-${{ github.run_id }}
