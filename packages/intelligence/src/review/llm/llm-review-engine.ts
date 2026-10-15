@@ -102,10 +102,79 @@ export class LLMReviewEngine {
 
     const lanes = this.options.lanes;
 
-    if (this.options.parallel) {
-      return this.runLanesParallel(ctx, lanes);
+    const results = this.options.parallel
+      ? await this.runLanesParallel(ctx, lanes)
+      : await this.runLanesSequential(ctx, lanes);
+    return this.deduplicateAcrossLanes(results);
+  }
+
+  /** **What the last deduplication did**, so a caller can tell a quiet reviewer from a collapsing one. */
+  lastDeduplication: { before: number; after: number; dropped: number } | null = null;
+
+  /**
+   * **One defect reported by five lanes is one defect.**
+   *
+   * **Why this exists, in the measurement's own numbers.** **After the coordinate-system fix in the emission filter, the
+   * engine emitted 459 findings over 199 files with 28 true positives and 431 false positives** - **a precision of 0.061
+   * against a competitor's 0.5357.**
+   *
+   * **And five lanes review the same diff independently**, each with its own prompt: **security, performance,
+   * maintainability, correctness and documentation.** **A defect that is arguably two of those is reported by both**,
+   * and **`Promise.all` returned both** - **so the same repair appeared once per angle it could be seen from, and every
+   * copy after the first was a false positive by construction.**
+   *
+   * **And the identity is a location and a shape rather than a string**, because **two lanes word one defect
+   * differently.** **Two findings are the same when their ranges overlap in the same file**, or **when most of their
+   * content words agree** - and **the survivor is the highest severity**, because **a defect is as serious as its worst
+   * reading.**
+   *
+   * **And it is deterministic**: **severity first and lane order second**, so **the same five answers produce the same
+   * output**, which is **what makes the deduplicated count comparable between runs.**
+   */
+  private deduplicateAcrossLanes(results: LLMReviewResult[]): LLMReviewResult[] {
+    const rank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+    const words = (text: unknown): Set<string> =>
+      new Set(String(text ?? '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+    const shares = (a: Set<string>, b: Set<string>): number => {
+      if (a.size === 0 || b.size === 0) return 0;
+      let shared = 0;
+      for (const w of a) if (b.has(w)) shared += 1;
+      return shared / Math.min(a.size, b.size);
+    };
+
+    type Entry = { result: LLMReviewResult; finding: LLMFinding; words: Set<string> };
+    const all: Entry[] = [];
+    for (const result of results) {
+      for (const finding of result.findings) {
+        all.push({ result, finding, words: words(`${finding.title ?? ''} ${finding.description ?? ''}`) });
+      }
     }
-    return this.runLanesSequential(ctx, lanes);
+    // **Severity first, then lane order**, because **the survivor of a duplicate should be the worst reading** and
+    // **a stable tie-break is what makes the output reproducible.**
+    all.sort((x, y) => (rank[String(y.finding.severity)] ?? 0) - (rank[String(x.finding.severity)] ?? 0));
+
+    const survivors: Entry[] = [];
+    for (const entry of all) {
+      const duplicate = survivors.some(
+        (k) =>
+          // **Same file, overlapping ranges** - the same defect has one location.
+          String(k.result.filePath ?? '') === String(entry.result.filePath ?? '') &&
+          entry.finding.startLine <= k.finding.endLine &&
+          entry.finding.endLine >= k.finding.startLine,
+      ) || survivors.some((k) =>
+        // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range is a
+        // hint that this iteration already watched a filter discard 207 findings over.
+        shares(k.words, entry.words) >= 0.6,
+      );
+      if (!duplicate) survivors.push(entry);
+    }
+
+    const keep = new Set(survivors.map((e) => e.finding));
+    for (const result of results) {
+      result.findings = result.findings.filter((f) => keep.has(f));
+    }
+    this.lastDeduplication = { before: all.length, after: survivors.length, dropped: all.length - survivors.length };
+    return results;
   }
 
   /**

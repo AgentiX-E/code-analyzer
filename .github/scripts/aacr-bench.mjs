@@ -698,6 +698,20 @@ const YOU_FILES = { enabled: false };
         // correct finding at line 900 of a 1,500-line file died on a 40-line diff. **The engine now counts its drops
         // per rule, and those counts are what this job needs** - because **a filter that eats the answer and a reviewer
         // with nothing to say produce the same zero.**
+        // **And what the deduplication removed**, because **five lanes review one diff and a defect they all see is one
+        // defect** - and **a count that fell because duplicates were merged is not a count that fell because the engine
+        // went quiet.**
+        const dd = engine.lastDeduplication;
+        if (dd) {
+          const acc = engineCounters.dedup;
+          if (acc) {
+            acc.before += dd.before;
+            acc.after += dd.after;
+            acc.dropped += dd.dropped;
+          } else {
+            engineCounters.dedup = { before: dd.before, after: dd.after, dropped: dd.dropped };
+          }
+        }
         const counts = engine.lastCounts;
         if (counts) {
           const d2 = engineCounters.filterDrops;
