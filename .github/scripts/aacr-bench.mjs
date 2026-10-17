@@ -325,7 +325,15 @@ const YOU_FILES = { enabled: false };
 
   const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
   const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
-  const engine = new LLMReviewEngine(new DeepSeekProvider());
+  // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
+  //
+  // **At 0.6 the merge removed 360 of 488 findings, raised precision 2.3 times and lowered recall from 0.56 to 0.36** -
+  // **ten true positives were merged with neighbours that shared most of their vocabulary.** **So 0.6 over-merges, and
+  // the cheapest next measurement is the same run at a higher threshold**: **0.8 requires four fifths of the content
+  // words to agree, so a genuinely different defect in the adjacent line survives.**
+  const DEDUP_THRESHOLD = Number(process.env['AACR_DEDUP_THRESHOLD'] ?? 0.8);
+  const engine = new LLMReviewEngine(new DeepSeekProvider(), { dedupThreshold: DEDUP_THRESHOLD });
+  console.log(`AACR-BENCH dedup threshold ${DEDUP_THRESHOLD}`);
 
   /**
    * **The second parameter of every draw this job takes.**

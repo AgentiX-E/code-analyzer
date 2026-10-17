@@ -31,6 +31,8 @@ export interface LLMReviewOptions {
   temperature?: number;
   /** Timeout per lane request in milliseconds. Defaults to 120000. */
   laneTimeout?: number;
+  /** **Content-word overlap at which two findings are the same one.** */
+  dedupThreshold?: number;
 }
 
 /** Result of an LLM review for a single diff. */
@@ -66,6 +68,11 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   maxDiffLength: 8000,
   temperature: 0.3,
   laneTimeout: 120_000,
+  // **The content-word overlap at which two findings are the same one.**
+  // **At 0.6 the merge removed 360 of 488 and cost ten true positives**, so **it is a starting value that a
+  // measurement has already contradicted rather than a settled one** - and **a constant a measurement has contradicted
+  // is a constant that has to become a parameter.**
+  dedupThreshold: 0.6,
 };
 
 // ---------------------------------------------------------------------------
@@ -107,6 +114,16 @@ export class LLMReviewEngine {
       : await this.runLanesSequential(ctx, lanes);
     return this.deduplicateAcrossLanes(results);
   }
+
+  /**
+   * **What the threshold is, and why it is a number rather than a constant.**
+   *
+   * **At 0.6 the merge removed 360 of 488 findings, raised precision 2.3 times and lowered recall from 0.56 to 0.36** -
+   * **because ten true positives were merged with neighbours that shared most of their vocabulary.** **So 0.6 is
+   * measurably too low**, and **a constant that a measurement has contradicted is a constant that has to become a
+   * parameter.**
+   */
+  static readonly DEFAULT_DEDUP_THRESHOLD = 0.6;
 
   /** **What the last deduplication did**, so a caller can tell a quiet reviewer from a collapsing one. */
   lastDeduplication: { before: number; after: number; dropped: number } | null = null;
@@ -164,7 +181,7 @@ export class LLMReviewEngine {
       ) || survivors.some((k) =>
         // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range is a
         // hint that this iteration already watched a filter discard 207 findings over.
-        shares(k.words, entry.words) >= 0.6,
+        shares(k.words, entry.words) >= this.options.dedupThreshold,
       );
       if (!duplicate) survivors.push(entry);
     }
