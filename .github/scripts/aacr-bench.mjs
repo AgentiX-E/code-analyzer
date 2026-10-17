@@ -850,6 +850,10 @@ const YOU_FILES = { enabled: false };
   const round = (x) => Math.round(x * 10000) / 10000;
   write({
     ...base,
+    // **The threshold every row below was drawn under**, because **a curve whose points are not labelled is a set of
+    // numbers rather than a measurement** - and **this label was missing from the artifact for one run**, which is
+    // **how a point loses its coordinate.**
+    dedupThreshold: DEDUP_THRESHOLD,
     prsInDataset: rows.length,
     prsReviewed: reviewed,
     prsWithoutDiff: unfetched,
