@@ -23,13 +23,13 @@
     {
       "reviewer": "agentix-e",
       "runBy": "this repository",
-      "findings": 128,
+      "findings": 106,
       "truePositives": 18,
-      "falsePositives": 110,
+      "falsePositives": 88,
       "falseNegatives": 32,
-      "precision": 0.1406,
+      "precision": 0.1698,
       "recall": 0.36,
-      "f1": 0.2022
+      "f1": 0.2308
     },
     {
       "reviewer": "open-code-review",
@@ -246,7 +246,15 @@
         "note": "recall 28x; the duplicates were counted as separate findings"
       },
       {
-        "stage": "after dedup",
+        "stage": "competitor, same runs",
+        "findings": 32,
+        "P": 0.4063,
+        "R": 0.2955,
+        "F1": 0.3421,
+        "note": "**its own spread across runs is 0.32 to 0.42**"
+      },
+      {
+        "stage": "after dedup @ 0.6",
         "findings": 128,
         "tp": 18,
         "fp": 110,
@@ -254,15 +262,20 @@
         "P": 0.1406,
         "R": 0.36,
         "F1": 0.2022,
-        "note": "**488 merged to 128**; precision 2.3x, and **10 true positives were merged away** - so the threshold over-merges"
+        "threshold": 0.6,
+        "note": "**488 merged to 128**; precision 2.3x, and **ten true positives were merged away**"
       },
       {
-        "stage": "competitor, same runs",
-        "findings": 32,
-        "P": 0.4063,
-        "R": 0.2955,
-        "F1": 0.3421,
-        "note": "**its own spread across runs is 0.32 to 0.42**"
+        "stage": "after dedup @ 0.8",
+        "findings": 106,
+        "tp": 18,
+        "fp": 88,
+        "fn": 32,
+        "P": 0.1698,
+        "R": 0.36,
+        "F1": 0.2308,
+        "threshold": 0.8,
+        "note": "**22 fewer false positives and not one true positive lost** - so **the threshold was still too low at 0.6, and it has not yet cost anything at 0.8**"
       }
     ],
     "reading": "**The curve is now monotone in F1 and every step has a mechanism.** **And the last step showed over-merging, which is a threshold rather than a structural problem** - **the next iteration moves the 60% content-word threshold up and measures again.**",
@@ -270,6 +283,31 @@
       "truePositives": "28 -> 18 (ten merged away)",
       "falsePositives": "431 -> 110 (321 were duplicates)",
       "note": "**87 percent of the false positives were duplicates**, so **the duplicate hypothesis was right**, and **the ten lost true positives are what the threshold costs**"
+    },
+    "thresholdCurve": {
+      "measuredAt": "2026-10-17",
+      "points": [
+        {
+          "threshold": 0.6,
+          "P": 0.1406,
+          "R": 0.36,
+          "F1": 0.2022,
+          "dropped": 360
+        },
+        {
+          "threshold": 0.8,
+          "P": 0.1698,
+          "R": 0.36,
+          "F1": 0.2308,
+          "dropped": 374
+        }
+      ],
+      "reading": "**F1 rises with the threshold and recall does not fall**, so **the merge was still over-inclusive at 0.6 and is not yet costing anything at 0.8**. **The next point is 0.9.**",
+      "why": [
+        "**22 fewer false positives from 0.6 to 0.8, and exactly the same 18 true positives.**",
+        "**So the additional 22 were duplicates that a looser threshold had called distinct**, and **no genuinely different defect was protected by the looser threshold.**",
+        "**And that means the threshold has not yet reached the point where it starts costing recall** - which is **the point the curve is looking for.**"
+      ]
     }
   }
 }
