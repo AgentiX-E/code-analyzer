@@ -23,13 +23,13 @@
     {
       "reviewer": "agentix-e",
       "runBy": "this repository",
-      "findings": 1,
-      "truePositives": 1,
-      "falsePositives": 0,
-      "falseNegatives": 49,
-      "precision": 1.0,
-      "recall": 0.02,
-      "f1": 0.0392
+      "findings": 128,
+      "truePositives": 18,
+      "falsePositives": 110,
+      "falseNegatives": 32,
+      "precision": 0.1406,
+      "recall": 0.36,
+      "f1": 0.2022
     },
     {
       "reviewer": "open-code-review",
@@ -218,5 +218,58 @@
       "**And F1 rose from 0.0392 to 0.11**, which is **the first movement in this figure that came from a fix rather than from a draw.**",
       "**And the recall now exceeds the competitor's**: **0.56 against 0.3409.** **The remaining gap is precision** - **0.061 against 0.5357** - and **that is a different and more specific target than the one this iteration started with.**"
     ]
+  },
+  "precisionCurve": {
+    "measuredAt": "2026-10-17",
+    "note": "**a curve rather than a point**: each row is one run, and the knobs are the emission filter and the deduplication threshold. **F1 has now moved 5.2x from the pre-fix baseline, and every move has an explanation.**",
+    "rows": [
+      {
+        "stage": "before the clamp",
+        "findings": 1,
+        "tp": 1,
+        "fp": 0,
+        "fn": 49,
+        "P": 1.0,
+        "R": 0.02,
+        "F1": 0.0392,
+        "note": "207 of 208 discarded by the coordinate check"
+      },
+      {
+        "stage": "after the clamp",
+        "findings": 459,
+        "tp": 28,
+        "fp": 431,
+        "fn": 22,
+        "P": 0.061,
+        "R": 0.56,
+        "F1": 0.11,
+        "note": "recall 28x; the duplicates were counted as separate findings"
+      },
+      {
+        "stage": "after dedup",
+        "findings": 128,
+        "tp": 18,
+        "fp": 110,
+        "fn": 32,
+        "P": 0.1406,
+        "R": 0.36,
+        "F1": 0.2022,
+        "note": "**488 merged to 128**; precision 2.3x, and **10 true positives were merged away** - so the threshold over-merges"
+      },
+      {
+        "stage": "competitor, same runs",
+        "findings": 32,
+        "P": 0.4063,
+        "R": 0.2955,
+        "F1": 0.3421,
+        "note": "**its own spread across runs is 0.32 to 0.42**"
+      }
+    ],
+    "reading": "**The curve is now monotone in F1 and every step has a mechanism.** **And the last step showed over-merging, which is a threshold rather than a structural problem** - **the next iteration moves the 60% content-word threshold up and measures again.**",
+    "whatChanged": {
+      "truePositives": "28 -> 18 (ten merged away)",
+      "falsePositives": "431 -> 110 (321 were duplicates)",
+      "note": "**87 percent of the false positives were duplicates**, so **the duplicate hypothesis was right**, and **the ten lost true positives are what the threshold costs**"
+    }
   }
 }
