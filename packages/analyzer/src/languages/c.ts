@@ -132,6 +132,30 @@ export class CProvider extends TreeSitterBaseProvider {
     // **C's statements, which it recorded none of.** Declarations alone give the pipeline no use to follow,
     // so taint has nothing to travel along - the same gap as the other languages and the same table finds it.
     if (nodeType === 'declaration') {
+      // **A `declaration` that declares a function is a function, and this branch used to see only variables.**
+      //
+      // **What the measurement found**: `void *foo(void);` produced **no captures at all**, because **its declarator
+      // chain is `pointer_declarator` -> `function_declarator` -> `identifier`**, while **this branch looked for an
+      // `init_declarator` or an `identifier` among the direct children** - so **both paths missed it**, and **a C
+      // function declaration was invisible unless it was a definition.**
+      //
+      // **The function test comes first**, because **a declaration that names a function is a function rather than a
+      // variable** - and **the variable path would otherwise report `foo` as a variable of type `void *`, which is the
+      // wrong fact about it.**
+      const declaredFunction = this.extractFunctionNameNode(node);
+      if (declaredFunction) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: declaredFunction.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: declaredFunction.startIndex,
+          endByte: declaredFunction.endIndex,
+          name: declaredFunction.text,
+          properties: { filePath: this.filePath },
+        });
+        return;
+      }
       const declarator = namedChildrenOf(node).find(
         (c) => c.type === 'init_declarator' || c.type === 'identifier',
       );

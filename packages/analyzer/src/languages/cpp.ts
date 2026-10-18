@@ -132,6 +132,29 @@ export class CppProvider extends TreeSitterBaseProvider {
     // **C++'s statements, which it recorded none of.** Declarations alone give the pipeline no use to follow,
     // so taint has nothing to travel along - the same gap as the other languages and the same table finds it.
     if (nodeType === 'declaration') {
+      // **The same defect as the C provider, in a second copy of the same function.**
+      //
+      // **`int add(int a, int b);` produced no captures at all**, because **the declaration branch looked for an
+      // `init_declarator` or an `identifier` among the direct children**, and **a forward declaration's declarator is a
+      // `function_declarator`**. **And the later `else if` in this file names only `function_definition`**, so **the
+      // path that would have caught it in C does not exist here.**
+      //
+      // **That the two providers each own a copy of this walker is the reason the same bug had to be found twice** -
+      // and **the fix is applied to both rather than to the one the first failing test pointed at.**
+      const declaredFunction = this.extractFunctionNameNode(node);
+      if (declaredFunction) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: declaredFunction.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: declaredFunction.startIndex,
+          endByte: declaredFunction.endIndex,
+          name: declaredFunction.text,
+          properties: { filePath: this.filePath },
+        });
+        return;
+      }
       const declarator = namedChildrenOf(node).find(
         (c) => c.type === 'init_declarator' || c.type === 'identifier',
       );
