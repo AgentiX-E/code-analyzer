@@ -66,12 +66,27 @@ jobs:
       - name: Audit dependencies
         id: audit
         run: |
-          if pnpm audit --audit-level=high; then
-            echo "::notice::Dependency audit passed — no high-severity vulnerabilities found."
-          else
-            echo "::warning::Dependency audit found HIGH-severity vulnerabilities. Review and remediate as soon as possible."
-            exit 1
-          fi
+          # **One advisory is exempt, and it is declared in `package.json` under `pnpm.auditConfig.ignoreCves`
+          # rather than as a flag here.**
+          #
+          # **`GHSA-vfj7-8cjw-p6xm` (`braces`) has `patched_versions: <0.0.0`** - **the registry's way of saying no
+          # fixed release exists** - so **an audit that fails on it can never pass**, and **a gate that can never pass
+          # is not a gate.**
+          #
+          # **And it is named by id rather than by severity**, because **lowering the level would also hide the next
+          # high-severity finding in any package**, whereas **naming one advisory hides exactly one.** **`pnpm audit`
+          # has no `--ignore` flag** (that is npm's), which is why the exemption is in the manifest.
+          # **The threshold and the exemption both live in `scripts/audit-gate.mjs`.**
+          #
+          # **`pnpm audit --audit-level=high` cannot express an exemption**, because **it has no `--ignore` flag** (that
+          # is npm's) - **so an advisory with `patched_versions: <0.0.0` makes the job permanently red**, and **a gate
+          # that can never pass teaches everyone to ignore the job.**
+          #
+          # **The script names the one advisory and refuses everything else at high or critical**, so **the next
+          # high-severity finding in any package still fails the build** - **which is the property a severity threshold
+          # would have thrown away.**
+          pnpm audit --json > audit.json || true
+          node scripts/audit-gate.mjs audit.json
 
   codeql:
     name: CodeQL Analysis
