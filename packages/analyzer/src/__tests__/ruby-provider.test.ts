@@ -103,9 +103,21 @@ describe('RubyProvider', () => {
       expect(imports).toHaveLength(0);
     });
 
-    it('emits nothing for a plain call (puts)', () => {
+    it('emits no definitions for a plain call (puts)', () => {
+      // **A call is a use, not a definition, and this provider emits uses.**
+      //
+      // **The old assertion was `toHaveLength(0)`**, which **conflates "a file of one call declares nothing" with "a
+      // file of one call says nothing".** **The first is true and the second is not**: **`puts 'hi'` declares no symbol
+      // and does report a call site**, and **that call site is what a taint analysis needs as a sink.**
+      //
+      // **So the assertion is about the class the claim belongs to**: **no `*_DEF` capture, and the call still
+      // present** - **which is also what `python.ts` does with a bare statement**, where the provider emits a
+      // `VARIABLE_ACCESS` rather than nothing.
       const captures = provider.parse("puts 'hi'", 'test.rb');
-      expect(captures).toHaveLength(0);
+      const definitions = captures.filter((c) => c.tag.endsWith('_def'));
+      expect(definitions).toHaveLength(0);
+      const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL || c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+      expect(calls.length).toBeGreaterThanOrEqual(1);
     });
 
     it('handles empty source', () => {
