@@ -424,7 +424,15 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       CAPTURE_TAGS.STRUCT_DEF,
       CAPTURE_TAGS.ENUM_DEF,
       CAPTURE_TAGS.INTERFACE_DEF,
-      CAPTURE_TAGS.VARIABLE_DEF,
+      // **Not `VARIABLE_DEF`: a parameter does not own a docstring.**
+      //
+      // **And this is what the containment test was missing.** **`kinetic_energy(m)` emits `function.def` at 1..3 and
+      // `variable.def m` at 1..1**, so **the nearest preceding declaration was the PARAMETER**, and **the docstring at
+      // line 2 failed `2 <= 1`** - **so it fell through to the forward path and landed on the next function.**
+      //
+      // **A parameter is emitted inside the signature and its range never includes the body**, so **it can never own a
+      // docstring that sits in the body** - **excluding it is not a special case for Python, it is a statement about
+      // what a parameter's range means.**
       CAPTURE_TAGS.CONSTANT_DEF,
       CAPTURE_TAGS.CONSTRUCTOR_DEF,
       CAPTURE_TAGS.PROPERTY_DEF,
