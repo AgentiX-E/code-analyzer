@@ -110,7 +110,11 @@ describe('doc-code-sync-gate', () => {
     };
 
     expect(parsed.failures).toEqual([]);
-    expect(parsed.summary.mcpToolCalls).toBe(48);
+    // **49, because the gate now reads the FIRST argument of each call.**
+    // **It used to take the first quoted string within 400 characters**, and **three tools whose name comes from an
+    // object were counted as the profile that follows** - so the total was right and **the distinct count was three
+    // short**, and **the gate spent that difference on a note accusing the code of a duplicate registration.**
+    expect(parsed.summary.mcpToolCalls).toBe(49);
     expect(parsed.summary.pipelinePhases).toBe(19);
     expect(parsed.summary.nodeTypes).toBe(36);
     expect(parsed.summary.relationshipTypes).toBe(43);

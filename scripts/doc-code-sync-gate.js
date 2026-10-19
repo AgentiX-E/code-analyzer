@@ -24,11 +24,29 @@ function countToolRegistrations(file) {
   const starts = [...text.matchAll(/registry\.register\(/g)].map((m) => m.index);
   const names = [];
   for (const start of starts) {
-    // The first single-quoted string after the call is the tool name.
+    // **The name is the FIRST argument, and only if that argument is a literal.**
+    //
+    // **The previous version took the first quoted string within 400 characters**, and **for a call whose first argument
+    // is a variable that string is the fifth argument** - the profile, which is always one of `'all'`, `'analysis'`,
+    // `'scout'`. **So three tools whose names are read from an object were counted as a tool called `analysis`**, and
+    // **the gate reported `49 calls, 47 distinct names` with a note blaming a duplicate registration that does not
+    // exist.**
+    //
+    // **A parser that reads the wrong argument does not fail; it disagrees with itself**, which is **why the note was
+    // the only symptom** - and **a note that accuses the code of a duplicate when the duplicate is in the reader is
+    // worse than no note at all.**
     const rest = text.slice(start, start + 400);
-    const name = rest.match(/'([^']+)'/);
+    // **Slice to the first top-level comma**, because every other argument follows it.
+    const firstComma = rest.indexOf(',');
+    const firstArgument = firstComma >= 0 ? rest.slice(0, firstComma) : rest;
+    const name = firstArgument.match(/'([^']+)'/);
     if (name) names.push(name[1]);
-    else names.push(`<unnamed at offset ${start}>`);
+    else {
+      // **A name this parser cannot read statically is counted as unread rather than as whatever string happens to be
+      // nearby.**
+      const dynamic = firstArgument.replace(/^\s*registry\.register\(\s*/, '').trim();
+      names.push(`<dynamic:${dynamic.slice(0, 40)}>`);
+    }
   }
   return { calls: starts.length, names, distinct: new Set(names).size };
 }
