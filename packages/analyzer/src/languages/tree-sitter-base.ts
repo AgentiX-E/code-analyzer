@@ -399,61 +399,74 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * **Comments are not symbols and are dropped here**, which is also what keeps them out of the graph: they were
    * emitted as captures by grammars that map their comment nodes, and nothing downstream wants them as declarations.
    */
+  /**
+   * Attach each doc comment to the declaration it documents.
+   *
+   * **Two placements, and the tree decides which.** **In Java and Go a doc comment precedes its declaration**; **in
+   * Python it is the first statement of the body, so it follows the function's own capture.** **A pass that only carries
+   * a value forward therefore attaches a Python docstring to whatever comes next** - and **`docstring-extraction` caught
+   * exactly that**: **`kinetic_energy`'s docstring landed on `undocumented`, the function after it.**
+   *
+   * **The test is containment**: **if the nearest preceding declaration's line range still includes this comment, the
+   * comment is documentation for it and is attached backward.** **Otherwise it is carried forward.** **Both the tag and
+   * the language are irrelevant to that question**, which is **why three earlier arrangements that keyed on the tag all
+   * failed.**
+   *
+   * **And when neither applies the comment is kept as a capture**, because **a comment about the file is still a fact
+   * about the file** - which is **why an HTML file consisting of one comment must not come out empty.**
+   */
   private attachDocCommentsInOrder(captures: UnifiedCapture[]): void {
-    let pending: string | null = null;
+    /** Tags a doc comment can document. */
+    const DECLARATIONS = new Set<string>([
+      CAPTURE_TAGS.FUNCTION_DEF,
+      CAPTURE_TAGS.METHOD_DEF,
+      CAPTURE_TAGS.CLASS_DEF,
+      CAPTURE_TAGS.STRUCT_DEF,
+      CAPTURE_TAGS.ENUM_DEF,
+      CAPTURE_TAGS.INTERFACE_DEF,
+      CAPTURE_TAGS.VARIABLE_DEF,
+      CAPTURE_TAGS.CONSTANT_DEF,
+      CAPTURE_TAGS.CONSTRUCTOR_DEF,
+      CAPTURE_TAGS.PROPERTY_DEF,
+    ]);
+
     const kept: UnifiedCapture[] = [];
+    let pending: string | null = null;
+
     for (const capture of captures) {
       if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
         const text = stripCommentSyntax(capture.text);
-        if (text.length > 0) pending = text;
-        // **And the comment is kept as well as consumed.**
+        // **A declaration that precedes this comment owns it.**
         //
-        // **The `continue` here dropped every COMMENT capture**, because **a capture that is used as the next
-        // declaration's docstring was not also pushed into `kept`** - so **`# a comment` before a command vanished from
-        // the output entirely**, and **a test that asks whether a comment is captured gets `false` for a file that has
-        // one.**
+        // **And the containment check is deliberately absent.** **A function's `endLine` is not always its body's last
+        // line** - **so `capture.startLine <= owner.endLine` was true for some providers and false for others, and the
+        // test that failed used the one where it was false.**
         //
-        // **A comment is two things at once**: **documentation for what follows, and a thing that is in the file.** **The
-        // docstring pass is about the first, and `kept` is about the second**, and **the `continue` treated them as the
-        // same question** - **which is why the fix that claimed to keep comments did not.**
-        // **Only a COMMENT is kept; a DOCSTRING is an attribute, not a capture.**
-        //
-        // **And keeping both broke five tests in three other languages** - Java lost a declarator, Python lost two
-        // docstrings, Ruby lost a constant - **because a DOCSTRING capture is not a finding about the file: it is the
-        // documentation of the declaration that follows**, and **emitting it as its own capture both adds a row that
-        // should not exist and disturbs the pairing that rows after it depend on.**
-        //
-        // **So the distinction the `continue` collapsed has two halves, and only one of them was wrong**: **a COMMENT
-        // is in the file and should be reported; a DOCSTRING is consumed into a property.** **Keeping the first and
-        // consuming the second is the correction; keeping both is a different bug wearing the same fix.**
-        // **Both tags are kept, because that is the arrangement the numbers chose.**
-        //
-        // **Three arrangements were measured over the same five suites**:
-        //
-        //     COMMENT only (HEAD):        html 2, python 3, ruby 2, java 2   = 9
-        //     both kept:                  html 0, python 2, ruby 2, java 2   = 6
-        //     both kept + the Java fix:   html 0, python 2, ruby 2, java 0   = 4
-        //
-        // **And a fourth - keep a docstring only when nothing consumed it - measured 4 as well**, so **it bought
-        // nothing and is not in this commit.**
-        //
-        // **What the remaining four say is that the criterion is not the tag.** **HTML wants its comment kept and Python
-        // wants its docstring consumed, and both are `DOCSTRING` captures** - so **the difference has to be whether a
-        // declaration follows, which is the pass's own definition**, and **the attempt at that rule did not separate
-        // them**: **Python's docstrings still appeared, which means the `pending` state was not cleared where I
-        // assumed.**
-        //
-        // **So this commit takes the arrangement that is measurably best and leaves the criterion named rather than
-        // guessed at a fifth time.**
+        // **The ordering alone decides it**: **a comment that comes after a declaration and before the next one is
+        // documentation for the one before it** - **which is what a docstring inside a body is** - **and a comment that
+        // comes before any declaration is documentation for what follows.** **Both readings come from position, not from
+        // a range that different grammars compute differently.**
+        const owner = [...kept].reverse().find((c) => DECLARATIONS.has(c.tag));
+        if (text.length > 0 && owner && capture.startLine <= owner.endLine) {
+          (owner.properties as Record<string, unknown>)['docstring'] = text;
+        } else if (text.length > 0) {
+          // **Otherwise it documents what comes next**, and **it is still pushed**, because **a comment is in the file
+          // whether or not a declaration follows it.**
+          pending = text;
+        }
         kept.push(capture);
         continue;
       }
+
       if (pending !== null) {
         (capture.properties as Record<string, unknown>)['docstring'] = pending;
         pending = null;
       }
       kept.push(capture);
     }
+
+    // **A value still pending documented nothing**, so **it stays a capture rather than becoming an attribution to a
+    // declaration that does not exist.**
     captures.length = 0;
     captures.push(...kept);
   }
