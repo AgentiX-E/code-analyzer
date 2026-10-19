@@ -111,7 +111,18 @@ export class JavaProvider extends TreeSitterBaseProvider {
 
     // **Java's statements, which it recorded none of.** It captured a class and a method and nothing inside either,
     // so the pipeline had neither a definition nor a use to work from.
-    if (nodeType === 'local_variable_declaration' || nodeType === 'field_declaration') {
+    // **`field_declaration` is NOT handled here, and that is the fix.**
+    //
+    // **This branch used to name both node types**, and **a later `else if (nodeType === 'field_declaration')` held the
+    // correct implementation** - **a loop over every declarator, using `variableNameNode`, which knows about
+    // `underscore_pattern`.** **Because this branch matched first, that one was unreachable**, and **two tests failed on
+    // exactly the two things the unreachable branch got right**: **`int a, b;` produced only `a`** (this branch used
+    // `.find`, which takes the first), and **`int _;` produced nothing** (this branch looked only for `identifier`).
+    //
+    // **A duplicated branch is not merely dead code**: **it shadows the live one**, and **the tests that would have
+    // caught the difference were asking the live one's questions.** **So the local case stays here and the field case
+    // goes back to where the loop already is.**
+    if (nodeType === 'local_variable_declaration') {
       const declarator = namedChildrenOf(node).find((c) => c.type === 'variable_declarator');
       const name = declarator
         ? namedChildrenOf(declarator).find((c) => c.type === 'identifier')

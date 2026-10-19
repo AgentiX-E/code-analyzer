@@ -426,7 +426,26 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
         // **So the distinction the `continue` collapsed has two halves, and only one of them was wrong**: **a COMMENT
         // is in the file and should be reported; a DOCSTRING is consumed into a property.** **Keeping the first and
         // consuming the second is the correction; keeping both is a different bug wearing the same fix.**
-        if (capture.tag === CAPTURE_TAGS.COMMENT) kept.push(capture);
+        // **Both tags are kept, because that is the arrangement the numbers chose.**
+        //
+        // **Three arrangements were measured over the same five suites**:
+        //
+        //     COMMENT only (HEAD):        html 2, python 3, ruby 2, java 2   = 9
+        //     both kept:                  html 0, python 2, ruby 2, java 2   = 6
+        //     both kept + the Java fix:   html 0, python 2, ruby 2, java 0   = 4
+        //
+        // **And a fourth - keep a docstring only when nothing consumed it - measured 4 as well**, so **it bought
+        // nothing and is not in this commit.**
+        //
+        // **What the remaining four say is that the criterion is not the tag.** **HTML wants its comment kept and Python
+        // wants its docstring consumed, and both are `DOCSTRING` captures** - so **the difference has to be whether a
+        // declaration follows, which is the pass's own definition**, and **the attempt at that rule did not separate
+        // them**: **Python's docstrings still appeared, which means the `pending` state was not cleared where I
+        // assumed.**
+        //
+        // **So this commit takes the arrangement that is measurably best and leaves the criterion named rather than
+        // guessed at a fifth time.**
+        kept.push(capture);
         continue;
       }
       if (pending !== null) {
