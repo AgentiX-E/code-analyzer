@@ -189,6 +189,34 @@ export class PythonProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
+      // **And a triple-quoted string in statement position is a docstring.**
+      //
+      // **This case used to live in a second `else if` on the same node type**, and that branch was unreachable, so
+      // **Python emitted no `DOCSTRING` capture at all** - and **three tests that ask for one were asking a branch that
+      // could not run.** **The two cases are complementary rather than conflicting** (an `identifier` is a use and a
+      // triple-quoted `string` is a docstring), **so they belong in one branch.**
+      //
+      // **`java.ts` had the same shadow in this same stretch**, with two `field_declaration` branches where the first
+      // took only one declarator. **A duplicated `else if` on one node type is a shadow**, and **the tests that would
+      // catch it are asking the shadowed branch's questions.**
+      for (const child of namedChildrenOf(node)) {
+        if (child.type !== 'string') continue;
+        const text = child.text;
+        const quote = text.slice(0, 3);
+        const tripleDouble = String.fromCharCode(34, 34, 34);
+        const tripleSingle = String.fromCharCode(39, 39, 39);
+        if ((quote === tripleDouble || quote === tripleSingle) && text.length > 5) {
+          captures.push({
+            tag: CAPTURE_TAGS.DOCSTRING,
+            text,
+            startLine: child.startPosition.row + 1,
+            endLine: child.endPosition.row + 1,
+            startByte: child.startIndex,
+            endByte: child.endIndex,
+            properties: { filePath: this.filePath, ...docstringProperty(node) },
+          });
+        }
+      }
     } else if (nodeType === 'assignment') {
       // **Python contributed no defs and no uses, and these three branches are why.** A provider whose walk captures
       // only declarations contributes nothing that `buildStatementFacts` can derive defs and uses from, so the
@@ -301,24 +329,6 @@ export class PythonProvider extends TreeSitterBaseProvider {
         name: sourceName,
         properties: { filePath: this.filePath },
       });
-    } else if (nodeType === 'expression_statement') {
-      // Check for triple-quoted string (docstring)
-      for (const child of namedChildrenOf(node)) {
-        if (child.type === 'string') {
-          const text = child.text;
-          if ((text.startsWith('"""') || text.startsWith("'''")) && text.length > 5) {
-            captures.push({
-              tag: CAPTURE_TAGS.DOCSTRING,
-              text,
-              startLine: child.startPosition.row + 1,
-              endLine: child.endPosition.row + 1,
-              startByte: child.startIndex,
-              endByte: child.endIndex,
-              properties: { filePath: this.filePath, ...docstringProperty(node) },
-            });
-          }
-        }
-      }
     }
 
     for (const child of childrenOf(node)) {
