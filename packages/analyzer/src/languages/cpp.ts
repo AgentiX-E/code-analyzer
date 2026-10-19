@@ -141,7 +141,21 @@ export class CppProvider extends TreeSitterBaseProvider {
       //
       // **That the two providers each own a copy of this walker is the reason the same bug had to be found twice** -
       // and **the fix is applied to both rather than to the one the first failing test pointed at.**
-      const declaredFunction = this.extractFunctionNameNode(node);
+      // **`extractFunctionNameNode` in this file takes a DECLARATOR, not a node.**
+      //
+      // **And that is why the first attempt at this fix changed nothing.** **The two providers have a method with the
+      // same name and different signatures**: **`c.ts` takes a node and finds the `function_declarator` itself**, while
+      // **`cpp.ts` takes the declarator and looks for the name inside it.** **Passing a `declaration` to the C++ one
+      // made it search `primitive_type` and `function_declarator` for an `identifier`, find none, and return null** - so
+      // **the branch fell through to the variable path and produced nothing, exactly as before.**
+      //
+      // **The evidence was one probe away**: **`findNamedChild(decl, 'function_declarator')` returned the node**, and
+      // **`extractFunctionNameNode(decl)` returned null in the same run** - **a function that receives the right input
+      // and returns nothing is a function whose parameter means something else.**
+      const declarationDeclarator = this.findNamedChild(node, 'function_declarator');
+      const declaredFunction = declarationDeclarator
+        ? this.extractFunctionNameNode(declarationDeclarator)
+        : null;
       if (declaredFunction) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,

@@ -406,6 +406,17 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
         const text = stripCommentSyntax(capture.text);
         if (text.length > 0) pending = text;
+        // **And the comment is kept as well as consumed.**
+        //
+        // **The `continue` here dropped every COMMENT capture**, because **a capture that is used as the next
+        // declaration's docstring was not also pushed into `kept`** - so **`# a comment` before a command vanished from
+        // the output entirely**, and **a test that asks whether a comment is captured gets `false` for a file that has
+        // one.**
+        //
+        // **A comment is two things at once**: **documentation for what follows, and a thing that is in the file.** **The
+        // docstring pass is about the first, and `kept` is about the second**, and **the `continue` treated them as the
+        // same question** - **which is why the fix that claimed to keep comments did not.**
+        kept.push(capture);
         continue;
       }
       if (pending !== null) {
