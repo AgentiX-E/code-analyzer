@@ -171,6 +171,29 @@ export class RubyProvider extends TreeSitterBaseProvider {
       }
       const value = node.child(2);
       if (value) this.captureAccesses(value, captures);
+      // **And a constant assignment is an assignment, so it is handled in the same branch.**
+      //
+      // **This block used to sit in an `else` attached to this very `if`** - `} else` on one line and
+      // `if (nodeType === 'assignment')` on the next - so **it was the else-branch of the test that had already
+      // matched**, and **`MAX_SIZE = 100` produced no `CONSTANT_DEF` at all.**
+      //
+      // **That is a third shape of the same mistake**: `java.ts` and `python.ts` each had **two `else if` clauses on
+      // one node type**, and this one has **one condition inside the `else` of itself** - **harder to see, because
+      // there is no repeated `else if` to search for** - and **the same symptom: a test asking a branch that cannot
+      // run.**
+      const constantChild = this.findNamedChild(node, 'constant');
+      if (constantChild) {
+        captures.push({
+          tag: CAPTURE_TAGS.CONSTANT_DEF,
+          text: constantChild.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: constantChild.startIndex,
+          endByte: constantChild.endIndex,
+          name: constantChild.text,
+          properties: { filePath: this.filePath },
+        });
+      }
     } else if (nodeType === 'call') {
       const callee = node.child(0);
       if (callee) {
@@ -202,23 +225,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-    } else
-      // Handle constants (assignment with constant left-hand side)
-      if (nodeType === 'assignment') {
-        const constantChild = this.findNamedChild(node, 'constant');
-        if (constantChild) {
-          captures.push({
-            tag: CAPTURE_TAGS.CONSTANT_DEF,
-            text: constantChild.text,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: constantChild.startIndex,
-            endByte: constantChild.endIndex,
-            name: constantChild.text,
-            properties: { filePath: this.filePath },
-          });
-        }
-      }
+    }
 
     // Handle method calls (attr_accessor, import/require)
     if (nodeType === 'call') {
