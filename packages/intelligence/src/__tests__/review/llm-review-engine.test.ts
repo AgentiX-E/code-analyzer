@@ -820,7 +820,16 @@ describe('LLMReviewEngine', () => {
       expect(comments.length).toBeGreaterThanOrEqual(0);
     });
 
-    it('should filter findings where startLine exceeds maxLine of diff content', async () => {
+    it('should clamp findings whose startLine exceeds the diff content, rather than discard them', async () => {
+      // **The rule was "discard", and it compared two coordinate systems.**
+      //
+      // **The prompt asks for the line numbers of the problem IN THE FILE** - `SELECTION_RULES` says so - **and the old
+      // check compared them against the DIFF's line count.** **A 1,500-line file produces a 40-line diff, so a correct
+      // finding at line 900 was discarded for being past line 40**, and **a lane that produced 208 findings kept one.**
+      //
+      // **A line number is a location hint and the text is the finding**, so **an out-of-range hint is clamped rather
+      // than thrown away** - **and the count of clamps is kept**, because **it measures how often the hint was out of
+      // range**, which is **a fact about the prompt rather than grounds for deletion.**
       const findings = JSON.stringify({
         findings: [
           {
@@ -849,11 +858,14 @@ describe('LLMReviewEngine', () => {
       );
 
       const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
-      const diff = createDiff(); // newEnd: 15, so maxLine ≈ 15
+      const diff = createDiff(); // newEnd: 15
       const results = await engine.reviewDiff(diff);
 
-      expect(results[0]!.findings).toHaveLength(1);
-      expect(results[0]!.findings[0]!.title).toBe('Valid');
+      // **Both survive**, and **the out-of-range one is clamped to the diff's last line.**
+      expect(results[0]!.findings).toHaveLength(2);
+      const outOfBounds = results[0]!.findings.find((f) => f.title === 'OutOfBounds');
+      expect(outOfBounds).toBeDefined();
+      expect(outOfBounds!.startLine).toBeLessThanOrEqual(15);
     });
   });
 });
