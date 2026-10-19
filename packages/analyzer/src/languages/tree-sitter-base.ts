@@ -416,7 +416,17 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
         // **A comment is two things at once**: **documentation for what follows, and a thing that is in the file.** **The
         // docstring pass is about the first, and `kept` is about the second**, and **the `continue` treated them as the
         // same question** - **which is why the fix that claimed to keep comments did not.**
-        kept.push(capture);
+        // **Only a COMMENT is kept; a DOCSTRING is an attribute, not a capture.**
+        //
+        // **And keeping both broke five tests in three other languages** - Java lost a declarator, Python lost two
+        // docstrings, Ruby lost a constant - **because a DOCSTRING capture is not a finding about the file: it is the
+        // documentation of the declaration that follows**, and **emitting it as its own capture both adds a row that
+        // should not exist and disturbs the pairing that rows after it depend on.**
+        //
+        // **So the distinction the `continue` collapsed has two halves, and only one of them was wrong**: **a COMMENT
+        // is in the file and should be reported; a DOCSTRING is consumed into a property.** **Keeping the first and
+        // consuming the second is the correction; keeping both is a different bug wearing the same fix.**
+        if (capture.tag === CAPTURE_TAGS.COMMENT) kept.push(capture);
         continue;
       }
       if (pending !== null) {
