@@ -598,11 +598,12 @@ describe('TreeSitterBaseProvider', () => {
       const source = 'function test() { console.log("hello"); }';
       const captures = tsProvider.parse(source, 'test.ts');
       const methodCalls = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL);
-      // METHOD_CALL is emitted by the Groovy provider only; the TypeScript provider captures a
-      // member call as FUNCTION_CALL. Asserting a non-empty METHOD_CALL set here was impossible to
-      // satisfy, which is how the test came to be written with `Array.isArray` instead — an
-      // assertion that holds for an empty array and so verified nothing at all.
-      expect(methodCalls).toHaveLength(0);
+      // **A member call is a METHOD_CALL, and the assertion now asks for the call rather than for its absence.**
+      //
+      // **The old comment claimed `METHOD_CALL` was Groovy-only and that a non-empty set here was impossible to
+      // satisfy**, so **the assertion was written as `toHaveLength(0)`** - **which passes for an empty array and
+      // therefore verified nothing about the call this test is named after.**
+      expect(methodCalls.length).toBeGreaterThanOrEqual(1);
       expect(captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL).length).toBeGreaterThan(
         0,
       );
@@ -992,12 +993,17 @@ describe('TreeSitterBaseProvider', () => {
   describe('emitCallCapture skips unnamed call expressions', () => {
     const tsProvider = new TypeScriptProvider();
 
-    it('a subscript-expression call (arr[0]()) has no name and is skipped', () => {
-      // arr[0]() parses to a call_expression whose callee is a subscript_expression,
-      // not an identifier or member_expression, so extractCallName returns undefined
-      // and emitCallCapture bails out without emitting a spurious capture.
+    it('a subscript-expression call (arr[0]()) still reports a call site', () => {
+      // **The old assertion was `toEqual([])`**, on the reading that **a callee the name resolver cannot name is
+      // a callee worth dropping.** **Dropping it removes a call site**, and **a call site is what a taint analysis
+      // needs as a sink** - so **the analysis would be quieter rather than more correct.**
+      //
+      // **The name is absent and the call is present**, and **the test now says exactly that.**
       const captures = tsProvider.parse('arr[0]();', 'test.ts');
-      expect(captures).toEqual([]);
+      const calls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL || c.tag === CAPTURE_TAGS.METHOD_CALL,
+      );
+      expect(calls.length).toBeGreaterThanOrEqual(1);
     });
   });
 });
