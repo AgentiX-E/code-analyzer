@@ -206,7 +206,7 @@ export class CProvider extends TreeSitterBaseProvider {
           endLine: node.endPosition.row + 1,
           startByte: callee.startIndex,
           endByte: callee.endIndex,
-          name: isMethod ? (callee.text.split('.').pop() as string) : callee.text,
+          name: isMethod ? callee.text.split('.').pop() : callee.text,
           properties: { filePath: this.filePath },
         });
       }
@@ -367,7 +367,7 @@ export class CProvider extends TreeSitterBaseProvider {
     // The return-type group allows stars both attached to the type (`int* fp`)
     // and attached to the name (`int *fp`); the name is the last word before `(`.
     const funcRegex =
-      /(?:(?:static|inline|extern)\s+)*(?:\w+[\*]*\s+)+(\*+\s*)?(\w+)\s*\([^)]*\)\s*(?:\{|;)/g;
+      /(?:(?:static|inline|extern)\s+)*(?:\w+[*]*\s+)+(\*+\s*)?(\w+)\s*\([^)]*\)\s*(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[2]!;
       if (!this.isValidFnName(name)) continue;

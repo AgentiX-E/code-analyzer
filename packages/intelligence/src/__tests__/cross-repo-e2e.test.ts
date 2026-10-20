@@ -7,8 +7,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-
 import {
   RepoGroupManager,
   FederatedSearchEngine,
@@ -17,6 +15,7 @@ import {
   CrossRepoPRReviewEngine,
   CodeReviewEngine,
 } from '@code-analyzer/intelligence';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -503,7 +502,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
     });
 
     it('should handle empty/null matrix in detectConflicts', () => {
-      const conflicts = matrix.detectConflicts(null as any);
+      const conflicts = matrix.detectConflicts(null as never);
       expect(conflicts).toEqual([]);
 
       const conflicts2 = matrix.detectConflicts({
@@ -517,17 +516,17 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
 
     it('should handle empty conflicts in suggestAlignments', () => {
       expect(matrix.suggestAlignments([])).toEqual([]);
-      expect(matrix.suggestAlignments(null as any)).toEqual([]);
+      expect(matrix.suggestAlignments(null as never)).toEqual([]);
     });
 
     it('should throw for missing required params in checkUpgradeSafety', () => {
-      expect(() => matrix.checkUpgradeSafety('', '1.0.0', '2.0.0', {} as any)).toThrow();
-      expect(() => matrix.checkUpgradeSafety('test', '', '2.0.0', {} as any)).toThrow();
-      expect(() => matrix.checkUpgradeSafety('test', '1.0.0', '', {} as any)).toThrow();
+      expect(() => matrix.checkUpgradeSafety('', '1.0.0', '2.0.0', {} as never)).toThrow();
+      expect(() => matrix.checkUpgradeSafety('test', '', '2.0.0', {} as never)).toThrow();
+      expect(() => matrix.checkUpgradeSafety('test', '1.0.0', '', {} as never)).toThrow();
     });
 
     it('should throw for null matrix in checkUpgradeSafety', () => {
-      expect(() => matrix.checkUpgradeSafety('test', '1.0.0', '2.0.0', null as any)).toThrow();
+      expect(() => matrix.checkUpgradeSafety('test', '1.0.0', '2.0.0', null as never)).toThrow();
     });
 
     it('should build matrix for groups with no shared deps', () => {
