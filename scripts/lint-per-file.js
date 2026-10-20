@@ -95,7 +95,18 @@ function collect() {
     } catch (error) {
       // ESLint exits non-zero when it has findings; that is the normal path, not a failure.
       out = error.stdout;
-      if (!out) failed = `${name}: eslint produced no output (exit ${error.status})`;
+      // **And when there is no stdout, the reason is in stderr - and this script used to throw it away.**
+      //
+      // **What that cost**: **`web` reported `eslint produced no output (exit 2)` for several runs**, and
+      // **`exit 2` is a crash rather than a finding**, so **the message that named the cause was printed to stderr
+      // and discarded here.** **The gate said it did not know, when it had the answer and dropped it.**
+      //
+      // **So a failure now carries the start of stderr**, which is **where ESLint puts `Oops! Something went
+      // wrong!` and the error after it** - **and a gate that cannot say why it failed is a gate nobody can fix.**
+      if (!out) {
+        const reason = String(error.stderr ?? '').trim().split('\n').slice(0, 3).join(' | ');
+        failed = `${name}: eslint produced no output (exit ${error.status})${reason ? ` - ${reason}` : ''}`;
+      }
     }
     if (!out) continue;
 
