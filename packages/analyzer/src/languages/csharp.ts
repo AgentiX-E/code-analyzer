@@ -126,7 +126,14 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     }
 
     // **C#'s statements, which it recorded none of.**
-    if (nodeType === 'local_declaration_statement') {
+    // **A field declaration has the same shape as a local one** - `field_declaration > variable_declaration >
+    // variable_declarator` versus `local_declaration_statement > variable_declaration > variable_declarator` - so
+    // **they share a branch**, and **a class's fields were the half of the pair that nobody had reached.**
+    //
+    // **And that was a product gap, not a coverage one**: **a probe of `class C { private int count; }` returned only
+    // `class.def`**, so **every C# field was invisible to search and to impact analysis**, and **the honest coverage gate
+    // named eleven branches in this file before the reason was visible.**
+    if (nodeType === 'local_declaration_statement' || nodeType === 'field_declaration') {
       const declaration = namedChildrenOf(node).find((c) => c.type === 'variable_declaration');
       const declarator = declaration
         ? namedChildrenOf(declaration).find((c) => c.type === 'variable_declarator')
@@ -148,6 +155,24 @@ export class CSharpProvider extends TreeSitterBaseProvider {
         const value = namedChildrenOf(declarator)[1];
         if (value) this.captureAccesses(value, captures);
       }
+    } else if (nodeType === 'assignment_expression') {
+      // **C# makes assignment an EXPRESSION**, so it arrives under `expression_statement` and **had no branch at all** -
+      // which is why **`x = y` produced a `method.def` and nothing else**: **the write was invisible.**
+      const target = node.child(0);
+      if (target && target.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: target.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: target.startIndex,
+          endByte: target.endIndex,
+          name: target.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const value = node.child(2);
+      if (value) this.captureAccesses(value, captures);
     } else if (nodeType === 'invocation_expression') {
       const callee = node.child(0);
       if (callee) {
