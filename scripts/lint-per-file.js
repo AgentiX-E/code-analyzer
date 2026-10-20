@@ -104,7 +104,16 @@ function collect() {
       // **So a failure now carries the start of stderr**, which is **where ESLint puts `Oops! Something went
       // wrong!` and the error after it** - **and a gate that cannot say why it failed is a gate nobody can fix.**
       if (!out) {
-        const reason = String(error.stderr ?? '').trim().split('\n').slice(0, 3).join(' | ');
+        // **The first three NON-EMPTY lines, because ESLint's banner is not its reason.** It prints
+        // `Oops! Something went wrong! :(`, a blank line, `ESLint: 9.39.5`, a blank line, and *then* the error.
+        // **Taking the first three lines took the banner and stopped** - **the same mistake one layer down**,
+        // and the run that proved it printed `Oops! ... | | ESLint: 9.39.5` with nothing about the crash.
+        const reason = String(error.stderr ?? '')
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+          .slice(0, 3)
+          .join(' | ');
         failed = `${name}: eslint produced no output (exit ${error.status})${reason ? ` - ${reason}` : ''}`;
       }
     }
