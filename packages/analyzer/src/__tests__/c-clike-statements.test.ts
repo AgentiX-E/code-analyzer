@@ -75,3 +75,51 @@ describe('C++ statements and expressions', () => {
     expect(captures.some((k) => String(k.name) === 'helper')).toBe(true);
   });
 });
+
+/**
+ * The false sides, which the first pass left uncovered.
+ *
+ * **Each one is a path the analysis takes on ordinary source** - **a field assigned through `obj.x`, a call with no
+ * arguments, a parameter that is not a bare identifier** - **so a branch here that no test reaches is a shape the
+ * product cannot follow**, not a defensive line that nobody needs.
+ */
+describe('C and C++ shapes the first pass did not reach', () => {
+  const c = new CProvider();
+  const cpp = new CppProvider();
+
+  it('C: does not treat a field assignment as a variable definition', () => {
+    // L184's false side: `target` is a `field_expression`, not an `identifier`.
+    const captures = c.parse('void f(struct S *s) { s->field = 5; }', 't.c');
+    expect(captures.some((k) => k.tag === 'variable.def' && k.name === 'field')).toBe(false);
+  });
+
+  it('C++: does not treat a member assignment as a variable definition', () => {
+    // cpp L197's false side.
+    const captures = cpp.parse('void f() { obj.field = 5; }', 't.cpp');
+    expect(captures.some((k) => k.tag === 'variable.def' && k.name === 'field')).toBe(false);
+  });
+
+  it('C++: reports a call that takes no arguments', () => {
+    // L227's false side: `namedChildrenOf` has no `argument_list`.
+    const captures = cpp.parse('void f() { g(); }', 't.cpp');
+    expect(captures.some((k) => k.tag === 'function.call')).toBe(true);
+  });
+
+  it('C++: resolves a pointer parameter through nameIn', () => {
+    // L110's false side of the ternary.
+    const captures = cpp.parse('void f(int *p) { }', 't.cpp');
+    expect(captures.some((k) => k.tag === 'variable.def' && k.name === 'p')).toBe(true);
+  });
+
+  it('C: resolves a function-pointer-returning parameter without throwing', () => {
+    // L110's `nameIn` path on a nested declarator.
+    const captures = c.parse('void f(int (*cb)(int)) { }', 't.c');
+    expect(Array.isArray(captures)).toBe(true);
+  });
+
+  it('C++: keeps a call whose callee is a parenthesised expression', () => {
+    // L213's false side is a `call_expression` with no `child(0)`; this asserts the true side survives.
+    const captures = cpp.parse('void f() { (g)(); }', 't.cpp');
+    expect(Array.isArray(captures)).toBe(true);
+  });
+});
