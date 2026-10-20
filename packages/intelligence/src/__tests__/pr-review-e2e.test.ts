@@ -7,16 +7,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-
 import {
   CodeReviewEngine,
   PRReviewEngine,
   ReviewPipeline,
   DiffParser,
 } from '@code-analyzer/intelligence';
-
 import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Test Fixture Setup

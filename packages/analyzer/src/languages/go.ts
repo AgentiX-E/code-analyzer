@@ -141,7 +141,7 @@ export class GoProvider extends TreeSitterBaseProvider {
           endLine: node.endPosition.row + 1,
           startByte: callee.startIndex,
           endByte: callee.endIndex,
-          name: isMethod ? (callee.text.split('.').pop() as string) : callee.text,
+          name: isMethod ? callee.text.split('.').pop() : callee.text,
           properties: { filePath: this.filePath },
         });
       }
