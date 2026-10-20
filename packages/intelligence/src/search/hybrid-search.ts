@@ -70,6 +70,25 @@ export function tokenize(text: string): string[] {
  * k1: term frequency saturation parameter (default 1.2).
  * b: document length normalization parameter (default 0.75).
  */
+/**
+ * **An exact name match multiplies the BM25 score, because BM25 alone cannot tell "this is the symbol" from "this document
+ * mentions the term".**
+ *
+ * **The retrieval measurement showed it**: `SEARCH-RECALL 0.95 (38/40)`, and **both misses were interface names in a
+ * corpus that held thirty copies of them** - **`NodeProperties` and `KnowledgeGraph`**. **Thirty identical documents
+ * score within rounding of each other**, so **which twenty land in the top-k is decided by tie order**, and **the two
+ * long names lost that order to shorter ones**.
+ *
+ * **A term-frequency model ranks documents; a lookup answers a query.** **When the query IS the name, the second
+ * question is the one being asked**, and **a multiplier is how that is said without discarding the ranking** - the
+ * matches that are not exact keep their relative order.
+ *
+ * **The value is 4**: **large enough to lift an exact match over a document that repeats the term many times**, and
+ * **small enough that an exact match on a rare name does not outrank a substantially better non-exact one by orders of
+ * magnitude**.
+ */
+const EXACT_NAME_BOOST = 4;
+
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;
 
@@ -191,6 +210,12 @@ class InvertedIndex {
       const tfScore = ((BM25_K1 + 1) * tf) / denom;
 
       score += idf * tfScore;
+    }
+
+    // **And the exact match is the answer to the question the query asked.**
+    const nodeName = doc.node.name;
+    if (typeof nodeName === 'string' && nodeName.toLowerCase() === query.trim().toLowerCase()) {
+      score *= EXACT_NAME_BOOST;
     }
 
     return score;
