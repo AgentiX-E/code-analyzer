@@ -28,7 +28,7 @@ export interface PdfExtraction {
 }
 
 /** Undo the escapes a PDF string literal uses. */
-function unescapePdfString(value: string): string {
+export function unescapePdfString(value: string): string {
   let out = '';
   for (let i = 0; i < value.length; i += 1) {
     const ch = value[i]!;
@@ -68,7 +68,7 @@ function unescapePdfString(value: string): string {
  * parentheses inside strings and inside comments - **and the text operators are what the format defines**, so
  * reading them is both more correct and no longer.
  */
-function textOfContentStream(content: string): string {
+export function textOfContentStream(content: string): string {
   const pieces: string[] = [];
   let i = 0;
   let inText = false;
