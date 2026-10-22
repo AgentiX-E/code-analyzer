@@ -18,10 +18,10 @@ import type {
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 export class HtmlProvider extends TreeSitterBaseProvider {
-  readonly language = 'html';
-  readonly displayName = 'HTML';
-  readonly extensions = ['.html', '.htm', '.xhtml'];
-  readonly globs = ['**/*.html', '**/*.htm', '**/*.xhtml'];
+  readonly language: string = 'html';
+  readonly displayName: string = 'HTML';
+  readonly extensions: string[] = ['.html', '.htm', '.xhtml'];
+  readonly globs: string[] = ['**/*.html', '**/*.htm', '**/*.xhtml'];
   readonly importSemantics = 'none' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
