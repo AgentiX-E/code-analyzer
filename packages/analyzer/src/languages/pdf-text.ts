@@ -115,7 +115,10 @@ export function textOfContentStream(content: string): string {
       continue;
     }
     // **`Td`/`TD`/`T*` are newlines**, and a PDF that sets each line separately would otherwise run them together.
-    if (ch === 'T' && (content.startsWith('Td', i) || content.startsWith('TD', i) || content.startsWith('T*', i))) {
+    if (
+      ch === 'T' &&
+      (content.startsWith('Td', i) || content.startsWith('TD', i) || content.startsWith('T*', i))
+    ) {
       pieces.push('\n');
       i += 2;
       continue;

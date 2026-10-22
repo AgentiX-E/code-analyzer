@@ -10,13 +10,25 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { checkReturnInFinally, checkJsonParseUnwrapped, checkForEachWithReturn } from '../heuristics-bug-rules-flow.js';
+import {
+  checkReturnInFinally,
+  checkJsonParseUnwrapped,
+  checkForEachWithReturn,
+} from '../heuristics-bug-rules-flow.js';
 
 describe('a return inside finally', () => {
   it('fires, because it discards whatever the try and the catch threw', () => {
     // **The canonical form.** A `return` in a `finally` **replaces the exception that was propagating**, so **the
     // caller sees a value where it should have seen a failure.**
-    const lines = ['function f() {', '  try {', '    return risky();', '  } finally {', '    return fallback;', '  }', '}'];
+    const lines = [
+      'function f() {',
+      '  try {',
+      '    return risky();',
+      '  } finally {',
+      '    return fallback;',
+      '  }',
+      '}',
+    ];
     const found = checkReturnInFinally(lines);
     expect(found).toHaveLength(1);
     expect(found[0]!.startLine).toBe(5);
@@ -25,13 +37,30 @@ describe('a return inside finally', () => {
 
   it('stays silent when the finally only cleans up', () => {
     // **The correct form**, and the one that appears in almost every real `finally`: a close, a reset, a log.
-    const lines = ['function f() {', '  try {', '    return risky();', '  } finally {', '    handle.close();', '  }', '}'];
+    const lines = [
+      'function f() {',
+      '  try {',
+      '    return risky();',
+      '  } finally {',
+      '    handle.close();',
+      '  }',
+      '}',
+    ];
     expect(checkReturnInFinally(lines)).toHaveLength(0);
   });
 
   it('stays silent when the return is outside the finally block', () => {
     // **A `return` after the block is not one inside it**, and a rule that counted braces wrongly would fire here.
-    const lines = ['function f() {', '  try {', '    risky();', '  } finally {', '    handle.close();', '  }', '  return ok;', '}'];
+    const lines = [
+      'function f() {',
+      '  try {',
+      '    risky();',
+      '  } finally {',
+      '    handle.close();',
+      '  }',
+      '  return ok;',
+      '}',
+    ];
     expect(checkReturnInFinally(lines)).toHaveLength(0);
   });
 });
@@ -49,7 +78,15 @@ describe('JSON.parse without a guard', () => {
 
   it('stays silent inside a try block', () => {
     // **The idiomatic form**, and the one the rule must not punish.
-    const lines = ['function load(raw) {', '  try {', '    return JSON.parse(raw);', '  } catch {', '    return null;', '  }', '}'];
+    const lines = [
+      'function load(raw) {',
+      '  try {',
+      '    return JSON.parse(raw);',
+      '  } catch {',
+      '    return null;',
+      '  }',
+      '}',
+    ];
     expect(checkJsonParseUnwrapped(lines)).toHaveLength(0);
   });
 

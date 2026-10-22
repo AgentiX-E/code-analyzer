@@ -18,7 +18,11 @@ const ROOT = process.env.CORPUS_PATH || '/tmp/corpus';
 const runner = {
   run: async (command, args, cwd) => {
     try {
-      const stdout = execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      const stdout = execFileSync(command, args, {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       return { stdout, exitCode: 0 };
     } catch (error) {
       return { stdout: (error && error.stdout) || '', exitCode: (error && error.status) || 1 };

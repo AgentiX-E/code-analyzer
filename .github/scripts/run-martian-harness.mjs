@@ -34,7 +34,8 @@ function readGolden() {
     if (!name.endsWith('.json')) continue;
     const repo = name.replace('.json', '');
     const entries = JSON.parse(readFileSync(join(GOLDEN, name), 'utf8'));
-    for (const e of entries) out.push({ repo, prTitle: e.pr_title ?? '', url: e.url, comments: e.comments ?? [] });
+    for (const e of entries)
+      out.push({ repo, prTitle: e.pr_title ?? '', url: e.url, comments: e.comments ?? [] });
   }
   return out;
 }
@@ -59,10 +60,10 @@ async function main() {
   const prs = readGolden();
   const base = {
     comment: [
-      'Our review engine\'s output, in the schema Martian\'s pipeline documents, for their judge to score.',
+      "Our review engine's output, in the schema Martian's pipeline documents, for their judge to score.",
       '',
       '**The route matters and is recorded**: their `step0_fork_prs` installs a bot account and a tool on 50 forked',
-      'PRs. **This job has no bot account**, so **our reviews come from the engine reading each PR\'s diff** - the same',
+      "PRs. **This job has no bot account**, so **our reviews come from the engine reading each PR's diff** - the same",
       'input every other tool saw. **The profile and judge model are theirs and are recorded by their pipeline**, not',
       'by this file.',
     ],
@@ -85,9 +86,12 @@ async function main() {
     return;
   }
 
-  const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
-  const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
-  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  const { LLMReviewEngine } =
+    await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  const { DeepSeekProvider } =
+    await import('../../packages/intelligence/dist/review/llm/provider.js');
+  const { createDiff } =
+    await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
   const engine = new LLMReviewEngine(new DeepSeekProvider());
 
   // **Their schema, filled in.** One entry per golden PR, with one review by this tool.
@@ -109,7 +113,11 @@ async function main() {
       pr_title: pr.prTitle,
       original_url: pr.url,
       source_repo: pr.repo,
-      golden_comments: pr.comments.map((c) => ({ comment: c.comment, severity: c.severity, category: c.category })),
+      golden_comments: pr.comments.map((c) => ({
+        comment: c.comment,
+        severity: c.severity,
+        category: c.category,
+      })),
       reviews: [
         {
           tool: TOOL,
@@ -145,7 +153,9 @@ async function main() {
       // **A file that will not parse is reported rather than silently replaced**, because **the difference between
       // "there was nothing here" and "there was something here and it was unreadable" is the difference between a
       // fresh start and a loss.**
-      console.log('MARTIAN-HARNESS warning: the shipped benchmark_data.json did not parse, so only our reviews will be written');
+      console.log(
+        'MARTIAN-HARNESS warning: the shipped benchmark_data.json did not parse, so only our reviews will be written',
+      );
       existing = {};
     }
   }
@@ -166,7 +176,8 @@ async function main() {
     target.reviews.push(...(entry.reviews ?? []));
     // **The golden comments come from the shipped entry when it has them**, because **they are the ground truth and
     // a run of ours has no business rewriting it.**
-    if (!target.golden_comments && entry.golden_comments) target.golden_comments = entry.golden_comments;
+    if (!target.golden_comments && entry.golden_comments)
+      target.golden_comments = entry.golden_comments;
     merged += 1;
   }
   writeFileSync(shippedPath, JSON.stringify(existing, null, 2) + '\n');
@@ -186,7 +197,9 @@ async function main() {
   // `{ "<golden_url>": { "<tool>": [ { text, path, line, source } ] } }` at
   // `results/{sanitized_model}/candidates.json`, where **the model component is `MARTIAN_MODEL` with its slash
   // replaced**, which their `sanitize_model_name` does and this mirrors rather than guesses.
-  const sanitized = (process.env['MARTIAN_MODEL'] ?? 'openai/gpt-4o-mini').trim().replace(/\//g, '_');
+  const sanitized = (process.env['MARTIAN_MODEL'] ?? 'openai/gpt-4o-mini')
+    .trim()
+    .replace(/\//g, '_');
   const modelDir = join(OFFLINE, 'results', sanitized);
   mkdirSync(modelDir, { recursive: true });
   const candidates = {};
@@ -197,7 +210,9 @@ async function main() {
     };
   }
   writeFileSync(join(modelDir, 'candidates.json'), JSON.stringify(candidates, null, 2) + '\n');
-  console.log(`MARTIAN-HARNESS wrote ${Object.keys(candidates).length} candidate sets to ${modelDir}/candidates.json`);
+  console.log(
+    `MARTIAN-HARNESS wrote ${Object.keys(candidates).length} candidate sets to ${modelDir}/candidates.json`,
+  );
 
   write({
     ...base,
@@ -209,7 +224,9 @@ async function main() {
     ),
     skipped: null,
   });
-  console.log(`MARTIAN-HARNESS scored ${scored} PRs, ${noDiff} without a diff, written to their results/`);
+  console.log(
+    `MARTIAN-HARNESS scored ${scored} PRs, ${noDiff} without a diff, written to their results/`,
+  );
 }
 
 function write(payload) {

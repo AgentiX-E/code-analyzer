@@ -139,9 +139,24 @@ export function findCrossRepoTaint(
         sinkDescription: `${finding.sinkDescription} - reached from ${originRepo} via ${String(arrived.name)}`,
         boundariesCrossed: 1,
         path: [
-          { repoId: originRepo, nodeId: source.id, name: String(source.name), filePath: String(source.filePath) },
-          { repoId: originRepo, nodeId: sink.id, name: String(sink.name), filePath: String(sink.filePath) },
-          { repoId: targetRepo, nodeId: arrived.id, name: String(arrived.name), filePath: String(arrived.filePath) },
+          {
+            repoId: originRepo,
+            nodeId: source.id,
+            name: String(source.name),
+            filePath: String(source.filePath),
+          },
+          {
+            repoId: originRepo,
+            nodeId: sink.id,
+            name: String(sink.name),
+            filePath: String(sink.filePath),
+          },
+          {
+            repoId: targetRepo,
+            nodeId: arrived.id,
+            name: String(arrived.name),
+            filePath: String(arrived.filePath),
+          },
         ],
         // **The confidence is multiplied rather than carried**, because this is a join of two facts and **a join is
         // wrong wherever either half is.**

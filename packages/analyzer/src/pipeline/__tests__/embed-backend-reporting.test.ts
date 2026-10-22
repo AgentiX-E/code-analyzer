@@ -20,7 +20,18 @@ import { generateEmbeddings } from '../phases/embed.js';
 
 /** One node, so the function reaches the loader rather than returning early. */
 function oneNode(): Map<number, object> {
-  return new Map([[1, { id: 1, label: 'Function', name: 'f', qualifiedName: 'p:f', properties: { filePath: '/f.ts' } }]]);
+  return new Map([
+    [
+      1,
+      {
+        id: 1,
+        label: 'Function',
+        name: 'f',
+        qualifiedName: 'p:f',
+        properties: { filePath: '/f.ts' },
+      },
+    ],
+  ]);
 }
 
 describe('the embedding backend report', () => {
@@ -42,7 +53,10 @@ describe('the embedding backend report', () => {
       embed: async () => Float32Array.from([1, 0, 0]),
       dispose: async () => undefined,
     };
-    const { backend, reason } = await generateEmbeddings(oneNode() as never, async () => embedder as never);
+    const { backend, reason } = await generateEmbeddings(
+      oneNode() as never,
+      async () => embedder as never,
+    );
     expect(backend).toBe('onnx');
     expect(reason).toBeNull();
   });

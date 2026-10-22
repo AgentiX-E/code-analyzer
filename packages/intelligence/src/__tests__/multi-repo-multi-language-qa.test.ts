@@ -25,7 +25,6 @@ import { join } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, expect, it } from 'vitest';
 
-
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import { FederatedSearchEngine } from '../cross-repo/federated-search.js';
 import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
@@ -49,13 +48,22 @@ const REPOS: Array<{ id: string; language: string; file: string; source: string 
     id: 'beta',
     language: 'python',
     file: 'energy.py',
-    source: ['def compute_kinetic_energy(mass, velocity):', '    return 0.5 * mass * velocity ** 2', ''].join('\n'),
+    source: [
+      'def compute_kinetic_energy(mass, velocity):',
+      '    return 0.5 * mass * velocity ** 2',
+      '',
+    ].join('\n'),
   },
   {
     id: 'gamma',
     language: 'javascript',
     file: 'energy.js',
-    source: ['export function computeKineticEnergy(mass, velocity) {', '  return 0.5 * mass * velocity * velocity;', '}', ''].join('\n'),
+    source: [
+      'export function computeKineticEnergy(mass, velocity) {',
+      '  return 0.5 * mass * velocity * velocity;',
+      '}',
+      '',
+    ].join('\n'),
   },
 ];
 
@@ -121,7 +129,9 @@ describe('three repositories, three languages, asked across both', () => {
       // *"the day this is fixed the line fails and has to be updated."* **It failed today**, which is how the fix is
       // known to have worked - and it is the reason to write an assertion for the true state rather than for the
       // desired one. `extractSymbols` now asks `getOrLoadProvider` before falling back to its regexes.
-      const pythonSymbols = symbols.filter((n) => typeof n === 'string' && n.includes('kinetic_energy'));
+      const pythonSymbols = symbols.filter(
+        (n) => typeof n === 'string' && n.includes('kinetic_energy'),
+      );
       expect(pythonSymbols).toContain('compute_kinetic_energy');
     } finally {
       store.close();
@@ -158,8 +168,10 @@ describe('three repositories, three languages, asked across both', () => {
       // spellings both contain it, so a language boundary that is crossed shows up here.
       const acrossLanguages = await engine.search('kinetic', {});
       expect(acrossLanguages.totalResults).toBeGreaterThan(0);
-       
-      console.log(`MRI crossRepo=${all.totalResults} filtered=${oneRepo.totalResults} acrossLanguages=${acrossLanguages.totalResults}`);
+
+      console.log(
+        `MRI crossRepo=${all.totalResults} filtered=${oneRepo.totalResults} acrossLanguages=${acrossLanguages.totalResults}`,
+      );
     } finally {
       store.close();
       rmSync(root, { recursive: true, force: true });

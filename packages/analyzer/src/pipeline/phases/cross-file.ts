@@ -204,7 +204,8 @@ export class CrossFilePhase implements ExecutablePhase {
         const declaredElsewhere = new Set<string>();
         for (const calleeName of calledNames) {
           if (declaredHere.has(calleeName)) continue;
-          for (const target of importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`) ?? []) {
+          for (const target of importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`) ??
+            []) {
             declaredElsewhere.add(target);
           }
         }
@@ -217,7 +218,9 @@ export class CrossFilePhase implements ExecutablePhase {
                 ...(declaredHere.get(calleeName) ?? []),
                 // The cross-file half: every function of that name in a file this one imports it from.
                 ...[...declaredElsewhere]
-                  .filter((file) => importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`)?.has(file))
+                  .filter((file) =>
+                    importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`)?.has(file),
+                  )
                   .flatMap((file) =>
                     [...ctx.graph!.nodes.values()]
                       .filter((n) => n.filePath === file && n.name === calleeName)

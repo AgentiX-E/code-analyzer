@@ -55,7 +55,9 @@ describe('a finding that cannot be grounded is dropped', () => {
   });
 
   it('drops a finding whose line range is outside the file', () => {
-    const report = judgeGrounding([comment({ startLine: 900, endLine: 901 })], { contents: CONTENTS });
+    const report = judgeGrounding([comment({ startLine: 900, endLine: 901 })], {
+      contents: CONTENTS,
+    });
 
     expect(report.grounded).toEqual([]);
     expect(report.ungrounded[0]!.reason).toMatch(/not a range/);
@@ -64,7 +66,9 @@ describe('a finding that cannot be grounded is dropped', () => {
   it('drops a finding whose quoted code is not there', () => {
     // **The strongest check available without a model.** The comment quotes code; **if the text is not in the file,
     // the comment is about something that is not there.**
-    const report = judgeGrounding([comment({ existingCode: 'return multiply(a, b);' })], { contents: CONTENTS });
+    const report = judgeGrounding([comment({ existingCode: 'return multiply(a, b);' })], {
+      contents: CONTENTS,
+    });
 
     expect(report.grounded).toEqual([]);
     expect(report.ungrounded[0]!.reason).toMatch(/does not appear/);
@@ -88,10 +92,9 @@ describe('a finding that cannot be grounded is dropped', () => {
     // **The other direction, again.** `add` is in the file, so the same rule passes it - **a gate that dropped every
     // comment naming a symbol would suppress the true findings too**, which is the failure mode *Sifting the Noise*
     // (arXiv 2601.22952) measured: aggressive filtering suppressed 22% of real vulnerabilities.
-    const report = judgeGrounding(
-      [comment({ content: '`add` can overflow on large inputs' })],
-      { contents: CONTENTS },
-    );
+    const report = judgeGrounding([comment({ content: '`add` can overflow on large inputs' })], {
+      contents: CONTENTS,
+    });
 
     expect(report.grounded.map((c) => c.id)).toContain('c1');
   });
@@ -105,7 +108,9 @@ describe('a finding that cannot be grounded is dropped', () => {
   });
 
   it('reports the kept ratio, and calls one when there was nothing to judge', () => {
-    const both = judgeGrounding([comment(), comment({ id: 'c2', path: 'src/gone.ts' })], { contents: CONTENTS });
+    const both = judgeGrounding([comment(), comment({ id: 'c2', path: 'src/gone.ts' })], {
+      contents: CONTENTS,
+    });
     expect(both.keptRatio).toBe(0.5);
     expect(both.ungrounded.map((v) => v.comment.id)).toEqual(['c2']);
 

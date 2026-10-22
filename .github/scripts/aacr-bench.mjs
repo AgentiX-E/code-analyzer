@@ -24,8 +24,14 @@ import { join, resolve } from 'node:path';
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
-const BASE = process.env['AACR_JUDGE_BASE'] ?? process.env['MARTIAN_BASE_URL'] ?? 'https://api.deepseek.com/v1';
-const KEY = process.env['AACR_JUDGE_KEY'] ?? process.env['MARTIAN_API_KEY'] ?? process.env['DEEPSEEK_API_KEY'];
+const BASE =
+  process.env['AACR_JUDGE_BASE'] ??
+  process.env['MARTIAN_BASE_URL'] ??
+  'https://api.deepseek.com/v1';
+const KEY =
+  process.env['AACR_JUDGE_KEY'] ??
+  process.env['MARTIAN_API_KEY'] ??
+  process.env['DEEPSEEK_API_KEY'];
 const MAX_PRS = Number(process.env['MAX_PRS'] ?? '5');
 
 function findSamples(name) {
@@ -68,14 +74,19 @@ async function judge(comment, golden) {
           model: MODEL,
           temperature: 0,
           messages: [
-            { role: 'system', content: 'You compare code review statements. Reply with JSON only.' },
+            {
+              role: 'system',
+              content: 'You compare code review statements. Reply with JSON only.',
+            },
             { role: 'user', content: prompt },
           ],
         }),
       });
       if (!res.ok) throw new Error(`http ${res.status}`);
       const body = await res.json();
-      const text = String(body.choices?.[0]?.message?.content ?? '').replace(/```json|```/g, '').trim();
+      const text = String(body.choices?.[0]?.message?.content ?? '')
+        .replace(/```json|```/g, '')
+        .trim();
       return Boolean(JSON.parse(text).match);
     } catch {
       await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
@@ -109,7 +120,10 @@ async function main() {
   const positive = findSamples('positive_samples.json');
   const negative = findSamples('negative_samples.json');
   if (!positive) {
-    write({ ...base, skipped: { reason: 'positive_samples.json was not found; clone alibaba/aacr-bench' } });
+    write({
+      ...base,
+      skipped: { reason: 'positive_samples.json was not found; clone alibaba/aacr-bench' },
+    });
     console.log('AACR-BENCH skipped: dataset not found');
     return;
   }
@@ -124,7 +138,8 @@ async function main() {
   // `from_line`/`to_line`, `category` and `context`. **And the dataset holds no diff** - so this job fetches each PR
   // from GitHub, which **is what their own demo does** and **why the input is a URL rather than a patch.**
   const positives = JSON.parse(readFileSync(positive, 'utf8'));
-  const negatives = negative && existsSync(negative) ? JSON.parse(readFileSync(negative, 'utf8')) : [];
+  const negatives =
+    negative && existsSync(negative) ? JSON.parse(readFileSync(negative, 'utf8')) : [];
   const rows = (Array.isArray(positives) ? positives : Object.values(positives)).slice(0, MAX_PRS);
 
   // **And a second reviewer, on the same ground truth, with the same judge.**
@@ -139,17 +154,17 @@ async function main() {
   // `target_commit`, so **a checkout at those two commits is what its `review --from --to` needs** - **the same
   // three fields this repository already reads to fetch the diff.**
   /**
- * **Where the competitor's own output goes when a field cannot hold it.**
- *
- * **This constant was missing when the spill was first written, and the field reported it in one line**:
- * `firstFailure: "OUTPUTS_DIR is not defined"` - **because the spill was copied from `runnable-competitors.mjs`,
- * where the constant exists, and this file never had one.** **A name that resolves in one file and not another is
- * exactly what a copy does not tell you**, and **the reason the failure was legible is that every fallible step here
- * writes its reason into a field.**
- */
-const OUTPUTS_DIR = resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs');
+   * **Where the competitor's own output goes when a field cannot hold it.**
+   *
+   * **This constant was missing when the spill was first written, and the field reported it in one line**:
+   * `firstFailure: "OUTPUTS_DIR is not defined"` - **because the spill was copied from `runnable-competitors.mjs`,
+   * where the constant exists, and this file never had one.** **A name that resolves in one file and not another is
+   * exactly what a copy does not tell you**, and **the reason the failure was legible is that every fallible step here
+   * writes its reason into a field.**
+   */
+  const OUTPUTS_DIR = resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs');
 
-const YOU_FILES = { enabled: false };
+  const YOU_FILES = { enabled: false };
   const { execFileSync } = await import('node:child_process');
   const { mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
@@ -242,7 +257,8 @@ const YOU_FILES = { enabled: false };
     return at >= 0 && parts.length > at + 2 ? `${parts[at + 1]}/${parts[at + 2]}` : null;
   };
 
-  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  const { createDiff } =
+    await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
   /**
    * Run a competitor over one labelled pull request, and return its findings as text.
    *
@@ -274,12 +290,29 @@ const YOU_FILES = { enabled: false };
       // **So the history is fetched without its blobs**, which is **the one shape that gives a merge base cheaply**:
       // **`--filter=blob:none` downloads every commit and no file contents**, and **the checkout then fetches only the
       // blobs that commit needs.** **A shallow fetch was cheaper and wrong; this is cheap and right.**
-      execFileSync('git', ['clone', '-q', '--filter=blob:none', '--no-checkout', `https://github.com/${repo}.git`, dir], {
+      execFileSync(
+        'git',
+        [
+          'clone',
+          '-q',
+          '--filter=blob:none',
+          '--no-checkout',
+          `https://github.com/${repo}.git`,
+          dir,
+        ],
+        {
+          stdio: 'pipe',
+          timeout: 600_000,
+        },
+      );
+      execFileSync('git', ['-C', dir, 'fetch', '-q', 'origin', source, target], {
         stdio: 'pipe',
-        timeout: 600_000,
+        timeout: 300_000,
       });
-      execFileSync('git', ['-C', dir, 'fetch', '-q', 'origin', source, target], { stdio: 'pipe', timeout: 300_000 });
-      execFileSync('git', ['-C', dir, 'checkout', '-q', target], { stdio: 'pipe', timeout: 300_000 });
+      execFileSync('git', ['-C', dir, 'checkout', '-q', target], {
+        stdio: 'pipe',
+        timeout: 300_000,
+      });
       // **`--json` is for `scan` and not for `review`, and the field said so.**
       //
       // **`firstFailure` reported `Error: unknown flag: --json` on the first run after it was fixed** - **which is what
@@ -304,7 +337,10 @@ const YOU_FILES = { enabled: false };
       // mode**, and **the only way to learn its format is to keep one whole** - **which is what
       // `firstOutputHead`'s six hundred characters could not do.**
       mkdirSync(OUTPUTS_DIR, { recursive: true });
-      const spilled = join(OUTPUTS_DIR, `open-code-review-review-${String(source).slice(0, 8)}.txt`);
+      const spilled = join(
+        OUTPUTS_DIR,
+        `open-code-review-review-${String(source).slice(0, 8)}.txt`,
+      );
       writeFileSync(spilled, stdout);
       return { ok: true, stdout, outputFile: spilled };
     } catch (error) {
@@ -323,8 +359,10 @@ const YOU_FILES = { enabled: false };
     }
   };
 
-  const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
-  const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
+  const { LLMReviewEngine } =
+    await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  const { DeepSeekProvider } =
+    await import('../../packages/intelligence/dist/review/llm/provider.js');
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
   //
   // **At 0.6 the merge removed 360 of 488 findings, raised precision 2.3 times and lowered recall from 0.56 to 0.36** -
@@ -383,7 +421,13 @@ const YOU_FILES = { enabled: false };
   // **The engine's counters belong to the engine.** **The first version wrote them onto `competitor`, which is the
   // other reviewer's record, so the artifact reported 199 files under the competitor's name** - **a unit-of-attribution
   // defect in the file that exists to attribute.**
-  const engineCounters = { filesReviewed: 0, emptyDiffs: 0, fileFailures: 0, firstFileFailure: null, laneStats: null };
+  const engineCounters = {
+    filesReviewed: 0,
+    emptyDiffs: 0,
+    fileFailures: 0,
+    firstFileFailure: null,
+    laneStats: null,
+  };
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
   const competitor = {
     tool: 'open-code-review',
@@ -511,7 +555,10 @@ const YOU_FILES = { enabled: false };
             ? raw
             : '(the tool reported a failure with no message)';
         if (creditFailure) competitor.creditExhausted = true;
-        if (!competitor.firstFailure || competitor.firstFailure === '(the tool reported a failure with no message)') {
+        if (
+          !competitor.firstFailure ||
+          competitor.firstFailure === '(the tool reported a failure with no message)'
+        ) {
           competitor.firstFailure = reason;
         }
       } else {
@@ -550,17 +597,35 @@ const YOU_FILES = { enabled: false };
             // **From the first object rather than the first bracket**, because **a `[` at position zero is as likely
             // to be a heading as an array**, and **the tool's document is an object** - so **`{` is the character that
             // carries information here.**
-            { name: 'from-first-object', value: (() => { const i = text.indexOf('{'); return i >= 0 ? text.slice(i) : text; })() },
-            { name: 'from-last-line-starting-with-brace', value: (() => {
+            {
+              name: 'from-first-object',
+              value: (() => {
+                const i = text.indexOf('{');
+                return i >= 0 ? text.slice(i) : text;
+              })(),
+            },
+            {
+              name: 'from-last-line-starting-with-brace',
+              value: (() => {
                 const lines = text.split(String.fromCharCode(10));
-                for (let i = lines.length - 1; i >= 0; i -= 1) if (lines[i].trimStart().startsWith('{')) return lines.slice(i).join(String.fromCharCode(10));
+                for (let i = lines.length - 1; i >= 0; i -= 1)
+                  if (lines[i].trimStart().startsWith('{'))
+                    return lines.slice(i).join(String.fromCharCode(10));
                 return text;
-              })() },
+              })(),
+            },
             // **And the heading-stripping last**, because it is the one that edits the document.
-            { name: 'headings-removed', value: text.split(String.fromCharCode(10)).filter((line) => {
-                const match = /^\s*\[([^\]]{0,80})\]/.exec(line);
-                return !(match !== null && !match[1].includes('{'));
-              }).join(String.fromCharCode(10)).trim() },
+            {
+              name: 'headings-removed',
+              value: text
+                .split(String.fromCharCode(10))
+                .filter((line) => {
+                  const match = /^\s*\[([^\]]{0,80})\]/.exec(line);
+                  return !(match !== null && !match[1].includes('{'));
+                })
+                .join(String.fromCharCode(10))
+                .trim(),
+            },
           ];
           let parsed = null;
           let strategy = null;
@@ -591,9 +656,12 @@ const YOU_FILES = { enabled: false };
             // indistinguishable from a tool that found fewer** - **the distinction `prsFailed` draws one level up,
             // applied to a parser instead of a run.**
             competitor.parsedCount = list.length;
-            competitor.countsAgree = prose.declaredCount === null ? null : prose.declaredCount === list.length;
+            competitor.countsAgree =
+              prose.declaredCount === null ? null : prose.declaredCount === list.length;
             if (!list.length) {
-              throw new Error(`the report parsed to no findings (${prose.findings.length} prose, no JSON candidate parsed)`);
+              throw new Error(
+                `the report parsed to no findings (${prose.findings.length} prose, no JSON candidate parsed)`,
+              );
             }
           } else {
             competitor.extraction = strategy;
@@ -602,7 +670,12 @@ const YOU_FILES = { enabled: false };
               : (parsed.comments ?? parsed.findings ?? parsed.issues ?? parsed.results ?? []);
           }
           competitor.firstFinding = list[0] ? JSON.stringify(list[0]).slice(0, 240) : null;
-          competitor.outputKeys = parsed === null ? null : Array.isArray(parsed) ? ['(array)'] : Object.keys(parsed).slice(0, 12);
+          competitor.outputKeys =
+            parsed === null
+              ? null
+              : Array.isArray(parsed)
+                ? ['(array)']
+                : Object.keys(parsed).slice(0, 12);
           competitor.outputChars = text.length;
           // **And how many lines the tool wrote outside its JSON**, because **a stream that mixes two formats is a fact
           // about the tool** and **a parse that succeeds does not say how close it came to failing.**
@@ -622,7 +695,8 @@ const YOU_FILES = { enabled: false };
           // own findings get - so **the two F1 values below are one measurement applied to two reviewers.**
           const matchedByCompetitor = new Set();
           for (const entry of list) {
-            const text = typeof entry === 'string' ? entry : String(entry.content ?? entry.body ?? '');
+            const text =
+              typeof entry === 'string' ? entry : String(entry.content ?? entry.body ?? '');
             if (!text) continue;
             for (let g = 0; g < issueTexts.length; g += 1) {
               if (matchedByCompetitor.has(g)) continue;
@@ -697,7 +771,10 @@ const YOU_FILES = { enabled: false };
       try {
         // **One file per call, and the file's own path** - **so neither the count nor the location depends on the
         // answer key.**
-        const produced = await engine.reviewDiff(createDiff(section.path, 'added', sectionDiff), sectionDiff);
+        const produced = await engine.reviewDiff(
+          createDiff(section.path, 'added', sectionDiff),
+          sectionDiff,
+        );
         lanes.push(...produced);
         // **And what the engine's own parse and filter did with this file's findings.**
         //
@@ -746,7 +823,13 @@ const YOU_FILES = { enabled: false };
         // artifact said the engine was reading everything and producing nothing, without saying which step dropped
         // it** - and **`lanes.filter((l) => l.success)` is exactly the kind of line that turns a failure into an
         // absence.**
-        const laneStats = engineCounters.laneStats ?? { attempted: 0, succeeded: 0, failed: 0, findings: 0, firstError: null };
+        const laneStats = engineCounters.laneStats ?? {
+          attempted: 0,
+          succeeded: 0,
+          failed: 0,
+          findings: 0,
+          firstError: null,
+        };
         laneStats.attempted += produced.length;
         for (const lane of produced) {
           if (lane.success) {
@@ -755,7 +838,9 @@ const YOU_FILES = { enabled: false };
           } else {
             laneStats.failed += 1;
             if (!laneStats.firstError) {
-              laneStats.firstError = String(lane.error ?? lane.reason ?? '(no error recorded on the lane)').slice(0, 240);
+              laneStats.firstError = String(
+                lane.error ?? lane.reason ?? '(no error recorded on the lane)',
+              ).slice(0, 240);
             }
           }
         }
@@ -764,7 +849,8 @@ const YOU_FILES = { enabled: false };
         // **A file the engine could not read contributes no findings and is counted**, which is **the distinction
         // this repository draws wherever a per-item loop exists.**
         engineCounters.fileFailures += 1;
-        if (!engineCounters.firstFileFailure) engineCounters.firstFileFailure = String(error.message ?? '').slice(0, 200);
+        if (!engineCounters.firstFileFailure)
+          engineCounters.firstFileFailure = String(error.message ?? '').slice(0, 200);
       }
     }
     const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
@@ -808,7 +894,10 @@ const YOU_FILES = { enabled: false };
       let hit = false;
       for (let i = 0; i < issueTexts.length; i += 1) {
         if (matched.has(i)) continue;
-        const verdict = await judge(String(f.title ?? '') + ' :: ' + String(f.description ?? ''), issueTexts[i]);
+        const verdict = await judge(
+          String(f.title ?? '') + ' :: ' + String(f.description ?? ''),
+          issueTexts[i],
+        );
         if (verdict === null) unanswered += 1;
         else if (verdict) {
           matched.add(i);
@@ -831,7 +920,10 @@ const YOU_FILES = { enabled: false };
       let hit = false;
       for (let i = 0; i < issueTexts.length; i += 1) {
         if (matchedWhole.has(i)) continue;
-        const verdict = await judge(String(f.title ?? '') + ' :: ' + String(f.description ?? ''), issueTexts[i]);
+        const verdict = await judge(
+          String(f.title ?? '') + ' :: ' + String(f.description ?? ''),
+          issueTexts[i],
+        );
         if (verdict === null) unansweredWhole += 1;
         else if (verdict) {
           matchedWhole.add(i);
@@ -876,7 +968,9 @@ const YOU_FILES = { enabled: false };
       judgeUnanswered: unansweredWhole,
       precision: round(tpWhole + fpWhole > 0 ? tpWhole / (tpWhole + fpWhole) : 0),
       recall: round(tpWhole + fnWhole > 0 ? tpWhole / (tpWhole + fnWhole) : 0),
-      f1: round(tpWhole + fpWhole + fnWhole > 0 ? (2 * tpWhole) / (2 * tpWhole + fpWhole + fnWhole) : 0),
+      f1: round(
+        tpWhole + fpWhole + fnWhole > 0 ? (2 * tpWhole) / (2 * tpWhole + fpWhole + fnWhole) : 0,
+      ),
     },
     f1: round(p + r > 0 ? (2 * p * r) / (p + r) : 0),
     reviewCategories: categories,
@@ -886,12 +980,20 @@ const YOU_FILES = { enabled: false };
     // comparable because they were produced by one measurement, not because they were printed side by side.**
     secondReviewer: {
       ...competitor,
-      precision: round(competitor.truePositives + competitor.falsePositives > 0 ? competitor.truePositives / (competitor.truePositives + competitor.falsePositives) : 0),
-      recall: round(competitor.truePositives + competitor.falseNegatives > 0 ? competitor.truePositives / (competitor.truePositives + competitor.falseNegatives) : 0),
+      precision: round(
+        competitor.truePositives + competitor.falsePositives > 0
+          ? competitor.truePositives / (competitor.truePositives + competitor.falsePositives)
+          : 0,
+      ),
+      recall: round(
+        competitor.truePositives + competitor.falseNegatives > 0
+          ? competitor.truePositives / (competitor.truePositives + competitor.falseNegatives)
+          : 0,
+      ),
       f1: round(
         competitor.truePositives + competitor.falsePositives + competitor.falseNegatives > 0
           ? (2 * competitor.truePositives) /
-            (2 * competitor.truePositives + competitor.falsePositives + competitor.falseNegatives)
+              (2 * competitor.truePositives + competitor.falsePositives + competitor.falseNegatives)
           : 0,
       ),
     },
@@ -903,13 +1005,20 @@ const YOU_FILES = { enabled: false };
     engineCounters,
     skipped: null,
   });
-  console.log(`AACR-BENCH reviewed ${reviewed} PRs · tp ${tp} fp ${fp} fn ${fn} · P ${round(p)} R ${round(r)}`);
-  console.log(`AACR-BENCH competitor ${competitor.tool} · findings ${competitor.findings} · tp ${competitor.truePositives} fp ${competitor.falsePositives} fn ${competitor.falseNegatives}`);
+  console.log(
+    `AACR-BENCH reviewed ${reviewed} PRs · tp ${tp} fp ${fp} fn ${fn} · P ${round(p)} R ${round(r)}`,
+  );
+  console.log(
+    `AACR-BENCH competitor ${competitor.tool} · findings ${competitor.findings} · tp ${competitor.truePositives} fp ${competitor.falsePositives} fn ${competitor.falseNegatives}`,
+  );
 }
 
 function write(payload) {
   mkdirSync(join(process.cwd(), 'benchmarks'), { recursive: true });
-  writeFileSync(resolve(process.cwd(), 'benchmarks', 'aacr-bench.json'), JSON.stringify(payload, null, 2) + '\n');
+  writeFileSync(
+    resolve(process.cwd(), 'benchmarks', 'aacr-bench.json'),
+    JSON.stringify(payload, null, 2) + '\n',
+  );
 }
 
 main().catch((error) => {

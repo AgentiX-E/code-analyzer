@@ -12,7 +12,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { countTokens } = require('../../packages/intelligence/dist/compression/memory-compressor.js');
+const {
+  countTokens,
+} = require('../../packages/intelligence/dist/compression/memory-compressor.js');
 
 const ROOT = process.env.CORPUS_PATH || '/tmp/corpus';
 const files = [];
@@ -48,7 +50,8 @@ const corpusTokens = files.reduce((sum, f) => sum + countTokens(fs.readFileSync(
 // union of those keywords rather than a set of language-specific rules.** It is deliberately broad: **this measures
 // what a symbol lookup would return**, and **the question is not which keyword was used but whether a declaration
 // starts here.**
-const DECLARATION = /^\s*(export|import|var|const|let|function|class|def|func|fn|pub|type|struct|enum|trait|impl|interface|package|namespace|module)\s/;
+const DECLARATION =
+  /^\s*(export|import|var|const|let|function|class|def|func|fn|pub|type|struct|enum|trait|impl|interface|package|namespace|module)\s/;
 
 /** The first line that looks like a declaration in any of the languages this matrix contains. */
 /** The first line that looks like a declaration, in any of the languages this matrix contains. */
@@ -77,7 +80,9 @@ const ratio = perQuery > 0 ? Math.round((corpusTokens / perQuery) * 10) / 10 : n
 
 // **A zero would not be a very good ratio, it would be a missing measurement.**
 if (!Number.isFinite(corpusTokens) || corpusTokens <= 0 || perQuery <= 0) {
-  console.error(`refusing to record a ratio of ${ratio} from ${corpusTokens} tokens and ${perQuery} per query`);
+  console.error(
+    `refusing to record a ratio of ${ratio} from ${corpusTokens} tokens and ${perQuery} per query`,
+  );
   process.exit(1);
 }
 
@@ -110,4 +115,6 @@ const out = {
 
 fs.mkdirSync('benchmarks', { recursive: true });
 fs.writeFileSync('benchmarks/token-reduction.json', JSON.stringify(out, null, 2) + '\n');
-console.log(`TOKEN-REDUCTION corpus=${corpusTokens} files=${files.length} perQuery=${perQuery} ratio=${ratio}x`);
+console.log(
+  `TOKEN-REDUCTION corpus=${corpusTokens} files=${files.length} perQuery=${perQuery} ratio=${ratio}x`,
+);

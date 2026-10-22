@@ -52,7 +52,11 @@ function cursorsFor(graph: KnowledgeGraph): { nodes: { value: number }; edges: {
  * The cursor is keyed by the graph rather than by the builder, which is the whole difference: a builder that does
  * not know what the other builders wrote cannot know where to start.
  */
-function claimId(table: Map<number, unknown>, cursor: { value: number }, preferred: number): number {
+function claimId(
+  table: Map<number, unknown>,
+  cursor: { value: number },
+  preferred: number,
+): number {
   let candidate = Math.max(preferred, cursor.value, table.size);
   while (table.has(candidate)) candidate += 1;
   cursor.value = candidate + 1;

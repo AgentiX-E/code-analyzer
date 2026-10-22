@@ -33,7 +33,11 @@ function corpus(count: number): string {
   mkdirSync(join(dir, 'src'), { recursive: true });
   const source = readFileSync('packages/shared/src/types/graph.ts', 'utf8');
   for (let i = 0; i < count; i += 1) {
-    writeFileSync(join(dir, 'src', `c${i}.ts`), source.replace(/PipelineContext/g, `PipelineContext${i}`), 'utf8');
+    writeFileSync(
+      join(dir, 'src', `c${i}.ts`),
+      source.replace(/PipelineContext/g, `PipelineContext${i}`),
+      'utf8',
+    );
   }
   return dir;
 }
@@ -62,7 +66,9 @@ describe('a full pipeline run', () => {
       // test is the reason to treat that as a failure rather than as a note.
       expect(result.status).toBe('complete');
       // A run that reached no files would satisfy everything above while measuring nothing.
-      expect((result.graph as { fileIndex?: { size: number } }).fileIndex?.size ?? 0).toBeGreaterThan(1);
+      expect(
+        (result.graph as { fileIndex?: { size: number } }).fileIndex?.size ?? 0,
+      ).toBeGreaterThan(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

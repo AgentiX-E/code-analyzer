@@ -54,14 +54,19 @@ async function judge(candidates, golden) {
           model: MODEL,
           temperature: 0,
           messages: [
-            { role: 'system', content: 'You compare code review statements. Reply with JSON only.' },
+            {
+              role: 'system',
+              content: 'You compare code review statements. Reply with JSON only.',
+            },
             { role: 'user', content: prompt },
           ],
         }),
       });
       if (!res.ok) throw new Error(`http ${res.status}`);
       const body = await res.json();
-      const text = String(body.choices?.[0]?.message?.content ?? '').replace(/```json|```/g, '').trim();
+      const text = String(body.choices?.[0]?.message?.content ?? '')
+        .replace(/```json|```/g, '')
+        .trim();
       const parsed = JSON.parse(text);
       return Boolean(parsed.match);
     } catch {
@@ -78,19 +83,26 @@ async function main() {
     comment: [
       'Every tool in the field, scored by one judge on one corpus, beside ours.',
       '',
-      '**The field\'s raw review comments come from their own `offline/results/benchmark_data.json`**, which ships',
-      'every tool\'s comments for all 50 PRs. **The judge is ours and is named**, and **ours is scored the same way**',
+      "**The field's raw review comments come from their own `offline/results/benchmark_data.json`**, which ships",
+      "every tool's comments for all 50 PRs. **The judge is ours and is named**, and **ours is scored the same way**",
       '- which is what makes this a comparison rather than two numbers placed side by side.',
     ],
     measuredAt: new Date().toISOString().slice(0, 10),
     where: 'github-actions',
     judge: { model: MODEL, endpoint: process.env['MARTIAN_BASE_URL'] ?? 'default' },
-    route: { field: 'the tool\'s own comments, shipped in the benchmark repo', ours: 'our engine reading the diff' },
-    caveat: 'Their comments were produced by each tool installed on a fork; ours by our engine reading the same diff.',
+    route: {
+      field: "the tool's own comments, shipped in the benchmark repo",
+      ours: 'our engine reading the diff',
+    },
+    caveat:
+      'Their comments were produced by each tool installed on a fork; ours by our engine reading the same diff.',
   };
 
   if (!existsSync(DATA)) {
-    write({ ...base, skipped: { reason: 'benchmark_data.json was not found in their repository' } });
+    write({
+      ...base,
+      skipped: { reason: 'benchmark_data.json was not found in their repository' },
+    });
     console.log('FIELD-COMPARISON skipped: no benchmark data');
     return;
   }
@@ -135,11 +147,11 @@ async function main() {
   function candidatesFor(url, tool, shipped) {
     const fromFile = shippedCandidates[url]?.[tool];
     if (Array.isArray(fromFile) && fromFile.length > 0) {
-      return fromFile.map((c) => (typeof c === 'string' ? c : c.text ?? '')).filter(Boolean);
+      return fromFile.map((c) => (typeof c === 'string' ? c : (c.text ?? ''))).filter(Boolean);
     }
     const inline = shipped?.candidates;
     if (Array.isArray(inline) && inline.length > 0) {
-      return inline.map((c) => (typeof c === 'string' ? c : c.text ?? '')).filter(Boolean);
+      return inline.map((c) => (typeof c === 'string' ? c : (c.text ?? ''))).filter(Boolean);
     }
     // **The fallback reads the comment bodies**, because **a tool whose candidates were never extracted still made
     // comments**, and **a comparison that counts them as silent would report a field-wide zero** - which is exactly
@@ -229,9 +241,18 @@ async function main() {
         return acc;
       }, {});
   const ranks = { f05: rankBy('f05'), f1: rankBy('f1'), f2: rankBy('f2') };
-  for (const row of rows) row.ranks = { f05: ranks.f05[row.tool], f1: ranks.f1[row.tool], f2: ranks.f2[row.tool] };
+  for (const row of rows)
+    row.ranks = { f05: ranks.f05[row.tool], f1: ranks.f1[row.tool], f2: ranks.f2[row.tool] };
 
-  write({ ...base, prsScored: urls.length, toolsScored: rows.length, judgedPairs: judged, judgeUnanswered: unanswered, rows, skipped: null });
+  write({
+    ...base,
+    prsScored: urls.length,
+    toolsScored: rows.length,
+    judgedPairs: judged,
+    judgeUnanswered: unanswered,
+    rows,
+    skipped: null,
+  });
   console.log(
     `FIELD-COMPARISON scored ${rows.length} tools over ${urls.length} PRs · tools with candidates ${toolsWithCandidates.size} · ` +
       `candidate-golden pairs judged ${pairsJudged} · judge unanswered ${unanswered}`,
@@ -240,7 +261,9 @@ async function main() {
   // field is silent" from "this job did not find the field's statements"** - and the first run proved which of those
   // it actually was.
   if (toolsWithCandidates.size === 0) {
-    console.error('FIELD-COMPARISON failed: no tool had a candidate, so every row would be zero for a reason that is not about the tools');
+    console.error(
+      'FIELD-COMPARISON failed: no tool had a candidate, so every row would be zero for a reason that is not about the tools',
+    );
     process.exit(1);
   }
   for (const row of rows.slice(0, 8)) {
@@ -252,7 +275,10 @@ async function main() {
 
 function write(payload) {
   mkdirSync(join(process.cwd(), 'benchmarks'), { recursive: true });
-  writeFileSync(resolve(process.cwd(), 'benchmarks', 'field-comparison.json'), JSON.stringify(payload, null, 2) + '\n');
+  writeFileSync(
+    resolve(process.cwd(), 'benchmarks', 'field-comparison.json'),
+    JSON.stringify(payload, null, 2) + '\n',
+  );
 }
 
 main().catch((error) => {

@@ -38,7 +38,11 @@ describe('the embedding phase reports its backend', () => {
     mkdirSync(join(dir, 'src'), { recursive: true });
     const source = readFileSync('packages/shared/src/types/graph.ts', 'utf8');
     for (let i = 0; i < 5; i += 1) {
-      writeFileSync(join(dir, 'src', `c${i}.ts`), source.replace(/PipelineContext/g, `PipelineContext${i}`), 'utf8');
+      writeFileSync(
+        join(dir, 'src', `c${i}.ts`),
+        source.replace(/PipelineContext/g, `PipelineContext${i}`),
+        'utf8',
+      );
     }
 
     const ctx = {
@@ -55,7 +59,8 @@ describe('the embedding phase reports its backend', () => {
       // **The phase runs**, so the assertion below is about the report and not about an earlier failure.
       expect(embed?.status).toBe('success');
 
-      const report = (ctx.phaseData as Map<string, unknown>).get('embedBackend') as EmbedReport | undefined;
+      const report = (ctx.phaseData as Map<string, unknown>).get('embedBackend') as
+        EmbedReport | undefined;
       expect(report).toBeDefined();
       // **The two fields a reader needs**: which backend, and - when it is not the real one - why not.
       expect(['onnx', 'deterministic']).toContain(report?.backend);

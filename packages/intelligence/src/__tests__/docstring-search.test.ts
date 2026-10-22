@@ -18,8 +18,13 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-
-import { GraphBuilder, PipelineOrchestrator, createAllPhases, loadEmbedder, embedderUnavailableReason } from '@code-analyzer/analyzer';
+import {
+  GraphBuilder,
+  PipelineOrchestrator,
+  createAllPhases,
+  loadEmbedder,
+  embedderUnavailableReason,
+} from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, expect, it } from 'vitest';
@@ -87,7 +92,8 @@ describe('finding a symbol from its own doc comment', () => {
       const byId = new Map<number, Float32Array>();
       for (const node of result.graph.nodes.values()) {
         const vector = (node.properties as { embedding?: number[] } | undefined)?.embedding;
-        if (Array.isArray(vector) && vector.length > 0) byId.set(node.id, Float32Array.from(vector));
+        if (Array.isArray(vector) && vector.length > 0)
+          byId.set(node.id, Float32Array.from(vector));
       }
       engine.registerEmbeddings(
         (nodeId) => byId.get(nodeId) ?? null,
@@ -118,7 +124,11 @@ describe('finding a symbol from its own doc comment', () => {
     for (const candidate of candidates) {
       const hits = await engine.search({ query: candidate.query, limit: TOP_K });
       const rank = hits.findIndex((h) => h.node?.name === candidate.name);
-      cases.push({ name: candidate.name, query: candidate.query, rank: rank >= 0 ? rank + 1 : null });
+      cases.push({
+        name: candidate.name,
+        query: candidate.query,
+        rank: rank >= 0 ? rank + 1 : null,
+      });
     }
 
     // **A second pass with vectors registered**, over the same queries and the same engine - so the two figures
@@ -127,7 +137,11 @@ describe('finding a symbol from its own doc comment', () => {
     for (const candidate of candidates) {
       const hits = await engine.search({ query: candidate.query, limit: TOP_K });
       const rank = hits.findIndex((h) => h.node?.name === candidate.name);
-      semanticCases.push({ name: candidate.name, query: candidate.query, rank: rank >= 0 ? rank + 1 : null });
+      semanticCases.push({
+        name: candidate.name,
+        query: candidate.query,
+        rank: rank >= 0 ? rank + 1 : null,
+      });
     }
     const semanticFound = semanticCases.filter((c) => c.rank !== null).length;
     const semanticRecall = Math.round((semanticFound / semanticCases.length) * 10000) / 10000;
@@ -135,7 +149,9 @@ describe('finding a symbol from its own doc comment', () => {
     const found = cases.filter((c) => c.rank !== null).length;
     const recall = Math.round((found / cases.length) * 10000) / 10000;
     const mrr =
-      Math.round((cases.reduce((sum, c) => sum + (c.rank ? 1 / c.rank : 0), 0) / cases.length) * 10000) / 10000;
+      Math.round(
+        (cases.reduce((sum, c) => sum + (c.rank ? 1 / c.rank : 0), 0) / cases.length) * 10000,
+      ) / 10000;
 
     const artifact = {
       comment: [
@@ -167,21 +183,29 @@ describe('finding a symbol from its own doc comment', () => {
       corpus: {
         path: CORPUS,
         nodes: result.graph.nodes.size,
-        nodesWithADocstring: [...result.graph.nodes.values()].filter((n) => (n.docstring ?? '').length > 0).length,
+        nodesWithADocstring: [...result.graph.nodes.values()].filter(
+          (n) => (n.docstring ?? '').length > 0,
+        ).length,
         queries: cases.length,
       },
       topK: TOP_K,
       found,
       recall,
       meanReciprocalRank: mrr,
-      misses: cases.filter((c) => c.rank === null).map((c) => `${c.name}: ${c.query.slice(0, 70)}`).slice(0, 8),
+      misses: cases
+        .filter((c) => c.rank === null)
+        .map((c) => `${c.name}: ${c.query.slice(0, 70)}`)
+        .slice(0, 8),
       target: { recall: 0.9, competitorRecall: 0.75, competitor: 'Cody, quoted by the whitepaper' },
     };
 
     mkdirSync(resolve(process.cwd(), 'benchmarks'), { recursive: true });
-    writeFileSync(resolve(process.cwd(), 'benchmarks/docstring-search.json'), JSON.stringify(artifact, null, 2) + '\n', 'utf8');
+    writeFileSync(
+      resolve(process.cwd(), 'benchmarks/docstring-search.json'),
+      JSON.stringify(artifact, null, 2) + '\n',
+      'utf8',
+    );
 
-     
     console.log(
       `DOCSTRING-SEARCH recall=${recall} (${found}/${cases.length} in top ${TOP_K}) mrr=${mrr} ` +
         `over ${artifact.corpus.nodes} nodes, ${artifact.corpus.nodesWithADocstring} documented; ` +

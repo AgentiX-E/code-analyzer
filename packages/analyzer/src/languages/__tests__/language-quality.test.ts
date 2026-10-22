@@ -61,7 +61,8 @@ const SAMPLES: Array<{ language: string; files: string[]; reference: RegExp; cap
   {
     language: 'typescript',
     files: ['packages/analyzer/src/cfg/cfg-builder.ts', 'docs/.vitepress/config.ts'],
-    reference: /^export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|let|interface|type|enum)\s+([A-Za-z_$]\w*)/gm,
+    reference:
+      /^export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|let|interface|type|enum)\s+([A-Za-z_$]\w*)/gm,
     capture: 1,
   },
   {
@@ -83,7 +84,11 @@ function referenceNames(reference: RegExp, content: string, capture: number): Se
 }
 
 /** The names the language provider extracts, through the same helper the pipeline uses. */
-async function extractedNames(language: string, content: string, filePath: string): Promise<Set<string>> {
+async function extractedNames(
+  language: string,
+  content: string,
+  filePath: string,
+): Promise<Set<string>> {
   const provider = await getOrLoadProvider(language);
   if (!provider) return new Set();
   const grouped = groupCaptures(provider.parse(content, filePath) as never, filePath);
@@ -125,7 +130,9 @@ describe('what each language extracts, against a reference from the same file', 
       if (!chosen) {
         // **The reason names what was tried and why each was rejected**, so "unmeasured" cannot be read as "the
         // language failed" when the corpus simply had nothing to measure.
-        unmeasured.push(`${sample.language}: no candidate had a measurable declaration - ${tried.join('; ')}`);
+        unmeasured.push(
+          `${sample.language}: no candidate had a measurable declaration - ${tried.join('; ')}`,
+        );
         continue;
       }
 
@@ -186,7 +193,11 @@ describe('what each language extracts, against a reference from the same file', 
     };
 
     mkdirSync(resolve(process.cwd(), 'benchmarks'), { recursive: true });
-    writeFileSync(resolve(process.cwd(), 'benchmarks/language-quality.json'), JSON.stringify(artifact, null, 2) + '\n', 'utf8');
+    writeFileSync(
+      resolve(process.cwd(), 'benchmarks/language-quality.json'),
+      JSON.stringify(artifact, null, 2) + '\n',
+      'utf8',
+    );
 
     // eslint-disable-next-line no-console
     console.log(

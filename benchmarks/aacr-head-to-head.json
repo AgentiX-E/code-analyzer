@@ -170,11 +170,7 @@
       "**And both arms use the same engine**, which produced one or two findings under either view - so **the constraint is in the emission mechanism rather than in what the mechanism is shown.**",
       "**And the competitor, in the same run, found fourteen** - so **the difference is not the corpus, the judge, the model or the view**, all four of which are now held constant."
     ],
-    "whatItRulesOut": [
-      "the lane granularity",
-      "the per-file view",
-      "the whole-PR view"
-    ],
+    "whatItRulesOut": ["the lane granularity", "the per-file view", "the whole-PR view"],
     "whatItLeaves": [
       "**the emission mechanism itself**: the prompt's selection rules, the finding schema, and whatever filters a lane's findings before they reach the counter."
     ]

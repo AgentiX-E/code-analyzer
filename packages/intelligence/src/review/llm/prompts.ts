@@ -61,26 +61,26 @@ const OUTPUT_SCHEMA = `{
   ]
 }`;
 
-  /**
-   * What every lane is told about choosing and how many to return, stated once for all six.
-   *
-   * **Why it exists, in the measurement's own words.** The first scored run produced **2,763 findings and not one
-   * categorised `bug`**, against a dataset containing **246 `bug` and 5 `security` ranges**. The schema listed nine
-   * categories and **said nothing about which to prefer or how many to return**, so the model did what a reviewer
-   * does: **it reported everything it noticed, in its own vocabulary** - `test` 1,071, `maintainability` 703,
-   * `architecture` 542. **That is fifteen findings per window, and a precision of 0.0007.** **The re-score of the
-   * same output under a severity filter multiplied F1 by 2.6** - which is **what a filter can do; it cannot
-   * translate.**
-   *
-   * **So the contract says it, and says it once**, because **it is a property of the output rather than of any one
-   * kind of review** - and **a lane that spelled it differently would be a lane whose numbers could not be compared
-   * with the others'.**
-   *
-   * **And it is two rules, not one.** The category rule makes the model's vocabulary overlap the dataset's; the count
-   * rule makes the output a human would read. **Neither alone suffices**: a correct category fifteen times per window
-   * is unreadable, and three findings per window in the wrong vocabulary are still unmatchable.
-   */
-  const SELECTION_RULES = `
+/**
+ * What every lane is told about choosing and how many to return, stated once for all six.
+ *
+ * **Why it exists, in the measurement's own words.** The first scored run produced **2,763 findings and not one
+ * categorised `bug`**, against a dataset containing **246 `bug` and 5 `security` ranges**. The schema listed nine
+ * categories and **said nothing about which to prefer or how many to return**, so the model did what a reviewer
+ * does: **it reported everything it noticed, in its own vocabulary** - `test` 1,071, `maintainability` 703,
+ * `architecture` 542. **That is fifteen findings per window, and a precision of 0.0007.** **The re-score of the
+ * same output under a severity filter multiplied F1 by 2.6** - which is **what a filter can do; it cannot
+ * translate.**
+ *
+ * **So the contract says it, and says it once**, because **it is a property of the output rather than of any one
+ * kind of review** - and **a lane that spelled it differently would be a lane whose numbers could not be compared
+ * with the others'.**
+ *
+ * **And it is two rules, not one.** The category rule makes the model's vocabulary overlap the dataset's; the count
+ * rule makes the output a human would read. **Neither alone suffices**: a correct category fifteen times per window
+ * is unreadable, and three findings per window in the wrong vocabulary are still unmatchable.
+ */
+const SELECTION_RULES = `
 How to choose and how many to return - this is part of the contract, not advice:
 
 1. **A defect first.** A finding whose category is "bug" or "security" is a defect: the code does something other

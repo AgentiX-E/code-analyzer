@@ -49,7 +49,13 @@ function countingGraph(): { graph: KnowledgeGraph; probes: () => number } {
   return { graph, probes: () => probes };
 }
 
-const props = { name: 'x', filePath: '/x.ts', startLine: 1, endLine: 1, language: 'typescript' } as never;
+const props = {
+  name: 'x',
+  filePath: '/x.ts',
+  startLine: 1,
+  endLine: 1,
+  language: 'typescript',
+} as never;
 
 describe('GraphBuilder node-id allocation', () => {
   it('does not probe the graph once per existing node', () => {
@@ -101,7 +107,13 @@ describe('GraphBuilder edge-id allocation', () => {
     for (let batch = 0; batch < batches; batch += 1) {
       const builder = new GraphBuilder(null as never);
       for (let i = 0; i < perBatch; i += 1) {
-        builder.addEdge(graph, ids[batch * perBatch + i]!, ids[(batch * perBatch + i + 1) % ids.length]!, 'CALLS' as never, 'probe');
+        builder.addEdge(
+          graph,
+          ids[batch * perBatch + i]!,
+          ids[(batch * perBatch + i + 1) % ids.length]!,
+          'CALLS' as never,
+          'probe',
+        );
       }
     }
     const edgeProbes = probes() - before;

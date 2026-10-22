@@ -130,7 +130,10 @@ function namesOccurInRegion(comment: ReviewComment, lines: string[]): boolean {
  * **The order of the checks is the order of their strength**: a path the review never read is unfixable by any
  * reading of the file, a range outside the file is provably wrong, and a quotation that is absent is evidence.
  */
-export function judgeGrounding(comments: ReviewComment[], sources: GroundingSources): GroundingReport {
+export function judgeGrounding(
+  comments: ReviewComment[],
+  sources: GroundingSources,
+): GroundingReport {
   const grounded: ReviewComment[] = [];
   const ungrounded: GroundingVerdict[] = [];
 

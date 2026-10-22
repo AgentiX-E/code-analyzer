@@ -50,7 +50,10 @@ interface Finding {
   endLine: number;
 }
 
-function overlaps(a: { startLine: number; endLine: number }, b: { startLine: number; endLine: number }): boolean {
+function overlaps(
+  a: { startLine: number; endLine: number },
+  b: { startLine: number; endLine: number },
+): boolean {
   return a.startLine <= b.endLine && b.startLine <= a.endLine;
 }
 
@@ -101,7 +104,11 @@ function score(
   return { tp, matched: used.size };
 }
 
-function prf(tp: number, fp: number, fn: number): { precision: number; recall: number; f1: number } {
+function prf(
+  tp: number,
+  fp: number,
+  fn: number,
+): { precision: number; recall: number; f1: number } {
   const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
   const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
   const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
@@ -115,7 +122,10 @@ describe('the engine against real ground truth, under two criteria', () => {
       expect(existsSync(DATASET)).toBe(false);
       return;
     }
-    const data = JSON.parse(readFileSync(DATASET, 'utf8')) as { count: number; issues: RealIssue[] };
+    const data = JSON.parse(readFileSync(DATASET, 'utf8')) as {
+      count: number;
+      issues: RealIssue[];
+    };
 
     let strictTP = 0;
     let overlapTP = 0;
@@ -130,8 +140,10 @@ describe('the engine against real ground truth, under two criteria', () => {
       const f = findingsFor(issue);
       findings += f.length;
       gtTotal += issue.groundTruth.length;
-      for (const x of f) engineCategories.set(x.category, (engineCategories.get(x.category) ?? 0) + 1);
-      for (const g of issue.groundTruth) gtCategories.set(g.category, (gtCategories.get(g.category) ?? 0) + 1);
+      for (const x of f)
+        engineCategories.set(x.category, (engineCategories.get(x.category) ?? 0) + 1);
+      for (const g of issue.groundTruth)
+        gtCategories.set(g.category, (gtCategories.get(g.category) ?? 0) + 1);
       const strict = score(f, issue.groundTruth, true);
       const loose = score(f, issue.groundTruth, false);
       strictTP += strict.tp;

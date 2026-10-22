@@ -116,9 +116,22 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
       id?: string;
     }>;
 
-    const asReported = (list: Array<{ line?: number; lineNumber?: number; ruleId?: string; rule?: string; id?: string }>): Reported[] =>
+    const asReported = (
+      list: Array<{
+        line?: number;
+        lineNumber?: number;
+        ruleId?: string;
+        rule?: string;
+        id?: string;
+      }>,
+    ): Reported[] =>
       list.map((f) => ({
-        line: typeof f.line === 'number' ? f.line : typeof f.lineNumber === 'number' ? f.lineNumber : -1,
+        line:
+          typeof f.line === 'number'
+            ? f.line
+            : typeof f.lineNumber === 'number'
+              ? f.lineNumber
+              : -1,
         rule: String(f.ruleId ?? f.rule ?? f.id ?? 'unknown'),
       }));
 
@@ -129,10 +142,15 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     // unanimously endorsed a bug that did not exist**; QASecClaw (arXiv 2605.01885) took F1 from **78.39% to 90.93%**
     // with it. **So both figures are computed from one run**, and the difference between them is the gate.
     const comments = findings.map((f, i) => toReviewComment(FILE_PATH, f as never, i, addedLines));
-    const judged = judgeGrounding(comments, { contents: new Map([[FILE_PATH, addedLines.join('\n')]]) });
+    const judged = judgeGrounding(comments, {
+      contents: new Map([[FILE_PATH, addedLines.join('\n')]]),
+    });
     // **The judge reports `ReviewComment` and the counts need line and rule**, so the same conversion is used on both
     // sides - which is what makes the two figures comparable rather than two measurements of different things.
-    const afterJudge: Reported[] = judged.grounded.map((c) => ({ line: c.startLine, rule: String(c.category) }));
+    const afterJudge: Reported[] = judged.grounded.map((c) => ({
+      line: c.startLine,
+      rule: String(c.category),
+    }));
 
     // The three planted defects, by the line they are on in the added content.
     const planted = [5, 13, 18];
@@ -193,7 +211,12 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
         review: 'Martian Code Review Bench shape: per-diff precision / recall / F1',
         signalToNoise: 'CR-Bench: true positives over all comments emitted',
       },
-      corpus: { diffs: 1, plantedDefects: planted.length, language: 'typescript', reproducible: 'offline, no network' },
+      corpus: {
+        diffs: 1,
+        plantedDefects: planted.length,
+        language: 'typescript',
+        reproducible: 'offline, no network',
+      },
       reported: reported.length,
       truePositives,
       falsePositives,
@@ -228,9 +251,12 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
 
     const fs = await import('node:fs');
     fs.mkdirSync('benchmarks', { recursive: true });
-    fs.writeFileSync('benchmarks/review-protocol.json', JSON.stringify(artifact, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(
+      'benchmarks/review-protocol.json',
+      JSON.stringify(artifact, null, 2) + '\n',
+      'utf8',
+    );
 
-     
     console.log(
       `REVIEW-PROTOCOL reported=${reported.length} tp=${truePositives} fp=${falsePositives} fn=${falseNegatives} ` +
         `P=${artifact.precision} R=${artifact.recall} F1=${artifact.f1} SNR=${artifact.signalToNoise}`,
@@ -291,10 +317,11 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
     const beforeTrue = before.filter((l) => plantedLines.includes(l)).length;
 
     // **The pipeline, not half of it**, with the contents keyed by the same path the comments carry.
-    const judged = judgeGrounding(comments, { contents: new Map([[path, REAL_DEFECTS.join('\n')]]) });
+    const judged = judgeGrounding(comments, {
+      contents: new Map([[path, REAL_DEFECTS.join('\n')]]),
+    });
     const afterTrue = judged.grounded.filter((c) => plantedLines.includes(c.startLine)).length;
 
-     
     console.log(
       `GATE-EFFECT before ${before.length} findings / ${beforeTrue} true, ` +
         `after ${judged.grounded.length} / ${afterTrue}, dropped ${judged.ungrounded.length}`,

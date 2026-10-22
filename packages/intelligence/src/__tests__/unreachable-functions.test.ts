@@ -17,7 +17,9 @@ function graphWith(
   edges: Array<{ sourceId: number; targetId: number; type: string }>,
 ): KnowledgeGraph {
   return {
-    nodes: new Map(nodes.map((n) => [n.id, { ...n, label: n.label ?? 'Function', projectId: 'p' }])),
+    nodes: new Map(
+      nodes.map((n) => [n.id, { ...n, label: n.label ?? 'Function', projectId: 'p' }]),
+    ),
     edges: new Map(edges.map((e, i) => [i, { id: i, projectId: 'p', ...e }])),
   } as unknown as KnowledgeGraph;
 }

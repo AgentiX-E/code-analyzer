@@ -76,30 +76,32 @@ const SOURCES: Array<{ language: string; file: string; source: string }> = [
   },
 ];
 
+describe.each(SOURCES)(
+  'the doc comment above a declaration in $language',
+  ({ language, file, source }) => {
+    it('reaches the symbol it describes, and not the one after it', async () => {
+      const provider = await getOrLoadProvider(language);
+      expect(provider).not.toBeNull();
 
-describe.each(SOURCES)('the doc comment above a declaration in $language', ({ language, file, source }) => {
-  it('reaches the symbol it describes, and not the one after it', async () => {
-    const provider = await getOrLoadProvider(language);
-    expect(provider).not.toBeNull();
+      const grouped = groupCaptures(provider!.parse(source, file) as never, file) as {
+        symbols?: Array<{ name: string; docstring?: string | null }>;
+      };
+      const symbols = grouped.symbols ?? [];
+      const docOf = (name: string) => symbols.find((s) => s.name === name)?.docstring ?? '';
 
-    const grouped = groupCaptures(provider!.parse(source, file) as never, file) as {
-      symbols?: Array<{ name: string; docstring?: string | null }>;
-    };
-    const symbols = grouped.symbols ?? [];
-    const docOf = (name: string) => symbols.find((s) => s.name === name)?.docstring ?? '';
-
-    // **The prose arrives without its syntax**: no leading `*`, no `/**`.
-    expect(docOf('kineticEnergy')).toContain('kinetic energy of a moving body');
-    expect(docOf('kineticEnergy')).not.toContain('*');
-    // **And it does not land on the symbol after the one it describes**, which is what carrying a value forward
-    // without clearing it produces.
-    expect(docOf('undocumented')).toBe('');
-    // **The single-line form is a different node shape** from a block comment and has to work too.
-    expect(docOf('PLANCK')).toContain('A single line describing the constant');
-    // **And exactly one symbol carries it.**
-    expect(symbols.filter((s) => (s.docstring ?? '').includes('kinetic energy')).length).toBe(1);
-  }, 300_000);
-});
+      // **The prose arrives without its syntax**: no leading `*`, no `/**`.
+      expect(docOf('kineticEnergy')).toContain('kinetic energy of a moving body');
+      expect(docOf('kineticEnergy')).not.toContain('*');
+      // **And it does not land on the symbol after the one it describes**, which is what carrying a value forward
+      // without clearing it produces.
+      expect(docOf('undocumented')).toBe('');
+      // **The single-line form is a different node shape** from a block comment and has to work too.
+      expect(docOf('PLANCK')).toContain('A single line describing the constant');
+      // **And exactly one symbol carries it.**
+      expect(symbols.filter((s) => (s.docstring ?? '').includes('kinetic energy')).length).toBe(1);
+    }, 300_000);
+  },
+);
 
 // Python gets its documentation through a different mechanism, and the same assertion applies.
 //
@@ -121,10 +123,14 @@ describe('the docstring inside a python declaration', () => {
   it('reaches the declaration it documents, and not the one after it', async () => {
     const provider = await getOrLoadProvider('python');
     expect(provider).not.toBeNull();
-    const grouped = groupCaptures(provider!.parse(PYTHON, '/kinetic.py') as never, '/kinetic.py') as {
+    const grouped = groupCaptures(
+      provider!.parse(PYTHON, '/kinetic.py') as never,
+      '/kinetic.py',
+    ) as {
       symbols?: Array<{ name: string; docstring?: string | null }>;
     };
-    const docOf = (name: string) => (grouped.symbols ?? []).find((s) => s.name === name)?.docstring ?? '';
+    const docOf = (name: string) =>
+      (grouped.symbols ?? []).find((s) => s.name === name)?.docstring ?? '';
 
     expect(docOf('kinetic_energy')).toContain('kinetic energy of a moving body');
     // **And not the next one**, which is what a carried-forward value produces.
@@ -154,13 +160,16 @@ describe('what a docstring must not reach', () => {
       symbols?: Array<{ name: string; docstring?: string | null }>;
       references?: Array<{ name?: string }>;
     };
-    const docOf = (name: string) => (grouped.symbols ?? []).find((s) => s.name === name)?.docstring ?? '';
+    const docOf = (name: string) =>
+      (grouped.symbols ?? []).find((s) => s.name === name)?.docstring ?? '';
 
     expect(docOf('kinetic_energy')).toContain('kinetic energy of a moving body');
     expect(docOf('mass')).toBe('');
     // **The call is not a symbol**, so the assertion is that no symbol named for the callee carries the comment
     // either - which is what a docstring wired onto the call capture would produce.
-    const carrying = (grouped.symbols ?? []).filter((s) => (s.docstring ?? '').includes('kinetic energy'));
+    const carrying = (grouped.symbols ?? []).filter((s) =>
+      (s.docstring ?? '').includes('kinetic energy'),
+    );
     expect(carrying.map((s) => s.name)).toEqual(['kinetic_energy']);
   }, 300_000);
 });

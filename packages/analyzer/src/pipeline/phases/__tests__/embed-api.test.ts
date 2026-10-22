@@ -31,18 +31,31 @@ interface Call {
 let calls: Call[] = [];
 
 /** Install a fetch that answers with the given vectors, and record every request it received. */
-function mockFetch(handler: (body: { input?: string | string[] }) => { status?: number; payload?: unknown; text?: string }) {
-  vi.stubGlobal('fetch', async (url: string, init: RequestInit & { headers?: Record<string, string> }) => {
-    const body = JSON.parse(String(init.body)) as { input?: string | string[] };
-    calls.push({ url: String(url), headers: (init.headers ?? {}) as Record<string, string>, body });
-    const { status = 200, payload, text } = handler(body);
-    return {
-      ok: status >= 200 && status < 300,
-      status,
-      json: async () => payload,
-      text: async () => text ?? '',
-    } as unknown as Response;
-  });
+function mockFetch(
+  handler: (body: { input?: string | string[] }) => {
+    status?: number;
+    payload?: unknown;
+    text?: string;
+  },
+) {
+  vi.stubGlobal(
+    'fetch',
+    async (url: string, init: RequestInit & { headers?: Record<string, string> }) => {
+      const body = JSON.parse(String(init.body)) as { input?: string | string[] };
+      calls.push({
+        url: String(url),
+        headers: (init.headers ?? {}) as Record<string, string>,
+        body,
+      });
+      const { status = 200, payload, text } = handler(body);
+      return {
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => payload,
+        text: async () => text ?? '',
+      } as unknown as Response;
+    },
+  );
 }
 
 beforeEach(() => {
@@ -70,9 +83,17 @@ describe('the API embedding backend', () => {
 
   it('never places the key in the request URL', async () => {
     mockFetch((body) => ({
-      payload: { data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({ embedding: [1, 0], index: i })) },
+      payload: {
+        data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({
+          embedding: [1, 0],
+          index: i,
+        })),
+      },
     }));
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({
+      ZHIPU_API_KEY: KEY,
+      ZHIPU_EMBEDDING_DIMENSIONS: '2',
+    } as unknown as NodeJS.ProcessEnv);
     expect(loaded).not.toBeNull();
     for (const call of calls) {
       expect(call.url).not.toContain(KEY);
@@ -82,9 +103,17 @@ describe('the API embedding backend', () => {
 
   it('normalises every vector to unit length', async () => {
     mockFetch((body) => ({
-      payload: { data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({ embedding: [3, 4], index: i })) },
+      payload: {
+        data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({
+          embedding: [3, 4],
+          index: i,
+        })),
+      },
     }));
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({
+      ZHIPU_API_KEY: KEY,
+      ZHIPU_EMBEDDING_DIMENSIONS: '2',
+    } as unknown as NodeJS.ProcessEnv);
     const [first] = await loaded!.embedder.embedBatch(['x']);
     const norm = Math.sqrt([...first!].reduce((sum, v) => sum + v * v, 0));
     expect(norm).toBeCloseTo(1, 5);
@@ -103,7 +132,10 @@ describe('the API embedding backend', () => {
         .reverse();
       return { payload: { data: ordered } };
     });
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({
+      ZHIPU_API_KEY: KEY,
+      ZHIPU_EMBEDDING_DIMENSIONS: '2',
+    } as unknown as NodeJS.ProcessEnv);
     expect(loaded).not.toBeNull();
     const [first, second] = await loaded!.embedder.embedBatch(['alpha', 'beta']);
     // A unit-normalised `[1,0]` is `[1,0]` and `[0,1]` is `[0,1]`, so the first component identifies the text.
@@ -113,7 +145,10 @@ describe('the API embedding backend', () => {
 
   it('fails when the response carries a different number of vectors than were sent', async () => {
     mockFetch(() => ({ payload: { data: [{ embedding: [1, 0], index: 0 }] } }));
-    const result = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
+    const result = await loadApiEmbedder({
+      ZHIPU_API_KEY: KEY,
+      ZHIPU_EMBEDDING_DIMENSIONS: '2',
+    } as unknown as NodeJS.ProcessEnv);
     // The probe sends one text and receives one, so the probe succeeds; the failure appears on a larger batch.
     expect(result).not.toBeNull();
     await expect(result!.embedder.embedBatch(['a', 'b'])).rejects.toThrow('expected 2');
@@ -121,9 +156,17 @@ describe('the API embedding backend', () => {
 
   it('batches rather than sending an unbounded request', async () => {
     mockFetch((body) => ({
-      payload: { data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({ embedding: [1, 0], index: i })) },
+      payload: {
+        data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({
+          embedding: [1, 0],
+          index: i,
+        })),
+      },
     }));
-    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY, ZHIPU_EMBEDDING_DIMENSIONS: '2' } as unknown as NodeJS.ProcessEnv);
+    const loaded = await loadApiEmbedder({
+      ZHIPU_API_KEY: KEY,
+      ZHIPU_EMBEDDING_DIMENSIONS: '2',
+    } as unknown as NodeJS.ProcessEnv);
     calls = [];
     const texts = Array.from({ length: 33 }, (_, i) => `t${i}`);
     const vectors = await loaded!.embedder.embedBatch(texts);
@@ -151,7 +194,14 @@ describe('the API embedding backend', () => {
     mockFetch((body) => {
       const inputs = Array.isArray(body.input) ? body.input : [body.input];
       const width = (body as { dimensions?: number }).dimensions ?? 3;
-      return { payload: { data: inputs.map((_, i) => ({ embedding: new Array(width).fill(0).map((_, j) => (j === 0 ? 1 : 0)), index: i })) } };
+      return {
+        payload: {
+          data: inputs.map((_, i) => ({
+            embedding: new Array(width).fill(0).map((_, j) => (j === 0 ? 1 : 0)),
+            index: i,
+          })),
+        },
+      };
     });
     const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: KEY } as NodeJS.ProcessEnv);
     expect(loaded).not.toBeNull();
@@ -160,7 +210,12 @@ describe('the API embedding backend', () => {
 
   it('sends the configured model and endpoint on every request', async () => {
     mockFetch((body) => ({
-      payload: { data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({ embedding: [1, 0], index: i })) },
+      payload: {
+        data: (Array.isArray(body.input) ? body.input : [body.input]).map((_, i) => ({
+          embedding: [1, 0],
+          index: i,
+        })),
+      },
     }));
     await loadApiEmbedder({
       ZHIPU_API_KEY: KEY,

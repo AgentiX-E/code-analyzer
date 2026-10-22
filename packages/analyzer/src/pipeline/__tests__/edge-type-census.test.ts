@@ -30,7 +30,6 @@ import { join } from 'node:path';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { describe, expect, it } from 'vitest';
 
-
 import { PipelineOrchestrator } from '../orchestrator.js';
 import { createAllPhases } from '../phases/index.js';
 
@@ -61,7 +60,8 @@ const CORPUS: Record<string, string> = {
 async function census() {
   const dir = mkdtempSync(join(tmpdir(), 'census-'));
   mkdirSync(join(dir, 'src'), { recursive: true });
-  for (const [name, content] of Object.entries(CORPUS)) writeFileSync(join(dir, 'src', name), content, 'utf8');
+  for (const [name, content] of Object.entries(CORPUS))
+    writeFileSync(join(dir, 'src', name), content, 'utf8');
 
   const ctx = {
     projectId: 'census',
@@ -72,7 +72,9 @@ async function census() {
   } as unknown as PipelineContext;
 
   try {
-    const result = await new PipelineOrchestrator(createAllPhases().filter((p) => p.id !== 'embed')).execute(ctx);
+    const result = await new PipelineOrchestrator(
+      createAllPhases().filter((p) => p.id !== 'embed'),
+    ).execute(ctx);
     const counts = new Map<string, number>();
     for (const edge of result.graph.edges.values()) {
       counts.set(String(edge.type), (counts.get(String(edge.type)) ?? 0) + 1);
@@ -105,7 +107,6 @@ describe('the edge types a known corpus produces', () => {
     expect(counts.get('CALLS') ?? 0).toBeGreaterThan(0);
     expect(counts.get('IMPORTS') ?? 0).toBeGreaterThan(0);
 
-     
     console.log(`CENSUS ${[...counts.entries()].map(([t, n]) => `${t}×${n}`).join(' ')}`);
   }, 600_000);
 });

@@ -6,7 +6,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { chooseTypecheckCommand, collectCompileEvidence, parseTscOutput } from '../compile-evidence.js';
+import {
+  chooseTypecheckCommand,
+  collectCompileEvidence,
+  parseTscOutput,
+} from '../compile-evidence.js';
 
 /** Verbatim output from `tsc`, including the continuation line a real diagnostic carries. */
 const REAL_OUTPUT = `src/a.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.
@@ -53,13 +57,19 @@ describe('which command to run', () => {
   it('prefers the project script over an assumption', () => {
     // **Asking the project is better than guessing**, because a repository that checks itself with `vue-tsc` would
     // otherwise be misjudged - **and a misjudged typecheck is a finding about nothing.**
-    const chosen = chooseTypecheckCommand({ scripts: { typecheck: 'vue-tsc --noEmit' }, devDependencies: { typescript: '^5' } });
+    const chosen = chooseTypecheckCommand({
+      scripts: { typecheck: 'vue-tsc --noEmit' },
+      devDependencies: { typescript: '^5' },
+    });
     expect(chosen?.fromScript).toBe(true);
     expect(chosen?.args).toContain('typecheck');
   });
 
   it('falls back to tsc when the project depends on it', () => {
-    const chosen = chooseTypecheckCommand({ scripts: {}, devDependencies: { typescript: '^5.4.0' } });
+    const chosen = chooseTypecheckCommand({
+      scripts: {},
+      devDependencies: { typescript: '^5.4.0' },
+    });
     expect(chosen?.fromScript).toBe(false);
     expect(chosen?.args).toEqual(['--no-install', 'tsc', '--noEmit']);
   });
@@ -74,7 +84,11 @@ describe('and when it could not run', () => {
   it('says why rather than reporting a clean build', async () => {
     // **The distinction that matters most here**: a repository with no compiler **is not a repository with no
     // errors**, and **a caller that cannot tell them apart reports the second as the first.**
-    const result = await collectCompileEvidence('/tmp', { run: async () => ({ stdout: '', exitCode: 0 }) }, { dependencies: { express: '^5' } });
+    const result = await collectCompileEvidence(
+      '/tmp',
+      { run: async () => ({ stdout: '', exitCode: 0 }) },
+      { dependencies: { express: '^5' } },
+    );
     expect(result.findings).toEqual([]);
     expect(result.skipped?.reason).toMatch(/no typecheck script/);
   });

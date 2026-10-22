@@ -67,7 +67,8 @@ function main() {
   for (const [name, entry] of Object.entries(citations.citations ?? {})) {
     if (typeof entry.groundTruthIssues !== 'number') continue;
     // **Counted from the sources this citation names**, not from a global list.
-    const sources = Array.isArray(entry.sources) && entry.sources.length > 0 ? entry.sources : DEFAULT_SOURCES;
+    const sources =
+      Array.isArray(entry.sources) && entry.sources.length > 0 ? entry.sources : DEFAULT_SOURCES;
     let own = 0;
     const ownDetail = [];
     for (const file of sources) {
@@ -78,7 +79,8 @@ function main() {
       const n = countEntries(file);
       own += n;
       ownDetail.push(`${file.split('/').pop()}=${n}`);
-      if (!perSource.includes(`${file.split('/').pop()}=${n}`)) perSource.push(`${file.split('/').pop()}=${n}`);
+      if (!perSource.includes(`${file.split('/').pop()}=${n}`))
+        perSource.push(`${file.split('/').pop()}=${n}`);
     }
     perCitation[name] = { counted: own, sources: ownDetail };
     counted = Math.max(counted, own);

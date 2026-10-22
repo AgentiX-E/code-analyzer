@@ -48,7 +48,8 @@ function measureCorpus(dir: string): Corpus {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const full = join(current, entry.name);
       if (entry.isDirectory()) {
-        if (['node_modules', 'dist', 'coverage', '__tests__', '.git'].includes(entry.name)) continue;
+        if (['node_modules', 'dist', 'coverage', '__tests__', '.git'].includes(entry.name))
+          continue;
         walk(full);
       } else if (/\.(ts|tsx|js|jsx|mts|cts)$/.test(entry.name) && !/\.d\.ts$/.test(entry.name)) {
         files += 1;
@@ -95,7 +96,8 @@ describe('indexing speed', () => {
     expect(result.errors).toHaveLength(0);
     expect(result.phases.filter((p) => p.status !== 'success')).toHaveLength(0);
 
-    const secondsPerMillionLines = Math.round((durationMs / 1000 / (corpus.lines / 1_000_000)) * 100) / 100;
+    const secondsPerMillionLines =
+      Math.round((durationMs / 1000 / (corpus.lines / 1_000_000)) * 100) / 100;
     const artifact = {
       comment: [
         'Seconds per million lines for the full pipeline, on a corpus whose lines are counted from the files.',

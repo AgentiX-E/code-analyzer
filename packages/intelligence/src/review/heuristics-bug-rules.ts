@@ -155,7 +155,15 @@ export function checkAssignmentInCondition(lines: string[]): HeuristicRuleResult
       else if (c === '=') {
         const prev = condition[k - 1] ?? '';
         const next = condition[k + 1] ?? '';
-        if (prev === '=' || prev === '!' || prev === '<' || prev === '>' || next === '=' || next === '>') continue;
+        if (
+          prev === '=' ||
+          prev === '!' ||
+          prev === '<' ||
+          prev === '>' ||
+          next === '=' ||
+          next === '>'
+        )
+          continue;
         if (condDepth === 0) bareAssignment = true;
       }
     }
@@ -211,7 +219,6 @@ export function checkAsyncInSynchronousCallback(lines: string[]): HeuristicRuleR
   return out;
 }
 
-
 /**
  * `any` in a type position, which the reviewer reported nothing about.
  *
@@ -264,7 +271,6 @@ export function checkAnyTypeUsage(lines: string[]): HeuristicRuleResult[] {
   }
   return out;
 }
-
 
 /**
  * Nesting deeper than a reader can hold, which the reviewer said nothing about.

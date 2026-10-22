@@ -41,6 +41,5 @@ export interface LanguageProvider {
    */
   exportedNames?(source: string): Set<string>;
 
-
   readonly importSemantics: ImportSemantics;
 }

@@ -173,26 +173,35 @@ export class LLMReviewEngine {
     const all: Entry[] = [];
     for (const result of results) {
       for (const finding of result.findings) {
-        all.push({ result, finding, words: words(`${finding.title ?? ''} ${finding.description ?? ''}`) });
+        all.push({
+          result,
+          finding,
+          words: words(`${finding.title ?? ''} ${finding.description ?? ''}`),
+        });
       }
     }
     // **Severity first, then lane order**, because **the survivor of a duplicate should be the worst reading** and
     // **a stable tie-break is what makes the output reproducible.**
-    all.sort((x, y) => (rank[String(y.finding.severity)] ?? 0) - (rank[String(x.finding.severity)] ?? 0));
+    all.sort(
+      (x, y) => (rank[String(y.finding.severity)] ?? 0) - (rank[String(x.finding.severity)] ?? 0),
+    );
 
     const survivors: Entry[] = [];
     for (const entry of all) {
-      const duplicate = survivors.some(
-        (k) =>
-          // **Same file, overlapping ranges** - the same defect has one location.
-          String(k.result.filePath ?? '') === String(entry.result.filePath ?? '') &&
-          entry.finding.startLine <= k.finding.endLine &&
-          entry.finding.endLine >= k.finding.startLine,
-      ) || survivors.some((k) =>
-        // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range is a
-        // hint that this iteration already watched a filter discard 207 findings over.
-        shares(k.words, entry.words) >= this.options.dedupThreshold,
-      );
+      const duplicate =
+        survivors.some(
+          (k) =>
+            // **Same file, overlapping ranges** - the same defect has one location.
+            String(k.result.filePath ?? '') === String(entry.result.filePath ?? '') &&
+            entry.finding.startLine <= k.finding.endLine &&
+            entry.finding.endLine >= k.finding.startLine,
+        ) ||
+        survivors.some(
+          (k) =>
+            // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range is a
+            // hint that this iteration already watched a filter discard 207 findings over.
+            shares(k.words, entry.words) >= this.options.dedupThreshold,
+        );
       if (!duplicate) survivors.push(entry);
     }
 
@@ -200,7 +209,11 @@ export class LLMReviewEngine {
     for (const result of results) {
       result.findings = result.findings.filter((f) => keep.has(f));
     }
-    this.lastDeduplication = { before: all.length, after: survivors.length, dropped: all.length - survivors.length };
+    this.lastDeduplication = {
+      before: all.length,
+      after: survivors.length,
+      dropped: all.length - survivors.length,
+    };
     return results;
   }
 
@@ -301,7 +314,11 @@ export class LLMReviewEngine {
    * within the diff content.
    */
   /** **What the last lane's parse and filter did**, for a caller that needs to know why a count is zero. */
-  lastCounts: { parsed: number; kept: number; dropped: { invalidLine: number; beyondDiffLength: number; kept: number; total: number } } | null = null;
+  lastCounts: {
+    parsed: number;
+    kept: number;
+    dropped: { invalidLine: number; beyondDiffLength: number; kept: number; total: number };
+  } | null = null;
 
   private lastDropped = { invalidLine: 0, beyondDiffLength: 0, kept: 0, total: 0 };
 

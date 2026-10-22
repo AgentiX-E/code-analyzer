@@ -84,7 +84,9 @@ function main() {
 
     console.log(`\n${target}`);
     if (naming.length === 0) {
-      console.log('  NO TEST REACHES IT. That is the finding, and it is not the same as a low number.');
+      console.log(
+        '  NO TEST REACHES IT. That is the finding, and it is not the same as a low number.',
+      );
       continue;
     }
     console.log(`  ${naming.length} test file(s) reach it:`);

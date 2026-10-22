@@ -77,7 +77,11 @@ export function parseTscOutput(output: string): CompilerDiagnostic[] {
 /** The process a caller has to supply, so this module never decides to execute anything. */
 export interface CompilerRunner {
   /** Runs the project's typecheck and resolves with its combined output and exit code. */
-  run: (command: string, args: string[], cwd: string) => Promise<{ stdout: string; exitCode: number }>;
+  run: (
+    command: string,
+    args: string[],
+    cwd: string,
+  ) => Promise<{ stdout: string; exitCode: number }>;
 }
 
 /** The commands to try, in order, and **the first one the project declares wins**. */
@@ -95,7 +99,9 @@ export interface TypecheckCommand {
  * tsconfig.build.json` or a wrapper is a repository we would otherwise misjudge** - and **a misjudged typecheck is a
  * finding about nothing.**
  */
-export function chooseTypecheckCommand(packageJson: Record<string, unknown> | null): TypecheckCommand | null {
+export function chooseTypecheckCommand(
+  packageJson: Record<string, unknown> | null,
+): TypecheckCommand | null {
   const scripts = (packageJson?.['scripts'] ?? null) as Record<string, unknown> | null;
   for (const name of ['typecheck', 'type-check', 'check-types', 'tsc']) {
     const script = scripts?.[name];
@@ -103,7 +109,10 @@ export function chooseTypecheckCommand(packageJson: Record<string, unknown> | nu
       return { command: 'npm', args: ['run', '--silent', name], fromScript: true };
     }
   }
-  const devDependencies = (packageJson?.['devDependencies'] ?? null) as Record<string, unknown> | null;
+  const devDependencies = (packageJson?.['devDependencies'] ?? null) as Record<
+    string,
+    unknown
+  > | null;
   const dependencies = (packageJson?.['dependencies'] ?? null) as Record<string, unknown> | null;
   if (devDependencies?.['typescript'] || dependencies?.['typescript']) {
     return { command: 'npx', args: ['--no-install', 'tsc', '--noEmit'], fromScript: false };
@@ -128,7 +137,9 @@ export async function collectCompileEvidence(
   if (chosen === null) {
     return {
       findings: [],
-      skipped: { reason: 'the project declares no typecheck script and does not depend on typescript' },
+      skipped: {
+        reason: 'the project declares no typecheck script and does not depend on typescript',
+      },
       filesChecked: null,
     };
   }
@@ -141,7 +152,11 @@ export async function collectCompileEvidence(
   const result = await Promise.race([runner.run(chosen.command, chosen.args, rootPath), timeout]);
 
   if (result.exitCode === 124) {
-    return { findings: [], skipped: { reason: `the typecheck did not finish within ${timeoutMs}ms` }, filesChecked: null };
+    return {
+      findings: [],
+      skipped: { reason: `the typecheck did not finish within ${timeoutMs}ms` },
+      filesChecked: null,
+    };
   }
 
   const findings = parseTscOutput(result.stdout);
@@ -150,7 +165,9 @@ export async function collectCompileEvidence(
   if (result.exitCode !== 0 && findings.length === 0) {
     return {
       findings: [],
-      skipped: { reason: `the typecheck exited ${result.exitCode} without a diagnostic this could read` },
+      skipped: {
+        reason: `the typecheck exited ${result.exitCode} without a diagnostic this could read`,
+      },
       filesChecked: null,
     };
   }

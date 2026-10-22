@@ -202,4 +202,8 @@ export function checkForEachWithReturn(lines: string[]): HeuristicRuleResult[] {
 }
 
 /** The three shapes, in the order they should be tried. */
-export const FLOW_BUG_RULES = [checkReturnInFinally, checkJsonParseUnwrapped, checkForEachWithReturn];
+export const FLOW_BUG_RULES = [
+  checkReturnInFinally,
+  checkJsonParseUnwrapped,
+  checkForEachWithReturn,
+];

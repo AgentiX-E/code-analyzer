@@ -562,7 +562,7 @@ describe('EngineBridge', () => {
       // Heuristics need the real source: against a metadata stub they report
       // nothing at all, which is exactly what this guards against.
       // **Six rather than four**, because three flow-shaped bug rules joined the table and **two of them fire on this
-        // this fixture: a bare return inside a forEach, and a JSON.parse with no guard. **The count is a fact
+      // this fixture: a bare return inside a forEach, and a JSON.parse with no guard. **The count is a fact
       // the engine, so it moves when the engine does**; what must not move is the *absence* of false positives, and
       // that is asserted separately below.
       expect(comments).toHaveLength(4);

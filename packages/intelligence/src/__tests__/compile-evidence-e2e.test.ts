@@ -25,17 +25,35 @@ function makeProjectWithATypeError(): { root: string; source: string; filePath: 
   mkdirSync(join(root, 'src'), { recursive: true });
   // **The error is deliberate and typed**: a `string` assigned to a `number` annotation - **`TS2322`, the diagnostic
   // a reader is most likely to have seen.**
-  const source = 'const count: number = "not a number";\nexport function f() {\n  return count;\n}\n';
+  const source =
+    'const count: number = "not a number";\nexport function f() {\n  return count;\n}\n';
   writeFileSync(join(root, 'src', 'a.ts'), source, 'utf8');
   writeFileSync(
     join(root, 'tsconfig.json'),
-    JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: 'es2022', module: 'esnext', moduleResolution: 'bundler' }, include: ['src/**/*.ts'] }, null, 2),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          strict: true,
+          noEmit: true,
+          target: 'es2022',
+          module: 'esnext',
+          moduleResolution: 'bundler',
+        },
+        include: ['src/**/*.ts'],
+      },
+      null,
+      2,
+    ),
     'utf8',
   );
   // **A package.json so the chooser picks a script rather than guessing**, which is the path a real repository takes.
   writeFileSync(
     join(root, 'package.json'),
-    JSON.stringify({ name: 'e2e', devDependencies: { typescript: '*' }, scripts: { typecheck: 'tsc --noEmit' } }, null, 2),
+    JSON.stringify(
+      { name: 'e2e', devDependencies: { typescript: '*' }, scripts: { typecheck: 'tsc --noEmit' } },
+      null,
+      2,
+    ),
     'utf8',
   );
   return { root, source, filePath: 'src/a.ts' };
@@ -50,7 +68,11 @@ describe('a typecheck, end to end', () => {
       const runner = {
         run: async (command: string, args: string[], cwd: string) => {
           try {
-            const stdout = execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+            const stdout = execFileSync(command, args, {
+              cwd,
+              encoding: 'utf8',
+              stdio: ['ignore', 'pipe', 'pipe'],
+            });
             return { stdout, exitCode: 0 };
           } catch (error) {
             const e = error as { stdout?: string; status?: number | null };
@@ -59,7 +81,10 @@ describe('a typecheck, end to end', () => {
         },
       };
 
-      const packageJson = { devDependencies: { typescript: '*' }, scripts: { typecheck: 'tsc --noEmit' } };
+      const packageJson = {
+        devDependencies: { typescript: '*' },
+        scripts: { typecheck: 'tsc --noEmit' },
+      };
       const evidence = collectCompileEvidence(project.root, runner, packageJson, 180_000);
 
       return evidence.then((result) => {
@@ -72,13 +97,17 @@ describe('a typecheck, end to end', () => {
         expect(mismatch!.line).toBe(1);
 
         // **And the diagnostic becomes a comment**, quoted from the file the compiler named.
-        const comments = compilerToComments(result.findings, (p) => (p === project.filePath ? project.source.split('\n') : null));
+        const comments = compilerToComments(result.findings, (p) =>
+          p === project.filePath ? project.source.split('\n') : null,
+        );
         expect(comments.length).toBe(result.findings.length);
         expect(comments[0]!.category).toBe('bug');
 
         // **And the gate accepts it**, which is the case the whole wiring exists for: **the one finding this product
         // does not produce by heuristic must still be verifiable.**
-        const judged = judgeGrounding(comments, { contents: new Map([[project.filePath, project.source]]) });
+        const judged = judgeGrounding(comments, {
+          contents: new Map([[project.filePath, project.source]]),
+        });
         expect(judged.ungrounded).toEqual([]);
       });
     } finally {
@@ -91,8 +120,16 @@ describe('a typecheck, end to end', () => {
     // reporting a clean branch.
     const root = mkdtempSync(join(tmpdir(), 'ca-e2e-nocompiler-'));
     try {
-      writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'plain', dependencies: { express: '^5' } }), 'utf8');
-      const result = await collectCompileEvidence(root, { run: async () => ({ stdout: '', exitCode: 0 }) }, { dependencies: { express: '^5' } });
+      writeFileSync(
+        join(root, 'package.json'),
+        JSON.stringify({ name: 'plain', dependencies: { express: '^5' } }),
+        'utf8',
+      );
+      const result = await collectCompileEvidence(
+        root,
+        { run: async () => ({ stdout: '', exitCode: 0 }) },
+        { dependencies: { express: '^5' } },
+      );
       expect(result.findings).toEqual([]);
       expect(result.skipped?.reason).toMatch(/no typecheck script/);
     } finally {

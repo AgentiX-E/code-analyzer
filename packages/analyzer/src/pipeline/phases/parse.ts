@@ -10,7 +10,12 @@ import {
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { getOrLoadProvider, groupCaptures, toPhaseFailure } from '../phase-helpers.js';
 
-import type { TaintProvider, TaintSanitizer, TaintSink, TaintSource } from '../../languages/tree-sitter-base.js';
+import type {
+  TaintProvider,
+  TaintSanitizer,
+  TaintSink,
+  TaintSource,
+} from '../../languages/tree-sitter-base.js';
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
@@ -42,7 +47,10 @@ export class ParsePhase implements ExecutablePhase {
 
       const parsedFiles: ParsedFile[] = [];
       // Extraction results, keyed by file, for whoever runs the taint analysis later.
-      const taintExtraction = new Map<string, { sources: TaintSource[]; sinks: TaintSink[]; sanitizers: TaintSanitizer[] }>();
+      const taintExtraction = new Map<
+        string,
+        { sources: TaintSource[]; sinks: TaintSink[]; sanitizers: TaintSanitizer[] }
+      >();
       let taintExtractedCount = 0;
       let successCount = 0;
 
@@ -110,7 +118,8 @@ export class ParsePhase implements ExecutablePhase {
         const taintSinks: TaintSink[] = taintProvider.extractTaintSinks?.(file.content) ?? [];
         // Sanitizers are the third of the trio and were the last to be extracted. **Without them the propagator's
         // sanitizer index is empty and every finding is reported unsanitized**, which is what happened until now.
-        const taintSanitizers: TaintSanitizer[] = taintProvider.extractSanitizers?.(file.content) ?? [];
+        const taintSanitizers: TaintSanitizer[] =
+          taintProvider.extractSanitizers?.(file.content) ?? [];
         if (taintSources.length > 0 || taintSinks.length > 0 || taintSanitizers.length > 0) {
           taintExtraction.set(file.filePath, {
             sources: taintSources,
@@ -132,8 +141,8 @@ export class ParsePhase implements ExecutablePhase {
         // Add symbol nodes to the graph
         if (ctx.graph) {
           const builder = // **No store, and the type now says so.** This phase builds nodes and never dumps, so an optional
-        // parameter describes it exactly - where a cast to a non-null store described the opposite.
-        new GraphBuilder();
+            // parameter describes it exactly - where a cast to a non-null store described the opposite.
+            new GraphBuilder();
           const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
 
           if (fileNodeId) {

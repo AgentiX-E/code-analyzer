@@ -16,7 +16,7 @@ const DEEP = [
   '    if (b) {',
   '      if (c) {',
   '        if (d) {',
-  '          if (e) {',   // five deep
+  '          if (e) {', // five deep
   '            go();',
   '          }',
   '        }',
@@ -55,7 +55,11 @@ describe('nesting and body length', () => {
   });
 
   it('reports a body past fifty lines, which the reviewer used to ignore', () => {
-    const long = ['export function big() {', ...Array.from({ length: 60 }, (_, i) => `  step${i}();`), '}'];
+    const long = [
+      'export function big() {',
+      ...Array.from({ length: 60 }, (_, i) => `  step${i}();`),
+      '}',
+    ];
     const found = checkLongFunction(long);
 
     expect(found.length).toBe(1);
@@ -73,7 +77,11 @@ describe('nesting and body length', () => {
     // **The fourth time this assertion has been necessary** - a rule outside `BUG_RULES` is a function nobody calls.
     expect(analyzeFileHeuristics('src/a.ts', DEEP).length).toBeGreaterThan(0);
     expect(
-      analyzeFileHeuristics('src/b.ts', ['export function big() {', ...Array.from({ length: 60 }, (_, i) => `  s${i}();`), '}']).length,
+      analyzeFileHeuristics('src/b.ts', [
+        'export function big() {',
+        ...Array.from({ length: 60 }, (_, i) => `  s${i}();`),
+        '}',
+      ]).length,
     ).toBeGreaterThan(0);
   });
 });

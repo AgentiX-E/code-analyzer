@@ -38,7 +38,14 @@ function walk(dir, out = [], depth = 0) {
     return out;
   }
   for (const name of entries) {
-    if (name === 'node_modules' || name === '.git' || name === 'vendor' || name === 'dist' || name === 'build') continue;
+    if (
+      name === 'node_modules' ||
+      name === '.git' ||
+      name === 'vendor' ||
+      name === 'dist' ||
+      name === 'build'
+    )
+      continue;
     const full = join(dir, name);
     let st;
     try {
@@ -58,12 +65,10 @@ function write(payload) {
 }
 
 async function main() {
-  const repos = existsSync(ROOT)
-    ? readdirSync(ROOT).filter((n) => !n.startsWith('.'))
-    : [];
+  const repos = existsSync(ROOT) ? readdirSync(ROOT).filter((n) => !n.startsWith('.')) : [];
   const base = {
     comment: [
-      'Our review engine, run over the five repositories the field\'s independent benchmark names.',
+      "Our review engine, run over the five repositories the field's independent benchmark names.",
       '',
       '**The corpus is Martian\'s Code Review Bench offline arm**: *"50 PRs from 5 major open-source projects, each with',
       'human-verified golden comments"* - Sentry, Grafana, Cal.com, Discourse, Keycloak. **Used here as repositories,',
@@ -71,7 +76,7 @@ async function main() {
       '',
       '**So this measures the denominator**: findings per thousand lines on code nobody selected for the engine -',
       '**which is comparable across tools without a judge**, and is the first figure in this project that a',
-      'competitor\'s published rate can be set beside without a caveat.',
+      "competitor's published rate can be set beside without a caveat.",
     ],
     measuredAt: new Date().toISOString().slice(0, 10),
     where: 'github-actions',
@@ -85,14 +90,23 @@ async function main() {
     return;
   }
   if (!HAS_KEY) {
-    write({ ...base, repos: repos.length, skipped: { reason: 'DEEPSEEK_API_KEY is not configured' } });
-    console.log(`COMPETITOR-CORPUS skipped: no DEEPSEEK_API_KEY, ${repos.length} repositories not reviewed`);
+    write({
+      ...base,
+      repos: repos.length,
+      skipped: { reason: 'DEEPSEEK_API_KEY is not configured' },
+    });
+    console.log(
+      `COMPETITOR-CORPUS skipped: no DEEPSEEK_API_KEY, ${repos.length} repositories not reviewed`,
+    );
     return;
   }
 
-  const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
-  const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
-  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  const { LLMReviewEngine } =
+    await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  const { DeepSeekProvider } =
+    await import('../../packages/intelligence/dist/review/llm/provider.js');
+  const { createDiff } =
+    await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
   const engine = new LLMReviewEngine(new DeepSeekProvider());
 
   const perRepo = [];
@@ -125,9 +139,12 @@ async function main() {
       files: files.length,
       lines,
       findings,
-      findingsPerThousandLines: lines > 0 ? Math.round((findings / lines) * 1000 * 100) / 100 : null,
+      findingsPerThousandLines:
+        lines > 0 ? Math.round((findings / lines) * 1000 * 100) / 100 : null,
     });
-    console.log(`COMPETITOR-CORPUS ${repo} files=${files.length} lines=${lines} findings=${findings}`);
+    console.log(
+      `COMPETITOR-CORPUS ${repo} files=${files.length} lines=${lines} findings=${findings}`,
+    );
   }
 
   const rate = totalLines > 0 ? Math.round((totalFindings / totalLines) * 1000 * 100) / 100 : null;
@@ -140,7 +157,9 @@ async function main() {
     perRepo,
     skipped: null,
   });
-  console.log(`COMPETITOR-CORPUS total files=${totalFiles} lines=${totalLines} findings=${totalFindings} perThousandLines=${rate}`);
+  console.log(
+    `COMPETITOR-CORPUS total files=${totalFiles} lines=${totalLines} findings=${totalFindings} perThousandLines=${rate}`,
+  );
 }
 
 main().catch((error) => {

@@ -209,7 +209,8 @@ export class ReviewDashboardAggregator {
       mergeRecommendationDistribution: mergeDist,
       avgReviewDuration: avgDuration,
       totalFindings,
-      signalToNoise: totalFindings === 0 ? 1 : Math.round((keptFindings / totalFindings) * 10000) / 10000,
+      signalToNoise:
+        totalFindings === 0 ? 1 : Math.round((keptFindings / totalFindings) * 10000) / 10000,
       reviewsOverTime,
     };
   }

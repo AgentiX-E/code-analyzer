@@ -56,10 +56,10 @@ jobs:
       fail-fast: false
       matrix:
         corpus:
-          - { repo: 'expressjs/express', ref: 'v5.1.0',  language: javascript, glob: '*.js' }
-          - { repo: 'pallets/flask',     ref: '3.1.0',   language: python,     glob: '*.py' }
-          - { repo: 'gin-gonic/gin',     ref: 'v1.10.0', language: go,         glob: '*.go' }
-          - { repo: 'BurntSushi/ripgrep', ref: '14.1.1', language: rust,       glob: '*.rs' }
+          - { repo: 'expressjs/express', ref: 'v5.1.0', language: javascript, glob: '*.js' }
+          - { repo: 'pallets/flask', ref: '3.1.0', language: python, glob: '*.py' }
+          - { repo: 'gin-gonic/gin', ref: 'v1.10.0', language: go, glob: '*.go' }
+          - { repo: 'BurntSushi/ripgrep', ref: '14.1.1', language: rust, glob: '*.rs' }
 
     steps:
       - name: Checkout
@@ -240,7 +240,6 @@ jobs:
           FILES: ${{ steps.corpus.outputs.files }}
           CORPUS_REPO: ${{ steps.corpus.outputs.repo }}
           CORPUS_REF: ${{ steps.corpus.outputs.ref }}
-
 
       - name: Measure token reduction on the same corpus
         # **The body lives in a file, and the first run of the inline version is why**: `node -e` with embedded single

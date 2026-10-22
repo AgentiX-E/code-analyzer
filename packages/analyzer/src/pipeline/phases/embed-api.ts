@@ -148,7 +148,8 @@ export async function loadApiEmbedder(
 
   lastApiFailure = null;
   const embedder: Embedder = {
-    embed: async (text: string) => (await embedWithKey([text], key, endpoint, model, dimensions))[0]!,
+    embed: async (text: string) =>
+      (await embedWithKey([text], key, endpoint, model, dimensions))[0]!,
     embedBatch: (texts: string[]) => embedWithKey(texts, key, endpoint, model, dimensions),
     dispose: async () => undefined,
   };

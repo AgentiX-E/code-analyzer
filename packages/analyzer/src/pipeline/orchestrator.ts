@@ -80,7 +80,8 @@ export class PipelineOrchestrator {
     // its "directory does not exist" branch, **returned success, and reported zero files** - six phases crashing had
     // become one phase quietly doing nothing, which is worse because the exit code says the run worked.
     const loose = ctx as unknown as Record<string, unknown>;
-    if (!ctx.rootPath && typeof loose['rootDir'] === 'string') ctx.rootPath = loose['rootDir'] as string;
+    if (!ctx.rootPath && typeof loose['rootDir'] === 'string')
+      ctx.rootPath = loose['rootDir'] as string;
     if (!ctx.config) ctx.config = getDefaultConfig();
 
     // Validate first

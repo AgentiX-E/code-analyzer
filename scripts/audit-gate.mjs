@@ -19,7 +19,9 @@ for (const advisory of Object.values(report.advisories ?? {})) {
 }
 
 if (blocking.length > 0) {
-  console.error(`::error::${blocking.length} high or critical advisor${blocking.length === 1 ? 'y' : 'ies'} found`);
+  console.error(
+    `::error::${blocking.length} high or critical advisor${blocking.length === 1 ? 'y' : 'ies'} found`,
+  );
   for (const line of blocking) console.error(`  ${line}`);
   process.exit(1);
 }

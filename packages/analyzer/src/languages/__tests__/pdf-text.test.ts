@@ -15,7 +15,9 @@ import { extractPdfText } from '../pdf-text.js';
 /** A minimal valid PDF whose content stream is either compressed or not. */
 function makePdf(lines: string[], compress: boolean): Buffer {
   const content = `BT /F1 12 Tf 72 720 Td (${lines[0]}) Tj 0 -14 Td (${lines[1]}) Tj ET`;
-  const stream = compress ? deflateSync(Buffer.from(content, 'latin1')) : Buffer.from(content, 'latin1');
+  const stream = compress
+    ? deflateSync(Buffer.from(content, 'latin1'))
+    : Buffer.from(content, 'latin1');
   const filter = compress ? ' /Filter /FlateDecode' : '';
   const objects = [
     '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',

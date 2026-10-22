@@ -95,7 +95,11 @@ export { buildCallSites } from './resolution/call-sites.js';
 // **The backend chain, not one backend.** `loadEmbedder` tries ONNX and then the API, and **returns which one won**,
 // because **the artifact has to be able to say which embedder produced its vectors** - the field whose absence let a
 // lexical figure be quoted as a semantic one.
-export { loadEmbedder, loadRealEmbedder, embedderUnavailableReason } from './pipeline/phases/embed.js';
+export {
+  loadEmbedder,
+  loadRealEmbedder,
+  embedderUnavailableReason,
+} from './pipeline/phases/embed.js';
 
 // **A parser by language, for callers outside this package.** The cross-repo indexer extracts symbols with its
 // own regexes because it could not reach a provider; a provider is exactly what it needs.
@@ -103,5 +107,13 @@ export { getOrLoadProvider } from './pipeline/phase-helpers.js';
 
 // **The compiler-evidence capability**, exported because **the review side consumes its output** and **a deep import
 // into another package's internals is a coupling nobody can see in a dependency graph.**
-export { parseTscOutput, chooseTypecheckCommand, collectCompileEvidence } from './evidence/compile-evidence.js';
-export type { CompilerDiagnostic, CompileEvidence, CompilerRunner } from './evidence/compile-evidence.js';
+export {
+  parseTscOutput,
+  chooseTypecheckCommand,
+  collectCompileEvidence,
+} from './evidence/compile-evidence.js';
+export type {
+  CompilerDiagnostic,
+  CompileEvidence,
+  CompilerRunner,
+} from './evidence/compile-evidence.js';

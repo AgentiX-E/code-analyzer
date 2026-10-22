@@ -1,7 +1,5 @@
 {
-  "comment": [
-    "The ratchet floor for the competitor matrix: MISSING may fall and may not rise."
-  ],
+  "comment": ["The ratchet floor for the competitor matrix: MISSING may fall and may not rise."],
   "missing": 9,
   "cells": 19,
   "updatedAt": "2026-10-13"

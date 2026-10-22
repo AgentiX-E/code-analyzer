@@ -79,7 +79,9 @@ describe('generateEmbeddings, and which backend it used', () => {
   it('distinguishes two different texts on the fallback, and repeats for the same one', async () => {
     // The fallback is not semantic, but it is deterministic and text-dependent — which is what makes it usable in
     // tests and useless for similarity. Saying both of those plainly is the point of the `backend` field.
-    const { results: [a, b] } = await generateEmbeddings(nodes, async () => null);
+    const {
+      results: [a, b],
+    } = await generateEmbeddings(nodes, async () => null);
     const { results: again } = await generateEmbeddings(nodes, async () => null);
 
     expect(a!.embedding).not.toEqual(b!.embedding);

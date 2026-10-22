@@ -15,7 +15,9 @@ import { join, resolve } from 'node:path';
 
 const DATASET = resolve(process.cwd(), 'benchmarks/real-ground-truth/issues.json');
 const RESCORE = process.argv.indexOf('--rescore');
-const FILTER = (process.argv.find((a) => a.startsWith('--filter=')) ?? '--filter=none').slice('--filter='.length);
+const FILTER = (process.argv.find((a) => a.startsWith('--filter=')) ?? '--filter=none').slice(
+  '--filter='.length,
+);
 const OUT = resolve(process.cwd(), 'benchmarks/semantic-review.json');
 const HAS_KEY = Boolean(process.env['DEEPSEEK_API_KEY']);
 
@@ -45,7 +47,8 @@ const FILTERS = {
   ranged: {
     // **A finding with no usable range cannot overlap anything**, so keeping it can only add a false positive.
     describe: 'only findings with a range of at least one line',
-    keep: (f) => Number.isFinite(f.startLine) && Number.isFinite(f.endLine) && f.endLine >= f.startLine,
+    keep: (f) =>
+      Number.isFinite(f.startLine) && Number.isFinite(f.endLine) && f.endLine >= f.startLine,
   },
   high: {
     describe: 'only findings the model marked high or critical',
@@ -60,7 +63,9 @@ function score(findings, totals) {
   let fn = 0;
   for (const [filePath, ranges] of totals) {
     const here = findings.filter((f) => f.filePath === filePath);
-    const hits = here.filter((f) => ranges.some((g) => f.startLine <= g.endLine && g.startLine <= f.endLine)).length;
+    const hits = here.filter((f) =>
+      ranges.some((g) => f.startLine <= g.endLine && g.startLine <= f.endLine),
+    ).length;
     tp += Math.min(hits, ranges.length);
     fn += Math.max(0, ranges.length - hits);
     fp += Math.max(0, here.length - hits);
@@ -73,7 +78,9 @@ function rescore(file) {
   const artifact = JSON.parse(readFileSync(file, 'utf8'));
   const findings = artifact.findings ?? [];
   if (findings.length === 0) {
-    console.error('SEMANTIC-RESCORE: the artifact carries no findings, so there is nothing to re-score');
+    console.error(
+      'SEMANTIC-RESCORE: the artifact carries no findings, so there is nothing to re-score',
+    );
     process.exit(1);
   }
   // **The ground truth is re-read rather than stored**, because **it is a property of the dataset and not of the run**,
@@ -90,7 +97,12 @@ function rescore(file) {
   const rows = [];
   for (const [name, filter] of Object.entries(FILTERS)) {
     const kept = findings.filter(filter.keep);
-    rows.push({ filter: name, describe: filter.describe, kept: kept.length, ...score(kept, totals) });
+    rows.push({
+      filter: name,
+      describe: filter.describe,
+      kept: kept.length,
+      ...score(kept, totals),
+    });
   }
   // **Sorted by F1, so the table reads as a ranking** and **the best filter is the first line**.
   rows.sort((a, b) => b.f1 - a.f1);
@@ -120,7 +132,9 @@ function rescore(file) {
       2,
     ) + '\n',
   );
-  console.log(`SEMANTIC-RESCORE best=${rows[0].filter} f1=${rows[0].f1} over ${findings.length} stored findings`);
+  console.log(
+    `SEMANTIC-RESCORE best=${rows[0].filter} f1=${rows[0].f1} over ${findings.length} stored findings`,
+  );
 }
 
 async function main() {
@@ -149,7 +163,11 @@ async function main() {
   const data = JSON.parse(readFileSync(DATASET, 'utf8'));
   if (!HAS_KEY) {
     // **The skip is the result**, and it names what is missing rather than reporting a zero.
-    write(base, { ...base, issueCount: data.count, skipped: { reason: 'DEEPSEEK_API_KEY is not configured' } });
+    write(base, {
+      ...base,
+      issueCount: data.count,
+      skipped: { reason: 'DEEPSEEK_API_KEY is not configured' },
+    });
     console.log(`SEMANTIC-REVIEW skipped: no DEEPSEEK_API_KEY, ${data.count} issues not reviewed`);
     return;
   }
@@ -157,12 +175,16 @@ async function main() {
   // **The engine and the diff builder are reached through the built packages**, so this measures what ships rather
   // than what a test imports - and **`createDiff` is the same function the heuristic harness uses**, which is what
   // makes the two figures comparable: *"how a window becomes a diff" has one implementation.*
-  const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
-  const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
-  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  const { LLMReviewEngine } =
+    await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  const { DeepSeekProvider } =
+    await import('../../packages/intelligence/dist/review/llm/provider.js');
+  const { createDiff } =
+    await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
   // **The gate the heuristic path already uses**, and the second lever the re-score's table named: **887 false
   // positives is five per window, and a finding whose quotation is not in the file it names cannot be checked.**
-  const { judgeGrounding } = await import('../../packages/intelligence/dist/review/grounding-judge.js');
+  const { judgeGrounding } =
+    await import('../../packages/intelligence/dist/review/grounding-judge.js');
 
   // **The provider reads the key from the environment itself**, which is why it takes no argument here - and why
   // **no part of the key passes through this file.**
@@ -195,7 +217,9 @@ async function main() {
         continue;
       }
       const ranges = issue.groundTruth.filter((g) => g.filePath === file.filePath);
-      const raw = ok.flatMap((l) => l.findings.map((f) => ({ filePath: l.filePath || file.filePath, ...f })));
+      const raw = ok.flatMap((l) =>
+        l.findings.map((f) => ({ filePath: l.filePath || file.filePath, ...f })),
+      );
 
       // **The gate, applied to the semantic path for the first time.** The window IS the file, so the quotation a
       // finding should carry is the text of the lines it points at - **and a finding whose range is wrong, or which
@@ -206,7 +230,9 @@ async function main() {
         id: `sem-${i}`,
         path: f.filePath,
         content: String(f.title ?? ''),
-        existingCode: fileLines.slice(Math.max(0, (f.startLine ?? 1) - 1), f.endLine ?? f.startLine ?? 1).join('\n'),
+        existingCode: fileLines
+          .slice(Math.max(0, (f.startLine ?? 1) - 1), f.endLine ?? f.startLine ?? 1)
+          .join('\n'),
         startLine: f.startLine ?? 1,
         endLine: f.endLine ?? f.startLine ?? 1,
         category: String(f.category ?? 'other'),
@@ -231,9 +257,13 @@ async function main() {
         return true;
       });
       const plausibleIds = new Set(plausible.map((_, i) => `sem-${i}`));
-      const gate = judgeGrounding(asComments, { contents: new Map([[file.filePath, file.beforeContent]]) });
+      const gate = judgeGrounding(asComments, {
+        contents: new Map([[file.filePath, file.beforeContent]]),
+      });
       const keptIds = new Set(gate.grounded.map((c) => c.id));
-      const findings = raw.filter((_, i) => keptIds.has(`sem-${i}`) && plausibleIds.has(`sem-${i}`));
+      const findings = raw.filter(
+        (_, i) => keptIds.has(`sem-${i}`) && plausibleIds.has(`sem-${i}`),
+      );
       gatedOut += raw.length - findings.length;
       gateChecked += raw.length;
       if (!truthsByFile.has(file.filePath)) truthsByFile.set(file.filePath, ranges);
@@ -250,7 +280,9 @@ async function main() {
       // **The same matching rule the heuristic benchmark uses**: a finding counts when its line range overlaps a
       // ground-truth range in the same file. **A different rule here would make the two figures incomparable**, which
       // is the one thing a comparison cannot afford.
-      const hits = findings.filter((f) => ranges.some((g) => f.startLine <= g.endLine && g.startLine <= f.endLine)).length;
+      const hits = findings.filter((f) =>
+        ranges.some((g) => f.startLine <= g.endLine && g.startLine <= f.endLine),
+      ).length;
       tp += Math.min(hits, ranges.length);
       fn += Math.max(0, ranges.length - hits);
       fp += Math.max(0, findings.length - hits);

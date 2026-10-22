@@ -52,7 +52,9 @@ function main() {
   const args = process.argv.slice(2);
   let files = args.filter((a) => !a.startsWith('--'));
   if (args.includes('--changed') || files.length === 0) {
-    const changed = execFileSync('git', ['diff', '--name-only', 'HEAD~1', 'HEAD'], { encoding: 'utf8' })
+    const changed = execFileSync('git', ['diff', '--name-only', 'HEAD~1', 'HEAD'], {
+      encoding: 'utf8',
+    })
       .split('\n')
       .filter(Boolean);
     const working = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' })

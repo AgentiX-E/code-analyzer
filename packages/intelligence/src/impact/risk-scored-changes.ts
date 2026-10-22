@@ -97,7 +97,8 @@ export function scoreChangedSymbols(
         if (caller.filePath === change.filePath) inFile.add(callerId);
         else outside.add(callerId);
         // **Another repository is a stronger statement than another file**: no test here reaches it.
-        for (const repoId of ids) if (idToRepo.get(callerId) !== idToRepo.get(repoId)) otherRepos.add(callerId);
+        for (const repoId of ids)
+          if (idToRepo.get(callerId) !== idToRepo.get(repoId)) otherRepos.add(callerId);
       }
     }
 
@@ -108,13 +109,18 @@ export function scoreChangedSymbols(
     let risk = 0;
     if (outside.size > 0) {
       risk += 0.5;
-      reasons.push(`${outside.size} consumer(s) outside ${change.filePath}, which the author did not open`);
+      reasons.push(
+        `${outside.size} consumer(s) outside ${change.filePath}, which the author did not open`,
+      );
     }
     if (otherRepos.size > 0) {
       risk += 0.3;
-      reasons.push(`${otherRepos.size} consumer(s) in another repository, which no test here can reach`);
+      reasons.push(
+        `${otherRepos.size} consumer(s) in another repository, which no test here can reach`,
+      );
     }
-    if (ids.length === 0) reasons.push('the symbol was not found in the graph, so its reach is unknown');
+    if (ids.length === 0)
+      reasons.push('the symbol was not found in the graph, so its reach is unknown');
     if (risk > 0 && inFile.size > 0) {
       risk += 0.1;
       reasons.push(`${inFile.size} consumer(s) in the same file`);

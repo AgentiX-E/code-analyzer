@@ -324,7 +324,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected parsedFor: string | null = null;
 
   isExported(source: string, symbolName: string): boolean {
-
     this.source = source;
 
     if (!this.parser || !this.languageGrammar) {
@@ -344,7 +343,9 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // case costs nothing: the `parse` phase passes **the same string object** it just parsed.
     const cached =
       this.parsedFor === source ||
-      (this.parsedFor !== null && this.parsedFor.length === source.length && this.parsedFor === source);
+      (this.parsedFor !== null &&
+        this.parsedFor.length === source.length &&
+        this.parsedFor === source);
     const tree = cached && this.parsedTree ? this.parsedTree : this.parser.parse(source);
     if (!cached) {
       this.parsedFor = source;
@@ -621,7 +622,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return names;
     }
     // **The same cached tree the predicate uses**, so a file parsed once is not parsed again here.
-    const tree = this.parsedFor === source && this.parsedTree ? this.parsedTree : this.parser.parse(source);
+    const tree =
+      this.parsedFor === source && this.parsedTree ? this.parsedTree : this.parser.parse(source);
     if (!(this.parsedFor === source && this.parsedTree)) {
       this.parsedFor = source;
       this.parsedTree = tree;
@@ -630,7 +632,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const collect = (node: TreeSitterSyntaxNode): void => {
       // **Every identifier under an export statement**, because the exported name can be the declaration itself
       // (`export function foo`), a clause (`export { foo as bar }`) or a default (`export default foo`).
-      if (/identifier|property_identifier|type_identifier|shorthand_property_identifier/.test(node.type)) {
+      if (
+        /identifier|property_identifier|type_identifier|shorthand_property_identifier/.test(
+          node.type,
+        )
+      ) {
         const text = String(node.text ?? '');
         if (text.length > 0) names.add(text);
       }
@@ -1047,7 +1053,12 @@ function stripCommentSyntax(text: string): string {
     .replace(/^\s*\/\*\*?/, '')
     .replace(/\*\/\s*$/, '')
     .split('\n')
-    .map((line) => line.replace(/^\s*\*\s?/, '').replace(/^\s*(\/\/|#|--|<!--|-->)\s?/, '').trimEnd())
+    .map((line) =>
+      line
+        .replace(/^\s*\*\s?/, '')
+        .replace(/^\s*(\/\/|#|--|<!--|-->)\s?/, '')
+        .trimEnd(),
+    )
     .join('\n')
     .trim();
 }

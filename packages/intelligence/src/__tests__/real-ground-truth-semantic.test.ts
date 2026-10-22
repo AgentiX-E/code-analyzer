@@ -68,7 +68,10 @@ describe('the semantic path against real ground truth', () => {
       return;
     }
 
-    const data = JSON.parse(readFileSync(DATASET, 'utf8')) as { count: number; issues: RealIssue[] };
+    const data = JSON.parse(readFileSync(DATASET, 'utf8')) as {
+      count: number;
+      issues: RealIssue[];
+    };
     const engine = new LLMReviewEngine(new DeepSeekProvider());
 
     const findings: Range[] = [];

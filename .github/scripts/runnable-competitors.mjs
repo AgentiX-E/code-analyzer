@@ -80,7 +80,14 @@ function tryRun(bin, args, timeoutMs = 120_000, label = null) {
   };
   try {
     const stdout = execFileSync(bin, args, { encoding: 'utf8', timeout: timeoutMs, stdio: 'pipe' });
-    return { ok: true, status: 0, signal: null, stdout: keep(stdout), stderr: keep(''), ...spill(label, stdout, '') };
+    return {
+      ok: true,
+      status: 0,
+      signal: null,
+      stdout: keep(stdout),
+      stderr: keep(''),
+      ...spill(label, stdout, ''),
+    };
   } catch (error) {
     const e = error;
     return {
@@ -111,7 +118,11 @@ const TOOLS = [
     bin: 'ocr',
     version: [['--version']],
     help: [['--help'], ['config', '--help'], ['review', '--help'], ['scan', '--help']],
-    attempt: { label: 'scan', args: ['scan', '--path', CORPUS, '--format', 'json'], timeoutMs: 600_000 },
+    attempt: {
+      label: 'scan',
+      args: ['scan', '--path', CORPUS, '--format', 'json'],
+      timeoutMs: 600_000,
+    },
   },
   {
     name: 'PR-Agent (Qodo)',
@@ -166,14 +177,14 @@ function write(payload) {
 
 const artifact = {
   comment: [
-    "Every competitor this repository can execute, probed rather than assumed.",
-    "",
-    "**The criterion is not openness**: it is *is the reviewer a program we can possess* and *does it accept our",
-    "model*. **Four pass both** - this repository, open-code-review, PR-Agent and Kodus - and **the rest are either",
-    "service-only or commercially unreachable**, which the matrix keeps in separate columns.",
-    "",
-    "**And each probe stores `{ ok, stdout, stderr }`**, so **a tool that refused to run is evidence rather than an",
-    "absence.**",
+    'Every competitor this repository can execute, probed rather than assumed.',
+    '',
+    '**The criterion is not openness**: it is *is the reviewer a program we can possess* and *does it accept our',
+    'model*. **Four pass both** - this repository, open-code-review, PR-Agent and Kodus - and **the rest are either',
+    'service-only or commercially unreachable**, which the matrix keeps in separate columns.',
+    '',
+    '**And each probe stores `{ ok, stdout, stderr }`**, so **a tool that refused to run is evidence rather than an',
+    'absence.**',
   ],
   measuredAt: new Date().toISOString().slice(0, 10),
   where: 'github-actions',
@@ -182,13 +193,22 @@ const artifact = {
 };
 
 for (const tool of TOOLS) {
-  const record = { bin: tool.bin, parsed: Boolean(tool.parse !== undefined || true), version: null, help: {}, attempt: null };
+  const record = {
+    bin: tool.bin,
+    parsed: Boolean(tool.parse !== undefined || true),
+    version: null,
+    help: {},
+    attempt: null,
+  };
   // **One: is the binary there at all?**
   record.version = tryRun(tool.bin, tool.version[0], 60_000);
   // **Two: what does it say it does?** The help text is what decides whether an unattended path exists.
   for (const probe of tool.help) record.help[probe.join(' ')] = tryRun(tool.bin, probe, 60_000);
   // **Three: attempt the closest thing to a run that needs no host and no credential.**
-  record.attempt = { label: tool.attempt.label, result: tryRun(tool.bin, tool.attempt.args, tool.attempt.timeoutMs) };
+  record.attempt = {
+    label: tool.attempt.label,
+    result: tryRun(tool.bin, tool.attempt.args, tool.attempt.timeoutMs),
+  };
   record.runnableHere = Boolean(record.version?.ok || Object.values(record.help).some((h) => h.ok));
   artifact.tools[tool.name] = record;
 }
@@ -226,17 +246,38 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
   // guessed flags are kept in the record as the negative finding they are**, and **the environment is what runs.**
   inProcess['open-code-review'] = {
     configure: [
-      { args: 'config provider --provider … --api-key <redacted> --base-url …', ok: false, stderr: 'Error: unknown flag: --provider' },
-      { args: 'config provider --name … --api-key <redacted> --base-url …', ok: false, stderr: 'Error: unknown flag: --name' },
-      { args: 'config set provider --api-key <redacted> …', ok: false, stderr: 'Error: unknown flag: --api-key' },
-      { args: 'OCR_LLM_URL / OCR_LLM_TOKEN / OCR_LLM_MODEL (from the tool\'s own error message)', ok: true, stderr: null },
+      {
+        args: 'config provider --provider … --api-key <redacted> --base-url …',
+        ok: false,
+        stderr: 'Error: unknown flag: --provider',
+      },
+      {
+        args: 'config provider --name … --api-key <redacted> --base-url …',
+        ok: false,
+        stderr: 'Error: unknown flag: --name',
+      },
+      {
+        args: 'config set provider --api-key <redacted> …',
+        ok: false,
+        stderr: 'Error: unknown flag: --api-key',
+      },
+      {
+        args: "OCR_LLM_URL / OCR_LLM_TOKEN / OCR_LLM_MODEL (from the tool's own error message)",
+        ok: true,
+        stderr: null,
+      },
     ],
     mechanism: 'environment variables, named by the tool when it could not find an endpoint',
     scan: null,
   };
   // **The scan, and the count is what makes it a measurement.** **A parse failure is recorded with the raw output**,
   // because **a run that produced unparseable output is a different fact from a run that produced nothing.**
-  const scan = tryRun('ocr', ['scan', '--path', CORPUS, '--format', 'json'], 1_500_000, 'open-code-review-scan');
+  const scan = tryRun(
+    'ocr',
+    ['scan', '--path', CORPUS, '--format', 'json'],
+    1_500_000,
+    'open-code-review-scan',
+  );
   let findings = null;
   let parseNote = null;
   // **The stdout is reassembled from head and tail before parsing**, because **a JSON document cut in the middle is
@@ -245,7 +286,10 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
     try {
       // **The file when there is one, the summary otherwise** - because **the summary is a head and a tail, and the
       // answer was 207,811 characters long.**
-      const full = scan.stdoutFile && existsSync(scan.stdoutFile) ? readFileSync(scan.stdoutFile, 'utf8') : (scan.stdout.tail ?? '');
+      const full =
+        scan.stdoutFile && existsSync(scan.stdoutFile)
+          ? readFileSync(scan.stdoutFile, 'utf8')
+          : (scan.stdout.tail ?? '');
       // **And the JSON is looked for inside the output rather than assumed to be all of it.** **The run that
       // succeeded emitted a structured report whose tail carried a `session_id`**, so **`JSON.parse` on the whole
       // document was never going to work** - and **the fix is to find the object rather than to demand the file be
@@ -306,7 +350,9 @@ if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
     stdout: scan.stdout,
   };
 } else {
-  inProcess.note = KEY ? `the corpus directory is absent: ${CORPUS}` : 'DEEPSEEK_API_KEY is not set, so no tool could be configured against our endpoint';
+  inProcess.note = KEY
+    ? `the corpus directory is absent: ${CORPUS}`
+    : 'DEEPSEEK_API_KEY is not set, so no tool could be configured against our endpoint';
 }
 artifact.configuredRuns = inProcess;
 
@@ -323,7 +369,8 @@ artifact.configuredRuns = inProcess;
 const ourEngine = { corpus: CORPUS, files: 0, lines: 0, findings: 0, perFile: [] };
 if (KEY) {
   const { readdirSync } = await import('node:fs');
-  const SOURCE = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|rb|kt|swift|c|cc|cpp|h|hpp|cs|php|lua|scala|zig|ex|exs|dart|sh)$/;
+  const SOURCE =
+    /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|rb|kt|swift|c|cc|cpp|h|hpp|cs|php|lua|scala|zig|ex|exs|dart|sh)$/;
   const walk = (dir, out = []) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
@@ -334,9 +381,12 @@ if (KEY) {
   };
   const root = resolve(process.cwd(), CORPUS);
   const files = walk(root);
-  const { LLMReviewEngine } = await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
-  const { DeepSeekProvider } = await import('../../packages/intelligence/dist/review/llm/provider.js');
-  const { createDiff } = await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
+  const { LLMReviewEngine } =
+    await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  const { DeepSeekProvider } =
+    await import('../../packages/intelligence/dist/review/llm/provider.js');
+  const { createDiff } =
+    await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
   const engine = new LLMReviewEngine(new DeepSeekProvider());
   for (const file of files) {
     const content = readFileSync(file, 'utf8');
@@ -383,7 +433,8 @@ artifact.sameCorpus = {
   ourEngine: {
     findings: ourFindings,
     findingsPerFileOverOurWalk: rate(ourFiles, ourFindings),
-    findingsPerThousandLines: ourEngine.lines > 0 ? Math.round((ourFindings / ourEngine.lines) * 1000 * 100) / 100 : null,
+    findingsPerThousandLines:
+      ourEngine.lines > 0 ? Math.round((ourFindings / ourEngine.lines) * 1000 * 100) / 100 : null,
   },
   openCodeReview: {
     findings: ocrFindings,
@@ -398,15 +449,15 @@ artifact.sameCorpus = {
     rate(ourFiles, ocrFindings) !== null && rate(ourFiles, ourFindings) !== null
       ? `over this repository's walk of ${ourFiles} files: ours ${rate(ourFiles, ourFindings)} per file, the tool's ${rate(ourFiles, ocrFindings)}`
       : 'one side is absent, so there is no pair to state',
-
 };
 
 const invocable = Object.entries(artifact.tools)
   .filter(([, t]) => t.runnableHere)
   .map(([name]) => name);
 artifact.invocable = invocable;
-artifact.verdict = invocable.length > 0
-  ? `invocable in CI: ${invocable.join(', ')}`
-  : 'no probed competitor could be invoked; the per-tool records say what each one printed';
+artifact.verdict =
+  invocable.length > 0
+    ? `invocable in CI: ${invocable.join(', ')}`
+    : 'no probed competitor could be invoked; the per-tool records say what each one printed';
 write(artifact);
 console.log(`RUNNABLE-COMPETITORS ${artifact.verdict}`);

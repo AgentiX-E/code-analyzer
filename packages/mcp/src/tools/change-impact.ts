@@ -605,10 +605,16 @@ export const testsForSchema = {
  * author never opened"* is about consumers, **and about which of those consumers is a test** - because a symbol with
  * a covering test is one a refactor can trust, and **a symbol with none is the one to be careful about.**
  */
-export async function testsFor(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function testsFor(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const graphStore = getStore(store);
   if (!graphStore) {
-    return { content: [{ type: 'text', text: JSON.stringify({ error: 'No graph store available' }) }], isError: true };
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ error: 'No graph store available' }) }],
+      isError: true,
+    };
   }
   const { symbol } = args as unknown as TestsForParams;
 

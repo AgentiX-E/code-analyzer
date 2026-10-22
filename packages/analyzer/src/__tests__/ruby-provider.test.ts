@@ -116,7 +116,9 @@ describe('RubyProvider', () => {
       const captures = provider.parse("puts 'hi'", 'test.rb');
       const definitions = captures.filter((c) => c.tag.endsWith('_def'));
       expect(definitions).toHaveLength(0);
-      const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL || c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+      const calls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.METHOD_CALL || c.tag === CAPTURE_TAGS.FUNCTION_CALL,
+      );
       expect(calls.length).toBeGreaterThanOrEqual(1);
     });
 

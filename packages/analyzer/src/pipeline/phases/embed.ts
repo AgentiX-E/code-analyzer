@@ -45,7 +45,11 @@ export interface Embedder {
 export async function generateEmbeddings(
   nodes: Map<number, GraphNode>,
   loadEmbedder: () => Promise<Embedder | null> = loadRealEmbedder,
-): Promise<{ results: EmbeddingResult[]; backend: 'onnx' | 'deterministic'; reason: string | null }> {
+): Promise<{
+  results: EmbeddingResult[];
+  backend: 'onnx' | 'deterministic';
+  reason: string | null;
+}> {
   const results: EmbeddingResult[] = [];
 
   // Collect embeddable nodes
@@ -171,7 +175,10 @@ export function embedderUnavailableReason(): string | null {
  * **The reason from the losing backend is kept when neither wins**, because **"no embedder" is a conclusion and the
  * reason is the evidence for it.**
  */
-export async function loadEmbedder(): Promise<{ embedder: Embedder; backend: 'onnx' | 'api' } | null> {
+export async function loadEmbedder(): Promise<{
+  embedder: Embedder;
+  backend: 'onnx' | 'api';
+} | null> {
   const onnx = await loadRealEmbedder();
   if (onnx) return { embedder: onnx, backend: 'onnx' };
 
@@ -182,7 +189,8 @@ export async function loadEmbedder(): Promise<{ embedder: Embedder; backend: 'on
   // **Both reasons are recorded**, because a single message would name one backend's failure and hide the other's.
   const onnxReason = lastEmbedderFailure ?? 'the ONNX embedder returned null without a reason';
   const { apiEmbedderUnavailableReason } = await import('./embed-api.js');
-  const apiReason = apiEmbedderUnavailableReason() ?? 'the API embedder returned null without a reason';
+  const apiReason =
+    apiEmbedderUnavailableReason() ?? 'the API embedder returned null without a reason';
   lastEmbedderFailure = `onnx: ${onnxReason} · api: ${apiReason}`;
   return null;
 }
@@ -193,7 +201,9 @@ export async function loadRealEmbedder(): Promise<Embedder | null> {
 
     // Try createFromPackage first (bundled model), fall back to create({ modelPath })
     try {
-      const nodeEmbedder = NodeEmbedder as unknown as { createFromPackage: () => Promise<Embedder> };
+      const nodeEmbedder = NodeEmbedder as unknown as {
+        createFromPackage: () => Promise<Embedder>;
+      };
       const embedder = await nodeEmbedder.createFromPackage();
       lastEmbedderFailure = null;
       return embedder;
@@ -249,9 +259,11 @@ export class EmbedPhase implements ExecutablePhase {
         return { phaseId: this.id, status: 'success', output: { embeddingsGenerated: 0 } };
       }
 
-      const { results: embeddings, backend, reason: backendReason } = await generateEmbeddings(
-        ctx.graph.nodes,
-      );
+      const {
+        results: embeddings,
+        backend,
+        reason: backendReason,
+      } = await generateEmbeddings(ctx.graph.nodes);
 
       // Store embeddings in node properties
       for (const { nodeId, embedding } of embeddings) {
@@ -268,7 +280,6 @@ export class EmbedPhase implements ExecutablePhase {
       // silently is indistinguishable from success, and "which embeddings does this index hold" is a
       // question a measurement of the pipeline has to be able to answer.
       ctx.phaseData.set('embedBackend', { backend, reason: backendReason });
-
 
       ctx.phaseData.set('embed', { embeddingsGenerated: embeddings.length });
       return {

@@ -39,7 +39,8 @@ const TYPESCRIPT_THAT_PARSES = 'export function myFunction(a: number): number {\
 async function runOver(files: Record<string, string>) {
   const dir = mkdtempSync(join(tmpdir(), 'fallback-report-'));
   mkdirSync(join(dir, 'src'), { recursive: true });
-  for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, 'src', name), content, 'utf8');
+  for (const [name, content] of Object.entries(files))
+    writeFileSync(join(dir, 'src', name), content, 'utf8');
 
   const ctx = {
     projectId: 'fallback-report',
@@ -49,10 +50,11 @@ async function runOver(files: Record<string, string>) {
     metadata: {},
   } as unknown as PipelineContext;
 
-  const result = await new PipelineOrchestrator(createAllPhases().filter((p) => p.id !== 'embed')).execute(ctx);
+  const result = await new PipelineOrchestrator(
+    createAllPhases().filter((p) => p.id !== 'embed'),
+  ).execute(ctx);
   const reported = (ctx.phaseData as Map<string, unknown>).get('parse') as
-    | { regexFallbackFiles?: number; regexFallbackPaths?: string[] }
-    | undefined;
+    { regexFallbackFiles?: number; regexFallbackPaths?: string[] } | undefined;
   rmSync(dir, { recursive: true, force: true });
   return { result, reported };
 }

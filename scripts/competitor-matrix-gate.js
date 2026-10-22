@@ -69,11 +69,16 @@ function main() {
   }
 
   const competitors = Array.isArray(matrix.competitors) ? matrix.competitors : [];
-  const measuredSpec = matrix.ourMetrics && typeof matrix.ourMetrics === 'object' ? matrix.ourMetrics : {};
-  const pendingSpec = matrix.pendingOurMetrics && typeof matrix.pendingOurMetrics === 'object' ? matrix.pendingOurMetrics : {};
+  const measuredSpec =
+    matrix.ourMetrics && typeof matrix.ourMetrics === 'object' ? matrix.ourMetrics : {};
+  const pendingSpec =
+    matrix.pendingOurMetrics && typeof matrix.pendingOurMetrics === 'object'
+      ? matrix.pendingOurMetrics
+      : {};
 
   // **Rule 5.** A gate that passes on empty input reports success exactly when it stopped looking.
-  if (competitors.length === 0) fail('the matrix declares no competitors — an empty list is not a clean list');
+  if (competitors.length === 0)
+    fail('the matrix declares no competitors — an empty list is not a clean list');
   if (Object.keys(measuredSpec).length === 0 && Object.keys(pendingSpec).length === 0) {
     fail('the matrix declares no metrics — nothing was checked');
   }
@@ -123,7 +128,13 @@ function main() {
       });
       continue;
     }
-    measured.push({ name, category: spec.category, axis: spec.axis, artifact: artifactPath, value });
+    measured.push({
+      name,
+      category: spec.category,
+      axis: spec.axis,
+      artifact: artifactPath,
+      value,
+    });
   }
 
   // **Rule 3, and the first version of this loop got it wrong in a way a test caught.** It defaulted a missing `why`
@@ -152,7 +163,10 @@ function main() {
   // of the comparison has every dimension under our control.** **A cell is controllable only when the tool's outputs
   // are produced by a run of ours *and* the embedder is ours** - so **a shipped review scored by our judge counts as
   // measured and not as controllable**, which is exactly the distinction the three requirements turn on.
-  const cross = matrix.crossProduct && Array.isArray(matrix.crossProduct.cells) ? matrix.crossProduct.cells : [];
+  const cross =
+    matrix.crossProduct && Array.isArray(matrix.crossProduct.cells)
+      ? matrix.crossProduct.cells
+      : [];
   const controllable = cross.filter((c) => c.controllable === true);
   const byCorpus = {};
   for (const cell of cross) {
@@ -164,7 +178,9 @@ function main() {
   const missingCount = missing.length + invalid.length;
 
   console.log('COMPETITOR-MATRIX');
-  console.log(`  competitors: ${competitors.length} (A ${competitors.filter((c) => c.category === 'A').length} · B ${competitors.filter((c) => c.category === 'B').length} · C ${competitors.filter((c) => c.category === 'C').length})`);
+  console.log(
+    `  competitors: ${competitors.length} (A ${competitors.filter((c) => c.category === 'A').length} · B ${competitors.filter((c) => c.category === 'B').length} · C ${competitors.filter((c) => c.category === 'C').length})`,
+  );
   console.log(`  cells: ${total} · measured ${measured.length} · missing ${missingCount}`);
 
   if (cross.length > 0) {
@@ -181,7 +197,8 @@ function main() {
   }
   if (measured.length > 0) {
     console.log('  measured:');
-    for (const m of measured) console.log(`    ${m.name.padEnd(42)} [${m.category}] ${String(m.value).slice(0, 40)}`);
+    for (const m of measured)
+      console.log(`    ${m.name.padEnd(42)} [${m.category}] ${String(m.value).slice(0, 40)}`);
   }
   if (invalid.length > 0) {
     console.log('  invalid — the artifact names a disabled component:');
@@ -193,7 +210,9 @@ function main() {
   }
 
   // **Rule 4.** The ratchet.
-  const baseline = fs.existsSync(args.baseline) ? JSON.parse(fs.readFileSync(args.baseline, 'utf8')) : null;
+  const baseline = fs.existsSync(args.baseline)
+    ? JSON.parse(fs.readFileSync(args.baseline, 'utf8'))
+    : null;
   const report = {
     comment: [
       'The competitor matrix as the gate sees it: every cell, its state, and the MISSING count.',
@@ -228,14 +247,32 @@ function main() {
   }
 
   if (args.update) {
-    fs.writeFileSync(args.baseline, JSON.stringify({ comment: ['The ratchet floor for the competitor matrix: MISSING may fall and may not rise.'], missing: missingCount, cells: total, updatedAt: new Date().toISOString().slice(0, 10) }, null, 2) + '\n');
+    fs.writeFileSync(
+      args.baseline,
+      JSON.stringify(
+        {
+          comment: [
+            'The ratchet floor for the competitor matrix: MISSING may fall and may not rise.',
+          ],
+          missing: missingCount,
+          cells: total,
+          updatedAt: new Date().toISOString().slice(0, 10),
+        },
+        null,
+        2,
+      ) + '\n',
+    );
     console.log(`  ✅ baseline updated: missing ${missingCount} (cells ${total})`);
     return;
   }
 
   if (unreasoned.length > 0) {
-    console.error(`  ❌ ${unreasoned.length} pending cell(s) carry no reason: ${unreasoned.join(', ')}`);
-    console.error('  A pending cell must say why — the absence of a number is a fact, and the reason makes it a task.');
+    console.error(
+      `  ❌ ${unreasoned.length} pending cell(s) carry no reason: ${unreasoned.join(', ')}`,
+    );
+    console.error(
+      '  A pending cell must say why — the absence of a number is a fact, and the reason makes it a task.',
+    );
     process.exit(1);
   }
 
@@ -245,7 +282,9 @@ function main() {
   console.log(`  ratchet: missing ${missingCount} (baseline ${baseline.missing})`);
   if (missingCount > baseline.missing) {
     console.error(`  ❌ the MISSING count rose: ${baseline.missing} → ${missingCount}`);
-    console.error('  A cell that was measured and is not any more is a regression, and so is a new pending cell.');
+    console.error(
+      '  A cell that was measured and is not any more is a regression, and so is a new pending cell.',
+    );
     process.exit(1);
   }
   console.log('  ✅ every measured cell resolved, and the MISSING count did not rise.');

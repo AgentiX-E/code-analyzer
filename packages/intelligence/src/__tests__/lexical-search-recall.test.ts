@@ -65,7 +65,11 @@ describe('retrieval, measured on a symbol\u2019s own name', () => {
     mkdirSync(join(corpusDir, 'src'), { recursive: true });
     const source = readFileSync(resolve(ROOT, SOURCE), 'utf8');
     for (let i = 0; i < COPIES; i += 1) {
-      writeFileSync(join(corpusDir, 'src', `c${i}.ts`), source.replace(/PipelineContext/g, `PipelineContext${i}`), 'utf8');
+      writeFileSync(
+        join(corpusDir, 'src', `c${i}.ts`),
+        source.replace(/PipelineContext/g, `PipelineContext${i}`),
+        'utf8',
+      );
     }
     const ctx = {
       projectId: 'search-recall',
@@ -102,7 +106,8 @@ describe('retrieval, measured on a symbol\u2019s own name', () => {
     engine.initialize();
 
     const symbols = [...result.graph.nodes.values()].filter(
-      (n) => typeof n.name === 'string' && n.name.length >= 4 && /^[A-Za-z][A-Za-z0-9_]*$/.test(n.name),
+      (n) =>
+        typeof n.name === 'string' && n.name.length >= 4 && /^[A-Za-z][A-Za-z0-9_]*$/.test(n.name),
     );
     expect(symbols.length).toBeGreaterThan(QUERIES);
 
@@ -134,12 +139,19 @@ describe('retrieval, measured on a symbol\u2019s own name', () => {
       measuredAt: new Date().toISOString().slice(0, 10),
       mode: 'lexical',
       backend: { embeddingsRegistered: false, note: 'BM25 alone, so the figure is deterministic' },
-      corpus: { path: `${COPIES} copies of ${SOURCE}`, files: (result.graph as { fileIndex?: { size: number } }).fileIndex?.size ?? 0, nodes: result.graph.nodes.size },
+      corpus: {
+        path: `${COPIES} copies of ${SOURCE}`,
+        files: (result.graph as { fileIndex?: { size: number } }).fileIndex?.size ?? 0,
+        nodes: result.graph.nodes.size,
+      },
       topK: TOP_K,
       queries: results.length,
       found,
       recall,
-      misses: results.filter((r) => !r.found).map((r) => r.query).slice(0, 10),
+      misses: results
+        .filter((r) => !r.found)
+        .map((r) => r.query)
+        .slice(0, 10),
       target: { recall: 0.9, competitorRecall: 0.75, competitor: 'Cody, quoted by the whitepaper' },
     };
     mkdirSync(resolve(ROOT, 'benchmarks'), { recursive: true });

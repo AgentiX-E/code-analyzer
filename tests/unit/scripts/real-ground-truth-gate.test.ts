@@ -102,7 +102,9 @@ describe('the real ground-truth dataset', () => {
     for (const issue of data.issues) {
       for (const entry of issue.groundTruth) {
         const span = entry.endLine - entry.startLine + 1;
-        expect(span, `${issue.id} lines ${entry.startLine}-${entry.endLine}`).toBeLessThanOrEqual(bound);
+        expect(span, `${issue.id} lines ${entry.startLine}-${entry.endLine}`).toBeLessThanOrEqual(
+          bound,
+        );
         expect(entry.startLine, issue.id).toBeGreaterThanOrEqual(1);
         expect(entry.endLine, issue.id).toBeGreaterThanOrEqual(entry.startLine);
       }
@@ -116,9 +118,10 @@ describe('the real ground-truth dataset', () => {
       const pairs = new Set(issue.files.map((f) => `${f.filePath}#${f.region}`));
       expect(issue.files.length, issue.id).toBeGreaterThan(0);
       for (const entry of issue.groundTruth) {
-        expect(pairs.has(`${entry.filePath}#${entry.region}`), `${issue.id} ${entry.filePath}#${entry.region}`).toBe(
-          true,
-        );
+        expect(
+          pairs.has(`${entry.filePath}#${entry.region}`),
+          `${issue.id} ${entry.filePath}#${entry.region}`,
+        ).toBe(true);
       }
       for (const file of issue.files) {
         expect(file.beforeContent.length, issue.id).toBeGreaterThan(0);
@@ -130,7 +133,9 @@ describe('the real ground-truth dataset', () => {
   it('has ranges that point into the before-content they came from', () => {
     if (data === null) return;
     for (const issue of data.issues) {
-      const before = new Map(issue.files.map((f) => [`${f.filePath}#${f.region}`, f.beforeContent]));
+      const before = new Map(
+        issue.files.map((f) => [`${f.filePath}#${f.region}`, f.beforeContent]),
+      );
       for (const entry of issue.groundTruth) {
         const lines = (before.get(`${entry.filePath}#${entry.region}`) ?? '').split('\n').length;
         // A range past the end of the file it names would be a range from a different revision.

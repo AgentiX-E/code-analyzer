@@ -56,7 +56,15 @@ export interface UnreachableReport {
 const TEST_PATH = /(^|\/)(__tests__|tests?)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)test-/;
 
 /** Entry points, which nothing calls and which are not dead. */
-const ENTRY_NAMES = new Set(['main', 'index', 'start', 'bootstrap', 'handler', 'activate', 'deactivate']);
+const ENTRY_NAMES = new Set([
+  'main',
+  'index',
+  'start',
+  'bootstrap',
+  'handler',
+  'activate',
+  'deactivate',
+]);
 
 function isFunctionLike(label: NodeLabel | string): boolean {
   return /Function|Method/i.test(String(label));

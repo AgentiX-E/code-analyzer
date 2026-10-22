@@ -157,7 +157,9 @@ describe('buildOccurrences', () => {
 
   it('keeps a sink, which needs no binding', () => {
     const { sinkSites } = buildOccurrences(
-      [], [{ sinkType: 'eval', line: 15, text: 'eval(input)' }], [],
+      [],
+      [{ sinkType: 'eval', line: 15, text: 'eval(input)' }],
+      [],
       [],
       10,
     );
@@ -174,7 +176,7 @@ describe('buildOccurrences', () => {
     const { sourceSites, sinkSites } = buildOccurrences(
       [{ sourceType: 'env_var', line: 5, text: 'x' }],
       [{ sinkType: 'eval', line: 5, text: 'y' }],
-[],
+      [],
       [
         {
           index: 0,

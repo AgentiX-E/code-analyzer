@@ -57,7 +57,15 @@ function api(path) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const out = execFileSync(
       'curl',
-      ['-sS', '--http1.1', '-H', `Authorization: token ${TOKEN}`, '-H', 'User-Agent: code-analyzer', `${API}${path}`],
+      [
+        '-sS',
+        '--http1.1',
+        '-H',
+        `Authorization: token ${TOKEN}`,
+        '-H',
+        'User-Agent: code-analyzer',
+        `${API}${path}`,
+      ],
       { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
     );
     let parsed;
@@ -117,7 +125,8 @@ function oldSideRanges(patch) {
     const count = m[2] === undefined ? 1 : Number(m[2]);
     // **A hunk that spans a rewrite is not one reviewable issue.** The first run emitted a 69-line range from a
     // compiler baseline; a bound on the span keeps the dataset to line-level findings a reviewer could name.
-    if (count > 0 && count <= (MAX_HUNK_LINES ?? Infinity)) ranges.push({ startLine: start, endLine: start + count - 1 });
+    if (count > 0 && count <= (MAX_HUNK_LINES ?? Infinity))
+      ranges.push({ startLine: start, endLine: start + count - 1 });
   }
   return ranges;
 }
@@ -152,7 +161,9 @@ function main() {
   const limit = Number(flags.get('--limit') ?? 100);
   outPath = resolve(ROOT, flags.get('--out') ?? 'benchmarks/real-ground-truth/issues.json');
 
-  manifest = JSON.parse(readFileSync(resolve(ROOT, 'benchmarks/real-ground-truth/manifest.json'), 'utf8'));
+  manifest = JSON.parse(
+    readFileSync(resolve(ROOT, 'benchmarks/real-ground-truth/manifest.json'), 'utf8'),
+  );
   // **Read after the manifest, not before it** - the first edit put this line above the `const` it reads.
   MAX_HUNK_LINES = Number(manifest.maxLinesPerHunk ?? Infinity);
   windowLines = Number(manifest.windowLines ?? 0);
@@ -163,7 +174,9 @@ function main() {
 
   // **A run grows the dataset; it does not replace it.** Extraction takes minutes and the network is not always
   // there for all of them, so the useful unit is "add what you can". Existing issues are kept by id.
-  const existing = existsSync(outPath) ? JSON.parse(readFileSync(outPath, 'utf8')).issues ?? [] : [];
+  const existing = existsSync(outPath)
+    ? (JSON.parse(readFileSync(outPath, 'utf8')).issues ?? [])
+    : [];
   issues = [...existing];
   const seenIds = new Set(issues.map((i) => i.id));
   const seenCommits = new Set(issues.map((i) => i.provenance?.commit).filter(Boolean));
@@ -180,9 +193,13 @@ function main() {
       for (let page = 1; page <= maxSearchPages; page += 1) {
         let found;
         try {
-          found = api(`/search/commits?q=${query}&per_page=20&page=${page}&sort=committer-date&order=desc`);
+          found = api(
+            `/search/commits?q=${query}&per_page=20&page=${page}&sort=committer-date&order=desc`,
+          );
         } catch (e) {
-          process.stderr.write(`  search failed for ${query} p${page}: ${String(e).slice(0, 80)}\n`);
+          process.stderr.write(
+            `  search failed for ${query} p${page}: ${String(e).slice(0, 80)}\n`,
+          );
           break;
         }
         items.push(...(found.items ?? []));
@@ -250,13 +267,17 @@ function main() {
           const groups = [];
           for (const r of usable) {
             const last = groups[groups.length - 1];
-            if (last && r.startLine - last[last.length - 1].endLine <= windowLines * 2) last.push(r);
+            if (last && r.startLine - last[last.length - 1].endLine <= windowLines * 2)
+              last.push(r);
             else groups.push([r]);
           }
 
           for (const [region, group] of groups.entries()) {
             const lo = Math.max(1, Math.min(...group.map((r) => r.startLine)) - windowLines);
-            const hi = Math.min(beforeLines.length, Math.max(...group.map((r) => r.endLine)) + windowLines);
+            const hi = Math.min(
+              beforeLines.length,
+              Math.max(...group.map((r) => r.endLine)) + windowLines,
+            );
             const shift = lo - 1;
             const slice = (lines) => lines.slice(shift, hi).join('\n');
 
@@ -280,13 +301,13 @@ function main() {
                 // ...and the same range in the source file, so a reader can find it on GitHub.
                 sourceStartLine: r.startLine,
                 sourceEndLine: r.endLine,
-              category: verdict.category,
-              severity: verdict.severity,
-              description: message.split('\n')[0].slice(0, 200),
-              // Which half of this record a human decided, and which half a rule did.
-              rangesProvenance: 'authored',
-              categoryProvenance: 'inferred',
-              categoryRule: verdict.rule,
+                category: verdict.category,
+                severity: verdict.severity,
+                description: message.split('\n')[0].slice(0, 200),
+                // Which half of this record a human decided, and which half a rule did.
+                rangesProvenance: 'authored',
+                categoryProvenance: 'inferred',
+                categoryRule: verdict.rule,
               });
             }
           }
@@ -302,7 +323,9 @@ function main() {
           language: repo.language,
           description: message.split('\n')[0].slice(0, 200),
           files: caseFiles,
-          groundTruth: groundTruth.map(({ rangesProvenance, categoryProvenance, categoryRule, ...g }) => g),
+          groundTruth: groundTruth.map(
+            ({ rangesProvenance, categoryProvenance, categoryRule, ...g }) => g,
+          ),
           expectedFalsePositives: [],
           provenance: {
             repo: repo.repo,
@@ -312,7 +335,8 @@ function main() {
             authoredBy: item.commit?.author?.name ?? 'unknown',
             committedAt: item.commit?.committer?.date ?? 'unknown',
             ranges: 'authored - read from the patch hunk headers',
-            category: 'inferred - from the commit message by benchmarks/real-ground-truth/manifest.json',
+            category:
+              'inferred - from the commit message by benchmarks/real-ground-truth/manifest.json',
           },
         };
         if (seenIds.has(record.id)) continue;
@@ -348,7 +372,7 @@ function write() {
           'scripts/extract-real-ground-truth.mjs from benchmarks/real-ground-truth/manifest.json.',
           '',
           '**Every entry is checkable against GitHub**: `provenance.commit` and `provenance.commitUrl` name the',
-          'human fix, and the line ranges are that fix\'s own hunk headers - `authored`, not inferred. The',
+          "human fix, and the line ranges are that fix's own hunk headers - `authored`, not inferred. The",
           'category and severity are inferred from the commit message and say so in the same field.',
           '',
           'This dataset exists because a benchmark of our own fixtures cannot be independent validation, and',
@@ -367,7 +391,9 @@ function write() {
 }
 
 if (!TOKEN) {
-  process.stderr.write('no GitHub token: set GITHUB_TOKEN or configure the git credential helper\n');
+  process.stderr.write(
+    'no GitHub token: set GITHUB_TOKEN or configure the git credential helper\n',
+  );
   process.exit(1);
 }
 main();

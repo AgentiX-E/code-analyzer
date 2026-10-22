@@ -26,7 +26,9 @@ const lines = (text: string) => text.split('\n');
 describe('checkSilentCatch', () => {
   it('fires on an empty catch, one line and several', () => {
     const one = checkSilentCatch(lines('try { risky(); } catch (e) {}'));
-    const many = checkSilentCatch(lines(['try {', '  risky();', '} catch (e) {', '}', ''].join('\n')));
+    const many = checkSilentCatch(
+      lines(['try {', '  risky();', '} catch (e) {', '}', ''].join('\n')),
+    );
     expect(one).toHaveLength(1);
     expect(one[0]!.category).toBe('bug');
     expect(one[0]!.severity).toBe('medium');
@@ -34,16 +36,34 @@ describe('checkSilentCatch', () => {
   });
 
   it('fires on a catch whose body is only a comment, because a comment is not a handler', () => {
-    const found = checkSilentCatch(lines(['try {', '  risky();', '} catch (e) {', '  // ignore', '}', ''].join('\n')));
+    const found = checkSilentCatch(
+      lines(['try {', '  risky();', '} catch (e) {', '  // ignore', '}', ''].join('\n')),
+    );
     expect(found).toHaveLength(1);
     expect(found[0]!.description).toContain('comment is not a handler');
   });
 
   it('is silent when the handler does anything at all', () => {
     const rethrow = checkSilentCatch(lines('try { risky(); } catch (e) { throw e; }'));
-    const log = checkSilentCatch(lines(['try {', '  risky();', '} catch (e) {', '  logger.warn(e);', '}', ''].join('\n')));
-    const annotate = checkSilentCatch(lines(['try {', '  risky();', '} catch (e) {', '  e.message += " (in load)";', '  throw e;', '}', ''].join('\n')));
-    const fallback = checkSilentCatch(lines(['try {', '  risky();', '} catch {', '  return defaultValue;', '}', ''].join('\n')));
+    const log = checkSilentCatch(
+      lines(['try {', '  risky();', '} catch (e) {', '  logger.warn(e);', '}', ''].join('\n')),
+    );
+    const annotate = checkSilentCatch(
+      lines(
+        [
+          'try {',
+          '  risky();',
+          '} catch (e) {',
+          '  e.message += " (in load)";',
+          '  throw e;',
+          '}',
+          '',
+        ].join('\n'),
+      ),
+    );
+    const fallback = checkSilentCatch(
+      lines(['try {', '  risky();', '} catch {', '  return defaultValue;', '}', ''].join('\n')),
+    );
     expect(rethrow).toHaveLength(0);
     expect(log).toHaveLength(0);
     expect(annotate).toHaveLength(0);
@@ -51,7 +71,11 @@ describe('checkSilentCatch', () => {
   });
 
   it('is silent on a try with no catch, and on the word appearing in code', () => {
-    expect(checkSilentCatch(lines(['try {', '  risky();', '} finally {', '  cleanup();', '}'].join('\n')))).toHaveLength(0);
+    expect(
+      checkSilentCatch(
+        lines(['try {', '  risky();', '} finally {', '  cleanup();', '}'].join('\n')),
+      ),
+    ).toHaveLength(0);
     expect(checkSilentCatch(lines('const message = "catch (e) {}";'))).toHaveLength(0);
   });
 });
@@ -82,7 +106,9 @@ describe('checkAssignmentInCondition', () => {
 
   it('is silent on the deliberate form that assigns inside its own parentheses and tests the result', () => {
     // The idiom the rule exists to not flag: a reader knows this is an assignment because it is wrapped.
-    expect(checkAssignmentInCondition(lines('while ((line = reader.readLine()) !== null) {'))).toHaveLength(0);
+    expect(
+      checkAssignmentInCondition(lines('while ((line = reader.readLine()) !== null) {')),
+    ).toHaveLength(0);
     expect(checkAssignmentInCondition(lines('if ((m = re.exec(s)) !== null) {'))).toHaveLength(0);
   });
 });
@@ -102,15 +128,25 @@ describe('checkAsyncInSynchronousCallback', () => {
   });
 
   it('is silent when the promise is collected, which is the correct form', () => {
-    const wrapped = checkAsyncInSynchronousCallback(lines('await Promise.all(items.map(async (item) => handle(item)));'));
-    const settled = checkAsyncInSynchronousCallback(lines('await Promise.allSettled(items.map(async (item) => handle(item)));'));
+    const wrapped = checkAsyncInSynchronousCallback(
+      lines('await Promise.all(items.map(async (item) => handle(item)));'),
+    );
+    const settled = checkAsyncInSynchronousCallback(
+      lines('await Promise.allSettled(items.map(async (item) => handle(item)));'),
+    );
     expect(wrapped).toHaveLength(0);
     expect(settled).toHaveLength(0);
   });
 
   it('is silent on the synchronous callback and on the sequential loop', () => {
-    expect(checkAsyncInSynchronousCallback(lines('items.forEach((item) => handle(item));'))).toHaveLength(0);
-    expect(checkAsyncInSynchronousCallback(lines(['for (const item of items) {', '  await handle(item);', '}'].join('\n')))).toHaveLength(0);
+    expect(
+      checkAsyncInSynchronousCallback(lines('items.forEach((item) => handle(item));')),
+    ).toHaveLength(0);
+    expect(
+      checkAsyncInSynchronousCallback(
+        lines(['for (const item of items) {', '  await handle(item);', '}'].join('\n')),
+      ),
+    ).toHaveLength(0);
   });
 });
 

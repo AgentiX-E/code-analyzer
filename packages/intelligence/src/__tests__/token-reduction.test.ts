@@ -70,7 +70,10 @@ describe('what a question costs through the index', () => {
     for (const question of questions) {
       const file = files.find((f) => f.path === question.answerWith)!;
       const lines = file.content.split('\n');
-      const start = Math.max(0, lines.findIndex((l) => /^export /.test(l)));
+      const start = Math.max(
+        0,
+        lines.findIndex((l) => /^export /.test(l)),
+      );
       answerTokens += countTokens(lines.slice(start, start + DECLARATION_LINES).join('\n'));
     }
 
@@ -116,7 +119,11 @@ describe('what a question costs through the index', () => {
         '**Nothing about the competitor figures as values**, only as shapes.',
       ],
     };
-    fs.writeFileSync('benchmarks/token-reduction.json', JSON.stringify(artifact, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(
+      'benchmarks/token-reduction.json',
+      JSON.stringify(artifact, null, 2) + '\n',
+      'utf8',
+    );
 
     // eslint-disable-next-line no-console
     console.log(
