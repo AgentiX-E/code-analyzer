@@ -26,10 +26,10 @@ const tsExtensions = ['.ts', '.tsx', '.mts', '.cts'];
 const tsGlobs = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.d.ts'];
 
 export class TypeScriptProvider extends TreeSitterBaseProvider {
-  readonly language = 'typescript';
-  readonly displayName = 'TypeScript';
-  readonly extensions = tsExtensions;
-  readonly globs = tsGlobs;
+  readonly language: string = 'typescript';
+  readonly displayName: string = 'TypeScript';
+  readonly extensions: string[] = tsExtensions;
+  readonly globs: string[] = tsGlobs;
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {

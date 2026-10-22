@@ -59,6 +59,7 @@
     "@tree-sitter-grammars/tree-sitter-hcl": "^1.2.0",
     "@tree-sitter-grammars/tree-sitter-markdown": "^0.3.2",
     "tree-sitter": "^0.25.0",
+    "tree-sitter-arkts": "^0.3.0",
     "tree-sitter-bash": "^0.25.1",
     "tree-sitter-c": "^0.24.0",
     "tree-sitter-c-sharp": "^0.21.0",
