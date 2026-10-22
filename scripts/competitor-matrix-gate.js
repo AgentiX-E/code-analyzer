@@ -261,7 +261,7 @@ function main() {
             'The ratchet floor for the competitor matrix: MISSING may fall and may not rise.',
           ],
           missing: missingCount,
-    invalid: invalid.map((cell) => cell.name),
+          invalid: invalid.map((cell) => cell.name),
           cells: total,
           updatedAt: new Date().toISOString().slice(0, 10),
         },
@@ -304,9 +304,13 @@ function main() {
   // writes it**, so **every baseline this gate produces from now on is checked.**
   if (Array.isArray(baseline.invalid)) {
     const knownInvalid = new Set(baseline.invalid);
-    const newInvalid = invalid.filter((cell) => !knownInvalid.has(cell.name)).map((cell) => cell.name);
+    const newInvalid = invalid
+      .filter((cell) => !knownInvalid.has(cell.name))
+      .map((cell) => cell.name);
     if (newInvalid.length > 0) {
-      console.error(`  ❌ ${newInvalid.length} cell(s) became invalid that were not: ${newInvalid.join(', ')}`);
+      console.error(
+        `  ❌ ${newInvalid.length} cell(s) became invalid that were not: ${newInvalid.join(', ')}`,
+      );
       process.exit(1);
     }
     console.log(`  ratchet: invalid ${invalid.length} (every one recorded in the baseline)`);
