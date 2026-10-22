@@ -581,5 +581,11 @@ describe('LLM Review Quality Benchmark', () => {
     // With heuristic fallback, we should get reasonable scores
     expect(result.metrics['f1Score']).toBeGreaterThanOrEqual(0);
     expect(result.passed).toBeDefined();
-  }, 30000);
+    // **The timeout belongs to the LLM call, not to the assertion.**
+    //
+    // **`runLLMReviewBenchmark()` sends the corpus to a model when a key is present**, and **CI has one** - so **a
+    // three-minute ceiling is what the call needs**, and **thirty seconds produced a timeout that looked exactly like a
+    // broken benchmark.** **Without a key the same function takes the heuristic path and returns in milliseconds**, which
+    // **is why this test passed locally and timed out in CI on the same commit.**
+  }, 180000);
 });

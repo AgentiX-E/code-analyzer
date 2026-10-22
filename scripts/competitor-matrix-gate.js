@@ -175,7 +175,13 @@ function main() {
     byCorpus[key].cells += 1;
     if (cell.controllable === true) byCorpus[key].controllable += 1;
   }
-  const missingCount = missing.length + invalid.length;
+  // **MISSING counts the work not done, and INVALID is counted separately.**
+  //
+  // **A cell is invalid when its own artifact says the run could not produce a figure** - `backend: 'none'` because no
+  // embedding model is installed, or `valid: false` because the run hit its timeout. **Neither is work that was
+  // skipped**, so **folding them into MISSING made the ratchet compare two machines rather than two commits**: **the
+  // same commit reported 10 in CI and 9 on a machine with an embedder.**
+  const missingCount = missing.length;
 
   console.log('COMPETITOR-MATRIX');
   console.log(
@@ -255,6 +261,7 @@ function main() {
             'The ratchet floor for the competitor matrix: MISSING may fall and may not rise.',
           ],
           missing: missingCount,
+    invalid: invalid.map((cell) => cell.name),
           cells: total,
           updatedAt: new Date().toISOString().slice(0, 10),
         },
@@ -286,6 +293,23 @@ function main() {
       '  A cell that was measured and is not any more is a regression, and so is a new pending cell.',
     );
     process.exit(1);
+  }
+  // **And INVALID is ratcheted by NAME rather than by count**, because **a known invalid is a fact about this machine
+  // and a new one is a regression**: **`valid: false` on an artifact that used to carry a number means the run that
+  // produced it stopped working**, and **a count cannot tell that apart from a machine without an embedder.**
+  //
+  // **And a baseline without an `invalid` list is not checked against one**, because **a baseline written before this
+  // field existed cannot say which invalid cells were known** - **so the check applies only where the record exists.**
+  // **That is a compatibility rule rather than a loophole**: **the current baseline has the list**, and **`--update`
+  // writes it**, so **every baseline this gate produces from now on is checked.**
+  if (Array.isArray(baseline.invalid)) {
+    const knownInvalid = new Set(baseline.invalid);
+    const newInvalid = invalid.filter((cell) => !knownInvalid.has(cell.name)).map((cell) => cell.name);
+    if (newInvalid.length > 0) {
+      console.error(`  ❌ ${newInvalid.length} cell(s) became invalid that were not: ${newInvalid.join(', ')}`);
+      process.exit(1);
+    }
+    console.log(`  ratchet: invalid ${invalid.length} (every one recorded in the baseline)`);
   }
   console.log('  ✅ every measured cell resolved, and the MISSING count did not rise.');
 }
