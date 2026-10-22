@@ -130,6 +130,45 @@ export class GoProvider extends TreeSitterBaseProvider {
         }
       }
       if (right) this.captureAccesses(right, captures);
+      // **And Go has THREE ways to bind a name**, of which only `:=` had a branch.
+      //
+      // **A probe of the three forms showed what that cost**:
+      //
+      // ```
+      // x := y     -> variable.def:x, variable.access:y      handled
+      // x =  y     -> (nothing)                              no branch at all
+      // var x = y  -> variable.def:x, and NOT y              the value was dropped
+      // ```
+      //
+      // **`x = y` is the ordinary re-assignment and it produced no capture**, so **a taint that moved through an
+      // assignment disappeared**; and **`var x = y` recorded the name but not the use**, so **the right-hand side was
+      // invisible**. **Both are statements about the assignment, and both were missing.**
+    } else if (nodeType === 'assignment_statement') {
+      // `assignment_statement > expression_list (left) · '=' · expression_list (right)`.
+      const left = node.child(0);
+      const right = node.child(2);
+      if (left) this.captureAccesses(left, captures);
+      if (right) this.captureAccesses(right, captures);
+    } else if (nodeType === 'var_declaration') {
+      // `var_declaration > 'var' · var_spec > identifier · expression_list`.
+      const spec = namedChildrenOf(node).find((c) => c.type === 'var_spec');
+      const name = spec ? namedChildrenOf(spec)[0] : undefined;
+      if (name && name.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: name.text,
+          startLine: name.startPosition.row + 1,
+          endLine: name.endPosition.row + 1,
+          startByte: name.startIndex,
+          endByte: name.endIndex,
+          name: name.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const value = spec
+        ? namedChildrenOf(spec).find((c) => c.type === 'expression_list')
+        : undefined;
+      if (value) this.captureAccesses(value, captures);
     } else if (nodeType === 'call_expression') {
       const callee = node.child(0);
       if (callee) {
