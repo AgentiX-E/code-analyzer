@@ -6,6 +6,8 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   CodeReviewEngine,
@@ -13,8 +15,8 @@ import {
   ReviewPipeline,
   DiffParser,
 } from '@code-analyzer/intelligence';
+
 import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Test Fixture Setup

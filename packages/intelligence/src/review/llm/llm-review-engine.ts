@@ -150,8 +150,18 @@ export class LLMReviewEngine {
    */
   private deduplicateAcrossLanes(results: LLMReviewResult[]): LLMReviewResult[] {
     const rank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
-    const words = (text: unknown): Set<string> =>
-      new Set(String(text ?? '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+    const words = (value: unknown): Set<string> =>
+      // **And `String(value)` on a non-string produces `[object Object]`, whose words are not the finding's.**
+      //
+      // **`no-base-to-string` named it**: the parameter is `unknown`, so **the cast was a guess about the value** -
+      // and **a guess that fails silently**, because **`[object Object]` is a string and compares like one.**
+      // **The honest form is a type test**: **a non-string has no words to compare**, and **saying so costs nothing.**
+      new Set(
+        (typeof value === 'string' ? value : '')
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((w) => w.length > 3),
+      );
     const shares = (a: Set<string>, b: Set<string>): number => {
       if (a.size === 0 || b.size === 0) return 0;
       let shared = 0;

@@ -6,6 +6,8 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   RepoGroupManager,
@@ -15,7 +17,6 @@ import {
   CrossRepoPRReviewEngine,
   CodeReviewEngine,
 } from '@code-analyzer/intelligence';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Constants
