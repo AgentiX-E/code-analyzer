@@ -150,25 +150,41 @@ export class GoProvider extends TreeSitterBaseProvider {
       if (left) this.captureAccesses(left, captures);
       if (right) this.captureAccesses(right, captures);
     } else if (nodeType === 'var_declaration') {
-      // `var_declaration > 'var' · var_spec > identifier · expression_list`.
-      const spec = namedChildrenOf(node).find((c) => c.type === 'var_spec');
-      const name = spec ? namedChildrenOf(spec)[0] : undefined;
-      if (name && name.type === 'identifier') {
-        captures.push({
-          tag: CAPTURE_TAGS.VARIABLE_DEF,
-          text: name.text,
-          startLine: name.startPosition.row + 1,
-          endLine: name.endPosition.row + 1,
-          startByte: name.startIndex,
-          endByte: name.endIndex,
-          name: name.text,
-          properties: { filePath: this.filePath },
-        });
+      // **And there are two shapes under `var_declaration`, not one**:
+      //
+      // ```
+      // var x = y          -> var_declaration > var_spec
+      // var ( a = 1; ... )  -> var_declaration > var_spec_LIST > var_spec x N
+      // ```
+      //
+      // **The grouped form was already handled**, by the generic walk that visits every `var_spec` - and **a branch
+      // for the single form took it away**, because **a branch consumes the node and the walk below it does not run
+      // for that node.** **The existing `go-provider` test caught exactly that**, and **it is why this collects a
+      // list rather than assuming one spec.**
+      const specs = namedChildrenOf(node).flatMap((child) =>
+        child.type === 'var_spec'
+          ? [child]
+          : child.type === 'var_spec_list'
+            ? namedChildrenOf(child)
+            : [],
+      );
+      for (const spec of specs) {
+        const name = namedChildrenOf(spec)[0];
+        if (name && name.type === 'identifier') {
+          captures.push({
+            tag: CAPTURE_TAGS.VARIABLE_DEF,
+            text: name.text,
+            startLine: name.startPosition.row + 1,
+            endLine: name.endPosition.row + 1,
+            startByte: name.startIndex,
+            endByte: name.endIndex,
+            name: name.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+        const value = namedChildrenOf(spec).find((c) => c.type === 'expression_list');
+        if (value) this.captureAccesses(value, captures);
       }
-      const value = spec
-        ? namedChildrenOf(spec).find((c) => c.type === 'expression_list')
-        : undefined;
-      if (value) this.captureAccesses(value, captures);
     } else if (nodeType === 'call_expression') {
       const callee = node.child(0);
       if (callee) {
