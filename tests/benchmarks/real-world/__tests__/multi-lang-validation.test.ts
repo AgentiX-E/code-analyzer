@@ -193,6 +193,16 @@ function cloneIfNeeded(repoUrl: string, dest: string): void {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`  Clone warning: ${msg}`);
+    // **And the half-clone is removed, because a warning is not a skip.**
+    //
+    // **`git clone --depth 1 --filter=blob:none` creates the directory before it fetches any blob**, so **a failure
+    // mid-clone leaves `dest` and `dest/.git` in place with no working files** - and **every `existsSync` in this file
+    // then passes while `readdir` finds nothing.** **That is exactly what CI reported**: **`fileCount` of 0, five times,
+    // on a file that passes locally against a complete clone.**
+    //
+    // **Removing the directory turns the failure into the skip the `try/catch` in `beforeAll` was written for**, which
+    // **never fired**, because **this function had already swallowed the error.**
+    rmSync(dest, { recursive: true, force: true });
   }
 }
 
