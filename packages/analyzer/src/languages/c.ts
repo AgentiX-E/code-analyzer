@@ -176,8 +176,8 @@ export class CProvider extends TreeSitterBaseProvider {
         });
       }
       if (declarator && declarator.type === 'init_declarator') {
-        const value = namedChildrenOf(declarator)[1];
-        if (value) this.captureAccesses(value, captures);
+        // **The value is `[1]` because an `init_declarator` is `declarator = value`** - **three children, always**.
+        this.captureAccesses(namedChildrenOf(declarator)[1]!, captures);
       }
     } else if (nodeType === 'assignment_expression') {
       const target = node.child(0);
@@ -193,11 +193,12 @@ export class CProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-      const value = node.child(2);
-      if (value) this.captureAccesses(value, captures);
+      // **`assignment_expression` is `left = right`**, so **child(2) exists for every assignment**.
+      this.captureAccesses(node.child(2)!, captures);
     } else if (nodeType === 'call_expression') {
-      const callee = node.child(0);
-      if (callee) {
+      // **`call_expression` is `callee(args)`**, so **child(0) exists for every call**.
+      const callee = node.child(0)!;
+      {
         const isMethod = callee.type === 'field_expression';
         captures.push({
           tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
@@ -210,8 +211,8 @@ export class CProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-      const args = node.child(1);
-      if (args) this.captureAccesses(args, captures);
+      // **And child(1) is the argument list, which exists even when it is empty**: **`g()` has one.**
+      this.captureAccesses(node.child(1)!, captures);
     } else if (nodeType === 'expression_statement') {
       const inner = node.child(0);
       if (inner && inner.type === 'identifier') {
