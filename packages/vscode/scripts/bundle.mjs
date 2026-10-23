@@ -37,6 +37,7 @@ const vsCodeApi = ['vscode'];
 // remain resolvable from node_modules at runtime instead of being inlined.
 const treeSitter = [
   'tree-sitter',
+  'tree-sitter-arkts',
   'tree-sitter-bash',
   'tree-sitter-c',
   'tree-sitter-c-sharp',
