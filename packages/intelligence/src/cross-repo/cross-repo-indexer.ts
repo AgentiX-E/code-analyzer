@@ -21,6 +21,7 @@ import {
 } from '@code-analyzer/shared';
 
 import type { RepoGroupManager } from './repo-group-manager.js';
+import type { LanguageProvider } from '@code-analyzer/analyzer';
 import type {
   Contract,
   GraphEdge,
@@ -166,6 +167,17 @@ export class CrossRepoIndexer {
   constructor(
     private store: InMemoryGraphStore,
     private groupManager: RepoGroupManager,
+    /**
+     * **How a language's parser is obtained, with the production loader as the default.**
+     *
+     * **Whether a grammar loads is a fact about the machine** — a native `.node` binary that was built for another
+     * platform, a package that failed to install — so **neither "the parser is absent" nor "the parser threw" can be
+     * reached by writing a test**. With the seam both are ordinary cases, and the regex fallback below is exercised
+     * for the reason it exists rather than being an eighty-line path nothing has ever run.
+     */
+    private loadProvider: (
+      language: string,
+    ) => Promise<LanguageProvider | null> = getOrLoadProvider,
   ) {}
 
   /** Public accessor for the underlying graph store (used by incremental reindexer). */
@@ -218,8 +230,11 @@ export class CrossRepoIndexer {
         try {
           await this.indexSingleRepo(repo.fullName, repo.localPath, options);
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push(`Failed to index ${repo.fullName}: ${message}`);
+          // **`err` is an `Error`**: everything `indexSingleRepo` can reject with is one — `new Error` for a missing
+          // path, and Node's own errors for a failed `readdir` or `readFileSync`. The `String(err)` arm that stood here
+          // could not fire, and an arm that cannot fire reads as if a string could arrive from a place that never
+          // sends one.
+          errors.push(`Failed to index ${repo.fullName}: ${(err as Error).message}`);
         }
       });
       await Promise.all(promises);
@@ -483,7 +498,7 @@ export class CrossRepoIndexer {
     // **The provider's answer, when there is one.** The captures carry the symbol kinds and the byte ranges, which is
     // what the graph wants; the regexes below produce only names.
     try {
-      const provider = await getOrLoadProvider(language);
+      const provider = await this.loadProvider(language);
       if (provider) {
         const captures = provider.parse(content, filePath);
         const fromProvider = this.nodesFromCaptures(captures, relPath, projectId, language, now);
@@ -495,7 +510,6 @@ export class CrossRepoIndexer {
     }
 
     const nodes: GraphNode[] = [];
-    let nodeCounter = 0;
 
     // Match function declarations: function name, export function,
     // export default function, export const name = () =>, etc.
@@ -540,7 +554,6 @@ export class CrossRepoIndexer {
         else if (pattern.source.includes('public') || pattern.source.includes('private'))
           label = 'Method';
 
-        nodeCounter++;
         const qualifiedName = `project:${projectId}:${relPath}:${name}`;
 
         nodes.push({
@@ -1018,7 +1031,9 @@ export class CrossRepoIndexer {
       contracts.push({
         id: `contract:${groupId}:${contractCounter}`,
         name,
-        description: `Shared ${definition['kind']} contract detected across ${contractingRepos.length} repos`,
+        // **`String(...)` because the definition bag is `Record<string, unknown>`**: a template literal would
+        // interpolate whatever was stored there, and the reported kind is a word rather than an object.
+        description: `Shared ${String(definition['kind'])} contract detected across ${contractingRepos.length} repos`,
         uri: `cross-repo://${groupId}/contracts/${contractCounter}`,
         version: '0.1.0',
         definition,
@@ -1346,8 +1361,10 @@ export class CrossRepoIndexer {
       for (const edge of this.store.getEdgesForNode(declaringFile.id)) {
         if (edge.type !== EDGE_IMPORTS) continue;
 
-        const importerFile = this.store.getNode(edge.targetId);
-        if (!importerFile) continue;
+        // **Present because the store refuses an edge whose endpoints are absent** - `insertEdge` throws for an
+        // unknown id - so the `if (!importerFile) continue` that stood here guarded a state the storage layer
+        // forbids.
+        const importerFile = this.store.getNode(edge.targetId)!;
         if (importerFile.projectId === declaringRepo) continue;
         if (!repos.includes(importerFile.projectId)) continue;
 
@@ -1487,8 +1504,10 @@ export class CrossRepoIndexer {
       const resolved = resolveModulePath(sourceFile, imp.modulePath);
       if (!resolved) continue;
 
+      // **A `File` node always carries a path**: `ensureFileNode` writes `relPath`, and the label test above it is what
+      // admits the node at all - so the `?? ''` that stood here was a fallback for a state the node cannot be in.
       const targetFileNode = nodes.find(
-        (n) => n.label === 'File' && stripExtension(n.filePath ?? '') === resolved,
+        (n) => n.label === 'File' && stripExtension(n.filePath!) === resolved,
       );
 
       if (!targetFileNode) continue;
@@ -1548,7 +1567,8 @@ export class CrossRepoIndexer {
           // the rest of this subsystem assumes: `analyzeCrossRepoImpact` and `traceSymbolDependencies` both walk
           // *outgoing* cross-repo edges, and a repository's "affected" peers are the ones that import it.
           this.store.insertEdge({
-            projectId: target.projectId ?? projectId,
+            // A `File` node always belongs to a project; `?? projectId` was a fallback for a node that cannot exist.
+            projectId: target.projectId,
             sourceId: target.id,
             targetId: node.id,
             type: EDGE_IMPORTS,
@@ -1575,7 +1595,7 @@ export class CrossRepoIndexer {
       const rest = wanted.slice(dir.length + 1);
       return (
         this.getRepoNodes(repo.projectId ?? repo.fullName).find(
-          (n) => n.label === 'File' && stripExtension(n.filePath ?? '') === rest,
+          (n) => n.label === 'File' && stripExtension(n.filePath!) === rest,
         ) ?? null
       );
     }
