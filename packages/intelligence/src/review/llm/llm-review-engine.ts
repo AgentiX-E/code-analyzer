@@ -149,15 +149,16 @@ export class LLMReviewEngine {
    * output**, which is **what makes the deduplicated count comparable between runs.**
    */
   private deduplicateAcrossLanes(results: LLMReviewResult[]): LLMReviewResult[] {
-    const rank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
-    const words = (value: unknown): Set<string> =>
-      // **And `String(value)` on a non-string produces `[object Object]`, whose words are not the finding's.**
-      //
-      // **`no-base-to-string` named it**: the parameter is `unknown`, so **the cast was a guess about the value** -
-      // and **a guess that fails silently**, because **`[object Object]` is a string and compares like one.**
-      // **The honest form is a type test**: **a non-string has no words to compare**, and **saying so costs nothing.**
+    // **Typed by the union it is an index of, so the lookup needs no fallback**: every `LLMFinding` carries a
+    // `Severity` that `normalizeSeverity` has already restricted to these five keys, and `rank[...] ?? 0` was a
+    // fallback for a key the type excludes.
+    const rank: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+    // **`value: string`, because that is what the parser guarantees**: a finding's title and description are typed
+    // `string`, and **the `typeof value === 'string'` guard that stood here was a second opinion about a type the
+    // caller had already established** - an arm no caller could take, sitting where it read as if one could.
+    const words = (value: string): Set<string> =>
       new Set(
-        (typeof value === 'string' ? value : '')
+        value
           .toLowerCase()
           .split(/[^a-z0-9]+/)
           .filter((w) => w.length > 3),
@@ -176,15 +177,15 @@ export class LLMReviewEngine {
         all.push({
           result,
           finding,
-          words: words(`${finding.title ?? ''} ${finding.description ?? ''}`),
+          // **No `?? ''`**: both fields are required strings on `LLMFinding`, so the fallbacks were arms the type
+          // had already ruled out.
+          words: words(`${finding.title} ${finding.description}`),
         });
       }
     }
     // **Severity first, then lane order**, because **the survivor of a duplicate should be the worst reading** and
     // **a stable tie-break is what makes the output reproducible.**
-    all.sort(
-      (x, y) => (rank[String(y.finding.severity)] ?? 0) - (rank[String(x.finding.severity)] ?? 0),
-    );
+    all.sort((x, y) => rank[y.finding.severity] - rank[x.finding.severity]);
 
     const survivors: Entry[] = [];
     for (const entry of all) {

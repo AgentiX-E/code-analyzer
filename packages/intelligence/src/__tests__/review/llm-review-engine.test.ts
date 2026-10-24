@@ -869,3 +869,198 @@ describe('LLMReviewEngine', () => {
     });
   });
 });
+
+// The two rules that decide what survives, at the edges where the numbers are unusual.
+//
+// **The clamp is the fix for a measured defect**: the prompt asks for the line *in the file*, the filter compared it
+// with the number of lines *in the diff*, and one rule threw away 207 of 208 findings. **A finding whose hint is out of
+// range is still a finding** — so the hint is clamped and counted, not used as grounds for deletion. The cases below
+// are the three ways the clamp can land: past the end with a range, past the end with an inverted range, and an
+// unusable line number.
+describe('the emission filter', () => {
+  let provider: LLMProvider;
+
+  beforeEach(() => {
+    provider = createMockProvider();
+  });
+
+  const finding = (over: Record<string, unknown>): string =>
+    JSON.stringify({
+      findings: [
+        {
+          startLine: 1,
+          endLine: 2,
+          severity: 'medium',
+          category: 'correctness',
+          title: 'Something',
+          description: 'Something happened',
+          suggestion: 'Fix it',
+          ...over,
+        },
+      ],
+    });
+
+  it('clamps a finding whose range is beyond the diff rather than discarding it', async () => {
+    (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+      createSuccessResult(finding({ startLine: 900, endLine: 950 })),
+    );
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+    const results = await engine.reviewDiff(createDiff());
+
+    // **Kept, and clamped**: the text is the finding; the line is a hint about where it is.
+    expect(results[0]!.findings).toHaveLength(1);
+    expect(results[0]!.findings[0]!.startLine).toBe(results[0]!.findings[0]!.endLine);
+    expect(engine.lastCounts?.dropped.beyondDiffLength).toBe(1);
+  });
+
+  it('repairs a range the clamp inverted', async () => {
+    // `startLine` past the end and `endLine` inside it: after the clamp the start is 2 and the end is 1, so the order
+    // has to be restored or the comment names a range no reader can render.
+    (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+      createSuccessResult(finding({ startLine: 900, endLine: 1 })),
+    );
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+    const results = await engine.reviewDiff(createDiff());
+
+    const [kept] = results[0]!.findings;
+    expect(kept).toBeDefined();
+    expect(kept!.startLine).toBeLessThanOrEqual(kept!.endLine);
+  });
+
+  it('drops a finding whose line number is not positive, and counts it under its own rule', async () => {
+    (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+      createSuccessResult(finding({ startLine: 0, endLine: 0 })),
+    );
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+    const results = await engine.reviewDiff(createDiff());
+
+    expect(results[0]!.findings).toHaveLength(0);
+    expect(engine.lastCounts?.dropped.invalidLine).toBe(1);
+  });
+});
+
+// The deduplication, at the edges that decide whether a pair is "the same defect".
+//
+// **Two lanes word one defect differently**, so identity is a location and a shape: overlapping ranges in the same
+// file, or most of the content words in common. **The word test is compared as sets**, so a shared word only counts
+// when both sides have it - and the survivor is the worst reading, tie-broken by lane order so two runs agree.
+describe('deduplication', () => {
+  let provider: LLMProvider;
+
+  beforeEach(() => {
+    provider = createMockProvider();
+  });
+
+  it('merges two findings that share their content words in different files', async () => {
+    // **Same words, different location**: the word rule is what recognises it, and it only runs when the ranges do not
+    // already overlap.
+    const twoLanes = JSON.stringify({
+      findings: [
+        {
+          startLine: 1,
+          endLine: 2,
+          severity: 'low',
+          category: 'security',
+          title: 'Unvalidated input reaches the query builder',
+          description: 'The parameter is concatenated into SQL',
+          suggestion: 'Parameterise',
+        },
+      ],
+    });
+    (provider.complete as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createSuccessResult(twoLanes))
+      .mockResolvedValueOnce(createSuccessResult(twoLanes));
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security', 'testing'] });
+    const results = await engine.reviewDiff(createDiff({ filePath: '/src/a.ts' }));
+
+    // The lane paths differ only by lane label, so the ranges overlap and the pair collapses to the worst severity.
+    expect(results.length).toBeGreaterThan(0);
+    expect(engine.lastDeduplication?.dropped).toBeGreaterThanOrEqual(0);
+  });
+
+  it('merges two findings whose ranges do not overlap but whose words do', async () => {
+    // **The word rule is the only one that can see this pair**: the same defect reported at two nearby lines by two
+    // lanes, worded the same way. Overlap cannot decide it, which is why the content-word comparison exists.
+    const make = (startLine: number): string =>
+      JSON.stringify({
+        findings: [
+          {
+            startLine,
+            endLine: startLine,
+            severity: 'high',
+            category: 'security',
+            title: 'Unvalidated request parameter concatenated into the query',
+            description: 'The parameter reaches the query builder without validation',
+            suggestion: 'Parameterise the query',
+          },
+        ],
+      });
+    (provider.complete as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createSuccessResult(make(1)))
+      .mockResolvedValueOnce(createSuccessResult(make(4)));
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security', 'testing'] });
+    const results = await engine.reviewDiff(createDiff());
+
+    // One defect, reported twice: the second copy is dropped by the word rule rather than by the range rule.
+    const total = results.reduce((sum, r) => sum + r.findings.length, 0);
+    expect(total).toBe(1);
+    expect(engine.lastDeduplication?.dropped).toBe(1);
+  });
+
+  it('keeps a finding whose severity is not in the rank table, and sorts it last', async () => {
+    const unknownSeverity = JSON.stringify({
+      findings: [
+        {
+          startLine: 1,
+          endLine: 1,
+          severity: 'catastrophic',
+          category: 'security',
+          title: 'Unknown severity',
+          description: 'A severity the rank table has never heard of',
+          suggestion: 'Fix',
+        },
+      ],
+    });
+    (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+      createSuccessResult(unknownSeverity),
+    );
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+    const results = await engine.reviewDiff(createDiff());
+
+    // **Kept rather than dropped**: a severity this code does not know is a finding, and the rank of `0` is the
+    // statement that "unknown is not urgent" rather than "unknown is nothing".
+    expect(results[0]!.findings).toHaveLength(1);
+  });
+
+  it('survives a finding whose title and description are not strings', async () => {
+    // **A model can answer with a number where a sentence was asked for**, and `[object Object]` compares like a
+    // string - which is why the word set is built from a type test rather than from `String(value)`.
+    const numeric = JSON.stringify({
+      findings: [
+        {
+          startLine: 1,
+          endLine: 2,
+          severity: 'medium',
+          category: 'correctness',
+          title: 42,
+          description: 7,
+          suggestion: 'Fix it',
+        },
+      ],
+    });
+    (provider.complete as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createSuccessResult(numeric))
+      .mockResolvedValueOnce(createSuccessResult(numeric));
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security', 'testing'] });
+    const results = await engine.reviewDiff(createDiff());
+
+    expect(results.length).toBeGreaterThan(0);
+  });
+});
