@@ -275,11 +275,13 @@ export class GitHubPRWebhook {
       return Array.isArray(data) ? data : [];
     } catch (err) {
       // **Malformed JSON must not crash the handler, and it must not look like an empty pull request either.**
-      this.logger.error(
-        'fetchPRFiles could not parse the response',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: 'github-webhook.request' },
-      );
+      //
+      // **`JSON.parse` throws `SyntaxError`, which is an `Error`** - so the `err instanceof Error ? err : new
+      // Error(String(err))` that stood here had an arm no payload could reach, and it made the catch read as if a
+      // string could arrive from the parser.
+      this.logger.error('fetchPRFiles could not parse the response', err as Error, {
+        phaseId: 'github-webhook.request',
+      });
       return [];
     }
   }

@@ -75,7 +75,8 @@ export class ToolsPhase implements ExecutablePhase {
             //
             // The fallback is the whole match's first word, which for a slash command is the command itself - the
             // thing the pattern was written to find.
-            const toolName = (match[1] ?? match[0].split(/\s+/)[0] ?? '').trim();
+            // **`split` on a non-empty match always yields a first element**, so the `?? ''` that followed it could not fire.
+            const toolName = (match[1] ?? match[0].split(/\s+/)[0]!).trim();
             const description = match[2] ?? '';
             const lineNum = file.content.slice(0, match.index).split('\n').length;
 

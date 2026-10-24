@@ -600,3 +600,55 @@ describe('GitHubPRWebhook — delay', () => {
     await expect(delay(0)).resolves.toBeUndefined();
   });
 });
+
+// The changed-file list, which the handler had never read.
+//
+// **`fetchPRFiles` was written for this field and had no caller**, and when it was wired the only fetch stub resolved
+// **one** `Response` for every request - and a `Response` body can be read once, so the second request threw and the
+// handler degraded to an empty list. **The degradation worked; the success path had never run.**
+describe('the changed-file list on the event result', () => {
+  it('reports the files the pull request touches', async () => {
+    const { handler, prEngine } = makeHandler();
+    const files = [
+      { filename: 'src/a.ts', status: 'modified', additions: 3, deletions: 1, changes: 4 },
+      { filename: 'src/b.ts', status: 'added', additions: 9, deletions: 0, changes: 9 },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) =>
+        String(input).endsWith('/files')
+          ? new Response(JSON.stringify(files), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            })
+          : new Response('diff --git a/src/a.ts b/src/a.ts', { status: 200 }),
+      ),
+    );
+    vi.spyOn(prEngine, 'reviewPR').mockResolvedValue(makeResult({ comments: [] }));
+    vi.spyOn(handler, 'submitReview').mockResolvedValue(undefined);
+
+    const result = await handler.handlePullRequestEvent('pull_request', makePREvent());
+
+    expect(result.status).toBe('processed');
+    expect(result.changedFiles).toEqual(['src/a.ts', 'src/b.ts']);
+  });
+
+  it('continues without the list when the endpoint answers with something that is not JSON', async () => {
+    const { handler, prEngine } = makeHandler();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) =>
+        String(input).endsWith('/files')
+          ? new Response('<!doctype html>', { status: 200 })
+          : new Response('diff --git a/src/a.ts b/src/a.ts', { status: 200 }),
+      ),
+    );
+    vi.spyOn(prEngine, 'reviewPR').mockResolvedValue(makeResult({ comments: [] }));
+    vi.spyOn(handler, 'submitReview').mockResolvedValue(undefined);
+
+    const result = await handler.handlePullRequestEvent('pull_request', makePREvent());
+
+    expect(result.status).toBe('processed');
+    expect(result.changedFiles).toEqual([]);
+  });
+});

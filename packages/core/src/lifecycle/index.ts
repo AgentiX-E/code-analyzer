@@ -146,8 +146,9 @@ export class LifecycleManager {
     let successCount = 0;
 
     for (const name of order) {
-      const descriptor = this.components.get(name);
-      if (!descriptor) continue;
+      // **`order` comes from `resolveInitOrder`, which throws for a name it cannot resolve** - so every name here is
+      // a key of `components`, and the `if (!descriptor) continue` that stood here was a branch no state could take.
+      const descriptor = this.components.get(name)!;
 
       try {
         await descriptor.component.init();
@@ -178,8 +179,8 @@ export class LifecycleManager {
     for (const name of order) {
       if (!this.initialized.has(name)) continue;
 
-      const descriptor = this.components.get(name);
-      if (!descriptor) continue;
+      // The same: `resolveInitOrder` resolves every name it returns.
+      const descriptor = this.components.get(name)!;
 
       try {
         await withTimeout(

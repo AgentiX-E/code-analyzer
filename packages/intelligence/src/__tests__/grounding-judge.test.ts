@@ -133,3 +133,32 @@ describe('a finding that cannot be grounded is dropped', () => {
     }
   });
 });
+
+// The three range checks the criterion performs before it reads a line.
+//
+// **A line number is not always a positive integer**: a producer that reports line 0, a negative offset from an
+// arithmetic slip, or a range whose end precedes its start all reach this function, and each has a different reason.
+// They are not defensive arms - a diff hunk that starts at 0 is a real producer bug - so each is exercised here.
+describe('a range that cannot be real', () => {
+  it('drops a comment whose start line is below one', () => {
+    const report = judgeGrounding([comment({ startLine: 0, endLine: 2 })], { contents: CONTENTS });
+    expect(report.ungrounded.map((v) => v.comment.id)).toEqual(['c1']);
+  });
+
+  it('drops a comment whose end line is below one', () => {
+    const report = judgeGrounding([comment({ startLine: 1, endLine: 0 })], { contents: CONTENTS });
+    expect(report.ungrounded.map((v) => v.comment.id)).toEqual(['c1']);
+  });
+
+  it('drops a comment whose range is inverted', () => {
+    const report = judgeGrounding([comment({ startLine: 3, endLine: 1 })], { contents: CONTENTS });
+    expect(report.ungrounded.map((v) => v.comment.id)).toEqual(['c1']);
+  });
+
+  it('keeps a comment that quotes nothing and names nothing, because both are optional evidence', () => {
+    // `existingCode` absent rather than empty, and no backticked identifier: the two `?? ''` fallbacks.
+    const bare = comment({ existingCode: undefined, content: 'the addition can overflow' });
+    const report = judgeGrounding([bare], { contents: CONTENTS });
+    expect(report.grounded.map((c) => c.id)).toEqual(['c1']);
+  });
+});

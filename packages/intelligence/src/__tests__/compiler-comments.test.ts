@@ -63,4 +63,18 @@ describe('the compiler speaking the review stream\u2019s language', () => {
     const comments = compilerToComments([warning], () => A);
     expect(comments[0]!.severity).toBe('low');
   });
+
+  it('skips a diagnostic that points at a blank line, because there is nothing to quote', () => {
+    // **A diagnostic can point at whitespace** - a missing declaration between two members, a stray closing brace -
+    // and **an empty quotation would be a comment with no evidence**, which is the one thing the judge removes.
+    const blank = ['export function f() {', '', '', '', '', '', '}'];
+    const comments = compilerToComments([{ ...DIAGNOSTIC, line: 2 }], () => blank);
+    expect(comments).toEqual([]);
+  });
+
+  it('skips a diagnostic that points past the end of the file', () => {
+    // A stale diagnostic after an edit names a line the file no longer has, so the slice is empty.
+    const comments = compilerToComments([{ ...DIAGNOSTIC, line: 40 }], () => A);
+    expect(comments).toEqual([]);
+  });
 });

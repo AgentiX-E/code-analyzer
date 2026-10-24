@@ -167,6 +167,25 @@ describe('LifecycleManager', () => {
       expect(failures[0]?.name).toBe('bad');
       expect(failures[0]?.error.message).toContain('Init failed');
     });
+
+    it('reports a component that throws something that is not an Error as an Error', async () => {
+      // **A `throw` of a string is legal JavaScript** and reaches `onInitError`, which promises an `Error`. The
+      // wrapping arm existed and had never run, because every fixture threw an `Error`.
+      const failures: Array<{ name: string; error: unknown }> = [];
+      const mgr = new LifecycleManager({
+        onInitError: (name, error) => failures.push({ name, error }),
+      });
+      const comp = new MockComponent('rude');
+      comp.init = async () => {
+        throw 'kaboom';
+      };
+
+      mgr.register({ component: comp });
+
+      expect(await mgr.init()).toBe(0);
+      expect(failures[0]?.error).toBeInstanceOf(Error);
+      expect((failures[0]?.error as Error).message).toBe('kaboom');
+    });
   });
 
   describe('shutdown', () => {
