@@ -159,10 +159,11 @@ export class ResourceProvider {
       return { uri, error: `Resource not found: ${uri}` };
     }
 
-    const handler = this.resourceHandlers.get(uri);
-    if (!handler) {
-      return { uri, error: `No handler defined for resource: ${uri}` };
-    }
+    // **The handler exists whenever the definition does**, because both are built from the same list - and that
+    // agreement is asserted by `resources-projections.test.ts`, which reads every advertised resource through this
+    // method. The guard that stood here could not be false, and an `if` that cannot be false claims the lists can
+    // diverge.
+    const handler = this.resourceHandlers.get(uri)!;
 
     try {
       const data = await handler();
