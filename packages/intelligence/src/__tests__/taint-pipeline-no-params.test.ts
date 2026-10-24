@@ -12,7 +12,7 @@ import { TaintPipeline } from '../security/taint-pipeline.js';
 import type { FunctionCfg } from '../cfg/types.js';
 
 function cfgWithoutParameters(): FunctionCfg {
-  const point = { line: 3, column: 2, blockIndex: 0, statementIndex: 1 };
+  const point = { blockIndex: 0, stmtIndex: 1, line: 3 };
   return {
     functionName: 'handler',
     filePath: 'src/handler.ts',
@@ -56,7 +56,17 @@ function cfgWithoutParameters(): FunctionCfg {
     },
     entryIndex: 0,
     exitIndex: 0,
-    callSites: [{ calleeName: 'query', line: 3, argBindings: [0], argArguments: [0] }],
+    callSites: [
+      {
+        blockIndex: 0,
+        stmtIndex: 1,
+        line: 3,
+        calleeName: 'query',
+        argBindings: [0],
+        argArguments: [0],
+        resultBinding: -1,
+      },
+    ],
   };
 }
 
@@ -65,9 +75,15 @@ describe('a function with no parameters', () => {
     const pipeline = new TaintPipeline();
     const result = pipeline.analyze(new Map([['handler', cfgWithoutParameters()]]), []);
 
-    // The summary is built, and **the absence of `parameterBindings` reads as "no parameters" rather than as an
-    // index into an empty list that happens to return -1**.
+    // **The local finding is real and stays**: the source and the sink are in the same function, so the
+    // intra-procedural analysis found them without any parameter at all.
     expect(result.summariesAnalyzed).toBe(1);
-    expect(result.findings).toEqual([]);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]!.hops).toBe(1);
+
+    // **And nothing interprocedural was invented from it.** A finding that travelled `hops > 1` would mean the summary
+    // read an argument position as a parameter the function does not declare — the exact defect the `?? []` must not
+    // turn into a positive index.
+    expect(result.findings.every((f) => f.hops === 1)).toBe(true);
   });
 });
