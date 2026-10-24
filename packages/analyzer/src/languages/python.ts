@@ -37,6 +37,87 @@ export class PythonProvider extends TreeSitterBaseProvider {
   readonly globs = pyGlobs;
   readonly importSemantics = 'wildcard-leaf' as const;
 
+  /**
+   * Python's imports, read from Python's own nodes.
+   *
+   * **The base implementation walks JavaScript's import shapes**, so on a Python tree it read whatever node happened to
+   * be first: a probe of `src/flask/app.py` returned **`cabc`, `t`, `datetime`** where the file says
+   * `from __future__ import annotations`, `import typing as t` and `from datetime import timedelta`. **Sixty imports,
+   * almost all of them wrong**, and every one of them then failed to resolve — which is why a repository whose modules
+   * import each other on every line produced **four** import edges instead of hundreds.
+   *
+   * **Two shapes, and they are the grammar's**: `import_statement name: (dotted_name | aliased_import)` and
+   * `import_from_statement module_name: (dotted_name | relative_import) name: (dotted_name)…`, with
+   * `(wildcard_import)` in place of the names for `from m import *`.
+   */
+  override extractImports(source: string): ParsedImport[] {
+    this.source = source;
+    // **Without a grammar the regex fallback is the only reader there is**, and it is what the no-grammar tests
+    // exercise. Returning an empty list here would have made a degraded install look like a file with no imports.
+    if (!this.parser) return this.fallbackExtractImports(source);
+
+    const imports: ParsedImport[] = [];
+    const visit = (node: TreeSitterSyntaxNode): void => {
+      if (node.type === 'import_statement') {
+        for (const child of namedChildrenOf(node)) {
+          const module = child.type === 'aliased_import' ? child.childForFieldName('name') : child;
+          if (!module) continue;
+          // **The alias is kept beside the module rather than in place of it**: `import numpy as np` imports `numpy`,
+          // and `np` is what this file calls it. A consumer that replaced the one with the other would report an
+          // import of a module that does not exist.
+          const alias =
+            child.type === 'aliased_import' ? child.childForFieldName('alias')?.text : undefined;
+          imports.push({
+            // `import a.b.c` names the module and binds `a`; **the edge is to the module**, so the source keeps the
+            // whole dotted path and the bound name is the first segment.
+            source: module.text,
+            names: [module.text.split('.')[0] ?? module.text],
+            type: 'namespace',
+            ...(alias ? { alias } : {}),
+            lineNumber: node.startPosition.row + 1,
+          });
+        }
+      } else if (node.type === 'import_from_statement') {
+        const moduleNode = node.childForFieldName('module_name');
+        if (moduleNode) {
+          const wildcard = namedChildrenOf(node).some((c) => c.type === 'wildcard_import');
+          // **The names can be nested**, because `from m import (a, b)` wraps them in a parenthesised list - a shape a
+          // direct-children filter drops, which is how `from urllib.parse import (_url_quote)` became a name-less
+          // import. The whole subtree is walked, minus the module itself.
+          const names: string[] = [];
+          let alias: string | undefined;
+          const collectNames = (n: TreeSitterSyntaxNode): void => {
+            if (n.type === 'dotted_name') {
+              names.push(n.text);
+              return;
+            }
+            if (n.type === 'aliased_import') {
+              names.push(n.childForFieldName('name')?.text ?? n.text);
+              alias ??= n.childForFieldName('alias')?.text;
+              return;
+            }
+            for (const child of namedChildrenOf(n)) collectNames(child);
+          };
+          for (const child of namedChildrenOf(node)) {
+            if (child !== moduleNode) collectNames(child);
+          }
+          imports.push({
+            // **`relative_import` keeps its dots**, which is what makes `.helpers` resolvable at all: the dots are the
+            // package the importer is in, and the rest is the module.
+            source: moduleNode.text,
+            names: wildcard ? ['*'] : names,
+            type: wildcard ? 'wildcard' : 'named',
+            ...(alias ? { alias } : {}),
+            lineNumber: node.startPosition.row + 1,
+          });
+        }
+      }
+      for (const child of namedChildrenOf(node)) visit(child);
+    };
+    visit(this.parser.parse(source).rootNode as unknown as TreeSitterSyntaxNode);
+    return imports;
+  }
+
   protected override loadGrammar(): TreeSitterLanguage | null {
     // tree-sitter-python is a direct dependency of the analyzer, so this
     // require never throws in the bundled runtime.

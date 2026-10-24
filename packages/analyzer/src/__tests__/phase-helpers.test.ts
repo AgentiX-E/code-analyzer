@@ -681,3 +681,87 @@ describe('resolveImportPath', () => {
     });
   });
 });
+
+// Python's module syntax, which is not a path.
+//
+// **Measured on a real repository before this existed**: `crossFileDeps: 0` for `pallets/flask`, because `.helpers`
+// was resolved as a filesystem path and `flask.helpers` was looked for in `node_modules`. **Zero import edges on a
+// repository whose own modules import each other on almost every line** is the whole of "what does my change affect"
+// being unanswerable.
+describe('resolveImportPath — Python modules', () => {
+  /** A miniature of `pallets/flask`: `src/flask/{__init__,app,helpers}.py` and a `tests` package beside it. */
+  async function withFlaskTree(run: (dir: string) => void | Promise<void>): Promise<void> {
+    await withTempDir(async (dir) => {
+      mkdirSync(join(dir, 'src', 'flask', 'json'), { recursive: true });
+      writeFileSync(join(dir, 'src', 'flask', '__init__.py'), '');
+      writeFileSync(join(dir, 'src', 'flask', 'app.py'), 'from . import helpers\n');
+      writeFileSync(join(dir, 'src', 'flask', 'helpers.py'), '');
+      writeFileSync(join(dir, 'src', 'flask', 'json', '__init__.py'), '');
+      await run(dir);
+    });
+  }
+
+  it('resolves a relative dotted import to the module beside the importer', async () => {
+    await withFlaskTree((dir) => {
+      const source = join(dir, 'src', 'flask', 'app.py');
+      expect(resolveImportPath('.helpers', source, dir)).toBe(
+        join(dir, 'src', 'flask', 'helpers.py'),
+      );
+    });
+  });
+
+  it('resolves a relative import that names a package to its __init__.py', async () => {
+    await withFlaskTree((dir) => {
+      const source = join(dir, 'src', 'flask', 'app.py');
+      expect(resolveImportPath('.json', source, dir)).toBe(
+        join(dir, 'src', 'flask', 'json', '__init__.py'),
+      );
+    });
+  });
+
+  it('resolves `from . import x` to the importer’s own package', async () => {
+    await withFlaskTree((dir) => {
+      const source = join(dir, 'src', 'flask', 'app.py');
+      expect(resolveImportPath('.', source, dir)).toBe(join(dir, 'src', 'flask', '__init__.py'));
+    });
+  });
+
+  it('walks up a level for a two-dot import', async () => {
+    await withFlaskTree((dir) => {
+      writeFileSync(join(dir, 'src', 'common.py'), '');
+      const source = join(dir, 'src', 'flask', 'app.py');
+      expect(resolveImportPath('..common', source, dir)).toBe(join(dir, 'src', 'common.py'));
+    });
+  });
+
+  it('resolves an absolute dotted import inside the importer’s own package', async () => {
+    await withFlaskTree((dir) => {
+      const source = join(dir, 'src', 'flask', 'app.py');
+      // **Not `node_modules/flask`**, which is where the generic package branch looks for a name like this.
+      expect(resolveImportPath('flask.helpers', source, dir)).toBe(
+        join(dir, 'src', 'flask', 'helpers.py'),
+      );
+      expect(resolveImportPath('flask.json', source, dir)).toBe(
+        join(dir, 'src', 'flask', 'json', '__init__.py'),
+      );
+    });
+  });
+
+  it('returns null for a module that is not on disk, rather than a path that does not exist', async () => {
+    await withFlaskTree((dir) => {
+      const source = join(dir, 'src', 'flask', 'app.py');
+      expect(resolveImportPath('.nowhere', source, dir)).toBeNull();
+      expect(resolveImportPath('flask.nowhere', source, dir)).toBeNull();
+    });
+  });
+
+  it('leaves the TypeScript convention untouched', async () => {
+    // The Python branch is guarded by the importer's extension, so `./math.js` in a `.ts` file still means `math.ts`.
+    await withTempDir((dir) => {
+      mkdirSync(join(dir, 'src'));
+      writeFileSync(join(dir, 'src', 'math.ts'), 'export const pi = 3;\n');
+      const source = join(dir, 'src', 'index.ts');
+      expect(resolveImportPath('./math.js', source, dir)).toBe(join(dir, 'src', 'math.ts'));
+    });
+  });
+});

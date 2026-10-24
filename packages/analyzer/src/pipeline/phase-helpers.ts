@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { basename, dirname, relative, resolve, join } from 'node:path';
+import { basename, dirname, relative, resolve, join, sep } from 'node:path';
 
 import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger } from '@code-analyzer/shared';
 
@@ -538,11 +538,78 @@ export function simpleHash(str: string, seed: number): number {
 // Helper: resolve import path to file path
 // ---------------------------------------------------------------------------
 
+/**
+ * A Python module specifier, which is either relative dots (`from .helpers`, and `from . import x` where the specifier
+ * is a bare `.`), or a dotted package path (`from flask.helpers`). **None of them is a filesystem path**, and all are
+ * matched by this expression so the resolver only tries Python rules on something that is one.
+ */
+const PYTHON_MODULE_SPECIFIER = /^(?:\.*[A-Za-z_][\w.]*|\.+)$/;
+
+/**
+ * The file a Python import names, or `null` when there is none on disk.
+ *
+ * **Two rules, and each is the language's rather than a guess:**
+ *
+ * - **Relative dots** count from the importing module's package: `.helpers` is `helpers.py` beside the importer, and
+ *   `..utils` is one directory up.
+ * - **A dotted name with no dots in front** is resolved against **the package the importer itself belongs to**, found
+ *   by locating the import's first segment in the importer's own path. `src/flask/app.py` importing `flask.helpers`
+ *   means `src/flask/helpers.py` — **not** a `flask` package installed in `node_modules`, which is where the generic
+ *   branch was looking.
+ *
+ * **A module is a file or a package**, so `__init__.py` is a candidate: `from . import x` names a package, and a
+ * resolver that only tried `<name>.py` would call every one of those imports unresolved.
+ */
+function resolvePythonModule(
+  specifier: string,
+  sourceFile: string,
+  projectRoot: string,
+): string | null {
+  const dots = /^\.+/.exec(specifier)?.[0].length ?? 0;
+  const segments = specifier
+    .slice(dots)
+    .split('.')
+    .filter((part) => part.length > 0);
+
+  let base: string;
+  if (dots > 0) {
+    base = dirname(sourceFile);
+    for (let level = 1; level < dots; level += 1) base = dirname(base);
+  } else {
+    // Anchor on the importer's own package: the deepest directory segment that the import names first.
+    const directories = dirname(sourceFile).split(sep);
+    const anchor = segments.length > 0 ? directories.lastIndexOf(segments[0]!) : -1;
+    base = anchor > 0 ? directories.slice(0, anchor).join(sep) : projectRoot;
+  }
+
+  const relative = segments.join(sep);
+  const candidates =
+    relative.length === 0
+      ? [join(base, '__init__.py')]
+      : [join(base, `${relative}.py`), join(base, relative, '__init__.py')];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 export function resolveImportPath(
   importPath: string,
   sourceFilePath: string,
   projectRoot: string,
 ): string | null {
+  // **Python's module syntax, which the branches below cannot read.** `from .helpers import x` is a dotted *module*
+  // name and not a path, so `resolve(sourceDir, '.helpers')` produced `.../flask/.helpers` and found nothing; and
+  // `from flask.helpers import x` was looked up in `node_modules`. **The result was an import graph of exactly zero
+  // edges for every Python repository** - `crossFileDeps: 0` on `pallets/flask`, measured - while the TS/JS corpus the
+  // resolver was written for worked. **A language whose imports cannot be resolved is a language whose callers cannot
+  // be found**, which is the whole of story 3.
+  if (sourceFilePath.endsWith('.py') && PYTHON_MODULE_SPECIFIER.test(importPath)) {
+    const resolved = resolvePythonModule(importPath, sourceFilePath, projectRoot);
+    if (resolved) return resolved;
+  }
+
   // Relative import
   if (importPath.startsWith('.')) {
     const sourceDir = dirname(sourceFilePath);

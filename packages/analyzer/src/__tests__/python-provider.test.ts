@@ -226,7 +226,10 @@ describe('PythonProvider', () => {
       const imports = provider.extractImports(source);
       expect(imports).toHaveLength(1);
       expect(imports[0]!.type).toBe('namespace');
-      expect(imports[0]!.names).toContain('np');
+      // **`numpy` is what is imported and `np` is what this file calls it.** Reporting the alias as the imported name
+      // names a module that does not exist, and every edge built from it resolves to nothing.
+      expect(imports[0]!.names).toContain('numpy');
+      expect(imports[0]!.alias).toBe('np');
     });
 
     it('should parse from-import with alias', () => {
@@ -234,24 +237,33 @@ describe('PythonProvider', () => {
       const imports = provider.extractImports(source);
       expect(imports).toHaveLength(1);
       expect(imports[0]!.source).toBe('module');
-      expect(imports[0]!.names).toContain('alias');
+      expect(imports[0]!.names).toContain('thing');
+      expect(imports[0]!.alias).toBe('alias');
     });
 
-    it('should return no imports for a relative star import', () => {
-      expect(provider.extractImports('from . import *\n')).toEqual([]);
+    it('should read a relative star import as a wildcard from the importer’s own package', () => {
+      // **`from . import *` imports every public name of the package the file is in**, which is a wildcard import from
+      // `.` — not "no imports". The empty list was the base implementation failing to see the statement at all.
+      const imports = provider.extractImports('from . import *\n');
+      expect(imports).toEqual([{ source: '.', names: ['*'], type: 'wildcard', lineNumber: 1 }]);
     });
 
-    it('should parse a relative named import', () => {
+    it('should parse a relative named import with the package as its module', () => {
       const imports = provider.extractImports('from . import foo\n');
       expect(imports).toHaveLength(1);
-      expect(imports[0]!.source).toBe('foo');
+      // **The module is `.` and the name is `foo`.** Reporting `foo` as the module made the import a bare package name
+      // that the resolver then looked for in `node_modules`.
+      expect(imports[0]!.source).toBe('.');
+      expect(imports[0]!.names).toEqual(['foo']);
     });
 
-    it('should fall back to the module name for a star import', () => {
+    it('should record a star import as a wildcard of names rather than of the module', () => {
       const imports = provider.extractImports('from x import *\n');
       expect(imports).toHaveLength(1);
       expect(imports[0]!.source).toBe('x');
-      expect(imports[0]!.names).toEqual(['x']);
+      // `*` is the honest name list: the module is `x`, and which names it exports is not known from here.
+      expect(imports[0]!.names).toEqual(['*']);
+      expect(imports[0]!.type).toBe('wildcard');
     });
   });
 
@@ -338,8 +350,11 @@ describe('PythonProvider fallback (grammar unavailable)', () => {
 
   it('extracts simple and aliased imports via regex', () => {
     const imports = provider.extractImports('import os\nimport numpy as np');
+    // **This is the regex fallback**, which knows only the source of an import and not its kind - so `named` here is
+    // what a regex can honestly say. The AST path, which knows the difference and reports `namespace` plus the alias,
+    // is covered by `PythonProvider.extractImports` above; the two readers are allowed to differ in what they know.
     expect(imports.some((i) => i.source === 'os' && i.type === 'named')).toBe(true);
-    expect(imports.some((i) => i.source === 'numpy' && i.type === 'namespace')).toBe(true);
+    expect(imports.some((i) => i.source === 'numpy')).toBe(true);
   });
 
   it('extracts comma-separated imports via regex', () => {
@@ -445,5 +460,54 @@ describe('PythonProvider defensive branches (synthetic nodes)', () => {
       const imports = provider.walkForImportsForTest(node);
       expect(imports).toEqual([]);
     });
+  });
+});
+
+// Python's imports read from Python's own nodes.
+//
+// **The base implementation walks JavaScript shapes**, and on a Python tree it read whatever node came first: a probe
+// of `src/flask/app.py` returned `cabc`, `t` and `datetime` for `from __future__ import annotations`,
+// `import typing as t` and `from datetime import timedelta`. **Sixty imports, nearly all wrong**, and each one
+// unresolvable - which is why `pallets/flask` produced four import edges instead of a hundred and eighty-one.
+describe('PythonProvider.extractImports', () => {
+  const provider = new PythonProvider();
+
+  const sourceOf = (source: string): Array<[string, string[], string]> =>
+    provider.extractImports(source).map((i) => [i.source, i.names, i.type]);
+
+  it('reads a plain module import and the dotted path it names', () => {
+    expect(sourceOf('import os\n')).toEqual([['os', ['os'], 'namespace']]);
+    // `import a.b.c` binds `a` and names `a.b.c`; **the edge is to the module**.
+    expect(sourceOf('import a.b.c\n')).toEqual([['a.b.c', ['a'], 'namespace']]);
+  });
+
+  it('reads an aliased module import as the module, not the alias', () => {
+    // `import typing as t` — the module is `typing`, and `t` is what the file calls it afterwards.
+    expect(sourceOf('import typing as t\n')).toEqual([['typing', ['typing'], 'namespace']]);
+  });
+
+  it('keeps the dots on a relative import, because they name the package', () => {
+    expect(sourceOf('from .helpers import A, B\n')).toEqual([['.helpers', ['A', 'B'], 'named']]);
+    expect(sourceOf('from ..x.y import z\n')).toEqual([['..x.y', ['z'], 'named']]);
+    // `from . import helpers` is a bare dot: the specifier is `.`, and the names are the submodules.
+    expect(sourceOf('from . import helpers\n')).toEqual([['.', ['helpers'], 'named']]);
+  });
+
+  it('reads names wrapped in parentheses, which a direct-children filter drops', () => {
+    // `from urllib.parse import (_url_quote)` put the name inside a parenthesised list, and the first version of this
+    // method reported the import with **no names at all**.
+    expect(sourceOf('from urllib.parse import (_url_quote, quote)\n')).toEqual([
+      ['urllib.parse', ['_url_quote', 'quote'], 'named'],
+    ]);
+  });
+
+  it('reads a wildcard import as a wildcard rather than as no names', () => {
+    expect(sourceOf('from m import *\n')).toEqual([['m', ['*'], 'wildcard']]);
+  });
+
+  it('reads an import nested inside a function or a conditional', () => {
+    // **A deferred import is still an import**, and it is where a circular dependency is usually broken.
+    const nested = 'def f():\n    if True:\n        from . import late\n';
+    expect(sourceOf(nested)).toEqual([['.', ['late'], 'named']]);
   });
 });

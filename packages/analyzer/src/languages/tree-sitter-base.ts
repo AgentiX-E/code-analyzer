@@ -299,7 +299,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // and an attempt to remove it as a dead field broke those two providers. **A field with a different audience is
     // not a dead field.**
     this.source = source;
-    this.source = source;
 
     if (!this.parser || !this.languageGrammar) {
       return this.fallbackExtractImports(source);

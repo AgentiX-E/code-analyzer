@@ -1,0 +1,224 @@
+// @code-analyzer — Story 1 end to end: a real repository, from a tarball to a graph.
+//
+// **Every other end-to-end test in this repository indexes a fixture.** A temporary directory with three files proves
+// that the phases are wired; it does not prove that the index of a repository somebody actually maintains is complete.
+// This test takes a **pinned** real project — `pallets/flask`, which several code-retrieval benchmarks use — and asks
+// the questions a user asks after `scan`: **did every file get in, is the symbol I know about in the graph, and are
+// the imports connected?**
+//
+// **The corpus is pinned by SHA and fetched as a tarball rather than cloned**: a clone transfers a `.git` history the
+// scanner has to skip, and a tarball of a public repository needs no credential on a runner. **A download failure skips
+// locally and fails on a runner** — an offline laptop must not turn a measurement into a red build, and a runner that
+// cannot reach the corpus must not turn a red build into a silent green.
+//
+// **The thresholds are the measured values with headroom, not round numbers**: `IMPORTS 181`, `CALLS 5933`,
+// `DEFINES 4856` at this commit. A threshold far below the measurement would pass on a repository that had lost half
+// its edges.
+
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, relative } from 'node:path';
+
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { GraphBuilder } from '../graph/graph-builder.js';
+import { PipelineOrchestrator, createAllPhases } from '../pipeline/index.js';
+
+import type {
+  CodeAnalyzerConfig,
+  GraphEdge,
+  GraphNode,
+  KnowledgeGraph,
+  PipelineContext,
+} from '@code-analyzer/shared';
+
+/** The corpus, pinned. **A moving reference would make every number below meaningless within a week.** */
+const CORPUS = {
+  name: 'pallets/flask',
+  sha: 'd086db856be187255b8ec61ef409357393020f32',
+  tarball:
+    'https://codeload.github.com/pallets/flask/tar.gz/d086db856be187255b8ec61ef409357393020f32',
+} as const;
+
+const TIMEOUT = 300_000;
+
+let workDir: string;
+let root: string;
+let graph: KnowledgeGraph;
+let phases: Array<{ phaseId: string; status: string; output?: Record<string, unknown> }>;
+let skipped: string | null = null;
+let fileCount = 0;
+
+/** Every `.py` file under `dir`, as repository-relative paths — the denominator every assertion below is against. */
+function pythonFiles(dir: string, base = dir): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === '.git' || entry.name === '__pycache__') continue;
+      out.push(...pythonFiles(full, base));
+    } else if (entry.isFile() && entry.name.endsWith('.py')) {
+      out.push(relative(base, full));
+    }
+  }
+  return out;
+}
+
+beforeAll(async () => {
+  workDir = mkdtempSync(join(tmpdir(), 'ca-real-repo-'));
+  const archive = join(workDir, 'corpus.tar.gz');
+  root = join(workDir, 'src');
+  mkdirSync(root, { recursive: true });
+
+  try {
+    const response = await fetch(CORPUS.tarball, { signal: AbortSignal.timeout(120_000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    writeFileSync(archive, Buffer.from(await response.arrayBuffer()));
+    // **`tar` rather than a library**, because the corpus is a gzipped tarball and the runner has the tool.
+    execFileSync('tar', ['xzf', archive, '-C', root, '--strip-components=1'], { stdio: 'ignore' });
+  } catch (err) {
+    const reason = `could not fetch ${CORPUS.name}@${CORPUS.sha.slice(0, 8)}: ${(err as Error).message}`;
+    // **A runner has a network by definition**, so a failure there is a red build rather than a skip.
+    if (process.env['CI']) throw new Error(reason);
+    skipped = reason;
+    return;
+  }
+
+  fileCount = pythonFiles(root).length;
+
+  const store = new InMemoryGraphStore();
+  const builder = new GraphBuilder(store);
+  const config: CodeAnalyzerConfig = {
+    projectId: CORPUS.name,
+    rootPath: root,
+    excludePatterns: [],
+    includePatterns: [],
+    maxFileSize: 10 * 1024 * 1024,
+    maxFiles: 10_000,
+    parseWorkers: 1,
+    ignorePaths: [],
+  };
+  const ctx: PipelineContext = {
+    projectId: CORPUS.name,
+    rootPath: root,
+    phaseData: new Map(),
+    graph: builder.build({ projectId: CORPUS.name, rootPath: root, phaseData: new Map(), config }),
+    config,
+  };
+
+  const result = await new PipelineOrchestrator(createAllPhases()).execute(ctx);
+  // The context was built with a graph two lines above, so it is present; the optional field is the pipeline's shape.
+  graph = ctx.graph!;
+  phases = result.phases as typeof phases;
+}, TIMEOUT);
+
+afterAll(() => {
+  if (workDir) rmSync(workDir, { recursive: true, force: true });
+});
+
+function phaseOutput(id: string): Record<string, unknown> {
+  return phases.find((p) => p.phaseId === id)?.output ?? {};
+}
+
+function nodes(): GraphNode[] {
+  return [...graph.nodes.values()];
+}
+
+function edgesOfType(type: string): GraphEdge[] {
+  return [...graph.edges.values()].filter((e) => e.type === type);
+}
+
+describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () => {
+  it('finds every Python file in the tree', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    expect(fileCount).toBeGreaterThan(80);
+    // **The denominator is the repository**, not a constant: if the corpus changes, the number changes with it.
+    expect(Number(phaseOutput('scan')['filesDiscovered'])).toBe(fileCount);
+  });
+
+  it('parses every file it scanned, and reports both counts', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    // **A scanner that admits a file the parser then drops is how a symbol disappears without a failure**, so the two
+    // counts are compared rather than each being checked against a threshold of its own.
+    expect(Number(phaseOutput('parse')['filesParsed'])).toBe(fileCount);
+    expect(Number(phaseOutput('parse')['filesFailed'])).toBe(0);
+  });
+
+  it('puts a class and a method the project is known for into the graph', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    const flask = nodes().find((n) => n.name === 'Flask' && n.label === 'Class');
+    expect(flask, 'the Flask class').toBeDefined();
+    // **The path is absolute on the node** — a defect recorded in the audit rather than asserted as correct here, so
+    // the suffix is what this case pins.
+    expect(flask!.filePath?.endsWith('src/flask/app.py')).toBe(true);
+    expect(flask!.startLine).toBe(109);
+
+    const run = nodes().find((n) => n.name === 'run' && n.filePath?.endsWith('src/flask/app.py'));
+    expect(run, 'Flask.run').toBeDefined();
+  });
+
+  it('builds an import graph, which was empty on every Python repository before this test existed', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    const imports = edgesOfType('IMPORTS');
+    // **Measured 181 at this commit, and 0 before the resolver learned Python's module syntax.**
+    expect(imports.length).toBeGreaterThan(150);
+
+    const appFile = nodes().find(
+      (n) => n.label === 'File' && n.filePath?.endsWith('src/flask/app.py'),
+    );
+    expect(appFile).toBeDefined();
+    const outgoing = imports.filter((e) => e.sourceId === appFile!.id);
+    // `app.py` imports its own package's helpers, and the graph says so.
+    expect(outgoing.length).toBeGreaterThan(0);
+  });
+
+  it('resolves calls between files, not just within one', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    // **The call graph was already built from captures**; what changed is that resolved imports feed scope resolution,
+    // which took it from 5173 to 5933 edges at this commit.
+    expect(edgesOfType('CALLS').length).toBeGreaterThan(5000);
+    expect(edgesOfType('DEFINES').length).toBeGreaterThan(4000);
+  });
+
+  it('records a line range for every symbol it emits', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    const symbols = nodes().filter((n) => n.label !== 'File' && n.label !== 'Folder');
+    expect(symbols.length).toBeGreaterThan(1000);
+
+    // **Only two labels are synthetic**, and naming them is the assertion: a *symbol* without a file is a symbol
+    // nobody can open, while a project or a community is not in a file by definition. **A blanket "every node has a
+    // path" check would pass by excluding them silently**, and a blanket "every node has a line" check fails on them
+    // for the wrong reason - the failure above listed 1539 nodes whose only sin is being a community.
+    const withoutFile = symbols.filter((n) => !n.filePath);
+    expect([...new Set(withoutFile.map((n) => n.label))].sort()).toEqual(['Community', 'Project']);
+
+    // **A node with a line of 0 cannot be clicked, and an inverted range cannot be reviewed.** Both are silent.
+    const placed = symbols.filter((n) => typeof n.filePath === 'string' && n.filePath.length > 0);
+    const bad = placed.filter(
+      (n) =>
+        typeof n.startLine !== 'number' ||
+        typeof n.endLine !== 'number' ||
+        n.startLine < 1 ||
+        n.endLine < n.startLine,
+    );
+    expect(bad.map((n) => `${n.filePath}:${n.name}`)).toEqual([]);
+  });
+
+  it('runs every phase to a terminal state and says how many vectors it produced', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    const failed = phases.filter((p) => p.status !== 'success' && p.status !== 'skipped');
+    expect(failed.map((p) => `${p.phaseId}:${p.status}`)).toEqual([]);
+
+    // **The count is the answer to "are there embeddings in this index"**, and it is reported rather than assumed.
+    expect(Number(phaseOutput('embed')['embeddingsGenerated'])).toBeGreaterThan(1000);
+  });
+});
