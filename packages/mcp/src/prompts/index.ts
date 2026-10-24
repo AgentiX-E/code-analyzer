@@ -229,7 +229,9 @@ Please provide:
       all: 'Conduct a comprehensive review covering security, performance, style, and correctness.',
     };
 
-    const focusInstruction = focusAreas[focus] ?? focusAreas['all'] ?? focusAreas['all'];
+    // **One fallback, not two**: the second `?? focusAreas['all']` could never fire, because the first already
+    // returns a string whenever the key is absent.
+    const focusInstruction = focusAreas[focus] ?? focusAreas['all'];
 
     const systemPrompt = `You are a senior code reviewer. Analyze code changes thoroughly and provide actionable feedback.
 Categorize issues by severity (critical, high, medium, low). For each issue, explain:
@@ -503,10 +505,11 @@ ${adrInstruction}`;
       if (calls.length > 0) {
         lines.push(`- Direct calls/dependencies: ${calls.length}`);
         for (const edge of calls.slice(0, 5)) {
-          const target = this.store.getNode(edge.targetId);
-          if (target) {
-            lines.push(`  - → \`${target.qualifiedName || target.name}\` (${edge.type})`);
-          }
+          // **The target is present because the store refuses an edge whose endpoints are absent** - `insertEdge`
+          // throws for an unknown id - so the `if (target)` that stood here guarded a state the storage layer
+          // forbids, and it made a missing node look like a possibility this code had to survive.
+          const target = this.store.getNode(edge.targetId)!;
+          lines.push(`  - → \`${target.qualifiedName || target.name}\` (${edge.type})`);
         }
         if (calls.length > 5) lines.push(`  - ... and ${calls.length - 5} more`);
       }
@@ -561,8 +564,9 @@ ${adrInstruction}`;
           const depNames = inEdges
             .slice(0, 3)
             .map((e) => {
-              const src = this.store.getNode(e.sourceId);
-              return src ? `\`${src.qualifiedName || src.name}\`` : 'unknown';
+              // The source exists because the store validates an edge when it is written.
+              const src = this.store.getNode(e.sourceId)!;
+              return `\`${src.qualifiedName || src.name}\``;
             })
             .join(', ');
           lines.push(
@@ -604,15 +608,14 @@ ${adrInstruction}`;
     for (const edge of this.store.edges.values()) {
       if (edge.projectId !== projectId && projectId !== '*') continue;
       if (edge.type === 'CROSS_REPO_DEPENDS' || edge.type === EDGE_IMPORTS) {
-        const src = this.store.getNode(edge.sourceId);
-        const tgt = this.store.getNode(edge.targetId);
-        if (src && tgt) {
-          const srcFile = src.filePath?.split('/').slice(0, -1).join('/') || '(root)';
-          const tgtFile = tgt.filePath?.split('/').slice(0, -1).join('/') || '(root)';
-          if (srcFile !== tgtFile) {
-            if (!depMap.has(srcFile)) depMap.set(srcFile, new Set());
-            depMap.get(srcFile)!.add(tgtFile);
-          }
+        // Both endpoints exist for the same reason as above: the store validates an edge when it is written.
+        const src = this.store.getNode(edge.sourceId)!;
+        const tgt = this.store.getNode(edge.targetId)!;
+        const srcFile = src.filePath?.split('/').slice(0, -1).join('/') || '(root)';
+        const tgtFile = tgt.filePath?.split('/').slice(0, -1).join('/') || '(root)';
+        if (srcFile !== tgtFile) {
+          if (!depMap.has(srcFile)) depMap.set(srcFile, new Set());
+          depMap.get(srcFile)!.add(tgtFile);
         }
       }
     }

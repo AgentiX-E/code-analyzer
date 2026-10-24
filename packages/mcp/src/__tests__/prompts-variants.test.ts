@@ -195,9 +195,11 @@ function richStore(): InMemoryGraphStore {
     filePath: undefined,
     startLine: 0,
     complexity: null,
+    // A provider that could not compute a qualified name: the section falls back to the plain name.
+    qualifiedName: '',
     properties: { isEntrypoint: 'true' },
   });
-  const leaf = add('leaf', { filePath: 'lib/leaf.ts' });
+  const leaf = add('leaf', { filePath: 'lib/leaf.ts', qualifiedName: '' });
   add('leafSibling', { filePath: 'lib/leaf.ts' });
 
   const edge = (sourceId: number, targetId: number, type = 'CALLS', projectId = 'p'): void => {
@@ -373,5 +375,222 @@ describe('the summary on a graph with sparse values', () => {
     // The other project's edge is excluded from the first and included in the second.
     expect(own).toContain('Total Edges: 0');
     expect(all).toContain('Total Edges: 1');
+  });
+});
+
+/**
+ * A graph where every node lacks a file, plus a cross-repository dependency between two directories.
+ *
+ * **The layer section has nothing to show when no node has a path**, and saying so is the difference between an empty
+ * section and one that reads `(No layer information available)`. The dependency section is the mirror image: it needs
+ * two directories, and one of the endpoints has no path at all, so the `(root)` fallback carries the answer.
+ */
+function pathlessStore(): InMemoryGraphStore {
+  const store = new InMemoryGraphStore();
+  const add = (name: string, filePath: string | undefined): number =>
+    store.insertNode({
+      projectId: 'p',
+      name,
+      qualifiedName: `p:${name}`,
+      label: 'Function',
+      filePath,
+      startLine: 1,
+      endLine: 1,
+      language: 'TypeScript',
+      isExported: true,
+      properties: {},
+    } as never);
+
+  const rootless = add('rootless', undefined);
+  const inLib = add('inLib', 'lib/x.ts');
+  const inApi = add('inApi', 'api/y.ts');
+
+  store.insertEdge({
+    projectId: 'p',
+    sourceId: inApi,
+    targetId: inLib,
+    type: 'CROSS_REPO_DEPENDS',
+    properties: {},
+    weight: 1,
+    createdAt: '2026-01-01T00:00:00Z',
+  } as never);
+  store.insertEdge({
+    projectId: 'p',
+    sourceId: rootless,
+    targetId: inLib,
+    type: 'CROSS_REPO_DEPENDS',
+    properties: {},
+    weight: 1,
+    createdAt: '2026-01-01T00:00:00Z',
+  } as never);
+  return store;
+}
+
+describe('the layer and dependency sections when nothing has a path', () => {
+  it('says there is no layer information rather than printing an empty list', async () => {
+    // **Every node is pathless here**, which is the only state in which the layer section is empty: a single placed
+    // symbol is enough to make it say something, which is why this case needs its own graph.
+    const store = new InMemoryGraphStore();
+    store.insertNode({
+      projectId: 'p',
+      name: 'only',
+      qualifiedName: 'p:only',
+      label: 'Function',
+      filePath: undefined,
+      startLine: 1,
+      endLine: 1,
+      language: 'TypeScript',
+      isExported: true,
+      properties: {},
+    } as never);
+    const provider = new PromptProvider(store);
+
+    const text = (await provider.getPrompt('architecture-review', { projectId: 'p' })).messages
+      .map((m) => m.content.text)
+      .join('\n');
+
+    expect(text).toContain('(No layer information available)');
+  });
+
+  it('places a dependency from a file with no directory under (root)', async () => {
+    const provider = new PromptProvider(pathlessStore());
+
+    const text = (await provider.getPrompt('architecture-review', { projectId: 'p' })).messages
+      .map((m) => m.content.text)
+      .join('\n');
+
+    expect(text).toContain('(root)');
+    expect(text).toContain('lib');
+  });
+});
+
+describe('a prompt asked for with no arguments at all', () => {
+  it('is answered rather than rejected, and answers from the defaults', async () => {
+    // **`getPrompt(name)` with no second argument** is what a client sends when it relies on the definition's
+    // required list, and `args ?? {}` is the line that makes it an empty object rather than a crash.
+    const provider = new PromptProvider(messyStore());
+
+    const result = await provider.getPrompt('explore-codebase');
+
+    expect(result.messages.length).toBeGreaterThan(0);
+  });
+});
+
+describe('a review with a focus that is not in the table', () => {
+  it('falls back to the comprehensive instruction', async () => {
+    // **A focus area is free text from a user**, so an unknown one must not produce an empty instruction.
+    const provider = new PromptProvider(messyStore());
+
+    const text = (
+      await provider.getPrompt('review-changes', {
+        projectId: 'my-app',
+        fromRef: 'main',
+        focus: 'quantum',
+      })
+    ).messages
+      .map((m) => m.content.text)
+      .join('\n');
+
+    expect(text).toContain('comprehensive review');
+  });
+});
+
+/**
+ * A trace long enough to be truncated, and a symbol common enough that the related list is truncated too.
+ *
+ * **Both truncations are branches with a visible consequence**: a prompt that prints every call is one nobody can read,
+ * and one that prints none says nothing. The pairs below are the same graph answered twice, with and without the
+ * second kind of edge, so the difference is the edge rather than the fixture.
+ */
+function traceStore(kind: 'calls' | 'cross' | 'short'): InMemoryGraphStore {
+  const store = new InMemoryGraphStore();
+  const add = (name: string, over: Record<string, unknown> = {}): number =>
+    store.insertNode({
+      projectId: 'p',
+      name,
+      qualifiedName: `p:${name}`,
+      label: 'Function',
+      filePath: 'src/a.ts',
+      startLine: 1,
+      endLine: 1,
+      language: 'TypeScript',
+      isExported: true,
+      properties: {},
+      ...over,
+    } as never);
+
+  const entry = add('entry');
+  // Twelve names containing `entry2`, so the related-symbol list has more than its limit of ten to choose from.
+  for (let i = 0; i < 12; i += 1) add(`entry2sym${i}`);
+  // A related symbol whose qualified name was never computed.
+  add('entry2bare', { qualifiedName: '' });
+  const target = add('callee', { qualifiedName: '' });
+
+  if (kind === 'cross') {
+    // Inserted first, because the trace prints the first five outgoing edges and a cross-repository one that the
+    // reader never sees is not evidence that it was followed.
+    store.insertEdge({
+      projectId: 'p',
+      sourceId: entry,
+      targetId: target,
+      type: 'CROSS_REPO_DEPENDS',
+      properties: {},
+      weight: 1,
+      createdAt: '2026-01-01T00:00:00Z',
+    } as never);
+  }
+  // Two calls for `short`, so the trace has nothing to truncate.
+  const callCount = kind === 'short' ? 2 : 6;
+  for (let i = 0; i < callCount; i += 1) {
+    store.insertEdge({
+      projectId: 'p',
+      sourceId: entry,
+      targetId: target,
+      type: 'CALLS',
+      properties: {},
+      weight: 1,
+      createdAt: '2026-01-01T00:00:00Z',
+    } as never);
+  }
+  return store;
+}
+
+describe('a trace that is truncated, and a related list that is truncated', () => {
+  const ask = async (kind: 'calls' | 'cross' | 'short'): Promise<string> => {
+    const provider = new PromptProvider(traceStore(kind));
+    return (
+      await provider.getPrompt('debug-issue', {
+        projectId: 'p',
+        entryPoint: 'entry',
+        symptom: 'slow',
+      })
+    ).messages
+      .map((m) => m.content.text)
+      .join('\n');
+  };
+
+  it('follows a cross-repository dependency as a call', async () => {
+    // **The two edge types are the same question** — what does this function reach — and a trace that read only
+    // `CALLS` would stop at a repository boundary.
+    expect(await ask('cross')).toContain('CROSS_REPO_DEPENDS');
+  });
+
+  it('names a target whose qualified name was never computed', async () => {
+    expect(await ask('calls')).toContain('callee');
+  });
+
+  it('prints a short trace without inventing a remainder', async () => {
+    const text = await ask('short');
+
+    expect(text).toContain('Direct calls/dependencies: 2');
+    expect(text).not.toMatch(/\.\.\. and \d+ more/);
+  });
+
+  it('limits the related symbols it prints', async () => {
+    const text = await ask('calls');
+
+    // Twelve candidates and a limit of ten: the list stops, and the one past the limit is not printed.
+    expect(text).toContain('entry2sym8');
+    expect(text).not.toContain('entry2sym9');
   });
 });
