@@ -647,8 +647,9 @@ export async function testsFor(
   for (const edge of graphStore.getAllEdges()) {
     if (String(edge.type) !== EDGE_TESTS) continue;
     if (!targetIds.has(edge.targetId)) continue;
-    const source = graphStore.getAllNodes().find((n) => n.id === edge.sourceId);
-    if (!source) continue;
+    // **The source is present because the store refuses an edge whose endpoints are absent** - `insertEdge` throws
+    // for an unknown id - so the `if (!source) continue` that stood here guarded a state the storage layer forbids.
+    const source = graphStore.getAllNodes().find((n) => n.id === edge.sourceId)!;
     const filePath = String(source.filePath ?? '');
     // **One entry per test file**, because that is the unit a reader acts on - opening the same file twice from a list
     // of two findings is a list that lied about its length.

@@ -1,8 +1,9 @@
 // @code-analyzer/mcp — Change & Impact Analysis Tools Tests
 
-import { describe, it, expect, vi } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl } from '../tools/tool-context.js';
+import { EDGE_TESTS } from '@code-analyzer/shared';
+import { describe, it, expect, vi } from 'vitest';
+
 import {
   detectChanges,
   detectChangesSchema,
@@ -12,7 +13,10 @@ import {
   routeMapSchema,
   checkCycles,
   checkCyclesSchema,
+  testsFor,
 } from '../tools/change-impact.js';
+import { ToolContextImpl } from '../tools/tool-context.js';
+
 import type { ToolResult } from '../tools/registry.js';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
@@ -659,5 +663,78 @@ describe('checkCycles', () => {
     const result = await checkCycles({ projectId: 'p1' }, store);
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toContain('Cycle check error: plain failure');
+  });
+});
+
+// `tests_for`: the tool an agent uses to ask whether a symbol is covered before it refactors.
+//
+// **The answer has three shapes and they are not interchangeable**: the symbol is not in the graph (nothing can be
+// said), the symbol is in the graph and no test covers it (say so), and the symbol is covered by these files. A tool
+// that returned an empty list for all three would be read as "untested" in the first case, which is a different and
+// much stronger claim than "unknown".
+describe('tests_for', () => {
+  const SYMBOL = 'pkg.fn';
+
+  function storeWithTests(): InMemoryGraphStore {
+    const store = new InMemoryGraphStore();
+    const target = store.insertNode(
+      makeNode({ name: 'fn', qualifiedName: SYMBOL, filePath: '/src/fn.ts' }),
+    );
+    const testA = store.insertNode(
+      makeNode({ name: 'a', qualifiedName: 'test.a', filePath: '/test/a.test.ts', label: 'Test' }),
+    );
+    const testB = store.insertNode(
+      makeNode({ name: 'b', qualifiedName: 'test.b', filePath: '/test/a.test.ts', label: 'Test' }),
+    );
+    store.insertEdge(makeEdge({ sourceId: testA, targetId: target, type: EDGE_TESTS }));
+    // **The same file twice**, because two tests in one file are one file to open.
+    store.insertEdge(makeEdge({ sourceId: testB, targetId: target, type: EDGE_TESTS }));
+    // And an edge of a different type, which is not a test.
+    store.insertEdge(makeEdge({ sourceId: testA, targetId: target, type: 'CALLS' }));
+    return store;
+  }
+
+  it('refuses without a store rather than answering from nothing', async () => {
+    const result = await testsFor({ symbol: SYMBOL }, undefined);
+
+    expect(result.isError).toBe(true);
+    expect(parseText(result)['error']).toMatch(/No graph store/);
+  });
+
+  it('says the symbol is absent, which is not the same as untested', async () => {
+    const result = await testsFor(
+      { symbol: 'pkg.nowhere' },
+      new ToolContextImpl(new InMemoryGraphStore()),
+    );
+
+    expect(parseText(result)['found']).toBe(false);
+    expect(parseText(result)['note']).toMatch(/not in the graph/);
+  });
+
+  it('lists one entry per test file, found by qualified name', async () => {
+    const result = await testsFor({ symbol: SYMBOL }, new ToolContextImpl(storeWithTests()));
+    const payload = parseText(result);
+
+    expect(payload['found']).toBe(true);
+    const tests = payload['tests'] as Array<{ filePath: string }>;
+    expect(tests).toHaveLength(1);
+    expect(tests[0]!.filePath).toBe('/test/a.test.ts');
+  });
+
+  it('finds the symbol by its plain name when that is what the agent has', async () => {
+    const result = await testsFor({ symbol: 'fn' }, new ToolContextImpl(storeWithTests()));
+
+    expect(parseText(result)['found']).toBe(true);
+    expect((parseText(result)['tests'] as unknown[]).length).toBe(1);
+  });
+
+  it('reports a symbol in the graph that no test covers', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(makeNode({ name: 'unloved', qualifiedName: 'pkg.unloved' }));
+
+    const result = await testsFor({ symbol: 'pkg.unloved' }, new ToolContextImpl(store));
+
+    expect(parseText(result)['found']).toBe(true);
+    expect(parseText(result)['tests']).toEqual([]);
   });
 });
