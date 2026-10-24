@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { GraphCompressor, __setBrotliProbe } from '../cross-repo/graph-compressor.js';
 

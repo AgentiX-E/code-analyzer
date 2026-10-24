@@ -89,7 +89,8 @@
     "turbo": "^2.10.7",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "zod": "^4.6.6"
   },
   "dependencies": {
     "tree-sitter": "^0.25.0",
@@ -113,6 +114,8 @@
   "pnpm": {
     "overrides": {
       "browserslist": "^4.28.9",
+      "body-parser": "^2.4.0",
+      "zod": "^4.6.6",
       "fast-uri": ">=4.1.4",
       "undici": ">=7.29.1",
       "@fastify/busboy": ">=3.2.1",
