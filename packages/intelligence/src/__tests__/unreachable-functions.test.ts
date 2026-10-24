@@ -127,3 +127,94 @@ describe('functions nothing calls', () => {
     }
   });
 });
+
+// The four things that are not a dead function, each with the reason it is not one.
+//
+// **Every one of these is a false positive if it is missed**: a class is not a function, an entry point is called by
+// the runtime, a test is called by the runner, and a node with no file is a node the detector cannot judge. **A
+// detector is judged by what it refuses to report**, which is why these cases sit beside the ones that report.
+describe('what is not a dead function', () => {
+  it('ignores an edge that is not a call', () => {
+    const graph = graphWith(
+      [
+        { id: 1, name: 'declared', filePath: 'src/a.ts' },
+        { id: 2, name: 'file', filePath: 'src/a.ts', label: 'Module' },
+      ],
+      [{ sourceId: 2, targetId: 1, type: 'DEFINES' }],
+    );
+
+    const report = findUnreachableFunctions(graph);
+
+    // **No call edge, so the question cannot be asked** - and the count says so rather than the answer being "all".
+    expect(report.callsEdgeCount).toBe(0);
+    expect(report.candidates).toEqual([]);
+  });
+
+  it('does not consider a node that is not function-like', () => {
+    const graph = graphWith(
+      [
+        { id: 1, name: 'counter', filePath: 'src/a.ts', label: 'Variable' },
+        { id: 2, name: 'caller', filePath: 'src/b.ts' },
+        { id: 3, name: 'called', filePath: 'src/c.ts' },
+      ],
+      [{ sourceId: 2, targetId: 3, type: 'CALLS' }],
+    );
+
+    const report = findUnreachableFunctions(graph);
+
+    // Two function-like nodes were considered; the variable was not.
+    expect(report.considered).toBe(2);
+    expect(report.candidates.map((c) => c.name)).not.toContain('counter');
+  });
+
+  it('does not report an entry point as unreachable', () => {
+    // `main` is called by the runtime, and saying otherwise is a confident false positive.
+    const graph = graphWith(
+      [
+        { id: 1, name: 'main', filePath: 'src/index.ts' },
+        { id: 2, name: 'called', filePath: 'src/c.ts' },
+        { id: 3, name: 'caller', filePath: 'src/d.ts' },
+      ],
+      [{ sourceId: 3, targetId: 2, type: 'CALLS' }],
+    );
+
+    const report = findUnreachableFunctions(graph);
+
+    expect(report.candidates.map((c) => c.name)).not.toContain('main');
+  });
+
+  it('counts a test-only function as excluded rather than dead', () => {
+    const graph = graphWith(
+      [
+        { id: 1, name: 'helperInTest', filePath: 'src/a.test.ts' },
+        { id: 2, name: 'called', filePath: 'src/c.ts' },
+        { id: 3, name: 'caller', filePath: 'src/d.ts' },
+      ],
+      [{ sourceId: 3, targetId: 2, type: 'CALLS' }],
+    );
+
+    const report = findUnreachableFunctions(graph);
+
+    expect(report.excludedByTestCount).toBe(1);
+    expect(report.candidates.map((c) => c.name)).not.toContain('helperInTest');
+  });
+
+  it('treats a node with no file path as a node outside any test', () => {
+    // `String(node.filePath ?? '')` — a node the parser could not place in a file is not in a test file, and calling
+    // it one would silently drop it from the report.
+    const graph = graphWith([{ id: 1, name: 'nowhere', filePath: '' }], []);
+    graph.nodes.get(1)!.filePath = undefined as unknown as string;
+    const withCalls = graphWith(
+      [
+        { id: 1, name: 'nowhere', filePath: 'src/x.ts' },
+        { id: 2, name: 'called', filePath: 'src/c.ts' },
+        { id: 3, name: 'caller', filePath: 'src/d.ts' },
+      ],
+      [{ sourceId: 3, targetId: 2, type: 'CALLS' }],
+    );
+    withCalls.nodes.get(1)!.filePath = undefined as unknown as string;
+
+    expect(findUnreachableFunctions(graph).candidates).toEqual([]);
+    expect(findUnreachableFunctions(withCalls).candidates.map((c) => c.name)).toContain('nowhere');
+  });
+});

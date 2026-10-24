@@ -145,3 +145,92 @@ describe('scoring a change by who depends on it', () => {
     expect(report.changes[0]!.risk).toBe(0);
   });
 });
+
+// The four states the scorer treats as "not a consumer", and the one combination it adds a term for.
+//
+// **Each of these is a real graph**: a variable is a node and is not a symbol a change is scored against, a dangling
+// edge is what a graph built from two runs of different code produces, and a non-call edge is every `DEFINES`,
+// `EXTENDS` and `MEMBER_OF` in the graph. **A scorer that counted any of them as a consumer would inflate every
+// score**, which is the failure mode that matters here: a score that is always high discriminates nothing.
+describe('what is not a consumer', () => {
+  it('ignores a node that is not a function, method, class or interface', () => {
+    const graph = graphWith(
+      [
+        { id: 1, name: 'count', filePath: 'src/a.ts' },
+        { id: 2, name: 'caller', filePath: 'src/b.ts' },
+      ],
+      [{ sourceId: 2, targetId: 1, type: CALLS }],
+    );
+    // The helper builds `Function` nodes; a variable is the same node with a different label.
+    graph.nodes.get(1)!.label = 'Variable';
+
+    const report = scoreChangedSymbols(graph, [{ name: 'count', filePath: 'src/a.ts' }]);
+
+    expect(report.changes[0]!.reasons.join(' ')).toMatch(/not found in the graph/);
+    expect(report.changes[0]!.risk).toBe(0);
+  });
+
+  it('ignores an edge whose source is not in the graph', () => {
+    // **A dangling edge is what an incremental graph build leaves behind**, and counting it would credit the symbol
+    // with a consumer that does not exist.
+    const graph = graphWith(
+      [{ id: 1, name: 'orphan', filePath: 'src/a.ts' }],
+      [{ sourceId: 999, targetId: 1, type: CALLS }],
+    );
+
+    const report = scoreChangedSymbols(graph, [{ name: 'orphan', filePath: 'src/a.ts' }]);
+
+    expect(report.callsEdgeCount).toBe(1);
+    expect(report.changes[0]!.consumersOutsideFile).toBe(0);
+    expect(report.changes[0]!.risk).toBe(0);
+  });
+
+  it('does not count a containment or inheritance edge as reach', () => {
+    // `DEFINES` points from a file to what it declares, so treating it as a consumer would make **every declared
+    // symbol** look used from outside its own file.
+    const graph = graphWith(
+      [
+        { id: 1, name: 'declared', filePath: 'src/a.ts' },
+        { id: 2, name: 'file', filePath: 'src/a.ts' },
+      ],
+      [{ sourceId: 2, targetId: 1, type: 'DEFINES' }],
+    );
+
+    const report = scoreChangedSymbols(graph, [{ name: 'declared', filePath: 'src/a.ts' }]);
+
+    expect(report.callsEdgeCount).toBe(0);
+    expect(report.changes[0]!.risk).toBe(0);
+  });
+
+  it('adds the same-file term on top of an outside-file one', () => {
+    // **Both kinds of consumer at once**, which is the shape every frequently-called helper has: the score is the
+    // outside-file term plus the in-file term, and the reason list names both.
+    const graph = graphWith(
+      [
+        { id: 1, name: 'helper', filePath: 'src/a.ts' },
+        { id: 2, name: 'sibling', filePath: 'src/a.ts' },
+        { id: 3, name: 'remote', filePath: 'src/b.ts' },
+      ],
+      [
+        { sourceId: 2, targetId: 1, type: CALLS },
+        { sourceId: 3, targetId: 1, type: CALLS },
+      ],
+    );
+
+    const report = scoreChangedSymbols(graph, [{ name: 'helper', filePath: 'src/a.ts' }]);
+    const scored = report.changes[0]!;
+
+    expect(scored.consumersInFile).toBe(1);
+    expect(scored.consumersOutsideFile).toBe(1);
+    expect(scored.reasons.some((r) => /same file/.test(r))).toBe(true);
+    expect(scored.risk).toBeGreaterThan(0);
+  });
+
+  it('reports a maximum of zero when there is nothing to score', () => {
+    // **`Math.max` of an empty list is `-Infinity`**, which would render as a maximum risk below any minimum.
+    const report = scoreChangedSymbols(graphWith([], []), []);
+
+    expect(report.changes).toEqual([]);
+    expect(report.maxRisk).toBe(0);
+  });
+});

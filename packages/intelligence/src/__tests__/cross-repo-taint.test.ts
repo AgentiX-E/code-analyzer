@@ -136,3 +136,64 @@ describe('taint across a repository boundary', () => {
     expect(report.findings[0]!.severity).toBe('critical');
   });
 });
+
+// Three references that do not resolve, and a severity the rank table has never heard of.
+//
+// **A join over two graphs is where a dangling id lives**: a finding computed on a graph that was then rebuilt, or a
+// cross-repository edge whose neighbour was not indexed. **Every one of these must drop the finding rather than
+// produce one about a node that is not there** - and the last one must sort an unknown severity *after* the known
+// ones, because a rank of `9` is the statement that "unknown is not urgent".
+describe('a reference that does not resolve', () => {
+  it('drops a finding whose source or sink is not in the graph', () => {
+    const graph = graphWith(
+      [
+        { id: 2, name: 'runQuery', filePath: 'src/db.ts', projectId: 'repo-a' },
+        { id: 3, name: 'consumer', filePath: 'src/c.ts', projectId: 'repo-b' },
+      ],
+      [{ sourceId: 3, targetId: 2, type: 'CROSS_REPO_CALLS' }],
+    );
+
+    // `sourceNodeId: 1` no longer exists.
+    expect(findCrossRepoTaint(graph, [finding]).findings).toEqual([]);
+  });
+
+  it('drops a boundary whose neighbour is not in the graph', () => {
+    const graph = graphWith(
+      [
+        { id: 1, name: 'handler', filePath: 'src/h.ts', projectId: 'repo-a' },
+        { id: 2, name: 'runQuery', filePath: 'src/db.ts', projectId: 'repo-a' },
+      ],
+      [{ sourceId: 3, targetId: 2, type: 'CROSS_REPO_CALLS' }],
+    );
+
+    const report = findCrossRepoTaint(graph, [finding]);
+
+    expect(report.crossRepoEdgeCount).toBe(1);
+    expect(report.findings).toEqual([]);
+  });
+
+  it('sorts an unrecognised severity after the known ones', () => {
+    const graph = graphWith(
+      [
+        { id: 1, name: 'handler', filePath: 'src/h.ts', projectId: 'repo-a' },
+        { id: 2, name: 'runQuery', filePath: 'src/db.ts', projectId: 'repo-a' },
+        { id: 3, name: 'consumer', filePath: 'src/c.ts', projectId: 'repo-b' },
+        { id: 4, name: 'other', filePath: 'src/d.ts', projectId: 'repo-b' },
+      ],
+      [
+        { sourceId: 3, targetId: 2, type: 'CROSS_REPO_CALLS' },
+        { sourceId: 4, targetId: 2, type: 'CROSS_REPO_CALLS' },
+      ],
+    );
+    const unknown: JoinableFinding = {
+      ...finding,
+      severity: 'informational' as JoinableFinding['severity'],
+      confidence: 0.99,
+    };
+
+    const report = findCrossRepoTaint(graph, [unknown, finding]);
+
+    // The known severity sorts first despite the lower confidence.
+    expect(report.findings[0]!.severity).toBe('high');
+  });
+});

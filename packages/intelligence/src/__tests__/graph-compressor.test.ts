@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import { GraphCompressor } from '../cross-repo/graph-compressor.js';
+import { GraphCompressor, __setBrotliProbe } from '../cross-repo/graph-compressor.js';
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
@@ -504,31 +504,41 @@ describe('GraphCompressor', () => {
   // -----------------------------------------------------------------------
 
   describe('compression fallback', () => {
-    it('should use gzip when brotli compression throws', async () => {
-      // Mock brotli to throw, forcing gzip fallback
-      vi.doMock('node:zlib', () => ({
-        ...vi.importActual('node:zlib'),
-        brotliCompressSync: () => {
-          throw new Error('brotli not available');
-        },
-        brotliDecompressSync: () => {
-          throw new Error('brotli not available');
-        },
-      }));
+    /**
+     * **`vi.doMock('node:zlib')` could not reach this module.** The compressor is imported at the top of this file, so
+     * it holds the real `zlib` bindings; the `await import()` inside the test resolved to that same cached module and
+     * the mock never applied. **The test passed through the brotli path it was written to avoid**, which is why the
+     * gzip branches read as uncovered while a case named "should use gzip" existed.
+     *
+     * **The seam is the fix**: `__setBrotliProbe` answers the environment question directly, so both branches are
+     * ordinary branches and the fallback is actually executed.
+     */
+    afterEach(() => {
+      __setBrotliProbe(null);
+    });
 
-      const { GraphCompressor: MockedCompressor } =
-        await import('../cross-repo/graph-compressor.js');
-
-      const c = new MockedCompressor();
+    it('compresses and decompresses with gzip when brotli is not available', () => {
+      __setBrotliProbe(() => false);
       const store = new InMemoryGraphStore();
       populateStore(store);
 
-      c.exportArtifact(store, artifactPath);
+      const metadata = compressor.exportArtifact(store, artifactPath);
       expect(existsSync(artifactPath)).toBe(true);
+      expect(metadata.compressionRatio).toBeGreaterThan(0);
 
-      // Should still be able to import (using gzip)
       const targetStore = new InMemoryGraphStore();
-      const importMeta = c.importArtifact(artifactPath, targetStore);
+      const importMeta = compressor.importArtifact(artifactPath, targetStore);
+      expect(importMeta.nodeCount).toBe(2);
+    });
+
+    it('prefers brotli when it is available, and still round-trips', () => {
+      __setBrotliProbe(() => true);
+      const store = new InMemoryGraphStore();
+      populateStore(store);
+
+      compressor.exportArtifact(store, artifactPath);
+      const targetStore = new InMemoryGraphStore();
+      const importMeta = compressor.importArtifact(artifactPath, targetStore);
       expect(importMeta.nodeCount).toBe(2);
     });
   });
