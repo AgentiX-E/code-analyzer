@@ -32,5 +32,8 @@ bench-baseline.json
 # Generated
 report_*.json
 logs/
-core.*
+# **A core dump, not the file named `core.md`.** Without the leading slash this pattern matched
+# `docs/reference/packages/core.md` - the reference page for the `core` package - so the page was invisible to
+# `git add -A` and a push built from the index deleted it from the remote.
+/core.*
 tests/benchmarks/real-world/.stress-data/
