@@ -74,31 +74,55 @@ export class GoProvider extends TreeSitterBaseProvider {
     }
   }
 
+  /** Record a `variable.def` for every name under `node`. */
+  private captureDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    for (const name of this.namesUnder(node)) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
   /**
    * Record a def for each parameter of a function, which is what makes a parameter a binding.
    *
    * `attachArgumentBindings` resolves a call's arguments against the function's bindings, so without this a parameter
    * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
    * function" - can never be matched to the sink that receives it.
+   *
+   * **A method has two parameter lists, not one**: `func (s *Server) Handle(id string)` is
+   * `method_declaration receiver: (parameter_list …) name: (field_identifier) parameters: (parameter_list …)`, and
+   * **the first one is the receiver**. Taking the first with `.find` therefore bound the receiver and **dropped every
+   * parameter of every method** - the ones the argument positions actually map onto - while looking like it worked,
+   * because it did emit one def. Both lists are bindings, so both are walked.
+   *
+   * **An unnamed parameter declares a type and no binding** (`func f(int)`, and the `void` of `func f(void)` does not
+   * exist in Go but the same shape does through embedded types), so an absent `name:` field is the one real absence
+   * here.
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const list = namedChildrenOf(node).find((c) => c.type === 'parameter_list');
-    if (!list) return;
-    for (const parameter of namedChildrenOf(list)) {
-      const wrapped = ['identifier'].includes(parameter.type)
-        ? parameter
-        : namedChildrenOf(parameter).find((c) => ['identifier'].includes(c.type));
-      if (!wrapped) continue;
-      captures.push({
-        tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: wrapped.text,
-        startLine: wrapped.startPosition.row + 1,
-        endLine: wrapped.endPosition.row + 1,
-        startByte: wrapped.startIndex,
-        endByte: wrapped.endIndex,
-        name: wrapped.text,
-        properties: { filePath: this.filePath },
-      });
+    for (const list of namedChildrenOf(node).filter((c) => c.type === 'parameter_list')) {
+      for (const parameter of namedChildrenOf(list)) {
+        const name = parameter.childForFieldName('name');
+        if (!name) continue;
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: name.text,
+          startLine: name.startPosition.row + 1,
+          endLine: name.endPosition.row + 1,
+          startByte: name.startIndex,
+          endByte: name.endIndex,
+          name: name.text,
+          properties: { filePath: this.filePath },
+        });
+      }
     }
   }
 
@@ -113,23 +137,10 @@ export class GoProvider extends TreeSitterBaseProvider {
     // definition and no use, so the propagator has nothing that carries taint from a source to a sink - the same
     // shape as Python's gap and found by the same table.
     if (nodeType === 'short_var_declaration') {
-      const left = node.child(0);
-      const right = node.child(2);
-      if (left) {
-        for (const name of this.namesUnder(left)) {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_DEF,
-            text: name.text,
-            startLine: name.startPosition.row + 1,
-            endLine: name.endPosition.row + 1,
-            startByte: name.startIndex,
-            endByte: name.endIndex,
-            name: name.text,
-            properties: { filePath: this.filePath },
-          });
-        }
-      }
-      if (right) this.captureAccesses(right, captures);
+      // `short_var_declaration` is `expression_list ':=' expression_list` - **three children, always** - so `child(0)`
+      // and `child(2)` need no guard; an `if` around them would describe a production that does not exist.
+      this.captureDefs(node.child(0), captures);
+      this.captureAccesses(node.child(2), captures);
       // **And Go has THREE ways to bind a name**, of which only `:=` had a branch.
       //
       // **A probe of the three forms showed what that cost**:
@@ -144,64 +155,50 @@ export class GoProvider extends TreeSitterBaseProvider {
       // assignment disappeared**; and **`var x = y` recorded the name but not the use**, so **the right-hand side was
       // invisible**. **Both are statements about the assignment, and both were missing.**
     } else if (nodeType === 'assignment_statement') {
-      // `assignment_statement > expression_list (left) · '=' · expression_list (right)`.
-      const left = node.child(0);
-      const right = node.child(2);
-      if (left) this.captureAccesses(left, captures);
-      if (right) this.captureAccesses(right, captures);
-    } else if (nodeType === 'var_declaration') {
-      // **And there are two shapes under `var_declaration`, not one**:
+      // `assignment_statement` is `expression_list '=' expression_list` (the operator is an unnamed token, so the
+      // right list is `child(2)` for `=`, `+=` and the rest alike), and both lists exist by production.
+      this.captureAccesses(node.child(0), captures);
+      this.captureAccesses(node.child(2), captures);
+    } else if (nodeType === 'var_declaration' || nodeType === 'const_declaration') {
+      // **`var` and `const` declare the same two shapes**, and both were half-handled:
       //
       // ```
       // var x = y          -> var_declaration > var_spec
-      // var ( a = 1; ... )  -> var_declaration > var_spec_LIST > var_spec x N
+      // var ( a = 1; b )   -> var_declaration > var_spec_LIST > var_spec x N
       // ```
       //
-      // **The grouped form was already handled**, by the generic walk that visits every `var_spec` - and **a branch
-      // for the single form took it away**, because **a branch consumes the node and the walk below it does not run
-      // for that node.** **The existing `go-provider` test caught exactly that**, and **it is why this collects a
-      // list rather than assuming one spec.**
+      // **A branch for the single form once took the node away from the generic walk** - because **a branch consumes
+      // the node and the walk below it does not run for that node** - so this collects the specs into a list and
+      // treats both shapes alike. **`const` shares the branch because its two shapes are the same two shapes**: the
+      // only difference is the tag, and **`const` had a branch of its own that was shadowed by an earlier
+      // `var_declaration` arm**, which is why its spec list was unreachable.
+      const tag =
+        nodeType === 'const_declaration' ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
       const specs = namedChildrenOf(node).flatMap((child) =>
-        child.type === 'var_spec'
-          ? [child]
-          : child.type === 'var_spec_list'
-            ? namedChildrenOf(child)
-            : [],
+        child.type === 'var_spec_list' || child.type === 'const_spec_list'
+          ? namedChildrenOf(child)
+          : [child],
       );
-      for (const spec of specs) {
-        const name = namedChildrenOf(spec)[0];
-        if (name && name.type === 'identifier') {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_DEF,
-            text: name.text,
-            startLine: name.startPosition.row + 1,
-            endLine: name.endPosition.row + 1,
-            startByte: name.startIndex,
-            endByte: name.endIndex,
-            name: name.text,
-            properties: { filePath: this.filePath },
-          });
-        }
-        const value = namedChildrenOf(spec).find((c) => c.type === 'expression_list');
-        if (value) this.captureAccesses(value, captures);
-      }
+      for (const spec of specs) this.emitSpecCapture(spec, tag, captures);
     } else if (nodeType === 'call_expression') {
+      // `call_expression` is `function arguments` - **the callee is `child(0)` and the argument list is `child(1)`,
+      // and the list is present even when empty**: `g()` has one.
       const callee = node.child(0);
-      if (callee) {
-        const isMethod = callee.type === 'selector_expression';
-        captures.push({
-          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
-          text: callee.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: callee.startIndex,
-          endByte: callee.endIndex,
-          name: isMethod ? callee.text.split('.').pop() : callee.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-      const args = node.child(1);
-      if (args) this.captureAccesses(args, captures);
+      const isMethod = callee.type === 'selector_expression';
+      captures.push({
+        tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: callee.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: callee.startIndex,
+        endByte: callee.endIndex,
+        name: isMethod ? callee.text.split('.').pop() : callee.text,
+        properties: { filePath: this.filePath },
+      });
+      // **A method call reads its receiver**, so `s.Flush()` is a use of `s`: without this a value that reaches a
+      // sink only through a receiver's method had no edge to travel along.
+      if (isMethod) this.captureAccesses(callee.childForFieldName('operand')!, captures);
+      this.captureAccesses(node.child(1), captures);
     } else if (nodeType === 'expression_statement') {
       const inner = node.child(0);
       if (inner && (inner.type === 'identifier' || inner.type === 'selector_expression')) {
@@ -301,19 +298,6 @@ export class GoProvider extends TreeSitterBaseProvider {
       } else {
         for (let j = 0; j < child.namedChildCount; j++) {
           this.emitImportCapture(node, child.namedChild(j), captures);
-        }
-      }
-    } else if (nodeType === 'var_declaration' || nodeType === 'const_declaration') {
-      const isConst = nodeType === 'const_declaration';
-      for (const child of namedChildrenOf(node)) {
-        if (child.type === 'var_spec' || child.type === 'const_spec') {
-          this.emitVariableCapture(child, isConst, captures);
-        }
-        if (child.type === 'var_spec_list') {
-          // Grouped `var (...)` declarations wrap their specs in a var_spec_list.
-          for (let j = 0; j < child.namedChildCount; j++) {
-            this.emitVariableCapture(child.namedChild(j), isConst, captures);
-          }
         }
       }
     } else if (nodeType === 'package_clause') {
@@ -573,24 +557,36 @@ export class GoProvider extends TreeSitterBaseProvider {
     }
   }
 
-  /** Emit a VARIABLE_DEF or CONSTANT_DEF capture for a var_spec/const_spec. */
-  private emitVariableCapture(
+  /**
+   * Emit a VARIABLE_DEF or CONSTANT_DEF capture for every name a `var_spec`/`const_spec` declares, plus a use for
+   * every name on its right-hand side.
+   *
+   * **A spec can declare more than one name**, and **the grammar repeats the `name:` field rather than wrapping the
+   * list**: `var a, b int = 1, 2` is `var_spec name: (identifier) name: (identifier) type: … value: (expression_list
+   * (int_literal) (int_literal))`. **A `.find` for the first identifier therefore recorded `a` and dropped `b`**, so
+   * **a multi-name declaration lost every name but the first** - the same class of defect the Java provider records
+   * in its own `int a, b;` test.
+   */
+  private emitSpecCapture(
     spec: TreeSitterSyntaxNode,
-    isConst: boolean,
+    tag: UnifiedCapture['tag'],
     captures: UnifiedCapture[],
   ): void {
-    // var_spec/const_spec always carry at least one identifier (the declared name).
-    const idNode = this.findChildType(spec, 'identifier')!;
-    captures.push({
-      tag: isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
-      text: idNode.text,
-      startLine: spec.startPosition.row + 1,
-      endLine: spec.endPosition.row + 1,
-      startByte: idNode.startIndex,
-      endByte: idNode.endIndex,
-      name: idNode.text,
-      properties: { filePath: this.filePath },
-    });
+    for (const name of namedChildrenOf(spec).filter((c) => c.type === 'identifier')) {
+      captures.push({
+        tag,
+        text: name.text,
+        startLine: spec.startPosition.row + 1,
+        endLine: spec.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+    // A spec with no `value:` (`var x int`) declares without assigning, so the absent case is ordinary.
+    const value = namedChildrenOf(spec).find((c) => c.type === 'expression_list');
+    if (value) this.captureAccesses(value, captures);
   }
 
   /** The leaf (basename) of an import path, e.g. `os/exec` → `exec`. */

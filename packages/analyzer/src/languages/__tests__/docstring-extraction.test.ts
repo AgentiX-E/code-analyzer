@@ -173,3 +173,21 @@ describe('what a docstring must not reach', () => {
     expect(carrying.map((s) => s.name)).toEqual(['kinetic_energy']);
   }, 300_000);
 });
+
+// And a comment with no text is not a docstring.
+//
+// **`//` on its own line is a comment whose stripped text is empty**, which is the one case `attachDocComment` filters
+// — a blank marker must not become the documentation of the declaration below it, and it must not erase one that is
+// already pending either.
+describe('a comment with no text', () => {
+  it('does not become the docstring of the declaration below it', async () => {
+    const provider = await getOrLoadProvider('typescript');
+    const source = ['//', 'export function bare(): void {}', ''].join('\n');
+    const grouped = groupCaptures(provider!.parse(source, '/b.ts') as never, '/b.ts') as {
+      symbols?: Array<{ name: string; docstring?: string | null }>;
+    };
+    const bare = (grouped.symbols ?? []).find((s) => s.name === 'bare');
+    expect(bare).toBeDefined();
+    expect(bare?.docstring ?? '').toBe('');
+  }, 300_000);
+});

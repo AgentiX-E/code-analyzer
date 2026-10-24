@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { CProvider } from '../languages/c.js';
-import { CSharpProvider } from '../languages/csharp.js';
 import { CppProvider } from '../languages/cpp.js';
+import { CSharpProvider } from '../languages/csharp.js';
 
 /**
  * The false sides of the three C-family providers, driven by source that reaches them.

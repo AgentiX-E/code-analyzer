@@ -2,7 +2,6 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import { namedChildrenOf } from './syntax-children.js';
 import { TypeScriptProvider } from './typescript.js';
 
 import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
@@ -40,38 +39,40 @@ export class ArkTSProvider extends TypeScriptProvider {
    *
    * **Without this branch a struct produced only its decorators and its methods** - **the component itself was unnamed**,
    * so **search could not find `Index`, and impact analysis could not say which component a `<Index />` referred to.**
+   *
+   * **Both names are `name:` fields of their production rather than search targets** - a probe of
+   * `@Entry struct Index { @State count: number = 0 }` shows `struct_declaration name: (type_identifier)` and
+   * `public_field_definition name: (property_identifier)` - **so there is no absent case to guard against**, and
+   * **an `if` around them would describe a grammar that does not exist.** The decorators and the accessibility
+   * modifier sit beside the name and never replace it.
    */
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     if (node.type === 'struct_declaration') {
-      const name = namedChildrenOf(node).find((c) => c.type === 'type_identifier');
-      if (name) {
-        captures.push({
-          tag: CAPTURE_TAGS.CLASS_DEF,
-          text: name.text,
-          startLine: name.startPosition.row + 1,
-          endLine: name.endPosition.row + 1,
-          startByte: name.startIndex,
-          endByte: name.endIndex,
-          name: name.text,
-          properties: { filePath: this.filePath, arktsStruct: 'true' },
-        });
-      }
+      const name = node.childForFieldName('name')!;
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath, arktsStruct: 'true' },
+      });
     } else if (node.type === 'public_field_definition') {
       // **A component's state member**, which is **the thing a template binds to** - so **it belongs in the graph for the
       // same reason a field does in C#**: **a write to it is a write to something that is read elsewhere.**
-      const name = namedChildrenOf(node).find((c) => c.type === 'property_identifier');
-      if (name) {
-        captures.push({
-          tag: CAPTURE_TAGS.VARIABLE_DEF,
-          text: name.text,
-          startLine: name.startPosition.row + 1,
-          endLine: name.endPosition.row + 1,
-          startByte: name.startIndex,
-          endByte: name.endIndex,
-          name: name.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      const name = node.childForFieldName('name')!;
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
     }
     super.walkAndCapture(node, captures);
   }

@@ -581,6 +581,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     // **Both paths call the same step**, so the base and a subclass that replaced the walk cannot drift apart. A
     // comment is not collected as a capture - it is the docstring of whatever comes next.
+    //
+    // **The guard stays, and the branch is dead by construction**: this method is reached only from the base walk, and
+    // **every provider that maps a comment to a capture replaces that walk** - `typescript.ts` is the only one, and it
+    // overrides `walkAndCapture`. Deleting the guard would make a comment a symbol for any provider added later that
+    // maps one, so it is kept as the statement of that contract even though no current input reaches it.
     if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
       this.attachDocComment(capture);
       return;
@@ -637,8 +642,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
           node.type,
         )
       ) {
-        const text = String(node.text ?? '');
-        if (text.length > 0) names.add(text);
+        // **An identifier node's text is at least one character**, so there is no empty case to filter.
+        names.add(node.text);
       }
       for (const child of childrenOf(node)) collect(child);
     };
@@ -1031,14 +1036,14 @@ export function claimsTaintExtraction(provider: unknown): boolean {
   const base = TreeSitterBaseProvider.prototype as unknown as Record<string, unknown>;
   // Walk the prototype chain to the class that DECLARED the walk - not an instance, and not a subclass that only
   // inherits it, which would make every language look as though it had claimed the capability.
-  let proto = Object.getPrototypeOf(provider) as Record<string, unknown> | null;
-  while (proto && proto !== Object.prototype) {
-    if (Object.prototype.hasOwnProperty.call(proto, 'walkForTaintSources')) {
-      return proto['walkForTaintSources'] !== base['walkForTaintSources'];
-    }
-    proto = Object.getPrototypeOf(proto) as Record<string, unknown> | null;
+  // **The walk cannot fall off the end**: every provider inherits `walkForTaintSources` from the base, so the chain
+  // reaches an owner before it reaches `null` - and a trailing `return false` after this loop was a statement no
+  // provider could reach.
+  let proto = Object.getPrototypeOf(provider) as Record<string, unknown>;
+  while (!Object.prototype.hasOwnProperty.call(proto, 'walkForTaintSources')) {
+    proto = Object.getPrototypeOf(proto) as Record<string, unknown>;
   }
-  return false;
+  return proto['walkForTaintSources'] !== base['walkForTaintSources'];
 }
 
 /**

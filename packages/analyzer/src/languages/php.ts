@@ -109,23 +109,26 @@ export class PhpProvider extends TreeSitterBaseProvider {
    * function" - can never be matched to the sink that receives it.
    *
    * The node names are read from this grammar's own tree rather than assumed.
+   *
+   * **`simple_parameter` is `name: (variable_name)`, and `optional_parameter`/`variadic_parameter`/
+   * `property_promotion_parameter` carry the same field** - so the name is read from the production instead of being
+   * searched for, and **the search was the reason a parameter list with four parameters produced one binding**: it
+   * looked for a *direct* `variable_name` child, and every parameter wraps its name one level deeper.
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters');
-    if (!list) return;
-    for (const parameter of namedChildrenOf(list)) {
-      const wrapped = ['variable_name', 'name'].includes(parameter.type)
-        ? parameter
-        : namedChildrenOf(parameter).find((c) => ['variable_name', 'name'].includes(c.type));
-      if (!wrapped) continue;
+    const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters')!;
+    const names = namedChildrenOf(list)
+      .map((parameter) => parameter.childForFieldName('name'))
+      .filter((name): name is TreeSitterSyntaxNode => name !== null);
+    for (const name of names) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: wrapped.text,
-        startLine: wrapped.startPosition.row + 1,
-        endLine: wrapped.endPosition.row + 1,
-        startByte: wrapped.startIndex,
-        endByte: wrapped.endIndex,
-        name: wrapped.text,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
         properties: { filePath: this.filePath },
       });
     }
@@ -140,8 +143,10 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
     // **PHP's statements, which it recorded none of.**
     if (nodeType === 'assignment_expression') {
+      // `assignment_expression` is `left '=' right`, so both children exist. **The left side is a `variable_name` for
+      // `$x = …` and a `member_access_expression` for `$obj->prop = …`**, which is the case the type test is for.
       const target = node.child(0);
-      if (target && target.type === 'variable_name') {
+      if (target.type === 'variable_name') {
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: target.text,
@@ -153,25 +158,27 @@ export class PhpProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-      const value = node.child(2);
-      if (value) this.captureAccesses(value, captures);
+      this.captureAccesses(node.child(2), captures);
     } else if (nodeType === 'function_call_expression' || nodeType === 'member_call_expression') {
-      const callee = node.child(0);
-      if (callee) {
-        const isMethod = nodeType === 'member_call_expression';
-        captures.push({
-          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
-          text: callee.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: callee.startIndex,
-          endByte: callee.endIndex,
-          name: isMethod ? (callee.text.split('->').pop() ?? callee.text) : callee.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-      const args = namedChildrenOf(node).find((c) => c.type === 'arguments');
-      if (args) this.captureAccesses(args, captures);
+      // **The name is the production's own field, not a substring of the callee's text**: `member_call_expression` is
+      // `object '->' name(arguments)` - a probe of `$this->save()` shows `object: (variable_name) name: (name)` - so
+      // **splitting `$this->save` on `->` recovered the name only by accident of spelling**, and a null-safe call
+      // (`$this?->save()`) or a static call would have produced a name no definition could match.
+      const isMethod = nodeType === 'member_call_expression';
+      const nameNode = node.childForFieldName(isMethod ? 'name' : 'function')!;
+      captures.push({
+        tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
+      // **A method call reads its receiver**, so `$this->save()` is a use of `$this`.
+      if (isMethod) this.captureAccesses(node.childForFieldName('object')!, captures);
+      this.captureAccesses(node.childForFieldName('arguments')!, captures);
     }
 
     // use statements are imports: emit IMPORT captures so downstream graph
@@ -400,15 +407,11 @@ export class PhpProvider extends TreeSitterBaseProvider {
   }
 
   private findPhpName(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode {
-    // A method_declaration may carry a leading visibility_modifier, so scan for
-    // the `name` child instead of assuming it sits at index 0. checkExported only
-    // passes method/function/class/interface/trait/enum declarations, each of which
-    // always carries a `name` named child in an error-free parse (anonymous
-    // functions/classes are distinct node types), so this loop always returns.
-    for (const child of namedChildrenOf(node)) {
-      if (child.type === 'name') return child;
-    }
-    throw new Error(`php: no name child on ${node.type}`);
+    // A method_declaration may carry a leading visibility_modifier, so scan for the `name` child instead of assuming
+    // it sits at index 0. checkExported only passes method/function/class/interface/trait/enum declarations, each of
+    // which always carries a `name` named child in an error-free parse (anonymous functions and classes are distinct
+    // node types), so **there is no absent case** - and a `throw` here was a statement no input could reach.
+    return namedChildrenOf(node).find((child) => child.type === 'name')!;
   }
 
   // Fallbacks (primary since tree-sitter-php may not be available)

@@ -80,23 +80,35 @@ export class JavaProvider extends TreeSitterBaseProvider {
    * `attachArgumentBindings` resolves a call's arguments against the function's bindings, so without this a parameter
    * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
    * function" - can never be matched to the sink that receives it.
+   *
+   * **The name is a `name:` field, not the first identifier found**: `void m(Widget w)` is
+   * `formal_parameter type: (type_identifier) name: (identifier)`, so **a search for the first identifier bound the
+   * type**. A Java parameter always carries a name, and `method_declaration`/`constructor_declaration` always carry
+   * their `formal_parameters`, so neither needs a guard.
+   *
+   * **`String... parts` is the one parameter that does not carry the field**: it is a `spread_parameter` wrapping a
+   * `variable_declarator name: (identifier)`, so the name is read from the declarator there - **and `variableNameNode`
+   * rather than a search, because that is the function that knows what a declarator's name looks like.**
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters');
-    if (!list) return;
-    for (const parameter of namedChildrenOf(list)) {
-      const wrapped = ['identifier'].includes(parameter.type)
-        ? parameter
-        : namedChildrenOf(parameter).find((c) => ['identifier'].includes(c.type));
-      if (!wrapped) continue;
+    const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters')!;
+    const names = namedChildrenOf(list).flatMap((parameter) => {
+      const own = parameter.childForFieldName('name');
+      return own
+        ? [own]
+        : namedChildrenOf(parameter)
+            .filter((c) => c.type === 'variable_declarator')
+            .map((declarator) => this.variableNameNode(declarator));
+    });
+    for (const name of names) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: wrapped.text,
-        startLine: wrapped.startPosition.row + 1,
-        endLine: wrapped.endPosition.row + 1,
-        startByte: wrapped.startIndex,
-        endByte: wrapped.endIndex,
-        name: wrapped.text,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
         properties: { filePath: this.filePath },
       });
     }
@@ -123,50 +135,51 @@ export class JavaProvider extends TreeSitterBaseProvider {
     // caught the difference were asking the live one's questions.** **So the local case stays here and the field case
     // goes back to where the loop already is.**
     if (nodeType === 'local_variable_declaration') {
-      const declarator = namedChildrenOf(node).find((c) => c.type === 'variable_declarator');
-      const name = declarator
-        ? namedChildrenOf(declarator).find((c) => c.type === 'identifier')
-        : undefined;
-      if (name) {
+      // **The same loop the field case uses**, because **a local declaration has the same shape**
+      // (`local_variable_declaration > variable_declarator`) and **the local copy was the one that had drifted**:
+      // it took the first declarator with `.find`, so `int a, b;` produced only `a`, and it looked for an `identifier`
+      // where `variableNameNode` knows about `underscore_pattern`.
+      for (const declarator of namedChildrenOf(node).filter(
+        (c) => c.type === 'variable_declarator',
+      )) {
+        const nameNode = this.variableNameNode(declarator);
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
-          text: name.text,
-          startLine: name.startPosition.row + 1,
-          endLine: name.endPosition.row + 1,
-          startByte: name.startIndex,
-          endByte: name.endIndex,
-          name: name.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-      const value = declarator ? namedChildrenOf(declarator)[1] : undefined;
-      if (value) this.captureAccesses(value, captures);
-    } else if (nodeType === 'method_invocation') {
-      const nameNode = namedChildrenOf(node).find((c) => c.type === 'identifier');
-      const receiver = namedChildrenOf(node).find(
-        (c) => c.type === 'field_access' || c.type === 'identifier',
-      );
-      if (nameNode) {
-        captures.push({
-          tag:
-            receiver && receiver !== nameNode
-              ? CAPTURE_TAGS.METHOD_CALL
-              : CAPTURE_TAGS.FUNCTION_CALL,
-          text:
-            receiver && receiver !== nameNode ? `${receiver.text}.${nameNode.text}` : nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
+          text: nameNode.text,
+          startLine: nameNode.startPosition.row + 1,
+          endLine: nameNode.endPosition.row + 1,
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
           properties: { filePath: this.filePath },
         });
+        // `int x;` declares without assigning, so the absent initialiser is ordinary.
+        const value = namedChildrenOf(declarator)[1];
+        if (value) this.captureAccesses(value, captures);
       }
-      const args = namedChildrenOf(node).find((c) => c.type === 'argument_list');
-      if (args) this.captureAccesses(args, captures);
+    } else if (nodeType === 'method_invocation') {
+      // **`name:` and `arguments:` are fields of the production**: `method_invocation object:? name: (identifier)
+      // arguments: (argument_list)` - so the name is not something to search for, and **the argument list exists even
+      // when the call takes nothing**.
+      const nameNode = node.childForFieldName('name')!;
+      const receiver = node.childForFieldName('object');
+      captures.push({
+        tag: receiver ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: receiver ? `${receiver.text}.${nameNode.text}` : nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
+      this.captureAccesses(node.childForFieldName('arguments')!, captures);
     } else if (nodeType === 'expression_statement') {
+      // **A bare name used as a statement**, which Java only permits as an assignment, an increment or a call - but
+      // **a file being edited parses into shapes the language would reject**, and `x.y;` is a `field_access` rather
+      // than an `identifier`, so both forms are recorded.
       const inner = node.child(0);
-      if (inner && inner.type === 'identifier') {
+      if (inner.type === 'identifier' || inner.type === 'field_access') {
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_ACCESS,
           text: inner.text,

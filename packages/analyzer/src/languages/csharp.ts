@@ -44,16 +44,6 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     return require('tree-sitter-c-sharp') as TreeSitterLanguage;
   }
 
-  /** The declared name under a declarator, which may be wrapped. */
-  private nameIn(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | undefined {
-    if (node.type === 'identifier') return node;
-    for (const child of namedChildrenOf(node)) {
-      const found = this.nameIn(child);
-      if (found) return found;
-    }
-    return undefined;
-  }
-
   /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
   private namesUnder(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
     const out: TreeSitterSyntaxNode[] = [];
@@ -91,24 +81,24 @@ export class CSharpProvider extends TreeSitterBaseProvider {
    * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
    * function" - can never be matched to the sink that receives it.
    *
-   * The node names are read from this grammar's own tree rather than assumed.
+   * **The name is a `name:` field, and searching for the first identifier found the type instead**: a probe of
+   * `void M(Widget w, List<int> xs)` gives `parameter type: (identifier) name: (identifier)` for the first and
+   * `parameter type: (generic_name …) name: (identifier)` for the second - so **the search bound `Widget`, the type,
+   * and skipped `xs` entirely** because a `generic_name` is not an identifier. **Both parameters were wrong, and both
+   * looked like they had worked.** A C# parameter always carries a name, so the field is the whole story.
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const list = namedChildrenOf(node).find((c) => c.type === 'parameter_list');
-    if (!list) return;
+    const list = namedChildrenOf(node).find((c) => c.type === 'parameter_list')!;
     for (const parameter of namedChildrenOf(list)) {
-      const wrapped = ['identifier'].includes(parameter.type)
-        ? parameter
-        : namedChildrenOf(parameter).find((c) => ['identifier'].includes(c.type));
-      if (!wrapped) continue;
+      const name = parameter.childForFieldName('name')!;
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: wrapped.text,
-        startLine: wrapped.startPosition.row + 1,
-        endLine: wrapped.endPosition.row + 1,
-        startByte: wrapped.startIndex,
-        endByte: wrapped.endIndex,
-        name: wrapped.text,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
         properties: { filePath: this.filePath },
       });
     }
@@ -134,12 +124,13 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     // `class.def`**, so **every C# field was invisible to search and to impact analysis**, and **the honest coverage gate
     // named eleven branches in this file before the reason was visible.**
     if (nodeType === 'local_declaration_statement' || nodeType === 'field_declaration') {
-      const declaration = namedChildrenOf(node).find((c) => c.type === 'variable_declaration');
-      const declarator = declaration
-        ? namedChildrenOf(declaration).find((c) => c.type === 'variable_declarator')
-        : undefined;
-      const name = declarator ? this.nameIn(declarator) : undefined;
-      if (name) {
+      // **A declaration can name several variables** (`int a = 1, b;` is one `variable_declaration` with two
+      // `variable_declarator` children), so every declarator is walked rather than the first one found.
+      const declaration = namedChildrenOf(node).find((c) => c.type === 'variable_declaration')!;
+      for (const declarator of namedChildrenOf(declaration).filter(
+        (c) => c.type === 'variable_declarator',
+      )) {
+        const name = declarator.childForFieldName('name')!;
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: name.text,
@@ -150,8 +141,7 @@ export class CSharpProvider extends TreeSitterBaseProvider {
           name: name.text,
           properties: { filePath: this.filePath },
         });
-      }
-      if (declarator) {
+        // `int x;` declares without assigning, so the absent initialiser is ordinary.
         const value = namedChildrenOf(declarator)[1];
         if (value) this.captureAccesses(value, captures);
       }
@@ -159,7 +149,7 @@ export class CSharpProvider extends TreeSitterBaseProvider {
       // **C# makes assignment an EXPRESSION**, so it arrives under `expression_statement` and **had no branch at all** -
       // which is why **`x = y` produced a `method.def` and nothing else**: **the write was invisible.**
       const target = node.child(0);
-      if (target && target.type === 'identifier') {
+      if (target.type === 'identifier') {
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: target.text,
@@ -171,25 +161,23 @@ export class CSharpProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-      const value = node.child(2);
-      if (value) this.captureAccesses(value, captures);
+      this.captureAccesses(node.child(2), captures);
     } else if (nodeType === 'invocation_expression') {
+      // `invocation_expression` is `callee(argument_list)` - both children always exist, and **the argument list is
+      // present even when the call takes nothing**.
       const callee = node.child(0);
-      if (callee) {
-        const isMethod = callee.type === 'member_access_expression';
-        captures.push({
-          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
-          text: callee.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: callee.startIndex,
-          endByte: callee.endIndex,
-          name: isMethod ? callee.text.split('.').pop() : callee.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-      const args = namedChildrenOf(node).find((c) => c.type === 'argument_list');
-      if (args) this.captureAccesses(args, captures);
+      const isMethod = callee.type === 'member_access_expression';
+      captures.push({
+        tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: callee.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: callee.startIndex,
+        endByte: callee.endIndex,
+        name: isMethod ? callee.text.split('.').pop() : callee.text,
+        properties: { filePath: this.filePath },
+      });
+      this.captureAccesses(node.child(1), captures);
     }
 
     if (node.type === 'class_declaration') {

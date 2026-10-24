@@ -194,10 +194,10 @@ export class CProvider extends TreeSitterBaseProvider {
         });
       }
       // **`assignment_expression` is `left = right`**, so **child(2) exists for every assignment**.
-      this.captureAccesses(node.child(2)!, captures);
+      this.captureAccesses(node.child(2), captures);
     } else if (nodeType === 'call_expression') {
       // **`call_expression` is `callee(args)`**, so **child(0) exists for every call**.
-      const callee = node.child(0)!;
+      const callee = node.child(0);
       {
         const isMethod = callee.type === 'field_expression';
         captures.push({
@@ -212,7 +212,7 @@ export class CProvider extends TreeSitterBaseProvider {
         });
       }
       // **And child(1) is the argument list, which exists even when it is empty**: **`g()` has one.**
-      this.captureAccesses(node.child(1)!, captures);
+      this.captureAccesses(node.child(1), captures);
     } else if (nodeType === 'expression_statement') {
       const inner = node.child(0);
       if (inner && inner.type === 'identifier') {

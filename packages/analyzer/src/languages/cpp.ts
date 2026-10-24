@@ -33,6 +33,21 @@ const CPP_TAINT_NODES = {
   argumentContainer: ['argument_list'],
 };
 
+/**
+ * Declarator wrappers that can enclose a `function_declarator` in a definition.
+ *
+ * **`int &f(int &r)` is `function_definition declarator: (reference_declarator (function_declarator …))`** - the
+ * return type's `&` owns the declarator, so **the `function_declarator` is one level down**, and **a search that only
+ * looks at the definition's direct children finds nothing for every function that returns a reference or a pointer.**
+ * A probe of `int &f(int &r) { return r; }` shows the wrapping, and **the same wrapping reaches `checkExported`,
+ * which asserted the declarator was present and would have thrown on the first such function.**
+ */
+const CPP_DECLARATOR_WRAPPERS = new Set([
+  'pointer_declarator',
+  'reference_declarator',
+  'parenthesized_declarator',
+]);
+
 export class CppProvider extends TreeSitterBaseProvider {
   readonly language = 'cpp';
   readonly displayName = 'C++';
@@ -61,6 +76,12 @@ export class CppProvider extends TreeSitterBaseProvider {
     return out;
   }
 
+  /** The member name of a field access, for both `s.flush` and `s->flush`. */
+  private memberName(text: string): string {
+    const parts = text.split(/->|\./);
+    return parts[parts.length - 1]!;
+  }
+
   /** The declared name under a declarator, which may be wrapped in pointer, array or function declarators. */
   private nameIn(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | undefined {
     if (node.type === 'identifier') return node;
@@ -69,6 +90,24 @@ export class CppProvider extends TreeSitterBaseProvider {
       if (found) return found;
     }
     return undefined;
+  }
+
+  /**
+   * Every `function_declarator` a definition carries, looking through the declarator wrappers the return type adds.
+   *
+   * **A definition always has one**: the declarator field of a `function_definition` is reachable through
+   * `pointer_declarator`, `reference_declarator` or `parenthesized_declarator` chains, never absent. The recursion
+   * stops where it finds one, because a `function_declarator`'s own descendants describe the parameters, not another
+   * definition.
+   */
+  private functionDeclarators(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    return namedChildrenOf(node).flatMap((child) =>
+      child.type === 'function_declarator'
+        ? [child]
+        : CPP_DECLARATOR_WRAPPERS.has(child.type)
+          ? this.functionDeclarators(child)
+          : [],
+    );
   }
 
   /** Record every name under `node` as a use. */
@@ -98,27 +137,29 @@ export class CppProvider extends TreeSitterBaseProvider {
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     // **The parameter list is not a child of the function**: `function_definition` holds a `function_declarator`,
-    // and the `parameter_list` hangs off that. Looking at the function's own children finds nothing.
-    const declarator = namedChildrenOf(node).find((c) => c.type === 'function_declarator');
-    const list = declarator
-      ? namedChildrenOf(declarator).find((c) => c.type === 'parameter_list')
-      : undefined;
-    if (!list) return;
-    for (const parameter of namedChildrenOf(list)) {
-      // **A C parameter wraps its name in declarators**: `char *x` is a `parameter_declaration` around a
-      // `pointer_declarator` around the identifier, so one level down finds the pointer, not the name.
-      const wrapped = parameter.type === 'identifier' ? parameter : this.nameIn(parameter);
-      if (!wrapped) continue;
-      captures.push({
-        tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: wrapped.text,
-        startLine: wrapped.startPosition.row + 1,
-        endLine: wrapped.endPosition.row + 1,
-        startByte: wrapped.startIndex,
-        endByte: wrapped.endIndex,
-        name: wrapped.text,
-        properties: { filePath: this.filePath },
-      });
+    // and the `parameter_list` hangs off that - **possibly through the wrapper the return type adds**, which is why
+    // the declarator is found by the same search that `walkAndCapture` uses rather than by looking one level down.
+    for (const declarator of this.functionDeclarators(node)) {
+      for (const list of namedChildrenOf(declarator).filter((c) => c.type === 'parameter_list')) {
+        for (const parameter of namedChildrenOf(list)) {
+          // **A C parameter wraps its name in declarators**: `char *x` is a `parameter_declaration` around a
+          // `pointer_declarator` around the identifier, so one level down finds the pointer, not the name.
+          // **`void f(void)` declares a parameter with no name at all**, so an absent name is the ordinary case
+          // rather than an impossible one.
+          const wrapped = this.nameIn(parameter);
+          if (!wrapped) continue;
+          captures.push({
+            tag: CAPTURE_TAGS.VARIABLE_DEF,
+            text: wrapped.text,
+            startLine: wrapped.startPosition.row + 1,
+            endLine: wrapped.endPosition.row + 1,
+            startByte: wrapped.startIndex,
+            endByte: wrapped.endIndex,
+            name: wrapped.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      }
     }
   }
 
@@ -152,7 +193,7 @@ export class CppProvider extends TreeSitterBaseProvider {
       // **The evidence was one probe away**: **`findNamedChild(decl, 'function_declarator')` returned the node**, and
       // **`extractFunctionNameNode(decl)` returned null in the same run** - **a function that receives the right input
       // and returns nothing is a function whose parameter means something else.**
-      const declarationDeclarator = this.findNamedChild(node, 'function_declarator');
+      const declarationDeclarator = this.functionDeclarators(node)[0];
       const declaredFunction = declarationDeclarator
         ? this.extractFunctionNameNode(declarationDeclarator)
         : null;
@@ -189,12 +230,15 @@ export class CppProvider extends TreeSitterBaseProvider {
         });
       }
       if (declarator && declarator.type === 'init_declarator') {
-        const value = namedChildrenOf(declarator)[1];
-        if (value) this.captureAccesses(value, captures);
+        // `init_declarator` is `declarator '=' value` - **three children, always** - so the value is `[1]` and there
+        // is no absent case to guard.
+        this.captureAccesses(namedChildrenOf(declarator)[1]!, captures);
       }
     } else if (nodeType === 'assignment_expression') {
+      // `assignment_expression` is `left '=' right`; **`child(2)` always exists**, so the guard that used to sit
+      // here described a production the grammar does not have.
       const target = node.child(0);
-      if (target && target.type === 'identifier') {
+      if (target.type === 'identifier') {
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_ACCESS,
           text: target.text,
@@ -206,28 +250,30 @@ export class CppProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-      const value = node.child(2);
-      if (value) this.captureAccesses(value, captures);
+      this.captureAccesses(node.child(2), captures);
     } else if (nodeType === 'call_expression') {
+      // `call_expression` is `callee(args)` - **the callee is `child(0)` and the argument list is `child(1)`, which
+      // exists even when empty**, because `g()` has one.
       const callee = node.child(0);
-      if (callee) {
-        const isMethod = callee.type === 'field_expression';
-        captures.push({
-          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
-          text: callee.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: callee.startIndex,
-          endByte: callee.endIndex,
-          name: isMethod ? callee.text.split('.').pop() : callee.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-      const args = node.child(1);
-      if (args) this.captureAccesses(args, captures);
+      const isMethod = callee.type === 'field_expression';
+      captures.push({
+        tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: callee.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: callee.startIndex,
+        endByte: callee.endIndex,
+        // **A C++ member access is written `s->flush()` as often as `s.flush()`**, so splitting on `.` alone named the
+        // method `s->flush` - a name no definition in the graph could match.
+        name: isMethod ? this.memberName(callee.text) : callee.text,
+        properties: { filePath: this.filePath },
+      });
+      // A method call reads its receiver, so the receiver is a use.
+      if (isMethod) this.captureAccesses(callee.childForFieldName('argument')!, captures);
+      this.captureAccesses(node.child(1), captures);
     } else if (nodeType === 'expression_statement') {
       const inner = node.child(0);
-      if (inner && inner.type === 'identifier') {
+      if (inner.type === 'identifier') {
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_ACCESS,
           text: inner.text,
@@ -244,8 +290,12 @@ export class CppProvider extends TreeSitterBaseProvider {
       // parenthesis of the signature, so `void inner(const char *x) { ... }` was recorded as ending on its first
       // line - and `buildCallSites` keeps a reference only when `ref.sourceLine <= symbol.endLine`, which put every
       // call in the body outside its own function and left an empty call-site map.
-      const signature = namedChildrenOf(node).find((c) => c.type === 'function_declarator');
-      const nameNode = signature ? this.extractFunctionNameNode(signature) : undefined;
+      //
+      // **The name can genuinely be absent from the declarator's direct children**: `int (*getfn())(int) { … }`
+      // declares a function that returns a function pointer, and its name sits inside a `parenthesized_declarator >
+      // pointer_declarator > function_declarator`, one level too deep for `extractFunctionNameNode` to reach. That is
+      // the case the guard below exists for.
+      const nameNode = this.extractFunctionNameNode(this.functionDeclarators(node)[0]!);
       if (nameNode && this.isValidFnName(nameNode.text)) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -347,11 +397,11 @@ export class CppProvider extends TreeSitterBaseProvider {
       node.type === 'struct_specifier' ||
       node.type === 'enum_specifier'
     ) {
-      // For functions the name lives inside the (mandatory) function_declarator;
+      // For functions the name lives inside the declarator, which the return type may have wrapped;
       // for class/struct/enum it is a direct type/qualified/template name child.
       let nameNode: TreeSitterSyntaxNode | null;
       if (node.type === 'function_definition') {
-        nameNode = this.extractFunctionNameNode(this.findNamedChild(node, 'function_declarator')!);
+        nameNode = this.extractFunctionNameNode(this.functionDeclarators(node)[0]!);
       } else {
         nameNode = this.extractTypeNameNode(node);
       }

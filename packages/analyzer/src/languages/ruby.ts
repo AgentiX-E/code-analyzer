@@ -125,23 +125,34 @@ export class RubyProvider extends TreeSitterBaseProvider {
    * function" - can never be matched to the sink that receives it.
    *
    * The node names are read from this grammar's own tree rather than assumed.
+   *
+   * **Every parameter kind carries a `name:` field** - a probe of `def m(a = 1, *rest)` gives
+   * `optional_parameter name: (identifier) value: …` and `splat_parameter name: (identifier)` - so the name is read
+   * from the production rather than searched for, and **an anonymous splat (`def m(*)`) is the one parameter with no
+   * name at all**, which the filter drops.
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const list = namedChildrenOf(node).find((c) => c.type === 'method_parameters');
-    if (!list) return;
-    for (const parameter of namedChildrenOf(list)) {
-      const wrapped = ['identifier', 'constant'].includes(parameter.type)
-        ? parameter
-        : namedChildrenOf(parameter).find((c) => ['identifier', 'constant'].includes(c.type));
-      if (!wrapped) continue;
+    // **A method without parameters has no `method_parameters` child at all** - `def m; end` is
+    // `method name: (identifier) body: …` - so the list is genuinely optional rather than always present.
+    //
+    // **And a plain parameter is a bare `identifier`, while every wrapped kind carries `name:`** - `def m(a, b = 1,
+    // *rest)` is `(identifier) (optional_parameter name: …) (splat_parameter name: …)` - so both shapes are read, and
+    // **`def m(*)` is the one parameter with neither**, which is what the empty list is for.
+    const names = namedChildrenOf(node)
+      .flatMap((child) => (child.type === 'method_parameters' ? namedChildrenOf(child) : []))
+      .flatMap((parameter) => {
+        const named = parameter.childForFieldName('name');
+        return named ? [named] : parameter.type === 'identifier' ? [parameter] : [];
+      });
+    for (const name of names) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: wrapped.text,
-        startLine: wrapped.startPosition.row + 1,
-        endLine: wrapped.endPosition.row + 1,
-        startByte: wrapped.startIndex,
-        endByte: wrapped.endIndex,
-        name: wrapped.text,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
         properties: { filePath: this.filePath },
       });
     }
@@ -156,8 +167,11 @@ export class RubyProvider extends TreeSitterBaseProvider {
 
     // **Ruby's statements, which it recorded none of.**
     if (nodeType === 'assignment') {
+      // **The target is an `identifier` for `x = …` and an `instance_variable`/`global_variable`/`constant` for the
+      // others** - a probe of `@count = 1` shows `assignment left: (instance_variable)` - so the type test is what
+      // separates a local write from a field write.
       const target = node.child(0);
-      if (target && target.type === 'identifier') {
+      if (target.type === 'identifier') {
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: target.text,
@@ -169,8 +183,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
           properties: { filePath: this.filePath },
         });
       }
-      const value = node.child(2);
-      if (value) this.captureAccesses(value, captures);
+      this.captureAccesses(node.child(2), captures);
       // **And a constant assignment is an assignment, so it is handled in the same branch.**
       //
       // **This block used to sit in an `else` attached to this very `if`** - `} else` on one line and
@@ -195,36 +208,25 @@ export class RubyProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'call') {
-      const callee = node.child(0);
-      if (callee) {
-        const isMethod = callee.type === 'identifier' && node.childCount > 1;
-        captures.push({
-          tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
-          text: callee.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: callee.startIndex,
-          endByte: callee.endIndex,
-          name: callee.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-      const args = namedChildrenOf(node).find((c) => c.type === 'argument_list');
+      // **`call` is `receiver? '.' method(arguments?)`, and the method is its own field**: a probe of `obj.foo` gives
+      // `(call receiver: (identifier) method: (identifier))`, so **taking `child(0)` named the receiver** - `obj` -
+      // and every method call in the corpus was recorded under its object's name.
+      const methodNode = node.childForFieldName('method')!;
+      const receiver = node.childForFieldName('receiver');
+      captures.push({
+        tag: receiver ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: methodNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: methodNode.startIndex,
+        endByte: methodNode.endIndex,
+        name: methodNode.text,
+        properties: { filePath: this.filePath },
+      });
+      // A call reads its receiver, and a call without parentheses (`obj.foo`) has no argument list at all.
+      if (receiver) this.captureAccesses(receiver, captures);
+      const args = node.childForFieldName('arguments');
       if (args) this.captureAccesses(args, captures);
-    } else if (nodeType === 'expression_statement') {
-      const inner = node.child(0);
-      if (inner && inner.type === 'identifier') {
-        captures.push({
-          tag: CAPTURE_TAGS.VARIABLE_ACCESS,
-          text: inner.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: inner.startIndex,
-          endByte: inner.endIndex,
-          name: inner.text,
-          properties: { filePath: this.filePath },
-        });
-      }
     }
 
     // Handle method calls (attr_accessor, import/require)
