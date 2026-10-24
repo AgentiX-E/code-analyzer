@@ -213,8 +213,10 @@ function buildFunctionSummary(
   // is that position. Hardcoding 0 was the mistake `CallSite.argBindings` documents: an empty array means the
   // positions are not known, and treating that as "first argument" is the one thing it forbids.
   for (const [stmtIndex, occurrence] of cfg.stmtFacts.sourceSites) {
+    // **`bindingIdx` is a required field of `TaintSourceOccurrence`**, so the `if (bindingIdx === undefined) continue`
+    // that stood here guarded a state its own type forbids - and a guard against a shape the type excludes is a
+    // comment claiming the type is wrong.
     const bindingIdx = occurrence.bindingIdx;
-    if (bindingIdx === undefined) continue;
 
     for (const call of cfg.callSites ?? []) {
       const flat = call.argBindings.indexOf(bindingIdx);
