@@ -60,61 +60,66 @@ export class PythonProvider extends TreeSitterBaseProvider {
     const visit = (node: TreeSitterSyntaxNode): void => {
       if (node.type === 'import_statement') {
         for (const child of namedChildrenOf(node)) {
-          const module = child.type === 'aliased_import' ? child.childForFieldName('name') : child;
-          if (!module) continue;
+          // **`module` is always there**: an `import_statement` has `dotted_name` or `aliased_import` children, and an
+          // `aliased_import` is `name: 'as' alias:`. A malformed `import` produces an `ERROR` node instead of a
+          // statement - `import` alone parses as `(module (ERROR))` - so there is no shape to guard against.
+          const aliased = child.type === 'aliased_import';
+          const module = (aliased ? child.childForFieldName('name') : child)!;
           // **The alias is kept beside the module rather than in place of it**: `import numpy as np` imports `numpy`,
-          // and `np` is what this file calls it. A consumer that replaced the one with the other would report an
-          // import of a module that does not exist.
-          const alias =
-            child.type === 'aliased_import' ? child.childForFieldName('alias')?.text : undefined;
+          // and `np` is what this file calls it. A consumer that replaced one with the other would report an import
+          // of a module that does not exist.
+          const alias = aliased ? child.childForFieldName('alias')?.text : undefined;
           imports.push({
             // `import a.b.c` names the module and binds `a`; **the edge is to the module**, so the source keeps the
             // whole dotted path and the bound name is the first segment.
             source: module.text,
-            names: [module.text.split('.')[0] ?? module.text],
+            // **`split` of a non-empty string always yields a first element**, so no fallback is needed.
+            names: [module.text.split('.')[0]!],
             type: 'namespace',
             ...(alias ? { alias } : {}),
             lineNumber: node.startPosition.row + 1,
           });
         }
       } else if (node.type === 'import_from_statement') {
-        const moduleNode = node.childForFieldName('module_name');
-        if (moduleNode) {
-          const wildcard = namedChildrenOf(node).some((c) => c.type === 'wildcard_import');
-          // **The names can be nested**, because `from m import (a, b)` wraps them in a parenthesised list - a shape a
-          // direct-children filter drops, which is how `from urllib.parse import (_url_quote)` became a name-less
-          // import. The whole subtree is walked, minus the module itself.
-          const names: string[] = [];
-          let alias: string | undefined;
-          const collectNames = (n: TreeSitterSyntaxNode): void => {
-            if (n.type === 'dotted_name') {
-              names.push(n.text);
-              return;
-            }
-            if (n.type === 'aliased_import') {
-              names.push(n.childForFieldName('name')?.text ?? n.text);
-              alias ??= n.childForFieldName('alias')?.text;
-              return;
-            }
-            for (const child of namedChildrenOf(n)) collectNames(child);
-          };
-          for (const child of namedChildrenOf(node)) {
-            if (child !== moduleNode) collectNames(child);
+        // **`module_name` is a field of the rule itself**, so a statement without one is not this node type: `from
+        // import x` parses as `ERROR (import_statement …)`, measured.
+        const moduleNode = node.childForFieldName('module_name')!;
+        const wildcard = namedChildrenOf(node).some((c) => c.type === 'wildcard_import');
+        // **The names can be nested**, because `from m import (a, b)` wraps them in a parenthesised list - a shape a
+        // direct-children filter drops, which is how `from urllib.parse import (_url_quote)` became a name-less
+        // import. The whole subtree is walked, minus the module itself.
+        const names: string[] = [];
+        let alias: string | undefined;
+        const collectNames = (n: TreeSitterSyntaxNode): void => {
+          if (n.type === 'dotted_name') {
+            names.push(n.text);
+            return;
           }
-          imports.push({
-            // **`relative_import` keeps its dots**, which is what makes `.helpers` resolvable at all: the dots are the
-            // package the importer is in, and the rest is the module.
-            source: moduleNode.text,
-            names: wildcard ? ['*'] : names,
-            type: wildcard ? 'wildcard' : 'named',
-            ...(alias ? { alias } : {}),
-            lineNumber: node.startPosition.row + 1,
-          });
+          if (n.type === 'aliased_import') {
+            // **An `aliased_import` always carries its `name` field**: the node is `name: 'as' alias:`.
+            names.push(n.childForFieldName('name')!.text);
+            alias ??= n.childForFieldName('alias')?.text;
+            return;
+          }
+          for (const child of namedChildrenOf(n)) collectNames(child);
+        };
+        for (const child of namedChildrenOf(node)) {
+          if (child !== moduleNode) collectNames(child);
         }
+        imports.push({
+          // **`relative_import` keeps its dots**, which is what makes `.helpers` resolvable at all: the dots are the
+          // package the importer is in, and the rest is the module.
+          source: moduleNode.text,
+          names: wildcard ? ['*'] : names,
+          type: wildcard ? 'wildcard' : 'named',
+          ...(alias ? { alias } : {}),
+          lineNumber: node.startPosition.row + 1,
+        });
       }
       for (const child of namedChildrenOf(node)) visit(child);
     };
-    visit(this.parser.parse(source).rootNode as unknown as TreeSitterSyntaxNode);
+    // **No assertion**: the tree-sitter root is structurally the interface this file walks, and the compiler agrees.
+    visit(this.parser.parse(source).rootNode);
     return imports;
   }
 
@@ -416,60 +421,6 @@ export class PythonProvider extends TreeSitterBaseProvider {
       this.walkAndCapture(child, captures);
     }
   }
-
-  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
-    if (node.type === 'import_statement') {
-      const line = node.startPosition.row + 1;
-      for (const child of namedChildrenOf(node)) {
-        if (child.type === 'dotted_name') {
-          imports.push({
-            source: child.text,
-            names: [child.text],
-            type: 'named',
-            lineNumber: line,
-          });
-        } else {
-          // aliased_import — the only other named-child type in an import_statement
-          const alias = this.findNamedChild(child, 'identifier');
-          const name = alias ? alias.text : child.text;
-          imports.push({ source: name, names: [name], type: 'namespace', lineNumber: line });
-        }
-      }
-      return;
-    }
-
-    if (node.type === 'import_from_statement') {
-      const line = node.startPosition.row + 1;
-      const fromNode = this.findNamedChild(node, 'dotted_name');
-      const source = fromNode ? fromNode.text : '';
-      const names: string[] = [];
-      for (const child of namedChildrenOf(node)) {
-        // No `continue` guard is needed here: `fromNode` is null iff the
-        // statement has no dotted_name child, so `child.type === 'dotted_name'
-        // && !fromNode` can never be true.
-        if (child.type === 'aliased_import') {
-          const id = this.findNamedChild(child, 'identifier');
-          if (id) names.push(id.text);
-        } else if (child.type === 'dotted_name' && fromNode && child !== fromNode) {
-          names.push(child.text);
-        }
-      }
-      if (source) {
-        imports.push({
-          source,
-          names: names.length > 0 ? names : [source],
-          type: 'named',
-          lineNumber: line,
-        });
-      }
-      return;
-    }
-
-    for (const child of childrenOf(node)) {
-      this.walkForImports(child, imports);
-    }
-  }
-
   protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
     // Python: public unless prefixed with single underscore (not dunder)
     if (symbolName.startsWith('_') && !symbolName.startsWith('__')) return false;

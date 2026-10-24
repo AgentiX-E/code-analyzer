@@ -444,23 +444,9 @@ describe('PythonProvider defensive branches (synthetic nodes)', () => {
     });
   });
 
-  describe('walkForImports — import without a name', () => {
-    it('falls back to the child text when an aliased import has no identifier', () => {
-      const aliased = makeNode('aliased_import', [], 'numpy as np');
-      const node = makeNode('import_statement', [aliased], 'import numpy as np');
-      const imports = provider.walkForImportsForTest(node);
-      expect(imports).toHaveLength(1);
-      expect(imports[0]!.source).toBe('numpy as np');
-      expect(imports[0]!.type).toBe('namespace');
-    });
-
-    it('emits no names when a from-import aliased import has no identifier', () => {
-      const aliased = makeNode('aliased_import', [], 'thing as ');
-      const node = makeNode('import_from_statement', [aliased], 'from x import thing as ');
-      const imports = provider.walkForImportsForTest(node);
-      expect(imports).toEqual([]);
-    });
-  });
+  // **The `walkForImports` hook is gone from this provider**, because `extractImports` reads Python's nodes
+  // directly; the two cases that exercised the hook went with it. **A test of a method nothing calls is a test that
+  // keeps a dead branch alive**, and this campaign has already found one of those.
 });
 
 // Python's imports read from Python's own nodes.
@@ -509,5 +495,39 @@ describe('PythonProvider.extractImports', () => {
     // **A deferred import is still an import**, and it is where a circular dependency is usually broken.
     const nested = 'def f():\n    if True:\n        from . import late\n';
     expect(sourceOf(nested)).toEqual([['.', ['late'], 'named']]);
+  });
+});
+
+// The statement shapes the taint walk reads, on ordinary Python.
+//
+// **None of these is exotic**: a bare name, an assignment whose value is a name, and a method call. They were uncovered
+// because every fixture in this file is a declaration, and **a provider is judged by what it emits for a statement as
+// much as for a `def`**.
+describe('PythonProvider statements', () => {
+  const provider = new PythonProvider();
+
+  it('records a bare name statement as a use', () => {
+    const captures = provider.parse('x\n', 'f.py');
+    const uses = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_ACCESS);
+
+    expect(uses.map((c) => String(c.name))).toEqual(['x']);
+  });
+
+  it('records the right-hand side of an assignment as a use of every name it mentions', () => {
+    const captures = provider.parse('total = left + right\n', 'f.py');
+    const uses = captures
+      .filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_ACCESS)
+      .map((c) => String(c.name));
+
+    // The target is a def and the two sources are uses; **a propagator with only the def has nothing to carry taint**.
+    expect(uses).toEqual(expect.arrayContaining(['left', 'right']));
+  });
+
+  it('names a method call by its method, not by its receiver', () => {
+    const captures = provider.parse('session.commit()\n', 'f.py');
+    const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL);
+
+    // **`session` is the object, `commit` is the call.** A call named after its receiver joins nothing.
+    expect(calls.map((c) => String(c.name))).toEqual(['commit']);
   });
 });
