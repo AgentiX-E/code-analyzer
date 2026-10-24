@@ -14,7 +14,11 @@ import { createServer } from 'node:http';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { apiEmbedderUnavailableReason, loadApiEmbedder } from '../pipeline/phases/embed-api.js';
+import {
+  apiEmbedderUnavailableReason,
+  loadApiEmbedder,
+  resolveApiConfig,
+} from '../pipeline/phases/embed-api.js';
 
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -205,5 +209,138 @@ describe('the answers that are not embeddings', () => {
   it('treats a blank key as absent', async () => {
     expect(await loadApiEmbedder({ ZHIPU_API_KEY: '   ' })).toBeNull();
     expect(apiEmbedderUnavailableReason()).toBe('ZHIPU_API_KEY is not set');
+  });
+});
+
+/**
+ * A server that answers with a status and **no body at all**, and one that answers and then drops the connection.
+ *
+ * **Both are ordinary things a provider does under load**: a gateway returns `502` with nothing in it, and a connection
+ * is cut after the headers. The first decides whether the message a user sees names a status alone or a status and a
+ * colon with nothing after it; **the second is the only way `response.text()` can reject**, which is the arm that keeps
+ * a truncated body from becoming an exception the caller has to handle.
+ */
+async function withRawServer(
+  handle: (req: IncomingMessage, res: ServerResponse) => void,
+  run: (endpoint: string) => Promise<void>,
+): Promise<void> {
+  const server: Server = createServer((req, res) => {
+    req.on('data', () => undefined);
+    req.on('end', () => handle(req, res));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    await run(`http://127.0.0.1:${port}/embeddings`);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+describe('an answer whose body is missing or cut off', () => {
+  it('names the status alone when the body is empty', async () => {
+    // **No trailing colon and no `: ` prefix**, because a message that ends in a colon reads as if something were cut
+    // off from it — which is exactly the state a `502` with no body is already in.
+    await withRawServer(
+      (_req, res) => {
+        res.writeHead(502, { 'content-type': 'application/json' });
+        res.end();
+      },
+      async (endpoint) => {
+        expect(await loadApiEmbedder(env(endpoint))).toBeNull();
+        expect(apiEmbedderUnavailableReason()).toMatch(/HTTP 502$/);
+      },
+    );
+  });
+
+  it('reports the status when the connection is cut before the body arrives', async () => {
+    // **A dropped connection is not a dropped answer**: the status arrived, so the status is what the message says.
+    await withRawServer(
+      (_req, res) => {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.write('{"error":');
+        setTimeout(() => res.destroy(), 5);
+      },
+      async (endpoint) => {
+        expect(await loadApiEmbedder(env(endpoint))).toBeNull();
+        expect(apiEmbedderUnavailableReason()).toMatch(/HTTP 500/);
+      },
+    );
+  });
+});
+
+describe('answers that carry no usable index or no vectors at all', () => {
+  it('keeps the order it was given when no entry carries an index', async () => {
+    // **`index` is optional in the response**, and a provider that omits it is answering in request order by
+    // definition — sorting on a value that is not there would reorder the vectors arbitrarily.
+    await withRawServer(
+      (_req, res) => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            data: [{ embedding: Array.from({ length: 768 }, (_v, i) => (i === 0 ? 1 : 0)) }],
+          }),
+        );
+      },
+      async (endpoint) => {
+        const loaded = await loadApiEmbedder(env(endpoint));
+
+        const [vector] = await loaded!.embedder.embedBatch(['a']);
+        expect(vector![0]).toBe(1);
+      },
+    );
+  });
+
+  it('refuses a response that carries no data field at all', async () => {
+    await withServer(
+      () => ({ status: 200, json: {} }),
+      async (endpoint) => {
+        expect(await loadApiEmbedder(env(endpoint))).toBeNull();
+        expect(apiEmbedderUnavailableReason()).toMatch(/expected 1 embeddings and received 0/);
+      },
+    );
+  });
+
+  it('normalises a zero vector to zero rather than to NaN', async () => {
+    // **A provider can return an all-zero embedding**, and dividing it by its own norm is where that becomes `NaN` in
+    // every component — a vector that poisons every cosine comparison downstream without failing anywhere.
+    await withServer(
+      () => ({ status: 200, json: { data: [{ index: 0, embedding: new Array(768).fill(0) }] } }),
+      async (endpoint) => {
+        const loaded = await loadApiEmbedder(env(endpoint));
+
+        const [vector] = await loaded!.embedder.embedBatch(['a']);
+        expect(vector!.every((v) => v === 0)).toBe(true);
+        expect(Number.isNaN(vector![0])).toBe(false);
+      },
+    );
+  });
+});
+
+describe('the configuration a run resolves', () => {
+  it('uses the verified defaults when only the key is present', async () => {
+    // **The defaults are the measurement**, not a convenience: this endpoint, this model, and this width are the three
+    // facts every published embedding figure was produced with.
+    const config = resolveApiConfig({ ZHIPU_API_KEY: 'k' });
+
+    expect(config).toEqual({
+      endpoint: 'https://open.bigmodel.cn/api/paas/v4/embeddings',
+      model: 'embedding-3',
+      dimensions: 768,
+    });
+  });
+
+  it('lets an override win, including a numeric width given as text', async () => {
+    const config = resolveApiConfig({
+      ZHIPU_EMBEDDING_ENDPOINT: 'http://127.0.0.1:1/x',
+      ZHIPU_EMBEDDING_MODEL: 'other-model',
+      ZHIPU_EMBEDDING_DIMENSIONS: '1024',
+    });
+
+    expect(config).toEqual({
+      endpoint: 'http://127.0.0.1:1/x',
+      model: 'other-model',
+      dimensions: 1024,
+    });
   });
 });

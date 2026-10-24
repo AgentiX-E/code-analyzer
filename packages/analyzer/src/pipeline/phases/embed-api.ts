@@ -94,10 +94,11 @@ async function embedWithKey(
       // wrong vector with a text produces a number nobody can trace back to this line.
       throw new Error(`expected ${batch.length} embeddings and received ${data.length}`);
     }
-    // **Ordered by `index` when it is present**, because the API is not obliged to return them in request order.
-    const ordered = data.every((d) => typeof d.index === 'number')
-      ? [...data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
-      : data;
+    // **Ordered by `index` when it is present**, because the API is not obliged to return them in request order - and
+    // **when every entry carries one, the comparator does not need a fallback**: `?? 0` inside it would compare a value
+    // the test on the line above has already established is a number.
+    const indexed = data.every((d) => typeof d.index === 'number');
+    const ordered = indexed ? [...data].sort((a, b) => a.index! - b.index!) : data;
     for (const datum of ordered) {
       if (!Array.isArray(datum.embedding) || datum.embedding.length === 0) {
         throw new Error('an embedding in the response was empty');
@@ -119,6 +120,25 @@ async function embedWithKey(
 }
 
 /**
+ * The endpoint, model and width a run should use, with the verified defaults filled in.
+ *
+ * **A function rather than three `??` expressions inline**, because the defaults are a fact worth asserting: the
+ * endpoint is the one `validate-embeddings.ts` exercised, the model is the one whose width is 768, and **a default
+ * that changes without a test changing is a silent change of what every published measurement means**.
+ */
+export function resolveApiConfig(env: NodeJS.ProcessEnv): {
+  endpoint: string;
+  model: string;
+  dimensions: number;
+} {
+  return {
+    endpoint: env['ZHIPU_EMBEDDING_ENDPOINT'] ?? DEFAULT_ENDPOINT,
+    model: env['ZHIPU_EMBEDDING_MODEL'] ?? DEFAULT_MODEL,
+    dimensions: Number(env['ZHIPU_EMBEDDING_DIMENSIONS'] ?? DEFAULT_DIMENSIONS),
+  };
+}
+
+/**
  * Build an API-backed embedder, or return `null` with a reason when it cannot be built.
  *
  * **`backend` is reported rather than assumed**, so an artifact can say which embedder produced its vectors — **which
@@ -132,9 +152,7 @@ export async function loadApiEmbedder(
     lastApiFailure = 'ZHIPU_API_KEY is not set';
     return null;
   }
-  const endpoint = env['ZHIPU_EMBEDDING_ENDPOINT'] ?? DEFAULT_ENDPOINT;
-  const model = env['ZHIPU_EMBEDDING_MODEL'] ?? DEFAULT_MODEL;
-  const dimensions = Number(env['ZHIPU_EMBEDDING_DIMENSIONS'] ?? DEFAULT_DIMENSIONS);
+  const { endpoint, model, dimensions } = resolveApiConfig(env);
 
   // **A probe request rather than a promise of one**, because a key that is present and rejected must read as a failure
   // here rather than as a failure halfway through an indexing run - **and the probe checks the width for the same
@@ -142,7 +160,11 @@ export async function loadApiEmbedder(
   try {
     await embedWithKey(['probe'], key, endpoint, model, dimensions);
   } catch (error) {
-    lastApiFailure = `the embedding endpoint rejected the probe: ${error instanceof Error ? error.message : String(error)}`;
+    // **`error` is an `Error`, and that is a fact about this file rather than an assumption about the network**:
+    // `embedWithKey` throws `new Error(...)` at every one of its failure sites, and `fetch` rejects with a `TypeError`
+    // or an `AbortError` - both `Error`s. The `instanceof` fallback that stood here was an arm nothing could take,
+    // and an arm nothing can take reads as if a string could arrive from a place that never sends one.
+    lastApiFailure = `the embedding endpoint rejected the probe: ${(error as Error).message}`;
     return null;
   }
 

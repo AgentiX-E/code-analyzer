@@ -210,13 +210,23 @@ export async function loadEmbedder(
   return null;
 }
 
-export async function loadRealEmbedder(): Promise<Embedder | null> {
+export async function loadRealEmbedder(
+  // **The import is a parameter with the production default**, for the same reason `loadEmbedder`'s two loaders are:
+  // **`createFromPackage()` needs a 137MB model that the published package declares and does not ship**, so neither of
+  // its arms - the one that succeeds, and the one that says which file is missing - can be reached by writing code on
+  // any machine. With the seam both are ordinary cases, and production still performs the real import: the default is
+  // the code that runs.
+  importEmbedder: () => Promise<unknown> = () => import('@agentix-e/embed-code-node'),
+): Promise<Embedder | null> {
   try {
-    const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
+    const module = (await importEmbedder()) as { NodeEmbedder?: unknown };
+    const { NodeEmbedder } = module;
 
     // Try createFromPackage first (bundled model), fall back to create({ modelPath })
     try {
-      const nodeEmbedder = NodeEmbedder as unknown as {
+      // **One assertion, not two**: `NodeEmbedder` arrives as `unknown` from the module object, so the intermediate
+      // `as unknown` was a no-op the type checker reports as unnecessary.
+      const nodeEmbedder = NodeEmbedder as {
         createFromPackage: () => Promise<Embedder>;
       };
       const embedder = await nodeEmbedder.createFromPackage();
