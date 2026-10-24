@@ -129,9 +129,17 @@ export async function generateEmbeddings(
   }
 
   // **Which backend ran, and why**, travelling out with the results so the phase can record it.
+  //
+  // **The answer is taken from the vectors, not from whether something was thrown.** A loader that *returns* null
+  // leaves `backendUnavailableReason` unset, so `backendUnavailableReason ? 'deterministic' : 'onnx'` reported **`onnx`
+  // for a run in which every vector came from the hash fallback** - the exact confusion the field exists to prevent,
+  // and the one that lets a lexical or synthetic figure be quoted as a semantic one. The reason is filled in from the
+  // loaders' own record of why they resolved to nothing.
+  if (!embedder) backendUnavailableReason ??= embedderUnavailableReason();
   return {
     results,
-    backend: backendUnavailableReason ? 'deterministic' : 'onnx',
+    backend:
+      results.length > 0 && results.every((r) => r.backend === 'onnx') ? 'onnx' : 'deterministic',
     reason: backendUnavailableReason,
   };
 }
@@ -175,15 +183,22 @@ export function embedderUnavailableReason(): string | null {
  * **The reason from the losing backend is kept when neither wins**, because **"no embedder" is a conclusion and the
  * reason is the evidence for it.**
  */
-export async function loadEmbedder(): Promise<{
+export async function loadEmbedder(
+  // **Both loaders are parameters with the production defaults**, which is the same seam `generateEmbeddings` already
+  // takes for the ONNX factory - and for the same reason: **whether a 137MB model or an API key is present is a fact
+  // about the machine, so a test cannot reach either success arm by writing code.** With the seam, "the ONNX backend
+  // won", "the API backend won" and "neither did" are three ordinary cases.
+  loadOnnx: () => Promise<Embedder | null> = loadRealEmbedder,
+  loadApi?: () => Promise<{ embedder: Embedder; backend: 'api' } | null>,
+): Promise<{
   embedder: Embedder;
   backend: 'onnx' | 'api';
 } | null> {
-  const onnx = await loadRealEmbedder();
+  const onnx = await loadOnnx();
   if (onnx) return { embedder: onnx, backend: 'onnx' };
 
   const { loadApiEmbedder } = await import('./embed-api.js');
-  const api = await loadApiEmbedder();
+  const api = await (loadApi ?? loadApiEmbedder)();
   if (api) return api;
 
   // **Both reasons are recorded**, because a single message would name one backend's failure and hide the other's.
