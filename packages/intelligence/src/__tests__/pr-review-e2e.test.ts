@@ -6,15 +6,20 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+// **The order below is the one the lint gate requires, and it is worth a note because a local build contradicts it.**
+// `import/order` groups a workspace package by whether the resolver can reach it: **the lint job does not build, so
+// `@code-analyzer/*` is an external import there**, while a machine that has run `pnpm build` resolves it into the
+// workspace and calls it internal. **Reordering this file after a build makes the gate red** - which is exactly what
+// happened once - so the ordering follows the gate, and the determinism of the rule itself is recorded as work in the
+// audit rather than papered over here.
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-
 import {
   CodeReviewEngine,
   PRReviewEngine,
   ReviewPipeline,
   DiffParser,
 } from '@code-analyzer/intelligence';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
 
