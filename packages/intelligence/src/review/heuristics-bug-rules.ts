@@ -28,7 +28,9 @@ function finding(
   description: string,
   startLine: number,
   endLine: number,
-  suggestionCode?: string,
+  // **Required, not optional**: every rule here has a suggestion, and an optional parameter with a `?? null`
+  // fallback reads as if one might not - the fallback was a branch no call site could take.
+  suggestionCode: string,
 ): HeuristicRuleResult {
   return {
     triggered: true,
@@ -36,7 +38,7 @@ function finding(
     severity,
     title,
     description,
-    suggestionCode: suggestionCode ?? null,
+    suggestionCode,
     startLine,
     endLine,
   };

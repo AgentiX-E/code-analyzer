@@ -83,7 +83,7 @@ describe.each(SOURCES)(
       const provider = await getOrLoadProvider(language);
       expect(provider).not.toBeNull();
 
-      const grouped = groupCaptures(provider!.parse(source, file) as never, file) as {
+      const grouped = groupCaptures(provider!.parse(source, file), file) as {
         symbols?: Array<{ name: string; docstring?: string | null }>;
       };
       const symbols = grouped.symbols ?? [];
@@ -123,10 +123,7 @@ describe('the docstring inside a python declaration', () => {
   it('reaches the declaration it documents, and not the one after it', async () => {
     const provider = await getOrLoadProvider('python');
     expect(provider).not.toBeNull();
-    const grouped = groupCaptures(
-      provider!.parse(PYTHON, '/kinetic.py') as never,
-      '/kinetic.py',
-    ) as {
+    const grouped = groupCaptures(provider!.parse(PYTHON, '/kinetic.py'), '/kinetic.py') as {
       symbols?: Array<{ name: string; docstring?: string | null }>;
     };
     const docOf = (name: string) =>
@@ -156,7 +153,7 @@ describe('what a docstring must not reach', () => {
 
   it('does not put the comment on calls or on parameters', async () => {
     const provider = await getOrLoadProvider('python');
-    const grouped = groupCaptures(provider!.parse(PYTHON, '/k.py') as never, '/k.py') as {
+    const grouped = groupCaptures(provider!.parse(PYTHON, '/k.py'), '/k.py') as {
       symbols?: Array<{ name: string; docstring?: string | null }>;
       references?: Array<{ name?: string }>;
     };
@@ -183,7 +180,7 @@ describe('a comment with no text', () => {
   it('does not become the docstring of the declaration below it', async () => {
     const provider = await getOrLoadProvider('typescript');
     const source = ['//', 'export function bare(): void {}', ''].join('\n');
-    const grouped = groupCaptures(provider!.parse(source, '/b.ts') as never, '/b.ts') as {
+    const grouped = groupCaptures(provider!.parse(source, '/b.ts'), '/b.ts') as {
       symbols?: Array<{ name: string; docstring?: string | null }>;
     };
     const bare = (grouped.symbols ?? []).find((s) => s.name === 'bare');

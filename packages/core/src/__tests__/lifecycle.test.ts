@@ -177,6 +177,9 @@ describe('LifecycleManager', () => {
       });
       const comp = new MockComponent('rude');
       comp.init = async () => {
+        // The case is a non-`Error` throw, which the language permits and `onInitError` has to survive; a rule that
+        // forbade it here would forbid the fixture from producing the state the production code exists to handle.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw 'kaboom';
       };
 

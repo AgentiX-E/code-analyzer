@@ -168,3 +168,33 @@ describe('all three, as the engine runs them', () => {
     }
   });
 });
+
+// The lines that make a rule stop looking, and the two ends of a condition string.
+//
+// **A multi-line catch is the shape a real handler has**, and the loop that decides whether it is silent reads line
+// by line: **a statement inside it ends the search**, a closing brace with a trailing comment does too, and **the
+// first and last characters of a condition have no neighbour**. None of those three states had a case, which is why
+// the rule looked like it only ever examined empty blocks.
+describe('the edges of a line-based scan', () => {
+  it('is silent on a catch that handles the error', () => {
+    // The false-positive guard: a handler that logs *does* something with the error.
+    const handled = ['try {', '  risky();', '} catch (e) {', '  logger.warn(e);', '}'].join('\n');
+    expect(checkSilentCatch(lines(handled))).toHaveLength(0);
+  });
+
+  it('stops at a closing brace that carries a trailing comment', () => {
+    // `} // done` closes the block without matching the `^\s*\}$` test, so the loop has to notice the depth instead.
+    const trailing = ['try {', '  risky();', '} catch (e) {', '} // done'].join('\n');
+    expect(checkSilentCatch(lines(trailing))).toHaveLength(1);
+  });
+
+  it('reads a condition whose first character is the assignment', () => {
+    // A typo being typed: `if (= value)`. The character before `=` does not exist, so the neighbour read is the `?? ''`
+    // arm rather than a real character - and the rule must still fire rather than throw.
+    expect(checkAssignmentInCondition(lines('if (= value) {'))).toHaveLength(1);
+  });
+
+  it('reads a condition that ends on the assignment', () => {
+    expect(checkAssignmentInCondition(lines('if (value =) {'))).toHaveLength(1);
+  });
+});
