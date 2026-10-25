@@ -189,7 +189,13 @@ describe('EmbeddingWorkerPool (real worker)', () => {
     // promise never settles. Fire-and-forget and observe the side effect.
     void pool.embedBatch([{ taskId: 'crash', content: '__EXIT__' }]).catch(() => {});
 
-    await new Promise((r) => setTimeout(r, 250));
+    // **A single 250 ms sleep is a bet on the machine's load, not a wait.** The exit handler runs on the event
+    // loop after the child's `exit` event, and on a busy runner that took longer than the sleep - so the pool was
+    // healthy when the assertion looked, and fallback a moment later. Wait for the state instead of for a duration.
+    const deadline = Date.now() + 10_000;
+    while (!pool.isFallback && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
     expect(pool.isFallback).toBe(true);
     expect(pool.isWorkerHealthy(0)).toBe(false);
   });

@@ -20,8 +20,11 @@ const TOOL_PATTERNS: Array<{ regex: RegExp; toolType: string }> = [
   },
   // CLI command definitions (commander/yargs)
   { regex: /(?:\.command|\.addCommand)\s*\(\s*['"`]([^'"`]+)['"`]/g, toolType: 'cli-command' },
-  // Slack slash commands
-  { regex: /\/[a-z][a-z0-9_-]*\s+.+/g, toolType: 'slash-command' },
+  // Slack / Claude Code slash commands. **Anchored to the start of a line, and that anchor is the whole rule**: the
+  // unanchored form matched any `/owners` anywhere in a document, so admitting templates and configuration turned
+  // `spring-petclinic` from 1 tool into **33** - a Spring application with no agent surface at all. A command is a
+  // line that begins with one.
+  { regex: /^(\/[a-z][a-z0-9_-]*)\s+\S.*$/gm, toolType: 'slash-command' },
   // VSCode extension contributes.commands
   {
     regex:

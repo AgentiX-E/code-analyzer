@@ -1,6 +1,9 @@
 # Language Support Matrix
 
-Code Analyzer supports 20 programming languages and configuration formats with varying levels of analysis depth, covering both traditional programming languages and Infrastructure-as-Code (IaC) formats.
+Code Analyzer names **33 languages** in `SUPPORTED_LANGUAGES`: **seventeen with a tree-sitter grammar** and the
+symbol-level extraction below, plus sixteen that carry the configuration, markup and documents a repository is made of —
+**and every one of them is admitted by the scanner**, which is what makes the provider for it reachable. _A provider
+that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 
 ## Feature Matrix
 
@@ -52,6 +55,28 @@ Code Analyzer supports 20 programming languages and configuration formats with v
 | Scala      | `.scala`, `.sc`                       |
 | Zig        | `.zig`, `.zon`                        |
 | Elixir     | `.ex`, `.exs`                         |
+
+## Configuration, Markup and Document Formats
+
+These carry no functions and no call graph, and they are what a change actually touches in most commits. The
+extensions are the ones `getLanguageFromFilename` maps, and the scanner admits them:
+
+| Language         | Extensions                      | What the index does with it                                                         |
+| ---------------- | ------------------------------- | ----------------------------------------------------------------------------------- |
+| XML              | `.xml`, `.xsd`, `.xsl`, `.xslt` | Spring/Pom/Maven build and bean wiring; element and attribute capture               |
+| HTML             | `.html`, `.htm`                 | Templates and their links; **a template links to a route, it does not declare one** |
+| YAML             | `.yaml`, `.yml`                 | CI workflows, Kubernetes manifests, application configuration                       |
+| JSON             | `.json`, `.jsonc`               | `package.json`, tsconfig, framework configuration                                   |
+| TOML             | `.toml`                         | `Cargo.toml`, `pyproject.toml`                                                      |
+| HCL              | `.tf`, `.tfvars`                | Terraform resources and variables                                                   |
+| CSS              | `.css`                          | Stylesheets, **including one a repository re-includes from its own `.gitignore`**   |
+| Groovy           | `.groovy`, `.gradle`            | Gradle build scripts and DSLs                                                       |
+| Markdown         | `.md`, `.markdown`              | Documentation, and the doc-wide reference search                                    |
+| Dockerfile       | `Dockerfile`, `*.dockerfile`    | Image build stages                                                                  |
+| SQL              | `.sql`                          | Schema and migrations                                                               |
+| Shell            | `.sh`, `.bash`                  | Scripts                                                                             |
+| Lua / R / Svelte | `.lua` / `.r` / `.svelte`       | Symbols, where the provider extracts them                                           |
+| PDF              | `.pdf`                          | Extracted text; a container rather than a language                                  |
 
 ## Cross-Language Analysis
 

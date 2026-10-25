@@ -324,7 +324,7 @@ describe('ScanPhase', () => {
     fixture.cleanup();
   });
 
-  it('should discover TypeScript files (code files only)', async () => {
+  it('should discover the code files and the files that are not code but are still the repository', async () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     const result = await phase.execute(ctx);
 
@@ -348,11 +348,14 @@ describe('ScanPhase', () => {
     expect(tsFiles.length).toBeGreaterThanOrEqual(2);
     expect(testFiles.length).toBeGreaterThanOrEqual(1);
 
-    // Non-code files (json, md) are NOT discovered by scan
+    // **Non-code files ARE discovered, and this assertion used to say the opposite.** `getLanguageFromFilename` now
+    // names the extensions of the providers that exist for them - `html`, `xml`, `json`, `yaml`, `css`, `markdown` -
+    // because **a provider nothing can reach is dead code**: `pallets/flask` has 20 HTML templates and the index held
+    // none of them, and a Spring project's build and configuration files were invisible for the same reason.
     const jsonFiles = scanData.discoveredFiles.filter((f) => f.filePath.endsWith('.json'));
     const mdFiles = scanData.discoveredFiles.filter((f) => f.filePath.endsWith('.md'));
-    expect(jsonFiles.length).toBe(0);
-    expect(mdFiles.length).toBe(0);
+    expect(jsonFiles.length).toBeGreaterThan(0);
+    expect(mdFiles.length).toBeGreaterThan(0);
   });
 
   it('should compute file hashes for discovered files', async () => {
@@ -641,21 +644,13 @@ describe('MarkdownPhase', () => {
   });
 
   it('should extract markdown sections when markdown files are available', async () => {
-    const ctx = createContext('test-proj', fixture.rootPath);
-    await scanPhase.execute(ctx);
-
-    // Note: Markdown files are not discovered by scan phase because
-    // getLanguageFromFilename doesn't map .md extensions. The MarkdownPhase
-    // is designed to work when markdown files are manually added to scan data
-    // or when the scan phase is updated to include non-code files.
-
-    // Manually add a markdown file to the scan data to test the phase
-    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    // **The file is written before the scan, not injected into its output.** Markdown is discovered now, so a case
+    // that pushed a second entry for the same path was testing a state the pipeline cannot produce - and it counted
+    // two files where the tree has one.
     const readmePath = join(fixture.rootPath, 'README.md');
-    scanData.discoveredFiles.push({
-      filePath: readmePath,
-      language: null,
-      content: [
+    writeFileSync(
+      readmePath,
+      [
         '# Test Project',
         '',
         '## Installation',
@@ -666,9 +661,10 @@ describe('MarkdownPhase', () => {
         '',
         'npm start',
       ].join('\n'),
-      hash: 'abc123',
-      size: 100,
-    });
+    );
+
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
 
     // Also need to ensure the file node exists in the graph for the phase
     const builder = new GraphBuilder(new InMemoryGraphStore());
@@ -701,22 +697,40 @@ describe('MarkdownPhase', () => {
     expect(containsEdges.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('should handle files without markdown extensions (markdown files not scanned)', async () => {
+  it('should receive markdown files from the scan, which it never used to', async () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
 
-    // Markdown files (.md) are not discovered by scan phase because
-    // getLanguageFromFilename only maps programming language extensions.
-    // The MarkdownPhase is designed for a future where non-code files
-    // are also included in the scan data.
+    // **The comment this case used to carry said the phase was "designed for a future where non-code files are also
+    // included in the scan data".** That future is this commit: `.md` maps to `markdown`, so the phase has work.
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
     const mdFiles = scanData.discoveredFiles.filter((f) => f.filePath.endsWith('.md'));
-    expect(mdFiles.length).toBe(0);
+    expect(mdFiles.length).toBeGreaterThan(0);
+
+    const result = await markdownPhase.execute(ctx);
+    expect((result.output as { markdownFiles: number }).markdownFiles).toBe(mdFiles.length);
   });
 
   it('should handle no markdown files gracefully', async () => {
     const ctx = createContext('test-proj', fixture.rootPath);
-    await scanPhase.execute(ctx);
+    // **A project with nothing to read**, which is the state this case is about: the scan found files and none of
+    // them is markdown.
+    ctx.phaseData.set('scan', {
+      files: [
+        {
+          filePath: join(fixture.rootPath, 'index.ts'),
+          content: 'export {};',
+          language: 'typescript',
+        },
+      ],
+      discoveredFiles: [
+        {
+          filePath: join(fixture.rootPath, 'index.ts'),
+          content: 'export {};',
+          language: 'typescript',
+        },
+      ],
+    });
 
     const result = await markdownPhase.execute(ctx);
     expect(result.status).toBe('success');

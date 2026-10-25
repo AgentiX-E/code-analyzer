@@ -66,9 +66,11 @@ describe('FileDiscoverer', () => {
   });
 
   it('returns language null for unknown extensions', async () => {
+    // **`config.yml` used to be one of these examples**, which is how a provider that exists stayed unreachable:
+    // the discoverer never gave a YAML file a language, so nothing downstream ever asked for one.
     rootPath = setup([], {
       'data.txt': 'hello world',
-      'config.yml': 'key: value',
+      'blob.bin': 'binary-ish',
     });
 
     const files = await discoverer.discover(rootPath);
@@ -315,7 +317,21 @@ describe('FileDiscoverer', () => {
     expect(langMap.get('server.ts')).toBe('typescript');
     expect(langMap.get('script.js')).toBe('javascript');
     expect(langMap.get('data.py')).toBe('python');
-    expect(langMap.get('config.yaml')).toBeNull();
+    expect(langMap.get('config.yaml')).toBe('yaml');
+  });
+
+  it('keeps a file that a later .gitignore rule re-includes', async () => {
+    // **`spring-petclinic` writes `*.css` and then `!petclinic.css`**, and answering with the first matching
+    // pattern dropped the one stylesheet the project tracks.
+    rootPath = setup([], {
+      '.gitignore': '*.css\n!petclinic.css\n',
+      'static/css/petclinic.css': 'body { margin: 0; }',
+      'static/css/other.css': 'body { padding: 0; }',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    const css = files.filter((f) => f.filePath.endsWith('.css'));
+    expect(css.map((f) => f.filePath)).toEqual([path.join('static', 'css', 'petclinic.css')]);
   });
 
   it('detects Go files', () => {
@@ -633,6 +649,11 @@ describe('FileDiscoverer', () => {
 
   describe('unreadable filesystem entries', () => {
     let base: string;
+    const realIo = {
+      readdir: (dir: string) => fs.readdirSync(dir, { withFileTypes: true }),
+      statFile: (filePath: string) => fs.statSync(filePath),
+      readText: (filePath: string) => fs.readFileSync(filePath, 'utf-8'),
+    };
 
     afterEach(() => {
       if (base) {
@@ -640,35 +661,43 @@ describe('FileDiscoverer', () => {
       }
     });
 
+    // **`chmod 000` does not stop root**, so these three arms used to be reachable only on a runner whose user was
+    // not uid 0 - the same file asserting different things on a laptop and in a container. The denial is injected at
+    // the call the OS would have denied instead, which is deterministic everywhere and still exercises the real
+    // `catch` in the walk.
     it('skips directories that cannot be read', async () => {
       base = setup([], { 'src/index.ts': 'export const x = 1;' });
       const locked = path.join(base, 'locked');
       fs.mkdirSync(locked);
       fs.writeFileSync(path.join(locked, 'hidden.ts'), 'export const y = 2;');
 
-      // Drop read permission so readdirSync() fails with EACCES.
-      fs.chmodSync(locked, 0o000);
-      try {
-        const files = await discoverer.discover(base);
-        expect(files.map((f) => f.filePath)).toEqual([path.join('src', 'index.ts')]);
-      } finally {
-        fs.chmodSync(locked, 0o755);
-      }
+      const files = await discoverer.discover(base, {
+        io: {
+          ...realIo,
+          readdir: (dir) => {
+            if (dir === locked) throw new Error('EACCES: permission denied');
+            return realIo.readdir(dir);
+          },
+        },
+      });
+      expect(files.map((f) => f.filePath)).toEqual([path.join('src', 'index.ts')]);
     });
 
     it('skips files that cannot be read', async () => {
       base = setup([], { 'ok.ts': 'export const a = 1;', 'secret.ts': 'export const b = 2;' });
       const secret = path.join(base, 'secret.ts');
 
-      // statSync() still succeeds without read permission, so the failure only
-      // surfaces in readFileSync().
-      fs.chmodSync(secret, 0o000);
-      try {
-        const files = await discoverer.discover(base);
-        expect(files.map((f) => f.filePath)).toEqual(['ok.ts']);
-      } finally {
-        fs.chmodSync(secret, 0o644);
-      }
+      // stat() still succeeds without read permission, so the failure only surfaces in the read.
+      const files = await discoverer.discover(base, {
+        io: {
+          ...realIo,
+          readText: (filePath) => {
+            if (filePath === secret) throw new Error('EACCES: permission denied');
+            return realIo.readText(filePath);
+          },
+        },
+      });
+      expect(files.map((f) => f.filePath)).toEqual(['ok.ts']);
     });
 
     it('skips files whose stat fails', async () => {
@@ -676,16 +705,19 @@ describe('FileDiscoverer', () => {
       const noExec = path.join(base, 'noexec');
       fs.mkdirSync(noExec);
       fs.writeFileSync(path.join(noExec, 'inner.ts'), 'export const c = 3;');
+      const inner = path.join(noExec, 'inner.ts');
 
-      // Remove search (execute) permission: readdirSync() still lists the entry,
-      // but statSync() on the child fails with EACCES.
-      fs.chmodSync(noExec, 0o400);
-      try {
-        const files = await discoverer.discover(base);
-        expect(files.map((f) => f.filePath)).toEqual(['ok.ts']);
-      } finally {
-        fs.chmodSync(noExec, 0o755);
-      }
+      // A directory without search permission still lists its entries but cannot stat them.
+      const files = await discoverer.discover(base, {
+        io: {
+          ...realIo,
+          statFile: (filePath) => {
+            if (filePath === inner) throw new Error('EACCES: permission denied');
+            return realIo.statFile(filePath);
+          },
+        },
+      });
+      expect(files.map((f) => f.filePath)).toEqual(['ok.ts']);
     });
   });
 });

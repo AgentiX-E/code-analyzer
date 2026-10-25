@@ -84,6 +84,48 @@ function makeCtx(
 
 const EXPRESS = "app.get('/api/users', (req, res) => res.json({}));\n";
 
+describe('RoutesPhase — a template links to a route, it does not declare one', () => {
+  it('does not read an endpoint out of a Thymeleaf template', async () => {
+    // **`spring-petclinic` went from 17 routes to 55** the moment HTML was admitted: the Rails pattern
+    // `(get|post|…) "…"` reads `th:href="@{/owners}"` as a declaration. The template is a caller.
+    const store = new InMemoryGraphStore();
+    store.fileIndex.set('/proj/templates/owners.html', 1);
+    const ctx = makeCtx(
+      [
+        {
+          filePath: '/proj/templates/owners.html',
+          language: 'html',
+          content: '<a th:href="@{/owners}">Owners</a>\n<a href="/pets">Pets</a>\n',
+          hash: 'abc',
+          size: 10,
+        },
+      ],
+      store,
+    );
+    const result = await new RoutesPhase().execute(ctx);
+    expect((result.output as { routesFound: number }).routesFound).toBe(0);
+  });
+
+  it('still reads the same application’s Java controllers', async () => {
+    const store = new InMemoryGraphStore();
+    store.fileIndex.set('/proj/owner/OwnerController.java', 1);
+    const ctx = makeCtx(
+      [
+        {
+          filePath: '/proj/owner/OwnerController.java',
+          language: 'java',
+          content: '@GetMapping("/owners/find")\npublic String find() { return "x"; }\n',
+          hash: 'abc',
+          size: 10,
+        },
+      ],
+      store,
+    );
+    const result = await new RoutesPhase().execute(ctx);
+    expect((result.output as { routesFound: number }).routesFound).toBe(1);
+  });
+});
+
 describe('RoutesPhase — defensive branches', () => {
   it('derives a Next.js app-router path without an /app/ segment', async () => {
     const store = new InMemoryGraphStore();

@@ -14,6 +14,7 @@ import {
   isNodeLabel,
   isRelationshipType,
   getLanguageFromFilename,
+  EXTENSION_LANGUAGE_MAP,
 } from '../index.js';
 
 // ---------------------------------------------------------------------------
@@ -96,10 +97,25 @@ describe('PipelinePhaseId', () => {
 
 describe('SupportedLanguage', () => {
   it('has the expected number of languages', () => {
-    // **Thirty-two**, because `pdf` joined the union: **a document rather than a language, and indexable text in a
-    // container** - see `getLanguageFromFilename` and the scan phase's extraction branch. **The count is the point of
-    // this assertion**, so it moves with the union.
-    expect(SUPPORTED_LANGUAGES).toHaveLength(32);
+    // **Thirty-three**, because `xml` joined the union: `XmlProvider` names itself `xml`, and **a language name that
+    // is not in the union cannot be carried by any file**, so the provider existed but was unreachable from the
+    // pipeline. **The count is the point of this assertion**, so it moves with the union.
+    expect(SUPPORTED_LANGUAGES).toHaveLength(33);
+  });
+
+  // **The invariant that would have caught every dead provider at once.** A language in the union that no filename can
+  // produce is a provider the pipeline cannot reach: `xml` had a provider and no name in the union; `bash`, `sql`,
+  // `toml` and `r` had names and no extension. Both directions are asserted here, so neither can come back quietly.
+  it('every language in the union can be produced by a filename, and every mapping names a language', () => {
+    const producible = new Set<string>(Object.values(EXTENSION_LANGUAGE_MAP));
+    // `dockerfile` is matched by name rather than by extension - see `getLanguageFromFilename`.
+    producible.add(getLanguageFromFilename('Dockerfile') as string);
+    expect([...SUPPORTED_LANGUAGES].filter((l) => !producible.has(l))).toEqual([]);
+    for (const [extension, language] of Object.entries(EXTENSION_LANGUAGE_MAP)) {
+      expect(`${extension}:${String(SUPPORTED_LANGUAGES.includes(language))}`).toBe(
+        `${extension}:true`,
+      );
+    }
   });
 
   it('includes TypeScript first (primary priority)', () => {
@@ -342,9 +358,36 @@ describe('getLanguageFromFilename', () => {
   });
 
   it('returns null for unknown extensions', () => {
-    expect(getLanguageFromFilename('data.json')).toBe(null);
-    expect(getLanguageFromFilename('config.yaml')).toBe(null);
+    // **`json` and `yaml` used to be the examples here**, which is how the omission survived: a provider existed for
+    // both and the scanner never handed them a file. They are asserted as *known* below; these are extensions with no
+    // provider behind them.
     expect(getLanguageFromFilename('image.png')).toBe(null);
+    expect(getLanguageFromFilename('archive.bin')).toBe(null);
+    expect(getLanguageFromFilename('module.wasm')).toBe(null);
+  });
+
+  it('recognises the data, template and build files that have a provider', () => {
+    // **Six providers were unreachable** before this map carried their extensions: the scanner skipped the file, so
+    // the provider was never called. One assertion per extension the map gained.
+    const expected: Array<[string, string]> = [
+      ['package.json', 'json'],
+      ['workflow.yaml', 'yaml'],
+      ['docker-compose.yml', 'yaml'],
+      ['templates/index.html', 'html'],
+      ['pages/about.htm', 'html'],
+      ['pom.xml', 'xml'],
+      ['schema.xsd', 'xml'],
+      ['style.xsl', 'xml'],
+      ['style.xslt', 'xml'],
+      ['styles/app.css', 'css'],
+      ['build.gradle', 'groovy'],
+      ['Jenkinsfile.groovy', 'groovy'],
+      ['README.md', 'markdown'],
+      ['docs/guide.markdown', 'markdown'],
+    ];
+    for (const [file, language] of expected) {
+      expect(`${file}:${getLanguageFromFilename(file)}`).toBe(`${file}:${language}`);
+    }
   });
 
   it('handles deeply nested paths', () => {
@@ -436,7 +479,7 @@ describe('getLanguageFromFilename secondary extensions', () => {
     expect(getLanguageFromFilename('Component.spec.jsx')).toBe('javascript');
   });
   it('handles unknown secondary extension', () => {
-    expect(getLanguageFromFilename('config.local.yml')).toBeNull();
+    expect(getLanguageFromFilename('config.local.ini')).toBeNull();
   });
 });
 

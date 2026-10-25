@@ -144,6 +144,32 @@ const ROUTE_PATTERNS: Array<{ regex: RegExp; framework: string; method: string }
   },
 ];
 
+/**
+ * **Routes are declared in code; markup merely links to them.**
+ *
+ * These patterns are regular expressions over source text, and the Rails one - `(get|post|…) "…"` - reads a Thymeleaf
+ * `th:href="@{/owners}"` as an endpoint once templates are indexed. On `spring-petclinic` the phase reported **55 routes
+ * for a 17-endpoint application** the moment HTML was admitted; restricting the scan to the languages that can declare a
+ * route gives back the 17 that exist. A template is a caller of a route, not its definition.
+ */
+const ROUTE_LANGUAGES = new Set<string>([
+  'typescript',
+  'javascript',
+  'python',
+  'java',
+  'kotlin',
+  'go',
+  'ruby',
+  'php',
+  'csharp',
+  'rust',
+  'scala',
+  'elixir',
+  'dart',
+  'swift',
+  'groovy',
+]);
+
 interface RouteInfo {
   path: string;
   method: string;
@@ -223,6 +249,7 @@ export class RoutesPhase implements ExecutablePhase {
       let routesFound = 0;
 
       for (const file of scanData.discoveredFiles) {
+        if (!file.language || !ROUTE_LANGUAGES.has(file.language)) continue;
         const fileName = basename(file.filePath);
         const routes = detectRoutes(file.filePath, file.content, fileName);
         if (routes.length === 0) continue;

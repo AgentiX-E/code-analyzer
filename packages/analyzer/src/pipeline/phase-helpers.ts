@@ -102,27 +102,65 @@ export function parseGitignore(rootPath: string): string[] {
     .filter((line) => line.length > 0 && !line.startsWith('#'));
 }
 
+/**
+ * Does gitignore ignore this path?
+ *
+ * **`!pattern` re-includes, and the last rule that matches decides** - that is git's rule, and without it
+ * `spring-petclinic`'s `.gitignore` (`*.css` followed by `!petclinic.css`) dropped the one stylesheet the project
+ * explicitly tracks, so the CSS provider saw an empty corpus on a real repository while every fixture passed.
+ * A rule is evaluated in file order rather than answered by the first pattern that happens to match.
+ */
 export function matchesGitignore(relativePath: string, patterns: string[]): boolean {
-  for (const pattern of patterns) {
-    // Simple glob matching
-    if (pattern.endsWith('/')) {
-      // Directory pattern
-      const dirPattern = pattern.slice(0, -1);
-      if (relativePath === dirPattern || relativePath.startsWith(dirPattern + '/')) {
-        return true;
-      }
-    } else if (pattern.includes('*')) {
-      const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
-      if (regex.test(relativePath) || regex.test(basename(relativePath))) {
-        return true;
-      }
-    } else {
-      if (relativePath === pattern || basename(relativePath) === pattern) {
-        return true;
-      }
-    }
+  let ignored = false;
+  for (const raw of patterns) {
+    const negated = raw.startsWith('!');
+    const pattern = negated ? raw.slice(1) : raw;
+    if (pattern.length === 0) continue;
+    if (matchesOneGitignoreRule(relativePath, pattern)) ignored = !negated;
+  }
+  return ignored;
+}
+
+function matchesOneGitignoreRule(relativePath: string, pattern: string): boolean {
+  const isDirectoryRule = pattern.endsWith('/');
+  const anchored = pattern.startsWith('/');
+  const body = (isDirectoryRule ? pattern.slice(0, -1) : pattern).replace(/^\//, '');
+  if (body.length === 0) return false;
+
+  if (anchored) {
+    // **A leading slash means the repository root**, so only the path as written can match.
+    return matchesGitignoreBody(relativePath, body, false);
+  }
+
+  // **A rule that names a directory also applies to everything inside it**, so every ancestor of the path is a
+  // candidate. Without this, `dist/` missed `packages/x/dist`, which is the shape a monorepo actually has.
+  const segments = relativePath.split('/').filter((segment) => segment.length > 0);
+  for (let depth = 1; depth <= segments.length; depth++) {
+    const candidate = segments.slice(0, depth).join('/');
+    if (matchesGitignoreBody(candidate, body, true)) return true;
   }
   return false;
+}
+
+function matchesGitignoreBody(candidate: string, body: string, allowBasename: boolean): boolean {
+  if (body.includes('*') || body.includes('?')) {
+    const regex = gitignoreGlobToRegex(body);
+    return regex.test(candidate) || (allowBasename && regex.test(basename(candidate)));
+  }
+  return candidate === body || (allowBasename && basename(candidate) === body);
+}
+
+/** `**` crosses directory separators; a single `*` does not; everything else is literal. */
+function gitignoreGlobToRegex(glob: string): RegExp {
+  // **Split on `**` rather than substituting a sentinel.** The first version used a control character as a placeholder
+  // and `no-control-regex` rejected it - correctly: a printable glob has no business carrying one. Splitting is also the
+  // clearer statement of the rule, since `**` is the only part that may cross a separator.
+  const escapeLiteral = (part: string): string => part.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const body = glob
+    .split('**')
+    .map((part) => escapeLiteral(part).replace(/\*/g, '[^/]*').replace(/\?/g, '.'))
+    .join('.*');
+  return new RegExp('^' + body + '$');
 }
 
 export function shouldSkipFile(filePath: string, _relPath: string): boolean {
@@ -156,6 +194,7 @@ export async function walkDirectory(
   gitignorePatterns: string[],
   maxFileSize: number,
   maxFiles: number,
+  readSource: SourceReader = readSourceFromDisk,
 ): Promise<void> {
   if (results.length >= maxFiles) return;
 
@@ -170,7 +209,15 @@ export async function walkDirectory(
     if (entry.isDirectory()) {
       if (shouldSkipDirectory(entry.name)) continue;
       if (matchesGitignore(relPath + '/', gitignorePatterns)) continue;
-      await walkDirectory(rootPath, fullPath, results, gitignorePatterns, maxFileSize, maxFiles);
+      await walkDirectory(
+        rootPath,
+        fullPath,
+        results,
+        gitignorePatterns,
+        maxFileSize,
+        maxFiles,
+        readSource,
+      );
     } else if (entry.isFile()) {
       if (shouldSkipFile(fullPath, relPath)) continue;
       if (matchesGitignore(relPath, gitignorePatterns)) continue;
@@ -182,18 +229,11 @@ export async function walkDirectory(
         const fileStat = await stat(fullPath);
         if (fileStat.size > maxFileSize) continue;
 
-        // **A PDF is read as bytes and decoded, not read as text.** Handing its bytes to `readFile(..., 'utf-8')`
-        // would produce a string of garbage that **looks like content to every later phase** - and the extraction
-        // reports how many streams it read, **so a document with no recoverable text contributes nothing rather than
-        // noise.** See `pdf-text.ts` and the audit in `2026-10-09-deliberate-omissions-audited.md`.
-        let content: string;
-        if (language === 'pdf') {
-          const bytes = await readFile(fullPath);
-          content = extractPdfText(bytes).text;
-          if (content.length === 0) continue;
-        } else {
-          content = await readFile(fullPath, 'utf-8');
-        }
+        // **A PDF is read as bytes and decoded, not read as text**, and that dispatch lives behind `readSource`
+        // so a caller that cannot read from this filesystem at all (a test, an archive) still exercises the
+        // same code path. See `pdf-text.ts` and `2026-10-09-deliberate-omissions-audited.md`.
+        const content = await readSource(fullPath, language);
+        if (language === 'pdf' && content.length === 0) continue;
         const hash = computeHash(content);
 
         results.push({
@@ -208,6 +248,17 @@ export async function walkDirectory(
       }
     }
   }
+}
+
+/** Reads one source file as text. **A seam with a production default**: see `walkDirectory`. */
+export type SourceReader = (filePath: string, language: string) => Promise<string>;
+
+async function readSourceFromDisk(filePath: string, language: string): Promise<string> {
+  if (language === 'pdf') {
+    const bytes = await readFile(filePath);
+    return extractPdfText(bytes).text;
+  }
+  return readFile(filePath, 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
@@ -502,6 +553,12 @@ export const providerLoaders: Record<string, () => Promise<LanguageProvider>> = 
     const { GroovyProvider } = await import('../languages/groovy.js');
     return new GroovyProvider();
   },
+  // **The provider exists and nothing could load it**: `xml.ts` names itself `xml`, and this map had no such key, so
+  // `getOrLoadProvider('xml')` answered null for every XML file - and no file was ever named `xml` either.
+  xml: async () => {
+    const { XmlProvider } = await import('../languages/xml.js');
+    return new XmlProvider();
+  },
   svelte: async () => {
     const { SvelteProvider } = await import('../languages/svelte.js');
     return new SvelteProvider();
@@ -546,6 +603,30 @@ export function simpleHash(str: string, seed: number): number {
 const PYTHON_MODULE_SPECIFIER = /^(?:\.*[A-Za-z_][\w.]*|\.+)$/;
 
 /**
+ * A Java import: `a.b.C`. **No relative form exists**, so a leading dot rules it out, and the last segment is a type
+ * name rather than a module.
+ */
+const JAVA_TYPE_SPECIFIER = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$/;
+
+/**
+ * The file a Java import names, or `null` when it is not in this project.
+ *
+ * **One candidate**: the type's dotted path below the package root, with `.java` appended. **A wildcard
+ * (`import a.b.*`) names many files rather than one**, so it resolves to nothing here — an edge to whichever file
+ * happened to sort first would be an edge nobody can defend.
+ */
+function resolveJavaType(
+  specifier: string,
+  sourceFile: string,
+  projectRoot: string,
+): string | null {
+  const segments = specifier.split('.').filter((part) => part.length > 0);
+  const base = packageAnchor(segments[0] ?? '', sourceFile, projectRoot);
+  const candidate = join(base, `${segments.join(sep)}.java`);
+  return existsSync(candidate) ? candidate : null;
+}
+
+/**
  * The file a Python import names, or `null` when there is none on disk.
  *
  * **Two rules, and each is the language's rather than a guess:**
@@ -560,6 +641,21 @@ const PYTHON_MODULE_SPECIFIER = /^(?:\.*[A-Za-z_][\w.]*|\.+)$/;
  * **A module is a file or a package**, so `__init__.py` is a candidate: `from . import x` names a package, and a
  * resolver that only tried `<name>.py` would call every one of those imports unresolved.
  */
+/**
+ * The directory a dotted package name is relative to, found from the importer's own path.
+ *
+ * **Both Python's absolute imports and Java's imports mean "this package, from its root"**, and the root is the
+ * directory *above* the first segment the importer's own path contains: `.../src/flask/app.py` importing `flask.x`
+ * is anchored at `.../src`, and `.../src/main/java/org/.../OwnerController.java` importing `org.x` is anchored at
+ * `.../src/main/java`. **Without the importer's path there is no way to tell a project package from an installed
+ * one**, which is why the generic branch could only look in `node_modules`.
+ */
+function packageAnchor(firstSegment: string, sourceFile: string, projectRoot: string): string {
+  const directories = dirname(sourceFile).split(sep);
+  const anchor = firstSegment.length > 0 ? directories.lastIndexOf(firstSegment) : -1;
+  return anchor > 0 ? directories.slice(0, anchor).join(sep) : projectRoot;
+}
+
 function resolvePythonModule(
   specifier: string,
   sourceFile: string,
@@ -576,10 +672,7 @@ function resolvePythonModule(
     base = dirname(sourceFile);
     for (let level = 1; level < dots; level += 1) base = dirname(base);
   } else {
-    // Anchor on the importer's own package: the deepest directory segment that the import names first.
-    const directories = dirname(sourceFile).split(sep);
-    const anchor = segments.length > 0 ? directories.lastIndexOf(segments[0]!) : -1;
-    base = anchor > 0 ? directories.slice(0, anchor).join(sep) : projectRoot;
+    base = packageAnchor(segments[0] ?? '', sourceFile, projectRoot);
   }
 
   const relative = segments.join(sep);
@@ -607,6 +700,14 @@ export function resolveImportPath(
   // be found**, which is the whole of story 3.
   if (sourceFilePath.endsWith('.py') && PYTHON_MODULE_SPECIFIER.test(importPath)) {
     const resolved = resolvePythonModule(importPath, sourceFilePath, projectRoot);
+    if (resolved) return resolved;
+  }
+
+  // **Java's imports are package paths too**, and they were looked up in `node_modules` like a JavaScript package:
+  // `import org.springframework.samples.petclinic.model.Owner;` resolved to nothing, so **a Spring application had an
+  // import graph of exactly zero edges** - measured on `spring-projects/spring-petclinic`, 50 Java files, 0 edges.
+  if (sourceFilePath.endsWith('.java') && JAVA_TYPE_SPECIFIER.test(importPath)) {
+    const resolved = resolveJavaType(importPath, sourceFilePath, projectRoot);
     if (resolved) return resolved;
   }
 

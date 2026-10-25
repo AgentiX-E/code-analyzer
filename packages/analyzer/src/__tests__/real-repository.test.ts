@@ -21,6 +21,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { getLanguageFromFilename } from '@code-analyzer/shared';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { GraphBuilder } from '../graph/graph-builder.js';
@@ -50,6 +51,28 @@ let graph: KnowledgeGraph;
 let phases: Array<{ phaseId: string; status: string; output?: Record<string, unknown> }>;
 let skipped: string | null = null;
 let fileCount = 0;
+/** **Every other admitted extension**, counted from the tree so the two totals are independent numbers. */
+let nonPythonCount = 0;
+
+/** Every file the scanner is expected to admit, by extension — the denominator the scanner is measured against. */
+function countIndexable(dir: string): number {
+  // **The denominator is the product's own answer, not a second table** - a hand-kept extension list here drifted
+  // from the map the scanner uses the moment `.sh`, `.sql` and `.toml` were added, and reported 119 files where the
+  // scanner found 127. Asking `getLanguageFromFilename` is the only way this count can stay the repository's.
+  let total = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === '.git' || entry.name === '__pycache__') continue;
+      total += countIndexable(full);
+    } else if (entry.isFile()) {
+      // **A dotfile is not source**: the scanner skips `.pre-commit-config.yaml` and `.readthedocs.yaml`.
+      if (entry.name.startsWith('.')) continue;
+      if (getLanguageFromFilename(full)) total += 1;
+    }
+  }
+  return total;
+}
 
 /** Every `.py` file under `dir`, as repository-relative paths — the denominator every assertion below is against. */
 function pythonFiles(dir: string, base = dir): string[] {
@@ -87,6 +110,7 @@ beforeAll(async () => {
   }
 
   fileCount = pythonFiles(root).length;
+  nonPythonCount = countIndexable(root) - fileCount;
 
   const store = new InMemoryGraphStore();
   const builder = new GraphBuilder(store);
@@ -130,13 +154,35 @@ function edgesOfType(type: string): GraphEdge[] {
   return [...graph.edges.values()].filter((e) => e.type === type);
 }
 
+/** `File` nodes per language — what the scanner admitted, as the graph recorded it. */
+function filesByLanguage(): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const node of graph.nodes.values()) {
+    if (node.label !== 'File') continue;
+    const language = String(node.language);
+    counts[language] = (counts[language] ?? 0) + 1;
+  }
+  return counts;
+}
+
 describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () => {
-  it('finds every Python file in the tree', (ctx) => {
+  it('finds every file the tree holds, not only the Python ones', (ctx) => {
     if (skipped) return ctx.skip();
 
     expect(fileCount).toBeGreaterThan(80);
     // **The denominator is the repository**, not a constant: if the corpus changes, the number changes with it.
-    expect(Number(phaseOutput('scan')['filesDiscovered'])).toBe(fileCount);
+    expect(Number(phaseOutput('scan')['filesDiscovered'])).toBe(fileCount + nonPythonCount);
+
+    // **The templates, the configuration and the docs are part of the repository**, and the index used to hold only
+    // the `.py` files: `getLanguageFromFilename` had no entry for `.html`, `.yaml`, `.json` or `.md`, so **the
+    // providers that exist for them were never called by the pipeline**.
+    const byLanguage = filesByLanguage();
+    expect(byLanguage['python']).toBe(fileCount);
+    expect(byLanguage['html']).toBe(20);
+    expect(byLanguage['yaml']).toBe(6);
+    expect(byLanguage['markdown']).toBe(6);
+    expect(byLanguage['json']).toBe(2);
+    expect(byLanguage['css']).toBe(2);
   });
 
   it('parses every file it scanned, and reports both counts', (ctx) => {
@@ -144,18 +190,21 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
 
     // **A scanner that admits a file the parser then drops is how a symbol disappears without a failure**, so the two
     // counts are compared rather than each being checked against a threshold of its own.
-    expect(Number(phaseOutput('parse')['filesParsed'])).toBe(fileCount);
+    expect(Number(phaseOutput('parse')['filesParsed'])).toBe(fileCount + nonPythonCount);
     expect(Number(phaseOutput('parse')['filesFailed'])).toBe(0);
   });
 
   it('puts a class and a method the project is known for into the graph', (ctx) => {
     if (skipped) return ctx.skip();
 
-    const flask = nodes().find((n) => n.name === 'Flask' && n.label === 'Class');
+    // **By path as well as by name**, because the index now also holds documentation: a `Flask` mention in a
+    // markdown or HTML file is not the class.
+    const flask = nodes().find(
+      (n) => n.name === 'Flask' && n.label === 'Class' && n.filePath?.endsWith('src/flask/app.py'),
+    );
     expect(flask, 'the Flask class').toBeDefined();
     // **The path is absolute on the node** — a defect recorded in the audit rather than asserted as correct here, so
     // the suffix is what this case pins.
-    expect(flask!.filePath?.endsWith('src/flask/app.py')).toBe(true);
     expect(flask!.startLine).toBe(109);
 
     const run = nodes().find((n) => n.name === 'run' && n.filePath?.endsWith('src/flask/app.py'));

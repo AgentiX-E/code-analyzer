@@ -416,6 +416,10 @@ export const SUPPORTED_LANGUAGES = [
   // `markdown`** - see the commit message.
   'pdf',
   'html',
+  // **`xml` is its own language here because `XmlProvider` is its own provider** - it extends the HTML one, whose
+  // grammar reads XML, and it names itself `xml`. Without this entry **no file could ever carry that name**, so the
+  // provider could not be reached from the pipeline at all.
+  'xml',
   'css',
   'r',
   'groovy',
@@ -679,6 +683,80 @@ export function isRelationshipType(value: string): value is RelationshipType {
 }
 
 /** Map a file extension or filename to a SupportedLanguage */
+export const EXTENSION_LANGUAGE_MAP: Readonly<Record<string, SupportedLanguage>> = {
+  '.ts': 'typescript',
+  '.js': 'javascript',
+  '.mjs': 'javascript',
+  '.cjs': 'javascript',
+  '.py': 'python',
+  '.pyi': 'python',
+  '.go': 'go',
+  '.java': 'java',
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  '.cs': 'csharp',
+  '.rs': 'rust',
+  '.c': 'c',
+  '.h': 'c',
+  '.cpp': 'cpp',
+  '.cc': 'cpp',
+  '.cxx': 'cpp',
+  '.hpp': 'cpp',
+  '.hh': 'cpp',
+  '.hxx': 'cpp',
+  '.php': 'php',
+  '.phtml': 'php',
+  '.rb': 'ruby',
+  '.swift': 'swift',
+  '.dart': 'dart',
+  '.lua': 'lua',
+  '.scala': 'scala',
+  '.sc': 'scala',
+  '.zig': 'zig',
+  '.ex': 'elixir',
+  '.exs': 'elixir',
+  '.hcl': 'hcl',
+  '.tf': 'hcl',
+  '.tfvars': 'hcl',
+  '.svelte': 'svelte',
+  // **Six providers had no extension here at all**, so a repository's templates, manifests, configuration and build
+  // scripts were skipped by the scanner and **the providers that exist for them were never called by the pipeline**.
+  // `pallets/flask` has 83 Python files and 12 HTML templates; the index contained only the Python.
+  '.html': 'html',
+  '.htm': 'html',
+  '.xml': 'xml',
+  '.xsd': 'xml',
+  '.xsl': 'xml',
+  '.xslt': 'xml',
+  '.json': 'json',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.css': 'css',
+  '.groovy': 'groovy',
+  '.gradle': 'groovy',
+  '.md': 'markdown',
+  '.markdown': 'markdown',
+  // **Anchored on the map's own closing line**, because the two previous attempts at this row used a token that
+  // appears in more than one list - `'markdown'` - and **edited the wrong array twice.** **A single-token anchor is
+  // not an anchor when the token is not unique**, and the third attempt is the one that reads the file first.
+  '.pdf': 'pdf',
+  // **Four languages were in the union and had no extension**, so nothing could ever carry their name and the
+  // provider for each was unreachable from the pipeline - the same defect as the six above, found the same way: by
+  // asking which language a real file maps to. `**/*.sh`, `*.sql`, `*.toml` and `*.r` are ordinary repository contents.
+  '.sh': 'bash',
+  '.bash': 'bash',
+  '.sql': 'sql',
+  '.toml': 'toml',
+  '.r': 'r',
+  // **And these extensions name languages that were already mapped**, but only under their most common spelling:
+  // `.mts`/`.cts` are TypeScript in the Node ESM era, `.jsonc` is what tsconfig actually is, `.pyw` is Python on
+  // Windows. A file whose extension is missing is a file no provider sees.
+  '.mts': 'typescript',
+  '.cts': 'typescript',
+  '.jsonc': 'json',
+  '.pyw': 'python',
+};
+
 export function getLanguageFromFilename(filePath: string): SupportedLanguage | null {
   const parts = filePath.split('/');
   const base = parts[parts.length - 1]!;
@@ -699,49 +777,7 @@ export function getLanguageFromFilename(filePath: string): SupportedLanguage | n
   if (ext === '.tsx') return 'typescript';
   if (ext === '.jsx') return 'javascript';
 
-  const EXT_MAP: Record<string, SupportedLanguage> = {
-    '.ts': 'typescript',
-    '.js': 'javascript',
-    '.mjs': 'javascript',
-    '.cjs': 'javascript',
-    '.py': 'python',
-    '.pyi': 'python',
-    '.go': 'go',
-    '.java': 'java',
-    '.kt': 'kotlin',
-    '.kts': 'kotlin',
-    '.cs': 'csharp',
-    '.rs': 'rust',
-    '.c': 'c',
-    '.h': 'c',
-    '.cpp': 'cpp',
-    '.cc': 'cpp',
-    '.cxx': 'cpp',
-    '.hpp': 'cpp',
-    '.hh': 'cpp',
-    '.hxx': 'cpp',
-    '.php': 'php',
-    '.phtml': 'php',
-    '.rb': 'ruby',
-    '.swift': 'swift',
-    '.dart': 'dart',
-    '.lua': 'lua',
-    '.scala': 'scala',
-    '.sc': 'scala',
-    '.zig': 'zig',
-    '.ex': 'elixir',
-    '.exs': 'elixir',
-    '.hcl': 'hcl',
-    '.tf': 'hcl',
-    '.tfvars': 'hcl',
-    '.svelte': 'svelte',
-    // **Anchored on the map's own closing line**, because the two previous attempts at this row used a token that
-    // appears in more than one list - `'markdown'` - and **edited the wrong array twice.** **A single-token anchor is
-    // not an anchor when the token is not unique**, and the third attempt is the one that reads the file first.
-    '.pdf': 'pdf',
-  };
-
-  return EXT_MAP[ext] ?? null;
+  return EXTENSION_LANGUAGE_MAP[ext] ?? null;
 }
 
 /** Paginated result wrapper */

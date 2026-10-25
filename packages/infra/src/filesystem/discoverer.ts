@@ -8,11 +8,32 @@ import { getLanguageFromFilename } from '@code-analyzer/shared';
 
 import type { SupportedLanguage, DiscoveredFile } from '@code-analyzer/shared';
 
+/**
+ * The three filesystem calls the walk depends on.
+ *
+ * **A seam with a production default, and the reason is permission bits**: `chmod 000` stops nobody when the
+ * process runs as uid 0, so the three `catch` arms below could only be reached on a runner whose user is not
+ * root. The same source then answered two questions depending on who ran it. Injecting the call makes the
+ * EACCES arm reachable everywhere, and the default is the real filesystem.
+ */
+export interface DiscoverIo {
+  readdir(dir: string): fs.Dirent[];
+  statFile(filePath: string): fs.Stats;
+  readText(filePath: string): string;
+}
+
+const DEFAULT_IO: DiscoverIo = {
+  readdir: (dir) => fs.readdirSync(dir, { withFileTypes: true }),
+  statFile: (filePath) => fs.statSync(filePath),
+  readText: (filePath) => fs.readFileSync(filePath, 'utf-8'),
+};
+
 export interface DiscoverOptions {
   excludePatterns?: string[];
   includePatterns?: string[];
   maxFileSize?: number;
   respectGitignore?: boolean;
+  io?: DiscoverIo;
 }
 
 export interface FileDiscoverer {
@@ -76,13 +97,20 @@ export function createFileDiscoverer(): FileDiscoverer {
   }
 
   function isExcluded(relativePath: string, excludePatterns: string[]): boolean {
-    for (const pattern of excludePatterns) {
-      if (minimatch(pattern, relativePath)) return true;
-      // Also match against basename for patterns like *.log
-      const basename = path.basename(relativePath);
-      if (minimatch(pattern, basename)) return true;
+    // **`!pattern` re-includes, and the last rule that matches decides** - git's rule, and the one that decides
+    // whether `spring-petclinic`'s stylesheet survives its own `.gitignore` (`*.css`, then `!petclinic.css`).
+    // Answering with the first matching pattern dropped it.
+    let excluded = false;
+    const basename = path.basename(relativePath);
+    for (const raw of excludePatterns) {
+      const negated = raw.startsWith('!');
+      const pattern = negated ? raw.slice(1) : raw;
+      if (pattern.length === 0) continue;
+      if (minimatch(pattern, relativePath) || minimatch(pattern, basename)) {
+        excluded = !negated;
+      }
     }
-    return false;
+    return excluded;
   }
 
   function matchesInclude(relativePath: string, includePatterns: string[]): boolean {
@@ -123,6 +151,7 @@ export function createFileDiscoverer(): FileDiscoverer {
       includePatterns = [],
       maxFileSize = 10 * 1024 * 1024, // 10MB default
       respectGitignore = true,
+      io = DEFAULT_IO,
     } = options;
 
     const resolved = path.resolve(rootPath);
@@ -137,7 +166,7 @@ export function createFileDiscoverer(): FileDiscoverer {
       let entries: fs.Dirent[];
 
       try {
-        entries = fs.readdirSync(currentDir, { withFileTypes: true });
+        entries = io.readdir(currentDir);
       } catch {
         // Unreadable directory (no read permission) or one removed while the
         // walk is in progress; skip it instead of aborting the discovery.
@@ -157,13 +186,13 @@ export function createFileDiscoverer(): FileDiscoverer {
           if (!matchesInclude(relativePath, includePatterns)) continue;
 
           try {
-            const stat = fs.statSync(fullPath);
+            const stat = io.statFile(fullPath);
             if (stat.size > maxFileSize) continue;
             if (stat.size <= 0) continue; // Skip empty files
 
             const language = getLanguageFromFilename(entry.name);
 
-            const content = fs.readFileSync(fullPath, 'utf-8');
+            const content = io.readText(fullPath);
             const hash = computeSimpleHash(content);
 
             results.push({

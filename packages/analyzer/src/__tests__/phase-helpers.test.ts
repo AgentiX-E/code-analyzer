@@ -4,11 +4,11 @@
 // conversion, provider loading, simple hashing, and import-path resolution.
 
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { CAPTURE_TAGS, SUPPORTED_LANGUAGES } from '@code-analyzer/shared';
 import type { UnifiedCapture, DiscoveredFile } from '@code-analyzer/shared';
 
 import {
@@ -140,6 +140,34 @@ describe('matchesGitignore', () => {
 
   it('returns false for an empty pattern list', () => {
     expect(matchesGitignore('anything.ts', [])).toBe(false);
+  });
+
+  // **`spring-petclinic` writes exactly this pair**, and without the negation the one stylesheet the project keeps
+  // was dropped: `*.css` says every stylesheet, `!petclinic.css` says except this one.
+  it('re-includes a path that a later negation names', () => {
+    const patterns = ['*.css', '!petclinic.css'];
+    expect(
+      matchesGitignore('src/main/resources/static/resources/css/petclinic.css', patterns),
+    ).toBe(false);
+    expect(matchesGitignore('src/main/resources/static/resources/css/other.css', patterns)).toBe(
+      true,
+    );
+  });
+
+  it('lets the last matching rule decide, in file order', () => {
+    expect(matchesGitignore('a.ts', ['!a.ts', '*.ts'])).toBe(true);
+    expect(matchesGitignore('a.ts', ['*.ts', '!a.ts'])).toBe(false);
+  });
+
+  it('anchors a leading slash to the repository root', () => {
+    expect(matchesGitignore('dist', ['/dist/'])).toBe(true);
+    expect(matchesGitignore('packages/x/dist', ['/dist/'])).toBe(false);
+    expect(matchesGitignore('packages/x/dist', ['dist/'])).toBe(true);
+  });
+
+  it('lets ** cross directories while a single * does not', () => {
+    expect(matchesGitignore('src/main/java/out', ['**/out/'])).toBe(true);
+    expect(matchesGitignore('src/main/java/out', ['*/out/'])).toBe(false);
   });
 });
 
@@ -285,18 +313,40 @@ describe('walkDirectory', () => {
     });
   });
 
-  it('skips files that cannot be read', async () => {
+  it('skips files that cannot be read, and keeps the readable sibling', async () => {
     await withTempDir(async (dir) => {
-      const unreadable = join(dir, 'locked.ts');
-      writeFileSync(unreadable, 'export const secret = 1;\n');
-      chmodSync(unreadable, 0o000);
+      writeFileSync(join(dir, 'locked.ts'), 'export const secret = 1;\n');
       writeFileSync(join(dir, 'app.ts'), 'export const a = 1;\n');
 
+      // **`chmod 000` is not a test: root reads the file anyway**, so the assertion used to pass on a developer
+      // machine and fail in a container that runs as root - the same source, two answers. The failure is the
+      // subject, not the permission bits, so it comes from the reader seam and the EACCES the OS would have
+      // produced is spelled out here.
       const results: DiscoveredFile[] = [];
-      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000);
-      // The unreadable file is skipped by the catch; the readable one remains.
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, async (filePath) => {
+        if (filePath.endsWith('locked.ts')) throw new Error('EACCES: permission denied');
+        return readFileSync(filePath, 'utf-8');
+      });
+
       expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['app.ts']);
-      chmodSync(unreadable, 0o644); // restore before cleanup
+    });
+  });
+
+  it('reads a PDF through the byte path and drops one with no recoverable text', async () => {
+    await withTempDir(async (dir) => {
+      writeFileSync(join(dir, 'blank.pdf'), 'not really a pdf');
+      writeFileSync(join(dir, 'notes.ts'), 'export const a = 1;\n');
+
+      const read: string[] = [];
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, async (filePath, language) => {
+        read.push(`${language}:${filePath.split('/').pop()}`);
+        return language === 'pdf' ? '' : readFileSync(filePath, 'utf-8');
+      });
+
+      // The PDF was read as a document and contributed nothing; the TypeScript file still arrived.
+      expect(read).toEqual(['pdf:blank.pdf', 'typescript:notes.ts']);
+      expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['notes.ts']);
     });
   });
 
@@ -498,41 +548,16 @@ describe('groupCaptures', () => {
 // ---------------------------------------------------------------------------
 
 describe('getOrLoadProvider', () => {
-  it('registers a loader for every supported language', () => {
-    const languages = [
-      'typescript',
-      'javascript',
-      'python',
-      'go',
-      'java',
-      'kotlin',
-      'csharp',
-      'rust',
-      'c',
-      'cpp',
-      'php',
-      'ruby',
-      'swift',
-      'dart',
-      'lua',
-      'scala',
-      'zig',
-      'elixir',
-      'hcl',
-      'dockerfile',
-      'yaml',
-      'json',
-      'sql',
-      'bash',
-      'toml',
-      'markdown',
-      'html',
-      'css',
-      'r',
-      'groovy',
-      'svelte',
-    ];
-    expect(Object.keys(providerLoaders).sort()).toEqual([...languages].sort());
+  // **The list is the union itself, not a copy of it**, because a copy drifts: `xml` was a provider with no entry in
+  // the loader map for a whole release, and this case's hardcoded array would have kept agreeing with the copy.
+  it('registers a loader for every supported language that has a parser', () => {
+    // **`pdf` is the one language without a loader**, and it is not an omission: a PDF is decoded to text in
+    // `walkDirectory` (`pdf-text.ts` reads its content streams) and handed to the later phases as text, so there is no
+    // grammar to load. **Every other language in the union must have one** - `xml` did not, for a whole release.
+    const parserless = new Set(['pdf']);
+    expect(Object.keys(providerLoaders).sort()).toEqual(
+      SUPPORTED_LANGUAGES.filter((language) => !parserless.has(language)).sort(),
+    );
   });
 
   it('loads a provider for every supported language', async () => {

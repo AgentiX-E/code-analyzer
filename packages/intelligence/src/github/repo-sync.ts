@@ -26,6 +26,15 @@ export interface SyncOptions {
   maxCacheSize?: number;
   /** Whether to run git fetch before indexing (default: true) */
   autoFetch?: boolean;
+  /**
+   * Where clones are fetched from (default: `https://github.com`).
+   *
+   * **A seam with the production default**, and the reason is that a unit test of the *failure* path had to reach
+   * github.com to be refused: offline it hung until the 90 s timeout, and on a runner it depended on a third party to
+   * say no. Pointing it at an unreachable local path exercises the same `catch` in milliseconds. It is also what an
+   * enterprise install needs for GitHub Enterprise Server.
+   */
+  cloneBaseUrl?: string;
 }
 
 export interface SyncResult {
@@ -69,6 +78,7 @@ export class GitHubRepoSync {
   private readonly branch: string | undefined;
   private readonly maxCacheSize: number;
   private readonly autoFetch: boolean;
+  private readonly cloneBaseUrl: string;
 
   constructor(options: SyncOptions) {
     this.client = options.client;
@@ -77,6 +87,7 @@ export class GitHubRepoSync {
     this.branch = options.branch;
     this.maxCacheSize = options.maxCacheSize ?? DEFAULT_MAX_CACHE;
     this.autoFetch = options.autoFetch ?? true;
+    this.cloneBaseUrl = (options.cloneBaseUrl ?? 'https://github.com').replace(/\/$/, '');
 
     // Ensure cache directory exists
     if (!existsSync(this.cacheDir)) {
@@ -137,7 +148,7 @@ export class GitHubRepoSync {
     // Fresh clone
     this.ensureCacheSpace();
 
-    const cloneUrl = `https://github.com/${owner}/${repo}.git`;
+    const cloneUrl = `${this.cloneBaseUrl}/${owner}/${repo}.git`;
     const args = ['clone'];
     if (this.shallow) args.push('--depth', '1');
     args.push('--branch', branch);

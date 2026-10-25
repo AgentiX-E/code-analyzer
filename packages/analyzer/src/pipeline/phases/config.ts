@@ -88,8 +88,17 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
   try {
     if (ext === '.json') {
       const parsed = JSON.parse(content);
+      const lines = content.split('\n');
       const flat = flattenObject(parsed, '', filePath, 0);
-      entries.push(...flat.filter((e) => CONFIG_RELEVANT_KEYS.has(e.key)));
+      entries.push(
+        ...flat
+          .filter((e) => CONFIG_RELEVANT_KEYS.has(e.key))
+          // **A JSON key has a line, and the flattening did not know it.** Every config entry from a JSON file carried
+          // `line: 0`, so **78 nodes in one real repository pointed at line zero** - a symbol nobody can open, and the
+          // only nodes in the graph with an impossible range. The leaf name is looked up in the source, and a key that
+          // is genuinely absent from the text is anchored to the first line rather than to none.
+          .map((e) => ({ ...e, line: locateKey(lines, e.key) })),
+      );
     } else if (ext === '.env') {
       const lines = content.split('\n');
       for (const [i, raw] of lines.entries()) {
@@ -177,6 +186,19 @@ function flattenObject(obj: unknown, prefix: string, path: string, depth: number
     }
   }
   return entries;
+}
+
+/**
+ * The first line that mentions a config key, or `1` when the text does not mention it.
+ *
+ * **The last segment is what is searched for**, because `python.defaultInterpreterPath` is stored as a nested key and
+ * written in the file as `"python.defaultInterpreterPath": …`. **A key that is not found is still anchored to a real
+ * line**, because a node at line 0 cannot be opened by anything that consumes this graph.
+ */
+function locateKey(lines: string[], key: string): number {
+  const leaf = key.split('.').pop() ?? key;
+  const index = lines.findIndex((line) => line.includes(`"${leaf}"`) || line.includes(`${leaf}:`));
+  return index >= 0 ? index + 1 : 1;
 }
 
 function findLineNumber(lines: string[], charIndex: number): number {

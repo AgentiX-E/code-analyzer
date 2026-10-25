@@ -82,6 +82,11 @@ function createCachedRepoStructure(
 // runtime depends on I/O and on what else the machine is doing. The per-test timeouts below override the
 // suite default, and at 120 s they were exceeded under coverage instrumentation on a laptop while
 // finishing in seconds on CI — a threshold that measures the machine rather than the code.
+// **Clones are fetched from a path that does not exist, not from github.com.** This file tests the *failure* path of
+// `clone`; reaching github.com to be refused made the suite depend on a third party and hang for 90 s without one.
+// `cloneBaseUrl` is a seam with the production default - an enterprise install points it at its own server.
+const CLONE_BASE = 'file:///nonexistent-code-analyzer';
+
 describe('GitHubRepoSync', () => {
   let cacheDir: string;
 
@@ -110,26 +115,31 @@ describe('GitHubRepoSync', () => {
 
     it('should create with custom cache directory', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       expect(sync).toBeInstanceOf(GitHubRepoSync);
     });
 
     it('should create cache directory if it does not exist', () => {
       const client = createMockClient();
       const newDir = join(cacheDir, 'nested', 'cache');
-      new GitHubRepoSync({ client, cacheDir: newDir });
+      new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir: newDir });
       expect(existsSync(newDir)).toBe(true);
     });
 
     it('should accept autoFetch option', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, autoFetch: true });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, autoFetch: true });
       expect(sync).toBeInstanceOf(GitHubRepoSync);
     });
 
     it('should use custom branch when provided', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir, branch: 'develop' });
+      const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
+        client,
+        cacheDir,
+        branch: 'develop',
+      });
       expect(sync).toBeInstanceOf(GitHubRepoSync);
     });
   });
@@ -141,7 +151,7 @@ describe('GitHubRepoSync', () => {
   describe('isCached', () => {
     it('should return false for non-cached repos', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       expect(sync.isCached('owner', 'nonexistent')).toBe(false);
     });
   });
@@ -153,7 +163,7 @@ describe('GitHubRepoSync', () => {
   describe('getPath', () => {
     it('should return the expected cache path', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       const path = sync.getPath('owner', 'repo');
       expect(path).toContain('owner');
       expect(path).toContain('repo');
@@ -162,7 +172,7 @@ describe('GitHubRepoSync', () => {
 
     it('should sanitize path separators and traversal sequences in owner and repo names', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       const path = sync.getPath('owner/../evil', 'repo/../../bad');
       // Should NOT contain raw traversal sequences
       expect(path).not.toContain('/../');
@@ -179,13 +189,13 @@ describe('GitHubRepoSync', () => {
   describe('remove', () => {
     it('should return false for non-cached repo', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       expect(sync.remove('owner', 'nonexistent')).toBe(false);
     });
 
     it('should return true and remove cached repo', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
 
       // Manually create a cached repo structure
       const repoDir = sync.getPath('owner', 'test-repo');
@@ -204,13 +214,13 @@ describe('GitHubRepoSync', () => {
   describe('getCacheSize', () => {
     it('should return 0 for empty cache', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       expect(sync.getCacheSize()).toBe(0);
     });
 
     it('should return >0 for non-empty cache', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
 
       const repoDir = sync.getPath('owner', 'repo');
       createMockGitRepo(repoDir);
@@ -220,7 +230,7 @@ describe('GitHubRepoSync', () => {
 
     it('should return 0 for non-existent directory (getDirSize existsSync branch)', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       // Delete the cacheDir to test the non-existent path
       rmSync(cacheDir, { recursive: true, force: true });
       expect(sync.getCacheSize()).toBe(0);
@@ -228,7 +238,7 @@ describe('GitHubRepoSync', () => {
 
     it('should accumulate sizes from files in nested directories', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
 
       // Create nested dir structure with files
       const nestedDir = sync.getPath('owner', 'repo');
@@ -249,7 +259,7 @@ describe('GitHubRepoSync', () => {
   describe('clearCache', () => {
     it('should clear the cache directory', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
 
       const repoDir = sync.getPath('owner', 'repo');
       createMockGitRepo(repoDir);
@@ -262,7 +272,7 @@ describe('GitHubRepoSync', () => {
 
     it('should handle clearing when cacheDir does not exist', () => {
       const client = createMockClient();
-      const sync = new GitHubRepoSync({ client, cacheDir });
+      const sync = new GitHubRepoSync({ cloneBaseUrl: CLONE_BASE, client, cacheDir });
       // Delete the cacheDir
       rmSync(cacheDir, { recursive: true, force: true });
       // Should not throw
@@ -278,6 +288,7 @@ describe('GitHubRepoSync', () => {
     it('should return existing repo SHA when already cloned with autoFetch disabled', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         autoFetch: false,
@@ -302,6 +313,7 @@ describe('GitHubRepoSync', () => {
     it('should return "unknown" SHA when git rev-parse fails (getCurrentSha catch branch)', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         autoFetch: false,
@@ -332,6 +344,7 @@ describe('GitHubRepoSync', () => {
       const client = createMockClient();
       // Set a tiny maxCacheSize to trigger eviction
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         maxCacheSize: 100, // 100 bytes — very small
@@ -360,6 +373,7 @@ describe('GitHubRepoSync', () => {
     it('should skip cache eviction when cache size is below limit', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         maxCacheSize: 5 * 1024 * 1024 * 1024, // 5GB — won't be exceeded
@@ -383,6 +397,7 @@ describe('GitHubRepoSync', () => {
     it('should not add --depth 1 when shallow is false', { timeout: 300_000 }, async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         shallow: false,
@@ -406,6 +421,7 @@ describe('GitHubRepoSync', () => {
       async () => {
         const client = createMockClient();
         const sync = new GitHubRepoSync({
+          cloneBaseUrl: CLONE_BASE,
           client,
           cacheDir,
           branch: 'main',
@@ -419,6 +435,7 @@ describe('GitHubRepoSync', () => {
     it('should attempt git fetch when repo exists in cache', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         branch: 'main',
@@ -436,6 +453,7 @@ describe('GitHubRepoSync', () => {
     it('should use default branch "main" when branch option is not set', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         // branch not set — tests the ?? fallback
@@ -458,6 +476,7 @@ describe('GitHubRepoSync', () => {
     it('should handle missing cacheDir in listCachedRepos', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         branch: 'main',
@@ -483,6 +502,7 @@ describe('GitHubRepoSync', () => {
       // Set maxCacheSize so that after evicting repos, the break
       // condition in the LRU loop is reached
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         maxCacheSize: 500, // small enough to trigger eviction, but break will be hit
@@ -507,6 +527,7 @@ describe('GitHubRepoSync', () => {
     it('should return errors for repos that fail to clone (single batch)', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         shallow: false,
@@ -530,6 +551,7 @@ describe('GitHubRepoSync', () => {
       async () => {
         const client = createMockClient();
         const sync = new GitHubRepoSync({
+          cloneBaseUrl: CLONE_BASE,
           client,
           cacheDir,
           shallow: false,
@@ -553,6 +575,7 @@ describe('GitHubRepoSync', () => {
     it('should collect error messages from rejected promises', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         shallow: false,
@@ -574,6 +597,7 @@ describe('GitHubRepoSync', () => {
     it('should list repos with .git directories and skip those without', async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
+        cloneBaseUrl: CLONE_BASE,
         client,
         cacheDir,
         maxCacheSize: 50,

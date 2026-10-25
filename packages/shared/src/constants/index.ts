@@ -149,6 +149,9 @@ export const LANGUAGE_EXTENSIONS: Record<SupportedLanguage, string[]> = {
   // incomplete** - and **`tsc` said so at this line rather than at the place the member was added.** That is the
   // exhaustive-record trade: **a new member is a compile error in every map, which is exactly what it should be.**
   pdf: ['.pdf'],
+  // **The extensions the scanner now admits**, so this table and `getLanguageFromFilename` name the same set: a
+  // language the scanner can produce but this table does not know is a language whose files have no glob.
+  xml: ['.xml', '.xsd', '.xsl', '.xslt'],
   html: ['.html', '.htm'],
   css: ['.css', '.scss', '.less'],
   r: ['.r', '.R'],

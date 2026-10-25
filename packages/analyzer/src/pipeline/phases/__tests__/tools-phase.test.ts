@@ -30,11 +30,14 @@ import { createAllPhases } from '../index.js';
 import type { PipelineContext } from '@code-analyzer/shared';
 
 /** A file containing one Slack slash command, which is the pattern with no capture group. */
+// **A command is a line that begins with one.** This fixture used to be a route string in the middle of a line
+// (`app.post("/deploy now please", …)`), which the unanchored pattern read as a Slack command - the same reading that
+// turned `spring-petclinic` into 33 tools. The markdown below is what the pattern is actually for.
 const SLASH_COMMAND = [
-  'export function register(app: unknown): void {',
-  '  // The bot answers when someone types the command below.',
-  '  app.post("/deploy now please", () => undefined);',
-  '}',
+  '# Commands',
+  '',
+  '/deploy Deploy the service to staging',
+  '/rollback Roll back the last release',
   '',
 ].join('\n');
 
@@ -53,7 +56,7 @@ describe('the tools phase and a pattern that captures nothing', () => {
   it('does not fail, which it did on every corpus before', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'tools-'));
     mkdirSync(join(dir, 'src'), { recursive: true });
-    writeFileSync(join(dir, 'src', 'slash.ts'), SLASH_COMMAND, 'utf8');
+    writeFileSync(join(dir, 'commands.md'), SLASH_COMMAND, 'utf8');
 
     const result = await runTools(dir);
     const tools = result.phases.find((p) => p.phaseId === 'tools');
