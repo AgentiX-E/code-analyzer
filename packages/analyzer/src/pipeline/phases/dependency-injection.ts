@@ -22,8 +22,10 @@ const DI_PATTERNS: Array<{ regex: RegExp; framework: string }> = [
   // exponentially on a constructor with many parameters. Measured on `nestjs/core` (249 files): **24 of the phase's 34
   // seconds were spent here**, and on `nestjs/nest` (1 614 files) the job was still running after forty minutes.
   {
+    // **The token is quoted in the docs and a bare constant in most code** - `@Inject('CATS_REPOSITORY')` and
+    // `@Inject(CATS_REPOSITORY)` are the same statement - so both spellings are accepted.
     regex:
-      /@Injectable\s*\(\s*\)[\s\S]{0,300}?constructor\s*\([^)]*@Inject\s*\(\s*['"`]([^'"`]+)['"`]/g,
+      /@Injectable\s*\(\s*\)[\s\S]{0,300}?constructor\s*\([^)]*@Inject\s*\(\s*['"`]?([\w.$]+)['"`]?\s*\)/g,
     framework: 'nestjs',
   },
   // Spring @Autowired
@@ -91,7 +93,10 @@ export class DependencyInjectionPhase implements ExecutablePhase {
           const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
           let match: RegExpExecArray | null;
           while ((match = regex.exec(file.content)) !== null) {
-            const injectedType = match[1] ?? '';
+            // **Every pattern in `DI_PATTERNS` declares exactly one capture**, and the grammar of each guarantees it is
+            // filled when the pattern matches - so `?? ''` described a state no input could produce, and the arm it
+            // created was the one the coverage gate found at 92.85 %.
+            const injectedType = match[1]!;
             const lineNum = file.content.slice(0, match.index).split('\n').length;
 
             const parsedFile = parsedByPath.get(file.filePath);
@@ -101,7 +106,7 @@ export class DependencyInjectionPhase implements ExecutablePhase {
             const sourceNodeId = symbol
               ? ctx.graph.qnameIndex.get(`project:${ctx.projectId}:${symbol.qualifiedName}`)
               : undefined;
-            const targetNodeId = injectedType ? classByName.get(injectedType) : undefined;
+            const targetNodeId = classByName.get(injectedType);
 
             if (sourceNodeId && targetNodeId !== undefined) {
               builder.addEdge(ctx.graph, sourceNodeId, targetNodeId, EDGE_INJECTS, ctx.projectId);

@@ -151,6 +151,123 @@ describe('DependencyInjectionPhase — defensive branches', () => {
     );
   });
 
+  it('reads a NestJS `@Inject` token and wires it to a class the graph holds', async () => {
+    // **The pattern this replaces was exponential**: `(?:\s*(?:@Inject\(…\))?\w+…,?\s*)+` backtracked over every
+    // constructor parameter, and on `nestjs/core` it spent 24 of the phase's 34 seconds. This case is the shape it was
+    // written for, and the edge is what proves the rewrite still reads it.
+    const store = new InMemoryGraphStore();
+    const content = [
+      '@Injectable()',
+      'export class CatsService {',
+      '  constructor(@Inject(CATS_REPOSITORY) private readonly repo: CatsRepository) {}',
+      '}',
+      '',
+    ].join('\n');
+    const symbol = makeSymbol('file:/proj/cats.service.ts:CatsService', 1, 4);
+    store.qnameIndex.set(`project:${PROJ}:${symbol.qualifiedName}`, 100);
+    store.nodes.set(201, {
+      id: 201,
+      projectId: PROJ,
+      label: 'Class',
+      name: 'CATS_REPOSITORY',
+      qualifiedName: 'CATS_REPOSITORY',
+      filePath: '/proj/tokens.ts',
+      startLine: 1,
+      endLine: 1,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: '',
+      updatedAt: '',
+    });
+
+    const ctx = makeCtx([makeFile('/proj/cats.service.ts', content)], store, {
+      parsedFiles: [makeParsedFile('/proj/cats.service.ts', [symbol])],
+    });
+    const result = await new DependencyInjectionPhase().execute(ctx);
+
+    expect((result.output as { injectionsFound: number }).injectionsFound).toBe(1);
+  });
+
+  it('adds no edge when the injected type names nothing in the graph', async () => {
+    const store = new InMemoryGraphStore();
+    const symbol = makeSymbol('file:/proj/api.cs:Config', 1, 5);
+    store.qnameIndex.set(`project:${PROJ}:${symbol.qualifiedName}`, 100);
+
+    const ctx = makeCtx([makeFile('/proj/api.cs', DOTNET)], store, {
+      parsedFiles: [makeParsedFile('/proj/api.cs', [symbol])],
+    });
+    const result = await new DependencyInjectionPhase().execute(ctx);
+
+    expect((result.output as { injectionsFound: number }).injectionsFound).toBe(0);
+  });
+
+  it('costs one regex test on a file that holds no DI token', async () => {
+    const store = new InMemoryGraphStore();
+    const ctx = makeCtx([makeFile('/proj/plain.ts', 'export const answer = 42;\n')], store, {
+      parsedFiles: [makeParsedFile('/proj/plain.ts', [])],
+    });
+
+    const result = await new DependencyInjectionPhase().execute(ctx);
+
+    expect((result.output as { injectionsFound: number }).injectionsFound).toBe(0);
+  });
+
+  it('keeps the first class of a name and ignores the duplicate', async () => {
+    // **Two classes can share a name in one project** - an interface and its implementation, or two modules. The index is
+    // built once, so the second occurrence must not replace the first; the arm that checks it is the one the coverage
+    // gate would otherwise never exercise.
+    const store = new InMemoryGraphStore();
+    const symbol = makeSymbol('file:/proj/api.cs:Config', 1, 5);
+    store.qnameIndex.set(`project:${PROJ}:${symbol.qualifiedName}`, 100);
+    store.nodes.set(300, {
+      id: 300,
+      projectId: PROJ,
+      label: 'Class',
+      name: 'IFooService',
+      qualifiedName: 'IFooService',
+      filePath: '/proj/a.ts',
+      startLine: 1,
+      endLine: 1,
+      language: 'csharp',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: '',
+      updatedAt: '',
+    });
+    store.nodes.set(301, { ...(store.nodes.get(300) as never), id: 301, filePath: '/proj/b.ts' });
+
+    const ctx = makeCtx([makeFile('/proj/api.cs', DOTNET)], store, {
+      parsedFiles: [makeParsedFile('/proj/api.cs', [symbol])],
+    });
+    const result = await new DependencyInjectionPhase().execute(ctx);
+
+    expect((result.output as { injectionsFound: number }).injectionsFound).toBe(1);
+  });
+
+  it('reports an Error thrown during execution by its message', async () => {
+    const store = new InMemoryGraphStore();
+    const ctx = makeCtx([], store);
+    ctx.phaseData.set('scan', {
+      get discoveredFiles(): DiscoveredFile[] {
+        throw new Error('scan data unavailable');
+      },
+    });
+
+    const result = await new DependencyInjectionPhase().execute(ctx);
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toBe('scan data unavailable');
+  });
+
   it('reports a non-Error exception during execution', async () => {
     const store = new InMemoryGraphStore();
     const ctx = makeCtx([], store);
