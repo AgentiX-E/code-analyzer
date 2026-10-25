@@ -350,6 +350,48 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /**
+   * Kotlin's imports, read from Kotlin's own nodes.
+   *
+   * **Without this override the base class walked JavaScript's import shapes** over a Kotlin file and found nothing, so
+   * `kotlinx.coroutines` - 1 152 files - indexed with **zero `IMPORTS` edges** and change-impact had no graph to walk.
+   * The grammar is flat and easy: `(import_header (identifier) [(wildcard_import)] [(import_alias)])`.
+   */
+  override extractImports(source: string): ParsedImport[] {
+    if (!this.parser) return this.fallbackExtractImports(source);
+
+    const imports: ParsedImport[] = [];
+    const visit = (node: TreeSitterSyntaxNode): void => {
+      if (node.type !== 'import_header') {
+        for (const child of namedChildrenOf(node)) visit(child);
+        return;
+      }
+      // **The dotted path is one `identifier` node**, not a chain of segments, and the two optional children are what
+      // distinguish `a.b.*` from `a.b.C` and `a.b.C as D` from `a.b.C`. **The grammar requires it** - an `import_header`
+      // is `'import' (identifier) [(wildcard_import)] [(import_alias)]` - so there is no shape to guard against.
+      const path = this.findChild(node, 'identifier')!;
+      const wildcard = this.findChild(node, 'wildcard_import') !== null;
+      const aliasNode = this.findChild(node, 'import_alias');
+      const segments = path.text.split('.');
+      // **`split` always yields one segment**, so the last one exists; only the alias can override it.
+      const boundName = aliasNode
+        ? aliasNode.text.replace(/^as\s+/, '').trim()
+        : segments[segments.length - 1]!;
+
+      imports.push({
+        source: path.text,
+        // **A wildcard import binds nothing by name** - `import a.b.*` makes the package's members visible, and there is
+        // no single symbol to record.
+        names: wildcard ? [] : [boundName],
+        type: wildcard ? 'wildcard' : 'named',
+        ...(aliasNode ? { alias: boundName } : {}),
+        lineNumber: node.startPosition.row + 1,
+      });
+    };
+    visit(this.parser.parse(source).rootNode);
+    return imports;
+  }
+
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;

@@ -619,11 +619,20 @@ function resolveJavaType(
   specifier: string,
   sourceFile: string,
   projectRoot: string,
+  extensions: readonly string[] = ['.java'],
 ): string | null {
   const segments = specifier.split('.').filter((part) => part.length > 0);
   const base = packageAnchor(segments[0] ?? '', sourceFile, projectRoot);
-  const candidate = join(base, `${segments.join(sep)}.java`);
-  return existsSync(candidate) ? candidate : null;
+  const dotted = segments.join(sep);
+  // **Kotlin's imports are Java's** - `import kotlinx.coroutines.internal.MainDispatcherLoader` is a dotted package path
+  // and the file is `MainDispatcherLoader.kt` - so the same anchoring applies and only the extension differs. Without
+  // this, `kotlinx.coroutines` indexed with **zero IMPORTS edges** (measured by the feature matrix), which leaves
+  // change-impact with nothing to walk in a Kotlin repository.
+  for (const extension of extensions) {
+    const candidate = join(base, `${dotted}${extension}`);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
 }
 
 /**
@@ -706,8 +715,16 @@ export function resolveImportPath(
   // **Java's imports are package paths too**, and they were looked up in `node_modules` like a JavaScript package:
   // `import org.springframework.samples.petclinic.model.Owner;` resolved to nothing, so **a Spring application had an
   // import graph of exactly zero edges** - measured on `spring-projects/spring-petclinic`, 50 Java files, 0 edges.
-  if (sourceFilePath.endsWith('.java') && JAVA_TYPE_SPECIFIER.test(importPath)) {
-    const resolved = resolveJavaType(importPath, sourceFilePath, projectRoot);
+  if (
+    (sourceFilePath.endsWith('.java') || sourceFilePath.endsWith('.kt')) &&
+    JAVA_TYPE_SPECIFIER.test(importPath)
+  ) {
+    const resolved = resolveJavaType(
+      importPath,
+      sourceFilePath,
+      projectRoot,
+      sourceFilePath.endsWith('.kt') ? ['.kt', '.java'] : ['.java'],
+    );
     if (resolved) return resolved;
   }
 

@@ -46,6 +46,43 @@ describe('KotlinProvider', () => {
     });
   });
 
+  describe('extractImports', () => {
+    // **The base class walked JavaScript's shapes and found nothing**, so a Kotlin repository indexed with no dependency
+    // edges at all. These three statements are the whole grammar: plain, wildcard, aliased.
+    it('reads a plain import, a wildcard and an alias from Kotlin’s own nodes', () => {
+      const imports = provider.extractImports(
+        [
+          'package kotlinx.coroutines',
+          'import kotlinx.coroutines.internal.MainDispatcherLoader',
+          'import kotlinx.coroutines.scheduling.*',
+          'import kotlin.coroutines.CoroutineContext as CC',
+          '',
+        ].join('\n'),
+      );
+
+      expect(imports.map((i) => [i.source, i.type, i.names, i.lineNumber])).toEqual([
+        ['kotlinx.coroutines.internal.MainDispatcherLoader', 'named', ['MainDispatcherLoader'], 2],
+        ['kotlinx.coroutines.scheduling', 'wildcard', [], 3],
+        ['kotlin.coroutines.CoroutineContext', 'named', ['CC'], 4],
+      ]);
+      expect(imports[2]?.alias).toBe('CC');
+    });
+
+    it('falls back to the regex reader when no grammar is loaded', () => {
+      // **A degraded install must not look like a file with no imports**, which is the same rule the Python provider
+      // follows: the fallback is the only reader there is.
+      const degraded = Object.create(provider) as KotlinProvider;
+      Object.defineProperty(degraded, 'parser', { value: null });
+
+      const imports = degraded.extractImports('import a.b.C\nimport d.e.*\n');
+
+      expect(imports.map((i) => [i.source, i.type])).toEqual([
+        ['a.b.C', 'named'],
+        ['d.e.*', 'wildcard'],
+      ]);
+    });
+  });
+
   describe('parse', () => {
     it('should extract class definitions', () => {
       const code = 'class MyClass {\n  fun greet() = "hello"\n}';

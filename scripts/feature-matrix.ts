@@ -18,7 +18,11 @@ import {
   GraphBuilder,
   PipelineOrchestrator,
   createAllPhases,
-} from '../packages/analyzer/dist/index.js';
+} from '../packages/analyzer/src/index.js';
+import {
+  shouldSkipDirectory,
+  shouldSkipFile,
+} from '../packages/analyzer/src/pipeline/phase-helpers.js';
 import { InMemoryGraphStore } from '../packages/infra/src/index.js';
 import { getLanguageFromFilename } from '../packages/shared/src/index.js';
 
@@ -53,13 +57,17 @@ function arg(name: string): string | undefined {
 
 /** Files the scanner would admit, counted by the product's own rule rather than by a second extension table. */
 function countIndexable(dir: string, counts: Record<string, number> = {}): Record<string, number> {
+  // **The denominator uses the scanner's own admission rules**, not a copy of them: `shouldSkipDirectory` and
+  // `shouldSkipFile` are what decide that `.idea/`, `build/`, `*.min.js` and `*.d.ts` never become graph rows. A counter
+  // that decided differently reported `javascript: tree 10, graph 6` on Alamofire and `xml: tree 8, graph 2` on
+  // kotlinx.coroutines - and six of those eight XML files were `.idea/codeStyles/*.xml`, which the scanner skips.
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === 'target')
-        continue;
+      if (shouldSkipDirectory(entry.name)) continue;
       countIndexable(full, counts);
-    } else if (entry.isFile() && !entry.name.startsWith('.')) {
+    } else if (entry.isFile()) {
+      if (shouldSkipFile(full, entry.name)) continue;
       const language = getLanguageFromFilename(full);
       if (language) counts[language] = (counts[language] ?? 0) + 1;
     }
@@ -239,19 +247,23 @@ async function main(): Promise<void> {
   }
 
   // ── Story 3: a change's impact can be walked -------------------------------
-  const importsByFile = new Map<number, GraphEdge[]>();
+  // **`IMPORTS` is the dependency edge for languages that spell one**, and `CALLS`/`INHERITS` are what a single-module
+  // project has instead: a Swift package's own files import nothing of each other, so a probe that insisted on
+  // `IMPORTS` reported "no dependency graph" for a corpus that has a perfectly good one.
+  const DEPENDENCY_EDGES = new Set(['IMPORTS', 'CALLS', 'INHERITS']);
+  const dependentsOf = new Map<number, GraphEdge[]>();
   for (const edge of edges) {
-    if (edge.type !== 'IMPORTS') continue;
-    const list = importsByFile.get(edge.targetId) ?? [];
+    if (!DEPENDENCY_EDGES.has(edge.type)) continue;
+    const list = dependentsOf.get(edge.targetId) ?? [];
     list.push(edge);
-    importsByFile.set(edge.targetId, list);
+    dependentsOf.set(edge.targetId, list);
   }
-  const imported = [...importsByFile.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+  const imported = [...dependentsOf.entries()].sort((a, b) => b[1].length - a[1].length)[0];
   if (!imported) {
     unmeasured(
       '3 impact',
-      'dependents of the most-imported file',
-      'no IMPORTS edge in this corpus',
+      'dependents of the most-depended-on file',
+      'no IMPORTS, CALLS or INHERITS edge in this corpus',
     );
   } else {
     const dependents = new Set<number>();
@@ -259,22 +271,17 @@ async function main(): Promise<void> {
     while (queue.length > 0 && dependents.size < 5000) {
       const current = queue.pop()!;
       for (const edge of edges) {
-        if (edge.type !== 'IMPORTS' || edge.targetId !== current) continue;
+        if (!DEPENDENCY_EDGES.has(edge.type) || edge.targetId !== current) continue;
         if (dependents.has(edge.sourceId)) continue;
         dependents.add(edge.sourceId);
         queue.push(edge.sourceId);
       }
     }
     const owner = nodes.find((n) => n.id === imported[0]);
-    measured(
-      '3 impact',
-      `transitive importers of ${
-        String(owner?.filePath ?? imported[0])
-          .split('/')
-          .slice(-1)[0]
-      }`,
-      dependents.size,
-    );
+    const fileName = String(owner?.filePath ?? imported[0])
+      .split('/')
+      .slice(-1)[0];
+    measured('3 impact', `transitive dependents of ${fileName}`, dependents.size);
   }
 
   // ── Story 4/7: configuration and structure are understood -------------------

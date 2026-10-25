@@ -780,6 +780,25 @@ describe('resolveImportPath — Python modules', () => {
     });
   });
 
+  it('resolves a Kotlin import to the .kt file, which is the same dotted path as Java', () => {
+    // **`kotlinx.coroutines` indexed with zero IMPORTS edges** until this existed: the resolver matched `.java` sources
+    // only, so a Kotlin repository had no dependency graph and change-impact had nothing to walk.
+    const root = mkdtempSync(join(tmpdir(), 'ca-resolve-kt-'));
+    mkdirSync(join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines'), { recursive: true });
+    writeFileSync(
+      join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines', 'MainDispatcherLoader.kt'),
+      'package kotlinx.coroutines\nobject MainDispatcherLoader\n',
+    );
+    const importer = join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines', 'CoroutineContext.kt');
+    writeFileSync(importer, 'package kotlinx.coroutines\nimport kotlinx.coroutines.MainDispatcherLoader\n');
+
+    expect(
+      resolveImportPath('kotlinx.coroutines.MainDispatcherLoader', importer, root),
+    ).toBe(join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines', 'MainDispatcherLoader.kt'));
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
   it('leaves the TypeScript convention untouched', async () => {
     // The Python branch is guarded by the importer's extension, so `./math.js` in a `.ts` file still means `math.ts`.
     await withTempDir((dir) => {
