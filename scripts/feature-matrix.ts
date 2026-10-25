@@ -266,12 +266,14 @@ async function main(): Promise<void> {
       'no IMPORTS, CALLS or INHERITS edge in this corpus',
     );
   } else {
+    // **The walk reads the index, not the edge list.** The first version scanned every edge for every node it visited,
+    // which is O(E x visited): on a 2 300-file TypeScript repository that ran for **forty minutes** without finishing,
+    // and the job's 90-minute timeout was the only thing that would have stopped it. A reverse index is built once.
     const dependents = new Set<number>();
     const queue = [imported[0]];
     while (queue.length > 0 && dependents.size < 5000) {
       const current = queue.pop()!;
-      for (const edge of edges) {
-        if (!DEPENDENCY_EDGES.has(edge.type) || edge.targetId !== current) continue;
+      for (const edge of dependentsOf.get(current) ?? []) {
         if (dependents.has(edge.sourceId)) continue;
         dependents.add(edge.sourceId);
         queue.push(edge.sourceId);

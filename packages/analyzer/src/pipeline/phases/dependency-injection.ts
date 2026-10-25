@@ -1,6 +1,5 @@
 // @code-analyzer/analyzer — Pipeline Phase: DependencyInjection
 
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { PhaseLogger, createNoopPhaseLogger, EDGE_INJECTS } from '@code-analyzer/shared';
 
 import { GraphBuilder } from '../../graph/graph-builder.js';
@@ -18,25 +17,17 @@ import type {
 // ---------------------------------------------------------------------------
 
 const DI_PATTERNS: Array<{ regex: RegExp; framework: string }> = [
-  // Angular @Injectable + constructor injection
-  {
-    regex: /@Injectable\s*\(\s*\)[\s\S]{0,300}constructor\s*\(\s*([^)]+)\)/g,
-    framework: 'angular',
-  },
-  // NestJS @Injectable + constructor
+  // Angular / NestJS `@Injectable()` with a constructor. **Bounded and lazy**, and the capture is the `@Inject` token
+  // when there is one: the previous pattern carried a `(?:\s*(?:…)?\w+…,?\s*)+` group, which backtracks
+  // exponentially on a constructor with many parameters. Measured on `nestjs/core` (249 files): **24 of the phase's 34
+  // seconds were spent here**, and on `nestjs/nest` (1 614 files) the job was still running after forty minutes.
   {
     regex:
-      /@Injectable\s*\(\s*\)[\s\S]{0,300}constructor\s*\(\s*(?:\s*(?:@Inject\s*\(\s*['"`]([^'"`]+)['"`]\s*\)\s*)?\w+\s*(?::\s*\w+)?,?\s*)+\)/g,
+      /@Injectable\s*\(\s*\)[\s\S]{0,300}?constructor\s*\([^)]*@Inject\s*\(\s*['"`]([^'"`]+)['"`]/g,
     framework: 'nestjs',
   },
   // Spring @Autowired
   { regex: /@Autowired\s+(?:private|public|protected)?\s*(?:\w+)\s+(\w+)/g, framework: 'spring' },
-  // Constructor injection (Angular/NestJS simplified)
-  {
-    regex:
-      /constructor\s*\(\s*(?:\s*(?:private|public|protected|readonly)\s+\w+\s*(?::\s*\w+)?,?\s*)+\)/g,
-    framework: 'constructor-injection',
-  },
   // Python dependency_injector
   { regex: /@(?:inject|provide)\s*$/gm, framework: 'python-di' },
   // .NET dependency injection
@@ -70,7 +61,32 @@ export class DependencyInjectionPhase implements ExecutablePhase {
 
       let injectionsFound = 0;
 
+      // **Three indexes, built once.** The loop used to call `parsedFiles.find(...)` for every match and then walk
+      // *every node in the graph* to find the injected class by name - O(matches x files) and O(matches x nodes). On
+      // `nestjs/core` that was most of the phase's remaining ten seconds; on a repository ten times larger it is the
+      // difference between an index that finishes and one that does not.
+      const parseData = ctx.phaseData.get('parse') as { parsedFiles: ParsedFile[] } | undefined;
+      const parsedByPath = new Map<string, ParsedFile>();
+      for (const parsedFile of parseData?.parsedFiles ?? []) {
+        parsedByPath.set(parsedFile.filePath, parsedFile);
+      }
+      const classByName = new Map<string, number>();
+      for (const [, node] of ctx.graph.nodes) {
+        if (node.label === 'Class' && !classByName.has(node.name))
+          classByName.set(node.name, node.id);
+      }
+      const builder = new GraphBuilder();
+
       for (const file of scanData.discoveredFiles) {
+        // **A file with no DI token at all costs one regex test**, not seven scans of its text.
+        if (
+          !/(?:@Injectable|@Autowired|@inject|@provide|AddScoped|AddSingleton|AddTransient|providers\s*:)/.test(
+            file.content,
+          )
+        ) {
+          continue;
+        }
+
         for (const pattern of DI_PATTERNS) {
           const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
           let match: RegExpExecArray | null;
@@ -78,39 +94,18 @@ export class DependencyInjectionPhase implements ExecutablePhase {
             const injectedType = match[1] ?? '';
             const lineNum = file.content.slice(0, match.index).split('\n').length;
 
-            // Find the containing class/function in parsed data
-            const parseData = ctx.phaseData.get('parse') as
-              { parsedFiles: ParsedFile[] } | undefined;
+            const parsedFile = parsedByPath.get(file.filePath);
+            const symbol = parsedFile?.symbols.find(
+              (candidate) => candidate.startLine <= lineNum && candidate.endLine >= lineNum,
+            );
+            const sourceNodeId = symbol
+              ? ctx.graph.qnameIndex.get(`project:${ctx.projectId}:${symbol.qualifiedName}`)
+              : undefined;
+            const targetNodeId = injectedType ? classByName.get(injectedType) : undefined;
 
-            if (parseData?.parsedFiles) {
-              const parsedFile = parseData.parsedFiles.find((pf) => pf.filePath === file.filePath);
-              if (parsedFile) {
-                for (const symbol of parsedFile.symbols) {
-                  if (symbol.startLine <= lineNum && symbol.endLine >= lineNum) {
-                    const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
-                    const symQname = `project:${ctx.projectId}:${symbol.qualifiedName}`;
-                    const sourceNodeId = ctx.graph.qnameIndex.get(symQname);
-
-                    // Find target by injected type name
-                    if (sourceNodeId && injectedType) {
-                      for (const [, targetNode] of ctx.graph.nodes) {
-                        if (targetNode.name === injectedType && targetNode.label === 'Class') {
-                          builder.addEdge(
-                            ctx.graph,
-                            sourceNodeId,
-                            targetNode.id,
-                            EDGE_INJECTS,
-                            ctx.projectId,
-                          );
-                          injectionsFound++;
-                          break;
-                        }
-                      }
-                    }
-                    break;
-                  }
-                }
-              }
+            if (sourceNodeId && targetNodeId !== undefined) {
+              builder.addEdge(ctx.graph, sourceNodeId, targetNodeId, EDGE_INJECTS, ctx.projectId);
+              injectionsFound++;
             }
           }
         }
