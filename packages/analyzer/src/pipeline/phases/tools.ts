@@ -68,18 +68,15 @@ export class ToolsPhase implements ExecutablePhase {
           const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
           let match: RegExpExecArray | null;
           while ((match = regex.exec(file.content)) !== null) {
-            // **The name is the first group where the pattern has one, and the whole match where it does not.** The
-            // comment here used to say the first group "is not optional, so a match always carries it" - and the Slack
-            // slash-command matcher is `/\/[a-z][a-z0-9_-]*\s+.+/g`, which captures nothing at all. So `match[1]` was
-            // `undefined`, the `!` told the compiler to stop asking, and `toolName.length` threw on **every corpus
-            // this phase has ever run on**: `tools` has been returning `failed` since it was written, while the run
-            // reported `partial` and carried on. **A comment asserted a property of the patterns and nothing checked
-            // the comment.**
-            //
-            // The fallback is the whole match's first word, which for a slash command is the command itself - the
-            // thing the pattern was written to find.
-            // **`split` on a non-empty match always yields a first element**, so the `?? ''` that followed it could not fire.
-            const toolName = (match[1] ?? match[0].split(/\s+/)[0]!).trim();
+            // **Every pattern declares a capture, and that is now a rule rather than a hope.** The comment here used
+            // to say the first group "is not optional, so a match always carries it" while the slash-command matcher
+            // `/\/[a-z][a-z0-9_-]*\s+.+/g` captured nothing at all: `match[1]` was `undefined`, the `!` told the
+            // compiler to stop asking, and `toolName.length` threw on **every corpus this phase had ever run on** -
+            // `tools` returning `failed` since it was written, while the run reported `partial` and carried on.
+            // The fallback added then is what this line deletes: the slash pattern now captures its own command
+            // (`^(\/[a-z][a-z0-9_-]*)\s+\S.*$`), so every pattern has a first group and an arm for the missing one
+            // could not be reached by any input the suite can build.
+            const toolName = match[1]!.trim();
             const description = match[2] ?? '';
             const lineNum = file.content.slice(0, match.index).split('\n').length;
 

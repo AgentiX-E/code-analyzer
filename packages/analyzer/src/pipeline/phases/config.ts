@@ -119,11 +119,12 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
       for (const [i, raw] of lines.entries()) {
         const match = /^(\s*)([a-zA-Z_][a-zA-Z0-9_.-]*)\s*:\s*(.+)$/.exec(raw);
         if (match) {
-          const [, , key, value] = match;
-          if (key === undefined || value === undefined) continue;
+          // **Indexed with assertions rather than destructured with a guard.** A regex that matched fills every capture
+          // it declares, so `undefined` is not a state the language can produce - it is only a state the type system
+          // must consider. The version that checked for it carried an arm no test could reach.
           entries.push({
-            key,
-            value: value.trim(),
+            key: match[2]!,
+            value: match[3]!.trim(),
             path: filePath,
             line: i + 1,
           });
@@ -134,11 +135,9 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
       for (const [i, raw] of lines.entries()) {
         const match = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/.exec(raw);
         if (match) {
-          const [, key, value] = match;
-          if (key === undefined || value === undefined) continue;
           entries.push({
-            key,
-            value: value.trim(),
+            key: match[1]!,
+            value: match[2]!.trim(),
             path: filePath,
             line: i + 1,
           });
@@ -147,16 +146,12 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
     } else if (ext === '.xml') {
       const tagRegex = /<([a-zA-Z_][a-zA-Z0-9_.-]*)>([^<]*)<\/\1>/g;
       let match: RegExpExecArray | null;
-      const lines = content.split('\n');
       while ((match = tagRegex.exec(content)) !== null) {
-        const lineNum = findLineNumber(lines, match.index);
-        const [, key, value] = match;
-        if (key === undefined || value === undefined) continue;
         entries.push({
-          key,
-          value: value.trim(),
+          key: match[1]!,
+          value: match[2]!.trim(),
           path: filePath,
-          line: lineNum,
+          line: findLineNumber(content, match.index),
         });
       }
     }
@@ -196,23 +191,25 @@ function flattenObject(obj: unknown, prefix: string, path: string, depth: number
  * line**, because a node at line 0 cannot be opened by anything that consumes this graph.
  */
 function locateKey(lines: string[], key: string): number {
-  const leaf = key.split('.').pop() ?? key;
+  const segments = key.split('.');
+  // **`split` always yields at least one segment**, so the last one exists; the assertion states the rule the
+  // coverage gate cannot see.
+  const leaf = segments[segments.length - 1]!;
   const index = lines.findIndex((line) => line.includes(`"${leaf}"`) || line.includes(`${leaf}:`));
-  return index >= 0 ? index + 1 : 1;
+  // **`findIndex` answers -1 for a key the text does not mention, and 0 is not a line.** `Math.max` clamps without a
+  // branch, so the "not found" case is a value rather than an arm nobody exercises.
+  return Math.max(index + 1, 1);
 }
 
-function findLineNumber(lines: string[], charIndex: number): number {
-  let accumulated = 0;
-  for (const [i, raw] of lines.entries()) {
-    accumulated += raw.length + 1; // +1 for newline
-    if (accumulated > charIndex) return i + 1;
-  }
-  // Past the end of the text: report the last line rather than nothing.
-  return lines.length;
-  // Accumulating every line's length (plus newline) yields content.length + 1,
-  // which always exceeds a `charIndex` produced by a regex match inside the
-  // content, so the loop always returns before exhausting `lines`. No trailing
-  // return is reachable.
+/**
+ * The 1-based line that holds `charIndex`.
+ *
+ * **There is no loop and no fallback because the answer is a count**: the newlines before the offset, plus one. The
+ * previous version accumulated line lengths and ended in a `return` its own comment called unreachable - a statement
+ * nothing could execute and nothing could test.
+ */
+function findLineNumber(text: string, charIndex: number): number {
+  return text.slice(0, charIndex).split('\n').length;
 }
 
 function isConfigFile(fileName: string, ext: string): boolean {
