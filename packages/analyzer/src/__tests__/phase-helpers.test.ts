@@ -789,12 +789,23 @@ describe('resolveImportPath — Python modules', () => {
       join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines', 'MainDispatcherLoader.kt'),
       'package kotlinx.coroutines\nobject MainDispatcherLoader\n',
     );
-    const importer = join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines', 'CoroutineContext.kt');
-    writeFileSync(importer, 'package kotlinx.coroutines\nimport kotlinx.coroutines.MainDispatcherLoader\n');
+    const importer = join(
+      root,
+      'src',
+      'main',
+      'kotlin',
+      'kotlinx',
+      'coroutines',
+      'CoroutineContext.kt',
+    );
+    writeFileSync(
+      importer,
+      'package kotlinx.coroutines\nimport kotlinx.coroutines.MainDispatcherLoader\n',
+    );
 
-    expect(
-      resolveImportPath('kotlinx.coroutines.MainDispatcherLoader', importer, root),
-    ).toBe(join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines', 'MainDispatcherLoader.kt'));
+    expect(resolveImportPath('kotlinx.coroutines.MainDispatcherLoader', importer, root)).toBe(
+      join(root, 'src', 'main', 'kotlin', 'kotlinx', 'coroutines', 'MainDispatcherLoader.kt'),
+    );
 
     rmSync(root, { recursive: true, force: true });
   });

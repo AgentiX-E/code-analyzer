@@ -11,7 +11,6 @@ import { describe, it, expect } from 'vitest';
 import { createTestNode } from './helpers.js';
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 
-
 function storeWith(names: string[]): InMemoryGraphStore {
   const store = new InMemoryGraphStore();
   // **Inserted in the order that loses**: the exact match is last, so a tie can only be broken by rank, not by position.

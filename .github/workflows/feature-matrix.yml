@@ -51,13 +51,28 @@ jobs:
         corpus:
           # **Six priority languages, six repositories somebody maintains.** Each is pinned, each is small enough to
           # index inside the job limit, and each is one a reader can check out for themselves.
-          - { language: java, repo: 'spring-projects/spring-petclinic', ref: '500158f732419217507c7656904b8e6aa1bcc0d6', slug: java-petclinic }
+          - {
+              language: java,
+              repo: 'spring-projects/spring-petclinic',
+              ref: '500158f732419217507c7656904b8e6aa1bcc0d6',
+              slug: java-petclinic,
+            }
           - { language: typescript, repo: 'nestjs/nest', ref: 'v11.0.0', slug: typescript-nest }
-          - { language: javascript, repo: 'expressjs/express', ref: 'v5.1.0', slug: javascript-express }
+          - {
+              language: javascript,
+              repo: 'expressjs/express',
+              ref: 'v5.1.0',
+              slug: javascript-express,
+            }
           - { language: python, repo: 'pallets/flask', ref: '3.1.0', slug: python-flask }
           # **`square/okhttp` redirects**: the canonical name is `Kotlin/kotlinx.coroutines`, which needs no redirect and
           # is the coroutines library most Kotlin JVM code depends on.
-          - { language: kotlin, repo: 'Kotlin/kotlinx.coroutines', ref: '1.9.0', slug: kotlin-coroutines }
+          - {
+              language: kotlin,
+              repo: 'Kotlin/kotlinx.coroutines',
+              ref: '1.9.0',
+              slug: kotlin-coroutines,
+            }
           - { language: swift, repo: 'Alamofire/Alamofire', ref: '5.10.2', slug: swift-alamofire }
 
     steps:
