@@ -1,0 +1,161 @@
+# @code-analyzer — the feature matrix, on repositories nobody wrote for us.
+#
+# **Every number this project publishes should be reproducible by someone who does not have our laptop.** The unit suite
+# proves the code does what its tests say; this workflow proves the *product* does what its documentation says, on six
+# real repositories in six priority languages, on a clean runner, with the corpus pinned by commit.
+#
+# It exists because of a specific failure: `spring-petclinic` indexed as 51 files in one language while its tree held 78
+# in nine, and no fixture could have said so. The matrix asks each story the question a user would ask -
+# does the file scan, does the symbol search find it, does the impact walk reach the callers, is a config entry placed
+# at a line - and publishes the answers as one artifact plus one table.
+#
+# **A probe that cannot be measured is reported as `unmeasured` with the reason**, and the run fails if the
+# language split disagrees with the tree, because that disagreement is the defect the matrix was built to catch.
+
+name: Feature Matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: 'Override the matrix repository (leave empty to use the matrix)'
+        required: false
+      ref:
+        description: 'Override the matrix ref (leave empty to use the matrix)'
+        required: false
+  schedule:
+    # Weekly: the corpora move, and a figure nobody re-takes is a claim about 2026.
+    - cron: '0 5 * * 1'
+  push:
+    branches: [master]
+    paths:
+      - 'scripts/feature-matrix.ts'
+      - '.github/workflows/feature-matrix.yml'
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.15.0'
+
+jobs:
+  matrix:
+    name: ${{ matrix.corpus.language }} — ${{ matrix.corpus.repo }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      # **One language failing must not hide the other five**, which is the whole purpose of a matrix.
+      fail-fast: false
+      matrix:
+        corpus:
+          # **Six priority languages, six repositories somebody maintains.** Each is pinned, each is small enough to
+          # index inside the job limit, and each is one a reader can check out for themselves.
+          - { language: java, repo: 'spring-projects/spring-petclinic', ref: '500158f732419217507c7656904b8e6aa1bcc0d6', slug: java-petclinic }
+          - { language: typescript, repo: 'nestjs/nest', ref: 'v11.0.0', slug: typescript-nest }
+          - { language: javascript, repo: 'expressjs/express', ref: 'v5.1.0', slug: javascript-express }
+          - { language: python, repo: 'pallets/flask', ref: '3.1.0', slug: python-flask }
+          # **`square/okhttp` redirects**: the canonical name is `Kotlin/kotlinx.coroutines`, which needs no redirect and
+          # is the coroutines library most Kotlin JVM code depends on.
+          - { language: kotlin, repo: 'Kotlin/kotlinx.coroutines', ref: '1.9.0', slug: kotlin-coroutines }
+          - { language: swift, repo: 'Alamofire/Alamofire', ref: '5.10.2', slug: swift-alamofire }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Check out the corpus
+        id: corpus
+        run: |
+          REPO="${{ github.event.inputs.repo || matrix.corpus.repo }}"
+          REF="${{ github.event.inputs.ref || matrix.corpus.ref }}"
+          # **A commit is fetched, not a branch cloned**: `--depth 1` on a tag and `--depth 1` on a commit are the same
+          # bytes only because GitHub allows fetching a reachable SHA, and pinning by SHA is what makes two runs
+          # comparable when the tag moves.
+          git init -q corpus
+          git -C corpus remote add origin "https://github.com/$REPO.git"
+          git -C corpus fetch -q --depth 1 origin "$REF"
+          git -C corpus checkout -q FETCH_HEAD
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "files=$(git -C corpus ls-files | wc -l | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: Measure every feature on it
+        run: |
+          # **The glob is gone and the count is the product's**: `feature-matrix.ts` asks `getLanguageFromFilename`,
+          # because a hand-kept extension list in a workflow is the same drift this project spent a day removing from
+          # its tests.
+          mkdir -p matrix
+          set -o pipefail
+          npx tsx scripts/feature-matrix.ts \
+            --repo "$PWD/corpus" \
+            --label "${{ steps.corpus.outputs.repo }}@${{ steps.corpus.outputs.ref }}" \
+            --out "matrix/${{ matrix.corpus.slug }}.json" | tee "matrix/${{ matrix.corpus.slug }}.md"
+          cat "matrix/${{ matrix.corpus.slug }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the scanner and the tree disagree
+        run: |
+          # **This is the one probe that must never be `unmeasured`.** It is what a provider nothing can reach looks
+          # like from the outside, and it is why the matrix exists; a green run that cannot see it would be worse than no
+          # run at all.
+          if grep -q 'unmeasured.*language split' "matrix/${{ matrix.corpus.slug }}.md"; then
+            echo "::error::the scanner admitted files the graph does not hold — see the table above"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feature-matrix-${{ matrix.corpus.slug }}
+          path: matrix/
+          if-no-files-found: error
+
+  summary:
+    name: Rank the six, and say what the numbers mean
+    needs: matrix
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: feature-matrix-*
+          path: matrix
+          merge-multiple: true
+
+      - name: One table, one artifact
+        run: |
+          # **Merged rather than repeated**: six markdown fragments are six tables, and a reader comparing languages
+          # needs one. The fragments are concatenated with their headings intact because the *provenance* of each row
+          # (which repository, which commit) is part of the figure.
+          node -e '
+            const fs = require("node:fs");
+            const files = fs.readdirSync("matrix").filter((f) => f.endsWith(".json")).sort();
+            const records = files.map((f) => JSON.parse(fs.readFileSync(`matrix/${f}`, "utf8")));
+            const out = { generatedAt: new Date().toISOString(), repositories: records };
+            fs.writeFileSync("feature-matrix.json", JSON.stringify(out, null, 2) + "\n");
+            const rows = records.flatMap((r) => r.probes.map((p) =>
+              `| ${r.label} | ${p.story} | ${p.name} | ${p.status === "measured" ? p.value : "**" + p.value + "**"} |`));
+            const body = ["| corpus | story | probe | value |", "| --- | --- | --- | --- |", ...rows].join("\n");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, body + "\n");
+            console.log(body);
+          '
+          cat feature-matrix.json | head -5
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feature-matrix
+          path: feature-matrix.json
+          if-no-files-found: error

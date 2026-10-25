@@ -181,7 +181,11 @@ async function main(): Promise<void> {
   // Generate summary report
   const report: BenchmarkReport = {
     timestamp: new Date().toISOString(),
-    nodeVersion,
+    // **`nodeVersion` is the `node:os` function, not its result.** The shorthand put a function object in a `string`
+    // field, so every report this script ever wrote carried `nodeVersion` as undefined once serialised - a field that
+    // exists to say which runtime produced a figure, saying nothing. Found by enrolling `scripts/**` in the tests
+    // typecheck project, which had never compiled this file.
+    nodeVersion: nodeVersion(),
     platform: platform(),
     arch: arch(),
     cpuCount: cpus().length,

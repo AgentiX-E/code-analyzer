@@ -104,7 +104,10 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    files: ['packages/*/src/__tests__/**/*.ts', 'tests/**/*.ts'],
+    // **A root-level `.ts` is enrolled by name, because enrolling `scripts/**` wholesale also enrolled two files
+    // that had never been compiled and carry their own defects** - one of which (`nodeVersion` passing the `node:os`
+    // function into a `string` field) is fixed here; the other is a separate audit.
+    files: ['packages/*/src/__tests__/**/*.ts', 'tests/**/*.ts', 'scripts/feature-matrix.ts'],
   },
   {
     languageOptions: {
