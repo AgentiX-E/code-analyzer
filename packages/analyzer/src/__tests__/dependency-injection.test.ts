@@ -1,16 +1,41 @@
-import { describe, it, expect } from 'vitest';
-import { DependencyInjectionPhase } from '../pipeline/phases/dependency-injection.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect } from 'vitest';
+
+import { DependencyInjectionPhase } from '../pipeline/phases/dependency-injection.js';
+
+import type { StoredNode } from '@code-analyzer/infra';
 import type {
   PipelineContext,
   CodeAnalyzerConfig,
   DiscoveredFile,
   ParsedFile,
   SymbolDefinition,
-  NodeLabel,
 } from '@code-analyzer/shared';
 
 const PROJ = 'test-proj';
+
+/** A stored class node, spelled once. **A spread over `as never` was what the type check refused**, correctly. */
+function classNode(id: number, name: string, filePath: string): StoredNode {
+  return {
+    id,
+    projectId: PROJ,
+    label: 'Class',
+    name,
+    qualifiedName: name,
+    filePath,
+    startLine: 1,
+    endLine: 1,
+    language: 'typescript',
+    properties: {},
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: '',
+    updatedAt: '',
+  };
+}
 const ROOT = '/proj';
 
 function makeConfig(): CodeAnalyzerConfig {
@@ -33,7 +58,7 @@ function makeFile(filePath: string, content: string): DiscoveredFile {
 function makeSymbol(qualifiedName: string, startLine: number, endLine: number): SymbolDefinition {
   return {
     name: 'Config',
-    kind: 'Class' as NodeLabel,
+    kind: 'Class',
     qualifiedName,
     startLine,
     endLine,
@@ -121,25 +146,7 @@ describe('DependencyInjectionPhase — defensive branches', () => {
     const store = new InMemoryGraphStore();
     const symbol = makeSymbol('file:/proj/api.cs:Config', 1, 5);
     store.qnameIndex.set(`project:${PROJ}:${symbol.qualifiedName}`, 100);
-    store.nodes.set(200, {
-      id: 200,
-      projectId: PROJ,
-      label: 'Class',
-      name: 'IFooService',
-      qualifiedName: 'IFooService',
-      filePath: '/proj/ifoo.ts',
-      startLine: 1,
-      endLine: 1,
-      language: 'csharp',
-      properties: { name: 'IFooService' },
-      signature: null,
-      docstring: null,
-      complexity: null,
-      isExported: true,
-      fingerprint: null,
-      createdAt: '',
-      updatedAt: '',
-    });
+    store.nodes.set(200, classNode(200, 'IFooService', '/proj/ifoo.ts'));
 
     const ctx = makeCtx([makeFile('/proj/api.cs', DOTNET)], store, {
       parsedFiles: [makeParsedFile('/proj/api.cs', [symbol])],
@@ -165,25 +172,7 @@ describe('DependencyInjectionPhase — defensive branches', () => {
     ].join('\n');
     const symbol = makeSymbol('file:/proj/cats.service.ts:CatsService', 1, 4);
     store.qnameIndex.set(`project:${PROJ}:${symbol.qualifiedName}`, 100);
-    store.nodes.set(201, {
-      id: 201,
-      projectId: PROJ,
-      label: 'Class',
-      name: 'CATS_REPOSITORY',
-      qualifiedName: 'CATS_REPOSITORY',
-      filePath: '/proj/tokens.ts',
-      startLine: 1,
-      endLine: 1,
-      language: 'typescript',
-      properties: {},
-      signature: null,
-      docstring: null,
-      complexity: null,
-      isExported: true,
-      fingerprint: null,
-      createdAt: '',
-      updatedAt: '',
-    });
+    store.nodes.set(201, classNode(201, 'CATS_REPOSITORY', '/proj/tokens.ts'));
 
     const ctx = makeCtx([makeFile('/proj/cats.service.ts', content)], store, {
       parsedFiles: [makeParsedFile('/proj/cats.service.ts', [symbol])],
@@ -224,26 +213,8 @@ describe('DependencyInjectionPhase — defensive branches', () => {
     const store = new InMemoryGraphStore();
     const symbol = makeSymbol('file:/proj/api.cs:Config', 1, 5);
     store.qnameIndex.set(`project:${PROJ}:${symbol.qualifiedName}`, 100);
-    store.nodes.set(300, {
-      id: 300,
-      projectId: PROJ,
-      label: 'Class',
-      name: 'IFooService',
-      qualifiedName: 'IFooService',
-      filePath: '/proj/a.ts',
-      startLine: 1,
-      endLine: 1,
-      language: 'csharp',
-      properties: {},
-      signature: null,
-      docstring: null,
-      complexity: null,
-      isExported: true,
-      fingerprint: null,
-      createdAt: '',
-      updatedAt: '',
-    });
-    store.nodes.set(301, { ...(store.nodes.get(300) as never), id: 301, filePath: '/proj/b.ts' });
+    store.nodes.set(300, classNode(300, 'IFooService', '/proj/a.ts'));
+    store.nodes.set(301, classNode(301, 'IFooService', '/proj/b.ts'));
 
     const ctx = makeCtx([makeFile('/proj/api.cs', DOTNET)], store, {
       parsedFiles: [makeParsedFile('/proj/api.cs', [symbol])],
@@ -273,6 +244,10 @@ describe('DependencyInjectionPhase — defensive branches', () => {
     const ctx = makeCtx([], store);
     ctx.phaseData.set('scan', {
       get discoveredFiles(): DiscoveredFile[] {
+        // **The arm this exercises is `String(err)`**, so the thrown value must not be an `Error`; the rule that wants
+        // an error object is disabled for exactly this line, with the reason, because the alternative is an arm no
+        // input can reach.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw 'boom';
       },
     });

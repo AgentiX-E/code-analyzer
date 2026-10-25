@@ -3,7 +3,9 @@
 
 // Storage
 export { InMemoryGraphStore } from './storage/in-memory-graph-store.js';
-export type { NewGraphNode, NewGraphEdge } from './storage/in-memory-graph-store.js';
+// **`StoredNode` is the shape `store.nodes` holds**, and a caller that builds a node by hand - a test, or a migration -
+// needs the type rather than a cast to `never`.
+export type { NewGraphNode, NewGraphEdge, StoredNode } from './storage/in-memory-graph-store.js';
 export { SqliteGraphStore, deleteDatabase } from './storage/sqlite-graph-store.js';
 export { NodeIndex } from './storage/graph-index.js';
 export type { GraphNode, GraphEdge } from '@code-analyzer/shared';

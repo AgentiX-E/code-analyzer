@@ -21,7 +21,9 @@ import type {
   EdgeProperties,
 } from '@code-analyzer/shared';
 
-interface StoredNode {
+/** The node shape the store holds. **Exported because a caller that builds one by hand - a test, a migration - needs
+ * the type rather than a cast to `never`.** */
+export interface StoredNode {
   id: number;
   projectId: string;
   label: NodeLabel;
