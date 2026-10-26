@@ -11,7 +11,7 @@
     "**Comparable to the categorys figures only in shape, not in value**: `code-review-graph` reports a median",
     "82x and a peak 528x, Graphify 71.5x - each on its own corpus and its own query set, neither published here."
   ],
-  "measuredAt": "2026-10-26",
+  "measuredAt": "2026-10-11",
   "protocol": {
     "baseline": "every byte of the corpus in context",
     "ours": "the declaration of the symbol that answers the question (8 lines)",
@@ -21,9 +21,9 @@
   "corpus": {
     "path": "packages/analyzer/src/graph",
     "files": 1,
-    "tokens": 3315
+    "tokens": 3313
   },
-  "corpusTokens": 3315,
+  "corpusTokens": 3313,
   "perQueryTokens": 47,
   "tokenReduction": 70.5,
   "andTheCategoryForScale": {

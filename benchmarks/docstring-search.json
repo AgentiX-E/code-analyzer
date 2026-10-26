@@ -20,10 +20,10 @@
     "queries": 191
   },
   "space": {
-    "index": "deterministic",
-    "query": "deterministic",
-    "semantic": false,
-    "reason": "onnx: createFromPackage failed: Tokenizer not found: /workspace/repos/code-analyzer/node_modules/.pnpm/@agentix-e+embed-code-node@0.1.1/node_modules/@agentix-e/embed-code-node/models/tokenizer.json · api: ZHIPU_API_KEY is not set"
+    "index": "api",
+    "query": "api",
+    "semantic": true,
+    "reason": null
   },
   "topK": 20,
   "lexical": {
@@ -37,28 +37,28 @@
       "vectorWeight": 1,
       "recallAt5": 0.9948,
       "recallAt20": 1,
-      "mrr": 0.924,
+      "mrr": 0.9849,
       "found": 191
     },
     {
       "vectorWeight": 0.5,
       "recallAt5": 0.9948,
       "recallAt20": 1,
-      "mrr": 0.9274,
+      "mrr": 0.9849,
       "found": 191
     },
     {
       "vectorWeight": 0.25,
       "recallAt5": 0.9948,
       "recallAt20": 1,
-      "mrr": 0.9274,
+      "mrr": 0.9849,
       "found": 191
     },
     {
       "vectorWeight": 0.1,
       "recallAt5": 0.9948,
       "recallAt20": 1,
-      "mrr": 0.9753,
+      "mrr": 0.9849,
       "found": 191
     }
   ],
