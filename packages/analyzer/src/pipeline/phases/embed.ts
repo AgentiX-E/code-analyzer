@@ -60,6 +60,8 @@ export interface Embedder {
  */
 /** How much of a doc comment is embedded. **A paragraph, not a file** - see the note in `generateEmbeddings`. */
 const MAX_DOCSTRING_CHARS = 600;
+/** How much of a symbol's own source is embedded. **One body, not the whole file.** */
+const MAX_BODY_CHARS = 600;
 
 export async function generateEmbeddings(
   nodes: Map<number, GraphNode>,
@@ -97,6 +99,10 @@ export async function generateEmbeddings(
     const textParts: string[] = [node.label, node.name];
     const signature = node.properties.signature;
     if (signature) textParts.push(signature);
+    // **The body before the doc comment**, because a question about behaviour is answered by what the code does - and
+    // on the paraphrase corpus the three fields above produced a vector that could not. Bounded for the same reason.
+    const body = node.properties?.['body'];
+    if (typeof body === 'string' && body.length > 0) textParts.push(body.slice(0, MAX_BODY_CHARS));
     if (node.docstring) textParts.push(node.docstring.slice(0, MAX_DOCSTRING_CHARS));
 
     embeddable.push({

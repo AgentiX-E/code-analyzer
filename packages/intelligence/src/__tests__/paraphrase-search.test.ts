@@ -87,18 +87,31 @@ function summarise(cases: QueryCase[]): Column {
   };
 }
 
-/** The identifiers a paraphrase must not contain, or it is the name lookup it is supposed to replace. */
-function forbiddenIn(query: string, name: string): boolean {
+/**
+ * Is the question the name lookup this measurement exists to replace?
+ *
+ * **Only the whole identifier disqualifies it.** The first version dropped a question that contained *any* word of the
+ * identifier, which threw away **51 of 100 samples** - and the ones it threw away were the ordinary ones: a question
+ * about `nameIn` says "name", a question about `captureAccesses` says "accesses". What survived was a biased remainder
+ * of unusual identifiers, and a recall figure over it would have described the filter rather than the retriever.
+ *
+ * The overlap is **counted instead**, and published: a reader can see how much of the query set still shares a word with
+ * the name it is asking for.
+ */
+function namesTheSymbol(query: string, name: string): boolean {
+  return query.toLowerCase().includes(name.toLowerCase());
+}
+
+/** How many of the identifier's own words the question reuses. **A diagnostic, not a filter.** */
+function sharedTokens(query: string, name: string): number {
   const haystack = query.toLowerCase();
-  if (haystack.includes(name.toLowerCase())) return true;
-  // **Any word of the identifier counts**, not only the whole thing: `extractCalls` is given away by "calls".
   return name
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/[_\-.]+/g, ' ')
     .toLowerCase()
     .split(' ')
     .filter((token) => token.length >= 4)
-    .some((token) => haystack.includes(token));
+    .filter((token) => haystack.includes(token)).length;
 }
 
 /**
@@ -143,29 +156,29 @@ function cleanCompletion(text: string): string {
 // word of the symbol's name is a lookup wearing a description's clothes, and if `forbiddenIn` were wrong every column in
 // the artifact would be inflated - both halves equally, so no gate comparing them would notice.
 describe('the paraphrase that is not a lookup', () => {
-  it('rejects a question that names the symbol', () => {
-    expect(forbiddenIn('How do I extract calls from a file?', 'extractCalls')).toBe(true);
+  it('rejects a question that names the symbol outright', () => {
+    expect(namesTheSymbol('How do I call extractCalls on a file?', 'extractCalls')).toBe(true);
   });
 
-  it('rejects a question that uses any word of a camel-cased identifier', () => {
-    // **"calls" is enough**: the point is that the asker does not know the identifier, so a question that reproduces a
-    // word of it came from somebody who did.
-    expect(forbiddenIn('where do we count the calls?', 'extractCalls')).toBe(true);
+  it('keeps a question that merely shares a word, and reports the overlap', () => {
+    // **This is the case the first filter threw away**, and it threw away half the sample doing it: a question about
+    // `extractCalls` almost has to say "calls". Dropping it biased the remaining set towards unusual identifiers.
+    expect(namesTheSymbol('where do we count the calls?', 'extractCalls')).toBe(false);
+    expect(sharedTokens('where do we count the calls?', 'extractCalls')).toBe(1);
   });
 
-  it('accepts a question about the behaviour in different words', () => {
+  it('counts no overlap for a question about the behaviour in different words', () => {
     expect(
-      forbiddenIn(
+      sharedTokens(
         'Where can I find the code that pulls method invocations out of a source file?',
         'extractCalls',
       ),
-    ).toBe(false);
+    ).toBe(0);
   });
 
   it('ignores short tokens, which too much of the corpus shares to mean anything', () => {
-    // `get` is three letters; rejecting every question that says "get" would throw the query set away. `getX` splits
-    // into two tokens that are both under the threshold, so the question stands.
-    expect(forbiddenIn('How do I get the owner of a file?', 'getX')).toBe(false);
+    // `get` is three letters; counting it would report an overlap for most questions in the corpus.
+    expect(sharedTokens('How do I get the owner of a file?', 'getX')).toBe(0);
   });
 
   it('cleans the quotes and the line breaks a model puts around an answer', () => {
@@ -259,6 +272,7 @@ describe.skipIf(!HAS_CREDENTIALS)(
       const provider = new DeepSeekProvider({ timeout: 30_000 });
       const paraphrases: Array<{ name: string; query: string }> = [];
       let dropped = 0;
+      let overlap = 0;
       for (const node of sampled) {
         const completion = await provider.complete(
           paraphrasePrompt((node.docstring ?? '').trim().slice(0, 1_000)),
@@ -267,10 +281,12 @@ describe.skipIf(!HAS_CREDENTIALS)(
         const query = cleanCompletion(completion.content);
         // **A question that names the symbol is the lookup this file exists to replace**, so it is dropped rather than
         // counted as a win for either column.
-        if (query.length < 10 || forbiddenIn(query, node.name)) {
+        if (query.length < 10 || namesTheSymbol(query, node.name)) {
           dropped += 1;
           continue;
         }
+        // **Counted, not discarded** - see `namesTheSymbol`.
+        if (sharedTokens(query, node.name) > 0) overlap += 1;
         paraphrases.push({ name: node.name, query });
       }
 
@@ -337,6 +353,9 @@ describe.skipIf(!HAS_CREDENTIALS)(
           sampled: sampled.length,
           queries: paraphrases.length,
           dropped,
+          // **How many questions still reuse a word of the name they ask for.** Reported rather than filtered, so a
+          // reader can judge the query set instead of trusting a percentage.
+          withAWordFromTheName: overlap,
         },
         space: {
           index: backend,

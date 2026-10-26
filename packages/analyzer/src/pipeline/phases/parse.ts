@@ -29,6 +29,22 @@ import type {
 // Phase 3: parse — Parse source files with language providers
 // ---------------------------------------------------------------------------
 
+/** How much of a symbol's own source is kept. **A page, not a file** - see `bodyOf`. */
+const MAX_BODY_CHARS = 800;
+
+/**
+ * The source lines a symbol spans, bounded.
+ *
+ * **`body` is what the retriever reads when the question is about behaviour** rather than about a name, and it is the
+ * only such text the graph holds for a symbol that has no doc comment.
+ */
+function bodyOf(lines: string[], startLine: number, endLine: number): { body?: string } {
+  const start = Math.max(0, startLine - 1);
+  const end = Math.min(lines.length, Math.max(endLine, startLine));
+  const text = lines.slice(start, end).join('\n').trim();
+  return text.length > 0 ? { body: text.slice(0, MAX_BODY_CHARS) } : {};
+}
+
 export class ParsePhase implements ExecutablePhase {
   readonly id: PipelinePhaseId = 'parse';
   readonly dependencies: PipelinePhaseId[] = ['scan', 'structure'];
@@ -147,6 +163,9 @@ export class ParsePhase implements ExecutablePhase {
 
           if (fileNodeId) {
             let currentClassNodeId: number | null = null;
+            // **Split once per file, not once per symbol**: the body of every symbol in a thousand-line file would
+            // otherwise cost a thousand splits of the same text.
+            const fileLines = file.content.split('\n');
 
             for (const symbol of symbols) {
               const label = symbol.kind;
@@ -163,6 +182,12 @@ export class ParsePhase implements ExecutablePhase {
                 returnType: symbol.returnType,
                 docstring: symbol.docstring,
                 ...symbol.properties,
+                // **The implementation, because nothing else in the graph holds it.** A search for what a function
+                // *does* had only its name and its types to match against: on a paraphrase corpus (the question written
+                // by a model from the documentation, with no doc comment in the index) that answered **12.2 % at top
+                // 20**, and a vector built from the same three fields could not do better - there was no text about the
+                // behaviour anywhere in the index. Bounded, because a body is a page and the vector is one string.
+                ...bodyOf(fileLines, symbol.startLine, symbol.endLine),
               };
 
               const node = builder.addNode(

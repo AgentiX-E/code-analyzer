@@ -21,6 +21,7 @@ on:
     branches: [master]
     paths:
       - 'packages/analyzer/src/pipeline/phases/embed*.ts'
+      - 'packages/analyzer/src/pipeline/phases/parse.ts'
       - 'packages/intelligence/src/search/hybrid-search.ts'
       - 'packages/intelligence/src/__tests__/paraphrase-search.test.ts'
       - 'packages/intelligence/src/__tests__/docstring-search.test.ts'
