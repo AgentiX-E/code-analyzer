@@ -3,10 +3,11 @@
 // Covers positive paths, fallback paths (raw store / no store), error catches,
 // and the semantic vector branch (via real embedding registration).
 
-import { describe, it, expect } from 'vitest';
 import { createQueryEmbedder } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl } from '../tools/tool-context.js';
+import { EDGE_CALLS, EDGE_HAS_METHOD, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
+import { describe, it, expect } from 'vitest';
+
 import {
   searchGraph,
   searchGraphSchema,
@@ -29,8 +30,9 @@ import {
   findImplementations,
   findImplementationsSchema,
 } from '../tools/querying-exploration.js';
+import { ToolContextImpl } from '../tools/tool-context.js';
+
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_HAS_METHOD, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Fixtures

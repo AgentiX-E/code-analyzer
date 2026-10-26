@@ -1,6 +1,7 @@
 // @code-analyzer/mcp — ToolContext
 // Wraps the InMemoryGraphStore and all analysis services for use by tool handlers.
 
+import { createQueryEmbedder } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   HybridSearchEngine,
@@ -12,8 +13,6 @@ import {
   CrossRepoIndexer,
   CrossRepoPRReviewEngine,
 } from '@code-analyzer/intelligence';
-
-import { createQueryEmbedder } from '@code-analyzer/analyzer';
 
 import type {
   EmbeddingBackendName,
