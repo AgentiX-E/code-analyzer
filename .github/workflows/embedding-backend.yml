@@ -22,6 +22,7 @@ on:
     paths:
       - 'packages/analyzer/src/pipeline/phases/embed*.ts'
       - 'packages/intelligence/src/search/hybrid-search.ts'
+      - 'packages/intelligence/src/__tests__/paraphrase-search.test.ts'
       - 'packages/intelligence/src/__tests__/docstring-search.test.ts'
       - '.github/workflows/embedding-backend.yml'
 
@@ -66,10 +67,11 @@ jobs:
         run: npx vitest run --config vitest.config.ts packages/analyzer/src/pipeline/phases/__tests__/embed-api.test.ts
 
       # **The credential, and the job says so when it is absent rather than reporting a fallback as a result.**
-      - name: Is the embedding credential present?
+      - name: Are the credentials present?
         id: credential
         env:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           if [ -n "$ZHIPU_API_KEY" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
@@ -77,6 +79,14 @@ jobs:
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::warning::ZHIPU_API_KEY is not configured, so the vector backend cannot run and the figure will record that."
+          fi
+          # **The paraphrase measurement needs a second credential**, because it writes its own query set. The job
+          # reports which ones it has rather than assuming, and the step below is skipped when either is absent.
+          if [ -n "$DEEPSEEK_API_KEY" ]; then
+            echo "queries=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "queries=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DEEPSEEK_API_KEY is not configured, so the paraphrase query set cannot be written and that measurement is skipped."
           fi
 
       - name: Score retrieval with vectors registered
@@ -90,6 +100,30 @@ jobs:
           # **The three columns, printed where a reader looks**: lexical on its own, and the fusion sweep. A single
           # fused number was what hid the fact that the fused answer was 36 points *worse* than the lexical one.
           grep -o 'DOCSTRING-SEARCH .*' /tmp/docstring.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # **The measurement that can say whether the semantic half earns its place.** The docstring figure cannot: there
+      # the query is the indexed text, and every column comes out at the same 1.000. Here the questions are written by
+      # DeepSeek and every doc comment is stripped from the index, so neither half can copy the words it is asked about.
+      - name: Score paraphrase retrieval, with the documentation removed from the index
+        id: paraphrase
+        if: steps.credential.outputs.queries == 'true'
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_EMBEDDING_MODEL: embedding-3
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -o pipefail
+          npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/paraphrase-search.test.ts 2>&1 | tee /tmp/paraphrase.log
+          grep -o 'PARAPHRASE-SEARCH .*' /tmp/paraphrase.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the paraphrase figure
+        if: steps.credential.outputs.queries == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: paraphrase-search
+          path: benchmarks/paraphrase-search.json
+          if-no-files-found: error
+          retention-days: 90
 
       # **The artifact is the evidence, and the gate reads it.** A job that kept the number in its log would leave the
       # matrix's cell as MISSING, which is the honest state and not the useful one.

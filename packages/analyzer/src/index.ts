@@ -104,6 +104,7 @@ export {
   // **The other half of the same invariant**: an index's vectors and a query's vector have to live in one space, so
   // the query side is built from the name the index recorded rather than from whatever backend happens to be reachable.
   createQueryEmbedder,
+  defaultEmbedderLoader,
   generateEmbeddings,
 } from './pipeline/phases/embed.js';
 export type {
