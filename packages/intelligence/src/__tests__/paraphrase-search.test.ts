@@ -34,6 +34,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DeepSeekProvider } from '../review/llm/provider.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
+import { expandToVector } from '../search/query-expansion.js';
 
 import type { GraphNode, PipelineContext } from '@code-analyzer/shared';
 
@@ -143,6 +144,17 @@ function writeQuerySet(path: string, queries: FrozenQuery[], dropped: number): v
     ) + '\n',
     'utf8',
   );
+}
+
+/** One candidate composition, measured on the same questions as the control. */
+interface VariantColumn extends Partial<Column> {
+  name: string;
+  note: string;
+  /** How many questions the model answered with a usable hypothesis. **Reported, because a missing expansion is not a
+   * missing answer** - the arm degrades to the plain question vector. */
+  hypotheses?: number;
+  /** Why this arm did not run. **An absent row reads like a passing one**, so an unmeasured variant says so. */
+  reason?: string;
 }
 
 /** The columns of one retrieval list. */
@@ -509,6 +521,134 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
       const lexicalColumn = summarise(lexical);
       const semantic = backend !== 'deterministic' && queryEmbedder !== null;
 
+      // -----------------------------------------------------------------------------------------------------------
+      // Two candidate compositions, measured on the same ninety-nine questions.
+      // -----------------------------------------------------------------------------------------------------------
+      //
+      // **A variant is worth measuring only if it shares everything but the thing it changes.** Both of these run on
+      // the same stripped corpus, the same lexical lists and the same fusion weight (1); they differ in the text the
+      // index vector is built from and, for the second, in the vector the query is searched with. **Neither is the
+      // product default until its column beats the control**, which is why `embeddingText` takes the option instead of
+      // shipping it.
+      const variants: VariantColumn[] = [];
+
+      if (queryEmbedder) {
+        // **`path`**: the file's path joins the embedded text. It is free at query time, and the miss list from the
+        // control run is *topical* rather than lexical - ArkUI decorators, tree-sitter parsing, taint sinks - which is
+        // the kind of gap a directory name closes and an identifier cannot.
+        const withPath = await generateEmbeddings(stripped, defaultEmbedderLoader, {
+          includePath: true,
+        });
+        const pathVectors = new Map(
+          withPath.results.map((result) => [result.nodeId, result.embedding]),
+        );
+        const pathStore = new InMemoryGraphStore();
+        const pathVectorByStoreId = new Map<number, Float32Array>();
+        for (const node of stripped.values()) {
+          const vector = pathVectors.get(node.id);
+          const storeId = pathStore.insertNode({
+            ...node,
+            properties: vector
+              ? { ...node.properties, embedding: vector, embeddingBackend: withPath.backend }
+              : node.properties,
+          });
+          if (vector) pathVectorByStoreId.set(storeId, Float32Array.from(vector));
+        }
+        const pathQueryEmbedder = await createQueryEmbedder(withPath.backend);
+        const pathHybrid = new HybridSearchEngine(pathStore);
+        pathHybrid.initialize();
+        if (pathQueryEmbedder) {
+          pathHybrid.registerEmbeddings(
+            (nodeId) => pathVectorByStoreId.get(nodeId) ?? null,
+            (text) => pathQueryEmbedder.embed(text),
+          );
+        }
+
+        /** One fused column over a list of semantic rankings - **the same arithmetic as the sweep above**. */
+        const fuse = (
+          lists: Array<Array<{ node: GraphNode; score: number }>>,
+          vectorWeight: number,
+        ): Column =>
+          summarise(
+            paraphrases.map((candidate, index) => {
+              const fused = hybrid.fuseResults(
+                lexicalLists[index]!.slice(0, TOP_K).map((hit) => ({
+                  node: hit.node,
+                  score: hit.score,
+                })),
+                (lists[index] ?? []).map((hit) => ({ node: hit.node, score: hit.score })),
+                60,
+                TOP_K,
+                vectorWeight,
+              );
+              const rank = fused.findIndex(
+                (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
+              );
+              return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+            }),
+          );
+
+        // **The second index has to live in the same space as the first**, or the comparison is between two models. A
+        // run that hit the endpoint's limit falls back to hash vectors, and a hash index would answer this corpus with
+        // noise that could still clear the lexical floor - so the arm is refused rather than published.
+        if (pathQueryEmbedder && withPath.backend !== backend) {
+          variants.push({
+            name: 'path',
+            note: 'the file path joins the embedded text; query side unchanged',
+            reason: `the control index is ${backend} and the second came back as ${withPath.backend} — two spaces do not compare`,
+          });
+        } else if (pathQueryEmbedder) {
+          const pathLists: Array<Array<{ node: GraphNode; score: number }>> = [];
+          for (const candidate of paraphrases) {
+            pathLists.push(await pathHybrid.vectorSearch(candidate.query, TOP_K, null));
+          }
+          variants.push({
+            name: 'path',
+            note: 'the file path joins the embedded text; query side unchanged',
+            ...fuse(pathLists, 1),
+          });
+
+          // **`path + hyde`**: the query vector is the mean of the question and an implementation DeepSeek writes for
+          // it. **The hypothesis lives in the corpus's vocabulary** - names, types, call shape - while the question does
+          // not, which is the asymmetry this arm exists to test.
+          if (CAN_WRITE_QUERIES) {
+            const provider = new DeepSeekProvider({ timeout: 30_000 });
+            const hydeLists: Array<Array<{ node: GraphNode; score: number }>> = [];
+            let hypotheses = 0;
+            for (const candidate of paraphrases) {
+              const expanded = await expandToVector(candidate.query, provider, (text) =>
+                pathQueryEmbedder.embed(text),
+              );
+              if (expanded.hypothesis.length > 0) hypotheses += 1;
+              // **The precomputed vector**, because the query is no longer one string.
+              hydeLists.push(
+                await pathHybrid.vectorSearch(candidate.query, TOP_K, null, expanded.vector),
+              );
+            }
+            variants.push({
+              name: 'path+hyde',
+              note: 'the file path joins the embedded text; the query vector is the mean of the question and a hypothesis',
+              hypotheses,
+              ...fuse(hydeLists, 1),
+            });
+          } else {
+            variants.push({
+              name: 'path+hyde',
+              note: 'the file path joins the embedded text; the query vector is the mean of the question and a hypothesis',
+              reason:
+                'DEEPSEEK_API_KEY is absent, so no hypothesis can be written and this arm did not run',
+            });
+          }
+          await pathQueryEmbedder.dispose().catch(() => undefined);
+        } else {
+          variants.push({
+            name: 'path',
+            note: 'the file path joins the embedded text; query side unchanged',
+            reason: `the index holds ${withPath.backend} vectors and no query embedder could join that space`,
+          });
+        }
+      }
+
       const artifact = {
         comment: [
           'Recall at top-k for a symbol queried by a paraphrase of its documentation, with **no doc comment in the index**.',
@@ -553,6 +693,7 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         },
         topK: TOP_K,
         lexical: lexicalColumn,
+        variants,
         semanticSweep: sweep,
         // The row the product runs - see the note in `docstring-search.test.ts`.
         fused: { ...(sweep.find((row) => row.vectorWeight === 1) ?? sweep[0]) },
@@ -580,7 +721,10 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
       console.log(
         `PARAPHRASE-SEARCH queries=${paraphrases.length} dropped=${dropped} space=${backend}/${queryEmbedder?.backend ?? 'none'} ` +
           `lexical@5=${lexicalColumn.recallAt5} @20=${lexicalColumn.recallAt20} mrr=${lexicalColumn.mrr} ` +
-          `sweep=${sweep.map((s) => `${s.vectorWeight}:@20=${s.recallAt20}/mrr=${s.mrr}`).join(' ')}`,
+          `sweep=${sweep.map((s) => `${s.vectorWeight}:@20=${s.recallAt20}/mrr=${s.mrr}`).join(' ')} ` +
+          `variants=${variants
+            .map((v) => `${v.name}:@20=${v.recallAt20 ?? '-'}/mrr=${v.mrr ?? '-'}`)
+            .join(' ')}`,
       );
 
       // **The only claim this file can make without a semantic half**: the questions are answerable at all on an index
@@ -598,6 +742,17 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         expect(best.mrr, `best weight ${best.vectorWeight} MRR`).toBeGreaterThanOrEqual(
           lexicalColumn.mrr,
         );
+      }
+
+      // **Every variant is held to the same floor the product is**: a composition that answers fewer questions than the
+      // lexical list is not an improvement, whatever it does to the order. **A variant that did not run is not held to
+      // it** - it carries a `reason` instead, and the artifact shows both states.
+      for (const variant of variants) {
+        if (variant.reason) continue;
+        expect(
+          variant.recallAt20,
+          `${variant.name} answered ${variant.recallAt20 ?? 0} recall@20 against lexical ${lexicalColumn.recallAt20}`,
+        ).toBeGreaterThanOrEqual(lexicalColumn.recallAt20);
       }
     }, 3_600_000);
   },

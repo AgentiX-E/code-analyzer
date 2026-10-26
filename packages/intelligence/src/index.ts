@@ -4,6 +4,17 @@
 // Search
 export { HybridSearchEngine, tokenize, cosineSimilarity } from './search/hybrid-search.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
+// **Query expansion is a public capability of the semantic half**, not a detail of one measurement: `search_code` will
+// use it behind a flag, and a caller that supplies its own provider gets the same prompt and the same mean.
+export {
+  MIN_HYPOTHESIS_CHARS,
+  cleanHypothesis,
+  expandQuestion,
+  expandToVector,
+  hydePrompt,
+  meanVector,
+} from './search/query-expansion.js';
+export type { ExpandedQuery, ExpansionOptions } from './search/query-expansion.js';
 
 // Dataflow Search (5th Search Dimension)
 export { DataflowSearchEngine } from './search/dataflow-search.js';

@@ -105,10 +105,12 @@ export {
   // the query side is built from the name the index recorded rather than from whatever backend happens to be reachable.
   createQueryEmbedder,
   defaultEmbedderLoader,
+  embeddingText,
   generateEmbeddings,
 } from './pipeline/phases/embed.js';
 export type {
   EmbeddingBackendName,
+  EmbeddingTextOptions,
   NamedEmbedder,
   QueryEmbedder,
 } from './pipeline/phases/embed.js';

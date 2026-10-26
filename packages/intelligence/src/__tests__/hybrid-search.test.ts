@@ -850,6 +850,52 @@ describe('HybridSearchEngine — inverted index edge cases', () => {
 // ---------------------------------------------------------------------------
 
 describe('HybridSearchEngine — vectorSearch branches', () => {
+  it('searches with a vector the caller already has, and does not embed the query', async () => {
+    // **The expanded-query path**: the vector is the mean of a question and a hypothesis, so there is no single string
+    // to embed. A cosine against node 1's vector has to rank node 1 first, and the embedder must never be called.
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'calls', qualifiedName: 'pkg.calls' }));
+    store.insertNode(createNode(2, { name: 'other', qualifiedName: 'pkg.other' }));
+
+    const engine = new HybridSearchEngine(store);
+    const emb = new Map<number, Float32Array>();
+    emb.set(1, new Float32Array([1, 0]));
+    emb.set(2, new Float32Array([0, 1]));
+    let embedded = 0;
+    engine.registerEmbeddings(
+      (nodeId) => emb.get(nodeId) ?? null,
+      async () => {
+        embedded += 1;
+        return new Float32Array([0, 1]);
+      },
+    );
+
+    const results = await engine.vectorSearch('ignored', 2, null, new Float32Array([1, 0]));
+    expect(results[0]?.node.name).toBe('calls');
+    expect(embedded).toBe(0);
+  });
+
+  it('works with a precomputed vector and no embedder registered at all', async () => {
+    // **A caller that has the vector does not need the endpoint**: the query side of a measurement is often computed
+    // once and reused, and requiring an embedContent function would make that caller register a function it never uses.
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'a', qualifiedName: 'pkg.a' }));
+    const engine = new HybridSearchEngine(store);
+    engine.registerEmbeddings(() => new Float32Array([1, 0]), undefined);
+
+    const results = await engine.vectorSearch('q', 1, null, new Float32Array([1, 0]));
+    expect(results).toHaveLength(1);
+  });
+
+  it('returns nothing when neither a vector nor an embedder is available', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'a', qualifiedName: 'pkg.a' }));
+    const engine = new HybridSearchEngine(store);
+    engine.registerEmbeddings(() => new Float32Array([1, 0]));
+
+    expect(await engine.vectorSearch('q', 1)).toEqual([]);
+  });
+
   it('should accept candidateIds for scoped vector search', async () => {
     const store = new InMemoryGraphStore();
     store.insertNode(createNode(1, { name: 'target', qualifiedName: 'pkg.target' }));

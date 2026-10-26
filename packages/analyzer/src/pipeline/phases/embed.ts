@@ -63,6 +63,50 @@ const MAX_DOCSTRING_CHARS = 600;
 /** How much of a symbol's own source is embedded. **One body, not the whole file.** */
 const MAX_BODY_CHARS = 600;
 
+/**
+ * What goes into one symbol's vector.
+ *
+ * **A function rather than a block inside `generateEmbeddings`, because the composition is the thing under
+ * measurement.** The paraphrase corpus answers 0.4747 recall@20 with `label · name · signature · body`, and the miss
+ * list is topical - questions about ArkUI decorators, tree-sitter parsing and taint sinks that share no word with any
+ * identifier. **A path is the cheapest topical signal a repository has**, and comparing two compositions requires that
+ * both be produced by the same code path rather than by a copy inside a test.
+ */
+export interface EmbeddingTextOptions {
+  /**
+   * Whether the file's path joins the text. **Off by default, because it is not yet measured into the product**: the
+   * comparison runs in `paraphrase-search.test.ts` and the default flips only when the column beats this one.
+   */
+  includePath?: boolean;
+}
+
+/** The text one symbol's vector is built from. */
+export function embeddingText(
+  node: GraphNode,
+  options: EmbeddingTextOptions = {},
+  limits: { body?: number; docstring?: number } = {},
+): string {
+  // **The doc comment is the only natural-language text a repository has about a symbol, and it was not being
+  // embedded.** The vector for `extractCalls` was built from `Function extractCalls(source: string)` alone, so a user
+  // asking "extract method calls from source" was comparing a description against an identifier and a type list -
+  // and on `pallets/flask` that lost. Bounded here rather than at the call site so a measurement can vary it.
+  const maxDocstring = limits.docstring ?? MAX_DOCSTRING_CHARS;
+  const maxBody = limits.body ?? MAX_BODY_CHARS;
+
+  const textParts: string[] = [node.label, node.name];
+  // **The path before the name**, so the topical signal is at the head of the string where a truncated input keeps it.
+  if (options.includePath && node.filePath) textParts.push(node.filePath.split('/').join(' '));
+  const signature = node.properties.signature;
+  if (signature) textParts.push(signature);
+  // **The body before the doc comment**, because a question about behaviour is answered by what the code does - and
+  // on the paraphrase corpus the three fields above produced a vector that could not. Bounded for the same reason.
+  const body = node.properties?.['body'];
+  if (typeof body === 'string' && body.length > 0) textParts.push(body.slice(0, maxBody));
+  if (node.docstring) textParts.push(node.docstring.slice(0, maxDocstring));
+
+  return textParts.filter((part) => part.length > 0).join(' ');
+}
+
 export async function generateEmbeddings(
   nodes: Map<number, GraphNode>,
   /**
@@ -74,6 +118,11 @@ export async function generateEmbeddings(
    * one the whole semantic half depends on.
    */
   loadEmbedder: () => Promise<NamedEmbedder | null> = defaultEmbedderLoader,
+  /**
+   * **Which composition of a symbol becomes its text.** Defaults to the product's, so a caller that does not care gets
+   * the shipped behaviour; the measurement passes the alternative it is comparing.
+   */
+  textOptions: EmbeddingTextOptions = {},
 ): Promise<{
   results: EmbeddingResult[];
   backend: EmbeddingBackendName;
@@ -88,27 +137,7 @@ export async function generateEmbeddings(
     if (node.label === 'File' || node.label === 'Folder' || node.label === 'Project') continue;
     if (!node.name) continue;
 
-    // **The doc comment is the only natural-language text a repository has about a symbol, and it was not being
-    // embedded.** The vector for `extractCalls` was built from `Function extractCalls(source: string)` alone, so a user
-    // asking "extract method calls from source" was comparing a description against an identifier and a type list -
-    // and on `pallets/flask` that lost. Measured on this repository: **lexical recall@20 1.000, hybrid recall@20 0.638**
-    // while the only difference between the two lists was a vector built without the words in question.
-    //
-    // **Bounded, because a doc comment is not always short**: 600 characters is roughly the length of a documentation
-    // paragraph and keeps one symbol's request inside the endpoint's per-input limit.
-    const textParts: string[] = [node.label, node.name];
-    const signature = node.properties.signature;
-    if (signature) textParts.push(signature);
-    // **The body before the doc comment**, because a question about behaviour is answered by what the code does - and
-    // on the paraphrase corpus the three fields above produced a vector that could not. Bounded for the same reason.
-    const body = node.properties?.['body'];
-    if (typeof body === 'string' && body.length > 0) textParts.push(body.slice(0, MAX_BODY_CHARS));
-    if (node.docstring) textParts.push(node.docstring.slice(0, MAX_DOCSTRING_CHARS));
-
-    embeddable.push({
-      nodeId,
-      text: textParts.filter((part) => part.length > 0).join(' '),
-    });
+    embeddable.push({ nodeId, text: embeddingText(node, textOptions) });
   }
 
   if (embeddable.length === 0) return { results, backend: 'deterministic', reason: null };

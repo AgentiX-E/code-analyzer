@@ -428,15 +428,24 @@ export class HybridSearchEngine {
     query: string,
     topK: number,
     candidateIds?: number[] | null,
+    /**
+     * **A vector the caller already has, instead of one embedded from `query`.**
+     *
+     * The query side is not always one string: an expanded query is the mean of the question and a hypothesis, and a
+     * caller that measures two compositions of the same question would otherwise have to register a different embedder
+     * per call. **The vector is scored against the index as it is** - there is no second space here, because the caller
+     * produced it with the backend the index recorded.
+     */
+    queryVector?: Float32Array | null,
   ): Promise<RankedResult[]> {
     const results: RankedResult[] = [];
 
-    if (!this.embedContent || !this.getEmbeddingForNode) {
+    if (!this.getEmbeddingForNode || (!this.embedContent && !queryVector)) {
       return results;
     }
 
     // Compute query embedding
-    const queryEmbedding = await this.embedContent(query);
+    const queryEmbedding = queryVector ?? (await this.embedContent!(query));
 
     // Determine which nodes to score
     let nodesToScore: GraphNode[];

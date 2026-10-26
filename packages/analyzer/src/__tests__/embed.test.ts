@@ -11,6 +11,7 @@ import {
   EmbedPhase,
   createQueryEmbedder,
   defaultEmbedderLoader,
+  embeddingText,
   generateEmbeddings,
   loadRealEmbedder,
 } from '../pipeline/phases/embed.js';
@@ -150,6 +151,51 @@ describe('generateEmbeddings — the doc comment is part of the text', () => {
       const byId = new Map(results.map((r) => [r.nodeId, r.embedding]));
       expect(byId.get(described.id)).not.toEqual(byId.get(bare.id));
     });
+  });
+});
+
+describe("embeddingText — what one symbol's vector is built from", () => {
+  it('reads label, name, signature, body and doc comment', () => {
+    const { graph, builder } = buildGraph();
+    const node = builder.addNode(graph, 'Function', 'extractCalls', {
+      name: 'extractCalls',
+      signature: 'function extractCalls(source: string): Call[]',
+      body: 'return parse(source).filter(isCall);',
+      docstring: 'Extract every method call from a source file.',
+    });
+
+    expect(embeddingText(node)).toBe(
+      'Function extractCalls function extractCalls(source: string): Call[] ' +
+        'return parse(source).filter(isCall); Extract every method call from a source file.',
+    );
+  });
+
+  it('leaves the path out by default and puts it in front when asked', () => {
+    // **The comparison this protects is the one running in `paraphrase-search.test.ts`**: the same symbol, two
+    // compositions, one difference. The default is the shipped one, so a measurement that forgets the option measures
+    // the product rather than a variant.
+    const { graph, builder } = buildGraph();
+    const node = builder.addNode(graph, 'Function', 'walk', { name: 'walk' });
+    node.filePath = 'src/arkui/decorators.ts';
+
+    expect(embeddingText(node)).toBe('Function walk');
+    expect(embeddingText(node, { includePath: true })).toBe(
+      'Function walk src arkui decorators.ts',
+    );
+  });
+
+  it('bounds the body and the doc comment, and can be told the bound', () => {
+    const { graph, builder } = buildGraph();
+    const node = builder.addNode(graph, 'Function', 'long', {
+      name: 'long',
+      body: 'x'.repeat(50),
+      docstring: 'y'.repeat(50),
+    });
+
+    expect(embeddingText(node, {}, { body: 5, docstring: 5 })).toBe('Function long xxxxx yyyyy');
+    // A symbol with nothing but a name is still embeddable, and produces no stray whitespace.
+    const bare = builder.addNode(graph, 'Function', 'bare', { name: 'bare' });
+    expect(embeddingText(bare)).toBe('Function bare');
   });
 });
 
