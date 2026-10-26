@@ -1,0 +1,98 @@
+{
+  "comment": [
+    "Recall at top-k for a symbol queried by a paraphrase of its documentation, with **no doc comment in the index**.",
+    "",
+    "**The doc comment is the query and not part of the document**, which is what makes this different from",
+    "`docstring-search.json`: there the retriever can copy the words it is asked about, and every column comes out",
+    "at the same 1.000 for that reason.",
+    "",
+    "**The questions are written by DeepSeek from the documentation**, with a rule against using the symbol name,",
+    "and a question that still contains one is dropped and counted in `dropped`. **The set is frozen in",
+    "`benchmarks/paraphrase-queries.json`** so that two runs differ in the retriever and not in the questions.",
+    "",
+    "**Every column is measured at the same cut**: `recallAt20` counts answers inside the top 20, `mrr` gives a rank",
+    "beyond 20 the value 0, and `found` is `found@20`. The lexical list is unbounded, so an arithmetic that counted",
+    "any rank would have measured a longer list against a shorter one.",
+    "",
+    "**Both columns run on the same index**: BM25 over name/signature only, and the same list fused with one",
+    "semantic ranking at each weight."
+  ],
+  "measuredAt": "2026-10-26",
+  "querySet": {
+    "source": "generated",
+    "path": "benchmarks/paraphrase-queries.json",
+    "size": 99
+  },
+  "corpus": {
+    "path": "packages/analyzer/src/languages",
+    "nodes": 3357,
+    "queries": 99,
+    "dropped": 1,
+    "withAWordFromTheName": 52
+  },
+  "space": {
+    "index": "api",
+    "query": "api",
+    "semantic": true,
+    "reason": null
+  },
+  "topK": 20,
+  "lexical": {
+    "recallAt5": 0.1515,
+    "recallAt20": 0.2929,
+    "mrr": 0.1051,
+    "found": 29
+  },
+  "semanticSweep": [
+    {
+      "vectorWeight": 1,
+      "recallAt5": 0.3434,
+      "recallAt20": 0.4747,
+      "mrr": 0.2274,
+      "found": 47
+    },
+    {
+      "vectorWeight": 0.5,
+      "recallAt5": 0.2626,
+      "recallAt20": 0.2929,
+      "mrr": 0.1711,
+      "found": 29
+    },
+    {
+      "vectorWeight": 0.25,
+      "recallAt5": 0.2626,
+      "recallAt20": 0.2929,
+      "mrr": 0.1705,
+      "found": 29
+    },
+    {
+      "vectorWeight": 0.1,
+      "recallAt5": 0.202,
+      "recallAt20": 0.2929,
+      "mrr": 0.1386,
+      "found": 29
+    }
+  ],
+  "fused": {
+    "vectorWeight": 1,
+    "recallAt5": 0.3434,
+    "recallAt20": 0.4747,
+    "mrr": 0.2274,
+    "found": 47
+  },
+  "target": {
+    "recall": 0.9,
+    "competitorRecall": 0.75,
+    "competitor": "Cody, quoted by the whitepaper"
+  },
+  "misses": [
+    "walkAndCapture: How do I find the name of a component declared with a decorator in ArkUI code?",
+    "captureAccesses: How do I log each name found beneath a given element?",
+    "trailingName: How do I get the final part of a fully qualified name?",
+    "captureAccesses: How do I log each name found beneath a given element?",
+    "extractIncludePath: How do I remove surrounding punctuation from an included file path?",
+    "captureAccesses: How do I log each name found beneath a given element?",
+    "extractImportPath: How do I get the thing a using directive points to?",
+    "extractTaintSinks: How do I mark expressions that inject CSS as unsafe sinks?"
+  ]
+}

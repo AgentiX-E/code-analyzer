@@ -76,16 +76,35 @@ interface QueryCase {
 
 /** A frozen question, and the symbol whose behaviour it describes. */
 interface FrozenQuery {
-  /** **The file is part of the answer**: `parse` is defined in nine languages in this corpus, so a name alone is not it. */
-  filePath: string;
+  /** **The file is part of the answer**, as a path inside the corpus - see `stripRoot`. */
+  file: string;
+  /** The symbol's qualified name **with the corpus root removed**, because the graph builds it from an absolute path. */
   qualifiedName: string;
   name: string;
   query: string;
 }
 
+/**
+ * A value with the corpus root removed, so two machines agree.
+ *
+ * **The graph builds qualified names out of absolute paths** - `project:<id>:file:/home/runner/work/…/arkts.ts:name` -
+ * so a frozen set that stored them verbatim matched nothing on any other machine, and the failure would have looked
+ * like a retrieval miss rather than a portability defect. **Seventy of ninety-nine questions failed to match** when the
+ * set was first committed, which is how the defect was found. Stripping the root at both ends makes the identity
+ * relative without changing what the graph holds; making the graph itself relative is a separate change, tracked in the
+ * roadmap, because `filePath` is absolute for every reader in every phase.
+ */
+function stripRoot(rootPath: string, value: string): string {
+  const root = resolve(rootPath);
+  return value.split(`${root}/`).join('').split(`${root}\\`).join('');
+}
+
 /** The key a hit is matched on. **File and qualified name together, because the corpus reuses both alone.** */
-function answerKey(node: { filePath?: string | null; qualifiedName: string }): string {
-  return `${node.filePath ?? ''}::${node.qualifiedName}`;
+function answerKey(
+  node: { filePath?: string | null; qualifiedName: string },
+  rootPath: string,
+): string {
+  return `${stripRoot(rootPath, node.filePath ?? '')}::${stripRoot(rootPath, node.qualifiedName)}`;
 }
 
 /** The committed question set, or `null` when there is none yet. */
@@ -304,11 +323,17 @@ describe('the recall arithmetic', () => {
     expect(column.mrr).toBe(0.25);
   });
 
-  it('matches an answer by file and qualified name, because the corpus reuses both alone', () => {
-    expect(answerKey({ filePath: 'a/one.ts', qualifiedName: 'parse' })).not.toBe(
-      answerKey({ filePath: 'b/two.ts', qualifiedName: 'parse' }),
-    );
-    expect(answerKey({ filePath: null, qualifiedName: 'parse' })).toBe('::parse');
+  it('matches an answer with the corpus root removed, so two machines agree', () => {
+    // **The absolute path a runner hands out and the relative one the frozen set stores are the same answer**, and the
+    // qualified name of a file-scoped symbol carries that absolute path inside it.
+    const root = '/home/runner/work/code-analyzer/code-analyzer/packages/analyzer/src/languages';
+    expect(
+      answerKey(
+        { filePath: `${root}/arkts.ts`, qualifiedName: `project:p:file:${root}/arkts.ts:walk` },
+        root,
+      ),
+    ).toBe('arkts.ts::project:p:file:arkts.ts:walk');
+    expect(answerKey({ filePath: null, qualifiedName: 'parse' }, root)).toBe('::parse');
   });
 });
 
@@ -316,9 +341,14 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
   'finding a symbol from a paraphrase, with its documentation removed',
   () => {
     it('measures lexical and fused recall on an index that holds no doc comments', async () => {
+      // **The root the graph was built from, and the one both sides of every match are normalised against.**
+      const corpusRoot = resolve(process.cwd(), CORPUS);
+      const frozenKey = (candidate: FrozenQuery): string =>
+        `${candidate.file}::${candidate.qualifiedName}`;
+
       const ctx = {
         projectId: 'paraphrase-search',
-        rootPath: resolve(process.cwd(), CORPUS),
+        rootPath: corpusRoot,
         config: getDefaultConfig(),
         signal: new AbortController().signal,
         metadata: {},
@@ -390,10 +420,10 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         paraphrases.push(...frozen.queries);
         // **A question about a symbol the corpus no longer has is a broken measurement, not a miss.** Silently scoring
         // it as a retrieval failure would turn a corpus edit into a regression of the retriever.
-        const present = new Set([...stripped.values()].map((node) => answerKey(node)));
-        const unknown = paraphrases.filter((candidate) => !present.has(answerKey(candidate)));
+        const present = new Set([...stripped.values()].map((node) => answerKey(node, corpusRoot)));
+        const unknown = paraphrases.filter((candidate) => !present.has(frozenKey(candidate)));
         expect(
-          unknown.map((candidate) => answerKey(candidate)),
+          unknown.map((candidate) => frozenKey(candidate)),
           `${QUERY_SET} asks about symbols this corpus no longer contains; regenerate it`,
         ).toEqual([]);
       } else {
@@ -421,7 +451,7 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
             continue;
           }
           paraphrases.push({
-            filePath: node.filePath ?? '',
+            file: stripRoot(corpusRoot, node.filePath ?? ''),
             qualifiedName: node.qualifiedName,
             name: node.name,
             query,
@@ -443,7 +473,7 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
       );
       const lexical: QueryCase[] = paraphrases.map((candidate, index) => {
         const rank = lexicalLists[index]!.findIndex(
-          (hit) => answerKey(hit.node) === answerKey(candidate),
+          (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
         );
         return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
       });
@@ -468,7 +498,9 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
             TOP_K,
             vectorWeight,
           );
-          const rank = fused.findIndex((hit) => answerKey(hit.node) === answerKey(candidate));
+          const rank = fused.findIndex(
+            (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
+          );
           return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
         });
         return { vectorWeight, ...summarise(cases) };

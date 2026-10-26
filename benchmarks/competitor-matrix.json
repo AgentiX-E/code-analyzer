@@ -456,6 +456,17 @@
       },
       "note": "the artifact reports a lexical column, a sweep and the row the product runs; `space.semantic: false` means either side of the cosine was the hash fallback, which makes every column the lexical figure again"
     },
+    "retrieval.paraphrase.recall.withVectors": {
+      "category": "C",
+      "axis": "paraphrase search recall at 20 with vectors registered, at the product default weight",
+      "artifact": "benchmarks/paraphrase-search.json",
+      "read": ["fused", "recallAt20"],
+      "invalidWhen": {
+        "path": ["space", "semantic"],
+        "equals": false
+      },
+      "note": "the only retrieval figure whose query is not the indexed text: the questions are written from the doc comments and every doc comment is stripped from the index, so neither half can copy the words it is asked about. `space.semantic: false` means the column is the lexical figure again"
+    },
     "indexing.secondsPerMillionLines": {
       "category": "A",
       "axis": "indexing seconds per million lines",

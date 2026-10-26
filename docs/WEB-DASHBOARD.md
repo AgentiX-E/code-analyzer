@@ -50,10 +50,29 @@ Reciprocal Rank Fusion. The weights, and whether the semantic half runs at all, 
   (nomic-embed-code), `deterministic` (the offline hash fallback), or **`none`** when the graph holds no vectors.
 - **`searchMethod`** is per item: `hybrid (BM25 + vector)`, `BM25 only (no vector match)`, or `BM25 text search`.
 - **The query vector is always built in the index's space.** A cosine between two models is noise, so a mismatch is
-  refused rather than averaged — see `createQueryEmbedder`. Measured on this repository, on the runner
-  (`benchmarks/docstring-search.json`, reproduced by the `Embedding Backend` workflow): **before** the rule, fused
-  recall@20 **0.638** against lexical **1.000**; **with** it, `index: api`/`query: api` and every fusion weight back at
-  **1.000 recall@20 / 0.9849 MRR**, identical to the lexical column.
+  refused rather than averaged — see `createQueryEmbedder`. Measured on this repository, on the runner: **before** the
+  rule, fused recall@20 **0.638** against lexical **1.000**; **with** it, `index: api`/`query: api` and every fusion
+  weight back at **1.000 recall@20**, identical to the lexical column.
+
+Two figures decide whether that semantic half earns its slots, and both come from `Embedding Backend`
+(`benchmarks/docstring-search.json`, `benchmarks/paraphrase-search.json`):
+
+| corpus                                                 | column          | recall@5   | recall@20  | MRR        |
+| ------------------------------------------------------ | --------------- | ---------- | ---------- | ---------- |
+| a symbol's own doc comment (191 queries)               | lexical         | 0.9948     | 1.000      | 0.9849     |
+|                                                        | fused, weight 1 | 0.9791     | 1.000      | 0.9615     |
+| a paraphrase of it, doc comments stripped (99 queries) | lexical         | 0.1515     | 0.2929     | 0.1051     |
+|                                                        | fused, weight 1 | **0.3434** | **0.4747** | **0.2274** |
+
+**The docstring corpus cannot separate the two halves** — the query _is_ the indexed text, so both columns sit at
+1.000 and the fusion only costs a little ordering. **The paraphrase corpus can, and there the semantic half is worth
+2.3× at top five, 62 % at top twenty and 2.2× in MRR**, on an index that holds no doc comment at all. Its questions are
+a committed dataset (`benchmarks/paraphrase-queries.json`), so the next run measures a different retriever against the
+same 99 questions.
+
+> The paraphrase artifact used to report lexical **0.5455**. It was measuring `rank !== null` on an unbounded list —
+> "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.2929**, and
+> the twenty-five points that made the semantic half look like a regression were the arithmetic's.
 
 ### 3. Dashboard
 

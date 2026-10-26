@@ -1,0 +1,614 @@
+{
+  "comment": [
+    "Questions written by DeepSeek from the doc comments of one corpus, with the symbol each one asks about.",
+    "",
+    "**This file is an input, not a report.** `paraphrase-search.test.ts` reads it on every run so that two retrievers",
+    "are compared on the same questions; `PARAPHRASE_REGENERATE=1` rewrites it, which invalidates every figure measured",
+    "before the rewrite. The prompt forbids the symbol's own name, and a question that still contains it is `dropped`",
+    "here rather than counted as a win for either column.",
+    "",
+    "**`file` and `qualifiedName` are stored with the corpus root removed**, because the graph builds both from an",
+    "absolute path: the first set committed here matched 29 of its own 99 questions on a second machine, and the 70",
+    "misses would have been scored as retrieval failures."
+  ],
+  "corpus": "packages/analyzer/src/languages",
+  "generatedAt": "2026-10-26",
+  "generator": "deepseek-chat · paraphrasePrompt",
+  "dropped": 1,
+  "queries": [
+    {
+      "file": "arkts.ts",
+      "qualifiedName": "project:paraphrase-search:ArkTSProvider.walkAndCapture",
+      "name": "walkAndCapture",
+      "query": "How do I find the name of a component declared with a decorator in ArkUI code?"
+    },
+    {
+      "file": "bash.ts",
+      "qualifiedName": "project:paraphrase-search:BashProvider.getCommandName",
+      "name": "getCommandName",
+      "query": "How do I get the name of a command node, including quoted or dynamic names?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.captureAccesses",
+      "name": "captureAccesses",
+      "query": "How do I log each name found beneath a given element?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.emitParameterDefs",
+      "name": "emitParameterDefs",
+      "query": "How do I record a definition for each function parameter so arguments can be matched to bindings?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.extractFunctionNameNode",
+      "name": "extractFunctionNameNode",
+      "query": "How do I get the name from a function declarator node?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.extractIncludePath",
+      "name": "extractIncludePath",
+      "query": "How do I get the actual file path from an include directive?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.extractTypeNameNode",
+      "name": "extractTypeNameNode",
+      "query": "How do I get the name of a class, struct, or enum from its declaration?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.functionDeclarators",
+      "name": "functionDeclarators",
+      "query": "How do I get the function declarator from a definition through pointer or reference wrappers?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.isInAnonymousNamespace",
+      "name": "isInAnonymousNamespace",
+      "query": "Is this node inside an unnamed scope?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.memberName",
+      "name": "memberName",
+      "query": "How do I get the name of the field being accessed?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.nameIn",
+      "name": "nameIn",
+      "query": "How do I get the name declared inside a declarator?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.namesUnder",
+      "name": "namesUnder",
+      "query": "How do I list all identifiers under a node in document order without revisiting?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:CppProvider.trailingName",
+      "name": "trailingName",
+      "query": "How do I get the final part of a fully qualified name?"
+    },
+    {
+      "file": "c.ts",
+      "qualifiedName": "project:paraphrase-search:CProvider.captureAccesses",
+      "name": "captureAccesses",
+      "query": "How do I log each name found beneath a given element?"
+    },
+    {
+      "file": "c.ts",
+      "qualifiedName": "project:paraphrase-search:CProvider.emitParameterDefs",
+      "name": "emitParameterDefs",
+      "query": "How do I record a definition for each function parameter so arguments can be matched to them?"
+    },
+    {
+      "file": "c.ts",
+      "qualifiedName": "project:paraphrase-search:CProvider.extractFunctionNameNode",
+      "name": "extractFunctionNameNode",
+      "query": "How do I get the name of a function from its declarator?"
+    },
+    {
+      "file": "c.ts",
+      "qualifiedName": "project:paraphrase-search:CProvider.extractIncludePath",
+      "name": "extractIncludePath",
+      "query": "How do I remove surrounding punctuation from an included file path?"
+    },
+    {
+      "file": "c.ts",
+      "qualifiedName": "project:paraphrase-search:CProvider.nameIn",
+      "name": "nameIn",
+      "query": "How do I get the name declared inside a complex declaration?"
+    },
+    {
+      "file": "c.ts",
+      "qualifiedName": "project:paraphrase-search:CProvider.namesUnder",
+      "name": "namesUnder",
+      "query": "How do I list all identifiers under a node in document order without revisiting?"
+    },
+    {
+      "file": "csharp.ts",
+      "qualifiedName": "project:paraphrase-search:CSharpProvider.captureAccesses",
+      "name": "captureAccesses",
+      "query": "How do I log each name found beneath a given element?"
+    },
+    {
+      "file": "csharp.ts",
+      "qualifiedName": "project:paraphrase-search:CSharpProvider.emitParameterDefs",
+      "name": "emitParameterDefs",
+      "query": "How do I record each function parameter so its arguments can be matched to sinks?"
+    },
+    {
+      "file": "csharp.ts",
+      "qualifiedName": "project:paraphrase-search:CSharpProvider.extractImportPath",
+      "name": "extractImportPath",
+      "query": "How do I get the thing a using directive points to?"
+    },
+    {
+      "file": "csharp.ts",
+      "qualifiedName": "project:paraphrase-search:CSharpProvider.extractNameNode",
+      "name": "extractNameNode",
+      "query": "How do I get the name of a class, method, or property declaration?"
+    },
+    {
+      "file": "csharp.ts",
+      "qualifiedName": "project:paraphrase-search:CSharpProvider.namesUnder",
+      "name": "namesUnder",
+      "query": "How do I list all identifiers under a node in document order without revisiting?"
+    },
+    {
+      "file": "css.ts",
+      "qualifiedName": "project:paraphrase-search:CssProvider.extractTaintSinks",
+      "name": "extractTaintSinks",
+      "query": "How do I mark expressions that inject CSS as unsafe sinks?"
+    },
+    {
+      "file": "css.ts",
+      "qualifiedName": "project:paraphrase-search:CssProvider.extractTaintSources",
+      "name": "extractTaintSources",
+      "query": "How do I mark outside web addresses in styles as untrusted input?"
+    },
+    {
+      "file": "elixir.ts",
+      "qualifiedName": "project:paraphrase-search:ElixirProvider.extractModuleName",
+      "name": "extractModuleName",
+      "query": "How do I get the module path from an arguments node?"
+    },
+    {
+      "file": "elixir.ts",
+      "qualifiedName": "project:paraphrase-search:ElixirProvider.findFunctionName",
+      "name": "findFunctionName",
+      "query": "How do I find the name of a function being defined in Elixir source code?"
+    },
+    {
+      "file": "elixir.ts",
+      "qualifiedName": "project:paraphrase-search:ElixirProvider.isWhenClause",
+      "name": "isWhenClause",
+      "query": "How can I tell if a conditional branch node is a guard clause?"
+    },
+    {
+      "file": "__tests__/language-quality.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/language-quality.test.ts:extractedNames",
+      "name": "extractedNames",
+      "query": "How do I get the identifiers the language provider pulls out?"
+    },
+    {
+      "file": "__tests__/language-quality.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/language-quality.test.ts:referenceNames",
+      "name": "referenceNames",
+      "query": "How do I get the labels a reader would assign from a file without running the code?"
+    },
+    {
+      "file": "__tests__/language-quality.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/language-quality.test.ts:SAMPLES",
+      "name": "SAMPLES",
+      "query": "How do I pick the first file that actually contains a match when several are listed?"
+    },
+    {
+      "file": "__tests__/parse-fallback-visibility.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/parse-fallback-visibility.test.ts:GROOVY_THAT_FAILS",
+      "name": "GROOVY_THAT_FAILS",
+      "query": "How do I define a method with parameters and a body without a type?"
+    },
+    {
+      "file": "__tests__/parse-fallback-visibility.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/parse-fallback-visibility.test.ts:TYPESCRIPT_THAT_PARSES",
+      "name": "TYPESCRIPT_THAT_PARSES",
+      "query": "What file does the TypeScript parser read its syntax rules from?"
+    },
+    {
+      "file": "__tests__/pdf-text.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/pdf-text.test.ts:makePdf",
+      "name": "makePdf",
+      "query": "How do I make a basic valid PDF with an optionally compressed content stream?"
+    },
+    {
+      "file": "__tests__/pdf-text.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/pdf-text.test.ts:pdfWithContent",
+      "name": "pdfWithContent",
+      "query": "How do I wrap a content stream in a PDF using a specific line ending?"
+    },
+    {
+      "file": "__tests__/taint-capability.test.ts",
+      "qualifiedName": "project:paraphrase-search:file:__tests__/taint-capability.test.ts:withADeclaredWalk",
+      "name": "withADeclaredWalk",
+      "query": "How do I create a provider that declares a taint walk without subclassing the abstract base?"
+    },
+    {
+      "file": "arkts.ts",
+      "qualifiedName": "project:paraphrase-search:file:arkts.ts:ArkTSProvider",
+      "name": "ArkTSProvider",
+      "query": "How do I find the name of a component declared with decorators and state fields?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:C_LIKE_SANITIZERS",
+      "name": "C_LIKE_SANITIZERS",
+      "query": "What is the name of the thing that cleans up dangerous input?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:C_LIKE_SINKS",
+      "name": "C_LIKE_SINKS",
+      "query": "How do I find where a value gets used in a dangerous way?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:C_LIKE_SOURCES",
+      "name": "C_LIKE_SOURCES",
+      "query": "How do I mark a value as coming from outside the program and specify its input type?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:C_LIKE_TAINT_NODES",
+      "name": "C_LIKE_TAINT_NODES",
+      "query": "What does Python call the three things that C names differently?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:calleeOf",
+      "name": "calleeOf",
+      "query": "How do I get the function being called from a call expression?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:collectCLikeTaintSanitizers",
+      "name": "collectCLikeTaintSanitizers",
+      "query": "How do I gather the functions that clean untrusted data into the format the sanitizer list needs?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:collectCLikeTaintSinks",
+      "name": "collectCLikeTaintSinks",
+      "query": "How do I find all places where untrusted data reaches a dangerous operation below this point?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:collectCLikeTaintSources",
+      "name": "collectCLikeTaintSources",
+      "query": "How do I get each expression only once when nested matches repeat?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:extractAnnotations",
+      "name": "extractAnnotations",
+      "query": "How do I read the modifiers attached above a class or method?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:extractCalls",
+      "name": "extractCalls",
+      "query": "How do I find all the functions being called in a piece of code?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:extractClassLike",
+      "name": "extractClassLike",
+      "query": "How do I pull out class, interface, enum, struct, or trait definitions?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:extractDocComments",
+      "name": "extractDocComments",
+      "query": "How do I pull out the explanatory notes written above code?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:extractFunctions",
+      "name": "extractFunctions",
+      "query": "How do I pull out the declared functions and methods from source code?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:extractImportsAsCaptures",
+      "name": "extractImportsAsCaptures",
+      "query": "How do I turn parsed imports into unified capture entries?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:extractVariables",
+      "name": "extractVariables",
+      "query": "How do I pull out the definitions of variables and constants?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:findBlockEnd",
+      "name": "findBlockEnd",
+      "query": "How do I locate where a curly-bracket section finishes from a given position?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:lastSegmentOf",
+      "name": "lastSegmentOf",
+      "query": "How do I get the final part of a name separated by dots or arrows?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:sinkFor",
+      "name": "sinkFor",
+      "query": "How do I match a call by either its final part or its complete dotted form?"
+    },
+    {
+      "file": "base-c-like.ts",
+      "qualifiedName": "project:paraphrase-search:file:base-c-like.ts:TaintNodeTypes",
+      "name": "TaintNodeTypes",
+      "query": "How do I get the values passed into a function call?"
+    },
+    {
+      "file": "c.ts",
+      "qualifiedName": "project:paraphrase-search:file:c.ts:C_TAINT_NODES",
+      "name": "C_TAINT_NODES",
+      "query": "How do I get the names of the node kinds for calls and their argument lists?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CPP_DECLARATOR_WRAPPERS",
+      "name": "CPP_DECLARATOR_WRAPPERS",
+      "query": "How do I find the function declarator when a reference return type wraps it?"
+    },
+    {
+      "file": "cpp.ts",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CPP_TAINT_NODES",
+      "name": "CPP_TAINT_NODES",
+      "query": "How do I get the names for the call node kinds and their argument list?"
+    },
+    {
+      "file": "csharp.ts",
+      "qualifiedName": "project:paraphrase-search:file:csharp.ts:CSHARP_TAINT_NODES",
+      "name": "CSHARP_TAINT_NODES",
+      "query": "What are the three node types the collectors require in C#?"
+    },
+    {
+      "file": "css.ts",
+      "qualifiedName": "project:paraphrase-search:file:css.ts:CSS_SINK_PATTERNS",
+      "name": "CSS_SINK_PATTERNS",
+      "query": "How do I detect style properties that allow script execution?"
+    },
+    {
+      "file": "dart.ts",
+      "qualifiedName": "project:paraphrase-search:file:dart.ts:DART_KEYWORDS",
+      "name": "DART_KEYWORDS",
+      "query": "What words should a pattern avoid matching when finding function definitions?"
+    },
+    {
+      "file": "dockerfile.ts",
+      "qualifiedName": "project:paraphrase-search:file:dockerfile.ts:sanitizeSource",
+      "name": "sanitizeSource",
+      "query": "How do I clean invisible characters and standardize line breaks in text?"
+    },
+    {
+      "file": "go.ts",
+      "qualifiedName": "project:paraphrase-search:file:go.ts:GO_TAINT_NODES",
+      "name": "GO_TAINT_NODES",
+      "query": "What are the identifiers for the three types of nodes collectors require?"
+    },
+    {
+      "file": "java.ts",
+      "qualifiedName": "project:paraphrase-search:file:java.ts:JAVA_TAINT_NODES",
+      "name": "JAVA_TAINT_NODES",
+      "query": "What are the labels for the three types of nodes the collectors require?"
+    },
+    {
+      "file": "lua.ts",
+      "qualifiedName": "project:paraphrase-search:file:lua.ts:sanitizeSource",
+      "name": "sanitizeSource",
+      "query": "How do I clean invisible characters and standardize line breaks in text?"
+    },
+    {
+      "file": "pdf-text.ts",
+      "qualifiedName": "project:paraphrase-search:file:pdf-text.ts:extractPdfText",
+      "name": "extractPdfText",
+      "query": "How do I get the decompressed binary data of each page content stream?"
+    },
+    {
+      "file": "pdf-text.ts",
+      "qualifiedName": "project:paraphrase-search:file:pdf-text.ts:PdfExtraction",
+      "name": "PdfExtraction",
+      "query": "How do I get the uncompressed size of the data read so far?"
+    },
+    {
+      "file": "pdf-text.ts",
+      "qualifiedName": "project:paraphrase-search:file:pdf-text.ts:textOfContentStream",
+      "name": "textOfContentStream",
+      "query": "How do I read the text of a content stream by walking its operators?"
+    },
+    {
+      "file": "pdf-text.ts",
+      "qualifiedName": "project:paraphrase-search:file:pdf-text.ts:unescapePdfString",
+      "name": "unescapePdfString",
+      "query": "How do I reverse the escape sequences in a PDF string literal?"
+    },
+    {
+      "file": "php.ts",
+      "qualifiedName": "project:paraphrase-search:file:php.ts:PHP_TAINT_NODES",
+      "name": "PHP_TAINT_NODES",
+      "query": "How do I tell what kind of node a superglobal or method call is?"
+    },
+    {
+      "file": "provider.ts",
+      "qualifiedName": "project:paraphrase-search:file:provider.ts:LanguageProvider",
+      "name": "LanguageProvider",
+      "query": "How do I get all the names a file exports in a single pass?"
+    },
+    {
+      "file": "python.ts",
+      "qualifiedName": "project:paraphrase-search:file:python.ts:docstringProperty",
+      "name": "docstringProperty",
+      "query": "How do I get the documentation text written inside a Python function or class body?"
+    },
+    {
+      "file": "python.ts",
+      "qualifiedName": "project:paraphrase-search:file:python.ts:PYTHON_TAINT_NODES",
+      "name": "PYTHON_TAINT_NODES",
+      "query": "What are the Python names for the three node kinds collectors need?"
+    },
+    {
+      "file": "python.ts",
+      "qualifiedName": "project:paraphrase-search:file:python.ts:PythonProvider",
+      "name": "PythonProvider",
+      "query": "How do I read Python import statements from a syntax tree?"
+    },
+    {
+      "file": "regex-helpers.ts",
+      "qualifiedName": "project:paraphrase-search:file:regex-helpers.ts:extractSecretSources",
+      "name": "extractSecretSources",
+      "query": "How do I find lines containing passwords or tokens?"
+    },
+    {
+      "file": "regex-helpers.ts",
+      "qualifiedName": "project:paraphrase-search:file:regex-helpers.ts:lineNumber",
+      "name": "lineNumber",
+      "query": "How do I find which line a byte position falls on?"
+    },
+    {
+      "file": "regex-helpers.ts",
+      "qualifiedName": "project:paraphrase-search:file:regex-helpers.ts:sanitizeSource",
+      "name": "sanitizeSource",
+      "query": "How do I clean invisible characters and line endings from text before parsing?"
+    },
+    {
+      "file": "ruby.ts",
+      "qualifiedName": "project:paraphrase-search:file:ruby.ts:RUBY_TAINT_NODES",
+      "name": "RUBY_TAINT_NODES",
+      "query": "How do I tell apart the different kinds of nodes the collectors need?"
+    },
+    {
+      "file": "sql.ts",
+      "qualifiedName": "project:paraphrase-search:file:sql.ts:SQL_SANITIZER_PATTERNS",
+      "name": "SQL_SANITIZER_PATTERNS",
+      "query": "How do I detect queries with placeholders as safe from injection?"
+    },
+    {
+      "file": "sql.ts",
+      "qualifiedName": "project:paraphrase-search:file:sql.ts:SQL_SINK_PATTERNS",
+      "name": "SQL_SINK_PATTERNS",
+      "query": "How do I find patterns that mark dynamic SQL building as a dangerous sink?"
+    },
+    {
+      "file": "syntax-children.ts",
+      "qualifiedName": "project:paraphrase-search:file:syntax-children.ts:childrenOf",
+      "name": "childrenOf",
+      "query": "How do I get a node’s immediate descendants without null entries?"
+    },
+    {
+      "file": "syntax-children.ts",
+      "qualifiedName": "project:paraphrase-search:file:syntax-children.ts:namedChildrenOf",
+      "name": "namedChildrenOf",
+      "query": "How do I get only the named child elements of a node?"
+    },
+    {
+      "file": "syntax-children.ts",
+      "qualifiedName": "project:paraphrase-search:file:syntax-children.ts:NodeWithChildren",
+      "name": "NodeWithChildren",
+      "query": "How do I get a child node by index while keeping the caller’s node type?"
+    },
+    {
+      "file": "toml.ts",
+      "qualifiedName": "project:paraphrase-search:file:toml.ts:SECRET_KEYWORDS",
+      "name": "SECRET_KEYWORDS",
+      "query": "Which keys mark a value as coming from a secret source?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:attachDocCommentsInOrder",
+      "name": "attachDocCommentsInOrder",
+      "query": "What kinds of comments can be attached to a documentation block?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:checkExported",
+      "name": "checkExported",
+      "query": "How do I check whether a symbol is exported by traversing the syntax tree?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:claimsTaintExtraction",
+      "name": "claimsTaintExtraction",
+      "query": "Does this language provider actually implement its own extraction logic?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:collectIdentifiers",
+      "name": "collectIdentifiers",
+      "query": "How do I get all names of a certain kind from a node and its children?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:DECLARATIONS",
+      "name": "DECLARATIONS",
+      "query": "What kinds of comments can be attached to documentation?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:emitCallCapture",
+      "name": "emitCallCapture",
+      "query": "How do I create a unified capture for a call site node?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:exportedNames",
+      "name": "exportedNames",
+      "query": "How do I get all the names a file exports in a single pass?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractBaseClasses",
+      "name": "extractBaseClasses",
+      "query": "How do I get the parent types listed in a class definition?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractCallName",
+      "name": "extractCallName",
+      "query": "How do I get the name of the function being called in an expression?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractContainerName",
+      "name": "extractContainerName",
+      "query": "How do I get the name out of a container node?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractInterfaces",
+      "name": "extractInterfaces",
+      "query": "How do I get the interfaces a class implements?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractNameFromNode",
+      "name": "extractNameFromNode",
+      "query": "How do I get the identifier name from a node?"
+    },
+    {
+      "file": "tree-sitter-base.ts",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractSanitizers",
+      "name": "extractSanitizers",
+      "query": "How do I find the functions that clean untrusted data by parsing the code structure?"
+    }
+  ]
+}
