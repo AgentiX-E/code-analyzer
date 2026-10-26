@@ -24,6 +24,7 @@ on:
       - 'packages/analyzer/src/pipeline/phases/parse.ts'
       - 'packages/intelligence/src/search/hybrid-search.ts'
       - 'packages/intelligence/src/__tests__/paraphrase-search.test.ts'
+      - 'benchmarks/paraphrase-queries.json'
       - 'packages/intelligence/src/__tests__/docstring-search.test.ts'
       - '.github/workflows/embedding-backend.yml'
 
@@ -105,9 +106,13 @@ jobs:
       # **The measurement that can say whether the semantic half earns its place.** The docstring figure cannot: there
       # the query is the indexed text, and every column comes out at the same 1.000. Here the questions are written by
       # DeepSeek and every doc comment is stripped from the index, so neither half can copy the words it is asked about.
+      #
+      # **The questions themselves are a committed dataset** (`benchmarks/paraphrase-queries.json`), read on every run so
+      # that two runs differ in the retriever and not in the questions. `DEEPSEEK_API_KEY` is needed only to *write* that
+      # set - the first run, or an explicit `PARAPHRASE_REGENERATE=1`.
       - name: Score paraphrase retrieval, with the documentation removed from the index
         id: paraphrase
-        if: steps.credential.outputs.queries == 'true'
+        if: steps.credential.outputs.present == 'true'
         env:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           ZHIPU_EMBEDDING_MODEL: embedding-3
@@ -117,13 +122,24 @@ jobs:
           npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/paraphrase-search.test.ts 2>&1 | tee /tmp/paraphrase.log
           grep -o 'PARAPHRASE-SEARCH .*' /tmp/paraphrase.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # **The question set, uploaded whether the gate passed or not.** It is the input to every later run, and a set that
+      # only exists inside a failed job cannot be committed.
+      - name: Upload the frozen question set
+        if: always() && steps.credential.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: paraphrase-queries
+          path: benchmarks/paraphrase-queries.json
+          if-no-files-found: warn
+          retention-days: 90
+
       - name: Upload the paraphrase figure
-        if: steps.credential.outputs.queries == 'true'
+        if: always() && steps.credential.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: paraphrase-search
           path: benchmarks/paraphrase-search.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 90
 
       # **The artifact is the evidence, and the gate reads it.** A job that kept the number in its log would leave the
@@ -145,14 +161,27 @@ jobs:
         if: steps.credential.outputs.present == 'true'
         run: |
           set -e
-          index=$(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.space.index)")
-          query=$(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.space.query)")
-          echo "index space: $index · query space: $query"
-          if [ "$index" = "deterministic" ] || [ "$query" = "deterministic" ] || [ "$query" = "none" ]; then
-            echo "::error::ZHIPU_API_KEY was present and the semantic half did not run; the artifact records: $(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.space.reason)")"
-            exit 1
-          fi
-          if [ "$index" != "$query" ]; then
-            echo "::error::the index holds $index vectors and the queries were embedded as $query — a cosine between two spaces"
-            exit 1
+          # **Both measurements, because both make the same claim about the space.** A paraphrase figure measured on a
+          # hash index is the lexical figure with a semantic name, which is the defect this job exists to prevent.
+          for artifact in benchmarks/docstring-search.json benchmarks/paraphrase-search.json; do
+            if [ ! -f "$artifact" ]; then
+              echo "$artifact was not written, so there is no space to check"
+              continue
+            fi
+            index=$(node -e "const a=require('./$artifact');console.log(a.space.index)")
+            query=$(node -e "const a=require('./$artifact');console.log(a.space.query)")
+            echo "$artifact -- index space: $index · query space: $query"
+            if [ "$index" = "deterministic" ] || [ "$query" = "deterministic" ] || [ "$query" = "none" ]; then
+              echo "::error::ZHIPU_API_KEY was present and the semantic half did not run; $artifact records: $(node -e "const a=require('./$artifact');console.log(a.space.reason)")"
+              exit 1
+            fi
+            if [ "$index" != "$query" ]; then
+              echo "::error::$artifact holds $index vectors and its queries were embedded as $query — a cosine between two spaces"
+              exit 1
+            fi
+          done
+          # **And which questions were measured.** A figure whose set was rewritten by the run that measured it cannot be
+          # compared with the previous run, so the source is printed next to the numbers in the job summary.
+          if [ -f benchmarks/paraphrase-search.json ]; then
+            echo "### Paraphrase questions: $(node -e "const a=require('./benchmarks/paraphrase-search.json');console.log(a.querySet.source + ' · ' + a.querySet.size + ' questions')")" | tee -a "$GITHUB_STEP_SUMMARY"
           fi

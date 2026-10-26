@@ -80,18 +80,46 @@ function namesItsOwnSymbol(query: string, name: string): boolean {
   return query.toLowerCase().includes(name.toLowerCase());
 }
 
-/** Recall at two cuts plus MRR. **One function, so every column is computed by the same arithmetic.** */
+/** Recall at two cuts plus MRR. **One function, so every column is computed by the same arithmetic.**
+ *
+ * **Every column is cut at `TOP_K`.** `recallAt20` used to count `rank !== null` - "found anywhere in the list" - which
+ * happens to give the same number here only because `search({limit: TOP_K})` truncates the lexical list at twenty as
+ * well. **The same function in `paraphrase-search.test.ts` read an unbounded lexical list, and there the bug turned
+ * into a 20-point advantage for the retriever it was measuring.** An arithmetic that is correct only because its
+ * caller happens to truncate is a bug waiting for the second caller, so the cut is enforced here.
+ */
 function summarise(cases: QueryCase[]): Column {
-  const found = cases.filter((c) => c.rank !== null).length;
-  const at5 = cases.filter((c) => c.rank !== null && c.rank <= TOP_5).length;
+  const within = (cut: number): number =>
+    cases.filter((c) => c.rank !== null && c.rank <= cut).length;
+  const found = within(TOP_K);
+  const at5 = within(TOP_5);
   const round = (value: number): number => Math.round(value * 10000) / 10000;
   return {
     recallAt5: round(at5 / cases.length),
     recallAt20: round(found / cases.length),
-    mrr: round(cases.reduce((sum, c) => sum + (c.rank ? 1 / c.rank : 0), 0) / cases.length),
+    // **MRR at the same cut** - see `summarise` in `paraphrase-search.test.ts` for the two-depths argument.
+    mrr: round(
+      cases.reduce((sum, c) => sum + (c.rank !== null && c.rank <= TOP_K ? 1 / c.rank : 0), 0) /
+        cases.length,
+    ),
     found,
   };
 }
+
+describe('the recall arithmetic', () => {
+  it('does not count an answer below the cut as recall at the cut', () => {
+    const column = summarise([
+      { name: 'a', query: 'q', rank: 1 },
+      { name: 'b', query: 'q', rank: TOP_K },
+      { name: 'c', query: 'q', rank: TOP_K + 1 },
+      { name: 'd', query: 'q', rank: null },
+    ]);
+    expect(column.recallAt5).toBe(0.25);
+    expect(column.recallAt20).toBe(0.5);
+    expect(column.found).toBe(2);
+    expect(column.mrr).toBe(0.2625);
+  });
+});
 
 describe('finding a symbol from its own doc comment', () => {
   it('measures lexical recall, then what the semantic half adds at each fusion weight', async () => {

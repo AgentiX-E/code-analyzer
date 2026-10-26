@@ -18,7 +18,7 @@
 // **Both halves are then measured on the same leak-free index**, so the difference between the columns is the semantic
 // half and nothing else. If lexical wins on that corpus, the figure says so.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
@@ -46,13 +46,27 @@ const MAX_QUERIES = 100;
 const VECTOR_WEIGHTS = [1, 0.5, 0.25, 0.1];
 
 /**
- * **A measurement that needs two credentials is skipped where they are absent, not silently degraded.**
+ * **The question set is a dataset, so it is frozen and committed.**
  *
- * `DEEPSEEK_API_KEY` writes the queries and `ZHIPU_API_KEY` embeds the index and the queries - without either, this file
- * would be measuring the hash fallback against questions it generated itself. `describe.skipIf` reports `skipped`,
- * which is true; an early `return` inside the case would report `passed` for a measurement that never happened.
+ * A measurement whose input is rewritten on every run cannot compare two retrievers: the difference between two columns
+ * would contain the difference between two sets of questions. `benchmarks/paraphrase-queries.json` holds the questions
+ * DeepSeek wrote for this corpus together with the symbol each one asks about, and a run **reads** them unless
+ * `PARAPHRASE_REGENERATE=1` is set. **Regeneration is an explicit act**, because it invalidates every figure measured
+ * before it - the one in the committed artifact, the one in the competitor matrix, and the one in the report.
  */
-const HAS_CREDENTIALS = Boolean(process.env['DEEPSEEK_API_KEY'] && process.env['ZHIPU_API_KEY']);
+const QUERY_SET = 'benchmarks/paraphrase-queries.json';
+const REGENERATE = process.env['PARAPHRASE_REGENERATE'] === '1';
+
+/**
+ * **One credential is enough for the steady state, and the job reports which ones it had.**
+ *
+ * `ZHIPU_API_KEY` embeds both sides; `DEEPSEEK_API_KEY` is needed only when the question set has to be *written* -
+ * the first run, or an explicit regeneration. Requiring the second key for a frozen set would make a reproducible
+ * measurement depend on a generator it no longer calls.
+ */
+const HAS_VECTORS = Boolean(process.env['ZHIPU_API_KEY']);
+const CAN_WRITE_QUERIES = Boolean(process.env['DEEPSEEK_API_KEY']);
+const NEEDS_QUERY_AUTHOR = REGENERATE || !existsSync(resolve(process.cwd(), QUERY_SET));
 
 interface QueryCase {
   name: string;
@@ -60,6 +74,59 @@ interface QueryCase {
   rank: number | null;
 }
 
+/** A frozen question, and the symbol whose behaviour it describes. */
+interface FrozenQuery {
+  /** **The file is part of the answer**: `parse` is defined in nine languages in this corpus, so a name alone is not it. */
+  filePath: string;
+  qualifiedName: string;
+  name: string;
+  query: string;
+}
+
+/** The key a hit is matched on. **File and qualified name together, because the corpus reuses both alone.** */
+function answerKey(node: { filePath?: string | null; qualifiedName: string }): string {
+  return `${node.filePath ?? ''}::${node.qualifiedName}`;
+}
+
+/** The committed question set, or `null` when there is none yet. */
+function readQuerySet(path: string): { queries: FrozenQuery[]; dropped: number } | null {
+  if (!existsSync(path)) return null;
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
+    queries?: FrozenQuery[];
+    dropped?: number;
+  };
+  return { queries: parsed.queries ?? [], dropped: parsed.dropped ?? 0 };
+}
+
+/** Write the question set where the next run will read it, and where a reader can inspect it. */
+function writeQuerySet(path: string, queries: FrozenQuery[], dropped: number): void {
+  mkdirSync(resolve(path, '..'), { recursive: true });
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        comment: [
+          'Questions written by DeepSeek from the doc comments of one corpus, with the symbol each one asks about.',
+          '',
+          '**This file is an input, not a report.** `paraphrase-search.test.ts` reads it on every run so that two',
+          'retrievers are compared on the same questions; `PARAPHRASE_REGENERATE=1` rewrites it, which invalidates every',
+          'figure measured before the rewrite. The prompt forbids the symbol’s own name, and a question that still',
+          'contains it is `dropped` here rather than counted as a win for either column.',
+        ],
+        corpus: CORPUS,
+        generatedAt: new Date().toISOString().slice(0, 10),
+        generator: 'deepseek-chat · paraphrasePrompt',
+        dropped,
+        queries,
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
+}
+
+/** The columns of one retrieval list. */
 interface Column {
   recallAt5: number;
   recallAt20: number;
@@ -74,15 +141,31 @@ interface Column {
  * be counted by the per-file coverage gate, and its only caller is a test that is *skipped* wherever the credentials
  * are absent - so the module would report 0 % on every run that did not measure anything, and the gate would fail for
  * the honest reason. Ten lines of arithmetic are cheaper than a file that has to be excluded from the gate.
+ *
+ * **Every column is cut at `TOP_K`, and that is the whole point of this function.** `recallAt20` used to be
+ * `cases.filter(c => c.rank !== null).length`, which counts an answer found at rank 4 000 as recall at twenty - and on
+ * the lexical column that is not a rounding error, because `bm25Search` returns **every** match. The column answered
+ * "is the symbol somewhere in the list" while the fused column, truncated to twenty by construction, answered "is it in
+ * the top twenty": a generous measurement compared against a strict one, with the strict one being the semantic half.
+ * Measured on the runner, the lexical column read **0.5455** against **0.3434** for a fusion at weight 0.25 - an
+ * ordering reciprocal rank fusion cannot produce at that weight, which is what exposed the bug. **A measurement that
+ * flatters the retriever it is meant to test is worse than no measurement.**
  */
 function summarise(cases: QueryCase[]): Column {
-  const found = cases.filter((c) => c.rank !== null).length;
-  const at5 = cases.filter((c) => c.rank !== null && c.rank <= TOP_5).length;
+  const within = (cut: number): number =>
+    cases.filter((c) => c.rank !== null && c.rank <= cut).length;
+  const found = within(TOP_K);
+  const at5 = within(TOP_5);
   const round = (value: number): number => Math.round(value * 10000) / 10000;
   return {
     recallAt5: round(at5 / cases.length),
     recallAt20: round(found / cases.length),
-    mrr: round(cases.reduce((sum, c) => sum + (c.rank ? 1 / c.rank : 0), 0) / cases.length),
+    // **MRR at the same cut**, so two lists of different depths are comparable: a rank 4 000 hit contributes `1/4000`
+    // to an unbounded column and `0` to a cut one, which silently favours whichever list is longer.
+    mrr: round(
+      cases.reduce((sum, c) => sum + (c.rank !== null && c.rank <= TOP_K ? 1 / c.rank : 0), 0) /
+        cases.length,
+    ),
     found,
   };
 }
@@ -196,7 +279,40 @@ describe('the paraphrase that is not a lookup', () => {
   });
 });
 
-describe.skipIf(!HAS_CREDENTIALS)(
+// **The arithmetic, checked on numbers where the two readings disagree.** These run without a credential because the
+// defect they cover ran for a week: `recallAt20` counted a rank of 4 000 as a hit at twenty, and on an unbounded lexical
+// list that is a 20-point gift to the column that was supposed to be the baseline.
+describe('the recall arithmetic', () => {
+  it('does not count an answer below the cut as recall at the cut', () => {
+    const column = summarise([
+      { name: 'a', query: 'q', rank: 1 },
+      { name: 'b', query: 'q', rank: TOP_K },
+      { name: 'c', query: 'q', rank: TOP_K + 1 },
+      { name: 'd', query: 'q', rank: 4_000 },
+    ]);
+    expect(column.recallAt5).toBe(0.25);
+    // **Two of four, not four of four**: the answer at 21 and the answer at 4 000 are not in the top twenty.
+    expect(column.recallAt20).toBe(0.5);
+    expect(column.found).toBe(2);
+  });
+
+  it('gives a rank beyond the cut no weight in MRR, so lists of different depths are comparable', () => {
+    const column = summarise([
+      { name: 'a', query: 'q', rank: 2 },
+      { name: 'b', query: 'q', rank: TOP_K + 1 },
+    ]);
+    expect(column.mrr).toBe(0.25);
+  });
+
+  it('matches an answer by file and qualified name, because the corpus reuses both alone', () => {
+    expect(answerKey({ filePath: 'a/one.ts', qualifiedName: 'parse' })).not.toBe(
+      answerKey({ filePath: 'b/two.ts', qualifiedName: 'parse' }),
+    );
+    expect(answerKey({ filePath: null, qualifiedName: 'parse' })).toBe('::parse');
+  });
+});
+
+describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
   'finding a symbol from a paraphrase, with its documentation removed',
   () => {
     it('measures lexical and fused recall on an index that holds no doc comments', async () => {
@@ -260,45 +376,75 @@ describe.skipIf(!HAS_CREDENTIALS)(
       const lexicalEngine = new HybridSearchEngine(store);
       lexicalEngine.initialize();
 
-      // **The queries come from the doc comments of the *original* graph** - the documentation is the source of the
-      // question even though it is not in the index.
-      const documented = [...pipeline.graph.nodes.values()]
-        .filter((node) => (node.docstring ?? '').trim().length >= MIN_DOCSTRING)
-        .filter((node) => typeof node.name === 'string' && node.name.length > 2)
-        .sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
-      const step = Math.max(1, Math.floor(documented.length / MAX_QUERIES));
-      const sampled = documented.filter((_, index) => index % step === 0).slice(0, MAX_QUERIES);
-
-      const provider = new DeepSeekProvider({ timeout: 30_000 });
-      const paraphrases: Array<{ name: string; query: string }> = [];
+      // **The queries are a fixed dataset, and every run measures the same ones.** The first run writes the file; every
+      // later run reads it, so a difference between two runs is a difference between two retrievers. `REGENERATE`
+      // rewrites it, which is a deliberate act because it makes every earlier figure incomparable.
+      const frozen = REGENERATE ? null : readQuerySet(QUERY_SET);
+      const paraphrases: FrozenQuery[] = [];
       let dropped = 0;
-      let overlap = 0;
-      for (const node of sampled) {
-        const completion = await provider.complete(
-          paraphrasePrompt((node.docstring ?? '').trim().slice(0, 1_000)),
-          { maxTokens: 80, temperature: 0 },
-        );
-        const query = cleanCompletion(completion.content);
-        // **A question that names the symbol is the lookup this file exists to replace**, so it is dropped rather than
-        // counted as a win for either column.
-        if (query.length < 10 || namesTheSymbol(query, node.name)) {
-          dropped += 1;
-          continue;
+      let source: 'frozen' | 'generated';
+
+      if (frozen) {
+        source = 'frozen';
+        dropped = frozen.dropped;
+        paraphrases.push(...frozen.queries);
+        // **A question about a symbol the corpus no longer has is a broken measurement, not a miss.** Silently scoring
+        // it as a retrieval failure would turn a corpus edit into a regression of the retriever.
+        const present = new Set([...stripped.values()].map((node) => answerKey(node)));
+        const unknown = paraphrases.filter((candidate) => !present.has(answerKey(candidate)));
+        expect(
+          unknown.map((candidate) => answerKey(candidate)),
+          `${QUERY_SET} asks about symbols this corpus no longer contains; regenerate it`,
+        ).toEqual([]);
+      } else {
+        source = 'generated';
+        // **The queries come from the doc comments of the *original* graph** - the documentation is the source of the
+        // question even though it is not in the index.
+        const documented = [...pipeline.graph.nodes.values()]
+          .filter((node) => (node.docstring ?? '').trim().length >= MIN_DOCSTRING)
+          .filter((node) => typeof node.name === 'string' && node.name.length > 2)
+          .sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
+        const step = Math.max(1, Math.floor(documented.length / MAX_QUERIES));
+        const sampled = documented.filter((_, index) => index % step === 0).slice(0, MAX_QUERIES);
+
+        const provider = new DeepSeekProvider({ timeout: 30_000 });
+        for (const node of sampled) {
+          const completion = await provider.complete(
+            paraphrasePrompt((node.docstring ?? '').trim().slice(0, 1_000)),
+            { maxTokens: 80, temperature: 0 },
+          );
+          const query = cleanCompletion(completion.content);
+          // **A question that names the symbol is the lookup this file exists to replace**, so it is dropped rather
+          // than counted as a win for either column.
+          if (query.length < 10 || namesTheSymbol(query, node.name)) {
+            dropped += 1;
+            continue;
+          }
+          paraphrases.push({
+            filePath: node.filePath ?? '',
+            qualifiedName: node.qualifiedName,
+            name: node.name,
+            query,
+          });
         }
-        // **Counted, not discarded** - see `namesTheSymbol`.
-        if (sharedTokens(query, node.name) > 0) overlap += 1;
-        paraphrases.push({ name: node.name, query });
+        writeQuerySet(QUERY_SET, paraphrases, dropped);
       }
 
       // **A measurement with no queries is not a passing measurement**, and here it is also the signal that the model
       // stopped obeying the prompt - which is a fact worth failing on rather than publishing as a recall of zero.
       expect(paraphrases.length).toBeGreaterThanOrEqual(20);
+      // **And a frozen set that contains a lookup invalidates every column in it.** The prompt forbids the name; this
+      // is the check that the rule held, applied to both sources so a regenerated set cannot skip it.
+      expect(paraphrases.filter((c) => namesTheSymbol(c.query, c.name))).toEqual([]);
+      const overlap = paraphrases.filter((c) => sharedTokens(c.query, c.name) > 0).length;
 
       const lexicalLists = paraphrases.map((candidate) =>
         lexicalEngine.bm25Search(candidate.query),
       );
       const lexical: QueryCase[] = paraphrases.map((candidate, index) => {
-        const rank = lexicalLists[index]!.findIndex((hit) => hit.node.name === candidate.name);
+        const rank = lexicalLists[index]!.findIndex(
+          (hit) => answerKey(hit.node) === answerKey(candidate),
+        );
         return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
       });
 
@@ -322,7 +468,7 @@ describe.skipIf(!HAS_CREDENTIALS)(
             TOP_K,
             vectorWeight,
           );
-          const rank = fused.findIndex((hit) => hit.node?.name === candidate.name);
+          const rank = fused.findIndex((hit) => answerKey(hit.node) === answerKey(candidate));
           return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
         });
         return { vectorWeight, ...summarise(cases) };
@@ -340,17 +486,27 @@ describe.skipIf(!HAS_CREDENTIALS)(
           'at the same 1.000 for that reason.',
           '',
           '**The questions are written by DeepSeek from the documentation**, with a rule against using the symbol name,',
-          'and a generated question that still contains one is dropped and counted in `dropped`.',
+          'and a question that still contains one is dropped and counted in `dropped`. **The set is frozen in',
+          '`benchmarks/paraphrase-queries.json`** so that two runs differ in the retriever and not in the questions.',
           '',
-          '**Both columns are measured on the same index**: BM25 over name/signature only, and the same list fused with',
-          'one semantic ranking at each weight.',
+          '**Every column is measured at the same cut**: `recallAt20` counts answers inside the top 20, `mrr` gives a rank',
+          'beyond 20 the value 0, and `found` is `found@20`. The lexical list is unbounded, so an arithmetic that counted',
+          'any rank would have measured a longer list against a shorter one.',
+          '',
+          '**Both columns run on the same index**: BM25 over name/signature only, and the same list fused with one',
+          'semantic ranking at each weight.',
         ],
         measuredAt: new Date().toISOString().slice(0, 10),
+        querySet: {
+          // **`frozen` or `generated`**: a figure whose questions were rewritten on the same run that measured it cannot
+          // be compared with the previous one, and this field is how a reader tells which it is.
+          source,
+          path: QUERY_SET,
+          size: paraphrases.length,
+        },
         corpus: {
           path: CORPUS,
           nodes: stripped.size,
-          documented: documented.length,
-          sampled: sampled.length,
           queries: paraphrases.length,
           dropped,
           // **How many questions still reuse a word of the name they ask for.** Reported rather than filtered, so a
