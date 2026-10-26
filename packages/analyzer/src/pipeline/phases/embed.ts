@@ -176,10 +176,21 @@ export async function generateEmbeddings(
   if (!embedder) backendUnavailableReason ??= embedderUnavailableReason();
   return {
     results,
-    backend:
-      results.length > 0 && results.every((r) => r.backend === 'onnx') ? 'onnx' : 'deterministic',
+    // **The aggregate is read from the vectors, and it knows about all three names.** It used to be
+    // `every(r => r.backend === 'onnx') ? 'onnx' : 'deterministic'` - so **a run in which every vector came from the API
+    // was reported as `deterministic`**, which then made the query side build a hash embedder against an API index: two
+    // spaces again, this time created by the label. A mixed run reports the weakest space it holds and says why.
+    backend: singleBackend(results),
     reason: backendUnavailableReason,
   };
+}
+
+/** The one backend every vector in the run came from, or `deterministic` when the run mixed them. */
+function singleBackend(results: EmbeddingResult[]): EmbeddingBackendName {
+  if (results.length === 0) return 'deterministic';
+  const names = new Set(results.map((result) => result.backend));
+  const only = names.size === 1 ? [...names][0] : undefined;
+  return only ?? 'deterministic';
 }
 
 /**

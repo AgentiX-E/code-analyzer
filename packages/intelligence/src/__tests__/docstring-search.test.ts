@@ -221,7 +221,10 @@ describe('finding a symbol from its own doc comment', () => {
         index: indexBackend,
         query: queryEmbedder?.backend ?? 'none',
         semantic,
-        reason: queryEmbedder ? null : (recorded.reason ?? embedderUnavailableReason()),
+        // **The reason is reported whenever the index is not a real model**, not only when the query side failed:
+        // the first run of this file after the space check landed recorded `index: deterministic` with
+        // `reason: null`, which is a conclusion without its evidence - the same defect as the figure that started this.
+        reason: semantic ? null : (recorded.reason ?? embedderUnavailableReason()),
       },
       topK: TOP_K,
       lexical,
@@ -245,7 +248,8 @@ describe('finding a symbol from its own doc comment', () => {
     console.log(
       `DOCSTRING-SEARCH lexical@5=${lexical.recallAt5} @20=${lexical.recallAt20} mrr=${lexical.mrr} ` +
         `space=${indexBackend}/${queryEmbedder?.backend ?? 'none'} ` +
-        `sweep=${sweep.map((s) => `${s.vectorWeight}:${s.recallAt20}`).join(' ')}`,
+        // **Recall and MRR per weight**, because recall at 20 is saturated on this corpus and the order is what moves.
+        `sweep=${sweep.map((s) => `${s.vectorWeight}:@20=${s.recallAt20}/mrr=${s.mrr}`).join(' ')}`,
     );
 
     // **The gate that was missing: an assertion a retriever can fail.** The old file asserted `recall >= 0` and
@@ -261,6 +265,13 @@ describe('finding a symbol from its own doc comment', () => {
         best.recallAt20,
         `best fusion weight ${best.vectorWeight} answered ${best.recallAt20} against lexical ${lexical.recallAt20}`,
       ).toBeGreaterThanOrEqual(lexical.recallAt20);
+      // **And the order it puts the answers in, which is the figure a user feels.** Recall at 20 was saturated at 1.000
+      // on this corpus from the first run, so it could not see a fusion that demoted the right answer from rank 1 to
+      // rank 5 - whereas MRR moved by 0.11 the moment a wrong list was allowed equal authority.
+      expect(
+        best.mrr,
+        `best fusion weight ${best.vectorWeight} ordered at MRR ${best.mrr} against lexical ${lexical.mrr}`,
+      ).toBeGreaterThanOrEqual(lexical.mrr);
     }
   }, 1_800_000);
 });

@@ -153,6 +153,47 @@ describe('generateEmbeddings — the doc comment is part of the text', () => {
   });
 });
 
+describe('generateEmbeddings — the aggregate backend is read from the vectors', () => {
+  it('reports api when every vector came from the endpoint', async () => {
+    // **This case exists because the aggregate said `deterministic` for an all-API run**, which then made the query
+    // side build a hash embedder against an API index - the two-space defect again, produced by a label.
+    const { graph, builder } = buildGraph();
+    builder.addNode(graph, 'Function', 'a', { name: 'a' });
+
+    const { backend, results } = await generateEmbeddings(graph.nodes, async () => ({
+      backend: 'api' as const,
+      embedder: makeEmbedder(),
+    }));
+
+    expect(results.every((r) => r.backend === 'api')).toBe(true);
+    expect(backend).toBe('api');
+  });
+
+  it('reports deterministic when the run mixed spaces, because that is the weakest one it holds', async () => {
+    const { graph, builder } = buildGraph();
+    builder.addNode(graph, 'Function', 'a', { name: 'a' });
+    builder.addNode(graph, 'Function', 'b', { name: 'b' });
+
+    const { backend, results } = await generateEmbeddings(graph.nodes, async () => ({
+      backend: 'api' as const,
+      embedder: makeEmbedder({
+        // The batch fails, so the phase falls back per node - and one of those nodes fails too, which is what a mixed
+        // run looks like: some vectors from the model, some from the hash.
+        embedBatch: async () => {
+          throw new Error('batch failed');
+        },
+        embed: async (text: string) => {
+          if (text.includes('Function a')) throw new Error('per-node failure');
+          return new Float32Array([1]);
+        },
+      }),
+    }));
+
+    expect(new Set(results.map((r) => r.backend))).toEqual(new Set(['api', 'deterministic']));
+    expect(backend).toBe('deterministic');
+  });
+});
+
 describe('defaultEmbedderLoader — the name of the winning backend', () => {
   it('carries the name of whichever backend the chain found', async () => {
     const embedder = makeEmbedder();
