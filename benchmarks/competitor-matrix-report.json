@@ -5,14 +5,14 @@
     "**MISSING may fall and may not rise.** A cell is measured only when its artifact carries a value produced with the",
     "component the cell names switched on."
   ],
-  "generatedAt": "2026-10-13",
+  "generatedAt": "2026-10-26",
   "competitors": 67,
   "byCategory": {
     "A": 49,
     "B": 7,
     "C": 11
   },
-  "cells": 19,
+  "cells": 20,
   "crossProduct": {
     "cells": 67,
     "controllable": 51,
@@ -51,9 +51,16 @@
     {
       "name": "retrieval.docstring.recall.withVectors",
       "category": "C",
-      "axis": "docstring search recall with vectors registered",
+      "axis": "docstring search recall with vectors registered, at the product default weight",
       "artifact": "benchmarks/docstring-search.json",
-      "value": 0.65
+      "value": 1
+    },
+    {
+      "name": "retrieval.paraphrase.recall.withVectors",
+      "category": "C",
+      "axis": "paraphrase search recall at 20 with vectors registered, at the product default weight",
+      "artifact": "benchmarks/paraphrase-search.json",
+      "value": 0.5657
     },
     {
       "name": "tokens.reduction",
@@ -102,7 +109,7 @@
       "category": "A",
       "axis": "our engine and a competitor on one corpus, one judge, one ground truth",
       "artifact": "benchmarks/aacr-head-to-head.json",
-      "value": 0
+      "value": 0.2308
     }
   ],
   "invalid": [
@@ -172,5 +179,5 @@
       "why": "Macroscope's corpus is not wired"
     }
   ],
-  "missingCount": 9
+  "missingCount": 8
 }
