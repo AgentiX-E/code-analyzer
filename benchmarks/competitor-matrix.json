@@ -447,14 +447,14 @@
     },
     "retrieval.docstring.recall.withVectors": {
       "category": "C",
-      "axis": "docstring search recall with vectors registered",
+      "axis": "docstring search recall with vectors registered, at the product default weight",
       "artifact": "benchmarks/docstring-search.json",
-      "read": ["withVectorsRegistered", "recall"],
+      "read": ["fused", "recallAt20"],
       "invalidWhen": {
-        "path": ["withVectorsRegistered", "backend"],
-        "equals": "none"
+        "path": ["space", "semantic"],
+        "equals": false
       },
-      "note": "the artifact itself says a `none` backend makes this the lexical figure again"
+      "note": "the artifact reports a lexical column, a sweep and the row the product runs; `space.semantic: false` means either side of the cosine was the hash fallback, which makes every column the lexical figure again"
     },
     "indexing.secondsPerMillionLines": {
       "category": "A",

@@ -67,5 +67,12 @@
     "competitorRecall": 0.75,
     "competitor": "Cody, quoted by the whitepaper"
   },
-  "misses": []
+  "misses": [],
+  "fused": {
+    "vectorWeight": 1,
+    "recallAt5": 0.9948,
+    "recallAt20": 1,
+    "mrr": 0.9849,
+    "found": 191
+  }
 }

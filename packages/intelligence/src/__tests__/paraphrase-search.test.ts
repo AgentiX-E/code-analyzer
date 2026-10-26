@@ -366,6 +366,8 @@ describe.skipIf(!HAS_CREDENTIALS)(
         topK: TOP_K,
         lexical: lexicalColumn,
         semanticSweep: sweep,
+        // The row the product runs - see the note in `docstring-search.test.ts`.
+        fused: { ...(sweep.find((row) => row.vectorWeight === 1) ?? sweep[0]) },
         target: {
           recall: 0.9,
           competitorRecall: 0.75,
