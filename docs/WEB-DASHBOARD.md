@@ -57,18 +57,13 @@ Reciprocal Rank Fusion. The weights, and whether the semantic half runs at all, 
 Two figures decide whether that semantic half earns its slots, and both come from `Embedding Backend`
 (`benchmarks/docstring-search.json`, `benchmarks/paraphrase-search.json`):
 
-| corpus                                                 | column          | recall@5   | recall@20  | MRR        |
-| ------------------------------------------------------ | --------------- | ---------- | ---------- | ---------- |
-| a symbol's own doc comment (191 queries)               | lexical         | 0.9948     | 1.000      | 0.9849     |
-|                                                        | fused, weight 1 | 0.9791     | 1.000      | 0.9615     |
-| a paraphrase of it, doc comments stripped (99 queries) | lexical         | 0.1515     | 0.2929     | 0.1051     |
-|                                                        | fused, weight 1 | **0.3434** | **0.4747** | **0.2274** |
-
-**The docstring corpus cannot separate the two halves** — the query _is_ the indexed text, so both columns sit at
-1.000 and the fusion only costs a little ordering. **The paraphrase corpus can, and there the semantic half is worth
-2.3× at top five, 62 % at top twenty and 2.2× in MRR**, on an index that holds no doc comment at all. Its questions are
-a committed dataset (`benchmarks/paraphrase-queries.json`), so the next run measures a different retriever against the
-same 99 questions.
+| corpus                                                 | column                        | recall@5   | recall@20  | MRR        |
+| ------------------------------------------------------ | ----------------------------- | ---------- | ---------- | ---------- |
+| a symbol's own doc comment (191 queries)               | lexical                       | 0.9948     | 1.000      | 0.9849     |
+|                                                        | fused, weight 1               | 0.9738     | 1.000      | 0.9592     |
+| a paraphrase of it, doc comments stripped (99 queries) | lexical                       | 0.1515     | 0.2929     | 0.1051     |
+|                                                        | fused, weight 1 — the product | **0.3838** | **0.5657** | **0.2470** |
+|                                                        | + `expand: true` (HyDE)       | **0.4444** | **0.6061** | **0.2714** |
 
 > The paraphrase artifact used to report lexical **0.5455**. It was measuring `rank !== null` on an unbounded list —
 > "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.2929**, and

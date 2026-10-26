@@ -35,38 +35,38 @@
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.9791,
+      "recallAt5": 0.9738,
       "recallAt20": 1,
-      "mrr": 0.9615,
+      "mrr": 0.9592,
       "found": 191
     },
     {
       "vectorWeight": 0.5,
       "recallAt5": 0.9791,
       "recallAt20": 1,
-      "mrr": 0.9719,
+      "mrr": 0.9682,
       "found": 191
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.9791,
+      "recallAt5": 0.9843,
       "recallAt20": 1,
-      "mrr": 0.9723,
+      "mrr": 0.9692,
       "found": 191
     },
     {
       "vectorWeight": 0.1,
-      "recallAt5": 0.9895,
+      "recallAt5": 0.9948,
       "recallAt20": 1,
-      "mrr": 0.975,
+      "mrr": 0.9768,
       "found": 191
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.9791,
+    "recallAt5": 0.9738,
     "recallAt20": 1,
-    "mrr": 0.9615,
+    "mrr": 0.9592,
     "found": 191
   },
   "target": {

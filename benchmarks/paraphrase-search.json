@@ -45,59 +45,59 @@
   },
   "variants": [
     {
-      "name": "path",
-      "note": "the file path joins the embedded text; query side unchanged",
-      "recallAt5": 0.3838,
-      "recallAt20": 0.5657,
-      "mrr": 0.247,
-      "found": 56
+      "name": "no-path",
+      "note": "the composition the product shipped before the path was measured in",
+      "recallAt5": 0.3434,
+      "recallAt20": 0.4747,
+      "mrr": 0.2274,
+      "found": 47
     },
     {
-      "name": "path+hyde",
-      "note": "the file path joins the embedded text; the query vector is the mean of the question and a hypothesis",
+      "name": "hyde",
+      "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.4343,
+      "recallAt5": 0.4444,
       "recallAt20": 0.6061,
-      "mrr": 0.2639,
+      "mrr": 0.2714,
       "found": 60
     }
   ],
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.3333,
-      "recallAt20": 0.4747,
-      "mrr": 0.2271,
-      "found": 47
+      "recallAt5": 0.3838,
+      "recallAt20": 0.5657,
+      "mrr": 0.247,
+      "found": 56
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.2626,
+      "recallAt5": 0.2525,
       "recallAt20": 0.2929,
-      "mrr": 0.1695,
+      "mrr": 0.1733,
       "found": 29
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.2626,
+      "recallAt5": 0.2525,
       "recallAt20": 0.2929,
-      "mrr": 0.1705,
+      "mrr": 0.1725,
       "found": 29
     },
     {
       "vectorWeight": 0.1,
       "recallAt5": 0.202,
       "recallAt20": 0.2929,
-      "mrr": 0.1386,
+      "mrr": 0.1425,
       "found": 29
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.3333,
-    "recallAt20": 0.4747,
-    "mrr": 0.2271,
-    "found": 47
+    "recallAt5": 0.3838,
+    "recallAt20": 0.5657,
+    "mrr": 0.247,
+    "found": 56
   },
   "target": {
     "recall": 0.9,
