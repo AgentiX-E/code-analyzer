@@ -3,42 +3,69 @@
     "Recall at top-k over a symbol queried by its own doc comment, on real code in this repository.",
     "",
     "**The query set was written by the authors of the code, not by a reviewer.** A doc comment describes the",
-    "symbol that follows it, so the expected answer is read off the file rather than chosen - which is what \"no recorded",
-    "query set\" was actually blocking.",
+    "symbol that follows it, so the expected answer is read off the file rather than chosen.",
     "",
     "**Comments that name their own symbol are excluded**, because those are lexical lookups wearing the clothes",
-    "of a description. What remains is the size of this measurement, and it is smaller on purpose.",
+    "of a description.",
     "",
-    "**The semantic half is reported only with a backend named**, because the embedding backend here is",
-    "intermittent: one probe threw `Tokenizer not found` and later runs report `onnx`."
+    "**Three columns, three questions**: `lexical` is the product path with no vectors registered; each",
+    "`semanticSweep` row is that same lexical list fused with one semantic list at that weight; `space` names the",
+    "vector space on each side, because a cosine between two spaces is noise and this file once published one."
   ],
-  "measuredAt": "2026-10-20",
-  "mode": "lexical-then-registered",
-  "backend": {
-    "loaded": "none",
-    "reason": "onnx: createFromPackage failed: Tokenizer not found: /Users/lambertyan/Workbuddy/2026-08-17-18-51-38/repos/code-analyzer/node_modules/.pnpm/@agentix-e+embed-code-node@0.1.1/node_modules/@agentix-e/embed-code-node/models/tokenizer.json · api: ZHIPU_API_KEY is not set",
-    "note": "the first figure is BM25 alone; the second had vectors registered on the same engine"
-  },
-  "withVectorsRegistered": {
-    "backend": "none",
-    "found": 181,
-    "recall": 1,
-    "note": "only meaningful when `backend` is not `none` - with no embedder this is the lexical figure again"
-  },
+  "measuredAt": "2026-10-26",
   "corpus": {
     "path": "packages/analyzer/src/languages",
-    "nodes": 3566,
-    "nodesWithADocstring": 185,
-    "queries": 181
+    "nodes": 3357,
+    "nodesWithADocstring": 195,
+    "queries": 191
+  },
+  "space": {
+    "index": "api",
+    "query": "api",
+    "semantic": true,
+    "reason": null
   },
   "topK": 20,
-  "found": 181,
-  "recall": 1,
-  "meanReciprocalRank": 0.9869,
-  "misses": [],
+  "lexical": {
+    "recallAt5": 0.9948,
+    "recallAt20": 1,
+    "mrr": 0.9849,
+    "found": 191
+  },
+  "semanticSweep": [
+    {
+      "vectorWeight": 1,
+      "recallAt5": 0.9948,
+      "recallAt20": 1,
+      "mrr": 0.9849,
+      "found": 191
+    },
+    {
+      "vectorWeight": 0.5,
+      "recallAt5": 0.9948,
+      "recallAt20": 1,
+      "mrr": 0.9849,
+      "found": 191
+    },
+    {
+      "vectorWeight": 0.25,
+      "recallAt5": 0.9948,
+      "recallAt20": 1,
+      "mrr": 0.9849,
+      "found": 191
+    },
+    {
+      "vectorWeight": 0.1,
+      "recallAt5": 0.9948,
+      "recallAt20": 1,
+      "mrr": 0.9849,
+      "found": 191
+    }
+  ],
   "target": {
     "recall": 0.9,
     "competitorRecall": 0.75,
     "competitor": "Cody, quoted by the whitepaper"
-  }
+  },
+  "misses": []
 }
