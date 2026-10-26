@@ -50,9 +50,10 @@ Reciprocal Rank Fusion. The weights, and whether the semantic half runs at all, 
   (nomic-embed-code), `deterministic` (the offline hash fallback), or **`none`** when the graph holds no vectors.
 - **`searchMethod`** is per item: `hybrid (BM25 + vector)`, `BM25 only (no vector match)`, or `BM25 text search`.
 - **The query vector is always built in the index's space.** A cosine between two models is noise, so a mismatch is
-  refused rather than averaged — see `createQueryEmbedder`. Measured on this repository before that rule existed:
-  lexical recall@20 **1.000**, fused recall@20 **0.638** (`benchmarks/docstring-search.json`, reproduced by the
-  `Embedding Backend` workflow).
+  refused rather than averaged — see `createQueryEmbedder`. Measured on this repository, on the runner
+  (`benchmarks/docstring-search.json`, reproduced by the `Embedding Backend` workflow): **before** the rule, fused
+  recall@20 **0.638** against lexical **1.000**; **with** it, `index: api`/`query: api` and every fusion weight back at
+  **1.000 recall@20 / 0.9849 MRR**, identical to the lexical column.
 
 ### 3. Dashboard
 

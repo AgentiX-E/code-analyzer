@@ -98,10 +98,22 @@ jobs:
               console.log("review-protocol.json was not produced");
               process.exitCode = 1;
             }
-            for (const [name, file] of [["docstring-search", "benchmarks/docstring-search.json"], ["lexical-search-recall", "benchmarks/lexical-search-recall.json"]]) {
-              const d = read(file);
-              if (d) console.log(`\n${name}: recall=${d.recall} mode=${d.mode} queries=${d.queries ?? d.corpus?.queries}`);
+            // **`docstring-search.json` reports three columns now**, because one fused figure hid a fused answer that was
+            // 36 points worse than the lexical one it fused with. Printing `d.recall` against the new shape would print
+            // `undefined` and, worse, compare nothing - a figure that is printed and not checked.
+            const docstring = read("benchmarks/docstring-search.json");
+            if (docstring) {
+              console.log(`\ndocstring-search: space=${docstring.space?.index}/${docstring.space?.query} queries=${docstring.corpus?.queries}`);
+              console.log(`  lexical: recall@5=${docstring.lexical?.recallAt5} recall@20=${docstring.lexical?.recallAt20} mrr=${docstring.lexical?.mrr}`);
+              for (const row of docstring.semanticSweep ?? []) {
+                console.log(`  fused w=${row.vectorWeight}: recall@20=${row.recallAt20} mrr=${row.mrr}`);
+              }
+            } else {
+              console.log("docstring-search.json was not produced");
+              process.exitCode = 1;
             }
+            const lexical = read("benchmarks/lexical-search-recall.json");
+            if (lexical) console.log(`\nlexical-search-recall: recall=${lexical.recall} mode=${lexical.mode} queries=${lexical.queries ?? lexical.corpus?.queries}`);
           '
 
       - name: Fail on a regression
@@ -111,15 +123,28 @@ jobs:
           node -e '
             const fs = require("node:fs");
             const read = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
-            const keys = ["recall", "f1", "signalToNoise", "precision"];
+            // **Each file names its own figures**, because they no longer share a shape: `docstring-search.json` carries
+            // a lexical column and a sweep, and a shared key list would silently skip both.
+            const figures = {
+              "review-protocol.json": [["precision"], ["recall"], ["f1"], ["signalToNoise"]],
+              "lexical-search-recall.json": [["recall"]],
+              "docstring-search.json": [
+                ["lexical", "recallAt5"],
+                ["lexical", "recallAt20"],
+                ["lexical", "mrr"],
+              ],
+            };
+            const at = (object, path) => path.reduce((value, key) => value?.[key], object);
             let regressed = [];
-            for (const name of ["review-protocol.json", "docstring-search.json", "lexical-search-recall.json"]) {
+            for (const [name, paths] of Object.entries(figures)) {
               const before = read(`benchmarks-baseline/${name}`);
               const after = read(`benchmarks/${name}`);
               if (!before || !after) continue;
-              for (const k of keys) {
-                if (typeof before[k] !== "number" || typeof after[k] !== "number") continue;
-                if (after[k] < before[k]) regressed.push(`${name}:${k} ${before[k]} -> ${after[k]}`);
+              for (const path of paths) {
+                const from = at(before, path);
+                const to = at(after, path);
+                if (typeof from !== "number" || typeof to !== "number") continue;
+                if (to < from) regressed.push(`${name}:${path.join(".")} ${from} -> ${to}`);
               }
             }
             if (regressed.length) {
