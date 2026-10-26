@@ -35,7 +35,9 @@ import { describe, expect, it } from 'vitest';
 import { DeepSeekProvider } from '../review/llm/provider.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { expandToVector } from '../search/query-expansion.js';
+import { rerankCandidates } from '../search/rerank.js';
 
+import type { HybridSearchResult } from '../search/hybrid-search.js';
 import type { GraphNode, PipelineContext } from '@code-analyzer/shared';
 
 const CORPUS = 'packages/analyzer/src/languages';
@@ -45,6 +47,8 @@ const MIN_DOCSTRING = 30;
 /** **A bounded query set, because every query is paid for twice**: one completion to write it, one embedding to run it. */
 const MAX_QUERIES = 100;
 const VECTOR_WEIGHTS = [1, 0.5, 0.25, 0.1];
+/** How many candidates a reranker sees. **A judgement task, not a reading task** - fifty fits one prompt. */
+const RERANK_POOL = 50;
 
 /**
  * **The question set is a dataset, so it is frozen and committed.**
@@ -153,6 +157,10 @@ interface VariantColumn extends Partial<Column> {
   /** How many questions the model answered with a usable hypothesis. **Reported, because a missing expansion is not a
    * missing answer** - the arm degrades to the plain question vector. */
   hypotheses?: number;
+  /** How many questions the model actually reordered - **an identity answer is not a rerank**. */
+  reranked?: number;
+  /** The ceiling: the share of answers present in the pool the reranker was given. */
+  poolRecallAt20?: number;
   /** Why this arm did not run. **An absent row reads like a passing one**, so an unmeasured variant says so. */
   reason?: string;
 }
@@ -638,6 +646,78 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
             note: 'the product index; the query vector is the mean of the question and a hypothesis',
             reason:
               'DEEPSEEK_API_KEY is absent, so no hypothesis can be written and this arm did not run',
+          });
+        }
+        // **`rerank`**: the fused fifty, ordered by a model that can see all of them, then cut at twenty.
+        //
+        // **The pool is the ceiling, and it is published.** A reranker cannot answer a question whose symbol was not in
+        // the fifty it was given, so a reader who sees recall@20 rise without seeing the pool would not know whether the
+        // ordering did the work or a deeper candidate list did.
+        if (CAN_WRITE_QUERIES) {
+          const provider = new DeepSeekProvider({ timeout: 60_000 });
+          const pool: HybridSearchResult[][] = [];
+          for (let index = 0; index < paraphrases.length; index++) {
+            const candidate = paraphrases[index]!;
+            const semanticDeep = await hybrid.vectorSearch(candidate.query, RERANK_POOL, null);
+            pool.push(
+              hybrid.fuseResults(
+                lexicalLists[index]!.slice(0, RERANK_POOL).map((hit) => ({
+                  node: hit.node,
+                  score: hit.score,
+                })),
+                semanticDeep.map((hit) => ({ node: hit.node, score: hit.score })),
+                60,
+                RERANK_POOL,
+                1,
+              ),
+            );
+          }
+
+          const cases: QueryCase[] = [];
+          let reranked = 0;
+          let poolHits = 0;
+          for (let index = 0; index < paraphrases.length; index++) {
+            const candidate = paraphrases[index]!;
+            const fused = pool[index]!;
+            if (fused.some((hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate)))
+              poolHits += 1;
+            const entries = fused.map((hit, position) => ({ rank: position + 1, hit }));
+            const result = await rerankCandidates(
+              candidate.query,
+              entries,
+              (entry) => ({
+                rank: entry.rank,
+                name: entry.hit.node.name,
+                qualifiedName: entry.hit.node.qualifiedName,
+                filePath: entry.hit.node.filePath,
+                signature: entry.hit.node.signature,
+                excerpt:
+                  typeof entry.hit.node.properties['body'] === 'string'
+                    ? entry.hit.node.properties['body'].slice(0, 240)
+                    : null,
+              }),
+              provider,
+              { timeout: 60_000 },
+            );
+            if (result.applied) reranked += 1;
+            const rank = result.ordered
+              .slice(0, TOP_K)
+              .findIndex((entry) => answerKey(entry.hit.node, corpusRoot) === frozenKey(candidate));
+            cases.push({ ...candidate, rank: rank >= 0 ? rank + 1 : null });
+          }
+          variants.push({
+            name: 'rerank',
+            note: `the fused top ${RERANK_POOL}, reordered by a model, cut at ${TOP_K}`,
+            reranked,
+            poolRecallAt20: Math.round((poolHits / paraphrases.length) * 10000) / 10000,
+            ...summarise(cases),
+          });
+        } else {
+          variants.push({
+            name: 'rerank',
+            note: `the fused top ${RERANK_POOL}, reordered by a model, cut at ${TOP_K}`,
+            reason:
+              'DEEPSEEK_API_KEY is absent, so no ordering can be asked for and this arm did not run',
           });
         }
       }

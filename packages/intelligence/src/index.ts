@@ -21,6 +21,10 @@ export {
   meanVector,
 } from './search/query-expansion.js';
 export type { ExpandedQuery, ExpansionOptions } from './search/query-expansion.js';
+// **Listwise reranking**: the stage that can fix the order a fused list arrives in - the same reason every
+// codebase-QA competitor ships one.
+export { applyOrder, parseRerankAnswer, rerankCandidates, rerankPrompt } from './search/rerank.js';
+export type { RerankCandidate, RerankResult } from './search/rerank.js';
 
 // Dataflow Search (5th Search Dimension)
 export { DataflowSearchEngine } from './search/dataflow-search.js';
