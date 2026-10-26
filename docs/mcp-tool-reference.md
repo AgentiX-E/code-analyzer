@@ -97,24 +97,35 @@ Get detailed information about a specific graph node.
 
 ### `search_code`
 
-Full-text search across source code using BM25 ranking.
+BM25 search fused with vector search by weighted Reciprocal Rank Fusion. **When the index holds vectors the answer is
+hybrid**, and every response says which half produced it (`semanticBackend`, per-item `searchMethod`).
 
-| Parameter   | Type     | Required | Description                             |
-| ----------- | -------- | :------: | --------------------------------------- |
-| `query`     | `string` |   Yes    | Search query                            |
-| `language`  | `string` |    No    | Filter by language (e.g., `typescript`) |
-| `type`      | `string` |    No    | Filter by node type (e.g., `Function`)  |
-| `filePath`  | `string` |    No    | Restrict to specific file pattern       |
-| `limit`     | `number` |    No    | Maximum results (default: 20)           |
-| `projectId` | `string` |    No    | Project scope                           |
+| Parameter   | Type      | Required | Description                                                                        |
+| ----------- | --------- | :------: | ---------------------------------------------------------------------------------- |
+| `query`     | `string`  |   Yes    | Search query                                                                       |
+| `language`  | `string`  |    No    | Filter by language (e.g., `typescript`)                                            |
+| `type`      | `string`  |    No    | Filter by node type (e.g., `Function`)                                             |
+| `filePath`  | `string`  |    No    | Restrict to specific file pattern                                                  |
+| `limit`     | `number`  |    No    | Maximum results (default: 20)                                                      |
+| `projectId` | `string`  |    No    | Project scope                                                                      |
+| `expand`    | `boolean` |    No    | Rewrite the query as the code it describes before searching (HyDE), one completion |
 
 **Example:**
 
 ```json
-{ "query": "authentication middleware", "language": "typescript", "limit": 10 }
+{ "query": "how do I count the calls in a file?", "expand": true, "limit": 10 }
 ```
 
-**Output:** Array of search results with file path, line number, snippet, and BM25 score.
+**Output:** Array of search results with file path, line number, snippet, and BM25/vector/combined scores, plus
+`semanticBackend` (`api` · `onnx` · `deterministic` · `none`) and `queryExpansion` — `{ applied, hypothesis?, reason? }`.
+
+**Why `expand` exists, and what it costs.** A question written in a developer's words does not share vocabulary with
+the code that answers it. `expand: true` asks the configured LLM for a plausible implementation of the question and
+searches with the mean of the question's vector and the hypothesis's — _Precise Zero-Shot Dense Retrieval without
+Relevance Labels_ (Gao et al., 2022). Measured on 99 questions over this repository with every doc comment stripped
+from the index: **recall@20 0.4747 → 0.6061, MRR 0.2271 → 0.2639**, against a lexical baseline of 0.2929 / 0.1051.
+It costs one completion and needs `DEEPSEEK_API_KEY`; without either, the tool answers the plain query and says so in
+`queryExpansion.reason`.
 
 ---
 

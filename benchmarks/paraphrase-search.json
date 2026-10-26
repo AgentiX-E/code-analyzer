@@ -19,7 +19,7 @@
   ],
   "measuredAt": "2026-10-26",
   "querySet": {
-    "source": "generated",
+    "source": "frozen",
     "path": "benchmarks/paraphrase-queries.json",
     "size": 99
   },
@@ -43,19 +43,38 @@
     "mrr": 0.1051,
     "found": 29
   },
+  "variants": [
+    {
+      "name": "path",
+      "note": "the file path joins the embedded text; query side unchanged",
+      "recallAt5": 0.3838,
+      "recallAt20": 0.5657,
+      "mrr": 0.247,
+      "found": 56
+    },
+    {
+      "name": "path+hyde",
+      "note": "the file path joins the embedded text; the query vector is the mean of the question and a hypothesis",
+      "hypotheses": 99,
+      "recallAt5": 0.4343,
+      "recallAt20": 0.6061,
+      "mrr": 0.2639,
+      "found": 60
+    }
+  ],
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.3434,
+      "recallAt5": 0.3333,
       "recallAt20": 0.4747,
-      "mrr": 0.2274,
+      "mrr": 0.2271,
       "found": 47
     },
     {
       "vectorWeight": 0.5,
       "recallAt5": 0.2626,
       "recallAt20": 0.2929,
-      "mrr": 0.1711,
+      "mrr": 0.1695,
       "found": 29
     },
     {
@@ -75,9 +94,9 @@
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.3434,
+    "recallAt5": 0.3333,
     "recallAt20": 0.4747,
-    "mrr": 0.2274,
+    "mrr": 0.2271,
     "found": 47
   },
   "target": {

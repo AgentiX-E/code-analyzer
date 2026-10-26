@@ -74,8 +74,14 @@ const MAX_BODY_CHARS = 600;
  */
 export interface EmbeddingTextOptions {
   /**
-   * Whether the file's path joins the text. **Off by default, because it is not yet measured into the product**: the
-   * comparison runs in `paraphrase-search.test.ts` and the default flips only when the column beats this one.
+   * Whether the file's path joins the text. **On, because it was measured on.** On the paraphrase corpus - 99 questions
+   * written from doc comments that are then stripped from the index - adding the path moved the product's fused column
+   * from **0.4747 to 0.5657 recall@20** and MRR from 0.2271 to 0.2470, with every other variable held: same corpus,
+   * same questions, same model, same weight. The misses the path answers are topical (ArkUI decorators, tree-sitter
+   * parsing, taint sinks), which is the kind of gap a directory name closes and an identifier cannot.
+   *
+   * **The alternative is still reachable**, because a measurement that cannot go back cannot show what it gained:
+   * `paraphrase-search.test.ts` keeps the path-free composition as its control column.
    */
   includePath?: boolean;
 }
@@ -95,7 +101,8 @@ export function embeddingText(
 
   const textParts: string[] = [node.label, node.name];
   // **The path before the name**, so the topical signal is at the head of the string where a truncated input keeps it.
-  if (options.includePath && node.filePath) textParts.push(node.filePath.split('/').join(' '));
+  if (options.includePath !== false && node.filePath)
+    textParts.push(node.filePath.split('/').join(' '));
   const signature = node.properties.signature;
   if (signature) textParts.push(signature);
   // **The body before the doc comment**, because a question about behaviour is answered by what the code does - and

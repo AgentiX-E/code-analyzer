@@ -7,6 +7,12 @@ export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js
 // **Query expansion is a public capability of the semantic half**, not a detail of one measurement: `search_code` will
 // use it behind a flag, and a caller that supplies its own provider gets the same prompt and the same mean.
 export {
+  createLLMProvider,
+  isLLMProviderName,
+  knownLLMProviders,
+} from './review/llm/provider-factory.js';
+export type { LLMProviderName } from './review/llm/provider-factory.js';
+export {
   MIN_HYPOTHESIS_CHARS,
   cleanHypothesis,
   expandQuestion,

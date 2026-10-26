@@ -164,24 +164,21 @@ describe("embeddingText — what one symbol's vector is built from", () => {
       docstring: 'Extract every method call from a source file.',
     });
 
-    expect(embeddingText(node)).toBe(
+    expect(embeddingText(node, { includePath: false })).toBe(
       'Function extractCalls function extractCalls(source: string): Call[] ' +
         'return parse(source).filter(isCall); Extract every method call from a source file.',
     );
   });
 
-  it('leaves the path out by default and puts it in front when asked', () => {
-    // **The comparison this protects is the one running in `paraphrase-search.test.ts`**: the same symbol, two
-    // compositions, one difference. The default is the shipped one, so a measurement that forgets the option measures
-    // the product rather than a variant.
+  it('puts the path in front by default, and can leave it out', () => {
+    // **The default is the measured one**: the path is worth 9.1 points of recall@20 on the paraphrase corpus, and the
+    // control column in `paraphrase-search.test.ts` is what keeps the path-free composition visible.
     const { graph, builder } = buildGraph();
     const node = builder.addNode(graph, 'Function', 'walk', { name: 'walk' });
     node.filePath = 'src/arkui/decorators.ts';
 
-    expect(embeddingText(node)).toBe('Function walk');
-    expect(embeddingText(node, { includePath: true })).toBe(
-      'Function walk src arkui decorators.ts',
-    );
+    expect(embeddingText(node)).toBe('Function walk src arkui decorators.ts');
+    expect(embeddingText(node, { includePath: false })).toBe('Function walk');
   });
 
   it('bounds the body and the doc comment, and can be told the bound', () => {

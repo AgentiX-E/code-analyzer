@@ -532,119 +532,112 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
       // shipping it.
       const variants: VariantColumn[] = [];
 
-      if (queryEmbedder) {
-        // **`path`**: the file's path joins the embedded text. It is free at query time, and the miss list from the
-        // control run is *topical* rather than lexical - ArkUI decorators, tree-sitter parsing, taint sinks - which is
-        // the kind of gap a directory name closes and an identifier cannot.
-        const withPath = await generateEmbeddings(stripped, defaultEmbedderLoader, {
-          includePath: true,
-        });
-        const pathVectors = new Map(
-          withPath.results.map((result) => [result.nodeId, result.embedding]),
+      // **One fused column, computed the same way as the sweep**: the lexical list cut at twenty, the semantic list
+      // fused into it at the product's weight, the answer looked for inside the twenty.
+      const fuse = (
+        engine: HybridSearchEngine,
+        lists: Array<Array<{ node: GraphNode; score: number }>>,
+        vectorWeight: number,
+      ): Column =>
+        summarise(
+          paraphrases.map((candidate, index) => {
+            const fused = engine.fuseResults(
+              lexicalLists[index]!.slice(0, TOP_K).map((hit) => ({
+                node: hit.node,
+                score: hit.score,
+              })),
+              (lists[index] ?? []).map((hit) => ({ node: hit.node, score: hit.score })),
+              60,
+              TOP_K,
+              vectorWeight,
+            );
+            const rank = fused.findIndex(
+              (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
+            );
+            return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+          }),
         );
-        const pathStore = new InMemoryGraphStore();
-        const pathVectorByStoreId = new Map<number, Float32Array>();
+
+      if (queryEmbedder) {
+        // **The composition the product shipped before this measurement**: no path in the text. Kept as a column so the
+        // gain the path produced is visible in the artifact rather than only in a commit message.
+        const withoutPath = await generateEmbeddings(stripped, defaultEmbedderLoader, {
+          includePath: false,
+        });
+        const plainVectors = new Map(withoutPath.results.map((r) => [r.nodeId, r.embedding]));
+        const plainStore = new InMemoryGraphStore();
+        const plainByStoreId = new Map<number, Float32Array>();
         for (const node of stripped.values()) {
-          const vector = pathVectors.get(node.id);
-          const storeId = pathStore.insertNode({
+          const vector = plainVectors.get(node.id);
+          const storeId = plainStore.insertNode({
             ...node,
             properties: vector
-              ? { ...node.properties, embedding: vector, embeddingBackend: withPath.backend }
+              ? { ...node.properties, embedding: vector, embeddingBackend: withoutPath.backend }
               : node.properties,
           });
-          if (vector) pathVectorByStoreId.set(storeId, Float32Array.from(vector));
+          if (vector) plainByStoreId.set(storeId, Float32Array.from(vector));
         }
-        const pathQueryEmbedder = await createQueryEmbedder(withPath.backend);
-        const pathHybrid = new HybridSearchEngine(pathStore);
-        pathHybrid.initialize();
-        if (pathQueryEmbedder) {
-          pathHybrid.registerEmbeddings(
-            (nodeId) => pathVectorByStoreId.get(nodeId) ?? null,
-            (text) => pathQueryEmbedder.embed(text),
+        const plainHybrid = new HybridSearchEngine(plainStore);
+        plainHybrid.initialize();
+        const plainQueryEmbedder = await createQueryEmbedder(withoutPath.backend);
+        if (plainQueryEmbedder) {
+          plainHybrid.registerEmbeddings(
+            (nodeId) => plainByStoreId.get(nodeId) ?? null,
+            (text) => plainQueryEmbedder.embed(text),
           );
         }
 
-        /** One fused column over a list of semantic rankings - **the same arithmetic as the sweep above**. */
-        const fuse = (
-          lists: Array<Array<{ node: GraphNode; score: number }>>,
-          vectorWeight: number,
-        ): Column =>
-          summarise(
-            paraphrases.map((candidate, index) => {
-              const fused = hybrid.fuseResults(
-                lexicalLists[index]!.slice(0, TOP_K).map((hit) => ({
-                  node: hit.node,
-                  score: hit.score,
-                })),
-                (lists[index] ?? []).map((hit) => ({ node: hit.node, score: hit.score })),
-                60,
-                TOP_K,
-                vectorWeight,
-              );
-              const rank = fused.findIndex(
-                (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
-              );
-              return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
-            }),
-          );
-
-        // **The second index has to live in the same space as the first**, or the comparison is between two models. A
+        // **Both indices have to live in the same space as the product's**, or the comparison is between two models. A
         // run that hit the endpoint's limit falls back to hash vectors, and a hash index would answer this corpus with
         // noise that could still clear the lexical floor - so the arm is refused rather than published.
-        if (pathQueryEmbedder && withPath.backend !== backend) {
+        if (!plainQueryEmbedder || withoutPath.backend !== backend) {
           variants.push({
-            name: 'path',
-            note: 'the file path joins the embedded text; query side unchanged',
-            reason: `the control index is ${backend} and the second came back as ${withPath.backend} — two spaces do not compare`,
+            name: 'no-path',
+            note: 'the composition the product shipped before the path was measured in',
+            reason: `the product index is ${backend} and the control came back as ${withoutPath.backend} — two spaces do not compare`,
           });
-        } else if (pathQueryEmbedder) {
-          const pathLists: Array<Array<{ node: GraphNode; score: number }>> = [];
+        } else {
+          const plainLists: Array<Array<{ node: GraphNode; score: number }>> = [];
           for (const candidate of paraphrases) {
-            pathLists.push(await pathHybrid.vectorSearch(candidate.query, TOP_K, null));
+            plainLists.push(await plainHybrid.vectorSearch(candidate.query, TOP_K, null));
           }
           variants.push({
-            name: 'path',
-            note: 'the file path joins the embedded text; query side unchanged',
-            ...fuse(pathLists, 1),
+            name: 'no-path',
+            note: 'the composition the product shipped before the path was measured in',
+            ...fuse(plainHybrid, plainLists, 1),
           });
+          await plainQueryEmbedder.dispose().catch(() => undefined);
+        }
 
-          // **`path + hyde`**: the query vector is the mean of the question and an implementation DeepSeek writes for
-          // it. **The hypothesis lives in the corpus's vocabulary** - names, types, call shape - while the question does
-          // not, which is the asymmetry this arm exists to test.
-          if (CAN_WRITE_QUERIES) {
-            const provider = new DeepSeekProvider({ timeout: 30_000 });
-            const hydeLists: Array<Array<{ node: GraphNode; score: number }>> = [];
-            let hypotheses = 0;
-            for (const candidate of paraphrases) {
-              const expanded = await expandToVector(candidate.query, provider, (text) =>
-                pathQueryEmbedder.embed(text),
-              );
-              if (expanded.hypothesis.length > 0) hypotheses += 1;
-              // **The precomputed vector**, because the query is no longer one string.
-              hydeLists.push(
-                await pathHybrid.vectorSearch(candidate.query, TOP_K, null, expanded.vector),
-              );
-            }
-            variants.push({
-              name: 'path+hyde',
-              note: 'the file path joins the embedded text; the query vector is the mean of the question and a hypothesis',
-              hypotheses,
-              ...fuse(hydeLists, 1),
-            });
-          } else {
-            variants.push({
-              name: 'path+hyde',
-              note: 'the file path joins the embedded text; the query vector is the mean of the question and a hypothesis',
-              reason:
-                'DEEPSEEK_API_KEY is absent, so no hypothesis can be written and this arm did not run',
-            });
+        // **`hyde`**: the query vector is the mean of the question and an implementation DeepSeek writes for it. **The
+        // hypothesis lives in the corpus's vocabulary** - names, types, call shape - while the question does not, which
+        // is the asymmetry this arm exists to test. It runs on the product index, so the delta is the query side alone.
+        if (CAN_WRITE_QUERIES) {
+          const provider = new DeepSeekProvider({ timeout: 30_000 });
+          const hydeLists: Array<Array<{ node: GraphNode; score: number }>> = [];
+          let hypotheses = 0;
+          for (const candidate of paraphrases) {
+            const expanded = await expandToVector(candidate.query, provider, (text) =>
+              queryEmbedder.embed(text),
+            );
+            if (expanded.hypothesis.length > 0) hypotheses += 1;
+            // **The precomputed vector**, because the query is no longer one string.
+            hydeLists.push(
+              await hybrid.vectorSearch(candidate.query, TOP_K, null, expanded.vector),
+            );
           }
-          await pathQueryEmbedder.dispose().catch(() => undefined);
+          variants.push({
+            name: 'hyde',
+            note: 'the product index; the query vector is the mean of the question and a hypothesis',
+            hypotheses,
+            ...fuse(hybrid, hydeLists, 1),
+          });
         } else {
           variants.push({
-            name: 'path',
-            note: 'the file path joins the embedded text; query side unchanged',
-            reason: `the index holds ${withPath.backend} vectors and no query embedder could join that space`,
+            name: 'hyde',
+            note: 'the product index; the query vector is the mean of the question and a hypothesis',
+            reason:
+              'DEEPSEEK_API_KEY is absent, so no hypothesis can be written and this arm did not run',
           });
         }
       }

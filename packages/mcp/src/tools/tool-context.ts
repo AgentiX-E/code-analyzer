@@ -12,6 +12,8 @@ import {
   FederatedSearchEngine,
   CrossRepoIndexer,
   CrossRepoPRReviewEngine,
+  createLLMProvider,
+  expandToVector,
 } from '@code-analyzer/intelligence';
 
 import type {
@@ -19,7 +21,7 @@ import type {
   PipelineOrchestrator,
   PipelineResult,
 } from '@code-analyzer/analyzer';
-import type { InterprocTaintFinding } from '@code-analyzer/intelligence';
+import type { InterprocTaintFinding, LLMProvider } from '@code-analyzer/intelligence';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -42,7 +44,20 @@ export interface ToolContext {
    * the space the index recorded** - a cosine between two models is noise - and when no vectors are present this returns
    * the lexical engine unchanged, which is the honest answer rather than a silent downgrade.
    */
-  getSemanticSearchEngine(): Promise<{ engine: HybridSearchEngine; backend: string }>;
+  getSemanticSearchEngine(): Promise<{
+    engine: HybridSearchEngine;
+    backend: string;
+    /** The function that puts a text into the index's space, or `null` when nothing can. **Expansion needs it.** */
+    embed: ((text: string) => Promise<Float32Array>) | null;
+  }>;
+
+  /**
+   * A query rewritten as the code it describes, in the index's space.
+   *
+   * **`null` is an answer, not a failure**: no vectors, no embedder or no provider all mean "search the question as
+   * written", which every caller can still do. Optional, so a context built by a test does not have to implement it.
+   */
+  expandQuery?(query: string): Promise<{ vector: Float32Array; hypothesis: string } | null>;
 
   /** Code review engine (heuristics-based). Lazy initialized. */
   getReviewEngine(): CodeReviewEngine;
@@ -124,7 +139,13 @@ export interface DependencyTreeNode {
 export class ToolContextImpl implements ToolContext {
   public readonly store: InMemoryGraphStore;
   private _searchEngine: HybridSearchEngine | null = null;
-  private _semantic: Promise<{ engine: HybridSearchEngine; backend: string }> | null = null;
+  private _semantic: Promise<{
+    engine: HybridSearchEngine;
+    backend: string;
+    embed: ((text: string) => Promise<Float32Array>) | null;
+  }> | null = null;
+  private _llm: LLMProvider | null | undefined;
+  private readonly llmOverride?: LLMProvider | null;
   private _reviewEngine: CodeReviewEngine | null = null;
   private _prReviewEngine: PRReviewEngine | null = null;
   private _impactAnalyzer: ImpactAnalyzer | null = null;
@@ -138,8 +159,9 @@ export class ToolContextImpl implements ToolContext {
   private _crossRepoPrReview: CrossRepoPRReviewEngine | null = null;
   public currentAnalysis?: PipelineResult;
 
-  constructor(store: InMemoryGraphStore) {
+  constructor(store: InMemoryGraphStore, options: { llm?: LLMProvider | null } = {}) {
     this.store = store;
+    this.llmOverride = options.llm;
   }
 
   getSearchEngine(): HybridSearchEngine {
@@ -150,13 +172,47 @@ export class ToolContextImpl implements ToolContext {
     return this._searchEngine;
   }
 
-  getSemanticSearchEngine(): Promise<{ engine: HybridSearchEngine; backend: string }> {
+  getSemanticSearchEngine(): Promise<{
+    engine: HybridSearchEngine;
+    backend: string;
+    embed: ((text: string) => Promise<Float32Array>) | null;
+  }> {
     // **Cached as a promise, not as a value**: two tool calls arriving together must register the embedder once.
     this._semantic ??= this.wireSemanticSearch();
     return this._semantic;
   }
 
-  private async wireSemanticSearch(): Promise<{ engine: HybridSearchEngine; backend: string }> {
+  /**
+   * The provider this context uses, built on first use.
+   *
+   * **`undefined` in the options means "use what the deployment configured"**, `null` means "there is none" - the
+   * difference is what lets a test exercise the absence without unsetting an environment variable.
+   */
+  private llmProvider(): LLMProvider | null {
+    if (this._llm === undefined) {
+      this._llm = this.llmOverride === undefined ? createLLMProvider() : this.llmOverride;
+    }
+    return this._llm;
+  }
+
+  /** @see ToolContext.expandQuery */
+  async expandQuery(query: string): Promise<{ vector: Float32Array; hypothesis: string } | null> {
+    const { embed } = await this.getSemanticSearchEngine();
+    if (!embed) return null;
+    const provider = this.llmProvider();
+    if (!provider) return null;
+    const expanded = await expandToVector(query, provider, embed);
+    // **A hypothesis too short to be one leaves the query as it was** — see `expandToVector`.
+    return expanded.hypothesis.length > 0
+      ? { vector: expanded.vector, hypothesis: expanded.hypothesis }
+      : null;
+  }
+
+  private async wireSemanticSearch(): Promise<{
+    engine: HybridSearchEngine;
+    backend: string;
+    embed: ((text: string) => Promise<Float32Array>) | null;
+  }> {
     const engine = this.getSearchEngine();
 
     // **Which space the index is in is a property of the data**, written by the embed phase beside the vectors, so a
@@ -173,16 +229,14 @@ export class ToolContextImpl implements ToolContext {
         backend = properties.embeddingBackend;
       }
     }
-    if (vectors.size === 0 || backend === null) return { engine, backend: 'none' };
+    if (vectors.size === 0 || backend === null) return { engine, backend: 'none', embed: null };
 
     const queryEmbedder = await createQueryEmbedder(backend as EmbeddingBackendName);
-    if (!queryEmbedder) return { engine, backend: 'none' };
+    if (!queryEmbedder) return { engine, backend: 'none', embed: null };
 
-    engine.registerEmbeddings(
-      (nodeId) => vectors.get(nodeId) ?? null,
-      (text) => queryEmbedder.embed(text),
-    );
-    return { engine, backend: queryEmbedder.backend };
+    const embed = (text: string): Promise<Float32Array> => queryEmbedder.embed(text);
+    engine.registerEmbeddings((nodeId) => vectors.get(nodeId) ?? null, embed);
+    return { engine, backend: queryEmbedder.backend, embed };
   }
 
   getReviewEngine(): CodeReviewEngine {
