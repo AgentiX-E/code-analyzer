@@ -13,7 +13,13 @@ import {
   CrossRepoPRReviewEngine,
 } from '@code-analyzer/intelligence';
 
-import type { PipelineOrchestrator, PipelineResult } from '@code-analyzer/analyzer';
+import { createQueryEmbedder } from '@code-analyzer/analyzer';
+
+import type {
+  EmbeddingBackendName,
+  PipelineOrchestrator,
+  PipelineResult,
+} from '@code-analyzer/analyzer';
 import type { InterprocTaintFinding } from '@code-analyzer/intelligence';
 import type { GraphNode } from '@code-analyzer/shared';
 
@@ -28,6 +34,16 @@ export interface ToolContext {
 
   /** Hybrid search engine (BM25 + vector). Lazy initialized. */
   getSearchEngine(): HybridSearchEngine;
+
+  /**
+   * The same engine with the semantic half wired, if the index holds vectors.
+   *
+   * **`getSearchEngine()` alone is lexical**, and until this existed the vectors the pipeline computed were reachable
+   * from nothing but a benchmark: `registerEmbeddings` had exactly one caller, in a test. **The query side is built from
+   * the space the index recorded** - a cosine between two models is noise - and when no vectors are present this returns
+   * the lexical engine unchanged, which is the honest answer rather than a silent downgrade.
+   */
+  getSemanticSearchEngine(): Promise<{ engine: HybridSearchEngine; backend: string }>;
 
   /** Code review engine (heuristics-based). Lazy initialized. */
   getReviewEngine(): CodeReviewEngine;
@@ -109,6 +125,7 @@ export interface DependencyTreeNode {
 export class ToolContextImpl implements ToolContext {
   public readonly store: InMemoryGraphStore;
   private _searchEngine: HybridSearchEngine | null = null;
+  private _semantic: Promise<{ engine: HybridSearchEngine; backend: string }> | null = null;
   private _reviewEngine: CodeReviewEngine | null = null;
   private _prReviewEngine: PRReviewEngine | null = null;
   private _impactAnalyzer: ImpactAnalyzer | null = null;
@@ -132,6 +149,41 @@ export class ToolContextImpl implements ToolContext {
       this._searchEngine.initialize();
     }
     return this._searchEngine;
+  }
+
+  getSemanticSearchEngine(): Promise<{ engine: HybridSearchEngine; backend: string }> {
+    // **Cached as a promise, not as a value**: two tool calls arriving together must register the embedder once.
+    this._semantic ??= this.wireSemanticSearch();
+    return this._semantic;
+  }
+
+  private async wireSemanticSearch(): Promise<{ engine: HybridSearchEngine; backend: string }> {
+    const engine = this.getSearchEngine();
+
+    // **Which space the index is in is a property of the data**, written by the embed phase beside the vectors, so a
+    // consumer that loads a graph from elsewhere can still build a matching query embedder.
+    let backend: string | null = null;
+    const vectors = new Map<number, Float32Array>();
+    for (const node of this.store.getAllNodes()) {
+      const properties = node.properties as
+        { embedding?: unknown; embeddingBackend?: unknown } | undefined;
+      const vector = properties?.embedding;
+      if (!Array.isArray(vector) || vector.length === 0) continue;
+      vectors.set(node.id, Float32Array.from(vector));
+      if (backend === null && typeof properties?.embeddingBackend === 'string') {
+        backend = properties.embeddingBackend;
+      }
+    }
+    if (vectors.size === 0 || backend === null) return { engine, backend: 'none' };
+
+    const queryEmbedder = await createQueryEmbedder(backend as EmbeddingBackendName);
+    if (!queryEmbedder) return { engine, backend: 'none' };
+
+    engine.registerEmbeddings(
+      (nodeId) => vectors.get(nodeId) ?? null,
+      (text) => queryEmbedder.embed(text),
+    );
+    return { engine, backend: queryEmbedder.backend };
   }
 
   getReviewEngine(): CodeReviewEngine {

@@ -7,7 +7,13 @@ import { describe, it, expect } from 'vitest';
 import { GraphBuilder } from '../graph/graph-builder.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { PipelineContext, KnowledgeGraph, CodeAnalyzerConfig } from '@code-analyzer/shared';
-import { EmbedPhase, generateEmbeddings, loadRealEmbedder } from '../pipeline/phases/embed.js';
+import {
+  EmbedPhase,
+  createQueryEmbedder,
+  defaultEmbedderLoader,
+  generateEmbeddings,
+  loadRealEmbedder,
+} from '../pipeline/phases/embed.js';
 import type { Embedder } from '../pipeline/phases/embed.js';
 
 // ---------------------------------------------------------------------------
@@ -129,6 +135,98 @@ describe('generateEmbeddings — deterministic fallback', () => {
   });
 });
 
+describe('generateEmbeddings — the doc comment is part of the text', () => {
+  it('embeds the doc comment, because it is the only natural-language text a symbol has', () => {
+    const { graph, builder } = buildGraph();
+    const described = builder.addNode(graph, 'Function', 'described', {
+      name: 'described',
+      docstring: 'Extract method calls from a source file.',
+    });
+    const bare = builder.addNode(graph, 'Function', 'bare', { name: 'bare' });
+
+    // The two nodes differ only by the doc comment, so a different vector is the doc comment being read at all. The
+    // figure this protects: the index held `Function extractCalls(source: string)` and a user asked in prose.
+    return generateEmbeddings(graph.nodes).then(({ results }) => {
+      const byId = new Map(results.map((r) => [r.nodeId, r.embedding]));
+      expect(byId.get(described.id)).not.toEqual(byId.get(bare.id));
+    });
+  });
+});
+
+describe('defaultEmbedderLoader — the name of the winning backend', () => {
+  it('carries the name of whichever backend the chain found', async () => {
+    const embedder = makeEmbedder();
+    expect(await defaultEmbedderLoader(async () => ({ embedder, backend: 'api' }))).toEqual({
+      embedder,
+      backend: 'api',
+    });
+  });
+
+  it('answers null when the chain found nothing, rather than a nameless embedder', async () => {
+    expect(await defaultEmbedderLoader(async () => null)).toBeNull();
+  });
+});
+
+describe('createQueryEmbedder — one space for the index and the query', () => {
+  it('builds a reproducible embedder for a deterministic index, with no model and no key', async () => {
+    // **The hash space is reachable from the text alone**, which is what makes the semantic path exercisable offline.
+    const embedder = await createQueryEmbedder('deterministic');
+    expect(embedder).not.toBeNull();
+    expect(embedder?.backend).toBe('deterministic');
+
+    const first = await embedder!.embed('extract method calls');
+    const again = await embedder!.embed('extract method calls');
+    expect(Array.from(first)).toEqual(Array.from(again));
+    expect(first).toHaveLength(768);
+    // **The contract includes `dispose`, even when there is nothing to release**: a caller that closes an embedder it
+    // opened must not need to know which arm it got.
+    await embedder!.dispose();
+  });
+
+  it('refuses a loader whose space is not the index’s space', async () => {
+    // **Two models, one index is a cosine between two spaces**, which is the defect this guard exists for: the index
+    // held hash vectors while the query was embedded by the endpoint, and the fused figure came out 36 points *below*
+    // the lexical one. A refusal is a number nobody publishes.
+    const disposed: boolean[] = [];
+    const embedder = await createQueryEmbedder('api', async () => ({
+      backend: 'onnx',
+      embedder: makeEmbedder({ dispose: async () => void disposed.push(true) }),
+    }));
+
+    expect(embedder).toBeNull();
+    // And the embedder it declined to use is released rather than leaked.
+    expect(disposed).toEqual([true]);
+  });
+
+  it('accepts a loader in the index’s space and forwards the query to it', async () => {
+    let disposed = false;
+    const seen: string[] = [];
+    const embedder = await createQueryEmbedder('api', async () => ({
+      backend: 'api',
+      embedder: makeEmbedder({
+        embed: async (text: string) => {
+          seen.push(text);
+          return new Float32Array([7]);
+        },
+        dispose: async () => {
+          disposed = true;
+        },
+      }),
+    }));
+
+    expect(embedder?.backend).toBe('api');
+    expect(Array.from((await embedder!.embed('where are owners created')) ?? [])).toEqual([7]);
+    expect(seen).toEqual(['where are owners created']);
+    // **And it releases the model it borrowed**, which a long-lived server needs and a test rarely checks.
+    await embedder!.dispose();
+    expect(disposed).toBe(true);
+  });
+
+  it('answers null when no embedder can be built, rather than inventing a vector', async () => {
+    expect(await createQueryEmbedder('onnx', async () => null)).toBeNull();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // generateEmbeddings — ONNX backend path
 // ---------------------------------------------------------------------------
@@ -139,11 +237,12 @@ describe('generateEmbeddings — ONNX backend', () => {
     const a = builder.addNode(graph, 'Function', 'a', { name: 'a' });
     const b = builder.addNode(graph, 'Class', 'b', { name: 'b' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
-      makeEmbedder({
+    const { results } = await generateEmbeddings(graph.nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: makeEmbedder({
         embedBatch: async () => [new Float32Array([42]), new Float32Array([43])],
       }),
-    );
+    }));
     expect(results).toHaveLength(2);
     const byId = new Map(results.map((r) => [r.nodeId, r.embedding]));
     expect(Array.from(byId.get(a.id)!)).toEqual([42]);
@@ -155,11 +254,12 @@ describe('generateEmbeddings — ONNX backend', () => {
     const a = builder.addNode(graph, 'Function', 'a', { name: 'a' });
     builder.addNode(graph, 'Function', 'b', { name: 'b' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
-      makeEmbedder({
+    const { results } = await generateEmbeddings(graph.nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: makeEmbedder({
         embedBatch: async () => [new Float32Array([42]), null as unknown as Float32Array],
       }),
-    );
+    }));
     expect(results).toHaveLength(1);
     expect(results[0]!.nodeId).toBe(a.id);
   });
@@ -169,14 +269,15 @@ describe('generateEmbeddings — ONNX backend', () => {
     const a = builder.addNode(graph, 'Function', 'a', { name: 'a' });
     const b = builder.addNode(graph, 'Function', 'b', { name: 'b' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
-      makeEmbedder({
+    const { results } = await generateEmbeddings(graph.nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: makeEmbedder({
         embedBatch: async () => {
           throw new Error('batch failed');
         },
         embed: async () => new Float32Array([99]),
       }),
-    );
+    }));
     expect(results).toHaveLength(2);
     const byId = new Map(results.map((r) => [r.nodeId, r.embedding]));
     expect(Array.from(byId.get(a.id)!)).toEqual([99]);
@@ -187,8 +288,9 @@ describe('generateEmbeddings — ONNX backend', () => {
     const { graph, builder } = buildGraph();
     builder.addNode(graph, 'Function', 'a', { name: 'a' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
-      makeEmbedder({
+    const { results } = await generateEmbeddings(graph.nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: makeEmbedder({
         embedBatch: async () => {
           throw new Error('batch failed');
         },
@@ -196,7 +298,7 @@ describe('generateEmbeddings — ONNX backend', () => {
           throw new Error('embed failed');
         },
       }),
-    );
+    }));
     expect(results).toHaveLength(1);
     expect(results[0]!.embedding).toHaveLength(768); // deterministic fallback
   });
@@ -205,13 +307,14 @@ describe('generateEmbeddings — ONNX backend', () => {
     const { graph, builder } = buildGraph();
     builder.addNode(graph, 'Function', 'a', { name: 'a' });
 
-    const { results } = await generateEmbeddings(graph.nodes, async () =>
-      makeEmbedder({
+    const { results } = await generateEmbeddings(graph.nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: makeEmbedder({
         dispose: async () => {
           throw new Error('dispose failed');
         },
       }),
-    );
+    }));
     expect(results).toHaveLength(1);
   });
 });

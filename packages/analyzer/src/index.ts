@@ -101,6 +101,15 @@ export {
   loadEmbedder,
   loadRealEmbedder,
   embedderUnavailableReason,
+  // **The other half of the same invariant**: an index's vectors and a query's vector have to live in one space, so
+  // the query side is built from the name the index recorded rather than from whatever backend happens to be reachable.
+  createQueryEmbedder,
+  generateEmbeddings,
+} from './pipeline/phases/embed.js';
+export type {
+  EmbeddingBackendName,
+  NamedEmbedder,
+  QueryEmbedder,
 } from './pipeline/phases/embed.js';
 
 // **A parser by language, for callers outside this package.** The cross-repo indexer extracts symbols with its

@@ -202,6 +202,50 @@ describe('HybridSearchEngine.bm25Search', () => {
 // RRF Fusion Tests
 // ---------------------------------------------------------------------------
 
+describe('HybridSearchEngine — how much a semantic rank counts', () => {
+  const node = (id: number) => createNode(id, { name: `n${id}` });
+
+  it('leaves the lexical order untouched at weight zero', () => {
+    // **The off switch**: a weight of 0 has to answer exactly what the lexical list answered, or "semantic search
+    // disabled" is not a state this engine has.
+    const engine = new HybridSearchEngine(createStore());
+    const lexical = [
+      { node: node(1), score: 3 },
+      { node: node(2), score: 2 },
+      { node: node(3), score: 1 },
+    ];
+    const semantic = [
+      { node: node(3), score: 0.9 },
+      { node: node(1), score: 0.8 },
+    ];
+
+    const fused = engine.fuseResults(lexical, semantic, 60, undefined, 0);
+    expect(fused.map((r) => r.node.id)).toEqual([1, 2, 3]);
+  });
+
+  it('lets a semantic hit overtake a lexical one at full weight and not at zero', () => {
+    // The same two lists, two weights: **C is lexical rank 3 and semantic rank 1**, and whether it rises above B is
+    // exactly what the parameter decides. This is the knob the sweep sets, so its effect is asserted rather than
+    // described.
+    const engine = new HybridSearchEngine(createStore());
+    const lexical = [
+      { node: node(1), score: 3 },
+      { node: node(2), score: 2 },
+      { node: node(3), score: 1 },
+    ];
+    const semantic = [
+      { node: node(3), score: 0.9 },
+      { node: node(1), score: 0.8 },
+    ];
+
+    const full = engine.fuseResults(lexical, semantic, 60, undefined, 1);
+    expect(full.map((r) => r.node.id)).toEqual([1, 3, 2]);
+    expect(engine.fuseResults(lexical, semantic, 60, undefined, 0).map((r) => r.node.id)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+});
+
 describe('HybridSearchEngine.fuseResults', () => {
   let engine: HybridSearchEngine;
 
@@ -828,7 +872,7 @@ describe('HybridSearchEngine — vectorSearch branches', () => {
     expect(results.length).toBeLessThanOrEqual(2);
   });
 
-  it('should cap candidate nodes at 1000 (maxCandidates branch)', async () => {
+  it('scores every embedded node when no candidate list is given', async () => {
     const store = new InMemoryGraphStore();
     for (let i = 1; i <= 5; i++) {
       store.insertNode(createNode(i));
@@ -1106,21 +1150,25 @@ describe('HybridSearchEngine — null metadata and vector search branches', () =
     expect(results[0]!.node.id).toBe(1);
   });
 
-  it('should cap vector scoring at 1000 candidates', async () => {
+  it('finds an answer past the thousandth node, which the old cap could not', async () => {
+    // **This is the recall ceiling made observable.** The engine used to score only the first 1 000 nodes it was given,
+    // so on any repository larger than that the tail of the index was invisible to semantic search - silently, and
+    // while the figure it produced was reported as the retriever's. The right answer here is node 1001.
     const store = new InMemoryGraphStore();
-    for (let i = 1; i <= 1001; i++) {
+    for (let i = 1; i <= 1000; i++) {
       store.insertNode(createNode(i));
     }
+    store.insertNode(createNode(1001, { name: 'onlyAnswer', qualifiedName: 'pkg.onlyAnswer' }));
 
     const engine = new HybridSearchEngine(store);
     engine.registerEmbeddings(
-      () => new Float32Array([0.5, 0.5]),
-      async () => new Float32Array([0.5, 0.5]),
+      (nodeId) => new Float32Array(nodeId === 1001 ? [1, 0] : [0, 1]),
+      async () => new Float32Array([1, 0]),
     );
 
-    // No candidateIds → getAllNodes() returns 1001 nodes → capped to 1000.
-    const results = await engine.vectorSearch('query', 5);
-    expect(results.length).toBe(5);
+    const results = await engine.vectorSearch('query', 1);
+    expect(results).toHaveLength(1);
+    expect(results[0]!.node.id).toBe(1001);
   });
 
   it('should skip nodes without a stored embedding', async () => {

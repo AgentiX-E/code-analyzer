@@ -124,7 +124,10 @@ describe('choosing a backend', () => {
 
 describe('generating vectors', () => {
   it('uses the injected embedder and reports which backend ran', async () => {
-    const result = await generateEmbeddings(graphWithTwoNodes().nodes, async () => embedderOf(3));
+    const result = await generateEmbeddings(graphWithTwoNodes().nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: embedderOf(3),
+    }));
 
     expect(result.backend).toBe('onnx');
     expect(result.results.length).toBe(2);
@@ -188,7 +191,10 @@ describe('generating vectors', () => {
       dispose: async () => undefined,
     };
 
-    await generateEmbeddings(nodes as never, async () => recorder);
+    await generateEmbeddings(nodes as never, async () => ({
+      backend: 'onnx' as const,
+      embedder: recorder,
+    }));
 
     expect(seen).toEqual(['Method handle handle(id: string): Promise<void>']);
   });
@@ -203,7 +209,10 @@ describe('generating vectors', () => {
       [4, { id: 4, label: 'Function', name: 'real', properties: {} }],
     ]);
 
-    const result = await generateEmbeddings(nodes as never, async () => embedderOf(5));
+    const result = await generateEmbeddings(nodes as never, async () => ({
+      backend: 'onnx' as const,
+      embedder: embedderOf(5),
+    }));
 
     expect(result.results.map((r) => r.nodeId)).toEqual([4]);
   });
@@ -217,14 +226,20 @@ describe('generating vectors', () => {
       dispose: async () => undefined,
     };
 
-    const result = await generateEmbeddings(graphWithTwoNodes().nodes, async () => short);
+    const result = await generateEmbeddings(graphWithTwoNodes().nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: short,
+    }));
 
     expect(result.results).toHaveLength(1);
     expect(result.backend).toBe('onnx');
   });
 
   it('reports a deterministic result for a graph with nothing to embed', async () => {
-    const result = await generateEmbeddings(new Map(), async () => embedderOf(1));
+    const result = await generateEmbeddings(new Map(), async () => ({
+      backend: 'onnx' as const,
+      embedder: embedderOf(1),
+    }));
 
     expect(result.backend).toBe('deterministic');
     expect(result.results).toEqual([]);

@@ -176,8 +176,10 @@ export async function searchCode(
     const ctx = getContext(store);
 
     if (ctx) {
-      // Use hybrid search (BM25 + vector fallback)
-      const searchEngine = ctx.getSearchEngine();
+      // **The semantic half, wired from the vectors the index already holds** - which is the difference between a
+      // lexical engine and the hybrid search this tool documents. When the graph carries no vectors the same engine
+      // comes back and `backend` says `none`, so a caller can tell which answer it received.
+      const { engine: searchEngine, backend } = await ctx.getSemanticSearchEngine();
       const results = await searchEngine.search({
         query,
         labels: undefined,
@@ -203,11 +205,22 @@ export async function searchCode(
                   bm25Score: r.bm25Score,
                   vectorScore: r.vectorScore,
                   combinedScore: r.combinedScore,
-                  searchMethod: r.vectorScore > 0 ? 'hybrid (BM25 + vector)' : 'BM25 text search',
+                  // **The method is a fact about the run, not a hope**: with no vectors registered every item used to
+                  // say "BM25 text search" correctly, and a tool that could never say "hybrid" was the symptom of the
+                  // semantic half being reachable from nothing.
+                  searchMethod:
+                    backend === 'none'
+                      ? 'BM25 text search'
+                      : r.vectorScore > 0
+                        ? 'hybrid (BM25 + vector)'
+                        : 'BM25 only (no vector match)',
                 })),
                 total: results.length,
                 returned: results.length,
                 hasMore: results.length >= limit,
+                // **Which vector space the semantic half used, or `none`** - so a caller comparing two runs can tell a
+                // lexical answer from a hybrid one instead of inferring it from the scores.
+                semanticBackend: backend,
               },
               null,
               2,
@@ -304,7 +317,7 @@ export async function semanticSearch(
     const ctx = getContext(store);
     if (ctx) {
       // Try vector search via hybrid search engine
-      const searchEngine = ctx.getSearchEngine();
+      const { engine: searchEngine } = await ctx.getSemanticSearchEngine();
       const results = await searchEngine.search({
         query,
         limit: params.limit ?? 10,

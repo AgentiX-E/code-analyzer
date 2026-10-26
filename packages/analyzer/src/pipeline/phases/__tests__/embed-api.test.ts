@@ -67,6 +67,50 @@ afterEach(() => {
 });
 
 describe('the API embedding backend', () => {
+  it('retries a rate limit instead of reporting the backend as unavailable', async () => {
+    // **A 429 is a delay, not an answer.** The first real indexing run against this endpoint would have declared "no
+    // backend" the moment the provider's per-minute limit was reached, and the figure it then published would have
+    // measured the rate limiter. The second attempt here succeeds, and the probe with it.
+    let attempts = 0;
+    mockFetch(() => {
+      attempts += 1;
+      return attempts === 1
+        ? { status: 429, text: 'rate limit exceeded' }
+        : { payload: { data: [{ embedding: Array(768).fill(0.1), index: 0 }] } };
+    });
+
+    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: 'key' });
+
+    expect(loaded).not.toBeNull();
+    expect(attempts).toBe(2);
+  }, 15_000);
+
+  it('gives up on a rate limit after three attempts and says so', async () => {
+    let attempts = 0;
+    mockFetch(() => {
+      attempts += 1;
+      return { status: 429, text: 'rate limit exceeded' };
+    });
+
+    const loaded = await loadApiEmbedder({ ZHIPU_API_KEY: 'key' });
+
+    expect(loaded).toBeNull();
+    // **Bounded**: a provider that never relents must not hang the run, and the number of attempts is the bound.
+    expect(attempts).toBe(3);
+    expect(apiEmbedderUnavailableReason()).toContain('429');
+  }, 20_000);
+
+  it('does not retry a rejection, because 401 is an answer', async () => {
+    let attempts = 0;
+    mockFetch(() => {
+      attempts += 1;
+      return { status: 401, text: 'invalid api key' };
+    });
+
+    expect(await loadApiEmbedder({ ZHIPU_API_KEY: 'key' })).toBeNull();
+    expect(attempts).toBe(1);
+  });
+
   it('returns null with a reason when the key is absent, rather than throwing', async () => {
     const result = await loadApiEmbedder({} as NodeJS.ProcessEnv);
     expect(result).toBeNull();

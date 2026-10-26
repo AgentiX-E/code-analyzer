@@ -38,7 +38,10 @@ const fakeEmbedder: Embedder = {
 
 describe('generateEmbeddings, and which backend it used', () => {
   it('reports the onnx backend when the factory supplies one', async () => {
-    const { results } = await generateEmbeddings(nodes, async () => fakeEmbedder);
+    const { results } = await generateEmbeddings(nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: fakeEmbedder,
+    }));
 
     expect(results).toHaveLength(2);
     expect(results.every((r) => r.backend === 'onnx')).toBe(true);
@@ -64,7 +67,10 @@ describe('generateEmbeddings, and which backend it used', () => {
       dispose: async () => undefined,
     };
 
-    const { results } = await generateEmbeddings(nodes, async () => failing);
+    const { results } = await generateEmbeddings(nodes, async () => ({
+      backend: 'onnx' as const,
+      embedder: failing,
+    }));
 
     // The batch failed and each node failed, so every vector came from the fallback — and says so.
     expect(results.every((r) => r.backend === 'deterministic')).toBe(true);

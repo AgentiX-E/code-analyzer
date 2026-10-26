@@ -55,7 +55,9 @@ describe('the embedding backend report', () => {
     };
     const { backend, reason } = await generateEmbeddings(
       oneNode() as never,
-      async () => embedder as never,
+      // **The loader names the space its vectors live in**, because a vector whose space is unnamed cannot be compared
+      // with a query - which is the mismatch that produced a fused recall 36 points below the lexical one.
+      async () => ({ backend: 'onnx' as const, embedder }),
     );
     expect(backend).toBe('onnx');
     expect(reason).toBeNull();

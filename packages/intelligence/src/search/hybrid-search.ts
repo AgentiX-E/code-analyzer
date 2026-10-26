@@ -92,6 +92,14 @@ const EXACT_NAME_BOOST = 4;
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;
 
+/**
+ * How much one semantic rank counts against one lexical rank in the fusion.
+ *
+ * **1 until a measurement says otherwise**, which is the old behaviour spelled out rather than assumed - and the number
+ * `docstring-search.test.ts` sweeps. **A weight chosen by taste is a second ranking function nobody measured.**
+ */
+const DEFAULT_VECTOR_WEIGHT = 1;
+
 interface DocEntry {
   nodeId: number;
   node: GraphNode;
@@ -350,7 +358,6 @@ export class HybridSearchEngine {
   private getEmbeddingForNode: EmbeddingLookupFn | null = null;
   private embedContent: EmbedContentFn | null = null;
   private initialized = false;
-
   constructor(private store: InMemoryGraphStore) {}
 
   /**
@@ -392,9 +399,12 @@ export class HybridSearchEngine {
 
     let vectorResults: RankedResult[] = [];
     if (canVectorSearch) {
-      // Pass BM25 result node IDs as candidates to restrict vector search scope
-      const candidateIds = bm25Results.length > 0 ? bm25Results.map((r) => r.node.id) : null;
-      vectorResults = await this.vectorSearch(options.query, topK, candidateIds);
+      // **The semantic list is not restricted to the lexical candidates, because that restriction is what made this
+      // engine not hybrid.** It scored vectors only for nodes BM25 had already found - so a query whose words appear in
+      // no identifier, which is the entire case semantic search exists for, could never surface anything new, and the
+      // only thing left for the vector half to do was reshuffle a list it could not extend. Measured on this repository
+      // with the real embedding endpoint: **recall@20 0.638 with vectors, 1.000 without.**
+      vectorResults = await this.vectorSearch(options.query, topK, null);
     }
 
     // Fuse results
@@ -442,13 +452,12 @@ export class HybridSearchEngine {
       nodesToScore = this.store.getAllNodes();
     }
 
-    // Cap at 1000 nodes for performance safety
-    const maxCandidates = 1000;
-    const scoredNodes =
-      nodesToScore.length > maxCandidates ? nodesToScore.slice(0, maxCandidates) : nodesToScore;
-
-    // Score candidates with stored embeddings
-    for (const node of scoredNodes) {
+    // **There is no cap, because a cap here is a recall ceiling nobody declared.** There was one at 1 000 nodes, which
+    // on a repository of 1 926 files silently excluded two thirds of the index from semantic search - and the figure it
+    // produced was published as the retriever's. A cosine per node is a dot product: 50 000 nodes of 768 dimensions is
+    // ~38 M multiply-adds, which is milliseconds. **The cost of scoring everything is smaller than the cost of lying
+    // about it.**
+    for (const node of nodesToScore) {
       const nodeEmbedding = this.getEmbeddingForNode(node.id);
       if (!nodeEmbedding) continue;
 
@@ -473,6 +482,16 @@ export class HybridSearchEngine {
     vectorResults: RankedResult[],
     k: number = 60,
     limit?: number,
+    /**
+     * **How much a semantic rank counts against a lexical one.**
+     *
+     * **Reciprocal rank fusion is scale-free, and that is exactly why an unweighted fusion can lose.** A lexical rank 1
+     * scores `1/61`; the same node at semantic rank 20 that lexical never saw scores `1/81`, and a *wrong* node that is
+     * semantic rank 1 costs only `1/61` on top of wherever lexical put it. With two lists of equal authority the fused
+     * order is a compromise between them, and a compromise with a worse list is a worse list. **The weight is the
+     * measurement's job to set, not mine**: `docstring-search.test.ts` sweeps it and publishes every column.
+     */
+    vectorWeight: number = DEFAULT_VECTOR_WEIGHT,
   ): HybridSearchResult[] {
     const combined = new Map<number, HybridSearchResult>();
 
@@ -499,7 +518,7 @@ export class HybridSearchEngine {
     // Score vector results by reciprocal rank
     for (let i = 0; i < vectorResults.length; i++) {
       const r = vectorResults[i]!;
-      const rrfScore = 1 / (k + i + 1);
+      const rrfScore = vectorWeight / (k + i + 1);
       const existing = combined.get(r.node.id);
       if (existing) {
         // Node already present from BM25 — merge its vector score into the

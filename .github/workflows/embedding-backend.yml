@@ -21,6 +21,7 @@ on:
     branches: [master]
     paths:
       - 'packages/analyzer/src/pipeline/phases/embed*.ts'
+      - 'packages/intelligence/src/search/hybrid-search.ts'
       - 'packages/intelligence/src/__tests__/docstring-search.test.ts'
       - '.github/workflows/embedding-backend.yml'
 
@@ -86,7 +87,9 @@ jobs:
         run: |
           set -o pipefail
           npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/docstring-search.test.ts 2>&1 | tee /tmp/docstring.log
-          grep -o 'with vectors backend=[a-z]* recall=[0-9.]*' /tmp/docstring.log | tail -1
+          # **The three columns, printed where a reader looks**: lexical on its own, and the fusion sweep. A single
+          # fused number was what hid the fact that the fused answer was 36 points *worse* than the lexical one.
+          grep -o 'DOCSTRING-SEARCH .*' /tmp/docstring.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
 
       # **The artifact is the evidence, and the gate reads it.** A job that kept the number in its log would leave the
       # matrix's cell as MISSING, which is the honest state and not the useful one.
@@ -99,15 +102,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      # **And a failure when the backend ran but produced nothing**, because **a figure that says `none` after this job
-      # went to the trouble of providing a key is the exact defect the job exists to remove.**
-      - name: Fail when the credential was present and the backend still did not run
+      # **And a failure when the credential was present and either side of the cosine was still in the hash space**,
+      # because **an artifact that says `deterministic` after this job went to the trouble of providing a key is the
+      # exact defect the job exists to remove** - and now the two sides are checked separately, since the defect that
+      # produced 0.638 was the *index* being in one space while the query was in another.
+      - name: Fail when the credential was present and either side is still the hash fallback
         if: steps.credential.outputs.present == 'true'
         run: |
           set -e
-          backend=$(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.withVectorsRegistered.backend)")
-          echo "recorded backend: $backend"
-          if [ "$backend" = "none" ]; then
-            echo "::error::ZHIPU_API_KEY was present and the vector backend did not run; the artifact records: $(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.backend.reason)")"
+          index=$(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.space.index)")
+          query=$(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.space.query)")
+          echo "index space: $index · query space: $query"
+          if [ "$index" = "deterministic" ] || [ "$query" = "deterministic" ] || [ "$query" = "none" ]; then
+            echo "::error::ZHIPU_API_KEY was present and the semantic half did not run; the artifact records: $(node -e "const a=require('./benchmarks/docstring-search.json');console.log(a.space.reason)")"
+            exit 1
+          fi
+          if [ "$index" != "$query" ]; then
+            echo "::error::the index holds $index vectors and the queries were embedded as $query — a cosine between two spaces"
             exit 1
           fi

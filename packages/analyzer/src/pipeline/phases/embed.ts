@@ -24,7 +24,23 @@ export interface EmbeddingResult {
    * tell a real nomic-embed-code vector from a hash PRNG, which is the same defect as an empty consumer list that
    * does not say whether it looked.
    */
-  backend: 'onnx' | 'deterministic';
+  backend: EmbeddingBackendName;
+}
+
+/**
+ * Which vector space a set of embeddings lives in.
+ *
+ * **Three names, because three code paths produce vectors and only two of them are interchangeable with each other.**
+ * `onnx` and `api` are different models (nomic-embed-code and Zhipu `embedding-3`); `deterministic` is a hash of the
+ * text. **A cosine between two of these spaces is noise**, so the name travels with the index and the query side is
+ * built from it - see `createQueryEmbedder`.
+ */
+export type EmbeddingBackendName = 'onnx' | 'api' | 'deterministic';
+
+/** An embedder plus the name of the space it produces. */
+export interface NamedEmbedder {
+  embedder: Embedder;
+  backend: 'onnx' | 'api';
 }
 
 /** The ONNX embedder contract consumed by `generateEmbeddings`. */
@@ -42,12 +58,23 @@ export interface Embedder {
  * ~137MB model is not bundled in CI — the factory resolves to null and a
  * deterministic hash-based fallback is used instead.
  */
+/** How much of a doc comment is embedded. **A paragraph, not a file** - see the note in `generateEmbeddings`. */
+const MAX_DOCSTRING_CHARS = 600;
+
 export async function generateEmbeddings(
   nodes: Map<number, GraphNode>,
-  loadEmbedder: () => Promise<Embedder | null> = loadRealEmbedder,
+  /**
+   * **The loader answers with the name of the space its vectors live in**, not only with the vectors.
+   *
+   * It used to resolve to a bare `Embedder | null`, so every vector it produced was labelled `onnx` - including the ones
+   * from the Zhipu endpoint, whose backend the index then reported incorrectly, and including the ones a caller injected
+   * in a test. **A vector whose space is unnamed cannot be compared with anything**, and the comparison it broke was the
+   * one the whole semantic half depends on.
+   */
+  loadEmbedder: () => Promise<NamedEmbedder | null> = defaultEmbedderLoader,
 ): Promise<{
   results: EmbeddingResult[];
-  backend: 'onnx' | 'deterministic';
+  backend: EmbeddingBackendName;
   reason: string | null;
 }> {
   const results: EmbeddingResult[] = [];
@@ -59,14 +86,22 @@ export async function generateEmbeddings(
     if (node.label === 'File' || node.label === 'Folder' || node.label === 'Project') continue;
     if (!node.name) continue;
 
-    // Build text representation
+    // **The doc comment is the only natural-language text a repository has about a symbol, and it was not being
+    // embedded.** The vector for `extractCalls` was built from `Function extractCalls(source: string)` alone, so a user
+    // asking "extract method calls from source" was comparing a description against an identifier and a type list -
+    // and on `pallets/flask` that lost. Measured on this repository: **lexical recall@20 1.000, hybrid recall@20 0.638**
+    // while the only difference between the two lists was a vector built without the words in question.
+    //
+    // **Bounded, because a doc comment is not always short**: 600 characters is roughly the length of a documentation
+    // paragraph and keeps one symbol's request inside the endpoint's per-input limit.
     const textParts: string[] = [node.label, node.name];
     const signature = node.properties.signature;
     if (signature) textParts.push(signature);
+    if (node.docstring) textParts.push(node.docstring.slice(0, MAX_DOCSTRING_CHARS));
 
     embeddable.push({
       nodeId,
-      text: textParts.filter((p) => p.length > 0).join(' '),
+      text: textParts.filter((part) => part.length > 0).join(' '),
     });
   }
 
@@ -82,8 +117,11 @@ export async function generateEmbeddings(
   // declares `files: ['dist', 'models']` and ships no `models/`, so `createFromPackage()` cannot find
   // `nomic-embed-code-v1.5.int8.onnx` or the `tokenizer.json` beside it, on any machine.
   let backendUnavailableReason: string | null = null;
+  let backendName: 'onnx' | 'api' = 'onnx';
   try {
-    embedder = await loadEmbedder();
+    const loaded = await loadEmbedder();
+    embedder = loaded?.embedder ?? null;
+    if (loaded) backendName = loaded.backend;
   } catch (error) {
     backendUnavailableReason = error instanceof Error ? error.message : String(error);
   }
@@ -100,7 +138,7 @@ export async function generateEmbeddings(
           results.push({
             nodeId: embeddable[i]!.nodeId,
             embedding: Array.from(vector),
-            backend: 'onnx',
+            backend: backendName,
           });
         }
       }
@@ -109,7 +147,7 @@ export async function generateEmbeddings(
       for (const { nodeId, text } of embeddable) {
         try {
           const vec = await embedder.embed(text);
-          results.push({ nodeId, embedding: Array.from(vec), backend: 'onnx' });
+          results.push({ nodeId, embedding: Array.from(vec), backend: backendName });
         } catch {
           results.push({ nodeId, embedding: deterministicEmbed(text), backend: 'deterministic' });
         }
@@ -267,6 +305,69 @@ function deterministicEmbed(text: string, dimension: number = 768): number[] {
   return embedding;
 }
 
+/**
+ * The production loader: ONNX first, then the endpoint, and **the name of the winner travels with the vectors**.
+ *
+ * **The order is a consequence of what each needs, not of preference** - and the name is what this function exists to
+ * keep, because the two backends are two different vector spaces.
+ */
+export async function defaultEmbedderLoader(
+  // **The chain is a parameter with the production default**, because on a machine with neither a model file nor a key
+  // the other arm cannot be reached by writing code - the same reason `loadEmbedder` takes its two loaders. With the
+  // seam, "the chain found a backend" and "it found none" are two ordinary cases.
+  load: () => Promise<{ embedder: Embedder; backend: 'onnx' | 'api' } | null> = loadEmbedder,
+): Promise<NamedEmbedder | null> {
+  const loaded = await load();
+  return loaded ? { embedder: loaded.embedder, backend: loaded.backend } : null;
+}
+
+/** A query embedder, named by the space it produces. */
+export interface QueryEmbedder {
+  embed: (text: string) => Promise<Float32Array>;
+  backend: EmbeddingBackendName;
+  dispose: () => Promise<void>;
+}
+
+/**
+ * Build the embedder that turns a **query** into a vector in the same space as the index.
+ *
+ * **This is the invariant the semantic half was missing.** `docstring-search` embedded the index with hash vectors and
+ * the query with the Zhipu endpoint and compared them with a cosine, which is a comparison between two unrelated spaces:
+ * **the figure it produced was 0.638 against 1.000 for the lexical list**, and the vector half was not weak - it was
+ * incoherent. The rule is therefore enforced here rather than described in a comment: **if the space the loader offers
+ * is not the space the index holds, this returns `null`** and the caller reports that the semantic half is unavailable
+ * instead of publishing a number computed across a mismatch.
+ */
+export async function createQueryEmbedder(
+  indexBackend: EmbeddingBackendName,
+  loader: () => Promise<{ embedder: Embedder; backend: 'onnx' | 'api' } | null> = loadEmbedder,
+): Promise<QueryEmbedder | null> {
+  if (indexBackend === 'deterministic') {
+    // **The hash vector is reproducible from the text alone**, so a query can join the index's space without a model -
+    // which is what makes the semantic path exercisable in a test and usable offline.
+    return {
+      embed: async (text: string) => Float32Array.from(deterministicEmbed(text)),
+      backend: 'deterministic',
+      dispose: async () => undefined,
+    };
+  }
+
+  const loaded = await loader();
+  if (!loaded) return null;
+  if (loaded.backend !== indexBackend) {
+    // **Two models, one index**: refuse rather than compare. The reason is left in `embedderUnavailableReason()` for a
+    // caller that reports why the semantic half is off.
+    lastEmbedderFailure = `the index holds ${indexBackend} vectors and the only embedder available is ${loaded.backend}`;
+    await loaded.embedder.dispose();
+    return null;
+  }
+  return {
+    embed: (text: string) => loaded.embedder.embed(text),
+    backend: loaded.backend,
+    dispose: () => loaded.embedder.dispose(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Phase 18: embed — Generate vector embeddings for graph nodes
 // ---------------------------------------------------------------------------
@@ -288,16 +389,22 @@ export class EmbedPhase implements ExecutablePhase {
         results: embeddings,
         backend,
         reason: backendReason,
-      } = await generateEmbeddings(ctx.graph.nodes);
+      } = await generateEmbeddings(ctx.graph.nodes, defaultEmbedderLoader);
 
-      // Store embeddings in node properties
-      for (const { nodeId, embedding } of embeddings) {
+      // Store embeddings in node properties, **with the name of the space they live in**.
+      //
+      // **The name belongs on the data, not only in `phaseData`.** A consumer that reads this graph later - the MCP
+      // server, a report, another process - has the vectors and needs the one fact that makes them usable: which model
+      // produced them. `phaseData` dies with the run, so a search that had to consult it could only ever be wired inside
+      // the pipeline, which is why **nothing outside the benchmark had ever registered these vectors at all**.
+      for (const { nodeId, embedding, backend: nodeBackend } of embeddings) {
         // nodeId came from the nodes iteration inside generateEmbeddings and the
         // graph is not mutated in between, so get() always returns the node.
         const node = ctx.graph.nodes.get(nodeId)!;
         node.properties = {
           ...node.properties,
           embedding,
+          embeddingBackend: nodeBackend,
         };
       }
 

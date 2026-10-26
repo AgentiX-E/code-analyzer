@@ -4,6 +4,7 @@
 // and the semantic vector branch (via real embedding registration).
 
 import { describe, it, expect } from 'vitest';
+import { createQueryEmbedder } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import {
@@ -309,13 +310,19 @@ class StringThrowingStore extends InMemoryGraphStore {
   }
 }
 
-/** A structural ToolContext whose getSearchEngine throws a non-Error value. */
+/** A structural ToolContext whose search engine throws a non-Error value. */
 function throwingSearchContext(): unknown {
   return {
     store: new InMemoryGraphStore(),
     getSearchEngine: (): never => {
       throw 'engine-boom';
     },
+    // **Both entry points throw**, because the tools now ask for the semantic engine: a fake that only fails on the
+    // lexical one would let the assertion pass for the wrong reason, which is how a test stops testing anything.
+    getSemanticSearchEngine: (): Promise<never> =>
+      // A non-`Error` rejection on purpose: the arm under test is `String(err)`.
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      Promise.reject('engine-boom'),
   };
 }
 
@@ -326,6 +333,9 @@ function throwingStatsContext(): unknown {
     getSearchEngine: (): never => {
       throw 'unused';
     },
+    getSemanticSearchEngine: (): Promise<never> =>
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      Promise.reject('unused'),
     getGraphStats: (): never => {
       throw 'stats-boom';
     },
@@ -425,12 +435,33 @@ describe('searchCode', () => {
     expect(first.vectorScore).toBe(0);
   });
 
-  it('reports hybrid search method when vector embeddings are present', async () => {
-    const ctx = seededContext();
-    ctx.getSearchEngine().registerEmbeddings(
-      () => new Float32Array([1, 0]),
-      async () => new Float32Array([1, 0]),
-    );
+  it('reports hybrid search method when the index holds vectors', async () => {
+    // **The vectors are put where the product reads them**: on the node, with the name of the space beside them. The
+    // case used to register an embedder directly on the engine, which tested a code path no caller had - the tool asked
+    // `getSearchEngine()`, got a lexical engine, and answered "BM25 text search" while claiming to be hybrid.
+    const queryEmbedder = await createQueryEmbedder('deterministic');
+    const vector = await queryEmbedder!.embed('doWork');
+
+    // **The vectors are written the way `dumpToStore` writes them - `insertNode` - and not through `updateNode`**, which
+    // copies only four named properties and silently drops everything else: a test that "added an embedding" through it
+    // would add nothing and then assert the absence. The store this builds is the store the product has after indexing.
+    const seeded = seededStore();
+    const store = new InMemoryGraphStore();
+    for (const node of seeded.getAllNodes()) {
+      store.insertNode({
+        ...node,
+        properties:
+          node.name === 'doWork'
+            ? {
+                ...node.properties,
+                embedding: Array.from(vector),
+                embeddingBackend: 'deterministic',
+              }
+            : node.properties,
+      });
+    }
+    const ctx = new ToolContextImpl(store);
+
     const result = await searchCode({ query: 'doWork' }, ctx);
     const data = JSON.parse(textOf(result));
     expect(data.items.length).toBeGreaterThan(0);

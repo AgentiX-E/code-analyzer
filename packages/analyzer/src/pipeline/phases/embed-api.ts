@@ -32,6 +32,22 @@ const DEFAULT_DIMENSIONS = 768;
 /** Zhipu accepts a batch, and a bounded one keeps a single request inside the timeout. */
 const MAX_BATCH = 16;
 const TIMEOUT_MS = 30_000;
+/**
+ * How many times one batch is attempted before it is declared failed.
+ *
+ * **Because a 429 is not an unavailable backend.** The first real indexing run against this endpoint embedded a whole
+ * repository in batches and would have reported "no backend" the moment the provider's per-minute limit was reached, so
+ * the figure it produced would have described the rate limiter rather than the retriever. Three attempts with a short
+ * backoff ride out a burst; anything longer is a real refusal and is reported as one.
+ */
+const MAX_ATTEMPTS = 3;
+/** The base of the backoff, doubled per attempt. **A second, not a minute**: a rate limit window is usually a minute. */
+const RETRY_BASE_MS = 700;
+
+/** Whether this status is worth another attempt. **429 and 5xx are; 400 and 401 are answers rather than delays.** */
+function isRetryable(status: number): boolean {
+  return status === 429 || status >= 500;
+}
 
 /** One entry of the response's `data` array, as the endpoint returns it. */
 interface EmbeddingDatum {
@@ -76,17 +92,26 @@ async function embedWithKey(
   const out: Float32Array[] = [];
   for (let start = 0; start < texts.length; start += MAX_BATCH) {
     const batch = texts.slice(start, start + MAX_BATCH);
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, input: batch, dimensions }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!response.ok) {
+    let response: Response | null = null;
+    let failure = '';
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, input: batch, dimensions }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (response.ok) break;
       const body = await response.text().catch(() => '');
-      throw new Error(`HTTP ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`);
+      failure = `HTTP ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`;
+      if (!isRetryable(response.status) || attempt === MAX_ATTEMPTS) {
+        throw new Error(failure);
+      }
+      await new Promise((resolve) => setTimeout(resolve, RETRY_BASE_MS * 2 ** (attempt - 1)));
     }
-    const payload = (await response.json()) as EmbeddingResponse;
+    // **`response` cannot be null here**: the loop either broke on a successful answer or threw.
+    const ok = response!;
+    const payload = (await ok.json()) as EmbeddingResponse;
     if (payload.error?.message) throw new Error(payload.error.message);
     const data = payload.data ?? [];
     if (data.length !== batch.length) {

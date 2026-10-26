@@ -43,7 +43,16 @@ Full-text and semantic search across the indexed codebase.
 - **Detail Panel**: Sticky side panel showing selected symbol details
 - **Project Filtering**: Filter results by project ID
 
-**Backend**: Uses the `search_code` MCP tool which combines BM25 keyword search with vector semantic search via Reciprocal Rank Fusion.
+**Backend**: Uses the `search_code` MCP tool, which fuses BM25 keyword search with vector semantic search by weighted
+Reciprocal Rank Fusion. The weights, and whether the semantic half runs at all, are facts the response carries:
+
+- **`semanticBackend`** names the vector space the query was embedded in — `api` (Zhipu `embedding-3`), `onnx`
+  (nomic-embed-code), `deterministic` (the offline hash fallback), or **`none`** when the graph holds no vectors.
+- **`searchMethod`** is per item: `hybrid (BM25 + vector)`, `BM25 only (no vector match)`, or `BM25 text search`.
+- **The query vector is always built in the index's space.** A cosine between two models is noise, so a mismatch is
+  refused rather than averaged — see `createQueryEmbedder`. Measured on this repository before that rule existed:
+  lexical recall@20 **1.000**, fused recall@20 **0.638** (`benchmarks/docstring-search.json`, reproduced by the
+  `Embedding Backend` workflow).
 
 ### 3. Dashboard
 
