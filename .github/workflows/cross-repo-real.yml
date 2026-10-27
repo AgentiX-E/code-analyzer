@@ -1,0 +1,130 @@
+name: Cross-Repo Real Workspace
+
+# **The product's strongest claim, measured on two repositories it did not write.**
+#
+# Story 5 says: "I own two repositories that depend on each other — give me one answer across both." Every test of
+# that story until now built its two repositories out of a fixture, and a fixture is a checkout whose imports the
+# author already knew how to resolve. This job downloads **flask 3.0.3 and werkzeug 3.0.3** — two packages released
+# separately, linked the way released packages are linked, by name — indexes them into one workspace, and answers
+# three questions against an answer key produced by **Python's own parser**:
+#
+#   1. of the 49 (importing file, imported file) pairs `ast` says exist, how many did the graph resolve, and did it
+#      claim any edge the parser does not corroborate?
+#   2. "who uses this symbol in my other repository?"
+#   3. "what breaks in flask if this module changes?"
+#
+# **The checkouts are downloaded, never committed** (`benchmarks/corpora/` is ignored), so the run measures the tag
+# the workflow names rather than a copy that drifted, and the artifact records the SHA-256 of each tarball.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/intelligence/src/cross-repo/**'
+      - 'packages/intelligence/src/__tests__/cross-repo/**'
+      - 'scripts/cross-repo-matrix.ts'
+      - 'scripts/cross-repo-ground-truth.py'
+      - 'scripts/cross-repo-gate.js'
+      - 'tests/e2e/cross-repo-real-workspace.test.ts'
+      - '.github/workflows/cross-repo-real.yml'
+
+concurrency:
+  group: cross-repo-real
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FLASK_TAG: '3.0.3'
+  WERKZEUG_TAG: '3.0.3'
+
+jobs:
+  workspace:
+    name: Two checkouts in one workspace
+    runs-on: ubuntu-latest
+    # **Thirty minutes**, stated rather than discovered: two checkouts of ~230 files index in under five seconds, and
+    # the rest of the budget belongs to dependency installation.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The two checkouts, at the tags this workflow names.** `codeload.github.com` serves the tarball without a git
+      # client, and the hash goes into the summary so a reader can tell which revision produced the numbers.
+      - name: Fetch the two checkouts
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora
+          cd benchmarks/corpora
+          curl -fsSL "https://codeload.github.com/pallets/flask/tar.gz/refs/tags/${FLASK_TAG}" -o flask.tgz
+          curl -fsSL "https://codeload.github.com/pallets/werkzeug/tar.gz/refs/tags/${WERKZEUG_TAG}" -o werkzeug.tgz
+          sha256sum flask.tgz werkzeug.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          tar xzf flask.tgz
+          tar xzf werkzeug.tgz
+          ls -d flask-* werkzeug-*
+
+      # **The answer key, from a parser the product does not use.** `python3` is preinstalled on the runner; the script
+      # reads the importing repository with `ast` and resolves modules with the interpreter's own rules.
+      - name: Build the answer key with Python's parser
+        run: |
+          set -euo pipefail
+          flask_dir=$(ls -d benchmarks/corpora/flask-* | head -1)
+          werkzeug_dir=$(ls -d benchmarks/corpora/werkzeug-* | head -1)
+          python3 scripts/cross-repo-ground-truth.py \
+            --importer "$flask_dir" --importer-name pallets/flask \
+            --package werkzeug --target "$werkzeug_dir" \
+            --out benchmarks/corpora/ground-truth-flask-werkzeug.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # **The acceptance suite is the story, not the plumbing**: two real checkouts, one graph, three questions.
+      - name: Accept the user story on the two checkouts
+        env:
+          CROSS_REPO_CORPUS_DIR: benchmarks/corpora
+        run: |
+          set -o pipefail
+          npx vitest run --config vitest.e2e.config.ts \
+            tests/e2e/cross-repo-real-workspace.test.ts 2>&1 | tee /tmp/cross-repo-e2e.log
+
+      - name: Measure resolution, trace and impact against the answer key
+        run: |
+          set -euo pipefail
+          flask_dir=$(ls -d benchmarks/corpora/flask-* | head -1)
+          werkzeug_dir=$(ls -d benchmarks/corpora/werkzeug-* | head -1)
+          npx tsx scripts/cross-repo-matrix.ts \
+            --repo "pallets/flask=$flask_dir" \
+            --repo "pallets/werkzeug=$werkzeug_dir" \
+            --gt pallets/flask=benchmarks/corpora/ground-truth-flask-werkzeug.json \
+            --out benchmarks/cross-repo-matrix.json
+
+      - name: Hold the figures to their floor
+        run: node scripts/cross-repo-gate.js
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-repo-matrix
+          path: |
+            benchmarks/cross-repo-matrix.json
+            benchmarks/corpora/ground-truth-flask-werkzeug.json
+          if-no-files-found: warn
+          retention-days: 90

@@ -375,6 +375,32 @@ Code Analyzer supports cross-repository analysis through a federation model:
 - **Cross-Repo Edges**: Specialized relationship types prefixed with `CROSS_REPO_` for cross-repository dependencies
 - **Contract Synchronization**: Automatic detection of contract violations across repository boundaries
 
+### How a cross-repository dependency is resolved
+
+Two shapes of import reach another checkout, and they are not the same problem:
+
+| shape | example | resolved by |
+|---|---|---|
+| a path that leaves the checkout | `import { z } from '../../shared/zod'` | the file path, as in a monorepo |
+| **a package name** | `from werkzeug.utils import redirect` | the other checkout's **manifest**, then existence |
+
+For the second shape the indexer reads what each repository publishes — `pyproject.toml` / `setup.py` /
+`setup.cfg`, `package.json`, `pom.xml` / `build.gradle`, `go.mod`, `Cargo.toml` — and where its modules live, then
+resolves the specifier to a file **only when that file exists**. A Python package is addressed by its **directory**
+(`beautifulsoup4` is imported as `bs4`), because that is what the interpreter uses; the manifest decides whether the
+repository publishes anything at all.
+
+**A symbol is reachable wherever it is re-exported.** `from werkzeug import Request` is served by
+`werkzeug/__init__.py`, not by the file that declares `Request`, so impact and trace follow the re-export chain before
+they look for consumers. Edges carry what the statement asked for (`importedSymbols`), including `*` for a namespace
+import (`import werkzeug` then `werkzeug.Request`).
+
+Measured on flask 3.0.3 + werkzeug 3.0.3 in one workspace, against an answer key produced by Python's own parser:
+**49 of 49 import pairs resolved, precision 1.0, trace 73/73, impact 49/49**
+(`benchmarks/cross-repo-matrix.json`, produced by `.github/workflows/cross-repo-real.yml` and gated by
+`scripts/cross-repo-gate.js`).
+
+
 ### Cross-Repo Tool Suite
 
 Six dedicated MCP tools support cross-repo operations:

@@ -20,6 +20,9 @@ import {
   getLanguageFromFilename,
 } from '@code-analyzer/shared';
 
+import { detectPackageIdentities, resolvePackageMember } from './package-identity.js';
+
+import type { PackageIdentity } from './package-identity.js';
 import type { RepoGroupManager } from './repo-group-manager.js';
 import type { LanguageProvider } from '@code-analyzer/analyzer';
 import type {
@@ -87,6 +90,8 @@ export interface CrossRepoImpactResult {
   analysis: {
     repo: string;
     affectedSymbols: string[];
+    /** Files in `repo` whose import statement names a changed symbol. Empty when the whole repository was asked for. */
+    affectedFiles: string[];
     impactLevel: 'critical' | 'high' | 'medium' | 'low';
     reason: string;
   }[];
@@ -162,6 +167,17 @@ const SOURCE_EXTENSIONS = new Set([
 // ---------------------------------------------------------------------------
 // CrossRepoIndexer
 // ---------------------------------------------------------------------------
+
+/**
+ * One repository as the linker sees it: the group's entry for it and **the packages its manifest declares**.
+ *
+ * The two travel together because a specifier is resolved against a checkout's *manifest*, not against its name, and
+ * every step of the resolution needs both halves at once.
+ */
+interface RepoScope {
+  readonly repo: GroupRepo;
+  readonly identities: readonly PackageIdentity[];
+}
 
 export class CrossRepoIndexer {
   constructor(
@@ -339,13 +355,20 @@ export class CrossRepoIndexer {
       }
     }
 
+    // **What this repository can be called, read once per checkout** rather than once per file: the manifests are
+    // small, but `indexSingleRepo` visits thousands of files and a repository does not change identity mid-index.
+    const identities = detectPackageIdentities(localPath);
+
     for (const file of selected) {
       try {
         const content = readFileSync(file.filePath, 'utf-8');
         // Extract imports and create edges. Pass the repo-relative path so it
         // matches the `filePath` stored on File nodes.
-        const imports = this.extractImports(file.filePath, content, projectId);
-        this.createImportEdges(projectId, relative(localPath, file.filePath), imports);
+        const imports = await this.extractImports(file.language, content);
+        this.createImportEdges(projectId, relative(localPath, file.filePath), imports, {
+          localPath,
+          identities,
+        });
       } catch {
         // Skip files whose imports can't be read
       }
@@ -589,12 +612,42 @@ export class CrossRepoIndexer {
   }
 
   /**
-   * Extract import statements from source content.
+   * A file's imports, read by the language's own grammar.
+   *
+   * **This used to be a list of JavaScript-and-Python regexes, and on a Python tree it was wrong.** Python's
+   * `from werkzeug.exceptions import (\n  BadRequest,\n)` — the form flask uses on every multi-name import — made
+   * the name list `(`, because `[^\n]+` stops at the first line break. Multi-line parenthesised imports are the
+   * majority in `src/flask/app.py`, so the names that symbol-level impact filters on were punctuation.
+   *
+   * **`LanguageProvider.extractImports` is the same reader the main pipeline uses**, so a Python file's imports are
+   * the grammar's answer here and in the graph the rest of the product is built from. The regexes survive only for
+   * the case they exist for: a machine where the grammar is not installed.
    */
-  private extractImports(
-    _filePath: string,
+  private async extractImports(
+    language: string,
     content: string,
-    _projectId: string,
+  ): Promise<Array<{ modulePath: string; importedNames: string[] }>> {
+    try {
+      const provider = await this.loadProvider(language);
+      if (provider) {
+        return provider.extractImports(content).map((imp) => ({
+          modulePath: imp.source,
+          // **`import werkzeug.serving` imports a module, not a name**, and the module's members become reachable
+          // through the binding. Recording the bound segment (`werkzeug`) instead made every question about
+          // `run_simple` unanswerable, because the edge did not mention it; `*` is the same convention the regex
+          // reader already used for this shape, and it is read as "any name in this file".
+          importedNames: imp.type === 'namespace' || imp.type === 'wildcard' ? ['*'] : imp.names,
+        }));
+      }
+    } catch {
+      // A provider that throws is the fallback's reason to exist, not an error to propagate.
+    }
+    return this.extractImportsByPattern(content);
+  }
+
+  /** The regex reader, used only when this machine has no grammar for the language. */
+  private extractImportsByPattern(
+    content: string,
   ): Array<{ modulePath: string; importedNames: string[] }> {
     const imports: Array<{ modulePath: string; importedNames: string[] }> = [];
 
@@ -644,7 +697,11 @@ export class CrossRepoIndexer {
     }
 
     // Match: from 'module' import ... (Python)
-    const pyImportRe = /from\s+['"]?([^'"]+)['"]?\s+import\s+([^\n]+)/g;
+    //
+    // **`([^'"]+)` crossed line breaks**, so on a file with one `from … import …` line the greedy capture ran to the
+    // last ` import ` in the file: `from .helpers import shout\nimport os` yielded the module *`.helpers import shout`*
+    // and the name *`os`*. A module specifier contains no whitespace, which is what the class now says.
+    const pyImportRe = /from\s+['"]?([^\s'"]+)['"]?\s+import\s+([^\n]+)/g;
     while ((match = pyImportRe.exec(content)) !== null) {
       const names = match[2]!
         .split(',')
@@ -854,7 +911,7 @@ export class CrossRepoIndexer {
     // `api-gateway` resolves `../../user-service/…` the sibling's nodes may not exist yet — and the loop below
     // only upgrades edges whose target lies in another project, so an import that never resolves can never be
     // seen there.
-    this.linkCrossRepoImports(group.repos);
+    await this.linkCrossRepoImports(group.repos);
 
     const byType: Record<string, number> = {};
     let crossRepoEdges = 0;
@@ -884,6 +941,13 @@ export class CrossRepoIndexer {
         const edgesOut = this.store.getEdgesForNode(nodeA.id);
 
         for (const edge of edgesOut) {
+          // **A cross-repo edge is not an input to this pass.** Building the graph a second time is a supported
+          // call — `indexGroup` builds it, and a caller that wants a fresh report builds it again — and without
+          // this line the second pass upgraded the first pass's `CROSS_REPO_IMPORTS` edges into
+          // `CROSS_REPO_DEPENDS` ones. Measured on the flask/werkzeug pair: one call reported 49 cross-repository
+          // edges, two calls reported 147.
+          if (edge.type.startsWith('CROSS_REPO_')) continue;
+
           const targetNode = this.store.getNode(edge.targetId);
           if (!targetNode) continue;
 
@@ -921,6 +985,14 @@ export class CrossRepoIndexer {
               sourceRepo: repoA,
               targetRepo: repoB,
               confidence: 1.0,
+              // **What the import statement asked for travels with the upgrade.** The cross-repo edge is the one
+              // every downstream question reads — impact, trace, the dashboard — and without these two fields it
+              // could say "some file in flask imports some file in werkzeug" and nothing more: measured, the
+              // symbol-filtered impact answer for `BadRequest` was an empty set while 23 statements named it.
+              //
+              // `properties` is not optional on an edge, so the `?? {}` that stood here was a fallback for a state
+              // the type excludes.
+              ...edge.properties,
             },
             weight: edge.weight,
             createdAt: now,
@@ -1169,18 +1241,37 @@ export class CrossRepoIndexer {
     const analysis: CrossRepoImpactResult['analysis'] = [];
     const affectedRepos = new Set<string>();
 
-    // Determine which source nodes to start BFS from.
-    // When changedSymbols is provided, only start from nodes matching those symbols.
-    const sourceNodes =
-      changedSymbols && changedSymbols.length > 0
-        ? this.getRepoNodes(changedRepoId).filter((n) =>
-            changedSymbols.some(
-              (s) =>
-                n.name.toLowerCase() === s.toLowerCase() ||
-                n.qualifiedName.toLowerCase().includes(s.toLowerCase()),
-            ),
-          )
+    /*
+     * **The names and the set they are matched against are one value, because they are never independent.**
+     *
+     * They were two: a `Set` for matching, plus the raw array read at four places as `changedSymbols ?? []`. **Not one
+     * of those four fallbacks could fire** — the set is non-null only when the array is non-empty — so four arms no
+     * test could reach were being counted as if a test were missing. Carrying both in one object turns that from a
+     * convention into a fact the type checker states.
+     */
+    const scope =
+      changedSymbols !== undefined && changedSymbols.length > 0
+        ? {
+            names: changedSymbols,
+            lowered: new Set(changedSymbols.map((symbol) => symbol.toLowerCase())),
+          }
         : null;
+
+    /*
+     * **The walk starts at the declaring file, not at the symbol.**
+     *
+     * A cross-repository import edge is anchored to files — `werkzeug/http.py` → `flask/wrappers.py` — because an
+     * import statement names a module, not a symbol. Starting the BFS at the `Class` node for `BadRequest` therefore
+     * found nothing at all: measured on flask 3.0.3 + werkzeug 3.0.3, `analyzeCrossRepoImpact("werkzeug",
+     * ["BadRequest"])` returned an empty `affectedRepos` while 23 import statements named `werkzeug.exceptions`.
+     * The symbol decides *which* file to start from and *which* imported names count; it does not replace the edge.
+     */
+    const startIds = scope
+      ? new Set([
+          ...this.filesExposing(changedRepoId, scope.names),
+          ...this.symbolNodeIds(changedRepoId, scope.names),
+        ])
+      : null;
 
     // BFS from changed repo along cross-repo edges
     const visited = new Set<string>();
@@ -1188,31 +1279,35 @@ export class CrossRepoIndexer {
     queue.push({ repo: changedRepoId, depth: 0 });
     visited.add(changedRepoId);
 
-    // Track which symbols in affected repos are actually impacted
+    // Track which symbols in affected repos are actually impacted, and in which files
     const affectedSymbolMap = new Map<string, Set<string>>();
+    const affectedFileMap = new Map<string, Set<string>>();
 
     while (queue.length > 0) {
       const current = queue.shift()!;
       if (current.repo !== changedRepoId) {
-        affectedRepos.add(current.repo);
         const specificSymbols = affectedSymbolMap.get(current.repo);
+        const recorded = specificSymbols !== undefined && specificSymbols.size > 0;
+        // With a symbol filter, a repository the filter reached through an unrelated import is not affected by
+        // *this* change — reporting it would be the "everything depends on everything" answer that makes impact
+        // analysis useless.
+        if (scope === null || recorded) {
+          affectedRepos.add(current.repo);
 
-        // If we have specific symbol tracking, use that. Otherwise return all symbols.
-        const affectedSymbols =
-          specificSymbols && specificSymbols.size > 0
-            ? Array.from(specificSymbols)
-            : this.getSymbolsInRepo(current.repo).map((n) => n.name);
+          let impactLevel: 'critical' | 'high' | 'medium' | 'low' = 'low';
+          if (current.depth === 1) impactLevel = 'high';
+          else if (current.depth === 2) impactLevel = 'medium';
 
-        let impactLevel: 'critical' | 'high' | 'medium' | 'low' = 'low';
-        if (current.depth === 1) impactLevel = 'high';
-        else if (current.depth === 2) impactLevel = 'medium';
-
-        analysis.push({
-          repo: current.repo,
-          affectedSymbols,
-          impactLevel,
-          reason: `Repo "${current.repo}" depends on "${changedRepoId}" through cross-repo ${current.depth === 1 ? 'direct' : 'transitive'} dependencies`,
-        });
+          analysis.push({
+            repo: current.repo,
+            affectedSymbols: recorded
+              ? Array.from(specificSymbols).sort()
+              : this.getSymbolsInRepo(current.repo).map((n) => n.name),
+            affectedFiles: Array.from(affectedFileMap.get(current.repo) ?? []).sort(),
+            impactLevel,
+            reason: `Repo "${current.repo}" depends on "${changedRepoId}" through cross-repo ${current.depth === 1 ? 'direct' : 'transitive'} dependencies`,
+          });
+        }
       }
 
       if (current.depth >= 3) continue;
@@ -1220,8 +1315,8 @@ export class CrossRepoIndexer {
       // Find all repos this repo depends on via cross-repo edges
       const nodes = this.getRepoNodes(current.repo);
       for (const node of nodes) {
-        // When sourceNodes filter is active at depth 0, only traverse matching nodes
-        if (current.depth === 0 && sourceNodes && !sourceNodes.some((sn) => sn.id === node.id)) {
+        // When the symbol filter is active at depth 0, only traverse the files that declare the changed symbols
+        if (current.depth === 0 && startIds && !startIds.has(node.id)) {
           continue;
         }
 
@@ -1232,12 +1327,32 @@ export class CrossRepoIndexer {
           if (!targetNode) continue;
           const targetRepo = targetNode.projectId;
 
-          // Track specific affected symbol
           if (current.repo === changedRepoId) {
-            const symbols = affectedSymbolMap.get(targetRepo) ?? new Set<string>();
-            symbols.add(targetNode.name);
-            if (targetNode.qualifiedName) symbols.add(targetNode.qualifiedName);
-            affectedSymbolMap.set(targetRepo, symbols);
+            // **What the importer asked for**, read from the edge: the earlier version recorded the *importing
+            // file's basename* as an "affected symbol", so a change to `werkzeug.exceptions` reported
+            // `app.py, ctx.py, helpers.py` as the symbols flask had lost.
+            const imported = this.importedNames(edge);
+            const matched =
+              scope === null
+                ? imported
+                : imported.length === 0
+                  ? // **An edge that records no names cannot be filtered on them.** `CROSS_REPO_CALLS` and
+                    // `CROSS_REPO_IMPLEMENTS` run symbol-to-symbol and carry no `importedSymbols`; treating the
+                    // missing list as "nothing matched" silently dropped every one of them.
+                    scope.names
+                  : imported.includes('*')
+                    ? scope.names.filter((name) => scope.lowered.has(name.toLowerCase()))
+                    : imported.filter((name) => scope.lowered.has(name.toLowerCase()));
+
+            if (matched.length > 0) {
+              const symbols = affectedSymbolMap.get(targetRepo) ?? new Set<string>();
+              for (const name of matched) symbols.add(name);
+              affectedSymbolMap.set(targetRepo, symbols);
+
+              const files = affectedFileMap.get(targetRepo) ?? new Set<string>();
+              if (targetNode.filePath) files.add(targetNode.filePath);
+              affectedFileMap.set(targetRepo, files);
+            }
           }
 
           if (visited.has(targetRepo)) continue;
@@ -1249,10 +1364,94 @@ export class CrossRepoIndexer {
 
     return {
       changedRepo: changedRepoId,
-      changedSymbols: changedSymbols && changedSymbols.length > 0 ? changedSymbols : undefined,
+      // The same condition the walk used, read from the value it produced rather than re-tested here.
+      changedSymbols: scope?.names,
       affectedRepos: Array.from(affectedRepos),
       analysis,
     };
+  }
+
+  /**
+   * The `File` nodes through which the named symbols are reachable, following **re-exports**.
+   *
+   * **A symbol's blast radius is carried by files, and a file is not always the one that declares it.** `Request`
+   * is declared in `werkzeug/wrappers/request.py`, imported by `werkzeug/wrappers/__init__.py`, re-exported by
+   * `werkzeug/__init__.py`, and imported *from there* by flask. Starting the walk at the declaring file therefore
+   * reached nothing for every one of flask's `from werkzeug import Request` statements — 18 of the 49 measured
+   * import pairs on flask 3.0.3 + werkzeug 3.0.3 — because the edge into flask hangs off the re-exporting file.
+   *
+   * **The walk is bounded by the symbol set, not by a depth**, and the set only grows, so it terminates.
+   */
+  private filesExposing(repoId: string, symbols: string[]): Set<number> {
+    const nodes = this.getRepoNodes(repoId);
+    const filesByPath = new Map<string, GraphNode>();
+    for (const node of nodes) {
+      if (node.label === 'File' && node.filePath) filesByPath.set(node.filePath, node);
+    }
+
+    // file id → the symbols of interest that this file exposes
+    const exposed = new Map<number, Set<string>>();
+    for (const symbol of symbols) {
+      const lower = symbol.toLowerCase();
+      for (const node of nodes) {
+        if (node.label === 'File') continue;
+        if (!matchesSymbol(node, lower)) continue;
+        const file = node.filePath === null ? undefined : filesByPath.get(node.filePath);
+        if (!file) continue;
+        const set = exposed.get(file.id) ?? new Set<string>();
+        set.add(lower);
+        exposed.set(file.id, set);
+      }
+    }
+
+    const queue = [...exposed.keys()];
+    while (queue.length > 0) {
+      const fileId = queue.shift()!;
+      const carried = exposed.get(fileId)!;
+
+      // Intra-repository edges run importer → imported, so `in` edges are the files that import this one.
+      for (const edge of this.store.getEdgesForNode(fileId, EDGE_IMPORTS, 'in')) {
+        // An edge with no `scope` predates the field and is an intra-repository import — the only kind that
+        // existed when it was written.
+        if ((edge.properties?.['scope'] ?? 'repo') !== 'repo') continue;
+        const shared = this.importedNames(edge)
+          .map((name) => name.toLowerCase())
+          .filter((name) => carried.has(name));
+        if (shared.length === 0) continue;
+
+        const importer = edge.sourceId;
+        const names = exposed.get(importer) ?? new Set<string>();
+        const before = names.size;
+        for (const name of shared) names.add(name);
+        exposed.set(importer, names);
+        if (names.size > before) queue.push(importer);
+      }
+    }
+
+    return new Set(exposed.keys());
+  }
+
+  /**
+   * The nodes that carry the named symbols themselves.
+   *
+   * **Some cross-repository edges are symbol-to-symbol** — `CROSS_REPO_CALLS` runs from a function in one
+   * repository to the function it calls in another, and nothing about that edge involves a file. A walk that
+   * started only from `File` nodes could not see them at all.
+   */
+  private symbolNodeIds(repoId: string, symbols: string[]): Set<number> {
+    const ids = new Set<number>();
+    const lowered = symbols.map((symbol) => symbol.toLowerCase());
+    for (const node of this.getRepoNodes(repoId)) {
+      if (node.label === 'File') continue;
+      if (lowered.some((lower) => matchesSymbol(node, lower))) ids.add(node.id);
+    }
+    return ids;
+  }
+
+  /** The names an import statement asked for, as recorded on its edge. */
+  private importedNames(edge: GraphEdge): string[] {
+    const raw = edge.properties?.['importedSymbols'];
+    return Array.isArray(raw) ? raw.map((name) => String(name)) : [];
   }
 
   /**
@@ -1345,62 +1544,62 @@ export class CrossRepoIndexer {
     }
 
     // Two relations reach a consumer, and they live at different levels. `CROSS_REPO_CALLS` runs from symbol to
-    // symbol — the tests build those by hand. `CROSS_REPO_IMPORTS` is created by `linkCrossRepoImports` and runs
-    // from the **declaring file** to the file that imports it, which is the only form this pipeline can produce
-    // from an import statement. Following only the symbol node missed every importer, so a repository that
-    // imports the symbol was never reported as a consumer.
+    // symbol — the tests build those by hand. An **import** runs from the file that makes the name available to
+    // the file that takes it, which is the only form this pipeline can produce from an import statement. Following
+    // only the symbol node missed every importer, so a repository that imports the symbol was never reported.
+    //
+    // **The files that make the name available include the ones that re-export it.** `from werkzeug import
+    // Request` in flask is served by `werkzeug/__init__.py`, not by `wrappers/request.py` where `Request` is
+    // declared, so the walk starts from every file in the re-export closure and reports the declaring symbol.
     for (const { repo: declaringRepo, node: declared } of sourceNodes) {
-      const declaringFile = this.getRepoNodes(declaringRepo).find(
-        (n) => n.label === 'File' && n.filePath === declared.filePath,
-      );
-      if (!declaringFile) continue;
+      for (const fileId of this.filesExposing(declaringRepo, [declared.name])) {
+        // Read the plain `IMPORTS` edges: they carry the names the importer asked for.
+        for (const edge of this.store.getEdgesForNode(fileId, EDGE_IMPORTS)) {
+          // **Present because the store refuses an edge whose endpoints are absent** - `insertEdge` throws for an
+          // unknown id - so the `if (!importerFile) continue` that stood here guarded a state the storage layer
+          // forbids.
+          const importerFile = this.store.getNode(edge.targetId)!;
+          if (importerFile.projectId === declaringRepo) continue;
+          if (!repos.includes(importerFile.projectId)) continue;
 
-      // Read the plain `IMPORTS` edges: they carry the names the importer asked for. The upgraded
-      // `CROSS_REPO_IMPORTS` edge covers the same pair of files but keeps only `sourceRepo`/`targetRepo`, so
-      // reading it would report a repository that imports *something else* from the same file.
-      for (const edge of this.store.getEdgesForNode(declaringFile.id)) {
-        if (edge.type !== EDGE_IMPORTS) continue;
-
-        // **Present because the store refuses an edge whose endpoints are absent** - `insertEdge` throws for an
-        // unknown id - so the `if (!importerFile) continue` that stood here guarded a state the storage layer
-        // forbids.
-        const importerFile = this.store.getNode(edge.targetId)!;
-        if (importerFile.projectId === declaringRepo) continue;
-        if (!repos.includes(importerFile.projectId)) continue;
-
-        const imported = edge.properties?.['importedSymbols'];
-        const importedNames = Array.isArray(imported) ? imported.map((n) => String(n)) : [];
-        if (!importedNames.some((n) => n.toLowerCase() === symbolName.toLowerCase())) continue;
-
-        traces.push({
-          sourceRepo: declaringRepo,
-          sourceSymbol: declared.qualifiedName,
-          sourceFile: declared.filePath ?? '',
-          targetRepo: importerFile.projectId,
-          targetSymbol: symbolName,
-          targetFile: importerFile.filePath ?? '',
-          dependencyType: edge.type,
-          depth: 1,
-          confidence: 'high',
-        });
-
-        for (const tEdge of this.store.getEdgesForNode(importerFile.id)) {
-          if (!tEdge.type.startsWith('CROSS_REPO_')) continue;
-          const transitive = this.store.getNode(tEdge.targetId);
-          if (!transitive || transitive.projectId === importerFile.projectId) continue;
-          if (!repos.includes(transitive.projectId)) continue;
+          const importedNames = this.importedNames(edge);
+          // `*` is a namespace or wildcard import: every name in the file is reachable through it.
+          if (
+            !importedNames.some((n) => n === '*' || n.toLowerCase() === symbolName.toLowerCase())
+          ) {
+            continue;
+          }
 
           traces.push({
             sourceRepo: declaringRepo,
             sourceSymbol: declared.qualifiedName,
             sourceFile: declared.filePath ?? '',
-            targetRepo: transitive.projectId,
-            targetSymbol: transitive.qualifiedName,
-            targetFile: transitive.filePath ?? '',
-            dependencyType: `transitive_${tEdge.type}`,
-            depth: 2,
-            confidence: 'medium',
+            targetRepo: importerFile.projectId,
+            targetSymbol: symbolName,
+            targetFile: importerFile.filePath ?? '',
+            dependencyType: edge.type,
+            depth: 1,
+            confidence: 'high',
           });
+
+          for (const tEdge of this.store.getEdgesForNode(importerFile.id)) {
+            if (!tEdge.type.startsWith('CROSS_REPO_')) continue;
+            const transitive = this.store.getNode(tEdge.targetId);
+            if (!transitive || transitive.projectId === importerFile.projectId) continue;
+            if (!repos.includes(transitive.projectId)) continue;
+
+            traces.push({
+              sourceRepo: declaringRepo,
+              sourceSymbol: declared.qualifiedName,
+              sourceFile: declared.filePath ?? '',
+              targetRepo: transitive.projectId,
+              targetSymbol: transitive.qualifiedName,
+              targetFile: transitive.filePath ?? '',
+              dependencyType: `transitive_${tEdge.type}`,
+              depth: 2,
+              confidence: 'medium',
+            });
+          }
         }
       }
     }
@@ -1491,6 +1690,7 @@ export class CrossRepoIndexer {
     projectId: string,
     sourceFile: string,
     imports: Array<{ modulePath: string; importedNames: string[] }>,
+    self: { localPath: string; identities: readonly PackageIdentity[] },
   ): void {
     const now = new Date().toISOString();
 
@@ -1501,14 +1701,18 @@ export class CrossRepoIndexer {
       // **repo-relative** path. Comparing the two directly never matched: `'src/types.ts'.includes('./types')`
       // is false, so every edge was skipped and `totalEdges` stayed at zero. Resolve first, then compare like
       // with like.
-      const resolved = resolveModulePath(sourceFile, imp.modulePath);
+      //
+      // **A module can also be named without a path**, which is how a Python package imports itself:
+      // `from flask.helpers import send_file` inside `flask/app.py` is not `./helpers`. The same identity that
+      // resolves a sibling repository resolves the repository's own package, so the edge exists here too.
+      const resolved =
+        resolveModulePath(sourceFile, imp.modulePath) ??
+        this.resolveOwnPackage(self, imp.modulePath);
       if (!resolved) continue;
 
       // **A `File` node always carries a path**: `ensureFileNode` writes `relPath`, and the label test above it is what
       // admits the node at all - so the `?? ''` that stood here was a fallback for a state the node cannot be in.
-      const targetFileNode = nodes.find(
-        (n) => n.label === 'File' && stripExtension(n.filePath!) === resolved,
-      );
+      const targetFileNode = findFileNode(nodes, resolved);
 
       if (!targetFileNode) continue;
 
@@ -1526,6 +1730,12 @@ export class CrossRepoIndexer {
         properties: {
           importPath: imp.modulePath,
           importedSymbols: imp.importedNames,
+          resolution: 'path',
+          // **Which graph this edge belongs to.** Intra-repository imports run importer → imported; cross-repository
+          // ones run imported → importer, because every consumer walks *outward* from the thing that changed. The
+          // direction alone cannot say which is which, and a walk that guessed wrong followed the dependency
+          // downwards and reported the library as the thing that broke.
+          scope: 'repo',
         },
         weight: 1,
         createdAt: now,
@@ -1534,16 +1744,76 @@ export class CrossRepoIndexer {
   }
 
   /**
+   * The repository-relative file a specifier names inside this repository's own package.
+   *
+   * **A relative specifier never reaches here**: `resolveModulePath` answers for every `.`-prefixed specifier and
+   * only returns `null` when the specifier does not start with a dot, so the guard that stood here could not fire.
+   */
+  private resolveOwnPackage(
+    self: { localPath: string; identities: readonly PackageIdentity[] },
+    specifier: string,
+  ): string | null {
+    for (const identity of self.identities) {
+      const member = resolvePackageMember(self.localPath, identity, specifier);
+      if (member) return member;
+    }
+    return null;
+  }
+
+  /**
    * Resolve imports that point outside their own repository and create the edge. Must run after every
    * repository in the group has been indexed, which is why it is called from `buildCrossRepoGraph` rather than
    * from `indexSingleRepo`.
+   *
+   * **Two shapes of specifier reach another repository**, and only the first was understood:
+   *
+   * 1. a path that walks out of the checkout (`../../shared/types`) — the monorepo shape;
+   * 2. a **package name** (`werkzeug.wrappers`, `@scope/pkg`, `github.com/foo/bar`, `com.acme.Foo`) — the shape
+   *    of two separately released packages, which is what "my other repository" usually means.
+   *
+   * Measured on flask 3.0.3 + werkzeug 3.0.3, shape 1 resolved nothing and the group graph was empty: 49
+   * distinct (file, module) pairs exist and **zero** edges did. Shape 2 is resolved from each repository's own
+   * manifest, and the pair is now 49 of 49.
+   *
+   * **One edge per (imported file, importing file) pair**, carrying every name the importer asked that file for.
+   * An edge per statement made the same pair appear up to five times — `from werkzeug.exceptions import A` on one
+   * line and `B` on the next — and a consumer counting consumers then counted import statements.
    */
-  private linkCrossRepoImports(repos: GroupRepo[]): void {
+  private async linkCrossRepoImports(repos: GroupRepo[]): Promise<void> {
     const now = new Date().toISOString();
 
+    /*
+     * **A repository with no checkout has nothing to resolve against**, and the group allows the state: a group is
+     * usually registered before its repositories are cloned. Dropping it once, here, is what lets every step below
+     * treat `localPath` as a path rather than as a possibility — and it is why the `if (!localPath) continue` that
+     * stood in both resolution loops, plus the `?? ''` beside each, no longer exist.
+     *
+     * **The group entry and what its manifest declares travel together.** They were two arguments — the list of
+     * repositories and a `Map` from name to identities — and the map was read with `?? []` at every use, a fallback
+     * for a repository the population loop had already given an entry. Pairing them removes the lookup, and with it
+     * the arm that could not fire.
+     */
+    const scopes: RepoScope[] = [];
     for (const repo of repos) {
+      if (!repo.localPath) continue;
+      scopes.push({ repo, identities: detectPackageIdentities(repo.localPath) });
+    }
+
+    // `imported file` + `importing file` → the import statements that connect them.
+    const pairs = new Map<
+      string,
+      {
+        projectId: string;
+        sourceId: number;
+        targetId: number;
+        importPath: string;
+        resolution: 'path' | 'package';
+        names: Set<string>;
+      }
+    >();
+
+    for (const { repo } of scopes) {
       const localPath = repo.localPath;
-      if (!localPath) continue;
       const projectId = repo.projectId ?? repo.fullName;
 
       for (const node of this.getRepoNodes(projectId)) {
@@ -1556,42 +1826,99 @@ export class CrossRepoIndexer {
           continue;
         }
 
-        for (const imp of this.extractImports(node.filePath, content, projectId)) {
-          const resolved = resolveModulePath(node.filePath, imp.modulePath);
-          if (!resolved || !resolved.startsWith('..')) continue;
+        const imports = await this.extractImports(node.language ?? '', content);
+        for (const imp of imports) {
+          const link = this.resolveAcrossRepos(scopes, node, imp.modulePath);
+          if (!link || link.target.id === node.id) continue;
 
-          const target = this.findRepoFileByPath(repos, resolved);
-          if (!target || target.id === node.id) continue;
-
-          // The edge runs from the **imported** repository's file to the importing one. That is the convention
-          // the rest of this subsystem assumes: `analyzeCrossRepoImpact` and `traceSymbolDependencies` both walk
-          // *outgoing* cross-repo edges, and a repository's "affected" peers are the ones that import it.
-          this.store.insertEdge({
-            // A `File` node always belongs to a project; `?? projectId` was a fallback for a node that cannot exist.
-            projectId: target.projectId,
-            sourceId: target.id,
+          const key = `${link.target.id}->${node.id}`;
+          const existing = pairs.get(key);
+          if (existing) {
+            for (const name of imp.importedNames) existing.names.add(name);
+            continue;
+          }
+          pairs.set(key, {
+            // The edge runs from the **imported** repository's file to the importing one. That is the convention
+            // the rest of this subsystem assumes: `analyzeCrossRepoImpact` and `traceSymbolDependencies` both walk
+            // *outgoing* cross-repo edges, and a repository's "affected" peers are the ones that import it.
+            projectId: link.target.projectId,
+            sourceId: link.target.id,
             targetId: node.id,
-            type: EDGE_IMPORTS,
-            properties: {
-              importPath: imp.modulePath,
-              importedSymbols: imp.importedNames,
-            },
-            weight: 1,
-            createdAt: now,
+            importPath: imp.modulePath,
+            resolution: link.resolution,
+            names: new Set(imp.importedNames),
           });
         }
       }
     }
+
+    for (const pair of pairs.values()) {
+      // **The same import resolved twice is one edge.** `buildCrossRepoGraph` is called by `indexGroup` and may be
+      // called again by a caller that wants a current report; without this check the second call re-inserted every
+      // edge and the count doubled.
+      const already = this.store
+        .getEdgesForNode(pair.sourceId, EDGE_IMPORTS)
+        .some((edge) => edge.targetId === pair.targetId);
+      if (already) continue;
+
+      this.store.insertEdge({
+        projectId: pair.projectId,
+        sourceId: pair.sourceId,
+        targetId: pair.targetId,
+        type: EDGE_IMPORTS,
+        properties: {
+          importPath: pair.importPath,
+          // Sorted so two runs over the same checkout produce the same edge, byte for byte.
+          importedSymbols: Array.from(pair.names).sort(),
+          resolution: pair.resolution,
+          scope: 'workspace',
+        },
+        weight: 1,
+        createdAt: now,
+      });
+    }
+  }
+
+  /** The file in another repository that a specifier names, by path or by package name. */
+  private resolveAcrossRepos(
+    scopes: readonly RepoScope[],
+    importer: GraphNode,
+    specifier: string,
+  ): { target: GraphNode; resolution: 'path' | 'package' } | null {
+    const asPath = resolveModulePath(importer.filePath!, specifier);
+    if (asPath && asPath.startsWith('..')) {
+      const target = this.findRepoFileByPath(scopes, asPath);
+      return target ? { target, resolution: 'path' } : null;
+    }
+
+    if (specifier.startsWith('.')) return null;
+
+    for (const { repo, identities } of scopes) {
+      const localPath = repo.localPath;
+      const projectId = repo.projectId ?? repo.fullName;
+      // A package owns its own members through `createImportEdges`; this method is about *another* repository.
+      if (projectId === importer.projectId) continue;
+
+      for (const identity of identities) {
+        const member = resolvePackageMember(localPath, identity, specifier);
+        if (!member) continue;
+        const target = findFileNode(this.getRepoNodes(projectId), member);
+        if (target) return { target, resolution: 'package' };
+      }
+    }
+
+    return null;
   }
 
   /** The File node of another repository in the group, addressed by a path that walked out of this one. */
-  private findRepoFileByPath(repos: GroupRepo[], resolved: string): GraphNode | null {
+  private findRepoFileByPath(scopes: readonly RepoScope[], resolved: string): GraphNode | null {
     const wanted = stripExtension(resolved).replace(/^(\.\.\/)+/, '');
 
-    for (const repo of repos) {
-      // The path names the repository directory, which is the last segment of `owner/name`.
-      const dir = basename(repo.localPath ?? '');
-      if (!dir || !wanted.startsWith(dir + '/')) continue;
+    for (const { repo } of scopes) {
+      // The path names the repository directory, which is the last segment of `owner/name`. Every scope has a
+      // checkout — `linkCrossRepoImports` dropped the ones that did not — so this cannot be empty.
+      const dir = basename(repo.localPath);
+      if (!wanted.startsWith(dir + '/')) continue;
       const rest = wanted.slice(dir.length + 1);
       return (
         this.getRepoNodes(repo.projectId ?? repo.fullName).find(
@@ -1719,13 +2046,66 @@ export function levenshteinDistance(a: string, b: string): number {
  * Turn `('./types', 'src/gateway.ts')` into `'src/types'` — the importer's directory plus the specifier,
  * with the extension dropped — or `null` when the specifier is bare.
  */
+/**
+ * The repo-relative file stem a specifier names, when the specifier is a path.
+ *
+ * **Two languages, two syntaxes for "the module next to me".** JavaScript writes `./x` and `../y`; Python writes
+ * `.x` and `..y`, where the **dot count is the level**, not a directory. Read as a path, `.request` became
+ * `src/werkzeug/wrappers/.request` — a hidden file that does not exist — so every relative Python import in a
+ * checkout resolved to nothing. Measured on werkzeug 3.0.3: `wrappers/__init__.py` had **zero** incoming import
+ * edges from `wrappers/request.py`, and the re-export chain `request.py → wrappers → werkzeug → flask` that makes
+ * `from werkzeug import Request` resolvable did not exist.
+ */
 function resolveModulePath(sourceFile: string, modulePath: string): string | null {
   if (!modulePath.startsWith('.')) return null;
   const dir = sourceFile.includes('/') ? sourceFile.slice(0, sourceFile.lastIndexOf('/')) : '';
+
+  const dotted = /^(\.+)([^./][^/]*)$/.exec(modulePath);
+  if (dotted) {
+    // Python's form: `n` dots climb `n - 1` directories, the rest is a dotted module path.
+    const climb = '../'.repeat(dotted[1]!.length - 1);
+    const rest = dotted[2]!.replace(/\./g, '/');
+    return stripExtension(posix.normalize(posix.join(dir, `${climb}${rest}`)));
+  }
+
   return stripExtension(posix.normalize(posix.join(dir, modulePath)));
 }
 
+/** Every extension a `File` node can carry, so a stem compares equal to the file it names. */
+const SOURCE_EXTENSION_PATTERN =
+  /\.(?:tsx?|jsx?|mjs|cjs|pyi?|go|rs|java|kt|kts|rb|php|cs|cpp|cc|cxx|hpp|hh|h|scala|lua|dart|swift|zig|exs?)$/;
+
 /** `'src/types.ts'` -> `'src/types'`; already-extensionless paths are returned unchanged. */
 function stripExtension(filePath: string): string {
-  return filePath.replace(/\.(tsx?|jsx?|mjs|cjs)$/, '');
+  return filePath.replace(SOURCE_EXTENSION_PATTERN, '');
+}
+
+/** Does this node carry the symbol named `lower`? Exact name, or the tail of a qualified name. */
+function matchesSymbol(node: GraphNode, lower: string): boolean {
+  const qualified = node.qualifiedName.toLowerCase();
+  return (
+    node.name.toLowerCase() === lower ||
+    qualified.endsWith(`:${lower}`) ||
+    qualified.endsWith(`.${lower}`)
+  );
+}
+
+/**
+ * The `File` node a stem names, including the two shapes a directory gives a language.
+ *
+ * `from .wrappers import Request` names the **package** `wrappers`, and the file that holds it is
+ * `wrappers/__init__.py`; JavaScript's `'./lib'` is `lib/index.ts`. Without these alternatives the edge pointed at
+ * a directory and matched no node.
+ */
+function findFileNode(nodes: GraphNode[], stem: string): GraphNode | null {
+  const wanted = new Set([
+    stripExtension(stem),
+    `${stripExtension(stem)}/__init__`,
+    `${stripExtension(stem)}/index`,
+  ]);
+  return (
+    nodes.find(
+      (n) => n.label === 'File' && n.filePath !== null && wanted.has(stripExtension(n.filePath)),
+    ) ?? null
+  );
 }

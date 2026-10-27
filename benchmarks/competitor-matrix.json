@@ -487,7 +487,7 @@
         "path": ["valid"],
         "equals": false
       },
-      "note": "the artifact sets `valid: false` \u2014 the run hit its timeout, so this is a lower bound and not a rate"
+      "note": "the artifact sets `valid: false` — the run hit its timeout, so this is a lower bound and not a rate"
     },
     "tokens.reduction": {
       "category": "A",
@@ -536,6 +536,33 @@
       "artifact": "benchmarks/aacr-head-to-head.json",
       "read": ["rows", 0, "f1"],
       "note": "the competitor holds 0.3235-0.3784 over three draws and this engine 0-0.0392 over two; 995 lanes succeeded and produced one finding, so the deficit is capability rather than handling"
+    },
+    "crossRepo.importRecall": {
+      "category": "C",
+      "axis": "of the (importing file, imported file) pairs another repository really imports, how many the graph resolved",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "read": ["resolution", "recall"],
+      "note": "measured on flask 3.0.3 + werkzeug 3.0.3 in one workspace, against pairs produced by Python's own parser. No competitor publishes a multi-repository figure, so this cell has no counterpart: it exists to keep the claim from being unfalsifiable"
+    },
+    "crossRepo.precision": {
+      "category": "C",
+      "axis": "share of resolved cross-repository import edges the independent parser also reports",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "read": ["resolution", "precision"],
+      "note": "the false edges are listed by name in the artifact, because a wrong edge is worse than a missing one"
+    },
+    "crossRepo.traceRecall": {
+      "category": "C",
+      "axis": "\"who uses this symbol in my other repository\" answered for every importer the parser names",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "read": ["trace", "recall"],
+      "note": "counts the re-export chain: `from werkzeug import Request` is served by the package root, not by the file that declares `Request`"
+    },
+    "crossRepo.impactRecall": {
+      "category": "C",
+      "axis": "\"what breaks in my other repository if this module changes\" naming every affected file",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "read": ["impact", "recall"]
     }
   },
   "pendingOurMetrics": {
@@ -610,19 +637,19 @@
     },
     "corpora": {
       "martian-offline": {
-        "size": "50 PRs \u00b7 173 golden comments",
+        "size": "50 PRs · 173 golden comments",
         "license": "MIT, dataset and shipped reviews public",
         "hosts": "all 49 shipped tools, ours, and open-code-review",
         "why": "it is the only corpus where the field's own outputs are published"
       },
       "aacr-bench": {
-        "size": "200 PRs \u00b7 1,505 expert-confirmed issues \u00b7 10 languages",
+        "size": "200 PRs · 1,505 expert-confirmed issues · 10 languages",
         "license": "Apache-2.0, goldens public, diffs fetched by URL",
         "hosts": "ours and open-code-review - the two tools that can be executed",
         "why": "its ground truth carries Repo Level issues, which are cross-file by construction"
       },
       "ours-real-ground-truth": {
-        "size": "100 issues \u00b7 246 bug ranges",
+        "size": "100 issues · 246 bug ranges",
         "license": "ours",
         "hosts": "ours, and any tool we can execute",
         "why": "the only corpus whose ground truth this project controls end to end"
@@ -768,7 +795,7 @@
         },
         "Kodus": {
           "invocable": false,
-          "reason": "`spawnSync kodus ENOENT` \u2014 **the package is not on npm under the name the workflow installed**, which is **a guessed name rather than a documented one**, and the probe is what said so"
+          "reason": "`spawnSync kodus ENOENT` — **the package is not on npm under the name the workflow installed**, which is **a guessed name rather than a documented one**, and the probe is what said so"
         }
       },
       "counts": {

@@ -75,6 +75,82 @@ function nodesFor(indexer: CrossRepoIndexer, projectId: string): GraphNode[] {
   return indexer.getStore().queryNodes({ projectId }).items;
 }
 
+/**
+ * Imports in the four shapes the fallback's regexes know, one per line, each naming a file that exists.
+ *
+ * **The fallback reader is the only reader on a machine with no grammar**, so these are the edges such a machine
+ * produces — and a shape it cannot read is an edge it does not have. It reads `import {…} from`, `import x from`,
+ * `import * as x from`, `require(…)`, Python's `from m import …` and Python's bare `import m`.
+ */
+const FALLBACK_IMPORTS = [
+  "import { alpha, beta } from './alpha';",
+  "import def from './beta';",
+  "import * as ns from './gamma';",
+  "const { delta } = require('./delta');",
+  "const epsilon = require('./epsilon');",
+].join('\n');
+
+describe('import extraction when the parser is unavailable', () => {
+  it('reads every JavaScript import shape with the regexes', async () => {
+    const root = makeGroupDir({
+      'repo-a': {
+        'src/main.ts': FALLBACK_IMPORTS,
+        'src/alpha.ts': 'export const alpha = 1;\nexport const beta = 2;\n',
+        'src/beta.ts': 'export default 1;\n',
+        'src/gamma.ts': 'export const g = 1;\n',
+        'src/delta.ts': 'exports.delta = 1;\n',
+        'src/epsilon.ts': 'module.exports = 1;\n',
+      },
+    });
+    const store = new InMemoryGraphStore();
+    const manager = new RepoGroupManager();
+    manager.createGroup(GROUP, 'Group', '');
+    manager.addRepo(GROUP, 'o', 'repo-a', 'url', join(root, 'repo-a'));
+
+    const indexer = new CrossRepoIndexer(store, manager, async () => null);
+    await indexer.indexGroup(GROUP);
+
+    const edges = store.getAllEdges().filter((edge) => edge.type === 'IMPORTS');
+    const targets = edges.map((edge) => store.getNode(edge.targetId)?.filePath).sort() as string[];
+    expect(targets).toEqual([
+      'src/alpha.ts',
+      'src/beta.ts',
+      'src/delta.ts',
+      'src/epsilon.ts',
+      'src/gamma.ts',
+    ]);
+    // The namespace import records the binding with the `/*` marker the fallback uses for "every name".
+    const namespace = edges.find(
+      (edge) => store.getNode(edge.targetId)?.filePath === 'src/gamma.ts',
+    );
+    expect(namespace?.properties?.['importedSymbols']).toEqual(['ns/*']);
+  });
+
+  it("reads Python's two import shapes with the regexes", async () => {
+    const root = makeGroupDir({
+      'repo-a': {
+        'src/pkg/main.py': 'from .helpers import shout\nimport os\n',
+        'src/pkg/helpers.py': 'def shout(text):\n    return text\n',
+      },
+    });
+    const store = new InMemoryGraphStore();
+    const manager = new RepoGroupManager();
+    manager.createGroup(GROUP, 'Group', '');
+    manager.addRepo(GROUP, 'o', 'repo-a', 'url', join(root, 'repo-a'));
+
+    const indexer = new CrossRepoIndexer(store, manager, async () => null);
+    await indexer.indexGroup(GROUP);
+
+    const edges = store.getAllEdges().filter((edge) => edge.type === 'IMPORTS');
+    // `from .helpers import shout` — the relative form is read as a path by the fallback, which is the one shape
+    // both readers agree on. `import os` names nothing inside the repository, so it produces no edge.
+    expect(edges.map((edge) => store.getNode(edge.targetId)?.filePath)).toEqual([
+      'src/pkg/helpers.py',
+    ]);
+    expect(edges[0]!.properties?.['importedSymbols']).toEqual(['shout']);
+  });
+});
+
 describe('symbol extraction when the parser is unavailable', () => {
   it('names what the regexes can see, and labels each shape by the pattern that matched it', async () => {
     const root = makeGroupDir({ 'repo-a': { 'src/legacy.ts': FALLBACK_SOURCE } });
@@ -146,6 +222,33 @@ describe('symbol extraction when the parser is unavailable', () => {
     // **A parser that throws is not an indexing failure**: the file's symbols are still extracted, from the text.
     expect(result.errors).toEqual([]);
     expect(nodesFor(indexer, 'o/repo-a').some((n) => n.name === 'alpha')).toBe(true);
+  });
+
+  it('keeps one node when two patterns match the same name', async () => {
+    /*
+     * **`interface Report` and `class Report` are one symbol.** TypeScript merges the declarations, and the graph
+     * wants one node per name per file — so the fallback's second match has to be dropped rather than added, which
+     * is a statement about the answer rather than about the regexes.
+     */
+    const root = makeGroupDir({
+      'repo-a': {
+        'src/merged.ts':
+          'export interface Report {\n  id: string;\n}\n\nexport class Report {\n' +
+          '  constructor(readonly id: string) {}\n}\n',
+      },
+    });
+    const store = new InMemoryGraphStore();
+    const manager = new RepoGroupManager();
+    manager.createGroup(GROUP, 'Group', '');
+    manager.addRepo(GROUP, 'o', 'repo-a', 'url', join(root, 'repo-a'));
+
+    const indexer = new CrossRepoIndexer(store, manager, async () => null);
+    await indexer.indexGroup(GROUP);
+
+    const reports = nodesFor(indexer, 'o/repo-a').filter((n) => n.name === 'Report');
+    expect(reports).toHaveLength(1);
+    // The class pattern is read before the interface one, so the node keeps the label the first match gives it.
+    expect(reports[0]!.label).toBe('Class');
   });
 });
 
@@ -334,5 +437,61 @@ describe('imports across three repositories', () => {
     // in the audit rather than silently averaged into a set.
     const importers = new Set(traces.filter((t) => t.depth === 1).map((t) => t.targetFile));
     expect([...importers]).toEqual(['src/gateway.ts']);
+  });
+
+  it('follows the second hop only into another repository of the group', async () => {
+    const store = new InMemoryGraphStore();
+    const indexer = await indexThreeRepos(store);
+
+    /** A `File` node outside the indexed trees: what an incremental build or another group leaves behind. */
+    function foreignFile(projectId: string, filePath: string): number {
+      return store.insertNode({
+        projectId,
+        label: 'File',
+        name: filePath.split('/').pop()!,
+        qualifiedName: `file:${projectId}:${filePath}`,
+        filePath,
+        startLine: 1,
+        endLine: 1,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      });
+    }
+
+    const gateway = store.getNodeByQualifiedName('file:o/repo-b:src/gateway.ts')!;
+    const hops = [
+      // A hop that lands back in the repository it started from: a cycle is not a dependency on somebody else.
+      foreignFile('o/repo-b', 'src/loop.ts'),
+      // A hop that leaves the group: this analysis was not asked about that repository.
+      foreignFile('other/repo-z', 'src/z.ts'),
+      // And one that is a real second hop, which is what the two above are contrasted with.
+      foreignFile('o/repo-c', 'src/other.ts'),
+    ];
+    for (const target of hops) {
+      store.insertEdge({
+        projectId: 'o/repo-b',
+        sourceId: gateway.id,
+        targetId: target,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: { importedSymbols: ['shared'] },
+        weight: 1,
+        createdAt: '2026-01-01T00:00:00Z',
+      });
+    }
+
+    const traces = await indexer.traceSymbolDependencies(GROUP, '', 'shared');
+    // One trace per matching *node*, so the same pair is reported for the file and for the symbol together.
+    const secondHop = new Set(
+      traces.filter((trace) => trace.depth === 2).map((trace) => trace.targetRepo),
+    );
+
+    expect([...secondHop]).toEqual(['o/repo-c']);
   });
 });

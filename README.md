@@ -89,7 +89,7 @@ Checkmarks indicate features verified through automated tests.
 | RBAC (5 roles, 25 permissions)                              | Tested — unit          |
 | Secret Scanner (16 patterns)                                | Tested — unit          |
 | Impact Analysis (BFS-based change propagation)              | Tested — integration   |
-| Cross-Repo Analysis (federated search, contract detection)  | Tested — integration   |
+| Cross-Repo Analysis (federated search, contract detection)  | Verified — 49/49 imports, 73/73 traces on two real checkouts |
 | Taint Analysis (source → sink path tracking)                | Partial — see register |
 | Graph Store (in-memory + SQLite with FTS5)                  | Tested — unit          |
 | Rate Limiting (sliding window)                              | Tested — unit          |

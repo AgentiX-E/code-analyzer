@@ -2628,11 +2628,15 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idA = allNodes.find((n) => n.name === 'sourceFn')!.id;
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
+      // An ordinary relationship the upgrade table does not know: this is the case the `default` arm exists for.
+      // **The fixture used to insert a `CROSS_REPO_DEPENDS` edge here**, which made the pass re-derive what it had
+      // itself produced — the double count that made two calls to `buildCrossRepoGraph` report 147 edges instead
+      // of 49 on a real pair. A cross-repo edge is not an input to the pass that creates cross-repo edges.
       store.insertEdge({
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
-        type: 'CROSS_REPO_DEPENDS',
+        type: 'EXTENDS',
         properties: {},
         weight: 1,
         createdAt: now,
@@ -2640,6 +2644,28 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       const report = await indexer.buildCrossRepoGraph('g1');
       expect(report.byType['CROSS_REPO_DEPENDS']).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should not grow the graph when it is built twice', async () => {
+      setupTwoRepos();
+      const allNodes = store.getAllNodes();
+      const idA = allNodes.find((n) => n.name === 'sourceFn')!.id;
+      const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
+
+      store.insertEdge({
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'IMPLEMENTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
+
+      const first = await indexer.buildCrossRepoGraph('g1');
+      const second = await indexer.buildCrossRepoGraph('g1');
+      expect(second.crossRepoEdges).toBe(first.crossRepoEdges);
+      expect(second.byType).toEqual(first.byType);
     });
 
     it('should count orphan symbols (exported but unreferenced)', async () => {

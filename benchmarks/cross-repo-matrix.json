@@ -1,0 +1,89 @@
+{
+  "comment": [
+    "Cross-repository analysis on two real checkouts, in one workspace.",
+    "",
+    "**Every expected answer comes from `scripts/cross-repo-ground-truth.py`**, which parses the importing",
+    "repository with Python's `ast` and resolves modules with the interpreter's own rules. The product never",
+    "contributes to its own expected answers.",
+    "",
+    "**`falseEdges` is the precision half**: an edge the graph claims that the parser does not corroborate is",
+    "listed by name, because a wrong edge is worse than a missing one for every question that follows."
+  ],
+  "measuredAt": "2026-10-27",
+  "corpora": [
+    {
+      "repo": "pallets/flask"
+    },
+    {
+      "repo": "pallets/werkzeug"
+    }
+  ],
+  "index": {
+    "durationMs": 3609,
+    "nodes": 7769,
+    "edges": 1159,
+    "imports": 1110,
+    "crossRepoEdges": 49,
+    "byType": {
+      "CROSS_REPO_IMPORTS": 49
+    },
+    "reposIndexed": 2,
+    "errors": []
+  },
+  "resolution": {
+    "groundTruthPairs": 49,
+    "resolvedPairs": 49,
+    "recall": 1,
+    "precision": 1,
+    "nameRecall": 1,
+    "falseEdges": [],
+    "perImporter": [
+      {
+        "importer": "pallets/flask",
+        "package": "werkzeug",
+        "groundTruthPairs": 49,
+        "importStatements": 81,
+        "resolvedPairs": 49,
+        "recall": 1,
+        "nameRecall": 1,
+        "unresolvedModules": []
+      }
+    ]
+  },
+  "trace": {
+    "expectations": 73,
+    "found": 73,
+    "recall": 1,
+    "misses": []
+  },
+  "impact": {
+    "expectations": 49,
+    "found": 49,
+    "recall": 1,
+    "reportedFiles": 71,
+    "strictPrecision": 0.6901,
+    "extras": [
+      "src/werkzeug/__init__.py → src/flask/app.py",
+      "src/werkzeug/__init__.py → tests/test_basic.py",
+      "src/werkzeug/__init__.py → tests/test_templating.py",
+      "src/werkzeug/datastructures/__init__.py → src/flask/helpers.py",
+      "src/werkzeug/datastructures/__init__.py → src/flask/testing.py",
+      "src/werkzeug/datastructures/__init__.py → tests/test_basic.py",
+      "src/werkzeug/datastructures/__init__.py → tests/test_helpers.py",
+      "src/werkzeug/datastructures/__init__.py → tests/test_templating.py",
+      "src/werkzeug/exceptions.py → tests/test_templating.py",
+      "src/werkzeug/http.py → src/flask/testing.py",
+      "src/werkzeug/http.py → tests/test_helpers.py",
+      "src/werkzeug/sansio/response.py → src/flask/app.py",
+      "src/werkzeug/sansio/response.py → src/flask/helpers.py",
+      "src/werkzeug/sansio/response.py → src/flask/testing.py",
+      "src/werkzeug/sansio/response.py → src/flask/wrappers.py",
+      "src/werkzeug/sansio/response.py → tests/test_helpers.py",
+      "src/werkzeug/utils.py → src/flask/testing.py",
+      "src/werkzeug/wrappers/__init__.py → src/flask/json/provider.py",
+      "src/werkzeug/wrappers/__init__.py → src/flask/typing.py",
+      "src/werkzeug/wrappers/__init__.py → tests/test_basic.py"
+    ],
+    "misses": []
+  }
+}

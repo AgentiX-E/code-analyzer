@@ -1,12 +1,12 @@
 {
   "comment": [
-    "The ratchet floor for the competitor matrix: MISSING may fall and may not rise.",
-    "INVALID is recorded by name, because it says what this MACHINE could not measure rather than what this COMMIT did not do.",
-    "indexing.secondsPerMillionLines: the artifact sets valid:false because the run hit its timeout - a lower bound, not a rate.",
-    "retrieval.docstring.recall.withVectors: the artifact reports backend:none, so no embedding model was installed for that run."
+    "The ratchet floor for the competitor matrix: MISSING may fall and may not rise."
   ],
   "missing": 8,
-  "cells": 19,
-  "updatedAt": "2026-10-13",
-  "invalid": ["indexing.secondsPerMillionLines", "retrieval.docstring.recall.withVectors"]
+  "invalid": [
+    "retrieval.docstring.recall.withVectors",
+    "indexing.secondsPerMillionLines"
+  ],
+  "cells": 25,
+  "updatedAt": "2026-10-27"
 }

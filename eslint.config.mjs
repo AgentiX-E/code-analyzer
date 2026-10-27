@@ -107,7 +107,12 @@ export default tseslint.config(
     // **A root-level `.ts` is enrolled by name, because enrolling `scripts/**` wholesale also enrolled two files
     // that had never been compiled and carry their own defects** - one of which (`nodeVersion` passing the `node:os`
     // function into a `string` field) is fixed here; the other is a separate audit.
-    files: ['packages/*/src/__tests__/**/*.ts', 'tests/**/*.ts', 'scripts/feature-matrix.ts'],
+    files: [
+      'packages/*/src/__tests__/**/*.ts',
+      'tests/**/*.ts',
+      'scripts/feature-matrix.ts',
+      'scripts/cross-repo-matrix.ts',
+    ],
   },
   {
     languageOptions: {

@@ -12,7 +12,7 @@
     "B": 7,
     "C": 11
   },
-  "cells": 21,
+  "cells": 25,
   "crossProduct": {
     "cells": 67,
     "controllable": 51,
@@ -46,13 +46,6 @@
       "category": "C",
       "axis": "lexical search recall",
       "artifact": "benchmarks/lexical-search-recall.json",
-      "value": 1
-    },
-    {
-      "name": "retrieval.docstring.recall.withVectors",
-      "category": "C",
-      "axis": "docstring search recall with vectors registered, at the product default weight",
-      "artifact": "benchmarks/docstring-search.json",
       "value": 1
     },
     {
@@ -117,9 +110,44 @@
       "axis": "our engine and a competitor on one corpus, one judge, one ground truth",
       "artifact": "benchmarks/aacr-head-to-head.json",
       "value": 0.2308
+    },
+    {
+      "name": "crossRepo.importRecall",
+      "category": "C",
+      "axis": "of the (importing file, imported file) pairs another repository really imports, how many the graph resolved",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "value": 1
+    },
+    {
+      "name": "crossRepo.precision",
+      "category": "C",
+      "axis": "share of resolved cross-repository import edges the independent parser also reports",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "value": 1
+    },
+    {
+      "name": "crossRepo.traceRecall",
+      "category": "C",
+      "axis": "\"who uses this symbol in my other repository\" answered for every importer the parser names",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "value": 1
+    },
+    {
+      "name": "crossRepo.impactRecall",
+      "category": "C",
+      "axis": "\"what breaks in my other repository if this module changes\" naming every affected file",
+      "artifact": "benchmarks/cross-repo-matrix.json",
+      "value": 1
     }
   ],
   "invalid": [
+    {
+      "name": "retrieval.docstring.recall.withVectors",
+      "category": "C",
+      "axis": "docstring search recall with vectors registered, at the product default weight",
+      "artifact": "benchmarks/docstring-search.json",
+      "because": "space.semantic is \"false\" — the artifact reports a lexical column, a sweep and the row the product runs; `space.semantic: false` means either side of the cosine was the hash fallback, which makes every column the lexical figure again"
+    },
     {
       "name": "indexing.secondsPerMillionLines",
       "category": "A",
