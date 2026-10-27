@@ -5,14 +5,14 @@
     "**MISSING may fall and may not rise.** A cell is measured only when its artifact carries a value produced with the",
     "component the cell names switched on."
   ],
-  "generatedAt": "2026-10-26",
+  "generatedAt": "2026-10-27",
   "competitors": 67,
   "byCategory": {
     "A": 49,
     "B": 7,
     "C": 11
   },
-  "cells": 20,
+  "cells": 21,
   "crossProduct": {
     "cells": 67,
     "controllable": 51,
@@ -61,6 +61,13 @@
       "axis": "paraphrase search recall at 20 with vectors registered, at the product default weight",
       "artifact": "benchmarks/paraphrase-search.json",
       "value": 0.5657
+    },
+    {
+      "name": "retrieval.cosqa.mrrAt10",
+      "category": "C",
+      "axis": "code search MRR@10 on CoSQA, the corpus the field reports on",
+      "artifact": "benchmarks/cosqa-retrieval.json",
+      "value": 0.7705
     },
     {
       "name": "tokens.reduction",

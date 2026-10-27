@@ -467,6 +467,17 @@
       },
       "note": "the only retrieval figure whose query is not the indexed text: the questions are written from the doc comments and every doc comment is stripped from the index, so neither half can copy the words it is asked about. `space.semantic: false` means the column is the lexical figure again"
     },
+    "retrieval.cosqa.mrrAt10": {
+      "category": "C",
+      "axis": "code search MRR@10 on CoSQA, the corpus the field reports on",
+      "artifact": "benchmarks/cosqa-retrieval.json",
+      "read": ["reranked", "mrrAt10"],
+      "invalidWhen": {
+        "path": ["space", "query"],
+        "equals": "none"
+      },
+      "note": "measured on the 500-function test pool with doc comments stripped from the index; the artifact names the pool size, the dataset SHA-256 and every column, so a reader can see what was measured rather than only the number"
+    },
     "indexing.secondsPerMillionLines": {
       "category": "A",
       "axis": "indexing seconds per million lines",

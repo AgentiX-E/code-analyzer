@@ -1,0 +1,60 @@
+{
+  "comment": [
+    "Retrieval on **CoSQA** (Huang et al.), the corpus the code-search literature reports on.",
+    "",
+    "**The pool is the 500 functions of the test split, not the full training corpus**, so these numbers are not",
+    "directly comparable with published tables that retrieve from ~20 000 functions. The pool size is in this",
+    "artifact so a reader can see exactly what was measured.",
+    "",
+    "**Docstrings are stripped from the index** for the same reason `paraphrase-search` strips them: the question",
+    "is a paraphrase of documentation, and an index that keeps the documentation lets the retriever copy it.",
+    "",
+    "**The product as shipped**: BM25 + vectors fused at weight 1, and the same list reordered listwise when a",
+    "model is available."
+  ],
+  "dataset": {
+    "name": "CoSQA retrieval, test split",
+    "source": "Jun-jie-Huang/CoCLR · data/search/cosqa-retrieval-test-500.json",
+    "sha256": "27d3552b2e7dd86cf9f9a0b3c135e6777d4faafa9c29fb1b9b01ece945974ad6"
+  },
+  "measuredAt": "2026-10-27",
+  "pool": {
+    "functions": 500,
+    "docstrings": "stripped"
+  },
+  "space": {
+    "index": "api",
+    "query": "api",
+    "reason": null
+  },
+  "cuts": [
+    1,
+    5,
+    10
+  ],
+  "lexical": {
+    "queries": 500,
+    "recallAt1": 0.154,
+    "recallAt5": 0.408,
+    "recallAt10": 0.502,
+    "mrrAt10": 0.264,
+    "foundAt10": 251
+  },
+  "fused": {
+    "queries": 500,
+    "recallAt1": 0.436,
+    "recallAt5": 0.74,
+    "recallAt10": 0.852,
+    "mrrAt10": 0.57,
+    "foundAt10": 426
+  },
+  "reranked": {
+    "queries": 500,
+    "recallAt1": 0.672,
+    "recallAt5": 0.898,
+    "recallAt10": 0.952,
+    "mrrAt10": 0.7705,
+    "foundAt10": 476,
+    "reordered": 492
+  }
+}

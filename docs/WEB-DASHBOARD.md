@@ -66,6 +66,22 @@ Two figures decide whether that semantic half earns its slots, and both come fro
 |                                                        | + `expand: true` (HyDE)       | **0.4444** | **0.6162** | **0.2657** |
 |                                                        | + `rerank: true` (top 50)     | **0.6465** | **0.7172** | **0.5424** |
 
+### On somebody else's corpus
+
+`benchmarks/cosqa-retrieval.json` — **CoSQA**, the retrieval corpus the code-search literature reports on
+(Huang et al.), fetched per run and identified by SHA-256 in the artifact, **not committed**:
+
+| column                      | R@1       | R@5       | R@10      | MRR@10    |
+| --------------------------- | --------- | --------- | --------- | --------- |
+| lexical (BM25 only)         | 0.154     | 0.408     | 0.502     | 0.264     |
+| fused (the product default) | 0.436     | 0.740     | 0.852     | 0.570     |
+| **fused + `rerank: true`**  | **0.672** | **0.898** | **0.952** | **0.771** |
+
+500 developer questions, 500 functions, **doc comments stripped from the index**. **The pool is the test split, not the
+~20 000 functions the published tables retrieve from**, so these numbers are not directly comparable with them — the
+artifact says so itself. What they do establish is the shape of the product's strength: **the ranking is where the
+value is** (MRR 0.264 → 0.771), and recall at ten is 95 % before any fine-tuning.
+
 > The paraphrase artifact used to report lexical **0.5455**. It was measuring `rank !== null` on an unbounded list —
 > "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.2929**, and
 > the twenty-five points that made the semantic half look like a regression were the arithmetic's.
