@@ -59,6 +59,15 @@ export interface ToolContext {
    */
   expandQuery?(query: string): Promise<{ vector: Float32Array; hypothesis: string } | null>;
 
+  /**
+   * The configured provider, or `null`. **Optional, and `null` is the ordinary state of a machine without a key.**
+   *
+   * Exposed because a stage that needs the provider itself - reranking asks for an ordering rather than a vector - has
+   * no other way to reach it, and building a second one at the call site would put the vendor choice back in two
+   * places.
+   */
+  getLLMProvider?(): LLMProvider | null;
+
   /** Code review engine (heuristics-based). Lazy initialized. */
   getReviewEngine(): CodeReviewEngine;
 
@@ -193,6 +202,11 @@ export class ToolContextImpl implements ToolContext {
       this._llm = this.llmOverride === undefined ? createLLMProvider() : this.llmOverride;
     }
     return this._llm;
+  }
+
+  /** @see ToolContext.getLLMProvider */
+  getLLMProvider(): LLMProvider | null {
+    return this.llmProvider();
   }
 
   /** @see ToolContext.expandQuery */

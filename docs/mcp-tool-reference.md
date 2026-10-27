@@ -109,6 +109,7 @@ hybrid**, and every response says which half produced it (`semanticBackend`, per
 | `limit`     | `number`  |    No    | Maximum results (default: 20)                                                      |
 | `projectId` | `string`  |    No    | Project scope                                                                      |
 | `expand`    | `boolean` |    No    | Rewrite the query as the code it describes before searching (HyDE), one completion |
+| `rerank`    | `boolean` |    No    | Reorder the fused top 50 with a model before returning the first `limit`           |
 
 **Example:**
 
@@ -117,7 +118,8 @@ hybrid**, and every response says which half produced it (`semanticBackend`, per
 ```
 
 **Output:** Array of search results with file path, line number, snippet, and BM25/vector/combined scores, plus
-`semanticBackend` (`api` · `onnx` · `deterministic` · `none`) and `queryExpansion` — `{ applied, hypothesis?, reason? }`.
+`semanticBackend` (`api` · `onnx` · `deterministic` · `none`), `queryExpansion` — `{ applied, hypothesis?, reason? }` —
+and `rerank` — `{ applied, pool?, reason? }`.
 
 **Why `expand` exists, and what it costs.** A question written in a developer's words does not share vocabulary with
 the code that answers it. `expand: true` asks the configured LLM for a plausible implementation of the question and
@@ -126,6 +128,15 @@ Relevance Labels_ (Gao et al., 2022). Measured on 99 questions over this reposit
 from the index: **recall@20 0.4747 → 0.6061, MRR 0.2271 → 0.2639**, against a lexical baseline of 0.2929 / 0.1051.
 It costs one completion and needs `DEEPSEEK_API_KEY`; without either, the tool answers the plain query and says so in
 `queryExpansion.reason`.
+
+**Why `rerank` exists, and what it costs.** Fusion decides _which_ twenty a reader sees; it does not decide their order,
+and order is what a reader feels. `rerank: true` gives the model the fused **top fifty** — name, path, signature and a
+240-character excerpt — and asks for a bracketed ordering; the first `limit` of that order is returned. **A rerank is
+enforced to be a permutation**: an invented id is dropped, a repeat is ignored, and a candidate the answer did not
+mention keeps its fused position, so no candidate can be lost by asking for a better order. Measured on the same 99
+questions: **recall@20 0.5657 → 0.7172, MRR 0.2470 → 0.5424**, against a pool ceiling of **0.7475** — 71 of the 74
+answerable questions are found. It costs one completion; without a provider the fused order is returned with the reason
+in `rerank.reason`.
 
 ---
 

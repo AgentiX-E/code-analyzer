@@ -17,7 +17,7 @@
     "**Both columns run on the same index**: BM25 over name/signature only, and the same list fused with one",
     "semantic ranking at each weight."
   ],
-  "measuredAt": "2026-10-26",
+  "measuredAt": "2026-10-27",
   "querySet": {
     "source": "frozen",
     "path": "benchmarks/paraphrase-queries.json",
@@ -57,9 +57,19 @@
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
       "recallAt5": 0.4444,
-      "recallAt20": 0.6061,
-      "mrr": 0.2714,
-      "found": 60
+      "recallAt20": 0.6162,
+      "mrr": 0.2657,
+      "found": 61
+    },
+    {
+      "name": "rerank",
+      "note": "the fused top 50, reordered by a model, cut at 20",
+      "reranked": 99,
+      "poolRecallAt20": 0.7475,
+      "recallAt5": 0.6465,
+      "recallAt20": 0.7172,
+      "mrr": 0.5424,
+      "found": 71
     }
   ],
   "semanticSweep": [

@@ -63,7 +63,8 @@ Two figures decide whether that semantic half earns its slots, and both come fro
 |                                                        | fused, weight 1               | 0.9738     | 1.000      | 0.9592     |
 | a paraphrase of it, doc comments stripped (99 queries) | lexical                       | 0.1515     | 0.2929     | 0.1051     |
 |                                                        | fused, weight 1 — the product | **0.3838** | **0.5657** | **0.2470** |
-|                                                        | + `expand: true` (HyDE)       | **0.4444** | **0.6061** | **0.2714** |
+|                                                        | + `expand: true` (HyDE)       | **0.4444** | **0.6162** | **0.2657** |
+|                                                        | + `rerank: true` (top 50)     | **0.6465** | **0.7172** | **0.5424** |
 
 > The paraphrase artifact used to report lexical **0.5455**. It was measuring `rank !== null` on an unbounded list —
 > "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.2929**, and

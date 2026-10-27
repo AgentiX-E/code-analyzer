@@ -146,6 +146,71 @@ describe('the context, in the states a deployment can actually be in', () => {
   });
 });
 
+describe('search_code reorders the fused list when asked', () => {
+  const orderer: LLMProvider = {
+    name: 'orderer',
+    complete: async () => ({
+      content: '2 1',
+      model: 'fake',
+      createdAt: new Date(0).toISOString(),
+      finishReason: 'stop',
+    }),
+  } as unknown as LLMProvider;
+
+  it('applies the order the model answered with, and reports the pool it was chosen from', async () => {
+    const store = new InMemoryGraphStore();
+    // **Two candidates the lexical half finds as well**, because a pool of one has no order to choose and the arm
+    // would then be reporting the size of the pool rather than the reranker.
+    store.insertNode(await nodeWithVector(1, 'walkCalls'));
+    store.insertNode(await nodeWithVector(2, 'walkLines'));
+
+    const result = await searchCode(
+      { query: 'walk', rerank: true, limit: 2 },
+      new ToolContextImpl(store, { llm: orderer }),
+    );
+    const payload = JSON.parse(textOf(result)) as {
+      rerank: { applied: boolean; pool?: number };
+      items: Array<{ name: string }>;
+    };
+
+    expect(payload.rerank.applied).toBe(true);
+    expect(payload.rerank.pool).toBeGreaterThanOrEqual(2);
+    // **The order is observable in the answer**, which is the only thing a user sees.
+    expect(payload.items[0]?.name).toBe('walkLines');
+  });
+
+  it('answers in the fused order when there is no provider, and says why', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(await nodeWithVector(1, 'walkCalls'));
+    store.insertNode(await nodeWithVector(2, 'walkLines'));
+
+    const result = await searchCode(
+      { query: 'walk', rerank: true, limit: 2 },
+      new ToolContextImpl(store, { llm: null }),
+    );
+    const payload = JSON.parse(textOf(result)) as {
+      rerank: { applied: boolean; reason?: string };
+      items: unknown[];
+    };
+
+    expect(payload.rerank.applied).toBe(false);
+    expect(payload.rerank.reason).toContain('no LLM provider');
+    expect(payload.items.length).toBeGreaterThan(0);
+  });
+
+  it('does not rerank when nobody asked for it', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(await nodeWithVector(1, 'walkCalls'));
+
+    const result = await searchCode(
+      { query: 'walkCalls' },
+      new ToolContextImpl(store, { llm: orderer }),
+    );
+    const payload = JSON.parse(textOf(result)) as { rerank: { applied: boolean } };
+    expect(payload.rerank).toEqual({ applied: false });
+  });
+});
+
 describe('search_code reports what the query side did', () => {
   it('searches with the expanded vector and says so', async () => {
     const store = new InMemoryGraphStore();
