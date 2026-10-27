@@ -42,7 +42,7 @@ const DATASET_DIR = process.env['COSQA_DIR'];
 const HAS_VECTORS = Boolean(process.env['ZHIPU_API_KEY']);
 const CAN_ASK_A_MODEL = Boolean(process.env['DEEPSEEK_API_KEY']);
 /** The cuts the literature reports. **MRR is cut at ten**, as published. */
-const CUTS = [1, 5, 10] as const;
+const CUTS = 'recall@1, @5, @10; MRR@10';
 const RERANK_POOL = 50;
 
 interface CosqaRow {
@@ -247,6 +247,9 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             query: queryEmbedder?.backend ?? 'none',
             reason: reason ?? null,
           },
+          // **A string rather than an array**, because `JSON.stringify` expands `[1, 5, 10]` onto four lines and
+          // Prettier collapses it back — which is how a generated artifact fails `prettier --check` in CI while being
+          // perfectly correct JSON.
           cuts: CUTS,
           lexical: score(lexicalRanks),
           fused: score(fusedRanks),

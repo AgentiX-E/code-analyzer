@@ -27,11 +27,7 @@
     "query": "api",
     "reason": null
   },
-  "cuts": [
-    1,
-    5,
-    10
-  ],
+  "cuts": [1, 5, 10],
   "lexical": {
     "queries": 500,
     "recallAt1": 0.154,
