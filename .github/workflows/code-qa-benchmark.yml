@@ -1,0 +1,114 @@
+name: Code QA Benchmark
+
+# **A figure that can be compared with somebody else's.** Every retrieval number this repository published before this
+# job was measured on its own corpus with its own questions: it could say a change helped, and it could not say whether
+# the result was any good. This job runs the product on **CoSQA** - the retrieval corpus the code-search literature
+# reports on - and publishes recall@1/5/10 and MRR@10 beside the SHA-256 of the file it measured.
+#
+# **The dataset is downloaded, not committed**, so the run always measures the published revision rather than a copy
+# that drifted; the artifact names the file's hash.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/intelligence/src/__tests__/cosqa-retrieval.test.ts'
+      - 'packages/intelligence/src/search/rerank.ts'
+      - 'packages/intelligence/src/search/hybrid-search.ts'
+      - 'packages/analyzer/src/pipeline/phases/embed.ts'
+      - '.github/workflows/code-qa-benchmark.yml'
+
+concurrency:
+  group: code-qa-benchmark
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cosqa:
+    name: Score retrieval on CoSQA
+    runs-on: ubuntu-latest
+    # **Ninety minutes**, because 500 questions are 500 vector searches and, when a key is present, 500 completions -
+    # a budget that is stated rather than discovered by a timeout.
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The dataset, from the repository that publishes it.** `raw.githubusercontent.com` is the canonical path; the
+      # fallback branch name exists because the upstream default branch has changed once already.
+      - name: Fetch the CoSQA retrieval split
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora/cosqa
+          url=""
+          for branch in main master; do
+            candidate="https://raw.githubusercontent.com/Jun-jie-Huang/CoCLR/${branch}/data/search/cosqa-retrieval-test-500.json"
+            if curl -fsSL "$candidate" -o benchmarks/corpora/cosqa/cosqa-retrieval-test-500.json; then
+              url="$candidate"
+              break
+            fi
+          done
+          if [ -z "$url" ]; then
+            echo "::error::CoSQA could not be downloaded; the measurement is skipped rather than invented"
+            exit 1
+          fi
+          echo "fetched $url"
+          sha256sum benchmarks/corpora/cosqa/cosqa-retrieval-test-500.json | tee -a "$GITHUB_STEP_SUMMARY"
+          node -e "const rows=require('./benchmarks/corpora/cosqa/cosqa-retrieval-test-500.json');console.log('questions:', rows.length)"
+
+      - name: Are the credentials present?
+        id: credential
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -n "$ZHIPU_API_KEY" ]; then echo "vectors=true" >> "$GITHUB_OUTPUT"; else
+            echo "vectors=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ZHIPU_API_KEY is absent, so the semantic half cannot run and this measurement is skipped."
+          fi
+          if [ -n "$DEEPSEEK_API_KEY" ]; then echo "rerank=true" >> "$GITHUB_OUTPUT"; else
+            echo "rerank=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DEEPSEEK_API_KEY is absent, so nothing will be reordered and the column will say so."
+          fi
+
+      - name: Measure the product on CoSQA
+        if: steps.credential.outputs.vectors == 'true'
+        env:
+          COSQA_DIR: benchmarks/corpora/cosqa
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_EMBEDDING_MODEL: embedding-3
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -o pipefail
+          npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/cosqa-retrieval.test.ts 2>&1 | tee /tmp/cosqa.log
+          grep -o 'COSQA-RETRIEVAL .*' /tmp/cosqa.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the CoSQA figure
+        if: always() && steps.credential.outputs.vectors == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosqa-retrieval
+          path: benchmarks/cosqa-retrieval.json
+          if-no-files-found: warn
+          retention-days: 90

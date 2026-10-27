@@ -37,3 +37,8 @@ logs/
 # `git add -A` and a push built from the index deleted it from the remote.
 /core.*
 tests/benchmarks/real-world/.stress-data/
+
+# **Third-party corpora are fetched, never committed.** A dataset in the tree is a dataset nobody can date: the CoSQA
+# files live in the repository that publishes them and the workflow downloads them per run, recording the SHA-256 in
+# the artifact. Committing them would also put somebody else's licence inside this one.
+benchmarks/corpora/
