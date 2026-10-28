@@ -379,10 +379,10 @@ Code Analyzer supports cross-repository analysis through a federation model:
 
 Two shapes of import reach another checkout, and they are not the same problem:
 
-| shape | example | resolved by |
-|---|---|---|
-| a path that leaves the checkout | `import { z } from '../../shared/zod'` | the file path, as in a monorepo |
-| **a package name** | `from werkzeug.utils import redirect` | the other checkout's **manifest**, then existence |
+| shape                           | example                                | resolved by                                       |
+| ------------------------------- | -------------------------------------- | ------------------------------------------------- |
+| a path that leaves the checkout | `import { z } from '../../shared/zod'` | the file path, as in a monorepo                   |
+| **a package name**              | `from werkzeug.utils import redirect`  | the other checkout's **manifest**, then existence |
 
 For the second shape the indexer reads what each repository publishes — `pyproject.toml` / `setup.py` /
 `setup.cfg`, `package.json`, `pom.xml` / `build.gradle`, `go.mod`, `Cargo.toml` — and where its modules live, then
@@ -400,7 +400,6 @@ Measured on flask 3.0.3 + werkzeug 3.0.3 in one workspace, against an answer key
 (`benchmarks/cross-repo-matrix.json`, produced by `.github/workflows/cross-repo-real.yml` and gated by
 `scripts/cross-repo-gate.js`).
 
-
 ### Cross-Repo Tool Suite
 
 Six dedicated MCP tools support cross-repo operations:
@@ -411,6 +410,14 @@ Six dedicated MCP tools support cross-repo operations:
 - `manage_repo_group` �? Manage repository groups
 - `sync_contracts` �? Synchronize contracts across repos
 - `discover_related_repos` �? Discover related repositories
+
+**The two answering tools ask the measured engine first.** `cross_repo_trace` and `cross_repo_impact` used to walk
+`CALLS` edges, which an import between two separately released packages does not create; on flask 3.0.3 + werkzeug
+3.0.3 they returned nothing while `CrossRepoIndexer` returned 73 of 73 traces and 49 of 49 impacted files. Both now
+call `traceSymbolDependencies` / `analyzeCrossRepoImpact` and carry `source` (`cross-repo-indexer` or `call-graph`) so
+a caller can tell which of the two answered. A group registered through `manage_repo_group` lives in the process-wide
+manager; `groupFor` copies it into the `ToolContextImpl` manager the engines were built against, which is the same
+copy `cross_repo_review_pr` used to do on its own.
 
 ---
 

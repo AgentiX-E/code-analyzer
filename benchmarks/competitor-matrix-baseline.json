@@ -1,12 +1,7 @@
 {
-  "comment": [
-    "The ratchet floor for the competitor matrix: MISSING may fall and may not rise."
-  ],
+  "comment": ["The ratchet floor for the competitor matrix: MISSING may fall and may not rise."],
   "missing": 8,
-  "invalid": [
-    "retrieval.docstring.recall.withVectors",
-    "indexing.secondsPerMillionLines"
-  ],
+  "invalid": ["retrieval.docstring.recall.withVectors", "indexing.secondsPerMillionLines"],
   "cells": 25,
   "updatedAt": "2026-10-27"
 }

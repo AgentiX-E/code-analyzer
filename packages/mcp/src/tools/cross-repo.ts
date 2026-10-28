@@ -7,7 +7,7 @@ import { buildSearchResponse, buildTraceResponse, buildImpactResponse } from './
 import { ToolContextImpl } from './tool-context.js';
 
 import type { ToolResult } from './registry.js';
-import type { GitDiff } from '@code-analyzer/shared';
+import type { GitDiff, RepoGroup } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Singleton RepoGroupManager for session-scoped group persistence
@@ -169,6 +169,157 @@ export async function crossRepoSearch(
 }
 
 // ---------------------------------------------------------------------------
+// The measured engine behind the two answering tools
+// ---------------------------------------------------------------------------
+
+/*
+ * **Two tools answer a cross-repository question, and they answered it from the wrong graph.**
+ *
+ * `cross_repo_trace` and `cross_repo_impact` walked `CALLS` edges. An import statement does not produce a `CALLS`
+ * edge — it produces an `IMPORTS` edge from the importing file to the imported one — so on a pair of separately
+ * released packages both tools returned nothing while `CrossRepoIndexer` returned 73 of 73 traces and 49 of 49
+ * impacted files. **A figure only a benchmark can see is not a product feature**: the same engine that the
+ * measurement grades is what the tools now call.
+ *
+ * The scan over `CALLS` stays where it was, as the answer for a session with no group registered — the state a bare
+ * `cross_repo_impact` call has always worked in — and every response carries `source` so a caller can tell which of
+ * the two it got.
+ */
+
+/**
+ * The group a tool should read, in the manager the engines were built against.
+ *
+ * **A group can be registered in one of two managers.** `manage_repo_group` writes to the process-wide
+ * `RepoGroupManager` this module owns; `ToolContextImpl` builds the engines around one of its own. A group created
+ * through the tool was therefore invisible to every engine — the state `cross_repo_review_pr` had already worked
+ * around by copying the entry across, and the measured path below needs the same copy. One function instead of two
+ * copies, and a session that indexed through its context keeps the entry it already had.
+ */
+async function groupFor(ctx: ToolContextImpl, groupId: string): Promise<RepoGroup | null> {
+  const manager = ctx.getRepoGroupManager();
+  if (!manager.hasGroup(groupId)) {
+    const registered = (await getGroupManager()).getGroup(groupId);
+    if (registered) {
+      manager.createGroup(groupId, registered.name, registered.description);
+      for (const repo of registered.repos) {
+        try {
+          manager.addRepo(groupId, repo.owner, repo.repo, repo.fullName, repo.localPath);
+        } catch {
+          // A repository already in the group is not an error worth failing a read over.
+        }
+      }
+    }
+  }
+  return manager.getGroup(groupId);
+}
+
+/** One group's entry plus whether the symbol's own repository is in it. */
+async function measuredContext(
+  store: unknown,
+  groupId: string,
+  symbolQName: string,
+): Promise<{
+  indexer: ReturnType<ToolContextImpl['getCrossRepoIndexer']>;
+  repo: string;
+  symbol: string;
+} | null> {
+  if (!store || !ToolContextImpl.isToolContext(store)) return null;
+  const ctx = store as ToolContextImpl;
+
+  const group = await groupFor(ctx, groupId);
+  if (!group) return null;
+
+  const node = ctx.store.getNodeByQualifiedName(symbolQName);
+  if (!node) return null;
+  // **The changed repository is the one that declares the symbol**, which is the answer to "where is this asked
+  // from" that a qualified name already carries. A group that does not hold it cannot be asked about it.
+  if (!group.repos.some((repo) => repo.fullName === node.projectId)) return null;
+
+  return { indexer: ctx.getCrossRepoIndexer(), repo: node.projectId, symbol: node.name };
+}
+
+async function measuredTrace(
+  store: unknown,
+  groupId: string,
+  symbolQName: string,
+): Promise<Array<Record<string, unknown>> | null> {
+  const context = await measuredContext(store, groupId, symbolQName);
+  if (!context) return null;
+
+  const traces = await context.indexer.traceSymbolDependencies(
+    groupId,
+    context.repo,
+    context.symbol,
+  );
+
+  // One trace per matching *node*, so the same (source, target, relation) arrives more than once.
+  const seen = new Set<string>();
+  const unique: Array<Record<string, unknown>> = [];
+  for (const trace of traces) {
+    const key = `${trace.sourceSymbol}\u0000${trace.targetSymbol}\u0000${trace.dependencyType}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push({
+      fromRepo: trace.sourceRepo,
+      toRepo: trace.targetRepo,
+      fromSymbol: trace.sourceSymbol,
+      toSymbol: trace.targetSymbol,
+      relationship: trace.dependencyType,
+      confidence: trace.confidence,
+      depth: trace.depth,
+      sourceFile: trace.sourceFile,
+      targetFile: trace.targetFile,
+    });
+  }
+  return unique;
+}
+
+function measuredTraceResponse(
+  edges: Array<Record<string, unknown>>,
+  sourceSymbol: string,
+  groupId: string,
+  maxDepth: number,
+): ToolResult {
+  const within = edges.filter((edge) => (edge['depth'] as number) <= maxDepth);
+  const reposVisited = [...new Set(within.map((edge) => edge['toRepo'] as string))];
+  const path = [
+    { symbol: sourceSymbol, repo: within[0]?.['fromRepo'] ?? null, label: 'Symbol', depth: 0 },
+    ...within.map((edge) => ({
+      symbol: edge['toSymbol'] as string,
+      repo: edge['toRepo'] as string,
+      label: 'Symbol',
+      filePath: edge['targetFile'] as string,
+      depth: edge['depth'] as number,
+    })),
+  ];
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            sourceSymbol,
+            groupId,
+            maxDepth,
+            source: 'cross-repo-indexer',
+            path,
+            crossRepoEdges: within,
+            reposVisited,
+            crossRepoConnections: within.length,
+            // **The engine's `enriched` block does not exist**, and saying so is better than wrapping the same
+            // answer twice: every field a caller needs is already per edge.
+            enriched: null,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
 // cross_repo_trace — Trace symbol across repositories
 // ---------------------------------------------------------------------------
 
@@ -198,6 +349,20 @@ export async function crossRepoTrace(
   const sourceSymbol = params.sourceSymbol;
   const groupId = params.groupId;
   const maxDepth = params.depth ?? 5;
+
+  /*
+   * **The measured engine answers first, and this tool used to answer from `CALLS` alone.**
+   *
+   * On flask 3.0.3 + werkzeug 3.0.3 there is not one `CALLS` edge between the two checkouts: the relation an
+   * import statement creates is `IMPORTS`, and the walk that finds it starts at the importing *file*. The tool
+   * therefore returned an empty path for every question the library answers with 73 of 73 traces — a figure only a
+   * benchmark could see, which is not a product feature. The scan below stays as the fallback for a session that has
+   * no group registered, and the response says which of the two answered.
+   */
+  const measured = await measuredTrace(store, groupId, sourceSymbol);
+  if (measured) {
+    return measuredTraceResponse(measured, sourceSymbol, groupId, maxDepth);
+  }
 
   const path: Array<Record<string, unknown>> = [];
   const crossRepoEdges: Array<Record<string, unknown>> = [];
@@ -306,6 +471,8 @@ export async function crossRepoTrace(
             crossRepoEdges,
             reposVisited: Array.from(reposVisited),
             crossRepoConnections: crossRepoEdges.length,
+            // The fallback answered: this session has no group holding the symbol's repository.
+            source: 'call-graph',
             enriched: enrichedTrace,
           },
           null,
@@ -336,6 +503,68 @@ export const crossRepoImpactSchema = {
   required: ['symbol', 'groupId'],
 };
 
+/** The engine's answer, restated as this tool's response. */
+function measuredImpactResponse(
+  impact: {
+    changedRepo: string;
+    changedSymbols?: string[];
+    analysis: Array<{
+      repo: string;
+      affectedSymbols: string[];
+      affectedFiles: string[];
+      impactLevel: 'critical' | 'high' | 'medium' | 'low';
+      reason: string;
+    }>;
+  },
+  symbolName: string,
+  groupId: string,
+  includeConsumers: boolean,
+): ToolResult {
+  const repos = impact.analysis.map((entry) => ({
+    repo: entry.repo,
+    // **The names the import statements asked for**, which is what a change to this symbol takes away.
+    affectedSymbols: entry.affectedSymbols,
+    affectedFiles: entry.affectedFiles,
+    impactLevel: entry.impactLevel,
+    reason: entry.reason,
+  }));
+
+  const levels = new Set(repos.map((entry) => entry.impactLevel));
+  const riskLevel =
+    levels.has('critical') || levels.has('high') ? 'high' : repos.length > 0 ? 'medium' : 'low';
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            symbol: symbolName,
+            groupId,
+            source: 'cross-repo-indexer',
+            changedRepo: impact.changedRepo,
+            riskLevel,
+            impactedRepos: repos,
+            totalImpactedRepos: repos.length,
+            // **Not `totalCallers`**: the engine reports the names a repository imports, and calling them callers
+            // would put a different quantity under the old label — the mistake the strict-precision column exists
+            // to keep visible.
+            totalAffectedSymbols: repos.reduce(
+              (sum, entry) => sum + entry.affectedSymbols.length,
+              0,
+            ),
+            affectedFiles: [...new Set(repos.flatMap((entry) => entry.affectedFiles))].sort(),
+            includeConsumers,
+            enriched: null,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+}
+
 export async function crossRepoImpact(
   args: Record<string, unknown>,
   store?: unknown,
@@ -344,6 +573,19 @@ export async function crossRepoImpact(
   const symbolName = params.symbol;
   const groupId = params.groupId;
   const includeConsumers = Boolean(params.includeConsumers);
+
+  /*
+   * **The measured engine answers first.** `cross_repo_impact` walked `CALLS` edges, which an import between two
+   * released packages does not create: on flask 3.0.3 + werkzeug 3.0.3 the tool answered "0 repositories" to a
+   * question the library answers with 49 files. See the note above `measuredContext`.
+   */
+  const context = await measuredContext(store, groupId, symbolName);
+  if (context) {
+    const impact = await context.indexer.analyzeCrossRepoImpact(groupId, context.repo, [
+      context.symbol,
+    ]);
+    return measuredImpactResponse(impact, symbolName, groupId, includeConsumers);
+  }
 
   const impactedRepos: Array<Record<string, unknown>> = [];
   let riskLevel = 'low';
@@ -442,6 +684,8 @@ export async function crossRepoImpact(
             riskLevel,
             impactedRepos,
             totalImpactedRepos: impactedRepos.length,
+            // The fallback answered: this session has no group holding the symbol's repository.
+            source: 'call-graph',
             totalCallers: impactedRepos.reduce(
               (sum, r) => sum + (r['callers'] as string[]).length,
               0,
@@ -1037,20 +1281,9 @@ export async function crossRepoReviewPR(
 
     const engine = ctx.getCrossRepoPRReviewEngine();
 
-    // Sync group from singleton to ensure cross-repo tools share state
-    const singletonMgr = await getGroupManager();
-    const engineMgr = ctx.getRepoGroupManager();
-    if (singletonMgr.hasGroup(groupId) && !engineMgr.hasGroup(groupId)) {
-      const sg = singletonMgr.getGroup(groupId)!;
-      engineMgr.createGroup(groupId, sg.name, sg.description);
-      for (const repo of sg.repos) {
-        try {
-          engineMgr.addRepo(groupId, repo.owner, repo.repo, repo.fullName, repo.localPath);
-        } catch {
-          /* skip */
-        }
-      }
-    }
+    // The engine was built around the context's manager; a group registered through `manage_repo_group` lives in
+    // the process-wide one, and `groupFor` is the single place that copies it across.
+    await groupFor(ctx, groupId);
 
     const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, parsedSourceRepo, diffs);
 

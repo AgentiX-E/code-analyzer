@@ -64,7 +64,9 @@ function main() {
   }
 
   if (failures.length > 0) {
-    console.error(`cross-repo gate: ${failures.length} figure(s) below the floor\n  ${failures.join('\n  ')}`);
+    console.error(
+      `cross-repo gate: ${failures.length} figure(s) below the floor\n  ${failures.join('\n  ')}`,
+    );
     process.exit(1);
   }
 }

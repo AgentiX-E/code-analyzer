@@ -17,6 +17,7 @@ import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { CrossRepoIndexer, RepoGroupManager } from '@code-analyzer/intelligence';
+import { ToolContextImpl, createToolRegistry } from '@code-analyzer/mcp';
 import { describe, it, expect, beforeAll } from 'vitest';
 
 import type { GraphEdge } from '@code-analyzer/shared';
@@ -147,5 +148,40 @@ describe.skipIf(!enabled)('story 5 — two real repositories in one workspace', 
     ]);
     const files = impact.analysis.flatMap((item) => item.affectedFiles);
     expect(files.filter((file) => file.includes('flask/app.py'))).toEqual([]);
+  });
+
+  it('gives an agent the same answer the engine gives it, through the tool surface', async () => {
+    /*
+     * **The story is a user's, so the last question is asked the way a user asks it.** The four cases above call the
+     * engine; `cross_repo_impact` is what an agent calls, and it answered from `CALLS` edges — of which this pair has
+     * none — so it returned "0 repositories" for the question the engine answers with 49 files.
+     */
+    const context = new ToolContextImpl(workspace.store);
+    const groups = context.getRepoGroupManager();
+    groups.createGroup(workspace.groupId, 'pallets', '');
+    groups.addRepo(workspace.groupId, 'pallets', 'flask', APP, checkoutNamed('flask-')!);
+    groups.addRepo(workspace.groupId, 'pallets', 'werkzeug', LIB, checkoutNamed('werkzeug-')!);
+
+    const abort = workspace.store
+      .getAllNodes()
+      .find((node) => node.name === 'abort' && node.projectId === LIB);
+    expect(abort).toBeDefined();
+
+    const result = await createToolRegistry().execute(
+      'cross_repo_impact',
+      { symbol: abort!.qualifiedName, groupId: workspace.groupId },
+      context,
+    );
+    expect(result.isError).toBeFalsy();
+    const answer = JSON.parse(result.content[0]!.text!) as Record<string, unknown>;
+
+    expect(answer['source']).toBe('cross-repo-indexer');
+    expect(answer['impactedRepos']).toEqual([
+      expect.objectContaining({
+        repo: APP,
+        affectedSymbols: ['abort'],
+        affectedFiles: expect.arrayContaining(['src/flask/helpers.py']),
+      }),
+    ]);
   });
 });

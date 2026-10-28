@@ -73,28 +73,28 @@ Status words are defined in [`benchmarks/status-register.json`](benchmarks/statu
 
 Checkmarks indicate features verified through automated tests.
 
-| Capability                                                  | Status                 |
-| ----------------------------------------------------------- | ---------------------- |
-| Knowledge Graph (36 node types, 43 relationship types)      | Tested — unit          |
-| 19-Phase Analysis Pipeline                                  | Partial — see register |
-| 31-Language Parsing (tree-sitter + regex fallback)          | Partial — see register |
-| Scope Resolution (3-tier: same-file, cross-file, namespace) | Tested — unit          |
-| PR Review (50+ heuristic rules, 6 categories)               | Tested — integration   |
-| Cypher Query Engine (lexer → parser → planner → executor)   | Tested — unit          |
-| MCP Server (49 tools, 15 resources, 5 prompts)              | Partial — see register |
-| VS Code Extension (15 Copilot Chat slash commands)          | Tested — unit          |
-| Web Dashboard (6 interactive views)                         | Partial — see register |
-| GitHub Integration (webhooks, check runs, cross-repo PR)    | Tested — integration   |
-| AI Agent Auto-Detection (12 agents)                         | Tested — unit          |
-| RBAC (5 roles, 25 permissions)                              | Tested — unit          |
-| Secret Scanner (16 patterns)                                | Tested — unit          |
-| Impact Analysis (BFS-based change propagation)              | Tested — integration   |
+| Capability                                                  | Status                                                       |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| Knowledge Graph (36 node types, 43 relationship types)      | Tested — unit                                                |
+| 19-Phase Analysis Pipeline                                  | Partial — see register                                       |
+| 31-Language Parsing (tree-sitter + regex fallback)          | Partial — see register                                       |
+| Scope Resolution (3-tier: same-file, cross-file, namespace) | Tested — unit                                                |
+| PR Review (50+ heuristic rules, 6 categories)               | Tested — integration                                         |
+| Cypher Query Engine (lexer → parser → planner → executor)   | Tested — unit                                                |
+| MCP Server (49 tools, 15 resources, 5 prompts)              | Partial — see register                                       |
+| VS Code Extension (15 Copilot Chat slash commands)          | Tested — unit                                                |
+| Web Dashboard (6 interactive views)                         | Partial — see register                                       |
+| GitHub Integration (webhooks, check runs, cross-repo PR)    | Tested — integration                                         |
+| AI Agent Auto-Detection (12 agents)                         | Tested — unit                                                |
+| RBAC (5 roles, 25 permissions)                              | Tested — unit                                                |
+| Secret Scanner (16 patterns)                                | Tested — unit                                                |
+| Impact Analysis (BFS-based change propagation)              | Tested — integration                                         |
 | Cross-Repo Analysis (federated search, contract detection)  | Verified — 49/49 imports, 73/73 traces on two real checkouts |
-| Taint Analysis (source → sink path tracking)                | Partial — see register |
-| Graph Store (in-memory + SQLite with FTS5)                  | Tested — unit          |
-| Rate Limiting (sliding window)                              | Tested — unit          |
-| Health Checks + Graceful Shutdown                           | Tested — integration   |
-| Benchmark Framework (ca-bench, real-world PR suite)         | Partial — see register |
+| Taint Analysis (source → sink path tracking)                | Partial — see register                                       |
+| Graph Store (in-memory + SQLite with FTS5)                  | Tested — unit                                                |
+| Rate Limiting (sliding window)                              | Tested — unit                                                |
+| Health Checks + Graceful Shutdown                           | Tested — integration                                         |
+| Benchmark Framework (ca-bench, real-world PR suite)         | Partial — see register                                       |
 
 ---
 
