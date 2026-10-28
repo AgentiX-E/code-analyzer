@@ -853,7 +853,7 @@ function walkSanitizers(
 function lastSegmentOf(name: string): string {
   return (
     name
-      .split(/[.\-]>?|(?<![.\-])[.]/)
+      .split(/[-.]>?|(?<![-.])[.]/)
       .filter(Boolean)
       .pop() ?? name
   );

@@ -10,9 +10,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { describe, it, expect, beforeEach } from 'vitest';
-
 import { CrossRepoIndexer, RepoGroupManager } from '@code-analyzer/intelligence';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 import type { GraphEdge } from '@code-analyzer/shared';
 

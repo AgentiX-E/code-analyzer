@@ -34,9 +34,8 @@ import {
 } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { describe, expect, it } from 'vitest';
-
 import { HybridSearchEngine } from '@code-analyzer/intelligence';
+import { describe, expect, it } from 'vitest';
 
 import type { EmbeddingBackendName } from '@code-analyzer/analyzer';
 import type { HybridSearchResult, RankedResult } from '@code-analyzer/intelligence';
