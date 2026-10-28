@@ -37,6 +37,17 @@ export type { ExecutablePhase, PhaseExecutionResult } from './pipeline/phases/in
 
 // Languages
 export type { LanguageProvider, ParsedImport } from './languages/provider.js';
+/**
+ * The taint vocabulary's own types, and the one place a language's words are declared.
+ *
+ * A consumer of `extractTaintSources` returns `TaintSource[]`, so the type has to be reachable from the package or
+ * every caller re-declares its shape. `JAVA_TAINT_VOCABULARY` is exported for the same reason from the other side:
+ * a benchmark that wants to know what Java recognises should be able to read the list rather than the source file.
+ */
+export type { TaintSource, TaintSink, TaintSanitizer } from './languages/tree-sitter-base.js';
+export type { TaintVocabulary } from './languages/base-c-like.js';
+export { C_LIKE_SANITIZERS, C_LIKE_VOCABULARY } from './languages/base-c-like.js';
+export { JAVA_TAINT_VOCABULARY } from './languages/java-taint.js';
 export { TypeScriptProvider } from './languages/typescript.js';
 export { PythonProvider } from './languages/python.js';
 export { GoProvider } from './languages/go.js';

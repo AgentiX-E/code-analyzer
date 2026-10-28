@@ -105,7 +105,13 @@ export function buildStatementFacts(
     sites.push({
       point: { blockIndex: 0, stmtIndex, line: capture.startLine },
       bindingIdx,
-      kind: 'must',
+      // **Every definition here is a *may*-definition, because this CFG has one block spanning the whole function.**
+      // A must-definition kills the ones before it, which is only sound when the statement is on the only path that
+      // reaches the next read. Here nothing knows whether a statement sits inside an `if`: `param = request.getParameter(...)`
+      // followed by `if (param == null) param = "";` recorded the guarded assignment as a kill, and the tainted
+      // definition it guarded was gone by the time the sink read the name — which is OWASP Benchmark's most common
+      // three lines, and the largest single reason a miss shared a function with its source.
+      kind: 'may',
     });
     defs.set(stmtIndex, sites);
   }
@@ -182,6 +188,20 @@ export function buildOccurrences(
   sanitizers: readonly ExtractedSanitizer[],
   bindings: readonly BindingEntry[],
   startLine: number,
+  /**
+   * What each statement defines, keyed by statement index — the same map the CFG carries.
+   *
+   * **A source's line often declares nothing and writes a variable that already exists.** The corpus that exposed
+   * this is OWASP Benchmark's cookie vector:
+   *
+   *     String param = "";                                             // line 47, declares param
+   *     param = java.net.URLDecoder.decode(theCookie.getValue(), "UTF-8");  // line 51, assigns it
+   *
+   * The source is the `getValue()` on line 51, the binding it taints is `param`, and the only thing that connects
+   * them is the def this statement records — the declaration is four lines up. Joining by declaration alone dropped
+   * that source, and with it every flow the cookie vectors carry.
+   */
+  definitions?: ReadonlyMap<number, readonly { readonly bindingIdx: number }[]>,
 ): {
   sourceSites: Map<number, TaintSourceOccurrence>;
   sinkSites: Map<number, TaintSinkOccurrence>;
@@ -194,6 +214,17 @@ export function buildOccurrences(
   const bindingAt = new Map<number, number>();
   for (const binding of bindings) bindingAt.set(binding.declLine, binding.index);
 
+  // Where this statement writes a binding that was declared elsewhere. A declaration wins when both exist, because
+  // the declaration is the one on the same line by construction.
+  const definedAt = new Map<number, number>();
+  if (definitions) {
+    for (const [stmtIndex, sites] of definitions) {
+      const line = startLine + stmtIndex;
+      const first = sites[0];
+      if (first && !bindingAt.has(line)) definedAt.set(line, first.bindingIdx);
+    }
+  }
+
   const stmtIndexFor = (line: number): number | null => {
     const stmtIndex = line - startLine;
     return stmtIndex < 0 || stmtIndex >= STRIDE ? null : stmtIndex;
@@ -201,7 +232,7 @@ export function buildOccurrences(
 
   for (const source of sources) {
     const stmtIndex = stmtIndexFor(source.line);
-    const bindingIdx = bindingAt.get(source.line);
+    const bindingIdx = bindingAt.get(source.line) ?? definedAt.get(source.line);
     if (stmtIndex === null || bindingIdx === undefined) continue;
 
     sourceSites.set(stmtIndex, {

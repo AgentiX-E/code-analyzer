@@ -66,8 +66,9 @@
       "note": "Until this measurement the story's evidence was a fixture: both repositories were temporary directories linked with `../../`, and the real pair - two packages released separately, linked by name - produced 0 import edges. The five defects that made the fixture pass are fixed; the package-name resolver is what makes the claim true for a released dependency."
     },
     "Taint Analysis": {
-      "status": "partial",
-      "note": "The 2026-08-17 audit lists 'No Taint Analysis' as a Critical gap. Unit tests for the path-tracking module exist, so `tested` is supportable for the module; the README's previous `Verified — unit tested` contradicted the audit, which is what this entry records."
+      "status": "verified",
+      "evidence": "benchmarks/owasp-benchmark.json, produced by .github/workflows/owasp-benchmark.yml from OWASP-Benchmark/BenchmarkJava at commit f40c618: 2740 labelled cases, 1415 real vulnerabilities, TPR 0.6382, FPR 0.4687, score 0.1695; the seven flow categories scored on their own: TPR 0.7639, FPR 0.5389, score 0.2249. Acceptance suite: tests/e2e/owasp-benchmark.test.ts (4 cases, including a named vulnerable case and a named escaped one).",
+      "note": "The recall and the noise rose together: anchoring a statement's reads to its first line and letting definitions accumulate took TPR 0.2671 -> 0.6382 and FPR 0.1955 -> 0.4687, so the next lever is precision, not recall. The identified cause is kind-blind neutralisation: a sanitizer excludes every sink kind it meets, which is why anchoring sanitizers alone was measured (FPR 0.3389 -> 0.2672, TPR 0.4530 -> 0.3703) and reverted. Making each sanitizer entry name the kinds it neutralises is the next change."
     },
     "Graph Store": {
       "status": "tested",

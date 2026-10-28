@@ -33,8 +33,14 @@ describe('buildStatementFacts', () => {
       { index: 0, name: 'req', kind: 'local', declLine: 12, declColumn: 0, synthetic: false },
     ]);
     // The key is line-relative to the function's start: 12 - 10 = 2.
+    //
+    // **`may`, not `must`.** A must-definition kills the ones before it, which is only sound where the statement is on
+    // the only path that reaches the next read — and the CFG here is one block spanning the function, so nothing knows
+    // whether a statement sits inside an `if`. The shape that measured this is `param = request.getParameter(...)`
+    // followed by `if (param == null) param = "";`: the guard's assignment killed the tainted definition it guarded,
+    // and every flow through that parameter disappeared.
     expect(stmtFacts.defs.get(2)).toEqual([
-      { point: { blockIndex: 0, stmtIndex: 2, line: 12 }, bindingIdx: 0, kind: 'must' },
+      { point: { blockIndex: 0, stmtIndex: 2, line: 12 }, bindingIdx: 0, kind: 'may' },
     ]);
   });
 

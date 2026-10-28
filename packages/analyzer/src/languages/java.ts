@@ -7,6 +7,7 @@ import {
   collectCLikeTaintSinks,
   collectCLikeTaintSources,
 } from './base-c-like.js';
+import { JAVA_TAINT_VOCABULARY } from './java-taint.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -58,14 +59,29 @@ export class JavaProvider extends TreeSitterBaseProvider {
     return out;
   }
 
-  /** Record every name under `node` as a use. */
-  private captureAccesses(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+  /**
+   * Record every name under `node` as a use, on the line the statement begins.
+   *
+   * **`anchorLine` is the statement's line, not the identifier's.** A statement is a line: `prepareStatement(` on one
+   * line and its arguments wrapped one per line below it is a single statement, and the CFG keys facts by line. When
+   * each name carried its own line, the sink was filed under the line the callee starts on and the value it consumes
+   * under a later one, so a taint wave and the sink it should have reached never occupied the same statement.
+   *
+   * Measured on OWASP Benchmark: 409 of the corpus's misses had a source and a sink in the same function and no flow
+   * between them, and the corpus is formatted by a tool that wraps long argument lists. The two cases in
+   * `java-assignment-flow.test.ts` are this shape reduced to one function.
+   */
+  private captureAccesses(
+    node: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+    anchorLine: number,
+  ): void {
     for (const name of this.namesUnder(node)) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_ACCESS,
         text: name.text,
-        startLine: name.startPosition.row + 1,
-        endLine: name.endPosition.row + 1,
+        startLine: anchorLine,
+        endLine: anchorLine,
         startByte: name.startIndex,
         endByte: name.endIndex,
         name: name.text,
@@ -116,6 +132,9 @@ export class JavaProvider extends TreeSitterBaseProvider {
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
+    // The statement's first line, which is the key its facts are filed under. Every name this node reads is recorded
+    // there rather than on the line the name happens to sit on; see `captureAccesses`.
+    const line = node.startPosition.row + 1;
 
     if (nodeType === 'method_declaration' || nodeType === 'constructor_declaration') {
       this.emitParameterDefs(node, captures);
@@ -155,7 +174,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         });
         // `int x;` declares without assigning, so the absent initialiser is ordinary.
         const value = namedChildrenOf(declarator)[1];
-        if (value) this.captureAccesses(value, captures);
+        if (value) this.captureAccesses(value, captures, line);
       }
     } else if (nodeType === 'method_invocation') {
       // **`name:` and `arguments:` are fields of the production**: `method_invocation object:? name: (identifier)
@@ -173,7 +192,96 @@ export class JavaProvider extends TreeSitterBaseProvider {
         name: nameNode.text,
         properties: { filePath: this.filePath },
       });
-      this.captureAccesses(node.childForFieldName('arguments')!, captures);
+      this.captureAccesses(node.childForFieldName('arguments')!, captures, line);
+    } else if (nodeType === 'enhanced_for_statement') {
+      // **`for (Cookie theCookie : theCookies)` binds a name that every iteration writes**, and nothing recorded it.
+      // The consequence was concrete: on OWASP Benchmark's cookie vector the chain from the request to the sink runs
+      // `request.getCookies()` → `theCookies` → `theCookie` → `theCookie.getValue()` → `param`, and the second arrow
+      // was invisible, so a quarter of the corpus's request surface produced no flow at all.
+      //
+      // The loop variable is a def and the iterable is a use, at the same line: what the loop reads is what the body
+      // is about to hold.
+      const name = node.childForFieldName('name');
+      if (name !== null) {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: name.text,
+          startLine: name.startPosition.row + 1,
+          endLine: name.endPosition.row + 1,
+          startByte: name.startIndex,
+          endByte: name.endIndex,
+          name: name.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      const value = node.childForFieldName('value');
+      if (value !== null) this.captureAccesses(value, captures, line);
+    } else if (nodeType === 'catch_formal_parameter') {
+      // A caught exception is a binding a handler reads, and `e.getMessage()` is how its text reaches a response.
+      const name = node.childForFieldName('name');
+      if (name !== null) {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: name.text,
+          startLine: name.startPosition.row + 1,
+          endLine: name.endPosition.row + 1,
+          startByte: name.startIndex,
+          endByte: name.endIndex,
+          name: name.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'assignment_expression') {
+      // **The statement Java writes most, and the one this recorded nothing for.**
+      //
+      // `fileName = Utils.testfileDir + param;` parses as
+      // `expression_statement > assignment_expression left: (identifier) right: (binary_expression)`, and every branch
+      // above asked for its own node type: a declaration captured its initialiser, a call captured its arguments, and
+      // **an assignment captured neither the def it writes nor the uses it reads**. Measured on OWASP Benchmark, the
+      // consequence was that taint could only ever reach a sink when the value was declared and passed on one line —
+      // 142 of 1 415 real vulnerabilities — because the two shapes the corpus is built from are
+      // `bar = request.getParameter("x")` and `param = bar`.
+      //
+      // The left side is a def when it names a binding, and a use when it names a field: `this.value = x` reads the
+      // receiver even though it writes the field, and dropping that read would hide a flow through a field.
+      // **Both fields are required by the grammar**, and this is the same convention the `method_invocation` case
+      // below uses for `name:` and `arguments:`: `assignment_expression` is `left: right:`, and a file whose parse
+      // loses one of them does not produce the node at all — `x = ;` collapses to nothing rather than to an
+      // assignment. A guard here would be a branch no input can take.
+      const left = node.childForFieldName('left')!;
+      if (left.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: left.text,
+          startLine: left.startPosition.row + 1,
+          endLine: left.endPosition.row + 1,
+          startByte: left.startIndex,
+          endByte: left.endIndex,
+          name: left.text,
+          properties: { filePath: this.filePath },
+        });
+      } else {
+        this.captureAccesses(left, captures, line);
+      }
+      this.captureAccesses(node.childForFieldName('right')!, captures, line);
+    } else if (nodeType === 'object_creation_expression') {
+      // **`new File(fileName)` is where a path sink's argument is read**, and a constructor is not a
+      // `method_invocation`, so nothing recorded the value being passed to it. The creation is recorded as a call as
+      // well, because `new ProcessBuilder(cmd)` is how a Java program starts a process and a call graph that omits it
+      // cannot see the flow that ends in `start()`.
+      const type = node.childForFieldName('type')!;
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_CALL,
+        text: type.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: type.text,
+        properties: { filePath: this.filePath },
+      });
+      // `new Foo()` always carries an `argument_list`, empty when the call passes nothing — the grammar requires it.
+      this.captureAccesses(node.childForFieldName('arguments')!, captures, line);
     } else if (nodeType === 'expression_statement') {
       // **A bare name used as a statement**, which Java only permits as an assignment, an increment or a call - but
       // **a file being edited parses into shapes the language would reject**, and `x.y;` is a `field_access` rather
@@ -551,11 +659,11 @@ export class JavaProvider extends TreeSitterBaseProvider {
   // Taint sources and sinks. The base class parses and recurses but recognises nothing, and only five providers
   // override it — none of them a language where a web application's untrusted input arrives.
   protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
-    collectCLikeTaintSources(node, sources, JAVA_TAINT_NODES);
+    collectCLikeTaintSources(node, sources, JAVA_TAINT_NODES, JAVA_TAINT_VOCABULARY);
   }
 
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
-    collectCLikeTaintSinks(node, sinks, JAVA_TAINT_NODES);
+    collectCLikeTaintSinks(node, sinks, JAVA_TAINT_NODES, JAVA_TAINT_VOCABULARY);
   }
 
   // Sanitizers. Nothing in this family recognised one before, so every finding was reported unsanitized.
@@ -563,6 +671,6 @@ export class JavaProvider extends TreeSitterBaseProvider {
     node: TreeSitterSyntaxNode,
     sanitizers: TaintSanitizer[],
   ): void {
-    collectCLikeTaintSanitizers(node, sanitizers, JAVA_TAINT_NODES);
+    collectCLikeTaintSanitizers(node, sanitizers, JAVA_TAINT_NODES, JAVA_TAINT_VOCABULARY);
   }
 }

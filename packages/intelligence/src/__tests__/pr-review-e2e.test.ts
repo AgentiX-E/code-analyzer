@@ -13,13 +13,14 @@ import { join } from 'node:path';
 // happened once - so the ordering follows the gate, and the determinism of the rule itself is recorded as work in the
 // audit rather than papered over here.
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import {
   CodeReviewEngine,
   PRReviewEngine,
   ReviewPipeline,
   DiffParser,
 } from '@code-analyzer/intelligence';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
 

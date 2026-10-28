@@ -421,6 +421,85 @@ copy `cross_repo_review_pr` used to do on its own.
 
 ---
 
+## Taint Analysis Across a Servlet
+
+Story 9 asks one question: _what happens to the value an attacker controls after it arrives?_ The answer is a path
+from a **source** (a request parameter, a cookie, a header) to a **sink** (a query, a file open, a process start, a
+response write), and the engine that finds it is four layers deep:
+
+| layer       | what it contributes                                                         | where                                                    |
+| ----------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| capture     | every def and use the flow crosses, from the provider's parse               | `packages/analyzer/src/languages/java.ts`                |
+| vocabulary  | what counts as a source, a sink and a sanitizer                             | `packages/analyzer/src/languages/java-taint.ts`          |
+| facts       | the join between a statement, its bindings and the extracted source or sink | `packages/intelligence/src/cfg/statement-facts.ts`       |
+| propagation | forward reachability over def→use, stopping at sanitizers                   | `packages/intelligence/src/security/taint-propagator.ts` |
+
+**The vocabulary is per language, and that is not a detail.** `print` is a sink in a servlet — a response writer
+writing to the page — and an ordinary call in Python and Ruby. The shared C-family list therefore stays what it was,
+and `JAVA_TAINT_VOCABULARY` extends it; `TaintVocabulary` is the seam.
+
+**A source is matched on what its list entry names.** `request.getParameter("p")` reaches the walk as
+`request.getParameter`, and the receiver's declared type is not knowable from the call — `req`, `theRequest` and a
+subclass all read the same thing — so a bare entry such as `getParameter` matches the callee's simple name. A
+qualified entry such as `URL.Query` matches the callee's two-segment tail instead. **Matching both on the simple name
+made Go's `db.Query(sql)` — a SQL sink — an HTTP source**, because `URL.Query` reduces to `Query` and so does every
+other `.Query(...)` in every language; measured on the Go and C# accuracy fixtures, precision 1.00 → 0.67 and
+1.00 → 0.75 with recall unchanged.
+
+**Four capture defects made this feature unmeasurable, and each is a shape Java writes constantly:**
+
+1. `fileName = dir + param;` — an `assignment_expression` recorded neither the binding it writes nor the use it
+   reads, so taint could only cross a variable declared and passed on one line.
+2. `new File(fileName)` — an `object_creation_expression` recorded nothing, and a path sink's argument is exactly
+   what a creation expression holds.
+3. `for (Cookie c : cookies)` — the loop variable was invisible, which broke the second arrow of every cookie vector.
+4. A source on an assignment bound nothing, because the join looked for a _declaration_ on the source's line.
+
+### The measurement
+
+`.github/workflows/owasp-benchmark.yml` downloads **OWASP-Benchmark/BenchmarkJava at a pinned commit** — 2 740 labelled
+servlet cases, 1 415 of them real vulnerabilities — runs the engine over every file, and scores the way the benchmark
+itself scores: a case is flagged if the engine reports one live (unsanitised) flow in it, and the figure is
+`TPR - FPR`. `scripts/owasp-benchmark-gate.js` holds each per-category figure to its floor.
+
+| stage                            | TPR    | FPR    | score  |
+| -------------------------------- | ------ | ------ | ------ |
+| shared vocabulary only           | 0.1420 | 0.0838 | 0.0583 |
+| + servlet vocabulary             | 0.2912 | 0.2264 | 0.0648 |
+| + four capture defects, released | 0.2671 | 0.1955 | 0.0717 |
+| + statements anchored to a line  | 0.4530 | 0.3389 | 0.1141 |
+| + definitions accumulate         | 0.6382 | 0.4687 | 0.1695 |
+
+The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
+the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
+comparable one. **TPR 0.2671 → 0.6382 and the score 0.0717 → 0.1695 came from two modelling decisions, not from
+adding words to a list.**
+
+**A statement is a line.** A call is one statement, but the first version recorded the callee on the line the call
+starts and each argument on the line the argument sits on. The corpus is formatted by a tool that wraps long argument
+lists, so `connection.prepareStatement(` on one line and `sql,` on the next put the sink and the value it consumes in
+different statements, and the flow between them was never seen: 409 of the misses had a source and a sink in the same
+function and no flow between them. Anchoring every name a statement reads to the statement's first line — the key the
+CFG files facts under — moved TPR 0.2671 → 0.4530, with FPR rising 0.1955 → 0.3389 for the same reason the true
+positives rose.
+
+**A block that spans the function cannot claim a killing definition.** With one block and no branch structure, a
+second assignment to a name was recorded as a `must`-definition, which kills the first — so
+`param = request.getParameter(...)` followed by `if (param == null) param = "";` left nothing tainted, and that is the
+corpus's most common three lines. Recording every definition as `may` moved TPR 0.4530 → 0.6382, FPR 0.3389 → 0.4687
+and the score 0.1141 → 0.1695; per category, `sqli` 0.607 → 0.860 and `pathtraver` 0.602 → 0.835.
+
+**A change that was measured and reverted.** Anchoring sanitizer occurrences the same way moved FPR 0.3389 → 0.2672
+and TPR 0.4530 → 0.3703 — a net loss of 0.011 — because a sanitizer currently neutralises every sink kind it meets,
+so `encodeForHTML` started vouching for a query it does not make safe. The correct fix is for a vocabulary entry to
+name the sink kinds it neutralises; that is a schema change to the sanitizer list, and until it lands the anchoring
+stays out. **With FPR now at 0.4687 it is the largest single item on the list**, because the score charges a tool for
+its noise as much as for its misses.
+
+**The four categories a flow analysis cannot answer are scored as misses, not excluded**: `crypto` and `hash` ask
+which algorithm a constant names, `weakrand` whether the generator is predictable, and the cookie categories whether
+a flag was set. Removing them would raise the headline by exactly the categories this engine cannot see.
+
 ## MCP Protocol Integration
 
 The MCP server (`packages/mcp/src/server/mcp-server.ts`) implements the Model Context Protocol:

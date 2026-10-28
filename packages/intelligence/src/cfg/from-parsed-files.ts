@@ -67,6 +67,9 @@ export function buildFunctionCfgs(
         perFile?.sanitizers ?? [],
         bindings,
         symbol.startLine,
+        // The defs just derived, so a source that writes an existing variable is bound to that variable rather than
+        // dropped for want of a declaration on its line.
+        stmtFacts.defs,
       );
 
       out.set(symbol.qualifiedName, {

@@ -1,0 +1,145 @@
+{
+  "corpus": {
+    "repository": "OWASP-Benchmark/BenchmarkJava",
+    "expectedResultsSha256": "1809f6a690c6cf7dd6685df6ebe2eef8fe3ca93d19a7ca0ce45987ca4f5d78e1",
+    "cases": 2740,
+    "vulnerable": 1415
+  },
+  "engine": {
+    "sources": 6157,
+    "sinks": 10705
+  },
+  "overall": {
+    "category": "all",
+    "cases": 2740,
+    "vulnerable": 1415,
+    "truePositives": 903,
+    "falsePositives": 621,
+    "tpr": 0.6381625441696113,
+    "fpr": 0.46867924528301885,
+    "score": 0.16948329888659242
+  },
+  "taintSubset": {
+    "category": "taint-subset",
+    "cases": 1698,
+    "vulnerable": 902,
+    "truePositives": 689,
+    "falsePositives": 429,
+    "tpr": 0.7638580931263859,
+    "fpr": 0.5389447236180904,
+    "score": 0.22491336950829544
+  },
+  "categories": [
+    {
+      "category": "cmdi",
+      "cases": 251,
+      "vulnerable": 126,
+      "truePositives": 85,
+      "falsePositives": 56,
+      "tpr": 0.6746031746031746,
+      "fpr": 0.448,
+      "score": 0.22660317460317464
+    },
+    {
+      "category": "crypto",
+      "cases": 246,
+      "vulnerable": 130,
+      "truePositives": 95,
+      "falsePositives": 85,
+      "tpr": 0.7307692307692307,
+      "fpr": 0.7327586206896551,
+      "score": -0.0019893899204244114
+    },
+    {
+      "category": "hash",
+      "cases": 236,
+      "vulnerable": 129,
+      "truePositives": 84,
+      "falsePositives": 80,
+      "tpr": 0.6511627906976745,
+      "fpr": 0.7476635514018691,
+      "score": -0.09650076070419467
+    },
+    {
+      "category": "ldapi",
+      "cases": 59,
+      "vulnerable": 27,
+      "truePositives": 23,
+      "falsePositives": 18,
+      "tpr": 0.8518518518518519,
+      "fpr": 0.5625,
+      "score": 0.28935185185185186
+    },
+    {
+      "category": "pathtraver",
+      "cases": 268,
+      "vulnerable": 133,
+      "truePositives": 111,
+      "falsePositives": 92,
+      "tpr": 0.8345864661654135,
+      "fpr": 0.6814814814814815,
+      "score": 0.15310498468393208
+    },
+    {
+      "category": "securecookie",
+      "cases": 67,
+      "vulnerable": 36,
+      "truePositives": 30,
+      "falsePositives": 25,
+      "tpr": 0.8333333333333334,
+      "fpr": 0.8064516129032258,
+      "score": 0.026881720430107614
+    },
+    {
+      "category": "sqli",
+      "cases": 504,
+      "vulnerable": 272,
+      "truePositives": 234,
+      "falsePositives": 143,
+      "tpr": 0.8602941176470589,
+      "fpr": 0.6163793103448276,
+      "score": 0.24391480730223125
+    },
+    {
+      "category": "trustbound",
+      "cases": 126,
+      "vulnerable": 83,
+      "truePositives": 65,
+      "falsePositives": 26,
+      "tpr": 0.7831325301204819,
+      "fpr": 0.6046511627906976,
+      "score": 0.17848136732978426
+    },
+    {
+      "category": "weakrand",
+      "cases": 493,
+      "vulnerable": 218,
+      "truePositives": 5,
+      "falsePositives": 2,
+      "tpr": 0.022935779816513763,
+      "fpr": 0.007272727272727273,
+      "score": 0.015663052543786492
+    },
+    {
+      "category": "xpathi",
+      "cases": 35,
+      "vulnerable": 15,
+      "truePositives": 14,
+      "falsePositives": 13,
+      "tpr": 0.9333333333333333,
+      "fpr": 0.65,
+      "score": 0.2833333333333333
+    },
+    {
+      "category": "xss",
+      "cases": 455,
+      "vulnerable": 246,
+      "truePositives": 157,
+      "falsePositives": 81,
+      "tpr": 0.6382113821138211,
+      "fpr": 0.3875598086124402,
+      "score": 0.2506515735013809
+    }
+  ],
+  "measuredAt": "2026-10-28T11:53:46.674Z"
+}

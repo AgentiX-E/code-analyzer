@@ -1,0 +1,114 @@
+name: OWASP Benchmark
+
+# **The benchmark every competing scanner publishes a score for, scored by this engine.**
+#
+# 2 740 servlet test cases, 1 415 of them real vulnerabilities, each labelled by the benchmark's own
+# `expectedresults-1.2.csv`. The figure is the benchmark's own: **TPR − FPR**, so noise costs as much as a miss.
+#
+# Until this job existed, story 9 ("trace what an attacker controls") had unit tests and no number. It now has a
+# score, a per-category scorecard and a floor that fails the build when either falls.
+#
+# **What the numbers mean.** Seven of the eleven categories are flows from untrusted input to a dangerous call, which
+# is what a taint engine answers. Four are not: `crypto` and `hash` ask which algorithm a constant names, `weakrand`
+# whether the generator is predictable, and the cookie categories whether a flag was set. Those are counted as misses
+# in the overall figure, not removed from it, and the seven-category subset is published beside it so the two
+# questions stay separate.
+#
+# **The corpus is downloaded at a pinned commit, never committed**, and its SHA-256 goes into the job summary.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/analyzer/src/languages/java.ts'
+      - 'packages/analyzer/src/languages/java-taint.ts'
+      - 'packages/analyzer/src/languages/base-c-like.ts'
+      - 'packages/intelligence/src/security/taint-*.ts'
+      - 'packages/intelligence/src/security/interprocedural-entry.ts'
+      - 'packages/intelligence/src/cfg/**'
+      - 'scripts/owasp-benchmark.ts'
+      - 'scripts/owasp-benchmark-gate.js'
+      - 'tests/e2e/owasp-benchmark.test.ts'
+      - '.github/workflows/owasp-benchmark.yml'
+  schedule:
+    # Weekly, so a change in the toolchain that quietly alters the score is noticed without a human running it.
+    - cron: '41 5 * * 1'
+
+concurrency:
+  group: owasp-benchmark
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # **Pinned to a commit, not a branch.** The labels and the test code have to be the pair that was scored.
+  BENCHMARK_COMMIT: 'f40c618c5a709afce350ef06ed2899c85cf586e9'
+
+jobs:
+  score:
+    name: Score the engine on 2 740 labelled cases
+    runs-on: ubuntu-latest
+    # Thirty minutes: 2 740 parses take about a minute on a runner, and the rest is dependency installation.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Fetch the benchmark at its pinned commit
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora
+          cd benchmarks/corpora
+          curl -fsSL "https://codeload.github.com/OWASP-Benchmark/BenchmarkJava/tar.gz/${BENCHMARK_COMMIT}" -o owasp.tgz
+          sha256sum owasp.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          tar xzf owasp.tgz
+          ls -d BenchmarkJava-*
+
+      # **The acceptance suite is the story.** It asserts the corpus integrity (2 740 labelled cases), the floors per
+      # category, and two named cases so a silent vocabulary regression names itself.
+      - name: Accept the user story on the benchmark
+        env:
+          OWASP_CORPUS: ${{ github.workspace }}/benchmarks/corpora
+        run: |
+          set -o pipefail
+          corpus=$(ls -d benchmarks/corpora/BenchmarkJava-* | head -1)
+          OWASP_CORPUS="$corpus" npx vitest run --config vitest.e2e.config.ts \
+            tests/e2e/owasp-benchmark.test.ts 2>&1 | tee /tmp/owasp-e2e.log
+
+      - name: Score the engine
+        run: |
+          set -euo pipefail
+          corpus=$(ls -d benchmarks/corpora/BenchmarkJava-* | head -1)
+          npx tsx scripts/owasp-benchmark.ts --corpus "$corpus" --out benchmarks/owasp-benchmark.json
+
+      - name: Hold the figures to their floor
+        run: node scripts/owasp-benchmark-gate.js
+
+      - name: Upload the scorecard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-benchmark
+          path: benchmarks/owasp-benchmark.json
+          if-no-files-found: warn
+          retention-days: 90

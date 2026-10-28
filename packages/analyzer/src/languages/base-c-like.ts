@@ -310,6 +310,44 @@ export function extractImportsAsCaptures(
 // Taint sources and sinks for the C-like languages
 // ---------------------------------------------------------------------------
 
+/**
+ * What a sanitizer is called, and what it neutralises.
+ *
+ * **Nothing in the C family recognised one until this existed.** `extractSanitizers` was implemented for `bash`,
+ * `css`, `sql`, `toml` and `markdown` — four of them languages that carry no taint — and the ten languages that do
+ * all fell through to the base, which returns nothing. So `sanitized` was false for every finding in real code, not
+ * because the code had no sanitizers but because nothing looked for them.
+ *
+ * Declared above `C_LIKE_VOCABULARY` because the vocabulary holds it: a language that extends the lists composes with
+ * this one, and a composition written before the list exists would silently drop every entry in it. That is not
+ * hypothetical — Java's vocabulary was written that way, and `escape(input)` stopped being recognised in Java while
+ * every other C-like language still recognised it.
+ */
+export const C_LIKE_SANITIZERS: ReadonlyArray<readonly [string, string]> = [
+  ['escape', 'escaping'],
+  ['escapeHtml', 'escaping'],
+  // Each of the three below was named by a fixture and absent from the list; the fixtures found them, not a reading.
+  ['EscapeString', 'escaping'],
+  ['HtmlEncode', 'escaping'],
+  ['urlencode', 'encoding'],
+  ['filename', 'path'],
+  ['htmlspecialchars', 'escaping'],
+  ['encodeURIComponent', 'encoding'],
+  ['encodeURI', 'encoding'],
+  ['sanitize', 'validation'],
+  ['sanitizeHtml', 'validation'],
+  ['strip_tags', 'validation'],
+  ['parseInt', 'validation'],
+  ['parseFloat', 'validation'],
+  ['Number', 'validation'],
+  ['basename', 'path'],
+  ['realpath', 'path'],
+  ['mysql_real_escape_string', 'escaping'],
+  ['quote', 'escaping'],
+  ['Parameterize', 'parameterisation'],
+  ['PreparedStatement', 'parameterisation'],
+];
+
 /** Source expressions whose value comes from outside the program, and what kind of input it is. */
 const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['process.env', 'env_var'],
@@ -356,7 +394,8 @@ const C_LIKE_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['ARGV', 'argv'],
   ['cookies', 'cookie'],
   ['getenv', 'env_var'],
-  ['Query', 'http_request'],
+  // No bare `Query` entry: it reduces to `Query`, which is the last segment of every `.Query(...)` in every language,
+  // and Go's `db.Query(sql)` is a SQL sink. `URL.Query` above covers Go's reader and is the only spelling kept.
 ];
 
 /** Calls that pass their argument somewhere it will be interpreted, and what kind of sink it is. */
@@ -428,8 +467,82 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
   ['scanf', 'buffer_overflow'],
 ];
 
-function sourceFor(text: string): readonly [string, string] | undefined {
-  return C_LIKE_SOURCES.find(([expr]) => text === expr || text.startsWith(`${expr}.`));
+/**
+ * What a language calls a source and a sink.
+ *
+ * **The lists above are the C family's, and a language that lives inside a web framework needs more without every
+ * other language paying for it.** Java's servlet API reads untrusted input through `request.getParameter(...)` and
+ * writes it through `response.getWriter().print(...)`, and `print` is a sink in a Java servlet while it is an
+ * ordinary call in Python and Ruby. A single shared list cannot say both, so the walk takes a vocabulary per
+ * language and this is the default it uses when a provider does not supply one.
+ */
+export interface TaintVocabulary {
+  /** Expression or callee, and the kind of input it reads. */
+  readonly sources: ReadonlyArray<readonly [string, string]>;
+  /** Callee, and what kind of sink it is. */
+  readonly sinks: ReadonlyArray<readonly [string, string]>;
+  /**
+   * Callee, and what it neutralises.
+   *
+   * Separate from the shared list because the names are API-specific: `encodeForHTML` is ESAPI's, and a language that
+   * has no ESAPI should not carry it. Absent means "the shared list", which is what every provider but Java uses.
+   */
+  readonly sanitizers?: ReadonlyArray<readonly [string, string]>;
+  /**
+   * Callee prefixes that look like a sink and are not one.
+   *
+   * **`System.out.println(value)` is a console write, not cross-site scripting**, and the segment matcher cannot tell
+   * it from `response.getWriter().println(value)` — both end in `println`. Measured on the 1.2beta checkout of OWASP
+   * Benchmark, ninety-eight of the 297 flagged safe cases contained exactly this. A prefix is the whole difference, so
+   * it is declared here rather than modelled as a second list of sinks to subtract.
+   */
+  readonly ignoreSinkPrefixes?: readonly string[];
+}
+
+/**
+ * The list every C-like provider used before a language could extend it.
+ *
+ * It carries the shared sanitizers as well as the sources and sinks: a provider that says nothing about sanitizers
+ * gets all of them, and a provider that extends the list composes on top of a complete one.
+ */
+export const C_LIKE_VOCABULARY: TaintVocabulary = {
+  sources: C_LIKE_SOURCES,
+  sinks: C_LIKE_SINKS,
+  sanitizers: C_LIKE_SANITIZERS,
+};
+
+/**
+ * A source, matched on the whole expression, on a member of it, or on the name its list entry declares.
+ *
+ * **The last form is what Java's servlet API needs.** `request.getParameter("x")` reaches the walk as the callee
+ * `request.getParameter`, and no list that names the *method* equals that text — the receiver is the request object,
+ * and its type is not knowable from the call. The same rule the sink side already used, and it is why the sink list
+ * could hold `Process.Start` while comparing only `Start`.
+ *
+ * **What an entry matches on is decided by the entry, not by the call.** A qualified entry (`URL.Query`, `os.Getenv`)
+ * matches the two-segment tail of the callee; a bare entry (`getParameter`, `getenv`) matches its simple name. When
+ * both were matched on the simple name, Go's `db.Query(sql)` — a SQL *sink* — was reported as an HTTP request source,
+ * because the list's `URL.Query` reduces to `Query` and so does every other `.Query(...)` in every language. Measured
+ * on the Go and C# accuracy fixtures: precision 1.00 → 0.67 and 1.00 → 0.75, recall unchanged.
+ */
+function sourceFor(
+  text: string,
+  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
+): readonly [string, string] | undefined {
+  const segments = text.split(/::|[-.]>?|(?<![-.])[.]/).filter(Boolean);
+  const simple = segments[segments.length - 1] ?? text;
+  const tail = segments.length > 1 ? `${segments[segments.length - 2]}.${simple}` : simple;
+  return vocabulary.sources.find(
+    ([expr]) =>
+      text === expr ||
+      text.startsWith(`${expr}.`) ||
+      (isQualifiedName(expr) ? tail === expr : simple === expr),
+  );
+}
+
+/** Whether a vocabulary entry names something qualified, and so is matched on the callee's two-segment tail. */
+function isQualifiedName(name: string): boolean {
+  return name.includes('.') || name.includes('::') || name.includes('->');
 }
 
 /**
@@ -439,17 +552,25 @@ function sourceFor(text: string): readonly [string, string] | undefined {
  * only by its dotted one. Matching on the last segment alone silently drops every dotted entry in the list — which is
  * what the Python case found.
  */
-function sinkFor(text: string): readonly [string, string] | undefined {
+function sinkFor(
+  text: string,
+  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
+): readonly [string, string] | undefined {
   // Splits on `->` as well as `.`: PHP writes `$db->query($sql)`, whose last dot-segment is the whole string.
   //
   // **And it has to know about `::` and about qualified spellings.** A C++ sink is written `std::system`, whose
   // segments are `std` and `system` only once `::` splits it; and a C# sink is written
   // `System.Diagnostics.Process.Start`, whose last segment is `Start` while the list holds `Process.Start`. **Both
   // were in the list and neither matched** - the list was right and the comparison was too narrow.
-  const segments = text.split(/::|[.\-]>?|(?<![.\-])[.]/).filter(Boolean);
-  const simple = segments.pop() ?? text;
+  //
+  // **A Java constructor reaches here as `new ProcessBuilder`**, because the callee of
+  // `new ProcessBuilder(cmd).start()` is the text before its parenthesis. The keyword is not part of the name.
+  const bare = text.startsWith('new ') ? text.slice(4) : text;
+  if (vocabulary.ignoreSinkPrefixes?.some((prefix) => bare.startsWith(prefix))) return undefined;
+  const segments = bare.split(/::|[-.]>?|(?<![-.])[.]/).filter(Boolean);
+  const simple = segments.pop() ?? bare;
   const qualified = segments.length > 0 ? `${segments[segments.length - 1]}.${simple}` : simple;
-  return C_LIKE_SINKS.find(([name]) => simple === name || qualified === name || text === name);
+  return vocabulary.sinks.find(([name]) => simple === name || qualified === name || bare === name);
 }
 
 /**
@@ -496,9 +617,10 @@ export function collectCLikeTaintSources(
   },
   sources: TaintSource[],
   types: TaintNodeTypes = C_LIKE_TAINT_NODES,
+  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
 ): void {
   const before = sources.length;
-  walkTaintSources(node, sources, types);
+  walkTaintSources(node, sources, types, vocabulary);
 
   const seen = new Set<string>();
   const added = sources.splice(before);
@@ -520,9 +642,10 @@ function walkTaintSources(
   },
   sources: TaintSource[],
   types: TaintNodeTypes = C_LIKE_TAINT_NODES,
+  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
 ): void {
   if (types.member.includes(node.type)) {
-    const match = sourceFor(node.text);
+    const match = sourceFor(node.text, vocabulary);
     if (match) {
       sources.push({
         name: node.text,
@@ -542,7 +665,7 @@ function walkTaintSources(
     const callee = calleeOf(node.text);
     // No length guard: `sourceFor('')` matches nothing, so an empty callee falls through on its own — and a guard
     // here would be a branch no call can take, which is the shape the coverage gate reports.
-    const match = sourceFor(callee);
+    const match = sourceFor(callee, vocabulary);
     if (match) {
       sources.push({
         name: callee,
@@ -556,7 +679,7 @@ function walkTaintSources(
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof collectCLikeTaintSources>[0] | null;
-    if (child) walkTaintSources(child, sources, types);
+    if (child) walkTaintSources(child, sources, types, vocabulary);
   }
 }
 
@@ -576,13 +699,14 @@ export function collectCLikeTaintSinks(
   },
   sinks: TaintSink[],
   types: TaintNodeTypes = C_LIKE_TAINT_NODES,
+  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
 ): void {
   if (types.call.includes(node.type)) {
     // The callee is everything before the **last** top-level `(`. Taking the first one truncates a chained call at
     // its inner call: `Runtime.getRuntime().exec(cmd)` split at the first parenthesis is `Runtime.getRuntime`, whose
     // last segment is `getRuntime` — which matches nothing. Java's sink case found this.
     const callee = calleeOf(node.text);
-    const match = sinkFor(callee);
+    const match = sinkFor(callee, vocabulary);
     // **A call inside a call is the same statement, and the outer one is the call.** The walk arrives top down, so
     // an existing sink whose text contains this node's is the outer call of a chain:
     // `require('node:child_process').execSync(cmd).toString()` visits `execSync(cmd)` - which matches `execSync` -
@@ -605,7 +729,7 @@ export function collectCLikeTaintSinks(
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof collectCLikeTaintSinks>[0] | null;
-    if (child) collectCLikeTaintSinks(child, sinks, types);
+    if (child) collectCLikeTaintSinks(child, sinks, types, vocabulary);
   }
 }
 
@@ -645,39 +769,6 @@ function calleeOf(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * What a sanitizer is called, and what it neutralises.
- *
- * **Nothing in the C family recognised one until this existed.** `extractSanitizers` was implemented for `bash`,
- * `css`, `sql`, `toml` and `markdown` — four of them languages that carry no taint — and the ten languages that do
- * all fell through to the base, which returns nothing. So `sanitized` was false for every finding in real code, not
- * because the code had no sanitizers but because nothing looked for them.
- */
-const C_LIKE_SANITIZERS: ReadonlyArray<readonly [string, string]> = [
-  ['escape', 'escaping'],
-  ['escapeHtml', 'escaping'],
-  // Each of the three below was named by a fixture and absent from the list; the fixtures found them, not a reading.
-  ['EscapeString', 'escaping'],
-  ['HtmlEncode', 'escaping'],
-  ['urlencode', 'encoding'],
-  ['filename', 'path'],
-  ['htmlspecialchars', 'escaping'],
-  ['encodeURIComponent', 'encoding'],
-  ['encodeURI', 'encoding'],
-  ['sanitize', 'validation'],
-  ['sanitizeHtml', 'validation'],
-  ['strip_tags', 'validation'],
-  ['parseInt', 'validation'],
-  ['parseFloat', 'validation'],
-  ['Number', 'validation'],
-  ['basename', 'path'],
-  ['realpath', 'path'],
-  ['mysql_real_escape_string', 'escaping'],
-  ['quote', 'escaping'],
-  ['Parameterize', 'parameterisation'],
-  ['PreparedStatement', 'parameterisation'],
-];
-
-/**
  * Collect taint sanitizers under `node`, in the shape `TaintSanitizer` expects, one entry per expression.
  *
  * The same two shapes as the sources: a call whose callee is a sanitizer, and a member whose text contains one. The
@@ -693,10 +784,11 @@ export function collectCLikeTaintSanitizers(
   },
   sanitizers: TaintSanitizer[],
   types: TaintNodeTypes = C_LIKE_TAINT_NODES,
+  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
 ): void {
   const seen = new Set<string>();
   const before = sanitizers.length;
-  walkSanitizers(node, sanitizers, types);
+  walkSanitizers(node, sanitizers, types, vocabulary.sanitizers ?? C_LIKE_SANITIZERS);
 
   const added = sanitizers.splice(before);
   for (const entry of added) {
@@ -707,9 +799,12 @@ export function collectCLikeTaintSanitizers(
   }
 }
 
-function sanitizerFor(text: string): readonly [string, string] | undefined {
+function sanitizerFor(
+  text: string,
+  list: ReadonlyArray<readonly [string, string]>,
+): readonly [string, string] | undefined {
   const simple = lastSegmentOf(text);
-  return C_LIKE_SANITIZERS.find(
+  return list.find(
     ([name]) =>
       simple === name ||
       text === name ||
@@ -732,10 +827,11 @@ function walkSanitizers(
   },
   sanitizers: TaintSanitizer[],
   types: TaintNodeTypes,
+  list: ReadonlyArray<readonly [string, string]>,
 ): void {
   if (types.member.includes(node.type) || types.call.includes(node.type)) {
     const candidate = types.call.includes(node.type) ? calleeOf(node.text) : node.text;
-    const match = candidate.length > 0 ? sanitizerFor(candidate) : undefined;
+    const match = candidate.length > 0 ? sanitizerFor(candidate, list) : undefined;
     if (match) {
       sanitizers.push({
         name: candidate,
@@ -749,7 +845,7 @@ function walkSanitizers(
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof walkSanitizers>[0] | null;
-    if (child) walkSanitizers(child, sanitizers, types);
+    if (child) walkSanitizers(child, sanitizers, types, list);
   }
 }
 

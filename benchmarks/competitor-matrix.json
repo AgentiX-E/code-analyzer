@@ -563,6 +563,34 @@
       "axis": "\"what breaks in my other repository if this module changes\" naming every affected file",
       "artifact": "benchmarks/cross-repo-matrix.json",
       "read": ["impact", "recall"]
+    },
+    "security.owasp.tpr": {
+      "category": "B",
+      "axis": "OWASP Benchmark true positive rate",
+      "artifact": "benchmarks/owasp-benchmark.json",
+      "read": ["overall", "tpr"],
+      "note": "2740 labelled servlet cases; 1415 are real vulnerabilities"
+    },
+    "security.owasp.fpr": {
+      "category": "B",
+      "axis": "OWASP Benchmark false positive rate",
+      "artifact": "benchmarks/owasp-benchmark.json",
+      "read": ["overall", "fpr"],
+      "note": "the benchmark's score is TPR - FPR, so this figure costs as much as a miss"
+    },
+    "security.owasp.score": {
+      "category": "B",
+      "axis": "OWASP Benchmark score (TPR - FPR)",
+      "artifact": "benchmarks/owasp-benchmark.json",
+      "read": ["overall", "score"],
+      "note": "all 11 categories, including the 4 a flow analysis cannot answer"
+    },
+    "security.owasp.taintSubsetScore": {
+      "category": "B",
+      "axis": "OWASP Benchmark score over the seven flow categories",
+      "artifact": "benchmarks/owasp-benchmark.json",
+      "read": ["taintSubset", "score"],
+      "note": "the subset this engine claims; published beside the overall figure rather than instead of it"
     }
   },
   "pendingOurMetrics": {

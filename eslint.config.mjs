@@ -112,6 +112,7 @@ export default tseslint.config(
       'tests/**/*.ts',
       'scripts/feature-matrix.ts',
       'scripts/cross-repo-matrix.ts',
+      'scripts/owasp-benchmark.ts',
     ],
   },
   {

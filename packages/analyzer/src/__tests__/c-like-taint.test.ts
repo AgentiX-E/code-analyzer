@@ -158,6 +158,47 @@ describe('c-like taint extraction', () => {
     });
   });
 
+  describe('what a source entry matches, decided by the entry', () => {
+    it('Go reports db.Query as a sink and not as an HTTP source', () => {
+      // The precision half of the servlet support. `db.Query(sql)` is a SQL sink, and the source list's
+      // `URL.Query` reduces to `Query` — the same simple name. Matching every entry on its last segment made this
+      // one call both, which is how a Go fixture lost a quarter of its precision while keeping all of its recall.
+      const provider = new GoProvider();
+
+      expect(provider.extractTaintSinks('db.Query(sql)\n').map((x) => x.sinkType)).toContain(
+        'sql_exec',
+      );
+      expect(provider.extractTaintSources('db.Query(sql)\n')).toHaveLength(0);
+    });
+
+    it('Go still reports the reader the entry names', () => {
+      // The recall half: a qualified entry matches the callee's two-segment tail, so `r.URL.Query()` resolves while
+      // `db.Query()` does not. Both halves are needed for the rule to be worth having.
+      expect(
+        new GoProvider()
+          .extractTaintSources('id := r.URL.Query().Get("id")\n')
+          .map((x) => x.sourceType),
+      ).toContain('http_request');
+    });
+
+    it('Java keeps the shared sanitizers beside its own', () => {
+      // A vocabulary that extends the list has to compose on the complete one. Java's did not, so `escape(input)`
+      // — recognised in JavaScript, Python, Ruby, PHP, C, C++ and C# — was not recognised in Java.
+      const names = new JavaProvider()
+        .extractSanitizers('class A { void m() { String s = escape(input); } }\n')
+        .map((x) => (x as { name: string }).name);
+
+      expect(names).toContain('escape');
+      expect(
+        new JavaProvider()
+          .extractSanitizers(
+            'class A { void m() { String s = ESAPI.encoder().encodeForHTML(in); } }\n',
+          )
+          .map((x) => (x as { name: string }).name),
+      ).toContain('ESAPI.encoder().encodeForHTML');
+    });
+  });
+
   describe('php', () => {
     it('finds a superglobal read, which is a variable name rather than a member', () => {
       expect(
