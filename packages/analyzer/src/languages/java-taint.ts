@@ -205,14 +205,24 @@ const NON_RESPONSE_WRITER_TYPES: ReadonlySet<string> = new Set([
  * without an initialiser is absent and therefore keeps its sink. **An unknown destination is not a safe one**, and the
  * default has to be the conservative one or the filter becomes a way to lose findings quietly.
  */
+/** The last dot-separated segment of a name, and the whole name when it has no dot. */
+function afterLastDot(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot < 0 ? name : name.slice(dot + 1);
+}
+
 export function declaredConstructedTypes(source: string): ReadonlyMap<string, string> {
   const types = new Map<string, string>();
   const pattern =
     /\b([A-Za-z_$][\w$.]*)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+([A-Za-z_$][\w$.]*)\s*\(/g;
   for (const match of source.matchAll(pattern)) {
-    const variable = match[2];
-    const constructed = match[3];
-    if (variable && constructed) types.set(variable, constructed.split('.').pop() ?? constructed);
+    // **Three mandatory groups, and a match always carries all three.** `match[i]` is typed `string | undefined`
+    // because an array index is, not because this pattern can omit a group — so the guard this used to have was a
+    // branch no input could take, and the assertion below states the pattern rather than guessing at it.
+    const [, , variable, constructed] = match as unknown as [string, string, string, string];
+    // **The simple type name, taken from the last dot.** `new java.io.FileWriter(...)` declares a `FileWriter`, and
+    // what the filter asks is whether that simple name is a non-response writer.
+    types.set(variable, afterLastDot(constructed));
   }
   return types;
 }
@@ -232,10 +242,12 @@ export function writesToResponseBody(
 ): boolean {
   if (sink.sinkType !== 'html') return true;
   const segments = sink.name.split('.');
-  // A bare `write(...)` has no receiver to ask about, and a chain (`x.getWriter().write`) has a call in the receiver
-  // position rather than a variable — neither can be resolved to a declaration, so both keep the sink.
-  if (segments.length < 2) return true;
-  const receiver = segments[segments.length - 2] ?? '';
+  // **A bare `write(...)` has no receiver to ask about**, and a chain (`x.getWriter().write`) has a call in the
+  // receiver position rather than a variable — neither can be resolved to a declaration, so both keep the sink.
+  // Written as a single `at(-2)` test rather than a length guard plus an index: the two are the same question, and
+  // the second form left a fallback arm (`?? ''`) that no input could reach.
+  const receiver = segments.at(-2);
+  if (receiver === undefined) return true;
   const declared = declaredTypes.get(receiver);
   return declared === undefined || !NON_RESPONSE_WRITER_TYPES.has(declared);
 }

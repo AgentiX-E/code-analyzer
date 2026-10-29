@@ -123,6 +123,25 @@ describe('HybridSearchEngine', () => {
     });
   });
 
+  describe('searchMultiSignal ties', () => {
+    it('orders two identically-scored documents by id, not by index order', async () => {
+      // **The multi-signal path has a tie-break site of its own**, and it is the one a caller meets first: every
+      // weighted signal is a function of the document's own text, so two documents with the same text land on the same
+      // combined score. Without a tie the comparator's key function is never called at all.
+      const engine = makeEngine();
+      engine.indexDocument('zzz', 'function alpha beta');
+      engine.indexDocument('aaa', 'function alpha beta');
+      await engine.cacheDocumentEmbeddings([
+        { id: 'zzz', text: 'function alpha beta' },
+        { id: 'aaa', text: 'function alpha beta' },
+      ]);
+
+      const results = await engine.searchMultiSignal('alpha');
+      expect(results.map((r) => r.id)).toEqual(['aaa', 'zzz']);
+      expect(results[0]!.combinedScore).toBe(results[1]!.combinedScore);
+    });
+  });
+
   describe('cacheDocumentEmbeddings', () => {
     it('caches embeddings for documents', async () => {
       const engine = makeEngine();
@@ -149,6 +168,45 @@ describe('HybridSearchEngine', () => {
       const results = await engine.search('getUser');
       expect(results.length).toBeGreaterThan(0);
       expect(results[0]!.combinedScore).toBeGreaterThanOrEqual(0);
+    });
+
+    it('breaks an exact tie by document id, and gives the same answer for either insertion order', async () => {
+      // **Two documents with the same text score identically in every signal**, because every signal is arithmetic
+      // over the document's own text. The order between them therefore has to come from the corpus — and the only
+      // thing a caller can check is that it does not come from whichever order the caller happened to index in.
+      //
+      // This is also the only test that reaches the id-keyed comparator: `sortByScoreThenKey` calls the key function
+      // only on a tie, so the four tie-break sites in this class were uncovered code until a tie existed to test.
+      const first = new HybridSearchEngine(new EmbeddingEngine(), {
+        minScore: 0,
+        useRRF: false,
+        topK: 50,
+      });
+      first.indexDocument('zzz', 'function alpha beta');
+      first.indexDocument('aaa', 'function alpha beta');
+      await first.cacheDocumentEmbeddings([
+        { id: 'zzz', text: 'function alpha beta' },
+        { id: 'aaa', text: 'function alpha beta' },
+      ]);
+
+      const second = new HybridSearchEngine(new EmbeddingEngine(), {
+        minScore: 0,
+        useRRF: false,
+        topK: 50,
+      });
+      second.indexDocument('aaa', 'function alpha beta');
+      second.indexDocument('zzz', 'function alpha beta');
+      await second.cacheDocumentEmbeddings([
+        { id: 'aaa', text: 'function alpha beta' },
+        { id: 'zzz', text: 'function alpha beta' },
+      ]);
+
+      const one = await first.search('alpha');
+      const two = await second.search('alpha');
+      expect(one.map((r) => r.id)).toEqual(['aaa', 'zzz']);
+      expect(two.map((r) => r.id)).toEqual(one.map((r) => r.id));
+      // And the scores really were equal, or this would be an ordering test that never saw a tie.
+      expect(one[0]!.combinedScore).toBe(one[1]!.combinedScore);
     });
 
     it('returns results ordered by combined score', async () => {

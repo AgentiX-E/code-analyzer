@@ -405,6 +405,28 @@ describe('FlowSearchEngine', () => {
     }
   });
 
+  it('breaks a tie between two equal-scoring paths by path identity, not by store order', () => {
+    // **Two calls at the same depth from the same function are two paths with the same score**, which is the only
+    // shape that reaches the key comparator: `sortByScoreThenKey` asks for a key only when scores are equal. The
+    // order between them must come from the path's own names and lines, because the alternative is whichever node the
+    // graph store happened to return first — a property of the store, not of the code being read.
+    const root = createNode(store, 'root', 'Function', '/test/root.ts', 1);
+    const left = createNode(store, 'left', 'Function', '/test/left.ts', 5);
+    const right = createNode(store, 'right', 'Function', '/test/right.ts', 9);
+    createEdge(store, root.id, left.id, 'CALLS');
+    createEdge(store, root.id, right.id, 'CALLS');
+
+    const paths = engine.findFlowPaths([root.id], 2);
+    const scored = paths.filter((path) => path.nodes.length === 2);
+    expect(scored.length).toBe(2);
+    expect(scored[0]!.score).toBe(scored[1]!.score);
+    // Ordered by file path, which is the key: `/test/left.ts` before `/test/right.ts`.
+    expect(scored.map((path) => path.nodes[1]!.filePath)).toEqual([
+      '/test/left.ts',
+      '/test/right.ts',
+    ]);
+  });
+
   it('should return empty paths for empty input', () => {
     const paths = engine.findFlowPaths([], 3);
     expect(paths).toEqual([]);

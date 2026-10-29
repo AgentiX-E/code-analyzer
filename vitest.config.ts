@@ -85,6 +85,11 @@ export default defineConfig({
       exclude: [
         '**/*.test.ts',
         '**/*.spec.ts',
+        // **A benchmark is not production code**, and the `**/benchmarks/**` entry below says so for the harnesses under
+        // that directory. The indexing benchmark lives beside the phase it measures and had been counted as production
+        // source once it moved out of the unit suite — a file counted at 0 % because the coverage run does not execute
+        // benchmarks, which is the shape the exclusion list exists to avoid rather than to create.
+        '**/*.bench.ts',
         // **`**/index.ts` held two files that are not barrels**, and the reason beside the pattern said "re-export
         // only, exercised via consumer tests". Auditing the pattern against its matches, as `**/provider.ts` was:
         //

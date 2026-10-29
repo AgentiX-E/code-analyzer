@@ -127,6 +127,77 @@ function buildTestCfg(sources: number, sinks: number): FunctionCfg {
 // ---------------------------------------------------------------------------
 
 describe('TaintPropagator', () => {
+  describe('a CFG whose bindings do not cover its source', () => {
+    it('still reports the flow, and treats a value with no binding name as carrying no name', () => {
+      // **`FunctionCfg.bindings` is derived from captures, and a source's `bindingIdx` comes from the def sites.** The
+      // two are consistent in every CFG the pipeline builds, and the propagator reads the name through an optional
+      // chain anyway — that arm, and the `carriedName === undefined` arm of the neutraliser question, were the only
+      // uncovered branches left in this file. **A test that removes the bindings reaches both** and states what the
+      // engine does when the two disagree: the flow is still reported, because taint travels on indices and not on
+      // names, and a neutraliser with no readable argument names cleans only when it names nothing.
+      const base = buildTestCfg(1, 1);
+      const cfg = {
+        ...base,
+        bindings: [],
+        // **A neutraliser on the source's own statement, naming no arguments.** Two arms meet here: the binding lookup
+        // has nothing to read a name from, and the neutraliser question is asked *about* a value that has no name —
+        // which is the one case where "names nothing" is the only honest answer.
+        stmtFacts: {
+          ...base.stmtFacts,
+          sanitizerSites: new Map([
+            [
+              0,
+              {
+                point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+                neutralizedKinds: new Set(['sql-injection']),
+                neutralizedNames: new Set<string>(),
+                description: 'a neutraliser whose arguments could not be read',
+              },
+            ],
+          ]),
+        },
+      };
+      const facts: DefUseFact[] = [
+        {
+          bindingIdx: 0,
+          bindingName: 'req',
+          def: { blockIndex: 0, stmtIndex: 0, line: 1 },
+          use: { blockIndex: 1, stmtIndex: 0, line: 5 },
+        },
+        {
+          bindingIdx: 1,
+          bindingName: 'query',
+          def: { blockIndex: 1, stmtIndex: 0, line: 5 },
+          use: { blockIndex: 2, stmtIndex: 0, line: 10 },
+        },
+      ];
+
+      const result = new TaintPropagator({ maxFindingsPerSource: 10 }).analyze(cfg, facts);
+      expect(result.findings.length).toBeGreaterThan(0);
+    });
+
+    it('asks the neutraliser question on a statement that has no neutraliser entry', () => {
+      // **The statement-local path, where source and sink are one statement**, and that statement carries no
+      // sanitizer: the lookup has no entry and the answer has to be "not neutralised" rather than a crash.
+      const base = buildTestCfg(1, 0);
+      const sink: TaintSinkOccurrence = {
+        point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+        kind: 'sql-injection',
+        cweId: 'CWE-89',
+        description: 'SQL query execution',
+        line: 1,
+      };
+      const cfg = {
+        ...base,
+        stmtFacts: { ...base.stmtFacts, sinkSites: new Map([[0, sink]]) },
+      };
+
+      const result = new TaintPropagator().analyze(cfg, []);
+      expect(result.findings.length).toBeGreaterThan(0);
+      expect(result.findings[0]!.sanitized).toBe(false);
+    });
+  });
+
   describe('Basic propagation', () => {
     it('returns empty for CFG without sources', () => {
       const cfg = buildTestCfg(0, 1);

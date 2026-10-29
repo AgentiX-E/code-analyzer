@@ -655,10 +655,14 @@ The target in the table above is a target. This is the measurement, and it is 80
 times the target, and slower than the competitor figure this project quotes against itself. The number is published
 because a target nobody has reached is only useful beside the distance to it.
 
-| Corpus                                                  | Lines   | Before                   | After                   | Change                   |
-| ------------------------------------------------------- | ------- | ------------------------ | ----------------------- | ------------------------ |
-| `packages/analyzer/src` (profile corpus)                | 29 532  | 30.4 s, 2.5 GB RSS       | 24.5 s, 1.26 GB RSS     | −19 % time, −50 % memory |
-| This repository's own `packages/` (self-index artifact) | 141 183 | 1028 s/M lines (144.8 s) | 805 s/M lines (113.6 s) | −22 %                    |
+| Corpus                                   | Lines   | Where         | Before                   | After                      | Change                              |
+| ---------------------------------------- | ------- | ------------- | ------------------------ | -------------------------- | ----------------------------------- |
+| `packages/analyzer/src` (profile corpus) | 29 532  | workstation   | 30.4 s, 2.5 GB RSS       | 24.5 s, 1.26 GB RSS        | −19 % time, −50 % memory            |
+| This repository's own `packages/`        | 141 183 | workstation   | 1028 s/M lines (144.8 s) | 805 s/M lines (113.6 s)    | −22 %                               |
+| This repository's own `packages/`        | 141 183 | GitHub runner | —                        | **606 s/M lines (85.7 s)** | the CI figure, from `benchmark.yml` |
+
+**The before-and-after pair is one machine's measurement and the runner figure is not comparable to either** — a
+runner is not a workstation, which is why the table keeps them apart rather than lining them up.
 
 Three costs were removed, and each was found by profiling rather than by reading:
 

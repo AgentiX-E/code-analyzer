@@ -123,7 +123,16 @@ jobs:
         run: |
           BENCHMARK_WRITE=1 npx vitest run --config vitest.bench.config.ts \
             packages/analyzer/src/__tests__/indexing-speed.bench.ts 2>&1 | tee /tmp/indexing-self.log
-          grep -E '^INDEXING ' /tmp/indexing-self.log
+          # **Read the artifact, not the console line.** The first version ended with `grep '^INDEXING '` and exited 1
+          # on a run where the benchmark passed and printed its figure — the console output is prefixed when stdout is
+          # not a terminal, so the pattern matched nothing and a green measurement reported a red step. The artifact is
+          # the thing the table cites, so reading it is also the stronger check: a figure that did not reach the file
+          # did not happen.
+          node -e "
+            const a = require('./benchmarks/indexing-self-index.json');
+            if (a.valid !== true) { console.error('no valid measurement:', a.reason); process.exit(1); }
+            console.log('INDEXING', a.secondsPerMillionLines, 's/M lines over', a.corpus.lines, 'lines,', a.durationMs, 'ms,', a.pipeline.phases, 'phases');
+          "
 
       - name: Upload the self-index artifact
         if: always()

@@ -92,4 +92,30 @@ class T {
 }`;
     expect(htmlSinks(source)).toContain('4:response.getWriter().println');
   });
+  it('keeps a bare write with no receiver, because an unknown destination is not a safe one', () => {
+    // **The conservative default, tested rather than assumed.** `writesToResponseBody` filters `html` sinks whose
+    // receiver is a declared non-response writer; a call with no receiver at all has no destination to ask about, and
+    // the filter must leave it alone or it becomes a way to lose findings quietly.
+    const source = `
+class T {
+  native void write(String value);
+  void f(String param) {
+    write(param);
+  }
+}`;
+    expect(htmlSinks(source)).toContain('5:write');
+  });
+
+  it('reads a writer declared with an unqualified type name', () => {
+    // The other arm of the simple-name rule: `new FileWriter(...)` with no package prefix. Both spellings declare the
+    // same type, and the filter has to recognise both.
+    const source = `
+class T {
+  void f(String param) throws Exception {
+    FileWriter fw = new FileWriter("/tmp/out.txt");
+    fw.write(param);
+  }
+}`;
+    expect(htmlSinks(source)).toEqual([]);
+  });
 });
