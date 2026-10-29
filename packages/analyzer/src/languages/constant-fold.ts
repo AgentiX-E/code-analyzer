@@ -78,6 +78,15 @@ export interface ConstantDialect {
   readonly callableTypes: readonly string[];
   /** Nodes that hand a value back to the caller. */
   readonly returnTypes: readonly string[];
+  /**
+   * Nodes whose subtree may run zero times, more than once, or only on some paths.
+   *
+   * **This is the vocabulary of "may not execute", and it is what makes a definition a kill or not.** A definition
+   * outside every one of these nodes is reached by every path from the entry and reached once, so it replaces what it
+   * overwrites; a definition inside one is a may-definition. A lambda is deliberately absent: its body is a function
+   * of its own, and the line ranges that divide functions already keep its statements out of the enclosing one.
+   */
+  readonly conditionalTypes: readonly string[];
   /** Fields that carry a declarator's name, tried in order. `init_declarator` uses `declarator`. */
   readonly declaratorNameFields: readonly string[];
   /** Field that carries a declarator's initial value. */
@@ -121,6 +130,27 @@ export const C_FAMILY_CONSTANTS: ConstantDialect = {
   // `return_statement` is the spelling Java, JavaScript, TypeScript, Python, C, C++, C#, Go and PHP share. A grammar
   // that spells it otherwise names its own, which is why this is a table entry rather than a constant in the walk.
   returnTypes: ['return_statement'],
+  // Spelled out rather than derived from `ifTypes` and `switchTypes`, because the set is larger than either: a loop
+  // body may run zero times, and a `catch` may not run at all. Every grammar this project reads shares these names
+  // except Python, which overrides the list below.
+  conditionalTypes: [
+    'if_statement',
+    'if_expression',
+    'ternary_expression',
+    'conditional_expression',
+    'for_statement',
+    'for_in_statement',
+    'for_of_statement',
+    'enhanced_for_statement',
+    'while_statement',
+    'do_statement',
+    'switch_statement',
+    'switch_expression',
+    'try_statement',
+    'try_with_resources_statement',
+    'catch_clause',
+    'finally_clause',
+  ],
   declaratorNameFields: ['name', 'declarator'],
   declaratorValueField: 'value',
   assignmentLeftField: 'left',
@@ -138,6 +168,22 @@ export const PYTHON_CONSTANTS: ConstantDialect = {
   declaratorTypes: [],
   assignmentTypes: ['assignment'],
   callableTypes: ['function_definition'],
+  // Python's `try`/`except`/`with` spell the clause differently and its `if` is the shared name, so only the
+  // differences are listed: `elif_clause` and `else_clause` sit inside an `if_statement` and are named anyway, because
+  // a caller reading this field alone should not have to know the grammar's nesting.
+  conditionalTypes: [
+    'if_statement',
+    'conditional_expression',
+    'for_statement',
+    'while_statement',
+    'try_statement',
+    'except_clause',
+    'elif_clause',
+    'else_clause',
+    'with_statement',
+    'match_statement',
+    'case_clause',
+  ],
   conditionalOrder: 'consequence-condition-alternative',
 };
 

@@ -4,12 +4,16 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { extractConditionalRegions } from './conditional-regions.js';
 import { extractConstantFacts } from './constant-fold.js';
+import { extractContainerCalls } from './container-calls.js';
 import { extractReturnLines } from './return-sites.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { exportedNamesByCursor } from './syntax-cursor.js';
 
+import type { ConditionalRegion } from './conditional-regions.js';
 import type { ConstantDialect, ConstantFacts } from './constant-fold.js';
+import type { ContainerCall, ContainerDialect } from './container-calls.js';
 import type { LanguageProvider, ParsedImport } from './provider.js';
 import type { TreeSitterTreeCursor } from './syntax-cursor.js';
 import type { TaintCollections } from './taint-scan.js';
@@ -756,6 +760,47 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const tree = this.cachedTree(source);
     if (!tree) return null;
     return extractReturnLines(tree.rootNode, dialect);
+  }
+
+  /**
+   * The calls this file makes on a container it owns, or `null` when the grammar's calls cannot be read.
+   *
+   * **Read through the same cached tree**, so asking costs one walk and no parse. A provider with no container dialect
+   * answers `null` rather than an empty list: "this grammar has no calls I can see" and "this file touches no
+   * collection" are the same sentence only to a reader who is not going to claim a value cannot come back out.
+   */
+  extractContainerCalls(source: string): readonly ContainerCall[] | null {
+    const dialect = this.containerDialect();
+    if (!dialect || !this.parser || !this.languageGrammar) return null;
+    const tree = this.cachedTree(source);
+    if (!tree) return null;
+    return extractContainerCalls(tree.rootNode, dialect);
+  }
+
+  /**
+   * The line ranges this file's statements may not run in, or `null` when the grammar's branches cannot be read.
+   *
+   * **This is the fact that turns a may-definition into a kill**, and it is read from the same dialect that answers
+   * what a constant condition closes - both are questions about which statements run, so a language that answers one
+   * answers the other, and a language that answers neither keeps every definition a may-definition.
+   */
+  extractConditionalRegions(source: string): readonly ConditionalRegion[] | null {
+    const dialect = this.constantDialect();
+    if (!dialect || !this.parser || !this.languageGrammar) return null;
+    const tree = this.cachedTree(source);
+    if (!tree) return null;
+    return extractConditionalRegions(tree.rootNode, dialect.conditionalTypes);
+  }
+
+  /**
+   * The node and field names this grammar uses for a call on a container.
+   *
+   * Null means the grammar's calls are not described here, which is true of every language this project reads but
+   * Java, JavaScript, TypeScript and Python. Their containers are not modelled, and the analysis keeps the
+   * conservative answer for them rather than a guess.
+   */
+  protected containerDialect(): ContainerDialect | null {
+    return null;
   }
 
   /**

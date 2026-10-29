@@ -1,6 +1,8 @@
 // @code-analyzer/analyzer — Language Provider Interface
 
+import type { ConditionalRegion } from './conditional-regions.js';
 import type { ConstantFacts } from './constant-fold.js';
+import type { ContainerCall } from './container-calls.js';
 import type { UnifiedCapture, ImportSemantics } from '@code-analyzer/shared';
 
 export interface ParsedImport {
@@ -65,6 +67,25 @@ export interface LanguageProvider {
    * Optional, and absent means the same as `null` - the conservative direction.
    */
   extractReturnLines?(source: string): readonly number[] | null;
+
+  /**
+   * The calls this file makes on a container it owns, or `null` when the grammar's calls cannot be read.
+   *
+   * **`null` and `[]` are different answers.** An empty list is a file that puts nothing into a collection and takes
+   * nothing out; `null` is a file this provider cannot answer for. A caller may stop assuming that every call whose
+   * argument is tainted hands that taint to its result only in the first case.
+   *
+   * Optional, and absent means the same as `null` - the conservative direction.
+   */
+  extractContainerCalls?(source: string): readonly ContainerCall[] | null;
+
+  /**
+   * The line ranges this file's statements may not run in, or `null` when the grammar's branches cannot be read.
+   *
+   * **Absent means every definition stays a may-definition**, which is the answer this project gave before the fact
+   * existed and the correct one when a grammar cannot say whether a statement sits inside an `if`.
+   */
+  extractConditionalRegions?(source: string): readonly ConditionalRegion[] | null;
 
   readonly importSemantics: ImportSemantics;
 }

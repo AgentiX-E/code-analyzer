@@ -232,6 +232,19 @@ export interface FunctionCfg {
    * needed was not in this model.
    */
   readonly callSites?: readonly CallSite[];
+
+  /**
+   * The writes whose value this function followed into a container and back out.
+   *
+   * **This is the list that replaces "lost".** A value handed to `map.put("k", param)` is not lost to the program, only
+   * to a model with no containers; a slot that some read in the same function resolves is a value with a destination,
+   * and the summary may then answer the question instead of declining it. Keyed `${stmtIndex}:${bindingIdx}`, the same
+   * coordinate `onLost` reports.
+   *
+   * Absent means no container was followed, which leaves every such write lost and the summary as conservative as it
+   * was before containers existed.
+   */
+  readonly containerFollowed?: ReadonlySet<string>;
 }
 
 // `CallSite` lives in @code-analyzer/shared: the analyser builds them and this package consumes them, and

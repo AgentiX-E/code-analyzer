@@ -83,9 +83,13 @@ describe('taint reachability', () => {
       .sort();
 
     expect(files.length).toBeGreaterThan(100);
-    // Two producers now: the module that derives def and use facts, and the CFG builder that calls it. The second
-    // was added deliberately, which is why this assertion names both rather than tolerating any number.
+    // Three producers now, and the third is the interesting one: `container-flow.ts` does not *derive* the facts, it
+    // *adds* to them - a read of a container slot becomes a read of whoever wrote that slot, which is what turns a
+    // round-trip through a map into a def→use edge. So the count is no longer "one producer and its caller"; it is
+    // "the two that say what the statements are, and the one that says what a container hands back". Each still has
+    // to be named here, because a fourth would be a decision rather than an accident.
     expect(producing).toEqual([
+      'packages/intelligence/src/cfg/container-flow.ts',
       'packages/intelligence/src/cfg/from-parsed-files.ts',
       'packages/intelligence/src/cfg/statement-facts.ts',
     ]);

@@ -16,11 +16,12 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { containerFlowOf } from './container-flow.js';
 import { buildOccurrences, buildStatementFacts } from './statement-facts.js';
 
 import type { ExtractedSanitizer, ExtractedSink, ExtractedSource } from './statement-facts.js';
 import type { BindingEntry, DefinitionSite, FunctionCfg, StatementFacts } from './types.js';
-import type { ConstantFacts } from '@code-analyzer/analyzer';
+import type { ConditionalRegion, ConstantFacts, ContainerCall } from '@code-analyzer/analyzer';
 import type { CallSite, ParsedFile, SymbolDefinition, UnifiedCapture } from '@code-analyzer/shared';
 
 /** One file's taint-relevant extraction: what the provider saw, and what its arithmetic decides. */
@@ -44,6 +45,20 @@ export interface ExtractedFileFacts {
    * through.
    */
   readonly returnLines?: readonly number[] | null;
+  /**
+   * The calls this file makes on a container it owns, or `null` when the provider cannot read its calls.
+   *
+   * **Optional, and absent means no container is followed**: every value handed to a collection stays "lost" to the
+   * summary, which is the answer that was given before this field existed.
+   */
+  readonly containerCalls?: readonly ContainerCall[] | null;
+  /**
+   * The line ranges this file's statements may not run in, or `null` when the provider cannot read its branches.
+   *
+   * **`undefined` is not `[]`**: absent means no statement can be called unconditional, so every definition stays a
+   * may-definition; an empty list means the file has no branch at all, so every definition is a kill.
+   */
+  readonly conditionalRegions?: readonly ConditionalRegion[] | null;
 }
 
 /** Symbol kinds that become a function CFG. Shared with the call-site builder by intent, not by import. */
@@ -73,11 +88,17 @@ export function buildFunctionCfgs(
       // this is the one place in the taint path that has to reach for it. The cast is required because the field is
       // typed `unknown`, which is honest: nothing guarantees its shape except the parse phase that wrote it.
       const captures = (parsed.ast as UnifiedCapture[] | undefined) ?? [];
-      const { bindings, stmtFacts } = buildStatementFacts(captures, symbol.startLine, endLine);
-
       // Sources and sinks come from the provider extraction rather than the captures, and are joined to the bindings
-      // just derived, by line. A file the extraction found nothing in simply contributes nothing.
+      // derived below, by line. A file the extraction found nothing in simply contributes nothing.
       const perFile = extraction?.get(parsed.filePath);
+      const { bindings, stmtFacts } = buildStatementFacts(
+        captures,
+        symbol.startLine,
+        endLine,
+        // `?? undefined` rather than `?? []`: a provider that could not answer leaves every definition a maybe, and a
+        // provider that answered "no branches" makes every definition a kill. The two are different facts.
+        perFile?.conditionalRegions ?? undefined,
+      );
       const occurrences = buildOccurrences(
         perFile?.sources ?? [],
         perFile?.sinks ?? [],
@@ -89,7 +110,7 @@ export function buildFunctionCfgs(
         stmtFacts.defs,
       );
 
-      out.set(symbol.qualifiedName, {
+      const cfg: FunctionCfg = {
         functionName: symbol.name,
         filePath: parsed.filePath,
         startLine: symbol.startLine,
@@ -135,6 +156,16 @@ export function buildFunctionCfgs(
           symbol.startLine,
           endLine,
         ),
+      };
+
+      // **The container model runs last, because it reads the facts the rest of this function just built** - the defs
+      // that say when a receiver is a new object, and the line range that says which calls are this function's. It
+      // returns the same object when the file has no container calls, so a repository with none allocates nothing.
+      const flow = containerFlowOf(cfg, perFile?.containerCalls, perFile?.conditionalRegions);
+      out.set(symbol.qualifiedName, {
+        ...cfg,
+        stmtFacts: flow.stmtFacts,
+        containerFollowed: flow.followed,
       });
     }
   }

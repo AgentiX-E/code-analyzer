@@ -32,8 +32,9 @@ import type { ParsedFile } from '@code-analyzer/shared';
  * `benchmark.properties` whose chosen algorithm differs — so a search that accepted any answer file, plus a root
  * resolver that preferred a nested `BenchmarkJava-*` directory, measured the beta tree while the report said v1.2.
  * **Measured: FPR 0.3615 on the beta tree against 0.3042 on the released one, from the same engine and the same
- * command** (both figures from before the constant-condition model, which moved the released tree to 0.1306 and the
- * cross-function summary to 0.1072 — the comparison is between the two trees, not between two versions of the engine).
+ * command** (both figures from before the constant-condition model, which moved the released tree to 0.1306, the
+ * cross-function summary to 0.1155, the escaping vocabulary to 0.1072 and the container model to 0.0302 — the
+ * comparison is between the two trees, not between two versions of the engine).
  * The version is in the file name, so it is what the suite selects on.
  */
 const EXPECTED_RESULTS = 'expectedresults-1.2.csv';
@@ -163,6 +164,11 @@ function score(root: string, label: Label): Scored {
         sanitizers: provider.extractSanitizers(code),
         constants: provider.extractConstantFacts(code),
         returnLines: provider.extractReturnLines(code),
+        // **Which statements may be skipped, and what goes into a collection and comes back out.** Without the
+        // first every definition is a maybe and the last write to a name never wins; without the second every value
+        // put into a map is "lost" and the summary has to decline the question.
+        conditionalRegions: provider.extractConditionalRegions(code),
+        containerCalls: provider.extractContainerCalls(code),
       },
     ],
   ]);

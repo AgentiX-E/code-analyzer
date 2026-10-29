@@ -4,6 +4,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
 import { C_FAMILY_CONSTANTS } from './constant-fold.js';
+import { JAVA_CONTAINERS } from './container-calls.js';
 import {
   JAVA_TAINT_VOCABULARY,
   declaredConstructedTypes,
@@ -13,6 +14,7 @@ import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ConstantDialect } from './constant-fold.js';
+import type { ContainerDialect } from './container-calls.js';
 import type { ParsedImport } from './provider.js';
 import type { TaintCollections } from './taint-scan.js';
 import type { TaintSink, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
@@ -701,6 +703,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
    */
   protected override constantDialect(): ConstantDialect {
     return C_FAMILY_CONSTANTS;
+  }
+
+  protected override containerDialect(): ContainerDialect {
+    return JAVA_CONTAINERS;
   }
 
   protected override collectTaint(root: TreeSitterSyntaxNode): TaintCollections {

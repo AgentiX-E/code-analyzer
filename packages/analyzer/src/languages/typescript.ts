@@ -5,11 +5,13 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
 import { C_FAMILY_CONSTANTS } from './constant-fold.js';
+import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
 import { CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ConstantDialect } from './constant-fold.js';
+import type { ContainerDialect } from './container-calls.js';
 import type { ParsedImport } from './provider.js';
 import type { TaintCollections } from './taint-scan.js';
 import type {
@@ -829,6 +831,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
    */
   protected override constantDialect(): ConstantDialect {
     return C_FAMILY_CONSTANTS;
+  }
+
+  protected override containerDialect(): ContainerDialect {
+    return MEMBER_CALLEE_CONTAINERS;
   }
 
   protected override collectTaint(root: TreeSitterSyntaxNode): TaintCollections {

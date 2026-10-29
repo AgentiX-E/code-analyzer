@@ -20,6 +20,14 @@ function createTasks(count: number, prefix = 'task'): EmbeddingTask[] {
   }));
 }
 
+/** Wait for a state a worker reaches on its own clock, rather than for a duration and a hope. */
+async function waitUntil(reached: () => boolean): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  while (!reached() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 describe('EmbeddingWorkerPool (real worker)', () => {
   let pool: EmbeddingWorkerPool;
 
@@ -192,10 +200,7 @@ describe('EmbeddingWorkerPool (real worker)', () => {
     // **A single 250 ms sleep is a bet on the machine's load, not a wait.** The exit handler runs on the event
     // loop after the child's `exit` event, and on a busy runner that took longer than the sleep - so the pool was
     // healthy when the assertion looked, and fallback a moment later. Wait for the state instead of for a duration.
-    const deadline = Date.now() + 10_000;
-    while (!pool.isFallback && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
+    await waitUntil(() => pool.isFallback);
     expect(pool.isFallback).toBe(true);
     expect(pool.isWorkerHealthy(0)).toBe(false);
   });
@@ -204,7 +209,10 @@ describe('EmbeddingWorkerPool (real worker)', () => {
     pool = new EmbeddingWorkerPool(FIXTURE, 1);
     void pool.embedBatch([{ taskId: 'throw', content: '__THROW__' }]).catch(() => {});
 
-    await new Promise((r) => setTimeout(r, 250));
+    // **The same bet, in the test next door.** The error handler runs on the event loop after the worker's `error`
+    // event, and 250 ms is not a bound on that under load: this test failed on the coverage run while its sibling
+    // passed, which is what a duration-as-synchronisation defect looks like from the outside.
+    await waitUntil(() => !pool.isWorkerHealthy(0));
     expect(pool.isWorkerHealthy(0)).toBe(false);
   });
 });

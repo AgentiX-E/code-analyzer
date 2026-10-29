@@ -243,6 +243,11 @@ function main(): void {
           // `bar = new Test().doSomething(request, param)` can only be answered by "the statement read a tainted
           // name", which charges the caller for a helper that ignores its argument.
           returnLines: provider.extractReturnLines(code),
+          // **Which statements may be skipped, and what goes into a collection and comes back out.** Without the
+          // first every definition is a maybe and the last write to a name never wins; without the second every value
+          // put into a map is "lost" and the summary has to decline the question.
+          conditionalRegions: provider.extractConditionalRegions(code),
+          containerCalls: provider.extractContainerCalls(code),
         },
       ],
     ]);

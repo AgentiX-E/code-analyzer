@@ -134,6 +134,12 @@ export function summarizeReturns(
       extraSources: occurrences.map((occurrence) => ({ occurrence })),
       onLost: (state, use) => {
         if (!callLines.has(use.use.line) || returnsHere.has(use.use.line)) return;
+        // **A value the container model followed is not lost**: it went into a slot this function read back, and the
+        // read is a use, so the walk that reached here already had the chance to carry it to a return. Recording it as
+        // lost as well would make every safe round-trip a "cannot say", which is what the whole container model exists
+        // to stop being the answer.
+        const followed = cfg.containerFollowed;
+        if (followed?.has(`${use.use.stmtIndex}:${use.bindingIdx}`)) return;
         const position = positionOf.get(state.source.bindingIdx);
         if (position === undefined) ownLost = true;
         else lost.add(position);

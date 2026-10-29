@@ -14,6 +14,7 @@
 // **Source and sink sites are not here**, because `CAPTURE_TAGS` has no source-and-sink vocabulary. That half needs
 // new tags from the per-language queries, and without them the propagator has no sources, so no findings.
 
+import { isConditional } from '@code-analyzer/analyzer';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import type {
@@ -25,6 +26,7 @@ import type {
   TaintSourceOccurrence,
   UseSite,
 } from './types.js';
+import type { ConditionalRegion } from '@code-analyzer/analyzer';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 /** The key convention `computeReachingDefinitions` and `TaintPropagator` share. */
@@ -62,6 +64,7 @@ export function buildStatementFacts(
   captures: readonly UnifiedCapture[],
   startLine: number,
   endLine: number,
+  regions?: readonly ConditionalRegion[],
 ): { bindings: BindingEntry[]; stmtFacts: StatementFacts } {
   const bindings: BindingEntry[] = [];
   const byName = new Map<string, number>();
@@ -111,13 +114,16 @@ export function buildStatementFacts(
     sites.push({
       point: { blockIndex: 0, stmtIndex, line: capture.startLine },
       bindingIdx,
-      // **Every definition here is a *may*-definition, because this CFG has one block spanning the whole function.**
-      // A must-definition kills the ones before it, which is only sound when the statement is on the only path that
-      // reaches the next read. Here nothing knows whether a statement sits inside an `if`: `param = request.getParameter(...)`
-      // followed by `if (param == null) param = "";` recorded the guarded assignment as a kill, and the tainted
-      // definition it guarded was gone by the time the sink read the name — which is OWASP Benchmark's most common
-      // three lines, and the largest single reason a miss shared a function with its source.
-      kind: 'may',
+      // **A definition is a kill when control cannot skip it**, and a may-definition when it might. That distinction
+      // is the whole of it: `param = request.getParameter(...)` followed by `if (param == null) param = "";` is a may
+      // write in the arm, so the tainted definition survives to the sink — and `bar = "safe"; ...; bar = safeValue();`
+      // is two kills in a row, so the first value is gone by the second, which is what makes the last write to a name
+      // the one that reaches its readers.
+      //
+      // `regions` is the branch ranges the provider read, and **`undefined` is not `[]`**: absent means the grammar
+      // could not say which statements are guarded, so every definition stays a maybe - the answer this analysis gave
+      // before the fact existed. An empty list is a file with no branch at all, where every definition is a kill.
+      kind: regions === undefined || isConditional(capture.startLine, regions) ? 'may' : 'must',
     });
     defs.set(stmtIndex, sites);
   }

@@ -162,3 +162,23 @@ export type { ConstantDialect, ConstantFacts } from './languages/constant-fold.j
 // a syntax tree, so the fact travels and the policy - whether a caller may conclude anything from "no return reads this
 // parameter" - stays in the analysis.
 export { extractReturnLines } from './languages/return-sites.js';
+
+// **Which statements may not run at all, and which calls put a value into a container.** Both are readings of the tree
+// that only this package can take, and both are facts rather than policies: the analysis decides that a definition
+// outside every branch is a kill, and that a slot the model resolved is a slot it may speak for.
+export { extractConditionalRegions, isConditional } from './languages/conditional-regions.js';
+export type { ConditionalRegion } from './languages/conditional-regions.js';
+export {
+  CONTAINER_OPERATIONS,
+  JAVA_CONTAINERS,
+  MEMBER_CALLEE_CONTAINERS,
+  PYTHON_CONTAINERS,
+  extractContainerCalls,
+} from './languages/container-calls.js';
+export type {
+  ContainerArgument,
+  ContainerCall,
+  ContainerDialect,
+  ContainerOperation,
+  ContainerRole,
+} from './languages/container-calls.js';

@@ -487,6 +487,7 @@ itself scores: a case is flagged if the engine reports one live (unsanitised) fl
 | + constant conditions and dead arms                                        | 0.8170 | 0.1306 | 0.6864 |
 | + a callee's returns decide what a call hands back                         | 0.8170 | 0.1155 | 0.7015 |
 | + Spring's HTML escaper, and a suffix test that read `htmlUnescape` as one | 0.8170 | 0.1072 | 0.7098 |
+| + what a container holds, at the point a statement reads it                | 0.8530 | 0.0302 | 0.8228 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
@@ -614,12 +615,91 @@ puts the danger _back_ was read as removing it. Measured: `score 0.7015 → 0.70
 corpus is zero — no case here reaches a sink through an `unescape` — so it is fixed for the reason it is wrong rather
 than for the figure it moves, and held by a test that asserts the list does not contain `htmlUnescape`.
 
-**What is left is the container.** 141 of the 142 remaining false positives put the value into a container and take it
-out again — 79 through `map.put`/`get` and 62 through `list.add`/`get` — and no summary can answer that: the edge the
-value travels on is not a def→use edge, it is a field of an object this model does not track. The list half is the
-harder one, because the corpus shuffles the value before reading it (`add`, `add(param)`, `add`, `remove(0)`,
-`get(1)`), so an answer needs what each index holds rather than what the collection holds. A container model is the next
-question, and it is a bigger one than this — which is why the rule above exists rather than a guess.
+### What a container holds
+
+**The 141 false positives that were left were one shape, and no summary can answer it.** `map.put("keyB", param)`
+followed by `bar = map.get("keyB")` is two statements that read `map` and write `bar`, and the value travels on
+something that is not a def→use edge: a slot inside an object. 79 of the 141 went through `map.put`/`get` and 62
+through `list.add`/`get`. The list half is harder, because the corpus shuffles the value before reading it —
+`add("safe")`, `add(param)`, `add("moresafe")`, `remove(0)`, `get(1)` — so the question is not what the collection
+holds but what the position holds.
+
+**A container read is turned back into a def→use edge, which is why nothing downstream had to change.**
+`packages/intelligence/src/cfg/container-flow.ts` walks one function's statements in order and keeps, per receiver, a
+map from literal key to the set of bindings written under it. When a statement reads a key, that slot's writers are
+added to the statement's **uses**, so `bar = map.get("keyB")` becomes an edge from `param` to `bar`; reaching
+definitions, the propagator and the return summary then see an ordinary flow and need to know nothing about
+containers. What the model contributes is not a second propagator but the edge the capture layer could not draw — the
+one fact it lacked was which literal key a `get` asked for, which no `METHOD_CALL` capture carries.
+
+**The guarantee is stated, and it is what makes the answer usable rather than merely sound:**
+
+> A container whose every access in this function is a call on a binding, with literal keys throughout, holds exactly
+> the values written under those keys.
+
+"Read `keyA` and you cannot receive what was written under `keyB`" follows from it, which is why a resolved read can
+give a **negative** answer at all. `ReturnSummary.lost` — added one iteration earlier so that a value vanishing into
+`map.put` could refuse to answer — now has a positive answer to give instead: `containerFollowed` names the writes the
+model followed, and a lost argument whose value is in that set stops being treated as vanished.
+
+**Everything outside the guarantee degrades, and each degradation has a direction of its own:**
+
+| shape                                                                     | answer                                              | why                                                                |
+| ------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------ |
+| `map.put(key, param)` with a runtime key                                  | `unknown`: every read of that container receives it | the key has no slot this model can name, and the value is in there |
+| a position op and a read in different branches                            | reads fall back to the whole container              | the op may not have run, so an index means nothing                 |
+| a removal under a runtime key, or outside the range it counted            | positions become unreliable                         | the shift is real and this model cannot compute it                 |
+| a method the table gives no meaning to                                    | its arguments are absorbed into `unknown`           | it may have mutated the container; "escaped" is a different claim  |
+| the container is returned, or passed to a call that is not one of its own | nothing is followed                                 | everything past that point is code this model does not see         |
+
+**Three things had to be right before a single case moved, and each was wrong first:**
+
+1. **`CONTAINER_OPERATIONS` cannot be an object literal.** `toString` is a method a builder has and also a property of
+   `Object.prototype`, so a `Record<string, ContainerOperation>` literal that lists it _overrides_
+   `Object.prototype.toString`, its `role` widens to `string` and the literal stops compiling — and
+   `'toString' in table` answers `true` for four names no container has. A `Map` has neither problem.
+2. **The key's shape decides a container's kind, not the method name.** `get` is `Map.get` and `List.get`; `set` is
+   `Map.set` and `List.set`. `get(0)` is a position and `get("keyA")` is a key, and `add`/`append` are the only calls
+   that settle it alone, because they name no key at all.
+3. **A method the table does not know is a mutation, not an escape.** `b.replace(lo, hi, "Chars")` is in no table and
+   is still a call on the builder; reading it as the builder leaving the function made every `StringBuilder` chain in
+   the corpus unfollowable and left 16 false positives exactly where they were. Absorbing its arguments into `unknown`
+   is the claim the evidence supports.
+
+**And one state was added and then deleted, because it described nothing.** The first version carried `exact`/`partial`
+per container — whether every read had been answered by a slot — and gated `followed` on it. Measured against the
+corpus, "followed needs every read exact" and "followed needs only that the container never escaped" produce
+**identical figures, case for case** (1 207 true and 40 false positives both ways): a read answered with the whole
+container hands the statement every name in it, so the value's exits are def→use edges either way. The stricter state
+was removed rather than kept for its look, because a condition no case can distinguish is a condition nobody can test.
+
+Measured: `score 0.7098 → 0.8228`, FPR `0.1072 → 0.0302`, and **true positives rose too** — 1 156 → 1 207, which
+nothing since the rule families had managed: the four changes before this one moved noise and left the 1 156 where they
+were. Set difference over the 2 740 cases: **102 left the false-positive set, 0 entered it, no true positive was lost
+and 51 were gained.** Every category's FPR fell except `xpathi`, which did not move at all — `trustbound` 0.2326 →
+0.0000, `ldapi` 0.2812 → 0.0312, `pathtraver` 0.3185 → 0.1037, `sqli` 0.2026 → 0.0517, `cmdi` 0.1360 → 0.0480, `xss`
+0.0622 → 0.0191. The seven-category subset moved 0.5345 → 0.7192 and the flow engine alone 0.3480 → 0.4603.
+
+**What is left is 40 false positives, and 38 of them are one shape that is not about containers.** The helper ends
+
+```java
+String g14546 = "barbarians_at_the_gate";              // deliberately static: the whole flow is "safe"
+String bar = thing.doSomething(g14546);                // an interface call on a factory-made object
+return bar;
+```
+
+so the value that reaches the sink is a **constant**, and the engine reports the flow anyway. The mechanism was located
+by three variants of one case rather than by reading the code: replacing the argument with the same literal keeps the
+finding, replacing the call with `String bar = g14546;` removes it, and replacing the return with the constant removes
+it too. **So the verdict that carries the value is the summary's `carry`, given because the return reads a name whose
+definition is a call this repository cannot resolve** — and `carry` is the answer the summary must give when it cannot
+see. 17 of the 38 put that helper inside an embedded `class Test` and 21 in a static method; the remaining 2 cases are
+`BenchmarkTest01479` and `BenchmarkTest02370`, which are not this shape.
+
+That is the next question, and it is a question about what an **unresolved call's result** may be assumed to contain: a
+callee cannot reach the caller's locals except through its arguments, so the honest answer for `thing.doSomething(x)`
+with no body to read is "whatever `x` and `thing` carry" rather than "unknown, therefore carry". Nothing about it is a
+container.
 
 ## MCP Protocol Integration
 
