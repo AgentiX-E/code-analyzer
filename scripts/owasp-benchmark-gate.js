@@ -35,19 +35,24 @@ const FILE = process.argv.includes('--file')
  *   - the cross-function return summary closed a further 20, all of them `xss`, by asking the callee whether its
  *     returns read the argument at all. **No true positive was lost**: the 104 that the same change put at risk were
  *     values that vanish into a collection, and they are protected by the `lost` rule rather than by luck.
+ *   - the escaping vocabulary gained Spring's `HtmlUtils.htmlEscape` and lost a suffix test that had made every name
+ *     ending in `escape` a neutraliser, which closed 11 more — all of them `xss`, none of them a true positive.
  *
  * So `overall.fpr` and `xss.fpr` are stated at what a summary-aware engine measures, not at what a conservative one
  * measured: a regression to either model shows up as a figure above the ceiling rather than as a lower score.
+ * **`xss.fpr` has now fallen by two thirds across these three changes** (0.2105 → 0.0610), which is why it is a ceiling
+ * of its own rather than a share of `overall`: 37 of the corpus's 455 `xss` cases surfaced in three separate commits and
+ * the only figure that would have shown one of them being undone is this one.
  */
 const RULES = [
   ['overall.tpr', (r) => r.overall?.tpr, 0.8169],
-  ['overall.fpr', (r) => r.overall?.fpr, null, 0.116],
-  ['overall.score', (r) => r.overall?.score, 0.701],
+  ['overall.fpr', (r) => r.overall?.fpr, null, 0.108],
+  ['overall.score', (r) => r.overall?.score, 0.709],
   ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.7128],
   // **The category-weighted figure, and the one this engine is actually scored on.** Its TPR is lower than `overall`
   // because the four rule categories are not in it.
-  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.193],
-  ['taintSubset.score', (r) => r.taintSubset?.score, 0.52],
+  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.179],
+  ['taintSubset.score', (r) => r.taintSubset?.score, 0.534],
   // The four categories a flow cannot answer, which now have a rule family of their own. **One is set to 1.0**: a
   // rule names a construct, so a case in these categories that has the construct is found and one that does not is not,
   // and a floor below 1 would let the family lose a case without failing.
@@ -68,7 +73,7 @@ const RULES = [
   // the rule families contribute none, so `flows.fpr` and `overall.fpr` are the same number reached by two routes;
   // stating both keeps a rule family that starts reporting from hiding behind a flow engine that stopped.
   ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.4551],
-  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.116],
+  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.108],
   ['cmdi.tpr', (r) => category(r, 'cmdi')?.tpr, 0.6746],
   ['cmdi.fpr', (r) => category(r, 'cmdi')?.fpr, null, 0.136],
   // **`ldapi` had no floor at all**, which is how a category can reach 0.85 TPR in one commit and quietly halve in the
@@ -84,7 +89,7 @@ const RULES = [
   ['xpathi.tpr', (r) => category(r, 'xpathi')?.tpr, 0.9333],
   ['xpathi.fpr', (r) => category(r, 'xpathi')?.fpr, null, 0.15],
   ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.6341],
-  ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.115],
+  ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.063],
 ];
 
 function category(record, name) {

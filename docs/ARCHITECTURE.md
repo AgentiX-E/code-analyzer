@@ -475,17 +475,18 @@ servlet cases, 1 415 of them real vulnerabilities — runs the engine over every
 itself scores: a case is flagged if the engine reports one live (unsanitised) flow in it, and the figure is
 `TPR - FPR`. `scripts/owasp-benchmark-gate.js` holds each per-category figure to its floor.
 
-| stage                                              | TPR    | FPR    | score  |
-| -------------------------------------------------- | ------ | ------ | ------ |
-| shared vocabulary only                             | 0.1420 | 0.0838 | 0.0583 |
-| + servlet vocabulary                               | 0.2912 | 0.2264 | 0.0648 |
-| + four capture defects, released                   | 0.2671 | 0.1955 | 0.0717 |
-| + statements anchored to a line                    | 0.4530 | 0.3389 | 0.1141 |
-| + definitions accumulate                           | 0.6382 | 0.4687 | 0.1695 |
-| + rule families for the four non-flow axes         | 0.8177 | 0.3698 | 0.4479 |
-| + a sink's destination decides its kind            | 0.8170 | 0.3042 | 0.5128 |
-| + constant conditions and dead arms                | 0.8170 | 0.1306 | 0.6864 |
-| + a callee's returns decide what a call hands back | 0.8170 | 0.1155 | 0.7015 |
+| stage                                                                      | TPR    | FPR    | score  |
+| -------------------------------------------------------------------------- | ------ | ------ | ------ |
+| shared vocabulary only                                                     | 0.1420 | 0.0838 | 0.0583 |
+| + servlet vocabulary                                                       | 0.2912 | 0.2264 | 0.0648 |
+| + four capture defects, released                                           | 0.2671 | 0.1955 | 0.0717 |
+| + statements anchored to a line                                            | 0.4530 | 0.3389 | 0.1141 |
+| + definitions accumulate                                                   | 0.6382 | 0.4687 | 0.1695 |
+| + rule families for the four non-flow axes                                 | 0.8177 | 0.3698 | 0.4479 |
+| + a sink's destination decides its kind                                    | 0.8170 | 0.3042 | 0.5128 |
+| + constant conditions and dead arms                                        | 0.8170 | 0.1306 | 0.6864 |
+| + a callee's returns decide what a call hands back                         | 0.8170 | 0.1155 | 0.7015 |
+| + Spring's HTML escaper, and a suffix test that read `htmlUnescape` as one | 0.8170 | 0.1072 | 0.7098 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
@@ -604,10 +605,21 @@ writes for that category; in the other categories the helper either returns its 
 collection, and the second is protected by the `lost` rule. The flow subset moved 0.4955 → 0.5206 (FPR 0.2173 →
 0.1922) and the flow engine alone 0.3246 → 0.3397.
 
-**What is left is the container.** 150 of the 153 remaining false positives put the value into a map, a `StringBuilder`
-or an `Object[]` and take it out again, and no summary can answer that: the edge the value travels on is not a def→use
-edge, it is a field of an object this model does not track. A container model is the next question, and it is a bigger
-one than this — which is why the rule above exists rather than a guess.
+Then the vocabulary itself was wrong in two directions at once, and one commit answered both. `HtmlUtils.htmlEscape` —
+Spring's escaper, and the one a Spring application reaches for — was absent, so eleven safe `xss` cases were charged for
+escaping their own output. And the matcher tested `text.endsWith(name)` for every entry, which for a one-word entry is a
+suffix test: the list holds `escape`, so **`htmlUnescape`, `unescape` and `jsonUnescape` all matched it** and a call that
+puts the danger _back_ was read as removing it. Measured: `score 0.7015 → 0.7098`, FPR 0.1155 → 0.1072, `xss` alone
+0.1148 → 0.0622 (24 → 13 false positives), 1 156 true positives before and after. The suffix rule's own delta on this
+corpus is zero — no case here reaches a sink through an `unescape` — so it is fixed for the reason it is wrong rather
+than for the figure it moves, and held by a test that asserts the list does not contain `htmlUnescape`.
+
+**What is left is the container.** 141 of the 142 remaining false positives put the value into a container and take it
+out again — 79 through `map.put`/`get` and 62 through `list.add`/`get` — and no summary can answer that: the edge the
+value travels on is not a def→use edge, it is a field of an object this model does not track. The list half is the
+harder one, because the corpus shuffles the value before reading it (`add`, `add(param)`, `add`, `remove(0)`,
+`get(1)`), so an answer needs what each index holds rather than what the collection holds. A container model is the next
+question, and it is a bigger one than this — which is why the rule above exists rather than a guess.
 
 ## MCP Protocol Integration
 

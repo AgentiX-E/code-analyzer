@@ -130,6 +130,11 @@ const JAVA_SANITIZERS: SanitizerVocabulary = [
   ['escapeSql', 'escaping', ['sql_exec']],
   ['escapeJava', 'escaping', ['html']],
   ['escapeJavaScript', 'escaping', ['html']],
+  // Spring's `HtmlUtils`, which is where a Spring application escapes for HTML. `htmlUnescape` is the inverse and
+  // deliberately absent: the matcher compares whole segments, so it could never be reached from `htmlEscape` anyway.
+  ['htmlEscape', 'escaping', ['html']],
+  ['htmlEscapeDecimal', 'escaping', ['html']],
+  ['htmlEscapeHex', 'escaping', ['html']],
   // Type conversion: the value that comes out is a number, not the text that went in.
   ['parseInt', 'validation', TYPE_CONVERSION_KINDS],
   ['parseLong', 'validation', TYPE_CONVERSION_KINDS],

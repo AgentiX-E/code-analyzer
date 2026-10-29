@@ -876,11 +876,15 @@ function sanitizerFor(text: string, list: SanitizerVocabulary): SanitizerEntry |
     ([name]) =>
       simple === name ||
       text === name ||
-      text.endsWith(name) ||
-      // **Two shapes the list holds and the simple name does not reach.** `System.Diagnostics.Process.Start` ends
-      // with `Process.Start`, which is the entry; and `std::system` is not split by the separator that handles `.`
-      // and `->`, so its last segment is the whole qualified name. Both were in the list and neither matched.
+      // **A qualified entry is matched as a tail of the text, and an unqualified one only as a whole segment.**
+      //
+      // `text.endsWith(name)` used to be here without that distinction, and for a one-word entry it is a suffix test:
+      // the list holds `escape`, so `htmlUnescape`, `unescape` and `jsonUnescape` all matched it — three calls that
+      // *put the danger back* and were read as removing it. `endsWith('.escape')` cannot do that, because the dot
+      // that ends an entry's namespace is not the `e` that ends `Unescape`. Both qualified separators are kept:
+      // `System.Diagnostics.Process.Start` is a dot tail and `std::system` is a `::` tail.
       text.endsWith(`.${name}`) ||
+      text.endsWith(`::${name}`) ||
       text.split('::').pop() === name,
   );
 }

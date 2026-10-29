@@ -33,7 +33,7 @@ import type { ParsedFile } from '@code-analyzer/shared';
  * resolver that preferred a nested `BenchmarkJava-*` directory, measured the beta tree while the report said v1.2.
  * **Measured: FPR 0.3615 on the beta tree against 0.3042 on the released one, from the same engine and the same
  * command** (both figures from before the constant-condition model, which moved the released tree to 0.1306 and the
- * cross-function summary to 0.1155 — the comparison is between the two trees, not between two versions of the engine).
+ * cross-function summary to 0.1072 — the comparison is between the two trees, not between two versions of the engine).
  * The version is in the file name, so it is what the suite selects on.
  */
 const EXPECTED_RESULTS = 'expectedresults-1.2.csv';
@@ -101,6 +101,17 @@ interface Scored {
   readonly rules: readonly string[];
 }
 
+/** One row of `benchmarks/owasp-benchmark.json`, as far as this suite compares against it. */
+interface ArtifactScore {
+  readonly cases: number;
+  readonly vulnerable: number;
+  readonly truePositives: number;
+  readonly falsePositives: number;
+  readonly tpr: number;
+  readonly fpr: number;
+  readonly score: number;
+}
+
 /**
  * The corpus's own configuration, read once.
  *
@@ -135,6 +146,14 @@ function score(root: string, label: Label): Scored {
     ast: captures,
   } as unknown as ParsedFile;
 
+  // **Every fact the providers can produce, because the workflow produces all of them.**
+  //
+  // This suite is the acceptance criterion for story 9, so it has to score the engine the workflow scores. It did not:
+  // `constants` and `returnLines` were added to `scripts/owasp-benchmark.ts` in two iterations and never to this file,
+  // and both are *optional and neutral when absent* — so the suite kept passing while measuring an engine two models
+  // behind the one whose figures are published, with floors loose enough (FPR ≤ 0.31) that the gap could not show. A
+  // scoring harness that quietly runs a weaker configuration is worse than no harness, which is why the figure is
+  // compared against the artifact below rather than against a hand-written bound.
   const extraction = new Map([
     [
       file,
@@ -142,6 +161,8 @@ function score(root: string, label: Label): Scored {
         sources: provider.extractTaintSources(code),
         sinks: provider.extractTaintSinks(code),
         sanitizers: provider.extractSanitizers(code),
+        constants: provider.extractConstantFacts(code),
+        returnLines: provider.extractReturnLines(code),
       },
     ],
   ]);
@@ -213,7 +234,7 @@ describe.skipIf(ROOT === null)('the OWASP Benchmark corpus', () => {
     expect(escaped.flagged).toBe(false);
   });
 
-  it('scores every labelled case, and holds the figures the workflow publishes', () => {
+  it('reproduces the published figures exactly, rather than staying under a bound', () => {
     const all = labels(ROOT!);
     const scored: Scored[] = [];
     for (const label of all.values()) scored.push(score(ROOT!, label));
@@ -222,14 +243,19 @@ describe.skipIf(ROOT === null)('the OWASP Benchmark corpus', () => {
     const safe = scored.filter((item) => !item.vulnerable);
     const truePositives = vulnerable.filter((item) => item.flagged).length;
     const falsePositives = safe.filter((item) => item.flagged).length;
-    const tpr = truePositives / vulnerable.length;
-    const fpr = falsePositives / safe.length;
 
-    // The floors are the measured baseline, so a regression in the vocabulary, the captures or the propagator fails
-    // here rather than in a report nobody re-runs.
-    expect(tpr).toBeGreaterThanOrEqual(0.81);
-    expect(fpr).toBeLessThanOrEqual(0.31);
-    expect(tpr - fpr).toBeGreaterThanOrEqual(0.5);
+    // **The published artifact, not a hand-written bound.** Every previous version of this test asserted a floor —
+    // TPR ≥ 0.81, FPR ≤ 0.31 — and a floor is a promise about a number *below* the truth, so it held while this suite
+    // measured an engine two models behind the one the workflow publishes. Comparing against
+    // `benchmarks/owasp-benchmark.json` makes the two wirings one wiring: a fact that reaches the workflow and not this
+    // suite changes the count here, and the only way to make this pass is to regenerate the artifact.
+    const artifact = JSON.parse(
+      readFileSync(join(process.cwd(), 'benchmarks/owasp-benchmark.json'), 'utf8'),
+    ) as { overall: ArtifactScore; taintSubset: ArtifactScore };
+    expect(artifact.overall.cases).toBe(scored.length);
+    expect(artifact.overall.vulnerable).toBe(vulnerable.length);
+    expect(truePositives).toBe(artifact.overall.truePositives);
+    expect(falsePositives).toBe(artifact.overall.falsePositives);
 
     // Seven of the eleven categories are flows, and that subset is the one this engine claims.
     const taintCategories = new Set([
@@ -243,10 +269,12 @@ describe.skipIf(ROOT === null)('the OWASP Benchmark corpus', () => {
     ]);
     const taintVulnerable = vulnerable.filter((item) => taintCategories.has(item.category));
     const taintSafe = safe.filter((item) => taintCategories.has(item.category));
-    const taintTpr = taintVulnerable.filter((item) => item.flagged).length / taintVulnerable.length;
-    const taintFpr = taintSafe.filter((item) => item.flagged).length / taintSafe.length;
-    expect(taintTpr).toBeGreaterThanOrEqual(0.71);
-    expect(taintTpr - taintFpr).toBeGreaterThanOrEqual(0.2);
+    expect(taintVulnerable.filter((item) => item.flagged).length).toBe(
+      artifact.taintSubset.truePositives,
+    );
+    expect(taintSafe.filter((item) => item.flagged).length).toBe(
+      artifact.taintSubset.falsePositives,
+    );
   }, 600_000);
 
   it('answers the four categories a flow cannot, by reading the configuration beside the code', () => {

@@ -157,6 +157,29 @@ describe('the servlet vocabulary', () => {
     }
   });
 
+  it('recognises Spring escaping for HTML, and not its inverse', () => {
+    // **The list held three Apache escapers and no Spring one**, which is a vocabulary hole rather than a model
+    // decision: `org.springframework.web.util.HtmlUtils.htmlEscape` is the escaper a Spring application reaches for,
+    // and a scanner that does not know it charges the project for escaping its own output. Measured on OWASP
+    // Benchmark v1.2: three of the 153 remaining false positives were this call and nothing else.
+    const escaped = provider.extractSanitizers(
+      'String bar = org.springframework.web.util.HtmlUtils.htmlEscape(param);',
+    );
+    expect(escaped.map((sanitizer) => sanitizer.neutralizes)).toContainEqual(['html']);
+    expect(escaped.map((sanitizer) => sanitizer.arguments)).toContainEqual(['param']);
+
+    // `htmlUnescape` puts the danger back, so it must stay outside the list. The matcher compares whole segments, so
+    // this is a statement about the vocabulary rather than about prefix matching — and it would have passed even if
+    // the entry were added, which is exactly why it is asserted against the list itself below.
+    const unescaped = provider.extractSanitizers(
+      'String bar = org.springframework.web.util.HtmlUtils.htmlUnescape(param);',
+    );
+    expect(unescaped).toEqual([]);
+    const names = JAVA_TAINT_VOCABULARY.sanitizers.map(([name]) => name);
+    expect(names).toContain('htmlEscape');
+    expect(names).not.toContain('htmlUnescape');
+  });
+
   it('keeps the C family vocabulary it extends, so nothing an earlier language relied on was dropped', () => {
     const shared = JAVA_TAINT_VOCABULARY.sources.map(([name]) => name);
     expect(shared).toContain('process.env');

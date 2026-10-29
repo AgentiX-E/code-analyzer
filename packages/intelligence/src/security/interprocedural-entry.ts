@@ -15,7 +15,7 @@ import { TaintPipeline } from './taint-pipeline.js';
 import { buildFunctionCfgs } from '../cfg/from-parsed-files.js';
 
 import type { CallGraphEdge, InterprocTaintResult } from './interproc-solver.js';
-import type { ExtractedSink, ExtractedSource } from '../cfg/statement-facts.js';
+import type { ExtractedFileFacts } from '../cfg/from-parsed-files.js';
 import type { FunctionCfg } from '../cfg/types.js';
 import type { CallSite, ParsedFile } from '@code-analyzer/shared';
 
@@ -51,16 +51,20 @@ export function toCallGraphEdges(
 /**
  * Run inter-procedural taint on what the pipeline produced.
  *
+ * **`extraction` is the whole of one file's facts**, not just its sources and sinks. Four of the facts it carries are
+ * optional and each is neutral when absent, which is a property worth stating where the entry point is: a caller that
+ * passes only `sources` and `sinks` gets an analysis with no sanitizers, no reachability information and no returns to
+ * read, and it will still return a result — a weaker one, indistinguishable in shape from the full one. That is how a
+ * scoring harness and the workflow that publishes its number came to measure two different engines.
+ *
  * @param parsedFiles the parsed files, from the pipeline's parse phase
  * @param callSites call sites keyed by qualified name, from the scope-resolution phase
+ * @param extraction one file's taint-relevant extraction, keyed by file path
  */
 export function analyzeInterproceduralTaint(
   parsedFiles: readonly ParsedFile[],
   callSites: ReadonlyMap<string, CallSite[]>,
-  extraction?: ReadonlyMap<
-    string,
-    { sources: readonly ExtractedSource[]; sinks: readonly ExtractedSink[] }
-  >,
+  extraction?: ReadonlyMap<string, ExtractedFileFacts>,
 ): InterprocTaintResult {
   const cfgs = resolveCallSites(buildFunctionCfgs(parsedFiles, callSites, extraction));
   return new TaintPipeline().analyze(cfgs, toCallGraphEdges(cfgs));
