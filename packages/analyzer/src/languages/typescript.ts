@@ -4,10 +4,12 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
+import { C_FAMILY_CONSTANTS } from './constant-fold.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
 import { CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
 
+import type { ConstantDialect } from './constant-fold.js';
 import type { ParsedImport } from './provider.js';
 import type { TaintCollections } from './taint-scan.js';
 import type {
@@ -802,6 +804,16 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
    * **The three questions name the same two node shapes**, so the file is traversed once instead of three
    * times - see `collectCLikeTaint`. The collector is the shared one; only the node names are this language's.
    */
+  /**
+   * The grammar's names for a declaration, an assignment and a condition.
+   *
+   * **This is what makes reachability cheap and language-wide**: the walk that reads it is shared, and a dialect is the
+   * only thing a grammar has to supply. This grammar shares the C-family vocabulary.
+   */
+  protected override constantDialect(): ConstantDialect {
+    return C_FAMILY_CONSTANTS;
+  }
+
   protected override collectTaint(root: TreeSitterSyntaxNode): TaintCollections {
     return collectCLikeTaint(root);
   }

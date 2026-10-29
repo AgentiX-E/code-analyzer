@@ -148,6 +148,22 @@ export interface StatementFacts {
   readonly sinkSites: ReadonlyMap<number, TaintSinkOccurrence>;
   /** Per-statement sanitizer occurrences. */
   readonly sanitizerSites: ReadonlyMap<number, SanitizerOccurrence>;
+  /**
+   * Definitions whose value the file's own arithmetic decides, by statement index.
+   *
+   * **A definition here does not carry taint, because there is nothing in it to carry.** `bar = (7 * 18) + num > 200 ?
+   * "constant" : param` gives `bar` one value that is not `param`'s, and a model that treats every definition as a
+   * may-definition reports the flow anyway. **Absent means the analysis has no reachability information**, which is the
+   * conservative direction: every definition stays a may-definition and nothing is suppressed on a guess.
+   */
+  readonly constantDefs?: ReadonlyMap<number, ReadonlySet<number>>;
+  /**
+   * 1-based lines no execution path reaches, because a condition that decides them is constant.
+   *
+   * **Lines rather than statements, because a dead arm is a range**: `if (false) { a(); b(); }` closes two statements
+   * that share no definition and no sink. Absent means nothing is known to be dead.
+   */
+  readonly unreachableLines?: ReadonlySet<number>;
 }
 
 /** A complete function CFG with all analysis data. */

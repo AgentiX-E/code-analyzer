@@ -3,9 +3,11 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
+import { PYTHON_CONSTANTS } from './constant-fold.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
+import type { ConstantDialect } from './constant-fold.js';
 import type { ParsedImport } from './provider.js';
 import type { TaintCollections } from './taint-scan.js';
 import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
@@ -556,6 +558,16 @@ export class PythonProvider extends TreeSitterBaseProvider {
    * **The three questions name the same two node shapes**, so the file is traversed once instead of three
    * times - see `collectCLikeTaint`. The collector is the shared one; only the node names are this language's.
    */
+  /**
+   * The grammar's names for a declaration, an assignment and a condition.
+   *
+   * **This is what makes reachability cheap and language-wide**: the walk that reads it is shared, and a dialect is the
+   * only thing a grammar has to supply. Python spells an assignment as one `assignment` node and puts a conditional's condition between its arms.
+   */
+  protected override constantDialect(): ConstantDialect {
+    return PYTHON_CONSTANTS;
+  }
+
   protected override collectTaint(root: TreeSitterSyntaxNode): TaintCollections {
     return collectCLikeTaint(root, PYTHON_TAINT_NODES);
   }

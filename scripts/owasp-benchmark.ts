@@ -229,6 +229,8 @@ function main(): void {
     sources += extractedSources.length;
     sinks += extractedSinks.length;
 
+    // **What the file's arithmetic decides, asked of the same provider that parsed it.** Without this the analysis has
+    // no reachability information and every assignment stays a may-definition - which is what scored 0.5128.
     const extraction = new Map([
       [
         file,
@@ -236,6 +238,7 @@ function main(): void {
           sources: extractedSources,
           sinks: extractedSinks,
           sanitizers: provider.extractSanitizers(code),
+          constants: provider.extractConstantFacts(code),
         },
       ],
     ]);

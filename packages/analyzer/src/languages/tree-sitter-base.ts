@@ -4,9 +4,11 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { extractConstantFacts } from './constant-fold.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { exportedNamesByCursor } from './syntax-cursor.js';
 
+import type { ConstantDialect, ConstantFacts } from './constant-fold.js';
 import type { LanguageProvider, ParsedImport } from './provider.js';
 import type { TreeSitterTreeCursor } from './syntax-cursor.js';
 import type { TaintCollections } from './taint-scan.js';
@@ -139,6 +141,16 @@ interface TreeSitterParser {
 interface TreeSitterParserClass {
   new (): TreeSitterParser;
   Query: new (language: TreeSitterLanguage, query: string) => TreeSitterQuery;
+}
+
+/**
+ * The answer a provider without a constant dialect gives.
+ *
+ * **A fresh value on every call, not a shared singleton**: `ConstantFacts` holds a `Map`, and a reader that mutated one
+ * would silently change every other file's answer.
+ */
+function noConstantFacts(): ConstantFacts {
+  return { constants: new Map(), constantReturns: new Map(), unreachableLines: new Set() };
 }
 
 /**
@@ -713,6 +725,31 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // two recursions over materialised nodes, measured at **15.4 % of a full index** on this repository's own
     // TypeScript. See `syntax-cursor.ts` for why the cursor is the cheaper instrument.
     return exportedNamesByCursor(tree.rootNode);
+  }
+
+  /**
+   * The values this file's names can only ever hold, and the lines a constant condition closes.
+   *
+   * **Read through the same cached tree as every other reader**, so asking this question costs one walk and no parse.
+   * A provider that declares no dialect answers nothing, and answering nothing is neutral: the analysis then keeps
+   * every assignment as a may-definition, which is what it did before this existed.
+   */
+  extractConstantFacts(source: string): ConstantFacts {
+    const dialect = this.constantDialect();
+    if (!dialect || !this.parser || !this.languageGrammar) return noConstantFacts();
+    const tree = this.cachedTree(source);
+    if (!tree) return noConstantFacts();
+    return extractConstantFacts(tree.rootNode, dialect);
+  }
+
+  /**
+   * The node and field names this grammar uses for declarations, assignments and conditions.
+   *
+   * **Null means the grammar has no such productions**, which is true of JSON and YAML and is why the base declares
+   * nothing rather than guessing at a C-family vocabulary that would fold a name in a format that has none.
+   */
+  protected constantDialect(): ConstantDialect | null {
+    return null;
   }
 
   /** Walk the AST to check if a symbol is exported */

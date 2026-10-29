@@ -142,3 +142,18 @@ export type {
   CompileEvidence,
   CompilerRunner,
 } from './evidence/compile-evidence.js';
+
+// **Which values a file's arithmetic decides**, exported because the taint analysis asks the question and this package
+// is the only one that can read a syntax tree. The fact travels; the policy stays where the analysis is.
+export { evaluateConstant } from './languages/constant-expression.js';
+export type {
+  ConstantValue,
+  ConditionalOrder,
+  FoldOptions,
+} from './languages/constant-expression.js';
+export {
+  C_FAMILY_CONSTANTS,
+  PYTHON_CONSTANTS,
+  extractConstantFacts,
+} from './languages/constant-fold.js';
+export type { ConstantDialect, ConstantFacts } from './languages/constant-fold.js';

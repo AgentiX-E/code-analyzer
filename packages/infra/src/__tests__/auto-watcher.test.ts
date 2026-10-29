@@ -61,13 +61,20 @@ describe('AutoWatcher', () => {
     return base;
   }
 
+  // **The debounce is a timer, so the test owns the clock.** Every wait in this file used to be a fixed
+  // `setTimeout(100)` against a 50 ms debounce, which holds only while the machine is idle: under a loaded runner the
+  // callback lands after the sleep and the assertion reads an empty list. That is a race, not a test. Fake timers make
+  // the window exact in both directions - advancing past it proves the callback fired, and advancing past it after a
+  // filtered change proves the timer was never armed.
   beforeEach(() => {
+    vi.useFakeTimers();
     mockWatcher = createMockWatcher();
     autoWatcher = new AutoWatcher(mockWatcher);
   });
 
   afterEach(() => {
     autoWatcher.unwatch();
+    vi.useRealTimers();
     if (rootPath) {
       fs.rmSync(rootPath, { recursive: true, force: true });
     }
@@ -138,7 +145,7 @@ describe('AutoWatcher', () => {
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'src/index.ts' }]);
 
     // Wait for debounce
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
 
     expect(reindexEvents.length).toBe(1);
     expect(reindexEvents[0]!.fileCount).toBe(1);
@@ -160,7 +167,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'node_modules/pkg/index.js' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(0);
   });
 
@@ -175,7 +182,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: '.git/config' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(0);
   });
 
@@ -190,7 +197,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'add', filePath: 'dist/bundle.js' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(0);
   });
 
@@ -205,7 +212,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'build/output.js' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(0);
   });
 
@@ -220,7 +227,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'lib.min.js' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(0);
   });
 
@@ -235,7 +242,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'yarn.lock' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(0);
   });
 
@@ -259,7 +266,7 @@ describe('AutoWatcher', () => {
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'file3.ts' }]);
 
     // Wait for debounce
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await vi.advanceTimersByTimeAsync(150);
 
     // Should be batched into one event
     expect(reindexEvents.length).toBe(1);
@@ -280,7 +287,7 @@ describe('AutoWatcher', () => {
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'file.ts' }]);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'file.ts' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
 
     expect(reindexEvents.length).toBe(1);
     expect(reindexEvents[0]!.fileCount).toBe(1);
@@ -332,7 +339,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'app.py' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -347,7 +354,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'main.go' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -362,7 +369,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'src/main.rs' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -377,7 +384,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'Main.java' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -392,7 +399,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'config.json' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -407,7 +414,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: '.github/workflows/ci.yml' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -422,7 +429,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'Dockerfile' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -437,7 +444,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'services/Dockerfile' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     // The basename decides, not the first path segment: a nested Dockerfile has
     // no source extension yet must still be tracked.
     expect(reindexEvents.length).toBe(1);
@@ -455,7 +462,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'README.md' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(1);
   });
 
@@ -470,7 +477,7 @@ describe('AutoWatcher', () => {
     aw.watch(rootPath);
     mockWatcher.triggerChanges([{ type: 'modify', filePath: 'data.bin' }]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
     expect(reindexEvents.length).toBe(0);
   });
 
@@ -528,7 +535,7 @@ describe('AutoWatcher', () => {
       { type: 'add', filePath: 'main.go' },
     ]);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.advanceTimersByTimeAsync(100);
 
     expect(reindexEvents.length).toBe(1);
     // 4 source files (node_modules is filtered out)
@@ -573,7 +580,7 @@ describe('AutoWatcher', () => {
     aw.unwatch();
 
     // Wait for debounce time
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await vi.advanceTimersByTimeAsync(250);
 
     // No reindex should have occurred because unwatch cleared the timer
     expect(reindexEvents.length).toBe(0);

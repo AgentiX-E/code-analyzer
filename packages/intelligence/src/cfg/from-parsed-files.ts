@@ -19,8 +19,23 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { buildOccurrences, buildStatementFacts } from './statement-facts.js';
 
 import type { ExtractedSanitizer, ExtractedSink, ExtractedSource } from './statement-facts.js';
-import type { BindingEntry, FunctionCfg } from './types.js';
+import type { BindingEntry, DefinitionSite, FunctionCfg, StatementFacts } from './types.js';
+import type { ConstantFacts } from '@code-analyzer/analyzer';
 import type { CallSite, ParsedFile, SymbolDefinition, UnifiedCapture } from '@code-analyzer/shared';
+
+/** One file's taint-relevant extraction: what the provider saw, and what its arithmetic decides. */
+export interface ExtractedFileFacts {
+  readonly sources: readonly ExtractedSource[];
+  readonly sinks: readonly ExtractedSink[];
+  readonly sanitizers?: readonly ExtractedSanitizer[];
+  /**
+   * The values the file's names can only hold, and the lines a constant condition closes.
+   *
+   * **Optional, and absent is the neutral answer**: an analysis with no reachability information keeps every
+   * definition a may-definition, which is exactly the behaviour that existed before this field did.
+   */
+  readonly constants?: ConstantFacts;
+}
 
 /** Symbol kinds that become a function CFG. Shared with the call-site builder by intent, not by import. */
 const CALLABLE_KINDS = new Set(['Function', 'Method', 'ArrowFunction', 'Constructor']);
@@ -34,14 +49,7 @@ const CALLABLE_KINDS = new Set(['Function', 'Method', 'ArrowFunction', 'Construc
 export function buildFunctionCfgs(
   parsedFiles: readonly ParsedFile[],
   callSites: ReadonlyMap<string, CallSite[]>,
-  extraction?: ReadonlyMap<
-    string,
-    {
-      sources: readonly ExtractedSource[];
-      sinks: readonly ExtractedSink[];
-      sanitizers?: readonly ExtractedSanitizer[];
-    }
-  >,
+  extraction?: ReadonlyMap<string, ExtractedFileFacts>,
 ): Map<string, FunctionCfg> {
   const out = new Map<string, FunctionCfg>();
 
@@ -94,12 +102,14 @@ export function buildFunctionCfgs(
         // sources and produces no findings. That is the half still missing, and it is the only part of this object
         // that is a placeholder.
         bindings,
-        stmtFacts: {
-          ...stmtFacts,
-          sourceSites: occurrences.sourceSites,
-          sinkSites: occurrences.sinkSites,
-          sanitizerSites: occurrences.sanitizerSites,
-        },
+        stmtFacts: withReachability(
+          stmtFacts,
+          occurrences,
+          bindings,
+          perFile?.constants,
+          symbol.startLine,
+          callSites.get(symbol.qualifiedName) ?? [],
+        ),
         // **`BindingEntry.kind` already says which bindings are parameters**, so no second rule is needed: the
         // captures emit a def per parameter from `formal_parameters` and `buildStatementFacts` labels it.
         // **Declared on the function's own line.** `BindingEntry.kind` has a `param` member that nothing ever
@@ -122,6 +132,62 @@ export function buildFunctionCfgs(
   }
 
   return out;
+}
+
+/**
+ * The statement facts, plus what the file's arithmetic says about which definitions can carry a value at all.
+ *
+ * **The join is by name and scope, not by line.** A constant is recorded against the callable it was written in and
+ * the name it was written to; the definitions it applies to are wherever that name is defined. `String bar;` declares
+ * on one line and `bar = (7 * 18) + num > 200 ? "constant" : param` writes on another, and it is the write that folds.
+ */
+function withReachability(
+  stmtFacts: StatementFacts,
+  occurrences: Pick<StatementFacts, 'sourceSites' | 'sinkSites' | 'sanitizerSites'>,
+  bindings: readonly BindingEntry[],
+  constants: ConstantFacts | undefined,
+  startLine: number,
+  calls: readonly CallSite[],
+): StatementFacts {
+  const withSites: StatementFacts = { ...stmtFacts, ...occurrences };
+  // **No reachability information leaves the facts exactly as they were**, which is the neutral answer: every
+  // definition stays a may-definition and nothing is suppressed on a guess.
+  if (constants === undefined) return withSites;
+
+  const constantDefs = new Map<number, Set<number>>();
+  for (const [stmtIndex, sites] of stmtFacts.defs) {
+    const line = startLine + stmtIndex;
+    for (const site of sites) {
+      if (!isConstantDefinition(bindings, constants, site, startLine, line, calls)) continue;
+      const bucket = constantDefs.get(stmtIndex) ?? new Set<number>();
+      bucket.add(site.bindingIdx);
+      constantDefs.set(stmtIndex, bucket);
+    }
+  }
+
+  return { ...withSites, constantDefs, unreachableLines: constants.unreachableLines };
+}
+
+/**
+ * Whether this definition writes a value nothing else can be.
+ *
+ * **Two ways to be a constant, and they are the same fact from different distances.** The name holds one value because
+ * the file's arithmetic says so (`bar = (7 * 18) + num > 200 ? "constant" : param`), or because the value comes from a
+ * call to a function whose own returns all fold to one (`bar = new Test().doSomething(request, param)`). The second is
+ * the OWASP `helper` shape, and without it the argument's taint is assumed to reach the caller's name.
+ */
+function isConstantDefinition(
+  bindings: readonly BindingEntry[],
+  constants: ConstantFacts,
+  site: DefinitionSite,
+  startLine: number,
+  line: number,
+  calls: readonly CallSite[],
+): boolean {
+  const name = bindings[site.bindingIdx]?.name;
+  if (name !== undefined && constants.constants.has(`${startLine}:${name}`)) return true;
+  if (constants.constantReturns.size === 0) return false;
+  return calls.some((call) => call.line === line && constants.constantReturns.has(call.calleeName));
 }
 
 /** Whether a symbol becomes a CFG, so a caller can filter without duplicating the set. */

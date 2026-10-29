@@ -603,3 +603,84 @@ describe('JavaScriptProvider defensive branches (synthetic nodes)', () => {
     expect(provider.checkExportedForTest(node, 'foo')).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Constant facts
+// ---------------------------------------------------------------------------
+
+// **JavaScript shares the C-family dialect, and the sharing is the claim being tested**: the walker and the evaluator
+// are language-independent, so this provider supplies node names and nothing else. The case is the benchmark
+// construction in JavaScript, where the conditional's dead arm is the tainted parameter.
+describe('JavaScriptProvider constant facts', () => {
+  const provider = new JavaScriptProvider();
+
+  const factsOf = (source: string): ReturnType<typeof provider.extractConstantFacts> =>
+    provider.extractConstantFacts(source);
+
+  const byName = (source: string): [string, unknown][] =>
+    [...factsOf(source).constants].map(([key, value]) => [
+      key.split(':').slice(1).join(':'),
+      value,
+    ]);
+
+  it('folds a constant declaration and the conditional it decides', () => {
+    expect(
+      byName(`
+function run(param) {
+  const num = 106;
+  const bar = (7 * 18) + num > 200 ? "constant" : param;
+  return bar;
+}
+`),
+    ).toEqual([
+      ['num', 106],
+      ['bar', 'constant'],
+    ]);
+  });
+
+  it('closes the arm a constant condition can never take', () => {
+    const facts = factsOf(`
+function run(param) {
+  const num = 106;
+  if ((7 * 18) + num < 200) {
+    consume(param);
+  }
+  return "done";
+}
+`);
+    // The consequence block is lines 4 to 6; the statement after it is reachable.
+    expect([...facts.unreachableLines].sort((a, b) => a - b)).toEqual([4, 5, 6]);
+  });
+
+  it('closes every switch arm but the one a constant subject selects', () => {
+    const source = `
+function run(param) {
+  const target = "B";
+  let bar;
+  switch (target) {
+    case "A":
+      bar = param;
+      break;
+    case "B":
+      bar = "bob";
+      break;
+    default:
+      bar = param;
+      break;
+  }
+  return bar;
+}
+`;
+    // **This grammar has no `switch_label` node**: the label hangs on the case as a field and the default is a group of
+    // its own, so before the reader was taught both shapes it closed nothing here at all.
+    expect(byName(source)).toContainEqual(['bar', 'bob']);
+    expect(factsOf(source).unreachableLines.size).toBe(6);
+  });
+
+  it('reads nothing out of an empty source', () => {
+    const facts = factsOf('');
+    expect(facts.constants.size).toBe(0);
+    expect(facts.constantReturns.size).toBe(0);
+    expect(facts.unreachableLines.size).toBe(0);
+  });
+});

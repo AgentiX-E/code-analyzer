@@ -32,7 +32,9 @@ import type { ParsedFile } from '@code-analyzer/shared';
  * `benchmark.properties` whose chosen algorithm differs — so a search that accepted any answer file, plus a root
  * resolver that preferred a nested `BenchmarkJava-*` directory, measured the beta tree while the report said v1.2.
  * **Measured: FPR 0.3615 on the beta tree against 0.3042 on the released one, from the same engine and the same
- * command.** The version is in the file name, so it is what the suite selects on.
+ * command** (both figures from before the constant-condition model, which moved the released tree to 0.1306 — the
+ * comparison is between the two trees, not between two versions of the engine). The version is in the file name, so it
+ * is what the suite selects on.
  */
 const EXPECTED_RESULTS = 'expectedresults-1.2.csv';
 

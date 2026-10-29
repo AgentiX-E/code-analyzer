@@ -1,5 +1,6 @@
 // @code-analyzer/analyzer — Language Provider Interface
 
+import type { ConstantFacts } from './constant-fold.js';
 import type { UnifiedCapture, ImportSemantics } from '@code-analyzer/shared';
 
 export interface ParsedImport {
@@ -40,6 +41,18 @@ export interface LanguageProvider {
    * falls back to the predicate when this is absent.
    */
   exportedNames?(source: string): Set<string>;
+
+  /**
+   * The values this file's names can only ever hold, and the lines a constant condition closes.
+   *
+   * **Optional, and absent means "no reachability information"**, which is the direction a security analysis has to
+   * fall back in: without it every assignment stays a may-definition, the analysis reports more flows, and none of
+   * them is wrong about the model it was given — only about the program.
+   *
+   * **The question it answers is not "what is the value"** but "is there a value that is the only one this name can
+   * hold". `int num = 106;` is; `param = request.getParameter(...)` is not; a name written twice is never.
+   */
+  extractConstantFacts?(source: string): ConstantFacts;
 
   readonly importSemantics: ImportSemantics;
 }

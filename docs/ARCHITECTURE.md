@@ -484,6 +484,7 @@ itself scores: a case is flagged if the engine reports one live (unsanitised) fl
 | + definitions accumulate                   | 0.6382 | 0.4687 | 0.1695 |
 | + rule families for the four non-flow axes | 0.8177 | 0.3698 | 0.4479 |
 | + a sink's destination decides its kind    | 0.8170 | 0.3042 | 0.5128 |
+| + constant conditions and dead arms        | 0.8170 | 0.1306 | 0.6864 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
@@ -538,10 +539,30 @@ response body. **An unknown receiver keeps its sink** — the filter is narrow o
 would be a way to lose findings quietly. Measured: `score 0.4479 → 0.5128`, FPR 0.3698 → 0.3042, with `crypto`,
 `hash`, `weakrand` and `securecookie` all at TPR 1.000 and FPR 0.
 
-**What is left is precision in the flow half, and it is a CFG question.** 151 of the 403 remaining false positives
-contain the corpus's constant-condition dead branch — `bar = (7 * 18) + num > 200 ? "constant" : param;` with
-`num = 106` — which is a reachability question that a single-block CFG cannot answer, and the same 151 appear among
-the true positives with the arms swapped. That is the next measurement, not a vocabulary entry.
+**What was left was precision in the flow half, and it was a reachability question.** 151 of the 403 remaining false
+positives contained the corpus's constant-condition dead branch — `bar = (7 * 18) + num > 200 ? "constant" : param;`
+with `num = 106` — which a single-block CFG cannot answer, and the same 151 appeared among the true positives with the
+arms swapped. **Both directions have to be answered, which is what makes it a modelling question rather than a filter.**
+
+**A constant folds to a value, and a name that holds one is not a definition.** `constant-expression.ts` evaluates an
+expression's own text — arithmetic, comparison, a conditional, and the small set of string methods that are total
+functions of their text — and `constant-fold.ts` reads one file's tree for the writes, `if`s, `switch`es and `return`s,
+then solves them against each other until the dead lines stop growing. `packages/intelligence` reads the result as two
+facts on a statement: a constant definition propagates nothing, and a line control cannot reach seeds nothing and
+delivers nothing. It is a **textual** evaluator on purpose: the questions are closed, a visitor over the parse tree
+would need a type checker to answer them, and every expression it cannot read returns `undefined` — which means
+"assume the value flows", the direction a security tool must err in. Measured: `score 0.5128 → 0.6864`, FPR 0.3042 →
+0.1306, **true positives unchanged at 1 156** — 403 false positives down to 173, with every category's TPR exactly where
+it was and every category's FPR halved: `cmdi` 0.4480 → 0.1360, `ldapi` 0.5625 → 0.2812, `pathtraver` 0.6815 → 0.3185,
+`sqli` 0.5129 → 0.2026, `trustbound` 0.6047 → 0.2326, `xpathi` 0.6500 → 0.1500, `xss` 0.3780 → 0.2105, and the flow
+subset 0.5063 → 0.2173. **230 of the 403 false positives were the dead arm, and not one true positive was lost.**
+
+**A `switch` is read the same way and in both grammars.** Java wraps a label in a `switch_label` node; JavaScript and
+TypeScript hang it on the case as a field and spell `default` as a group of its own, so the reader takes the label's
+_text_ and detects `default` from the group's type. Fall-through is the difficulty and the reason the model has to know
+which arm leaves the switch: a `case` with no `break` runs into the next one, so every arm after the selected one stays
+reachable until an arm jumps out. **Nothing is closed when the subject or a label cannot be folded** — the arm it names
+may be the one that runs, and entering a fall-through chain in the middle makes everything after it reachable.
 
 ## MCP Protocol Integration
 

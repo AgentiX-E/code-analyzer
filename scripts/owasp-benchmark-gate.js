@@ -23,13 +23,22 @@ const FILE = process.argv.includes('--file')
  * `overall` is scored over all 2 740 cases including the four categories a flow analysis cannot answer, so its TPR is
  * necessarily low; the per-category floors are what actually detect a regression, because they are the categories
  * this engine claims.
+ *
+ * **Both directions are stated for the categories the propagator answers.** A taint engine can buy recall by reporting
+ * more, so a floor on TPR alone lets precision fall silently: `taintSubset.fpr` is the figure that says whether the
+ * recall is real, and the constants below assume it. **The 0.1306 measured here is the constant-condition model** -
+ * folding `(7 * 18) + num > 200 ? "constant" : param` to its reachable arm, which closed 230 of the corpus's 403
+ * false positives without losing a single true one.
  */
 const RULES = [
-  ['overall.tpr', (r) => r.overall?.tpr, 0.81],
-  ['overall.fpr', (r) => r.overall?.fpr, null, 0.31],
-  ['overall.score', (r) => r.overall?.score, 0.5],
-  ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.71],
-  ['taintSubset.score', (r) => r.taintSubset?.score, 0.2],
+  ['overall.tpr', (r) => r.overall?.tpr, 0.8169],
+  ['overall.fpr', (r) => r.overall?.fpr, null, 0.131],
+  ['overall.score', (r) => r.overall?.score, 0.686],
+  ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.7128],
+  // **The category-weighted figure, and the one this engine is actually scored on.** Its TPR is lower than `overall`
+  // because the four rule categories are not in it.
+  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.218],
+  ['taintSubset.score', (r) => r.taintSubset?.score, 0.495],
   // The four categories a flow cannot answer, which now have a rule family of their own. **One is set to 1.0**: a
   // rule names a construct, so a case in these categories that has the construct is found and one that does not is not,
   // and a floor below 1 would let the family lose a case without failing.
@@ -46,15 +55,27 @@ const RULES = [
   // worth their recall: `byEngine.rules` is the corpus scored by the rule family alone.
   ['rules.fpr', (r) => r.byEngine?.rules?.fpr, null, 0.001],
   // **The flow half is measured on its own too**, because the overall figure is carried by the rule families and a
-  // propagator that stopped working would hide behind them. 0.45 is the measured value after the sink-destination
-  // filter, which removed 86 flow findings that were all false.
-  ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.45],
-  ['cmdi.tpr', (r) => category(r, 'cmdi')?.tpr, 0.67],
-  ['pathtraver.tpr', (r) => category(r, 'pathtraver')?.tpr, 0.83],
-  ['sqli.tpr', (r) => category(r, 'sqli')?.tpr, 0.68],
-  ['trustbound.tpr', (r) => category(r, 'trustbound')?.tpr, 0.83],
-  ['xpathi.tpr', (r) => category(r, 'xpathi')?.tpr, 0.93],
-  ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.63],
+  // propagator that stopped working would hide behind them. Every false positive in the corpus is a flow finding and
+  // the rule families contribute none, so `flows.fpr` and `overall.fpr` are the same number reached by two routes;
+  // stating both keeps a rule family that starts reporting from hiding behind a flow engine that stopped.
+  ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.4551],
+  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.131],
+  ['cmdi.tpr', (r) => category(r, 'cmdi')?.tpr, 0.6746],
+  ['cmdi.fpr', (r) => category(r, 'cmdi')?.fpr, null, 0.136],
+  // **`ldapi` had no floor at all**, which is how a category can reach 0.85 TPR in one commit and quietly halve in the
+  // next: the only figure that would have moved is `overall`, and it moves by 1/2740 per case.
+  ['ldapi.tpr', (r) => category(r, 'ldapi')?.tpr, 0.8518],
+  ['ldapi.fpr', (r) => category(r, 'ldapi')?.fpr, null, 0.282],
+  ['pathtraver.tpr', (r) => category(r, 'pathtraver')?.tpr, 0.8345],
+  ['pathtraver.fpr', (r) => category(r, 'pathtraver')?.fpr, null, 0.319],
+  ['sqli.tpr', (r) => category(r, 'sqli')?.tpr, 0.6801],
+  ['sqli.fpr', (r) => category(r, 'sqli')?.fpr, null, 0.203],
+  ['trustbound.tpr', (r) => category(r, 'trustbound')?.tpr, 0.8313],
+  ['trustbound.fpr', (r) => category(r, 'trustbound')?.fpr, null, 0.233],
+  ['xpathi.tpr', (r) => category(r, 'xpathi')?.tpr, 0.9333],
+  ['xpathi.fpr', (r) => category(r, 'xpathi')?.fpr, null, 0.15],
+  ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.6341],
+  ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.211],
 ];
 
 function category(record, name) {

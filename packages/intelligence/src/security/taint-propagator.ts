@@ -8,6 +8,12 @@
 //   Rule (b), statement-local: A matched SOURCE member-read whose parent chain
 //     reaches a matched SINK arg position produces an immediate single-hop finding.
 //
+// Reachability model:
+//   A definition the file's arithmetic decides (`bar = cond ? "constant" : param` with a constant condition) holds
+//   one value and it is not the tainted one, so it is not seeded and does not propagate. A line a constant condition
+//   closes is not read at all. **Both facts are optional**, and their absence leaves every definition a may-definition,
+//   which is what the analysis did before reachability existed - the conservative direction.
+//
 // Kind-set exclusion model:
 //   Taint carries a set of EXCLUDED SinkKinds. A sink fires unless its kind
 //   is excluded. Sanitizer kills apply to the def they produce.
@@ -128,6 +134,11 @@ export class TaintPropagator {
       };
     }
 
+    // **Reachability, read once.** A constant definition and a dead line are facts about the file, not about a path,
+    // so they are consulted at the two places a state is created and nowhere else.
+    const constantDefs = cfg.stmtFacts.constantDefs;
+    const deadLines = cfg.stmtFacts.unreachableLines;
+
     // Step 2: Build def→use fact index for fast lookup
     const defUseIndex = this.buildDefUseIndex(defUseFacts);
 
@@ -141,6 +152,9 @@ export class TaintPropagator {
 
     // Seed worklist with source occurrences
     for (const source of sources) {
+      // **A source on a line nothing reaches is not a source.** OWASP Benchmark's safe cases put the tainted read in
+      // an arm a constant condition closes, and the read is real code - it simply cannot run.
+      if (deadLines?.has(source.point.line) === true) continue;
       // Find the def points for the source binding
       const defKey = this.makeKey(source.point.blockIndex, source.point.stmtIndex);
       const defFacts = defUseIndex.get(defKey);
@@ -149,6 +163,7 @@ export class TaintPropagator {
         // Taint the def sites of the source statement
         const defSites = this.getDefSites(cfg, source.point.blockIndex, source.point.stmtIndex);
         for (const defSite of defSites) {
+          if (constantDefs?.get(defSite.stmtIndex)?.has(defSite.bindingIdx) === true) continue;
           const state: TaintState = {
             bindingIdx: defSite.bindingIdx,
             point: {
@@ -201,6 +216,9 @@ export class TaintPropagator {
       factsProcessed += uses.length;
 
       for (const use of uses) {
+        // **A use on a line nothing reaches delivers nothing**, and its sink - if it has one - is not reported.
+        if (deadLines?.has(use.use.line) === true) continue;
+
         // **A neutraliser on this statement runs before the call on it does.** `db.query(escape(req.body.id))` is one
         // statement: the sink and the neutraliser are both filed there, and the neutraliser is the inner expression.
         // The exclusions were accumulated *after* the sink was checked, so a statement that neutralised its own
@@ -267,6 +285,11 @@ export class TaintPropagator {
         // Propagate taint: taint the defs produced by the use statement
         const useDefSites = this.getDefSites(cfg, use.use.blockIndex, use.use.stmtIndex);
         for (const defSite of useDefSites) {
+          // **This is the whole of the reachability rule.** `bar` is written once, by an expression whose value the
+          // compiler can compute, so no state reaching this statement can put a tainted value into `bar`. Skipping
+          // the definition ends the flow here rather than at the sink, which is where the corpus's false positives
+          // all ended before.
+          if (constantDefs?.get(defSite.stmtIndex)?.has(defSite.bindingIdx) === true) continue;
           const newState: TaintState = {
             bindingIdx: defSite.bindingIdx,
             point: {
