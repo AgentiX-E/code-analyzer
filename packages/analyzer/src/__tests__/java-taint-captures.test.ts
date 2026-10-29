@@ -175,7 +175,8 @@ describe('the servlet vocabulary', () => {
       'String bar = org.springframework.web.util.HtmlUtils.htmlUnescape(param);',
     );
     expect(unescaped).toEqual([]);
-    const names = JAVA_TAINT_VOCABULARY.sanitizers.map(([name]) => name);
+    // `sanitizers` is optional on the vocabulary type; absent would fail the assertion below rather than pass it.
+    const names = (JAVA_TAINT_VOCABULARY.sanitizers ?? []).map(([name]) => name);
     expect(names).toContain('htmlEscape');
     expect(names).not.toContain('htmlUnescape');
   });
