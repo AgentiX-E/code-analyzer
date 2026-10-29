@@ -16,6 +16,8 @@ import {
   EDGE_INSTANTIATES,
 } from '@code-analyzer/shared';
 
+import { sortByScoreThenKey } from './ranking.js';
+
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
@@ -391,9 +393,16 @@ export class FlowSearchEngine {
       }
     }
 
-    return Array.from(pathMap.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 50);
+    // **A tie is broken by the path itself**, which is the key this map was built on: two paths of equal score are
+    // otherwise ordered by whichever reachable node the graph happened to return first, and that order is a property of
+    // the store rather than of the code being read.
+    return sortByScoreThenKey(
+      Array.from(pathMap.entries()).map(([, path]) => path),
+      (path) => path.score,
+      // **The key is the path's names and lines, not its ids.** Ids are assigned in insertion order, so an id-based key
+      // would be a machine-dependent order wearing a deterministic one's clothes.
+      (path) => path.nodes.map((n) => `${n.filePath}:${n.line}:${n.name}`).join('\u0000'),
+    ).slice(0, 50);
   }
 
   // -----------------------------------------------------------------------

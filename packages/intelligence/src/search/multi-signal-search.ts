@@ -2,7 +2,10 @@
 // Implements BM25 + semantic vector search + Reciprocal Rank Fusion (RRF)
 // for state-of-the-art code search combining lexical and semantic signals.
 
+import { sortByScoreThenKey } from './ranking.js';
+
 import type { EmbeddingEngine } from '../embeddings/embedder.js';
+
 
 /** BM25 parameters */
 const BM25_K1 = 1.5; // Term frequency saturation
@@ -261,10 +264,14 @@ export class HybridSearchEngine {
       result.combinedScore = combinedScore / totalWeight;
     }
 
-    return baseResults
-      .filter((r) => r.combinedScore >= this.config.minScore)
-      .sort((a, b) => b.combinedScore - a.combinedScore)
-      .slice(0, this.config.topK);
+    // **Ties broken by document id**, because every signal above is arithmetic over the document's own text: two
+    // documents with the same text score identically, and the order between them has to come from the corpus rather
+    // than from whichever iteration order the caller happened to index in.
+    return sortByScoreThenKey(
+      baseResults.filter((r) => r.combinedScore >= this.config.minScore),
+      (r) => r.combinedScore,
+      (r) => r.id,
+    ).slice(0, this.config.topK);
   }
 
   /**
@@ -299,10 +306,14 @@ export class HybridSearchEngine {
       }
     }
 
-    return Array.from(scores.entries())
-      .map(([id, score]) => ({ id, score: this.normalizeBM25Score(score) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+    return sortByScoreThenKey(
+      Array.from(scores.entries()).map(([id, score]) => ({
+        id,
+        score: this.normalizeBM25Score(score),
+      })),
+      (r) => r.score,
+      (r) => r.id,
+    ).slice(0, topK);
   }
 
   /**
@@ -322,7 +333,11 @@ export class HybridSearchEngine {
       results.push({ id: docId, score });
     }
 
-    return results.sort((a, b) => b.score - a.score).slice(0, topK);
+    return sortByScoreThenKey(
+      results,
+      (r) => r.score,
+      (r) => r.id,
+    ).slice(0, topK);
   }
 
   /**
@@ -382,7 +397,11 @@ export class HybridSearchEngine {
       }
     }
 
-    return results.sort((a, b) => b.combinedScore - a.combinedScore).slice(0, this.config.topK);
+    return sortByScoreThenKey(
+      results,
+      (r) => r.combinedScore,
+      (r) => r.id,
+    ).slice(0, this.config.topK);
   }
 
   /**

@@ -4,6 +4,12 @@
 // Search
 export { HybridSearchEngine, tokenize, cosineSimilarity } from './search/hybrid-search.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
+export {
+  compareCodeUnits,
+  compareNodeIdentity,
+  sortByScoreThenIdentity,
+  sortByScoreThenKey,
+} from './search/ranking.js';
 // **Query expansion is a public capability of the semantic half**, not a detail of one measurement: `search_code` will
 // use it behind a flag, and a caller that supplies its own provider gets the same prompt and the same mean.
 export {

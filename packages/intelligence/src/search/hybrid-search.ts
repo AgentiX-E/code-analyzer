@@ -4,6 +4,7 @@
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import { DataflowSearchEngine, type DataflowPath } from './dataflow-search.js';
+import { sortByScoreThenIdentity } from './ranking.js';
 
 import type { GraphNode, SearchOptions, NodeLabel } from '@code-analyzer/shared';
 
@@ -270,10 +271,8 @@ class InvertedIndex {
       }
     }
 
-    // Sort by score descending
-    results.sort((a, b) => b.score - a.score);
-
-    return results;
+    // Score descending, and a tie broken by the node's own name rather than by the order the walk produced.
+    return sortByScoreThenIdentity(results, (result) => result.score);
   }
 
   private passesFilters(node: GraphNode, filters?: SearchFilters): boolean {
@@ -476,10 +475,9 @@ export class HybridSearchEngine {
       }
     }
 
-    // Sort by similarity descending
-    results.sort((a, b) => b.score - a.score);
-
-    return results.slice(0, topK);
+    // Similarity descending, ties broken by identity: a cosine of two vectors is arithmetic, and equal cosines are
+    // therefore equal on every machine, so the order among them has to come from the corpus.
+    return sortByScoreThenIdentity(results, (result) => result.score).slice(0, topK);
   }
 
   /**
@@ -545,9 +543,13 @@ export class HybridSearchEngine {
       }
     }
 
-    // Sort by combined score descending
-    const resultsArray = Array.from(combined.values());
-    resultsArray.sort((a, b) => b.combinedScore - a.combinedScore);
+    // **Combined score descending, then identity.** Fusion is the step where ties are most common: two documents that
+    // BM25 scored identically get identical reciprocal ranks, and the fused list would otherwise inherit the walk order
+    // through the insertion order of `combined`.
+    const resultsArray = sortByScoreThenIdentity(
+      Array.from(combined.values()),
+      (r) => r.combinedScore,
+    );
 
     if (limit !== undefined && limit > 0) {
       return resultsArray.slice(0, limit);

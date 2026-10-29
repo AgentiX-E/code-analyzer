@@ -352,6 +352,19 @@ This approach:
 - Rewards documents that rank highly in both systems
 - Naturally handles documents that appear in only one result set
 
+### Tie-breaking, and why a ranking needs a total order
+
+`search/ranking.ts` sorts every ranked list by score and then, on an exact tie, by the item's own name —
+`qualifiedName`, `filePath`, `startLine`, `name`, and `id` last — compared by UTF-16 code unit rather than by a locale
+collation.
+
+**The reason is measurement, not tidiness.** BM25 over identical text is identical arithmetic, and `Array.prototype.sort`
+is stable, so a tie used to be resolved by whatever order the directory walk had produced. The published retrieval
+figure moved **0.9856 → 0.9815 from one machine to another** for exactly that reason, and the evaluation workflow found
+it only because it compares a fresh run against the committed file. A benchmark whose value depends on `readdir` order
+is not a benchmark. `id` is deliberately the last key and not the first: ids are assigned in insertion order, so an
+id-based order would be the same machine dependence wearing a deterministic one's clothes.
+
 ---
 
 ## Cross-Repo Federation Design
