@@ -6,7 +6,6 @@ import { sortByScoreThenKey } from './ranking.js';
 
 import type { EmbeddingEngine } from '../embeddings/embedder.js';
 
-
 /** BM25 parameters */
 const BM25_K1 = 1.5; // Term frequency saturation
 const BM25_B = 0.75; // Document length normalization

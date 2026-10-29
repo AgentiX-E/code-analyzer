@@ -649,6 +649,36 @@ The `createWorkerPool` (`packages/infra/src/workers/pool.ts`) provides:
 - **Retry support**: Configurable retry count with exponential backoff
 - **Graceful shutdown**: Rejects pending tasks on shutdown
 
+### What the index actually costs, phase by phase
+
+The target in the table above is a target. This is the measurement, and it is 805 seconds per million lines — thirteen
+times the target, and slower than the competitor figure this project quotes against itself. The number is published
+because a target nobody has reached is only useful beside the distance to it.
+
+| Corpus                                                  | Lines   | Before                   | After                   | Change                   |
+| ------------------------------------------------------- | ------- | ------------------------ | ----------------------- | ------------------------ |
+| `packages/analyzer/src` (profile corpus)                | 29 532  | 30.4 s, 2.5 GB RSS       | 24.5 s, 1.26 GB RSS     | −19 % time, −50 % memory |
+| This repository's own `packages/` (self-index artifact) | 141 183 | 1028 s/M lines (144.8 s) | 805 s/M lines (113.6 s) | −22 %                    |
+
+Three costs were removed, and each was found by profiling rather than by reading:
+
+1. **A file was parsed five times.** `parse` built a tree to walk for captures; `extractImports` built one for imports;
+   and `extractTaintSources`, `extractTaintSinks` and `extractSanitizers` each built their own and threw it away after
+   one walk. The cache that was supposed to prevent this (`parsedFor`/`parsedTree`) was keyed on the _caller's_ source
+   while `parse` had quietly parsed a **sanitised** copy, so its keys never matched and it saved nothing. Every reader
+   now goes through one `cachedTree(source)`.
+2. **Finding a symbol's container climbed `node.parent` once per capture.** In `node-tree-sitter` a parent call is a
+   native round-trip that re-marshals the node, and forty methods in a class ask about the same class. **Measured at
+   23 % of a full index — more than parsing the trees being asked about.** The climb is memoised per node range, and
+   because the container of a node is the container of its parent, every intermediate step is remembered too.
+3. **Every child of every node was fetched by index.** `childCount` plus `child(i)` crosses into native code once per
+   child; the array getter crosses once and unmarshals the list in JS. 20 % of the index was that loop.
+
+What is left is the walk itself: four traversals per file (captures, imports, exports, taint) over a tree whose nodes
+are individually marshalled. **Fusing those into one cursor-driven traversal is the next 30 %, and it is a change to
+the provider interface rather than to a helper** — the cursor exposes `nodeType` without materialising a node, which is
+where most of the remaining cost is.
+
 ---
 
 ## Key Design Principles

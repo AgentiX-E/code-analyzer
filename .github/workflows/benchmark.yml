@@ -108,6 +108,31 @@ jobs:
             echo "::warning::Detected $REGRESSIONS performance regression(s) — check the benchmark summary above."
           fi
 
+      - name: Measure this repository's own index
+        # **A benchmark that produces an artifact rather than a pass/fail.**
+        #
+        # It indexes `packages/` — 141 000 lines of this repository on this runner — and records seconds per million
+        # lines beside the phases that spent them. **It is deliberately not the competitor-facing figure**:
+        # `benchmarks/indexing-speed.json` is a third-party repository at a pinned tag, measured by
+        # `real-corpus-benchmark.yml`, and two producers writing one path let the last writer decide what the table
+        # cited.
+        #
+        # **And it left the unit suite because it is not a unit test.** It runs eighteen phases over 141 000 lines —
+        # 110 seconds and 1.3 GB before the parse cache landed — which is a load the coverage worker should not be
+        # asked to carry while it is instrumenting every file in the repository.
+        run: |
+          BENCHMARK_WRITE=1 npx vitest run --config vitest.bench.config.ts \
+            packages/analyzer/src/__tests__/indexing-speed.bench.ts 2>&1 | tee /tmp/indexing-self.log
+          grep -E '^INDEXING ' /tmp/indexing-self.log
+
+      - name: Upload the self-index artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexing-self-index
+          path: benchmarks/indexing-self-index.json
+          retention-days: 90
+
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@v4

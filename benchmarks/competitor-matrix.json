@@ -487,7 +487,7 @@
         { "path": ["valid"], "equals": false },
         { "path": ["completed"], "equals": false }
       ],
-      "note": "two producers write this file with two shapes: the test that times the pipeline records a rate, the workflow that times a clone records a bound beside `completed`. Either flag false means the number is a bound quoted where a rate belongs — and the rate excludes the embed phase, which `pipeline.includesEmbedding` states, so the comparison is against a pipeline that does not generate vectors"
+      "note": "one artifact, one producer: `real-corpus-benchmark.yml` clones a third-party repository at a pinned tag onto a GitHub runner and records `secondsPerMillionLines` beside `completed`. **The self-index figure that used to be written into this same path moved to `benchmarks/indexing-self-index.json`** \u2014 a different corpus on whatever machine ran the benchmark, which is a regression signal rather than a competitor comparison, and two producers on one path let the last writer decide what this table cited. `invalidWhen` still rejects a bound (`completed: false`) and a run that indexed nothing (`valid: false`)."
     },
     "tokens.reduction": {
       "category": "A",

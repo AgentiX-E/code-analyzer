@@ -18,7 +18,13 @@
 // which is an assumption and not a finding - a small corpus carries relatively more fixed cost, so the extrapolation
 // is pessimistic in one direction and unverified in both.
 //
-//   npx vitest run --config vitest.config.ts packages/analyzer/src/__tests__/indexing-speed.test.ts
+//   npx vitest run --config vitest.bench.config.ts packages/analyzer/src/__tests__/indexing-speed.bench.ts
+//
+// **A benchmark, not a unit test, and the artifact it writes says which corpus it measured.** It indexes this
+// repository's own `packages/` — 141 000 lines — on whatever machine runs it, which is a different claim from the
+// competitor-facing figure in `benchmarks/indexing-speed.json` (a real third-party repository at a pinned tag, on a
+// GitHub runner). Two producers writing one path meant the last writer decided what the table cited, and the two
+// shapes were not even the same JSON.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -32,7 +38,7 @@ import { createAllPhases } from '../pipeline/phases/index.js';
 import type { PipelineContext } from '@code-analyzer/shared';
 
 const ROOT = process.cwd();
-const ARTIFACT = resolve(ROOT, 'benchmarks/indexing-speed.json');
+const ARTIFACT = resolve(ROOT, 'benchmarks/indexing-self-index.json');
 const CORPUS = 'packages';
 
 interface Corpus {
@@ -140,7 +146,7 @@ describe('indexing speed', () => {
         : { ...artifact, valid: true };
     // **And the write goes through the recorder**, so an ordinary local run measures without overwriting the figure
     // the documentation quotes: `BENCHMARK_WRITE=1` is the statement that this run intends to publish one.
-    const recorded = recordArtifact('benchmarks/indexing-speed.json', body);
+    const recorded = recordArtifact('benchmarks/indexing-self-index.json', body);
     if (!recorded.written) {
       // eslint-disable-next-line no-console -- the figure this run produced, printed where the workflow reads it.
       console.log(`INDEXING-SPEED artifact ${recorded.because}`);

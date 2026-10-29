@@ -15,12 +15,25 @@
 // context assembled by a caller is a context that can omit what the pipeline requires. Every caller benefits from
 // one place doing it, and this file is what holds that place.
 
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { PipelineOrchestrator } from '../pipeline/orchestrator.js';
 import { createAllPhases } from '../pipeline/phases/index.js';
 
 import type { PipelineContext } from '@code-analyzer/shared';
+
+/**
+ * The corpus, and why it is a fixture rather than this repository.
+ *
+ * **The contract has nothing to do with the size of the tree it is proved on.** The test used to run the whole
+ * eighteen-phase pipeline over `process.cwd()` — twice — and the second run of `embed` is what pushed the worker past
+ * the runner's memory and ended the process with "Worker exited unexpectedly". **A unit test that needs the entire
+ * repository to prove that a channel exists is measuring the repository, not the channel.** Seven source files
+ * exercise the same six phases, in the same order, through the same code.
+ */
+const CORPUS = resolve(__dirname, 'fixtures/integration-project');
 
 /** A context as a caller would plausibly write one: the fields it knows about, and nothing else. */
 function callerContext(rootDir: string): PipelineContext {
@@ -39,7 +52,7 @@ describe('the orchestrator and a context a caller assembled', () => {
     const phases = createAllPhases();
     expect(phases.length).toBeGreaterThan(0);
 
-    const result = await new PipelineOrchestrator(phases).execute(callerContext(process.cwd()));
+    const result = await new PipelineOrchestrator(phases).execute(callerContext(CORPUS));
 
     // **No phase failed**, which is the whole assertion: a phase that threw is reported in `errors` and its status is
     // not `success`. Six of them did before the orchestrator guaranteed these two fields - this is the test that
@@ -52,7 +65,7 @@ describe('the orchestrator and a context a caller assembled', () => {
   }, 300_000);
 
   it('does not overwrite a channel or a graph the caller did supply', async () => {
-    const ctx = callerContext(process.cwd());
+    const ctx = callerContext(CORPUS);
     (ctx as { phaseData?: Map<string, unknown> }).phaseData = new Map([['pre', 'existing']]);
     await new PipelineOrchestrator(createAllPhases()).execute(ctx);
     // The orchestrator creates what is missing; it is not a place that resets what is there.

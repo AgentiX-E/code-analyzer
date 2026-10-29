@@ -40,7 +40,6 @@
     "packages/analyzer/src/__tests__/groovy-provider.test.ts": 1,
     "packages/analyzer/src/__tests__/hcl-provider.test.ts": 2,
     "packages/analyzer/src/__tests__/html-provider.test.ts": 4,
-    "packages/analyzer/src/__tests__/indexing-speed.test.ts": 2,
     "packages/analyzer/src/__tests__/java-resolver-fallback.test.ts": 1,
     "packages/analyzer/src/__tests__/java-resolver.test.ts": 2,
     "packages/analyzer/src/__tests__/javascript-provider.test.ts": 4,
@@ -412,6 +411,7 @@
     "packages/web/src/hooks/useApiHealth.ts": 3,
     "packages/web/src/hooks/useGraphStats.ts": 2,
     "packages/web/src/hooks/useSearch.ts": 1,
-    "packages/web/src/hooks/useToolList.ts": 2
+    "packages/web/src/hooks/useToolList.ts": 2,
+    "packages/analyzer/src/__tests__/indexing-speed.bench.ts": 2
   }
 }

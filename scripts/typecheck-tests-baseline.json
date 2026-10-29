@@ -10,10 +10,7 @@
     "claim that the errors are acceptable, and **the count is the number a fix has to bring down.**"
   ],
   "files": {
-    "packages/analyzer/src/__tests__/embed.test.ts": 18,
-    "packages/analyzer/src/__tests__/embedding-backend.test.ts": 10,
-    "tests/unit/scripts/real-ground-truth-gate.test.ts": 5,
-    "packages/analyzer/src/__tests__/indexing-speed.test.ts": 1,
-    "tests/fixtures/app-with-taint/src/config.ts": 1
+    "tests/fixtures/app-with-taint/src/config.ts": 1,
+    "tests/unit/scripts/real-ground-truth-gate.test.ts": 5
   }
 }

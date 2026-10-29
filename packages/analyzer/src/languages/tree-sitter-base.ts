@@ -202,6 +202,23 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected pendingDocComment: string | null = null;
 
   /**
+   * The nearest enclosing class-like node, per node range, for one file.
+   *
+   * **A capture asks for its container, and the answer is the same for every node that shares an ancestor.** The
+   * lookup is a climb through `node.parent`, each step a native call that re-marshals the node, and **measured on this
+   * repository's own TypeScript it was 23 % of a full index** — the single largest cost in the pipeline, larger than
+   * parsing the tree it was asked about.
+   *
+   * **Memoising by node range turns that into one climb per distinct ancestor rather than one per capture.** Forty
+   * methods in a class ask the same question about the same class; the first answer is stored and the rest are a map
+   * hit. Recursion is what makes the memo complete: the container of a node is the container of its parent unless the
+   * parent is one, so every intermediate node on the climb is remembered too.
+   *
+   * Cleared in `parse`, because a range means nothing outside the tree it came from.
+   */
+  protected containerCache: Map<string, TreeSitterSyntaxNode | null> = new Map();
+
+  /**
    * Whether the last `parse` gave up on the grammar and used the regex reader instead.
    *
    * **A fallback nobody reports is a different extraction wearing the same name.** When a grammar cannot read a file,
@@ -268,6 +285,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // Strip BOM (Byte Order Mark) and zero-width characters before parsing.
     const sanitized = this.sanitizeSource(source);
     this.filePath = filePath;
+    // **A container range is a fact about one tree**, so the memo cannot outlive the file it was built for.
+    this.containerCache.clear();
 
     if (!this.parser || !this.languageGrammar) {
       this.parseFellBack = true;
@@ -283,6 +302,16 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       // If the AST has parse errors, fall back to regex
       this.parseFellBack = true;
       return this.finishCaptures(this.fallbackParse(sanitized, filePath));
+    }
+
+    // **The tree this parse just built is the one the next question about this file needs.** `isExported` and
+    // `exportedNames` keep a cache keyed on the source they were handed, and they were handed the file's *original*
+    // source while `parse` had quietly parsed a **sanitised** copy — so the keys never matched, and every file was
+    // parsed twice. Only an unmodified source is interchangeable with its sanitised form; when the two differ the
+    // cache is left alone and the second reader parses what it asked about.
+    if (sanitized === source) {
+      this.parsedFor = source;
+      this.parsedTree = tree;
     }
 
     this.walkAndCapture(rootNode, captures);
@@ -321,7 +350,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractImports(source);
     }
 
-    const tree = this.parser.parse(source);
+    const tree = this.cachedTree(source)!;
     const rootNode = tree.rootNode;
     const imports: ParsedImport[] = [];
 
@@ -339,6 +368,34 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** The source the cached tree describes, compared by reference and length. */
   protected parsedFor: string | null = null;
 
+  /**
+   * The tree for `source`, parsed at most once.
+   *
+   * **The index asked the same file for its tree five times.** `parse` built one to walk for captures, `extractImports`
+   * built one for imports, and `extractTaintSources`, `extractTaintSinks` and `extractSanitizers` each built their own —
+   * so a file was parsed five times and four of those trees were thrown away immediately after one walk. **Measured on
+   * this repository's own TypeScript: parsing is a fifth of the parse phase, and the four discarded trees were most of
+   * that fifth.**
+   *
+   * **One key, one place.** `isExported` had its own copy of this cache and `exportedNames` a second, which is how the
+   * two of them came to agree with each other and disagree with `parse` — the trees they cached were built from the
+   * caller's source while `parse` had built its own from a sanitised copy, so the keys never matched and every file was
+   * parsed twice as well. Routing every reader through this method is what makes "parsed once" a property of the class
+   * rather than a claim about each method.
+   *
+   * Reference equality is the test, and it is the right one: every reader in the parse phase is handed the **same
+   * string object** the phase read from disk. A caller that builds an equal-but-distinct string gets a parse rather than
+   * a wrong answer, which is the only failure mode worth avoiding here.
+   */
+  protected cachedTree(source: string): TreeSitterTree | null {
+    if (this.parsedFor === source && this.parsedTree) return this.parsedTree;
+    if (!this.parser) return null;
+    const tree = this.parser.parse(source);
+    this.parsedFor = source;
+    this.parsedTree = tree;
+    return tree;
+  }
+
   isExported(source: string, symbolName: string): boolean {
     this.source = source;
 
@@ -352,23 +409,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // same text 776 times**, measured at **3,852ms** where a single parse is **37ms**. **A 1,237-line file with 138
     // captures took 411ms**, and the cost grows in both directions: more content means more captures *and* a dearer
     // parse. **A real repository at 142 files did not finish in ten minutes on a CI runner.**
-    //
-    // **Keyed on the source string rather than invalidated explicitly**, because `isExported` receives the source and
-    // has no other reason to know when it changed - and **a stale tree would be a wrong answer, while a repeated
-    // parse is only a slow one.** The comparison is a reference check first and a length check second, so the common
-    // case costs nothing: the `parse` phase passes **the same string object** it just parsed.
-    const cached =
-      this.parsedFor === source ||
-      (this.parsedFor !== null &&
-        this.parsedFor.length === source.length &&
-        this.parsedFor === source);
-    const tree = cached && this.parsedTree ? this.parsedTree : this.parser.parse(source);
-    if (!cached) {
-      this.parsedFor = source;
-      this.parsedTree = tree;
-    }
-    const rootNode = tree.rootNode;
-    return this.checkExported(rootNode, symbolName);
+    const tree = this.cachedTree(source)!;
+    return this.checkExported(tree.rootNode, symbolName);
   }
 
   // -----------------------------------------------------------------------
@@ -643,12 +685,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return names;
     }
     // **The same cached tree the predicate uses**, so a file parsed once is not parsed again here.
-    const tree =
-      this.parsedFor === source && this.parsedTree ? this.parsedTree : this.parser.parse(source);
-    if (!(this.parsedFor === source && this.parsedTree)) {
-      this.parsedFor = source;
-      this.parsedTree = tree;
-    }
+    const tree = this.cachedTree(source);
+    if (!tree) return names;
 
     const collect = (node: TreeSitterSyntaxNode): void => {
       // **Every identifier under an export statement**, because the exported name can be the declaration itself
@@ -699,24 +737,22 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Find the container (class/interface/enum) that encloses this node */
   protected findContainerNode(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
-    let parent = node.parent;
-    while (parent) {
-      const ptype = parent.type;
-      if (
-        ptype === 'class_declaration' ||
-        ptype === 'interface_declaration' ||
-        ptype === 'enum_declaration' ||
-        ptype === 'object_type' ||
-        ptype === 'class_definition' ||
-        ptype === 'struct_declaration' ||
-        ptype === 'impl_declaration' ||
-        ptype === 'record_declaration'
-      ) {
-        return parent;
-      }
-      parent = parent.parent;
-    }
-    return null;
+    const key = `${node.startIndex}:${node.endIndex}`;
+    const memo = this.containerCache.get(key);
+    if (memo !== undefined) return memo;
+
+    const parent = node.parent;
+    const found =
+      parent === null
+        ? null
+        : isContainerNodeType(parent.type)
+          ? parent
+          : this.findContainerNode(parent);
+
+    // **Every step of the climb is stored, not only the node that was asked about**, because two siblings share the
+    // ancestors above them and the second one would otherwise repeat the whole climb.
+    this.containerCache.set(key, found);
+    return found;
   }
 
   /** Extract the name from a container node */
@@ -789,7 +825,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // this.parser is only set after getTreeSitter() succeeds in the constructor,
     // so the module-level parser class is cached and guaranteed non-null here.
     const ParserClass = getTreeSitter();
-    const tree = this.parser.parse(source);
+    const tree = this.cachedTree(source)!;
     const query = new ParserClass.Query(this.languageGrammar, queryStr);
     return query.matches(tree.rootNode);
   }
@@ -801,7 +837,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   ): void {
     if (!this.parser) return;
 
-    const tree = this.parser.parse(source);
+    const tree = this.cachedTree(source)!;
     this.walkNode(tree.rootNode, 0, visitor);
   }
 
@@ -941,7 +977,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractTaintSources(source);
     }
 
-    const tree = this.parser.parse(source);
+    const tree = this.cachedTree(source)!;
     const sources: TaintSource[] = [];
     this.walkForTaintSources(tree.rootNode, sources);
     return sources;
@@ -966,7 +1002,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractTaintSinks(source);
     }
 
-    const tree = this.parser.parse(source);
+    const tree = this.cachedTree(source)!;
     const sinks: TaintSink[] = [];
     this.walkForTaintSinks(tree.rootNode, sinks);
     return sinks;
@@ -991,7 +1027,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractSanitizers(source);
     }
 
-    const tree = this.parser.parse(source);
+    const tree = this.cachedTree(source)!;
     const sanitizers: TaintSanitizer[] = [];
     this.walkForSanitizers(tree.rootNode, sanitizers);
     return sanitizers;
@@ -1060,6 +1096,29 @@ export function claimsTaintExtraction(provider: unknown): boolean {
     proto = Object.getPrototypeOf(proto) as Record<string, unknown>;
   }
   return proto['walkForTaintSources'] !== base['walkForTaintSources'];
+}
+
+/**
+ * Node types that can own a member, across the grammars this package speaks.
+ *
+ * **A set rather than a chain of comparisons, because the same list is consulted once per climbed ancestor** and the
+ * cost of the test matters as much as its answer. The list is exactly the one the climb used, unchanged: this change
+ * is about how many times the question is asked, not about the answer.
+ */
+const CONTAINER_NODE_TYPES: ReadonlySet<string> = new Set([
+  'class_declaration',
+  'interface_declaration',
+  'enum_declaration',
+  'object_type',
+  'class_definition',
+  'struct_declaration',
+  'impl_declaration',
+  'record_declaration',
+]);
+
+/** Whether a node type can own a member. */
+function isContainerNodeType(type: string): boolean {
+  return CONTAINER_NODE_TYPES.has(type);
 }
 
 /**
