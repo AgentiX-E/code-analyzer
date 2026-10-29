@@ -3,7 +3,11 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { scanTaint } from './taint-scan.js';
+
 import type { ParsedImport } from './provider.js';
+import type { CursorWalkable } from './syntax-cursor.js';
+import type { TaintCollections, TaintSite } from './taint-scan.js';
 import type { TaintSanitizer, TaintSink, TaintSource } from './tree-sitter-base.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
@@ -651,137 +655,184 @@ export const C_LIKE_TAINT_NODES: TaintNodeTypes = {
 };
 
 /**
- * Collect taint sources under `node`, one entry per expression.
+ * Every taint fact in a file, in one traversal.
  *
- * A single expression is often **both** a member and a call — `os.Getenv("K")` is a call whose callee the list holds
- * — and a nested member matches twice for the same term, `req.body.id` and the `req.body` inside it. Both arrive, so
- * the walk reports the same source twice. The wrapper drops the repeat and keeps whichever came first, which is the
- * outermost expression because the walk is pre-order.
+ * **A file was traversed three times - once per question - and each traversal materialised every node in the tree.**
+ * Measured on this repository's own TypeScript the three of them were **23 % of a full index**. The three questions
+ * name the same two node shapes, so the traversal is done once and each candidate is offered to all of them.
+ *
+ * **The collectors below are the ones that were there before, unchanged in what they match.** What moved is where the
+ * recursion lives: out of each collector and into `scanTaint`, which reads the tree through a cursor and so never
+ * builds a node for anything the vocabulary does not name. That is the whole of the saving - the rules themselves are
+ * the same rules, which is why the accuracy fixtures are the test.
  */
-export function collectCLikeTaintSources(
-  node: {
-    type: string;
-    text: string;
-    startPosition: { row: number };
-    childCount: number;
-    child(i: number): unknown;
-  },
-  sources: TaintSource[],
+export function collectCLikeTaint(
+  root: CursorWalkable,
   types: TaintNodeTypes = C_LIKE_TAINT_NODES,
   vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
-): void {
-  const before = sources.length;
-  walkTaintSources(node, sources, types, vocabulary);
+): TaintCollections {
+  const sources: TaintSource[] = [];
+  const sinks: TaintSink[] = [];
+  const sanitizers: TaintSanitizer[] = [];
+  const sanitizerList = vocabulary.sanitizers ?? C_LIKE_SANITIZERS;
 
-  const seen = new Set<string>();
-  const added = sources.splice(before);
-  for (const entry of added) {
-    const key = `${entry.line}|${entry.sourceType}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    sources.push(entry);
-  }
-}
+  scanTaint(root, {
+    memberTypes: types.member,
+    callTypes: types.call,
+    onMember: (site) => {
+      pushSourceFromMember(site, sources, vocabulary);
+      pushSanitizer(site, site.text, sanitizers, sanitizerList);
+    },
+    onCall: (site) => {
+      pushSourceFromCall(site, sources, vocabulary);
+      pushSink(site, sinks, vocabulary);
+      pushSanitizer(site, calleeOf(site.text), sanitizers, sanitizerList);
+    },
+  });
 
-function walkTaintSources(
-  node: {
-    type: string;
-    text: string;
-    startPosition: { row: number };
-    childCount: number;
-    child(i: number): unknown;
-  },
-  sources: TaintSource[],
-  types: TaintNodeTypes = C_LIKE_TAINT_NODES,
-  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
-): void {
-  if (types.member.includes(node.type)) {
-    const match = sourceFor(node.text, vocabulary);
-    if (match) {
-      sources.push({
-        name: node.text,
-        sourceType: match[1],
-        line: node.startPosition.row + 1,
-        text: node.text,
-        properties: {},
-      });
-    }
-  }
-
-  // A source can also be read by **calling** something. `System.getenv("KEY")` is where a Java program's
-  // environment arrives and `Environment.GetEnvironmentVariable("KEY")` is C#'s — neither has a member expression to
-  // match, which is why the Java, Go and C# overrides found nothing until this existed. The callee is taken the way
-  // the sink walk takes it, so `os.environ["KEY"]` and `os.getenv("KEY")` are both recognised.
-  if (types.call.includes(node.type)) {
-    const callee = calleeOf(node.text);
-    // No length guard: `sourceFor('')` matches nothing, so an empty callee falls through on its own — and a guard
-    // here would be a branch no call can take, which is the shape the coverage gate reports.
-    const match = sourceFor(callee, vocabulary);
-    if (match) {
-      sources.push({
-        name: callee,
-        sourceType: match[1],
-        line: node.startPosition.row + 1,
-        text: node.text,
-        properties: {},
-      });
-    }
-  }
-
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i) as Parameters<typeof collectCLikeTaintSources>[0] | null;
-    if (child) walkTaintSources(child, sources, types, vocabulary);
-  }
+  return { sources: dedupeSources(sources), sinks, sanitizers: dedupeSanitizers(sanitizers) };
 }
 
 /**
- * Collect taint sinks under `node`, in the shape `TaintSink` expects.
+ * A source read by a member expression, in the shape `TaintSource` expects.
  *
- * The match is on the last segment of the callee, so `db.query(...)` and `query(...)` are both recognised. The
+ * `name` is the source expression itself, not the variable that receives it. Naming the receiver would require
+ * following the assignment, which is a data-flow question this walk does not answer — and an invented name would be
+ * worse than the expression, which is at least true.
+ */
+function pushSourceFromMember(
+  site: TaintSite,
+  sources: TaintSource[],
+  vocabulary: TaintVocabulary,
+): void {
+  const match = sourceFor(site.text, vocabulary);
+  if (!match) return;
+  sources.push({
+    name: site.text,
+    sourceType: match[1],
+    line: site.line,
+    text: site.text,
+    properties: {},
+  });
+}
+
+/**
+ * A source read by **calling** something.
+ *
+ * `System.getenv("KEY")` is where a Java program's environment arrives and `Environment.GetEnvironmentVariable("KEY")`
+ * is C#'s — neither has a member expression to match, which is why the Java, Go and C# overrides found nothing until
+ * this existed. The callee is taken the way the sink walk takes it, so `os.environ["KEY"]` and `os.getenv("KEY")` are
+ * both recognised. No length guard: `sourceFor('')` matches nothing, so an empty callee falls through on its own.
+ */
+function pushSourceFromCall(
+  site: TaintSite,
+  sources: TaintSource[],
+  vocabulary: TaintVocabulary,
+): void {
+  const callee = calleeOf(site.text);
+  const match = sourceFor(callee, vocabulary);
+  if (!match) return;
+  sources.push({
+    name: callee,
+    sourceType: match[1],
+    line: site.line,
+    text: site.text,
+    properties: {},
+  });
+}
+
+/**
+ * A sink, matched on the last segment of the callee, so `db.query(...)` and `query(...)` are both recognised. The
  * full text is kept in `text`, so a caller that wants to distinguish them can.
  */
-export function collectCLikeTaintSinks(
-  node: {
-    type: string;
-    text: string;
-    startPosition: { row: number };
-    childCount: number;
-    child(i: number): unknown;
-  },
-  sinks: TaintSink[],
-  types: TaintNodeTypes = C_LIKE_TAINT_NODES,
-  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
-): void {
-  if (types.call.includes(node.type)) {
-    // The callee is everything before the **last** top-level `(`. Taking the first one truncates a chained call at
-    // its inner call: `Runtime.getRuntime().exec(cmd)` split at the first parenthesis is `Runtime.getRuntime`, whose
-    // last segment is `getRuntime` — which matches nothing. Java's sink case found this.
-    const callee = calleeOf(node.text);
-    const match = sinkFor(callee, vocabulary);
-    // **A call inside a call is the same statement, and the outer one is the call.** The walk arrives top down, so
-    // an existing sink whose text contains this node's is the outer call of a chain:
-    // `require('node:child_process').execSync(cmd).toString()` visits `execSync(cmd)` - which matches `execSync` -
-    // and then `require('node:child_process')`, which matches `require`. Reporting the inner one attributes the flow
-    // to a callee one level in, which is what the fixture showed.
-    const isInner = sinks.some(
-      (existing) =>
-        existing.line === node.startPosition.row + 1 && existing.text.includes(node.text),
-    );
-    if (match && callee.length > 0 && !isInner) {
-      sinks.push({
-        name: callee,
-        sinkType: match[1],
-        line: node.startPosition.row + 1,
-        text: node.text,
-        properties: {},
-      });
-    }
-  }
+function pushSink(site: TaintSite, sinks: TaintSink[], vocabulary: TaintVocabulary): void {
+  // The callee is everything before the **last** top-level `(`. Taking the first one truncates a chained call at
+  // its inner call: `Runtime.getRuntime().exec(cmd)` split at the first parenthesis is `Runtime.getRuntime`, whose
+  // last segment is `getRuntime` — which matches nothing. Java's sink case found this.
+  const callee = calleeOf(site.text);
+  const match = sinkFor(callee, vocabulary);
+  if (!match || callee.length === 0) return;
 
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i) as Parameters<typeof collectCLikeTaintSinks>[0] | null;
-    if (child) collectCLikeTaintSinks(child, sinks, types, vocabulary);
+  // **A call inside a call is the same statement, and the outer one is the call.** The walk arrives top down, so an
+  // existing sink whose text contains this node's is the outer call of a chain:
+  // `require('node:child_process').execSync(cmd).toString()` visits `execSync(cmd)` - which matches `execSync` -
+  // and then `require('node:child_process')`, which matches `require`. Reporting the inner one attributes the flow
+  // to a callee one level in, which is what the fixture showed.
+  const isInner = sinks.some(
+    (existing) => existing.line === site.line && existing.text.includes(site.text),
+  );
+  if (isInner) return;
+
+  sinks.push({
+    name: callee,
+    sinkType: match[1],
+    line: site.line,
+    text: site.text,
+    properties: {},
+  });
+}
+
+/**
+ * A neutraliser, in the shape `TaintSanitizer` expects, one entry per expression.
+ *
+ * The same two shapes as the sources: a call whose callee is a sanitizer, and a member whose text contains one. The
+ * last segment is what is matched, as it is for sinks, so `html.EscapeString(s)` resolves.
+ *
+ * **Filed on `site.statementLine`, not on the neutraliser's own line** — see `TaintSite`.
+ */
+function pushSanitizer(
+  site: TaintSite,
+  candidate: string,
+  sanitizers: TaintSanitizer[],
+  list: SanitizerVocabulary,
+): void {
+  if (candidate.length === 0) return;
+  const match = sanitizerFor(candidate, list);
+  if (!match) return;
+
+  const readArguments = argumentsOf(site.text);
+  sanitizers.push({
+    name: candidate,
+    sanitizerType: match[1],
+    line: site.statementLine,
+    text: site.text,
+    neutralizes: match[2],
+    // Absent, not empty, when the call's arguments cannot be read: the two are different analyses downstream.
+    ...(readArguments === undefined ? {} : { arguments: readArguments }),
+    properties: {},
+  });
+}
+
+/**
+ * One entry per line and kind, keeping the first.
+ *
+ * A single expression is often **both** a member and a call — `os.Getenv("K")` is a call whose callee the list holds
+ * — and a nested member matches twice for the same term, `req.body.id` and the `req.body` inside it. Both arrive, so
+ * the walk reports the same source twice. **The first is the outermost expression**, because the scan is pre-order.
+ */
+function dedupeSources(entries: TaintSource[]): TaintSource[] {
+  const seen = new Set<string>();
+  const kept: TaintSource[] = [];
+  for (const entry of entries) {
+    const key = `${entry.line}|${entry.sourceType}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(entry);
   }
+  return kept;
+}
+
+/** The same, for the neutralisers, keyed on the statement line they were filed under. */
+function dedupeSanitizers(entries: TaintSanitizer[]): TaintSanitizer[] {
+  const seen = new Set<string>();
+  const kept: TaintSanitizer[] = [];
+  for (const entry of entries) {
+    const key = `${String(entry.line)}|${entry.sanitizerType}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(entry);
+  }
+  return kept;
 }
 
 /**
@@ -818,37 +869,6 @@ function calleeOf(text: string): string {
 // ---------------------------------------------------------------------------
 // Sanitizers
 // ---------------------------------------------------------------------------
-
-/**
- * Collect taint sanitizers under `node`, in the shape `TaintSanitizer` expects, one entry per expression.
- *
- * The same two shapes as the sources: a call whose callee is a sanitizer, and a member whose text contains one. The
- * last segment is what is matched, as it is for sinks, so `html.EscapeString(s)` resolves.
- */
-export function collectCLikeTaintSanitizers(
-  node: {
-    type: string;
-    text: string;
-    startPosition: { row: number };
-    childCount: number;
-    child(i: number): unknown;
-  },
-  sanitizers: TaintSanitizer[],
-  types: TaintNodeTypes = C_LIKE_TAINT_NODES,
-  vocabulary: TaintVocabulary = C_LIKE_VOCABULARY,
-): void {
-  const seen = new Set<string>();
-  const before = sanitizers.length;
-  walkSanitizers(node, sanitizers, types, vocabulary.sanitizers ?? C_LIKE_SANITIZERS);
-
-  const added = sanitizers.splice(before);
-  for (const entry of added) {
-    const key = `${entry.line}|${entry.sanitizerType}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    sanitizers.push(entry);
-  }
-}
 
 function sanitizerFor(text: string, list: SanitizerVocabulary): SanitizerEntry | undefined {
   const simple = lastSegmentOf(text);
@@ -903,55 +923,6 @@ const RESERVED_IN_ARGUMENTS: ReadonlySet<string> = new Set([
   'Boolean',
   'Object',
 ]);
-
-function walkSanitizers(
-  node: {
-    type: string;
-    text: string;
-    startPosition: { row: number };
-    childCount: number;
-    child(i: number): unknown;
-  },
-  sanitizers: TaintSanitizer[],
-  types: TaintNodeTypes,
-  list: SanitizerVocabulary,
-  /**
-   * **A sanitizer is filed where its statement is filed, not where its own name is.**
-   *
-   * `response.getWriter()\n  .println(\n    "value: " + ESCAPE.encode(param))` is one statement. The sink and the
-   * tainted use of `param` are both filed on its first line — the key the CFG files facts under — and the encoder is
-   * two lines below. Keyed by its own line the encoder neutralised a statement that held neither the use nor the sink,
-   * so a flow the code had already made safe stayed live. **Measured, with the kind map in place**: see
-   * `benchmarks/owasp-benchmark.json`.
-   */
-  anchor?: number,
-): void {
-  const expression = types.member.includes(node.type) || types.call.includes(node.type);
-  const line = anchor ?? (expression ? node.startPosition.row + 1 : undefined);
-
-  if (expression) {
-    const candidate = types.call.includes(node.type) ? calleeOf(node.text) : node.text;
-    const match = candidate.length > 0 ? sanitizerFor(candidate, list) : undefined;
-    if (match) {
-      const readArguments = argumentsOf(node.text);
-      sanitizers.push({
-        name: candidate,
-        sanitizerType: match[1],
-        line: line ?? node.startPosition.row + 1,
-        text: node.text,
-        neutralizes: match[2],
-        // Absent, not empty, when the call's arguments cannot be read: the two are different analyses downstream.
-        ...(readArguments === undefined ? {} : { arguments: readArguments }),
-        properties: {},
-      });
-    }
-  }
-
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i) as Parameters<typeof walkSanitizers>[0] | null;
-    if (child) walkSanitizers(child, sanitizers, types, list, line);
-  }
-}
 
 /** The last segment of a name, splitting on `.` and on `->`. */
 function lastSegmentOf(name: string): string {

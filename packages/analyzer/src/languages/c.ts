@@ -2,22 +2,13 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import {
-  collectCLikeTaintSanitizers,
-  collectCLikeTaintSinks,
-  collectCLikeTaintSources,
-} from './base-c-like.js';
+import { collectCLikeTaint } from './base-c-like.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
-import type {
-  TaintSanitizer,
-  TreeSitterLanguage,
-  TreeSitterSyntaxNode,
-  TaintSink,
-  TaintSource,
-} from './tree-sitter-base.js';
+import type { TaintCollections } from './taint-scan.js';
+import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const C_EXTENSIONS = ['.c', '.h'];
@@ -505,19 +496,13 @@ export class CProvider extends TreeSitterBaseProvider {
   }
 
   // Taint sources and sinks. C and C++ are where a buffer overflow starts, and neither had a walk.
-  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
-    collectCLikeTaintSources(node, sources, C_TAINT_NODES);
-  }
-
-  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
-    collectCLikeTaintSinks(node, sinks, C_TAINT_NODES);
-  }
-
-  // Sanitizers. Nothing in this family recognised one before, so every finding was reported unsanitized.
-  protected override walkForSanitizers(
-    node: TreeSitterSyntaxNode,
-    sanitizers: TaintSanitizer[],
-  ): void {
-    collectCLikeTaintSanitizers(node, sanitizers, C_TAINT_NODES);
+  /**
+   * Taint, in one pass over the tree.
+   *
+   * **The three questions name the same two node shapes**, so the file is traversed once instead of three
+   * times - see `collectCLikeTaint`. The collector is the shared one; only the node names are this language's.
+   */
+  protected override collectTaint(root: TreeSitterSyntaxNode): TaintCollections {
+    return collectCLikeTaint(root, C_TAINT_NODES);
   }
 }

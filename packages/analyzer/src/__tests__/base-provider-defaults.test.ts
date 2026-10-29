@@ -102,14 +102,16 @@ describe('tree-sitter base defaults', () => {
   });
 
   it('derives the base class from a subclass the way the claim check walks', () => {
-    // The claim check compares the first prototype in the chain that owns `walkForTaintSources` against the base's
-    // own - so Kotlin (which does not override) must compare equal, and Go (which does) must not.
+    // The claim check compares the first prototype in the chain that owns either taint declaration against the base's
+    // own - so Kotlin (which declares neither) must compare equal, and Go (which hands its taint to the one-pass
+    // collector) must not.
     expect(
       Object.prototype.hasOwnProperty.call(KotlinProvider.prototype, 'walkForTaintSources'),
     ).toBe(false);
-    expect(Object.prototype.hasOwnProperty.call(GoProvider.prototype, 'walkForTaintSources')).toBe(
-      true,
+    expect(Object.prototype.hasOwnProperty.call(KotlinProvider.prototype, 'collectTaint')).toBe(
+      false,
     );
+    expect(Object.prototype.hasOwnProperty.call(GoProvider.prototype, 'collectTaint')).toBe(true);
     expect(Object.getPrototypeOf(KotlinProvider.prototype)).toBe(TreeSitterBaseProvider.prototype);
   });
 });

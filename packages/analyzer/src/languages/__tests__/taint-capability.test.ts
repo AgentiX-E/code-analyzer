@@ -33,8 +33,30 @@ function withADeclaredWalk<T extends object>(provider: T): T {
   return Object.assign(Object.create(proto) as object, provider) as T;
 }
 
+/**
+ * A parsed tree with a root and nothing under it.
+ *
+ * **`walk()` is part of the tree's contract now**, because the collectors read it through a cursor rather than through
+ * materialised nodes. A stub that offers `children` and no cursor is not a smaller tree, it is a different interface -
+ * which is the failure this replacement removes.
+ */
+function emptyTree(): { rootNode: Record<string, unknown> } {
+  const cursor = {
+    nodeType: 'program',
+    nodeText: '',
+    startIndex: 0,
+    endIndex: 0,
+    startPosition: { row: 0, column: 0 },
+    endPosition: { row: 0, column: 0 },
+    gotoFirstChild: () => false,
+    gotoNextSibling: () => false,
+    gotoParent: () => false,
+  };
+  return { rootNode: { type: 'program', children: [], text: '', walk: () => cursor } };
+}
+
 describe('the taint capability claim', () => {
-  it('is claimed by TypeScript, whose walks delegate to a real collector', async () => {
+  it('is claimed by TypeScript, whose one pass delegates to a real collector', async () => {
     const ts = await getOrLoadProvider('typescript');
     expect(ts).not.toBeNull();
     // **True, and that is the corrected finding**: it overrides the walks, so its cost is a real scan rather than
@@ -57,7 +79,7 @@ describe('the taint capability claim', () => {
     const counting = {
       parse: () => {
         parses += 1;
-        return { rootNode: { type: 'program', children: [], text: '' } };
+        return emptyTree();
       },
     };
 

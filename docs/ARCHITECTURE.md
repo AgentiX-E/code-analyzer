@@ -651,20 +651,20 @@ The `createWorkerPool` (`packages/infra/src/workers/pool.ts`) provides:
 
 ### What the index actually costs, phase by phase
 
-The target in the table above is a target. This is the measurement, and it is 805 seconds per million lines — thirteen
+The target in the table above is a target. This is the measurement, and it is **596 seconds per million lines** — ten
 times the target, and slower than the competitor figure this project quotes against itself. The number is published
 because a target nobody has reached is only useful beside the distance to it.
 
-| Corpus                                   | Lines   | Where         | Before                   | After                      | Change                              |
-| ---------------------------------------- | ------- | ------------- | ------------------------ | -------------------------- | ----------------------------------- |
-| `packages/analyzer/src` (profile corpus) | 29 532  | workstation   | 30.4 s, 2.5 GB RSS       | 24.5 s, 1.26 GB RSS        | −19 % time, −50 % memory            |
-| This repository's own `packages/`        | 141 183 | workstation   | 1028 s/M lines (144.8 s) | 805 s/M lines (113.6 s)    | −22 %                               |
-| This repository's own `packages/`        | 141 183 | GitHub runner | —                        | **606 s/M lines (85.7 s)** | the CI figure, from `benchmark.yml` |
+| Corpus                                   | Lines   | Where         | Before                   | One tree per file          | One pass for taint         |
+| ---------------------------------------- | ------- | ------------- | ------------------------ | -------------------------- | -------------------------- |
+| `packages/analyzer/src` (profile corpus) | 29 532  | workstation   | 30.4 s, 2.5 GB RSS       | 24.5 s, 1.26 GB RSS        | **19.9 s, 1.26 GB**        |
+| This repository's own `packages/`        | 141 183 | workstation   | 1028 s/M lines (144.8 s) | 805 s/M lines (113.6 s)    | **596 s/M lines (84.2 s)** |
+| This repository's own `packages/`        | 141 183 | GitHub runner | —                        | 606 s/M lines (85.7 s)     | (next run)                 |
 
-**The before-and-after pair is one machine's measurement and the runner figure is not comparable to either** — a
-runner is not a workstation, which is why the table keeps them apart rather than lining them up.
+**Every column is one machine's measurement, and the runner column is not comparable to the others** — a runner is not
+a workstation, which is why the table keeps them apart rather than lining them up.
 
-Three costs were removed, and each was found by profiling rather than by reading:
+Five costs were removed, and each was found by profiling rather than by reading:
 
 1. **A file was parsed five times.** `parse` built a tree to walk for captures; `extractImports` built one for imports;
    and `extractTaintSources`, `extractTaintSinks` and `extractSanitizers` each built their own and threw it away after
@@ -677,11 +677,22 @@ Three costs were removed, and each was found by profiling rather than by reading
    because the container of a node is the container of its parent, every intermediate step is remembered too.
 3. **Every child of every node was fetched by index.** `childCount` plus `child(i)` crosses into native code once per
    child; the array getter crosses once and unmarshals the list in JS. 20 % of the index was that loop.
+4. **The export walk descended the tree twice.** `exportedNames` found export statements with one recursion and then
+   re-descended each of them with a second — 15.4 % of the index. It now reads the tree through a **cursor**, which
+   reports `nodeType` and `nodeText` as plain values, and materialises nothing.
+5. **Taint analysis walked the file three times.** Sources, sinks and neutralisers each had their own traversal, and
+   each materialised every node to compare its type — 23 % of the index between them. The three questions name the same
+   two node shapes, so there is one pass now (`collectCLikeTaint` → `scanTaint`), and it materialises nothing either.
 
-What is left is the walk itself: four traversals per file (captures, imports, exports, taint) over a tree whose nodes
-are individually marshalled. **Fusing those into one cursor-driven traversal is the next 30 %, and it is a change to
-the provider interface rather than to a helper** — the cursor exposes `nodeType` without materialising a node, which is
-where most of the remaining cost is.
+**Both new walks are cheaper because the cursor is the only part of the API that does not build nodes.** Measured on
+553 134 nodes of this repository's own TypeScript: children-array traversal 1004 ms, cursor traversal reading only
+`nodeType` 217 ms. **A cursor that yields nodes is not the cheaper instrument** — the same walk written as
+`gotoFirstChild` + `currentNode` took 2220 ms, twice the array cost, which is why the two passes above are written to
+touch a node only when a rule names its type.
+
+What is left is the capture and import walks: **43 % of the remaining run**, all of it inside the TypeScript provider's
+own recursions, which still materialise every node to compare its type against a mapping table. **They are the same
+change again, and they are provider code rather than a helper** — which is why they are next and not done.
 
 ---
 

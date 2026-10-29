@@ -9,11 +9,11 @@
   "measuredAt": "2026-10-29",
   "corpus": {
     "path": "packages",
-    "files": 408,
-    "lines": 141183
+    "files": 410,
+    "lines": 141246
   },
-  "durationMs": 113634,
-  "secondsPerMillionLines": 804.87,
+  "durationMs": 84167,
+  "secondsPerMillionLines": 595.89,
   "extrapolated": true,
   "target": {
     "secondsPerMillionLines": 60,
@@ -23,8 +23,8 @@
     "phases": 18,
     "includesEmbedding": false,
     "status": "complete",
-    "graphFileCount": 1086,
-    "corpusFileCount": 408
+    "graphFileCount": 1090,
+    "corpusFileCount": 410
   },
   "valid": true
 }

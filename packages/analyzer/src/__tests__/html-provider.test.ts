@@ -39,6 +39,7 @@ function makeNode(
     parent: null,
     walk: () => ({
       nodeType: type,
+      nodeText: '',
       startIndex: 0,
       endIndex: 0,
       startPosition: { row: 0, column: 0 },
