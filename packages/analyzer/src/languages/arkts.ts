@@ -4,7 +4,11 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { TypeScriptProvider } from './typescript.js';
 
-import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  NodeTypeMapping,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 /**
@@ -46,8 +50,21 @@ export class ArkTSProvider extends TypeScriptProvider {
    * **an `if` around them would describe a grammar that does not exist.** The decorators and the accessibility
    * modifier sit beside the name and never replace it.
    */
-  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    if (node.type === 'struct_declaration') {
+  protected override captureTypes(mappings: NodeTypeMapping[]): ReadonlySet<string> {
+    // **The two productions the dialect adds**, which no TypeScript mapping names.
+    return new Set([
+      ...super.captureTypes(mappings),
+      'struct_declaration',
+      'public_field_definition',
+    ]);
+  }
+
+  protected override captureExtra(
+    node: TreeSitterSyntaxNode,
+    nodeType: string,
+    captures: UnifiedCapture[],
+  ): void {
+    if (nodeType === 'struct_declaration') {
       const name = node.childForFieldName('name')!;
       captures.push({
         tag: CAPTURE_TAGS.CLASS_DEF,
@@ -59,7 +76,7 @@ export class ArkTSProvider extends TypeScriptProvider {
         name: name.text,
         properties: { filePath: this.filePath, arktsStruct: 'true' },
       });
-    } else if (node.type === 'public_field_definition') {
+    } else if (nodeType === 'public_field_definition') {
       // **A component's state member**, which is **the thing a template binds to** - so **it belongs in the graph for the
       // same reason a field does in C#**: **a write to it is a write to something that is read elsewhere.**
       const name = node.childForFieldName('name')!;
@@ -74,7 +91,6 @@ export class ArkTSProvider extends TypeScriptProvider {
         properties: { filePath: this.filePath },
       });
     }
-    super.walkAndCapture(node, captures);
   }
 
   protected override loadGrammar(): TreeSitterLanguage | null {

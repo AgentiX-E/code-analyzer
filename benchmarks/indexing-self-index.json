@@ -10,10 +10,10 @@
   "corpus": {
     "path": "packages",
     "files": 410,
-    "lines": 141246
+    "lines": 141387
   },
-  "durationMs": 84167,
-  "secondsPerMillionLines": 595.89,
+  "durationMs": 61992,
+  "secondsPerMillionLines": 438.46,
   "extrapolated": true,
   "target": {
     "secondsPerMillionLines": 60,

@@ -141,6 +141,32 @@ interface TreeSitterParserClass {
   Query: new (language: TreeSitterLanguage, query: string) => TreeSitterQuery;
 }
 
+/**
+ * Node types that denote a call, across the grammars this package speaks.
+ *
+ * **A set, because the test is asked once per node by every walk that emits call sites**, and it is exported so a walk
+ * that reads types from a cursor can ask the same question without materialising the node it is asking about.
+ */
+export const CALL_NODE_TYPES: ReadonlySet<string> = new Set([
+  'call_expression',
+  'method_invocation',
+  'new_expression',
+  'function_call',
+  'member_call',
+  'call',
+  'invocation_expression',
+  'member_access_expression',
+  'postfix_unary_expression',
+  'binary_expression',
+  'method_call',
+  'explicit_constructor_invocation',
+  'prefix_expression',
+  'selector_expression',
+  'send',
+  'fcall',
+  'command',
+]);
+
 // ---------------------------------------------------------------------------
 // Dynamic import helpers with graceful fallback
 // ---------------------------------------------------------------------------
@@ -834,25 +860,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Check if a node type represents a call expression */
   protected isCallNodeType(nodeType: string): boolean {
-    return [
-      'call_expression',
-      'method_invocation',
-      'new_expression',
-      'function_call',
-      'member_call',
-      'call',
-      'invocation_expression',
-      'member_access_expression',
-      'postfix_unary_expression',
-      'binary_expression',
-      'method_call',
-      'explicit_constructor_invocation',
-      'prefix_expression',
-      'selector_expression',
-      'send',
-      'fcall',
-      'command',
-    ].includes(nodeType);
+    return CALL_NODE_TYPES.has(nodeType);
   }
 
   /** Emit a UnifiedCapture for a call site node */

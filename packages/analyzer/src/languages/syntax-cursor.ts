@@ -108,3 +108,14 @@ export function exportedNamesByCursor(root: CursorWalkable): Set<string> {
 
   return names;
 }
+
+/**
+ * The node the cursor is standing on.
+ *
+ * **Deliberately not a property of `TreeSitterTreeCursor`.** Reading it materialises the node, which is the whole cost
+ * this module exists to avoid; a walk that takes the plain interface therefore cannot do it by accident, and the two
+ * walks that need a node for the few positions a rule names say so here, once.
+ */
+export function cursorNode<T>(cursor: TreeSitterTreeCursor): T {
+  return (cursor as unknown as { readonly currentNode: T }).currentNode;
+}
