@@ -475,16 +475,17 @@ servlet cases, 1 415 of them real vulnerabilities — runs the engine over every
 itself scores: a case is flagged if the engine reports one live (unsanitised) flow in it, and the figure is
 `TPR - FPR`. `scripts/owasp-benchmark-gate.js` holds each per-category figure to its floor.
 
-| stage                                      | TPR    | FPR    | score  |
-| ------------------------------------------ | ------ | ------ | ------ |
-| shared vocabulary only                     | 0.1420 | 0.0838 | 0.0583 |
-| + servlet vocabulary                       | 0.2912 | 0.2264 | 0.0648 |
-| + four capture defects, released           | 0.2671 | 0.1955 | 0.0717 |
-| + statements anchored to a line            | 0.4530 | 0.3389 | 0.1141 |
-| + definitions accumulate                   | 0.6382 | 0.4687 | 0.1695 |
-| + rule families for the four non-flow axes | 0.8177 | 0.3698 | 0.4479 |
-| + a sink's destination decides its kind    | 0.8170 | 0.3042 | 0.5128 |
-| + constant conditions and dead arms        | 0.8170 | 0.1306 | 0.6864 |
+| stage                                              | TPR    | FPR    | score  |
+| -------------------------------------------------- | ------ | ------ | ------ |
+| shared vocabulary only                             | 0.1420 | 0.0838 | 0.0583 |
+| + servlet vocabulary                               | 0.2912 | 0.2264 | 0.0648 |
+| + four capture defects, released                   | 0.2671 | 0.1955 | 0.0717 |
+| + statements anchored to a line                    | 0.4530 | 0.3389 | 0.1141 |
+| + definitions accumulate                           | 0.6382 | 0.4687 | 0.1695 |
+| + rule families for the four non-flow axes         | 0.8177 | 0.3698 | 0.4479 |
+| + a sink's destination decides its kind            | 0.8170 | 0.3042 | 0.5128 |
+| + constant conditions and dead arms                | 0.8170 | 0.1306 | 0.6864 |
+| + a callee's returns decide what a call hands back | 0.8170 | 0.1155 | 0.7015 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
@@ -563,6 +564,50 @@ _text_ and detects `default` from the group's type. Fall-through is the difficul
 which arm leaves the switch: a `case` with no `break` runs into the next one, so every arm after the selected one stays
 reachable until an arm jumps out. **Nothing is closed when the subject or a label cannot be folded** — the arm it names
 may be the one that runs, and entering a fall-through chain in the middle makes everything after it reachable.
+
+### What a call hands back
+
+**`bar = helper(param)` was the corpus's largest remaining error, and the reason it was an error is that the question
+was being asked in the wrong function.** The propagator reads the statement as "a name was read, a name was written" and
+lets `bar` inherit `param` — sound, and useless in any codebase with a getter, a builder or an escaping wrapper between
+the input and the sink. Whether the argument survives the call is a fact about the callee's body, and no amount of
+caller-side reasoning can produce it.
+
+`return-summary.ts` asks the callee, once, and the answer is per **argument position**: the caller passes argument 1, the
+callee's argument 1 is whatever it declared second, and the position is the only handle the two agree on.
+`BindingEntry.parameterIndex` exists for that alone — the older rule ("the parameters are on the signature's first
+line") failed on every wrapped signature, and `doPost(HttpServletRequest request,\n HttpServletResponse response)`
+returned no parameters at all.
+
+Three things had to be true before any of it worked, and each was a defect that produced a plausible number:
+
+1. **The def→use index has to be keyed by binding, not by statement.** Two parameters declared on one line share a
+   statement index, so seeding `request` also delivered `param`'s uses and the summary answered for the wrong argument.
+2. **The verdict has to be looked up by the binding carrying the value**, not by the binding the statement writes —
+   the second is the caller's local, which no callee has a parameter for.
+3. **"No" is only available when the value never vanished.** `map.put("k", param)` reads the value and writes nothing,
+   and the collection hands it back through a `get` no def→use edge connects. The first version of the summary declared
+   such arguments clean, and 104 real vulnerabilities went quiet. `lost` records the positions where a value
+   disappeared into a call that writes no name, and a position with a loss cannot be answered negatively.
+
+The same walk answers the other direction, and this one had never been connected at all: **a callee that reads the
+input itself is a source for its caller.** `bar = helper(request)` passes a request object, not a tainted name, so
+nothing on the caller's side can find the value; the summary names the categories the callee's own returns hand back,
+and the pipeline seeds them where the call's result lands, carrying the callee's escapes with them. Measured on the
+corpus: **no case in OWASP Benchmark has such a callee** — 809 functions, none of them — so this half is verified by
+`callee-source-end-to-end.test.ts` rather than by a figure, and it is stated here as a capability with evidence rather
+than as a score.
+
+Measured: `score 0.6864 → 0.7015`, FPR 0.1306 → 0.1155, **true positives unchanged at 1 156**. Only `xss` moved —
+0.2105 → 0.1148, 44 false positives down to 24 — because a helper that escapes and returns is the shape the corpus
+writes for that category; in the other categories the helper either returns its argument or puts the value into a
+collection, and the second is protected by the `lost` rule. The flow subset moved 0.4955 → 0.5206 (FPR 0.2173 →
+0.1922) and the flow engine alone 0.3246 → 0.3397.
+
+**What is left is the container.** 150 of the 153 remaining false positives put the value into a map, a `StringBuilder`
+or an `Object[]` and take it out again, and no summary can answer that: the edge the value travels on is not a def→use
+edge, it is a field of an object this model does not track. A container model is the next question, and it is a bigger
+one than this — which is why the rule above exists rather than a guess.
 
 ## MCP Protocol Integration
 

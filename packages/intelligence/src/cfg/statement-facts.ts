@@ -81,6 +81,11 @@ export function buildStatementFacts(
     if (byName.has(capture.name)) continue;
 
     const index = bindings.length;
+    // **A parameter's position, when the provider recorded one.** It is the only thing a call site agrees with: the
+    // caller passes argument 1, and the callee's argument 1 is whatever it declared second.
+    const recorded = (capture.properties as { parameterIndex?: string } | undefined)
+      ?.parameterIndex;
+    const parameterIndex = recorded === undefined ? undefined : Number(recorded);
     bindings.push({
       index,
       name: capture.name,
@@ -90,6 +95,7 @@ export function buildStatementFacts(
       declLine: capture.startLine,
       declColumn: 0,
       synthetic: false,
+      ...(parameterIndex === undefined ? {} : { parameterIndex }),
     });
     byName.set(capture.name, index);
   }

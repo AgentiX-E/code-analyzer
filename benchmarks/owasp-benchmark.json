@@ -14,20 +14,20 @@
     "cases": 2740,
     "vulnerable": 1415,
     "truePositives": 1156,
-    "falsePositives": 173,
+    "falsePositives": 153,
     "tpr": 0.8169611307420495,
-    "fpr": 0.13056603773584904,
-    "score": 0.6863950930062004
+    "fpr": 0.11547169811320755,
+    "score": 0.7014894326288419
   },
   "taintSubset": {
     "category": "taint-subset",
     "cases": 1698,
     "vulnerable": 902,
     "truePositives": 643,
-    "falsePositives": 173,
+    "falsePositives": 153,
     "tpr": 0.7128603104212861,
-    "fpr": 0.21733668341708542,
-    "score": 0.4955236270042006
+    "fpr": 0.1922110552763819,
+    "score": 0.5206492551449041
   },
   "byEngine": {
     "flows": {
@@ -35,10 +35,10 @@
       "cases": 2740,
       "vulnerable": 1415,
       "truePositives": 644,
-      "falsePositives": 173,
+      "falsePositives": 153,
       "tpr": 0.4551236749116608,
-      "fpr": 0.13056603773584904,
-      "score": 0.32455763717581176
+      "fpr": 0.11547169811320755,
+      "score": 0.3396519767984532
     },
     "rules": {
       "category": "all",
@@ -157,11 +157,11 @@
       "cases": 455,
       "vulnerable": 246,
       "truePositives": 156,
-      "falsePositives": 44,
+      "falsePositives": 24,
       "tpr": 0.6341463414634146,
-      "fpr": 0.21052631578947367,
-      "score": 0.42362002567394097
+      "fpr": 0.11483253588516747,
+      "score": 0.5193138055782471
     }
   ],
-  "measuredAt": "2026-10-29T12:09:56.077Z"
+  "measuredAt": "2026-10-29T15:00:13.394Z"
 }

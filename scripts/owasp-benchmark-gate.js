@@ -26,19 +26,28 @@ const FILE = process.argv.includes('--file')
  *
  * **Both directions are stated for the categories the propagator answers.** A taint engine can buy recall by reporting
  * more, so a floor on TPR alone lets precision fall silently: `taintSubset.fpr` is the figure that says whether the
- * recall is real, and the constants below assume it. **The 0.1306 measured here is the constant-condition model** -
- * folding `(7 * 18) + num > 200 ? "constant" : param` to its reachable arm, which closed 230 of the corpus's 403
- * false positives without losing a single true one.
+ * recall is real, and the constants below assume it.
+ *
+ * **Two models produced the precision measured here, and both directions are held to the better one:**
+ *
+ *   - constant-condition folding — `(7 * 18) + num > 200 ? "constant" : param` to its reachable arm — closed 230 of the
+ *     corpus's 403 false positives without losing a single true one;
+ *   - the cross-function return summary closed a further 20, all of them `xss`, by asking the callee whether its
+ *     returns read the argument at all. **No true positive was lost**: the 104 that the same change put at risk were
+ *     values that vanish into a collection, and they are protected by the `lost` rule rather than by luck.
+ *
+ * So `overall.fpr` and `xss.fpr` are stated at what a summary-aware engine measures, not at what a conservative one
+ * measured: a regression to either model shows up as a figure above the ceiling rather than as a lower score.
  */
 const RULES = [
   ['overall.tpr', (r) => r.overall?.tpr, 0.8169],
-  ['overall.fpr', (r) => r.overall?.fpr, null, 0.131],
-  ['overall.score', (r) => r.overall?.score, 0.686],
+  ['overall.fpr', (r) => r.overall?.fpr, null, 0.116],
+  ['overall.score', (r) => r.overall?.score, 0.701],
   ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.7128],
   // **The category-weighted figure, and the one this engine is actually scored on.** Its TPR is lower than `overall`
   // because the four rule categories are not in it.
-  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.218],
-  ['taintSubset.score', (r) => r.taintSubset?.score, 0.495],
+  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.193],
+  ['taintSubset.score', (r) => r.taintSubset?.score, 0.52],
   // The four categories a flow cannot answer, which now have a rule family of their own. **One is set to 1.0**: a
   // rule names a construct, so a case in these categories that has the construct is found and one that does not is not,
   // and a floor below 1 would let the family lose a case without failing.
@@ -59,7 +68,7 @@ const RULES = [
   // the rule families contribute none, so `flows.fpr` and `overall.fpr` are the same number reached by two routes;
   // stating both keeps a rule family that starts reporting from hiding behind a flow engine that stopped.
   ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.4551],
-  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.131],
+  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.116],
   ['cmdi.tpr', (r) => category(r, 'cmdi')?.tpr, 0.6746],
   ['cmdi.fpr', (r) => category(r, 'cmdi')?.fpr, null, 0.136],
   // **`ldapi` had no floor at all**, which is how a category can reach 0.85 TPR in one commit and quietly halve in the
@@ -75,7 +84,7 @@ const RULES = [
   ['xpathi.tpr', (r) => category(r, 'xpathi')?.tpr, 0.9333],
   ['xpathi.fpr', (r) => category(r, 'xpathi')?.fpr, null, 0.15],
   ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.6341],
-  ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.211],
+  ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.115],
 ];
 
 function category(record, name) {

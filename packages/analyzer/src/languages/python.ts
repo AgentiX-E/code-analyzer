@@ -154,7 +154,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const list = namedChildrenOf(node).find((c) => c.type === 'parameters');
     if (!list) return;
-    for (const parameter of namedChildrenOf(list)) {
+    for (const [parameterIndex, parameter] of namedChildrenOf(list).entries()) {
       const direct = ['identifier'].includes(parameter.type) ? parameter : undefined;
       const wrapped =
         direct ?? namedChildrenOf(parameter).find((c) => ['identifier'].includes(c.type));
@@ -167,7 +167,9 @@ export class PythonProvider extends TreeSitterBaseProvider {
         startByte: wrapped.startIndex,
         endByte: wrapped.endIndex,
         name: wrapped.text,
-        properties: { filePath: this.filePath },
+        // **The position, which is the only handle a call site has on a parameter.** The caller passes argument 1;
+        // the callee's argument 1 is whatever it declared second.
+        properties: { filePath: this.filePath, parameterIndex: String(parameterIndex) },
       });
     }
   }
@@ -240,19 +242,29 @@ export class PythonProvider extends TreeSitterBaseProvider {
       }
       const args = node.child(1);
       if (args) {
-        for (const name of this.namesIn(args)) {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_ACCESS,
-            text: name.text,
-            startLine: name.startPosition.row + 1,
-            endLine: name.endPosition.row + 1,
-            startByte: name.startIndex,
-            endByte: name.endIndex,
-            name: name.text,
-            properties: { filePath: this.filePath },
-          });
+        // **The argument each name sits in**, because a callee's summary is a statement about an argument position
+        // and `f(a + b, c)` passes two arguments while reading three names.
+        for (const [argIndex, argument] of namedChildrenOf(args).entries()) {
+          for (const name of this.namesIn(argument)) {
+            captures.push({
+              tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+              text: name.text,
+              startLine: name.startPosition.row + 1,
+              endLine: name.endPosition.row + 1,
+              startByte: name.startIndex,
+              endByte: name.endIndex,
+              name: name.text,
+              properties: { filePath: this.filePath, argIndex: String(argIndex) },
+            });
+          }
         }
       }
+    } else if (nodeType === 'return_statement') {
+      // **The only place a value leaves a function, and nothing recorded it.** Without this arm a callee's returns
+      // read no names, so "does this parameter reach a return" could not be asked and every caller had to assume the
+      // answer was yes.
+      const value = node.child(1);
+      if (value) this.captureReturnAccesses(node, this.namesIn(value), captures);
     } else if (nodeType === 'expression_statement') {
       // A bare call stands as its own statement; its arguments are the uses that carry taint to a sink.
       const inner = node.child(0);

@@ -5,6 +5,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { extractConstantFacts } from './constant-fold.js';
+import { extractReturnLines } from './return-sites.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { exportedNamesByCursor } from './syntax-cursor.js';
 
@@ -743,6 +744,21 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   }
 
   /**
+   * The lines this file returns from, or `null` when the grammar's returns cannot be read.
+   *
+   * **Read through the same cached tree**, so asking costs one walk and no parse. A provider with no dialect answers
+   * `null` rather than an empty list: "this grammar has no returns I can see" and "this file has no returns" are the
+   * same sentence only to a reader who is not going to claim a function returns nothing.
+   */
+  extractReturnLines(source: string): readonly number[] | null {
+    const dialect = this.constantDialect();
+    if (!dialect || !this.parser || !this.languageGrammar) return null;
+    const tree = this.cachedTree(source);
+    if (!tree) return null;
+    return extractReturnLines(tree.rootNode, dialect);
+  }
+
+  /**
    * The node and field names this grammar uses for declarations, assignments and conditions.
    *
    * **Null means the grammar has no such productions**, which is true of JSON and YAML and is why the base declares
@@ -758,6 +774,34 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // a language-specific export check. The two providers that inherit this
     // default (html, json) have no export syntax, so no symbol is ever exported.
     return false;
+  }
+
+  /**
+   * Record the names a `return` reads, **anchored at the return's own line**.
+   *
+   * A return is one statement, and the question a summary asks of it is "does this parameter reach this line". The
+   * names inside a multi-line expression therefore all belong to the line the `return` keyword is on, which is the
+   * identity of the fact rather than the position of the text — the same statement-anchoring rule the Java provider
+   * applies to a wrapped argument list.
+   */
+  protected captureReturnAccesses(
+    returnNode: TreeSitterSyntaxNode,
+    names: readonly TreeSitterSyntaxNode[],
+    captures: UnifiedCapture[],
+  ): void {
+    const line = returnNode.startPosition.row + 1;
+    for (const name of names) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+        text: name.text,
+        startLine: line,
+        endLine: line,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
   }
 
   /** Extract the name identifier from a node */

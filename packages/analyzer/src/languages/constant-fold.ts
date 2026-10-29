@@ -76,6 +76,8 @@ export interface ConstantDialect {
   readonly switchCaseValueField: string;
   /** Nodes whose body is a scope of its own. */
   readonly callableTypes: readonly string[];
+  /** Nodes that hand a value back to the caller. */
+  readonly returnTypes: readonly string[];
   /** Fields that carry a declarator's name, tried in order. `init_declarator` uses `declarator`. */
   readonly declaratorNameFields: readonly string[];
   /** Field that carries a declarator's initial value. */
@@ -116,6 +118,9 @@ export const C_FAMILY_CONSTANTS: ConstantDialect = {
     'arrow_function',
     'local_function',
   ],
+  // `return_statement` is the spelling Java, JavaScript, TypeScript, Python, C, C++, C#, Go and PHP share. A grammar
+  // that spells it otherwise names its own, which is why this is a table entry rather than a constant in the walk.
+  returnTypes: ['return_statement'],
   declaratorNameFields: ['name', 'declarator'],
   declaratorValueField: 'value',
   assignmentLeftField: 'left',
@@ -326,7 +331,7 @@ function collect(
       return;
     }
 
-    if (type === 'return_statement') {
+    if (dialect.returnTypes.includes(type)) {
       const statement = cursorNode<TreeSitterSyntaxNode>(cursor);
       // A bare `return;` returns nothing, and nothing here has a value to fold.
       if (statement.namedChildCount === 0) return;

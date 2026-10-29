@@ -16,6 +16,7 @@ vi.mock('../security/taint-propagator.js', () => {
         functionName: cfg.functionName,
         filePath: cfg.filePath,
         findings: [],
+        returnFlows: [],
         sanitizerKills: 0,
         factsProcessed: 0,
         durationMs: 0,

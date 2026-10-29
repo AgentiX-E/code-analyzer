@@ -81,6 +81,9 @@ vi.mock('../security/taint-propagator.js', () => {
             confidence: 1,
           },
         ],
+        // **A return flow list is part of the result now**, because a mock that omits a required field is a mock
+        // asserting a shape the type does not have.
+        returnFlows: [],
         sanitizerKills: 0,
         factsProcessed: 0,
         durationMs: 0,

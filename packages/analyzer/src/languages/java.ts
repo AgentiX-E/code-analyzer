@@ -72,6 +72,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
     node: TreeSitterSyntaxNode,
     captures: UnifiedCapture[],
     anchorLine: number,
+    argIndex?: number,
   ): void {
     for (const name of this.namesUnder(node)) {
       captures.push({
@@ -82,8 +83,30 @@ export class JavaProvider extends TreeSitterBaseProvider {
         startByte: name.startIndex,
         endByte: name.endIndex,
         name: name.text,
-        properties: { filePath: this.filePath },
+        properties:
+          argIndex === undefined
+            ? { filePath: this.filePath }
+            : { filePath: this.filePath, argIndex: String(argIndex) },
       });
+    }
+  }
+
+  /**
+   * Record a call's arguments, **each name tagged with the argument it sits in**.
+   *
+   * Document order alone cannot say which argument a name belongs to, and the caller needs the position: a callee's
+   * summary is a statement about an *argument position*, so a name recorded without one cannot be matched to a
+   * parameter at all. `foo(a + b, c)` passes two arguments and reads three names, and only the position separates the
+   * first two from the third.
+   */
+  private captureArgumentAccesses(
+    list: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+    anchorLine: number,
+  ): void {
+    const argumentsOfCall = namedChildrenOf(list);
+    for (let index = 0; index < argumentsOfCall.length; index++) {
+      this.captureAccesses(argumentsOfCall[index]!, captures, anchorLine, index);
     }
   }
 
@@ -113,7 +136,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
             .filter((c) => c.type === 'variable_declarator')
             .map((declarator) => this.variableNameNode(declarator));
     });
-    for (const name of names) {
+    for (const [parameterIndex, name] of names.entries()) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
         text: name.text,
@@ -122,7 +145,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
         startByte: name.startIndex,
         endByte: name.endIndex,
         name: name.text,
-        properties: { filePath: this.filePath },
+        // **The position, which is the only handle a call site has on a parameter.** A caller passes argument 1 and
+        // the callee's argument 1 is whatever it declared second; without the ordinal the two cannot be matched, and
+        // the whole "does this argument reach this return" question has no answer.
+        properties: { filePath: this.filePath, parameterIndex: String(parameterIndex) },
       });
     }
   }
@@ -189,7 +215,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         name: nameNode.text,
         properties: { filePath: this.filePath },
       });
-      this.captureAccesses(node.childForFieldName('arguments')!, captures, line);
+      this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
     } else if (nodeType === 'enhanced_for_statement') {
       // **`for (Cookie theCookie : theCookies)` binds a name that every iteration writes**, and nothing recorded it.
       // The consequence was concrete: on OWASP Benchmark's cookie vector the chain from the request to the sink runs
@@ -261,6 +287,14 @@ export class JavaProvider extends TreeSitterBaseProvider {
         this.captureAccesses(left, captures, line);
       }
       this.captureAccesses(node.childForFieldName('right')!, captures, line);
+    } else if (nodeType === 'return_statement') {
+      // **The one place a value leaves a function, and nothing here recorded it.** Every other statement shape was
+      // captured - declarations, assignments, calls, loops, catches - so `return bar;` produced no capture at all and
+      // the callee's half of every inter-procedural question was structurally empty rather than unanswered. A bare
+      // `return;` hands nothing back and has no expression to read.
+      if (node.namedChildCount > 0) {
+        this.captureAccesses(node.namedChild(0), captures, line);
+      }
     } else if (nodeType === 'object_creation_expression') {
       // **`new File(fileName)` is where a path sink's argument is read**, and a constructor is not a
       // `method_invocation`, so nothing recorded the value being passed to it. The creation is recorded as a call as
@@ -278,7 +312,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         properties: { filePath: this.filePath },
       });
       // `new Foo()` always carries an `argument_list`, empty when the call passes nothing — the grammar requires it.
-      this.captureAccesses(node.childForFieldName('arguments')!, captures, line);
+      this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
     } else if (nodeType === 'expression_statement') {
       // **A bare name used as a statement**, which Java only permits as an assignment, an increment or a call - but
       // **a file being edited parses into shapes the language would reject**, and `x.y;` is a `field_access` rather

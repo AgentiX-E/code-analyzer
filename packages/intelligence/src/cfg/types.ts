@@ -70,6 +70,15 @@ export interface BindingEntry {
   readonly declColumn: number;
   /** Whether this is a synthetic binding (e.g., implicit 'this'). */
   readonly synthetic: boolean;
+  /**
+   * Position among the function's parameters, when the provider recorded it.
+   *
+   * **A parameter is an argument position, and position is the only thing a caller's call site agrees with.** The
+   * previous rule was "declared on the signature's first line", which is right for `void m(int a, int b)` and wrong
+   * for `void doPost(HttpServletRequest request,\n HttpServletResponse response)` — the wrapped signature every
+   * servlet in the corpus uses, where the parameters are declared on the *second* line and none were found at all.
+   */
+  readonly parameterIndex?: number;
 }
 
 /** A definition site (variable is assigned). */
@@ -102,6 +111,15 @@ export interface TaintSourceOccurrence {
   readonly description: string;
   /** Line of the source. */
   readonly line: number;
+  /**
+   * The function the value actually came from, when this file received it rather than read it.
+   *
+   * **A callee's own read is a source in its caller, and the caller is not where it happened.** `bar = helper(request)`
+   * puts a tainted value at the caller's binding, and reporting that as a flow that starts in the caller is a flow
+   * whose origin a reader cannot find - the line the report names holds a call, not a read. Absent means the source is
+   * this file's own.
+   */
+  readonly origin?: string;
 }
 
 /** A single matched sink occurrence in the code. */
@@ -164,6 +182,16 @@ export interface StatementFacts {
    * that share no definition and no sink. Absent means nothing is known to be dead.
    */
   readonly unreachableLines?: ReadonlySet<number>;
+  /**
+   * 1-based lines that hand a value back to the caller.
+   *
+   * **Nobody recorded a `return` until this existed.** Every provider captured declarations, assignments, calls and
+   * loops; `return bar;` captured nothing at all, so the value a function gives back had no use site, no name could be
+   * seen leaving a function, and the whole inter-procedural return channel was empty by construction rather than by
+   * policy. **Absent means the provider cannot read returns**, and an analysis must then say nothing about what a call
+   * returns — which is the conservative direction, and different from a function with no return at all.
+   */
+  readonly returnLines?: ReadonlySet<number>;
 }
 
 /** A complete function CFG with all analysis data. */
@@ -278,6 +306,16 @@ export interface TaintFlowFinding {
   readonly confidence: number;
 }
 
+/** One value a function hands back, and what it carries. */
+export interface TaintReturnFlow {
+  /** The occurrence that introduced the value. */
+  readonly source: TaintSourceOccurrence;
+  /** 1-based line of the `return` that hands it back. */
+  readonly line: number;
+  /** Sink kinds neutralised on every path from the source to this return. */
+  readonly neutralized: ReadonlySet<string>;
+}
+
 /** Taint analysis result for a function. */
 export interface TaintFunctionResult {
   /** Function name. */
@@ -286,6 +324,14 @@ export interface TaintFunctionResult {
   readonly filePath: string;
   /** Taint flow findings. */
   readonly findings: readonly TaintFlowFinding[];
+  /**
+   * Every `return` a tracked value can leave by.
+   *
+   * This is the callee half of every inter-procedural question, and it is the half that could not be asked before:
+   * `bar = helper(param)` is only precise when the callee can say whether its own returns read `param`, and the only
+   * place that answer exists is inside the callee.
+   */
+  readonly returnFlows: readonly TaintReturnFlow[];
   /** Sanitizer kills found. */
   readonly sanitizerKills: number;
   /** Total def→use facts processed. */

@@ -28,8 +28,12 @@ const tsGlobs = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.d.ts'];
  * **Every other type in a file is skipped for the price of one `Set.has`**, which is what lets the walk read the tree
  * through a cursor instead of materialising it. The set is built from the mapping table plus the types whose arms do
  * not go through a mapping: `lexical_declaration` carries the `const`/`let` bindings, `import_statement` is a capture
- * of its own, `arrow_function` is named by the declarator above it, and the parameter arm hangs off the two declarations
- * that can own parameters.
+ * of its own, `arrow_function` is named by the declarator above it, the parameter arm hangs off the two declarations
+ * that can own parameters, and `return_statement` is the only place a value leaves a function.
+ *
+ * **`return_statement` was in the arm and not in this set**, so the arm never ran: the walk never stopped at a return,
+ * no name was recorded as leaving, and every TypeScript callee answered "no return reads this parameter" — the one
+ * answer a summary must not give by accident. An arm outside the set is a comment, not code.
  */
 function captureTypesFor(mappings: NodeTypeMapping[]): ReadonlySet<string> {
   const types = new Set<string>(CALL_NODE_TYPES);
@@ -39,6 +43,7 @@ function captureTypesFor(mappings: NodeTypeMapping[]): ReadonlySet<string> {
   types.add('arrow_function');
   types.add('function_declaration');
   types.add('method_definition');
+  types.add('return_statement');
   return types;
 }
 
@@ -278,19 +283,25 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // `function inner(x) { db.query(x) }` - was written as `-1` and could never be matched to the taint the wave
     // carries as "parameter 0 of inner". Emitting a def per parameter is what puts it in that map.
     if (nodeType === 'function_declaration' || nodeType === 'method_definition') {
-      const params = namedChildrenOf(node).find((c) => c.type === 'formal_parameters');
-      if (params) {
-        for (const parameter of namedChildrenOf(params)) {
-          // A parameter is a `required_parameter` (or an `optional_parameter`) wrapping the name, not a bare
-          // identifier - which is why the first version of this arm emitted nothing for `function inner(x)`.
-          const parameterName =
-            parameter.type === 'identifier'
-              ? parameter
-              : namedChildrenOf(parameter).find((c) => c.type === 'identifier');
+      // **A declaration of either kind always carries `formal_parameters`.** Error recovery replaces the whole
+      // declaration with an `ERROR` node rather than handing one over without a parameter list, so the arm reads the
+      // lists it finds instead of guarding for a shape the grammar cannot produce.
+      for (const params of namedChildrenOf(node).filter(
+        (child) => child.type === 'formal_parameters',
+      )) {
+        for (const [parameterIndex, parameter] of namedChildrenOf(params).entries()) {
+          // **A TypeScript parameter is always wrapped** - `required_parameter` or `optional_parameter` - so the name
+          // is a child and never the node itself; a bare `identifier` parameter is the JavaScript grammar's shape, and
+          // it is `JavaScriptProvider` that reads it. A destructured parameter has no name of its own and is skipped.
+          const parameterName = namedChildrenOf(parameter).find((c) => c.type === 'identifier');
           if (parameterName) {
-            captures.push(
-              this.buildCapture(parameterName, CAPTURE_TAGS.VARIABLE_DEF, parameterName),
-            );
+            // **The position, so a call site's argument can be matched to it.** `buildCapture` has no place for a
+            // property, so the two fields it needs are composed here rather than added to a helper every other caller
+            // would then have to ignore.
+            captures.push({
+              ...this.buildCapture(parameterName, CAPTURE_TAGS.VARIABLE_DEF, parameterName),
+              properties: { filePath: this.filePath, parameterIndex: String(parameterIndex) },
+            });
           }
         }
       }
@@ -299,34 +310,40 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // **The use side, which TypeScript never emitted.** It recorded a definition, a constant and a call, and nothing
     // that says a name is *used* - so the pipeline had a definition and no use to follow and produced no finding.
     if (nodeType === 'call_expression') {
+      // **A call expression always has its callee and its argument list** - the type says so, and `foo` / `foo(` parse
+      // to an `ERROR` node rather than to a call missing either - so both children are read rather than checked.
       const callee = node.child(0);
-      if (callee) {
-        const isMethod = callee.type === 'member_expression';
-        captures.push(
-          this.buildCapture(
-            node,
-            isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
-            callee,
-          ),
-        );
-      }
+      const isMethod = callee.type === 'member_expression';
+      captures.push(
+        this.buildCapture(
+          node,
+          isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+          callee,
+        ),
+      );
       const args = node.child(1);
-      if (args) {
-        // **Every name in an argument, not only the ones written bare.** `db.query(id + suffix)` passes taint
-        // through an expression, and recording only the direct identifier children left the sink statement
-        // contributing no use - a flow that stops one statement before the sink.
-        for (const [argIndex, argument] of namedChildrenOf(args).entries()) {
-          for (const name of this.namesIn(argument)) {
-            // **The argument the name sits in.** A template literal with two substitutions is ONE argument, and
-            // without this its two names were counted as two - so the taint was held to be at a position the callee
-            // has no parameter for, and the flow reached no sink.
-            captures.push({
-              ...this.buildCapture(name, CAPTURE_TAGS.VARIABLE_ACCESS, name),
-              properties: { filePath: this.filePath, argIndex: String(argIndex) },
-            });
-          }
+      // **Every name in an argument, not only the ones written bare.** `db.query(id + suffix)` passes taint through
+      // an expression, and recording only the direct identifier children left the sink statement contributing no use -
+      // a flow that stops one statement before the sink.
+      for (const [argIndex, argument] of namedChildrenOf(args).entries()) {
+        for (const name of this.namesIn(argument)) {
+          // **The argument the name sits in.** A template literal with two substitutions is ONE argument, and without
+          // this its two names were counted as two - so the taint was held to be at a position the callee has no
+          // parameter for, and the flow reached no sink.
+          captures.push({
+            ...this.buildCapture(name, CAPTURE_TAGS.VARIABLE_ACCESS, name),
+            properties: { filePath: this.filePath, argIndex: String(argIndex) },
+          });
         }
       }
+    }
+
+    if (nodeType === 'return_statement') {
+      // **The only place a value leaves a function.** Nothing in this provider recorded a return either, so a
+      // callee's returns read no names and the caller had to assume every argument reached every result. A bare
+      // `return;` names nothing, which is why the list of names can be empty and needs no guard.
+      const value = namedChildrenOf(node)[0];
+      if (value !== undefined) this.captureReturnAccesses(node, this.namesIn(value), captures);
     }
 
     if (nodeType === 'import_statement') {

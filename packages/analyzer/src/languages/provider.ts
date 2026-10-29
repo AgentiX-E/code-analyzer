@@ -54,5 +54,17 @@ export interface LanguageProvider {
    */
   extractConstantFacts?(source: string): ConstantFacts;
 
+  /**
+   * The lines this file hands a value back to its caller from, or `null` when the grammar's returns cannot be read.
+   *
+   * **`null` and `[]` are different answers and the difference is the whole point.** An empty list is a file whose
+   * functions all return nothing; `null` is a file this provider cannot answer for. A caller may stop assuming that a
+   * call passes its argument through only in the first case, because only there is "the callee's returns do not read
+   * this parameter" a fact rather than a gap.
+   *
+   * Optional, and absent means the same as `null` - the conservative direction.
+   */
+  extractReturnLines?(source: string): readonly number[] | null;
+
   readonly importSemantics: ImportSemantics;
 }

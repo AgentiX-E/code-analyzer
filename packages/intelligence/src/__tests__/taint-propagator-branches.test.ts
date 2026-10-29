@@ -402,3 +402,220 @@ describe('TaintPropagator monotone re-derivation', () => {
     expect(result.sanitizerKills).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Seeds, caps and per-value neutralisation
+// ---------------------------------------------------------------------------
+
+/** One block of the fan-out fixture: what it defines, and the occurrences filed on it. */
+interface FanSpec {
+  readonly defs?: readonly number[];
+  readonly sink?: { kind: string; line: number };
+  readonly source?: TaintSourceOccurrence;
+  readonly sanitizers?: readonly SanitizerOccurrence[];
+}
+
+/** Records the occurrences of a fixture the way `buildFunctionCfgs` lays them out: one key per statement. */
+function fanCfg(specs: readonly FanSpec[], bindingNames: readonly string[]): FunctionCfg {
+  const defs = new Map<
+    number,
+    Array<{
+      point: { blockIndex: number; stmtIndex: number; line: number };
+      bindingIdx: number;
+      kind: 'must';
+    }>
+  >();
+  const sinkSites = new Map<number, TaintSinkOccurrence>();
+  const sourceSites = new Map<number, TaintSourceOccurrence>();
+  const sanitizerSites = new Map<number, SanitizerOccurrence>();
+
+  specs.forEach((spec, index) => {
+    const key = index * 1024 + index;
+    if (spec.defs) {
+      defs.set(
+        key,
+        spec.defs.map((bindingIdx) => ({
+          point: { blockIndex: index, stmtIndex: index, line: index + 1 },
+          bindingIdx,
+          kind: 'must' as const,
+        })),
+      );
+    }
+    if (spec.sink) {
+      sinkSites.set(key, {
+        point: { blockIndex: index, stmtIndex: index, line: spec.sink.line },
+        kind: spec.sink.kind,
+        description: spec.sink.kind,
+        line: spec.sink.line,
+      });
+    }
+    if (spec.source) sourceSites.set(key, spec.source);
+    // `sanitizerSites` holds one occurrence per statement, which is the shape the type imposes.
+    const sanitizer = spec.sanitizers?.[spec.sanitizers.length - 1];
+    if (sanitizer) sanitizerSites.set(key, sanitizer);
+  });
+
+  const blocks = specs.map((_spec, index) => ({
+    index,
+    startLine: index + 1,
+    endLine: index + 1,
+    statementCount: 1,
+    isEntry: index === 0,
+    isExit: index === specs.length - 1,
+  }));
+
+  return {
+    functionName: 'fanFn',
+    filePath: 'f.ts',
+    startLine: 1,
+    startColumn: 1,
+    blocks,
+    edges: blocks
+      .slice(0, -1)
+      .map((block) => ({ from: block.index, to: block.index + 1, kind: 'seq' as const })),
+    bindings: bindingNames.map((name, index) => ({
+      index,
+      name,
+      kind: 'local' as const,
+      declLine: 1,
+      declColumn: 1,
+      synthetic: false,
+    })),
+    stmtFacts: {
+      defs,
+      uses: new Map(),
+      sourceSites,
+      sinkSites,
+      sanitizerSites,
+    },
+    entryIndex: 0,
+    exitIndex: specs.length - 1,
+  };
+}
+
+/** The value written at block `def` is read at block `use`. */
+function fanFact(def: number, use: number, bindingIdx: number, bindingName: string): DefUseFact {
+  return {
+    bindingIdx,
+    bindingName,
+    def: { blockIndex: def, stmtIndex: def, line: def + 1 },
+    use: { blockIndex: use, stmtIndex: use, line: use + 1 },
+  };
+}
+
+describe('TaintPropagator seeds and finding budget', () => {
+  it('seeds only the bindings the caller asked about', () => {
+    // **A parameter's taint is asked one parameter at a time.** `doSomething(request, param)` writes both names on one
+    // statement, and seeding both makes "argument 1 reaches the sink" indistinguishable from "argument 0 does".
+    const cfg = fanCfg(
+      [
+        {
+          defs: [0, 1],
+          source: {
+            point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+            bindingIdx: 0,
+            category: 'remote-input',
+            description: 'request',
+            line: 1,
+          },
+        },
+        {},
+        { sink: { kind: 'sql-injection', line: 3 } },
+        { sink: { kind: 'xss', line: 4 } },
+      ],
+      ['request', 'param', 'query', 'body'],
+    );
+    const facts = [fanFact(0, 2, 0, 'request'), fanFact(0, 3, 1, 'param')];
+
+    const all = new TaintPropagator().analyze(cfg, facts);
+    const onlyParam = new TaintPropagator().analyze(cfg, facts, { seedBindings: new Set([1]) });
+
+    expect(all.findings.map((finding) => finding.sink.kind).sort()).toEqual([
+      'sql-injection',
+      'xss',
+    ]);
+    expect(onlyParam.findings.map((finding) => finding.sink.kind)).toEqual(['xss']);
+  });
+
+  it('bounds the flows a reader is shown, and only the live ones', () => {
+    // The cap exists so one source cannot fill a page: the first live flow is kept and the second is dropped, while a
+    // neutralised flow is always reported - it is the evidence that the engine considered and cleared the value.
+    const specs: readonly FanSpec[] = [
+      {
+        defs: [0],
+        source: {
+          point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+          bindingIdx: 0,
+          category: 'remote-input',
+          description: 'request',
+          line: 1,
+        },
+      },
+      { sink: { kind: 'sql-injection', line: 2 } },
+      { sink: { kind: 'xss', line: 3 } },
+    ];
+    const cfg = fanCfg(specs, ['request', 'query', 'body']);
+    const facts = [fanFact(0, 1, 0, 'request'), fanFact(0, 2, 0, 'request')];
+
+    const capped = new TaintPropagator({ maxFindingsPerSource: 1 }).analyze(cfg, facts);
+    expect(capped.findings).toHaveLength(1);
+    expect(capped.findings[0]!.sink.kind).toBe('sql-injection');
+  });
+
+  it('seeds nothing for a parameter the statement does not declare', () => {
+    // A `parameter` source names exactly one binding, and a source whose binding the statement does not write cannot be
+    // asked about — the alternative is to seed whatever the statement did write and answer for the wrong argument.
+    // The statement writes two names and neither of them is the parameter asked about: the source names a binding the
+    // function does not have, so there is nothing to seed - and seeding the names that *are* written would answer for the
+    // wrong argument, which is the one thing a position-keyed summary must never do.
+    const cfg = fanCfg([{ defs: [0, 1] }, { sink: { kind: 'xss', line: 2 } }], ['request', 'body']);
+    const result = new TaintPropagator().analyze(cfg, [], {
+      extraSources: [
+        {
+          occurrence: {
+            point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+            bindingIdx: 7,
+            category: 'parameter',
+            description: 'argument 7',
+            line: 1,
+          },
+        },
+      ],
+    });
+
+    expect(result.findings).toHaveLength(0);
+    expect(result.factsProcessed).toBe(0);
+  });
+
+  it('does not call a statement-local flow neutralised when the neutraliser names another value', () => {
+    // `db.query(escape(other), param)` is one statement: source and sink share it, and the escape applies to `other`.
+    const cfg = fanCfg(
+      [
+        {
+          defs: [0],
+          source: {
+            point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+            bindingIdx: 0,
+            category: 'remote-input',
+            description: 'request',
+            line: 1,
+          },
+          sink: { kind: 'sql-injection', line: 1 },
+          sanitizers: [
+            {
+              point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+              neutralizedKinds: new Set(['sql-injection']),
+              neutralizedNames: new Set(['other']),
+              description: 'escape',
+            },
+          ],
+        },
+      ],
+      ['param'],
+    );
+
+    const result = new TaintPropagator().analyze(cfg, []);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]!.sanitized).toBe(false);
+  });
+});

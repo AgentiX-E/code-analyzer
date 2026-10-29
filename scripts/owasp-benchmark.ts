@@ -239,6 +239,10 @@ function main(): void {
           sinks: extractedSinks,
           sanitizers: provider.extractSanitizers(code),
           constants: provider.extractConstantFacts(code),
+          // **What the file hands back, which is the callee's half of every call.** Without it a caller's
+          // `bar = new Test().doSomething(request, param)` can only be answered by "the statement read a tainted
+          // name", which charges the caller for a helper that ignores its argument.
+          returnLines: provider.extractReturnLines(code),
         },
       ],
     ]);

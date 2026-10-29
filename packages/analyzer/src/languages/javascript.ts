@@ -40,7 +40,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters');
     if (!list) return;
-    for (const parameter of namedChildrenOf(list)) {
+    for (const [parameterIndex, parameter] of namedChildrenOf(list).entries()) {
       const name =
         parameter.type === 'identifier'
           ? parameter
@@ -54,9 +54,25 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         startByte: name.startIndex,
         endByte: name.endIndex,
         name: name.text,
-        properties: { filePath: this.filePath },
+        // **The position, which is the only handle a call site has on a parameter**: the caller passes argument 1 and
+        // the callee's argument 1 is whatever it declared second.
+        properties: { filePath: this.filePath, parameterIndex: String(parameterIndex) },
       });
     }
+  }
+
+  /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
+  private namesIn(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (current.type === 'identifier') {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
@@ -180,7 +196,10 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       // children and captured nothing, which the end-to-end test reported as `uses` still being empty.
       for (const child of namedChildrenOf(node)) {
         if (child.type !== 'arguments') continue;
-        for (const argument of namedChildrenOf(child)) {
+        // **Each argument carries its position**, because a callee's summary is a statement about an argument
+        // position: `f(a + b, c)` passes two arguments while reading three names, and `undefined` is what a call site
+        // that recorded no position leaves the analysis with.
+        for (const [argIndex, argument] of namedChildrenOf(child).entries()) {
           if (argument.type !== 'identifier') continue;
           captures.push({
             tag: CAPTURE_TAGS.VARIABLE_ACCESS,
@@ -190,10 +209,15 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
             startByte: argument.startIndex,
             endByte: argument.endIndex,
             name: argument.text,
-            properties: { filePath: this.filePath },
+            properties: { filePath: this.filePath, argIndex: String(argIndex) },
           });
         }
       }
+    } else if (nodeType === 'return_statement') {
+      // **The only place a value leaves a function.** Nothing recorded a return, so no name could be seen leaving a
+      // function and the callee half of every inter-procedural question was empty by construction.
+      const value = namedChildrenOf(node)[0];
+      if (value) this.captureReturnAccesses(node, this.namesIn(value), captures);
     } else if (nodeType === 'comment') {
       if (node.text.startsWith('/**')) {
         captures.push({

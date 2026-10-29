@@ -511,6 +511,55 @@ describe('TypeScriptProvider', () => {
     });
   });
 
+  describe('parameters, arguments and returns — the three facts an inter-procedural flow needs', () => {
+    it('records the position each parameter is declared at', () => {
+      // **A call site passes argument 1; the callee declares argument 1 second.** The position is the only handle the
+      // two sides agree on, and without it a call's value could not be matched to the parameter it lands in.
+      const captures = provider.parse('function inner(x: string, y: number): void {}', 'test.ts');
+      const parameters = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(parameters.map((c) => c.name)).toEqual(['x', 'y']);
+      expect(parameters.map((c) => c.properties?.['parameterIndex'])).toEqual(['0', '1']);
+    });
+
+    it('records the argument each name sits in', () => {
+      // `run(a + b, `x${c}`)` is two arguments holding three names; a flow that lands on the wrong one reaches a
+      // parameter the callee does not have.
+      const captures = provider.parse('run(a + b, `x${c}`);', 'test.ts');
+      const accesses = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_ACCESS);
+      const byName = new Map(accesses.map((c) => [c.name, c.properties?.['argIndex']]));
+      expect(byName.get('a')).toBe('0');
+      expect(byName.get('b')).toBe('0');
+      expect(byName.get('c')).toBe('1');
+    });
+
+    it('records the names a return hands back, anchored to the return line', () => {
+      const captures = provider.parse('function f(x: string) {\n  return x;\n}', 'test.ts');
+      const returned = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.VARIABLE_ACCESS && c.name === 'x',
+      );
+      expect(returned.some((c) => c.startLine === 2)).toBe(true);
+    });
+
+    it('records nothing for a bare return', () => {
+      // `return;` hands back no value, and an empty name list is the answer rather than a missing one.
+      const captures = provider.parse('function f() {\n  return;\n}', 'test.ts');
+      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_ACCESS)).toHaveLength(0);
+    });
+
+    it('records an import through the tree walk', () => {
+      const captures = provider.parse('import { a } from "./m";', 'test.ts');
+      expect(captures.length).toBeGreaterThan(0);
+      expect(captures[0]!.tag).toBe(CAPTURE_TAGS.IMPORT);
+    });
+
+    it('records a call with no arguments as a call', () => {
+      const captures = provider.parse('helper();', 'test.ts');
+      expect(
+        captures.some((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.name === 'helper'),
+      ).toBe(true);
+    });
+  });
+
   describe('fallbackParse (regex fallback)', () => {
     it('falls back to regex on a syntax error', () => {
       const captures = provider.parse('function broken(', 'test.ts');

@@ -157,3 +157,8 @@ export {
   extractConstantFacts,
 } from './languages/constant-fold.js';
 export type { ConstantDialect, ConstantFacts } from './languages/constant-fold.js';
+
+// **The lines a function hands a value back from.** The same argument as the constants above: only this package can read
+// a syntax tree, so the fact travels and the policy - whether a caller may conclude anything from "no return reads this
+// parameter" - stays in the analysis.
+export { extractReturnLines } from './languages/return-sites.js';

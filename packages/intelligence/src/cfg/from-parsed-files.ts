@@ -35,6 +35,15 @@ export interface ExtractedFileFacts {
    * definition a may-definition, which is exactly the behaviour that existed before this field did.
    */
   readonly constants?: ConstantFacts;
+  /**
+   * The lines this file's functions hand a value back from, or `null` when the provider cannot read returns.
+   *
+   * **`undefined` and `null` are different answers.** `undefined` means nobody asked; a set - even an empty one - means
+   * the file was read and these are the lines. Only the second lets a summary say "this function's returns do not
+   * read that parameter", which is the fact a caller needs to stop assuming that every call passes its argument
+   * through.
+   */
+  readonly returnLines?: readonly number[] | null;
 }
 
 /** Symbol kinds that become a function CFG. Shared with the call-site builder by intent, not by import. */
@@ -109,15 +118,14 @@ export function buildFunctionCfgs(
           perFile?.constants,
           symbol.startLine,
           callSites.get(symbol.qualifiedName) ?? [],
+          returnsFor(perFile?.returnLines, symbol.startLine, endLine),
         ),
-        // **`BindingEntry.kind` already says which bindings are parameters**, so no second rule is needed: the
-        // captures emit a def per parameter from `formal_parameters` and `buildStatementFacts` labels it.
-        // **Declared on the function's own line.** `BindingEntry.kind` has a `param` member that nothing ever
-        // assigns - a parameter arrives as a `VARIABLE_DEF` like any other and is labelled `local` - so the rule
-        // is the signature line, which is where a parameter is declared and a local body statement is not.
-        parameterBindings: bindings
-          .filter((b) => b.declLine === symbol.startLine)
-          .map((b) => b.index),
+        // **`BindingEntry.parameterIndex` is the answer when the provider recorded one**, and it is the only answer a
+        // call site can agree with: the caller passes argument 1 and the callee's argument 1 is whatever it declared
+        // second. The fallback is the signature line, which is right for a one-line declaration and wrong for the
+        // wrapped signature every servlet in the corpus uses - there the parameters sit on the *second* line of the
+        // declaration and none were found at all.
+        parameterBindings: parameterBindingsOf(bindings, symbol.startLine),
         entryIndex: 0,
         exitIndex: 0,
         callSites: attachArgumentBindings(
@@ -135,6 +143,29 @@ export function buildFunctionCfgs(
 }
 
 /**
+ * Which bindings are this function's parameters, in argument order.
+ *
+ * **A parameter's position is what a call site agrees with.** The caller passes argument 1; the callee's argument 1 is
+ * whatever it declared second. Two rules produce that list, and the first is the one that is right:
+ *
+ *   1. `BindingEntry.parameterIndex`, which the provider records when it emits the parameter's definition.
+ *   2. The signature's first line, which is right for `void m(int a, int b)` and wrong for the wrapped signature every
+ *      servlet in the corpus uses - `void doPost(HttpServletRequest request,` on one line and
+ *      `HttpServletResponse response)` on the next leaves the parameters on the *second* line, and a rule that looked
+ *      only at the first found none of them.
+ *
+ * The fallback is kept rather than deleted because a provider that cannot say the position still knows more than
+ * nothing, and the arity check downstream turns a wrong answer into no answer.
+ */
+function parameterBindingsOf(bindings: readonly BindingEntry[], startLine: number): number[] {
+  const recorded = bindings
+    .filter((b) => b.parameterIndex !== undefined)
+    .sort((a, b) => (a.parameterIndex ?? 0) - (b.parameterIndex ?? 0));
+  if (recorded.length > 0) return recorded.map((b) => b.index);
+  return bindings.filter((b) => b.declLine === startLine).map((b) => b.index);
+}
+
+/**
  * The statement facts, plus what the file's arithmetic says about which definitions can carry a value at all.
  *
  * **The join is by name and scope, not by line.** A constant is recorded against the callable it was written in and
@@ -148,8 +179,13 @@ function withReachability(
   constants: ConstantFacts | undefined,
   startLine: number,
   calls: readonly CallSite[],
+  returnLines: ReadonlySet<number> | undefined,
 ): StatementFacts {
-  const withSites: StatementFacts = { ...stmtFacts, ...occurrences };
+  const withSites: StatementFacts = {
+    ...stmtFacts,
+    ...occurrences,
+    ...(returnLines === undefined ? {} : { returnLines }),
+  };
   // **No reachability information leaves the facts exactly as they were**, which is the neutral answer: every
   // definition stays a may-definition and nothing is suppressed on a guess.
   if (constants === undefined) return withSites;
@@ -188,6 +224,24 @@ function isConstantDefinition(
   if (name !== undefined && constants.constants.has(`${startLine}:${name}`)) return true;
   if (constants.constantReturns.size === 0) return false;
   return calls.some((call) => call.line === line && constants.constantReturns.has(call.calleeName));
+}
+
+/**
+ * The returns that belong to one function.
+ *
+ * A file's return lines are a single set; a function's are the ones inside its own line range. **`undefined` when the
+ * provider could not read them, which is not the same as an empty set**: a function with no return at all has been read
+ * and hands nothing back, and a function whose returns could not be read is a function nothing may be claimed about.
+ */
+function returnsFor(
+  lines: readonly number[] | null | undefined,
+  startLine: number,
+  endLine: number,
+): ReadonlySet<number> | undefined {
+  if (lines === undefined || lines === null) return undefined;
+  const own = new Set<number>();
+  for (const line of lines) if (line >= startLine && line <= endLine) own.add(line);
+  return own;
 }
 
 /** Whether a symbol becomes a CFG, so a caller can filter without duplicating the set. */
