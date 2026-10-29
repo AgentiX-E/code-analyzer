@@ -222,26 +222,31 @@ describe('analyzeInterproceduralTaint', () => {
       expect(answer).toBe(false);
     });
 
-    it('counts a sanitizer on either bound, because both ends are real', () => {
+    it('answers for the statement it is given and for the sink kind it is asked about', () => {
       const propagator = new TaintPropagator();
       const occurrence = [
         {
           point: { blockIndex: 0, stmtIndex: 2, line: 3 },
-          neutralizedKinds: new Set(['escaping']),
-          description: 'escape',
+          neutralizedKinds: new Set(['html']),
+          description: 'escapeHtml',
         },
       ];
-      const at = (index: number): Map<number, unknown[]> => new Map([[index, occurrence]]);
-      const ask = (from: number, to: number): boolean =>
+      const index = new Map<number, unknown[]>([[2, occurrence]]);
+      const ask = (stmtIndex: number, kind: string): boolean =>
         (
           propagator as unknown as {
-            isNeutralized(index: Map<number, unknown[]>, from: number, to: number): boolean;
+            isNeutralized(index: Map<number, unknown[]>, stmtIndex: number, kind: string): boolean;
           }
-        ).isNeutralized(at(2), from, to);
+        ).isNeutralized(index, stmtIndex, kind);
 
-      expect(ask(2, 5)).toBe(true); // on the source's own statement
-      expect(ask(1, 2)).toBe(true); // on the sink's
-      expect(ask(3, 5)).toBe(false); // strictly between the sink's and beyond nothing
+      // On its own statement, for the kind it names.
+      expect(ask(2, 'html')).toBe(true);
+      // **Still false two statements away.** The old signature took a range and answered true for any neutraliser
+      // inside it, which is how `setString(1, "constant")` came to vouch for a query concatenated two lines above it.
+      expect(ask(5, 'html')).toBe(false);
+      expect(ask(1, 'html')).toBe(false);
+      // **And false for a kind it does not name.** An HTML escaper makes nothing safe for a SQL parser.
+      expect(ask(2, 'sql_exec')).toBe(false);
     });
   });
 });

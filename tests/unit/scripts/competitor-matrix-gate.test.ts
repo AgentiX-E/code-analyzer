@@ -207,4 +207,126 @@ describe('competitor matrix gate', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // **Two artifact shapes, one cell.** The indexing figure is written by a test that records a measurement and by a
+  // workflow that records a bound, and the two nest the number differently. A gate that reads one path reported the
+  // cell MISSING the moment the other producer ran - a lost measurement reported as work not done, which is the one
+  // error a ratchet cannot tell apart from a regression.
+  it('resolves a cell through the second path when the first is absent', () => {
+    const dir = scratch();
+    try {
+      const art = join(dir, 'art');
+      mkdirSync(art, { recursive: true });
+      writeFileSync(join(art, 'fig.json'), JSON.stringify({ upper: 7 }));
+      const matrix = {
+        competitors: [{ name: 'a', category: 'A' }],
+        ourMetrics: {
+          'x.fallback': {
+            category: 'A',
+            axis: 'a number that lives in one of two places',
+            artifact: join(art, 'fig.json'),
+            readFallbacks: [['lower', 'value'], ['upper']],
+          },
+        },
+        pendingOurMetrics: {},
+      };
+      const result = runGate(dir, matrix, { missing: 0, cells: 1 });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('measured 1');
+      expect(result.stdout).toContain('7');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('names every path it looked in when none of them carries a value', () => {
+    const dir = scratch();
+    try {
+      const art = join(dir, 'art');
+      mkdirSync(art, { recursive: true });
+      writeFileSync(join(art, 'fig.json'), JSON.stringify({ other: 1 }));
+      const matrix = {
+        competitors: [{ name: 'a', category: 'A' }],
+        ourMetrics: {
+          'x.fallback': {
+            category: 'A',
+            axis: 'a number that lives in one of two places',
+            artifact: join(art, 'fig.json'),
+            readFallbacks: [['lower', 'value'], ['upper']],
+          },
+        },
+        pendingOurMetrics: {},
+      };
+      const result = runGate(dir, matrix, { missing: 1, cells: 1 });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('lower.value');
+      expect(result.stdout).toContain('upper');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // **An artifact can be invalid for more than one reason**, and the second producer above carries the opposite flag
+  // from the first: `valid: false` means "this run timed out", `completed: false` means "the command exited non-zero".
+  // **One condition would have read half the shapes**, and the half it read would have been a bound quoted as a rate.
+  it('treats any of several invalidating conditions as invalid, and names the one that matched', () => {
+    const dir = scratch();
+    try {
+      const art = join(dir, 'art');
+      mkdirSync(art, { recursive: true });
+      writeFileSync(join(art, 'fig.json'), JSON.stringify({ rate: 12, completed: false }));
+      const matrix = {
+        competitors: [{ name: 'a', category: 'A' }],
+        ourMetrics: {
+          'x.rate': {
+            category: 'A',
+            axis: 'a rate that needs a completed run',
+            artifact: join(art, 'fig.json'),
+            read: ['rate'],
+            invalidWhen: [
+              { path: ['valid'], equals: false },
+              { path: ['completed'], equals: false },
+            ],
+          },
+        },
+        pendingOurMetrics: {},
+      };
+      const result = runGate(dir, matrix, { missing: 0, cells: 1, invalid: ['x.rate'] });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('completed');
+      expect(result.stdout).toContain('measured 0');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('measures the same cell when none of the invalidating conditions match', () => {
+    const dir = scratch();
+    try {
+      const art = join(dir, 'art');
+      mkdirSync(art, { recursive: true });
+      writeFileSync(join(art, 'fig.json'), JSON.stringify({ rate: 12, completed: true }));
+      const matrix = {
+        competitors: [{ name: 'a', category: 'A' }],
+        ourMetrics: {
+          'x.rate': {
+            category: 'A',
+            axis: 'a rate that needs a completed run',
+            artifact: join(art, 'fig.json'),
+            read: ['rate'],
+            invalidWhen: [
+              { path: ['valid'], equals: false },
+              { path: ['completed'], equals: false },
+            ],
+          },
+        },
+        pendingOurMetrics: {},
+      };
+      const result = runGate(dir, matrix, { missing: 0, cells: 1 });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('measured 1');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

@@ -101,30 +101,58 @@ function main() {
       }
     }
 
-    if (!reason && spec.invalidWhen) {
-      const actual = readPath(artifact, spec.invalidWhen.path);
-      if (actual === spec.invalidWhen.equals) {
-        // **Rule 2, and this is the one that matters**: the artifact names a disabled component, so the number it
-        // carries is about a different configuration. It is reported as MISSING with the component named.
-        invalid.push({
-          name,
-          category: spec.category,
-          axis: spec.axis,
-          artifact: artifactPath,
-          because: `${spec.invalidWhen.path.join('.')} is "${actual}"${spec.note ? ` — ${spec.note}` : ''}`,
-        });
-        continue;
+    // **A cell may name several places its number can live, and several ways it can be invalid.** The indexing figure
+    // is written by two producers with two shapes - a test that records a measurement and a workflow that records a
+    // bound, nested differently - and reading one path reported the cell MISSING as soon as the other producer ran.
+    // **A lost measurement read as work not done is the error a ratchet cannot distinguish from a regression.**
+    const candidatePaths = Array.isArray(spec.readFallbacks)
+      ? spec.readFallbacks
+      : [spec.read ?? []];
+    const conditions = Array.isArray(spec.invalidWhen)
+      ? spec.invalidWhen
+      : spec.invalidWhen
+        ? [spec.invalidWhen]
+        : [];
+
+    if (!reason) {
+      for (const condition of conditions) {
+        const actual = readPath(artifact, condition.path);
+        if (actual === condition.equals) {
+          // **Rule 2, and this is the one that matters**: the artifact names a disabled component, so the number it
+          // carries is about a different configuration. It is reported as MISSING with the component named.
+          invalid.push({
+            name,
+            category: spec.category,
+            axis: spec.axis,
+            artifact: artifactPath,
+            because: `${condition.path.join('.')} is "${actual}"${spec.note ? ` — ${spec.note}` : ''}`,
+          });
+          break;
+        }
       }
+      if (invalid.some((cell) => cell.name === name)) continue;
     }
 
-    const value = reason ? undefined : readPath(artifact, spec.read ?? []);
+    let value;
+    let readPathUsed = candidatePaths[0];
+    if (!reason) {
+      for (const keys of candidatePaths) {
+        const candidate = readPath(artifact, keys);
+        if (candidate !== undefined && candidate !== null) {
+          value = candidate;
+          readPathUsed = keys;
+          break;
+        }
+      }
+    }
     if (reason || value === undefined || value === null) {
+      const where = candidatePaths.map((keys) => keys.join('.') || '(root)').join(' or ');
       missing.push({
         name,
         category: spec.category,
         axis: spec.axis,
         artifact: artifactPath ?? '(none declared)',
-        why: reason ?? `no value at ${(spec.read ?? []).join('.')} in ${artifactPath}`,
+        why: reason ?? `no value at ${where} in ${artifactPath}`,
       });
       continue;
     }
@@ -133,6 +161,7 @@ function main() {
       category: spec.category,
       axis: spec.axis,
       artifact: artifactPath,
+      readAt: readPathUsed.join('.') || '(root)',
       value,
     });
   }

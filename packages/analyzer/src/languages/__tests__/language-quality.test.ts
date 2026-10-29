@@ -19,9 +19,9 @@
 // would be a file written to be parsed, which is the least useful kind of test corpus there is.
 
 import { readFileSync } from 'node:fs';
-import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { getOrLoadProvider, groupCaptures } from '../../pipeline/phase-helpers.js';
@@ -91,7 +91,7 @@ async function extractedNames(
 ): Promise<Set<string>> {
   const provider = await getOrLoadProvider(language);
   if (!provider) return new Set();
-  const grouped = groupCaptures(provider.parse(content, filePath) as never, filePath);
+  const grouped = groupCaptures(provider.parse(content, filePath), filePath);
   const names = new Set<string>();
   for (const symbol of (grouped as { symbols?: Array<{ name?: string }> }).symbols ?? []) {
     if (symbol.name) names.add(symbol.name);
@@ -192,20 +192,15 @@ describe('what each language extracts, against a reference from the same file', 
       competitorBaseline: { languages: 158, note: 'CBM, by count and not by accuracy' },
     };
 
-    mkdirSync(resolve(process.cwd(), 'benchmarks'), { recursive: true });
-    writeFileSync(
-      resolve(process.cwd(), 'benchmarks/language-quality.json'),
-      JSON.stringify(artifact, null, 2) + '\n',
-      'utf8',
-    );
+    const recorded = recordArtifact('benchmarks/language-quality.json', artifact);
 
-    // eslint-disable-next-line no-console
+    if (!recorded.written) console.log(`LANGUAGE-QUALITY artifact ${recorded.because}`);
+
     console.log(
       `LANGUAGE-QUALITY measured ${measured.length}, worst recall ${artifact.worstRecall} - ` +
         measured.map((l) => `${l} ${(perLanguage[l] as { recall: number }).recall}`).join(', '),
     );
     if (unmeasured.length > 0) {
-      // eslint-disable-next-line no-console
       console.log(`LANGUAGE-QUALITY not measured: ${unmeasured.join('; ')}`);
     }
 

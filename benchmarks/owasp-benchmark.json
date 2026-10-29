@@ -7,27 +7,49 @@
   },
   "engine": {
     "sources": 6157,
-    "sinks": 10705
+    "sinks": 9930
   },
   "overall": {
     "category": "all",
     "cases": 2740,
     "vulnerable": 1415,
-    "truePositives": 903,
-    "falsePositives": 621,
-    "tpr": 0.6381625441696113,
-    "fpr": 0.46867924528301885,
-    "score": 0.16948329888659242
+    "truePositives": 1156,
+    "falsePositives": 403,
+    "tpr": 0.8169611307420495,
+    "fpr": 0.3041509433962264,
+    "score": 0.5128101873458231
   },
   "taintSubset": {
     "category": "taint-subset",
     "cases": 1698,
     "vulnerable": 902,
-    "truePositives": 689,
-    "falsePositives": 429,
-    "tpr": 0.7638580931263859,
-    "fpr": 0.5389447236180904,
-    "score": 0.22491336950829544
+    "truePositives": 643,
+    "falsePositives": 403,
+    "tpr": 0.7128603104212861,
+    "fpr": 0.5062814070351759,
+    "score": 0.20657890338611018
+  },
+  "byEngine": {
+    "flows": {
+      "category": "all",
+      "cases": 2740,
+      "vulnerable": 1415,
+      "truePositives": 644,
+      "falsePositives": 403,
+      "tpr": 0.4551236749116608,
+      "fpr": 0.3041509433962264,
+      "score": 0.1509727315154344
+    },
+    "rules": {
+      "category": "all",
+      "cases": 2740,
+      "vulnerable": 1415,
+      "truePositives": 513,
+      "falsePositives": 0,
+      "tpr": 0.3625441696113074,
+      "fpr": 0,
+      "score": 0.3625441696113074
+    }
   },
   "categories": [
     {
@@ -44,21 +66,21 @@
       "category": "crypto",
       "cases": 246,
       "vulnerable": 130,
-      "truePositives": 95,
-      "falsePositives": 85,
-      "tpr": 0.7307692307692307,
-      "fpr": 0.7327586206896551,
-      "score": -0.0019893899204244114
+      "truePositives": 130,
+      "falsePositives": 0,
+      "tpr": 1,
+      "fpr": 0,
+      "score": 1
     },
     {
       "category": "hash",
       "cases": 236,
       "vulnerable": 129,
-      "truePositives": 84,
-      "falsePositives": 80,
-      "tpr": 0.6511627906976745,
-      "fpr": 0.7476635514018691,
-      "score": -0.09650076070419467
+      "truePositives": 129,
+      "falsePositives": 0,
+      "tpr": 1,
+      "fpr": 0,
+      "score": 1
     },
     {
       "category": "ldapi",
@@ -84,41 +106,41 @@
       "category": "securecookie",
       "cases": 67,
       "vulnerable": 36,
-      "truePositives": 30,
-      "falsePositives": 25,
-      "tpr": 0.8333333333333334,
-      "fpr": 0.8064516129032258,
-      "score": 0.026881720430107614
+      "truePositives": 36,
+      "falsePositives": 0,
+      "tpr": 1,
+      "fpr": 0,
+      "score": 1
     },
     {
       "category": "sqli",
       "cases": 504,
       "vulnerable": 272,
-      "truePositives": 234,
-      "falsePositives": 143,
-      "tpr": 0.8602941176470589,
-      "fpr": 0.6163793103448276,
-      "score": 0.24391480730223125
+      "truePositives": 185,
+      "falsePositives": 119,
+      "tpr": 0.6801470588235294,
+      "fpr": 0.5129310344827587,
+      "score": 0.16721602434077076
     },
     {
       "category": "trustbound",
       "cases": 126,
       "vulnerable": 83,
-      "truePositives": 65,
+      "truePositives": 69,
       "falsePositives": 26,
-      "tpr": 0.7831325301204819,
+      "tpr": 0.8313253012048193,
       "fpr": 0.6046511627906976,
-      "score": 0.17848136732978426
+      "score": 0.22667413841412165
     },
     {
       "category": "weakrand",
       "cases": 493,
       "vulnerable": 218,
-      "truePositives": 5,
-      "falsePositives": 2,
-      "tpr": 0.022935779816513763,
-      "fpr": 0.007272727272727273,
-      "score": 0.015663052543786492
+      "truePositives": 218,
+      "falsePositives": 0,
+      "tpr": 1,
+      "fpr": 0,
+      "score": 1
     },
     {
       "category": "xpathi",
@@ -134,12 +156,12 @@
       "category": "xss",
       "cases": 455,
       "vulnerable": 246,
-      "truePositives": 157,
-      "falsePositives": 81,
-      "tpr": 0.6382113821138211,
-      "fpr": 0.3875598086124402,
-      "score": 0.2506515735013809
+      "truePositives": 156,
+      "falsePositives": 79,
+      "tpr": 0.6341463414634146,
+      "fpr": 0.37799043062200954,
+      "score": 0.2561559108414051
     }
   ],
-  "measuredAt": "2026-10-28T11:53:46.674Z"
+  "measuredAt": "2026-10-29T00:31:22.214Z"
 }

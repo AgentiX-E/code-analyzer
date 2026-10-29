@@ -22,7 +22,6 @@
 // So the columns below are three separate questions: what lexical search alone answers, what the semantic half adds at
 // each fusion weight, and which vector space each side was in. **A weight is chosen by the sweep, not by taste.**
 
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
@@ -35,6 +34,7 @@ import {
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { HybridSearchEngine } from '@code-analyzer/intelligence';
+import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import type { EmbeddingBackendName } from '@code-analyzer/analyzer';
@@ -270,12 +270,9 @@ describe('finding a symbol from its own doc comment', () => {
         .slice(0, 8),
     };
 
-    mkdirSync(resolve(process.cwd(), 'benchmarks'), { recursive: true });
-    writeFileSync(
-      resolve(process.cwd(), 'benchmarks/docstring-search.json'),
-      JSON.stringify(artifact, null, 2) + '\n',
-      'utf8',
-    );
+    const record = recordArtifact('benchmarks/docstring-search.json', artifact);
+    // eslint-disable-next-line no-console -- the figure this run produced, printed where the workflow reads it.
+    if (!record.written) console.log(`DOCSTRING-SEARCH artifact ${record.because}`);
 
     await queryEmbedder?.dispose().catch(() => undefined);
 

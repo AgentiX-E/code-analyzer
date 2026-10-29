@@ -25,12 +25,13 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    settings: {
-      'import/resolver': {
-        typescript: true,
-        node: true,
-      },
-    },
+    // **No resolver, and that is the point.** `import/order` asks the resolver what a specifier is, and in a pnpm
+    // workspace with `dist/` present a path like `@code-analyzer/intelligence` resolves to a sibling directory and is
+    // reclassified from external to internal. **The ordering rule then demands one thing on a machine that has built
+    // and another on a machine that has not**, which the ratchet in `scripts/lint-per-file.js` reads as a file that
+    // "got worse" when nothing changed. `import/no-unresolved` is already off for the same reason; leaving the
+    // resolver wired for `import/order` alone kept the dependency alive one rule down.
+    settings: {},
   },
 
   // Production code rules

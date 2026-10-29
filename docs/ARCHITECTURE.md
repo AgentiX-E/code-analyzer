@@ -462,13 +462,15 @@ servlet cases, 1 415 of them real vulnerabilities — runs the engine over every
 itself scores: a case is flagged if the engine reports one live (unsanitised) flow in it, and the figure is
 `TPR - FPR`. `scripts/owasp-benchmark-gate.js` holds each per-category figure to its floor.
 
-| stage                            | TPR    | FPR    | score  |
-| -------------------------------- | ------ | ------ | ------ |
-| shared vocabulary only           | 0.1420 | 0.0838 | 0.0583 |
-| + servlet vocabulary             | 0.2912 | 0.2264 | 0.0648 |
-| + four capture defects, released | 0.2671 | 0.1955 | 0.0717 |
-| + statements anchored to a line  | 0.4530 | 0.3389 | 0.1141 |
-| + definitions accumulate         | 0.6382 | 0.4687 | 0.1695 |
+| stage                                      | TPR    | FPR    | score  |
+| ------------------------------------------ | ------ | ------ | ------ |
+| shared vocabulary only                     | 0.1420 | 0.0838 | 0.0583 |
+| + servlet vocabulary                       | 0.2912 | 0.2264 | 0.0648 |
+| + four capture defects, released           | 0.2671 | 0.1955 | 0.0717 |
+| + statements anchored to a line            | 0.4530 | 0.3389 | 0.1141 |
+| + definitions accumulate                   | 0.6382 | 0.4687 | 0.1695 |
+| + rule families for the four non-flow axes | 0.8177 | 0.3698 | 0.4479 |
+| + a sink's destination decides its kind    | 0.8170 | 0.3042 | 0.5128 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
@@ -489,16 +491,44 @@ second assignment to a name was recorded as a `must`-definition, which kills the
 corpus's most common three lines. Recording every definition as `may` moved TPR 0.4530 → 0.6382, FPR 0.3389 → 0.4687
 and the score 0.1141 → 0.1695; per category, `sqli` 0.607 → 0.860 and `pathtraver` 0.602 → 0.835.
 
-**A change that was measured and reverted.** Anchoring sanitizer occurrences the same way moved FPR 0.3389 → 0.2672
-and TPR 0.4530 → 0.3703 — a net loss of 0.011 — because a sanitizer currently neutralises every sink kind it meets,
-so `encodeForHTML` started vouching for a query it does not make safe. The correct fix is for a vocabulary entry to
-name the sink kinds it neutralises; that is a schema change to the sanitizer list, and until it lands the anchoring
-stays out. **With FPR now at 0.4687 it is the largest single item on the list**, because the score charges a tool for
-its noise as much as for its misses.
+**A change that was measured and reverted, then done properly.** Anchoring sanitizer occurrences the same way moved
+FPR 0.3389 → 0.2672 and TPR 0.4530 → 0.3703 — a net loss of 0.011 — because a sanitizer neutralised every sink kind
+it met, so `encodeForHTML` vouched for a query it does not make safe. The fix was a schema change rather than an
+experiment: a vocabulary entry is now `[name, category, kinds]`, because the category cannot be derived into kinds
+(`escaping` covers HTML, SQL and LDAP at once), and the propagator asks three questions the first version could not —
+is the sanitizer in the same statement, does it neutralise _this_ sink kind, and does its argument list name _this_
+value. `parsedInt(getParameter("p"))` cannot carry a SQL fragment or a path onward, so the ten kinds a number
+neutralises are listed separately from the two it cannot (`file_read`, `file_write` — a number is not a path).
 
 **The four categories a flow analysis cannot answer are scored as misses, not excluded**: `crypto` and `hash` ask
 which algorithm a constant names, `weakrand` whether the generator is predictable, and the cookie categories whether
 a flag was set. Removing them would raise the headline by exactly the categories this engine cannot see.
+
+**They are answered by rules instead, and the rules are the reason the score tripled.** `rule-families.ts` evaluates
+four families over the same files: `new Random()` and `Math.random()`, `setSecure(false)` and the cookie
+constructor, `MessageDigest.getInstance(...)` against a weak-algorithm set, and `Cipher.getInstance(...)` against weak
+names _and_ weak modes — `AES/ECB/PKCS5Padding` names the strongest block cipher in the corpus and is still broken,
+because ECB encrypts every block independently. Two of the four cannot be decided from the file at all: the corpus
+selects its algorithm in `benchmark.properties` at run time, so `hashAlg1=MD5` is what makes 129 cases vulnerable and
+`SHA-256` would make them safe. The rule family reads the configuration files from the index, resolves
+`props.getProperty("hashAlg1", "MD5")` through locals and aliases, and reports the key and the value it resolved to.
+Measured: **513 of 513 vulnerable cases across the four categories, at zero false positives**, and `score 0.1695 →
+0.4479` overall.
+
+**A `write` is not one sink, and the method name does not say which one it is.** `fw.write(x)` writes into a file
+whose path was fixed when the writer was constructed; `response.getWriter().write(x)` writes into the page; `sb.append(x)`
+writes into memory. All three reduce to the same name, so all three were scored as cross-site scripting — and 85 of the
+490 false positives were exactly that, in safe `Crypto` cases that encrypt a request value and append the ciphertext to
+a file. The destination is one statement away, in the variable's declared type, so `extractTaintSinks` filters `html`
+sinks by it: a receiver constructed as a `FileWriter`, `BufferedWriter`, `StringBuilder` or one of six others is not a
+response body. **An unknown receiver keeps its sink** — the filter is narrow on purpose, because a filter that guessed
+would be a way to lose findings quietly. Measured: `score 0.4479 → 0.5128`, FPR 0.3698 → 0.3042, with `crypto`,
+`hash`, `weakrand` and `securecookie` all at TPR 1.000 and FPR 0.
+
+**What is left is precision in the flow half, and it is a CFG question.** 151 of the 403 remaining false positives
+contain the corpus's constant-condition dead branch — `bar = (7 * 18) + num > 200 ? "constant" : param;` with
+`num = 106` — which is a reachability question that a single-block CFG cannot answer, and the same 151 appear among
+the true positives with the arms swapped. That is the next measurement, not a vocabulary entry.
 
 ## MCP Protocol Integration
 

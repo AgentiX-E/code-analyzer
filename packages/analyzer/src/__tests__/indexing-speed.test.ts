@@ -20,10 +20,10 @@
 //
 //   npx vitest run --config vitest.config.ts packages/analyzer/src/__tests__/indexing-speed.test.ts
 
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
+import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { PipelineOrchestrator } from '../pipeline/orchestrator.js';
@@ -122,15 +122,12 @@ describe('indexing speed', () => {
       },
     };
 
-    mkdirSync(dirname(ARTIFACT), { recursive: true });
-    // **Write after the validity check, not before it.** The first version wrote first, so the run that indexed
+    // **The body is decided before it is written, not after.** The first version wrote first, so the run that indexed
     // nothing - four milliseconds, zero files - left an artifact that read like a measurement. A throughput number
     // with no graph behind it is a number about nothing, and the file has to be unable to say otherwise.
-    if (artifact.pipeline.graphFileCount === 0) {
-      writeFileSync(
-        ARTIFACT,
-        JSON.stringify(
-          {
+    const body =
+      artifact.pipeline.graphFileCount === 0
+        ? {
             comment: artifact.comment,
             measuredAt: artifact.measuredAt,
             valid: false,
@@ -139,14 +136,14 @@ describe('indexing speed', () => {
             corpus: artifact.corpus,
             durationMs,
             pipeline: artifact.pipeline,
-          },
-          null,
-          2,
-        ) + '\n',
-        'utf8',
-      );
-    } else {
-      writeFileSync(ARTIFACT, JSON.stringify({ ...artifact, valid: true }, null, 2) + '\n', 'utf8');
+          }
+        : { ...artifact, valid: true };
+    // **And the write goes through the recorder**, so an ordinary local run measures without overwriting the figure
+    // the documentation quotes: `BENCHMARK_WRITE=1` is the statement that this run intends to publish one.
+    const recorded = recordArtifact('benchmarks/indexing-speed.json', body);
+    if (!recorded.written) {
+      // eslint-disable-next-line no-console -- the figure this run produced, printed where the workflow reads it.
+      console.log(`INDEXING-SPEED artifact ${recorded.because}`);
     }
 
     // eslint-disable-next-line no-console
@@ -160,7 +157,12 @@ describe('indexing speed', () => {
     // on a slower machine and pass on a faster one for reasons that have nothing to do with the pipeline.
     expect(durationMs).toBeGreaterThan(0);
     expect(artifact.pipeline.graphFileCount).toBeGreaterThan(0);
+    // **The committed figure is on disk whether or not this run published one**, and the readback only applies to a
+    // run that did - a check of the file this run wrote, read as if it were the file this run wrote.
     expect(existsSync(ARTIFACT)).toBe(true);
-    expect(JSON.parse(readFileSync(ARTIFACT, 'utf8')).corpus.lines).toBe(corpus.lines);
+    if (recorded.written) {
+      const reread = JSON.parse(readFileSync(ARTIFACT, 'utf8')) as { corpus: { lines: number } };
+      expect(reread.corpus.lines).toBe(corpus.lines);
+    }
   }, 1_800_000);
 });

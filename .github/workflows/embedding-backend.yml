@@ -94,6 +94,10 @@ jobs:
       - name: Score retrieval with vectors registered
         id: retrieval
         env:
+          # **This run publishes figures.** Recording is opt-in since a local run was overwriting the committed
+          # artifact the documentation quotes; a workflow that ran the measurement on a runner is exactly the run
+          # that may replace it.
+          BENCHMARK_WRITE: '1'
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           ZHIPU_EMBEDDING_MODEL: embedding-3
         run: |
@@ -114,6 +118,7 @@ jobs:
         id: paraphrase
         if: steps.credential.outputs.present == 'true'
         env:
+          BENCHMARK_WRITE: '1'
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           ZHIPU_EMBEDDING_MODEL: embedding-3
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}

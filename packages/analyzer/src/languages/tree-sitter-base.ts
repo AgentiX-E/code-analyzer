@@ -47,6 +47,23 @@ export interface TaintSanitizer {
   name: string;
   /** The sanitizer type (e.g., validation, encoding, escaping, whitelist) */
   sanitizerType: string;
+  /**
+   * The sink kinds this neutraliser makes safe — `html` for an HTML escaper, `sql_exec` for a SQL escaper.
+   *
+   * **Distinct from `sanitizerType`, which is a category and not a claim about any sink.** A flow analysis asks
+   * "does a neutraliser sit on this path that makes *this* sink safe", and a category cannot answer it: `escaping`
+   * covers `escapeHtml`, `escapeSql` and `escapeDN`, which are three different encodings for three different parsers.
+   * */
+  neutralizes?: readonly string[];
+  /**
+   * The names the neutraliser's arguments mention — the values it actually cleans.
+   *
+   * **A neutraliser cleans its argument, not its statement.** `println("value: " + bar + encodeForHTML(param))` is one
+   * statement, and `bar` is not made safe by escaping `param`; a statement-level rule reports the flow as safe and
+   * loses a true positive. Empty means the arguments could not be read, and the caller then falls back to the
+   * statement-level reading rather than assuming a clean.
+   */
+  arguments?: readonly string[];
   /** Line number (1-based) */
   line: number;
   /** The full source text of the sanitizer expression */

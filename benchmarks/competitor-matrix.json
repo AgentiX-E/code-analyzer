@@ -482,12 +482,12 @@
       "category": "A",
       "axis": "indexing seconds per million lines",
       "artifact": "benchmarks/indexing-speed.json",
-      "read": ["lowerBound", "secondsPerMillionLines"],
-      "invalidWhen": {
-        "path": ["valid"],
-        "equals": false
-      },
-      "note": "the artifact sets `valid: false` — the run hit its timeout, so this is a lower bound and not a rate"
+      "readFallbacks": [["secondsPerMillionLines"], ["lowerBound", "secondsPerMillionLines"]],
+      "invalidWhen": [
+        { "path": ["valid"], "equals": false },
+        { "path": ["completed"], "equals": false }
+      ],
+      "note": "two producers write this file with two shapes: the test that times the pipeline records a rate, the workflow that times a clone records a bound beside `completed`. Either flag false means the number is a bound quoted where a rate belongs — and the rate excludes the embed phase, which `pipeline.includesEmbedding` states, so the comparison is against a pipeline that does not generate vectors"
     },
     "tokens.reduction": {
       "category": "A",
@@ -590,7 +590,21 @@
       "axis": "OWASP Benchmark score over the seven flow categories",
       "artifact": "benchmarks/owasp-benchmark.json",
       "read": ["taintSubset", "score"],
-      "note": "the subset this engine claims; published beside the overall figure rather than instead of it"
+      "note": "the subset the flow analysis claims; published beside the overall figure rather than instead of it"
+    },
+    "security.owasp.ruleScore": {
+      "category": "B",
+      "axis": "OWASP Benchmark score of the rule family alone, over all 11 categories",
+      "artifact": "benchmarks/owasp-benchmark.json",
+      "read": ["byEngine", "rules", "score"],
+      "note": "513 of 513 vulnerable cases in the four non-flow categories, at a false positive rate of 0"
+    },
+    "security.owasp.flowScore": {
+      "category": "B",
+      "axis": "OWASP Benchmark score of the flow analysis alone, over all 11 categories",
+      "artifact": "benchmarks/owasp-benchmark.json",
+      "read": ["byEngine", "flows", "score"],
+      "note": "the other half of the engine, scored on the same corpus so the two are comparable"
     }
   },
   "pendingOurMetrics": {
@@ -607,13 +621,9 @@
       "category": "C",
       "why": "same prerequisite"
     },
-    "sast.recall.owasp": {
-      "category": "B",
-      "why": "no SAST category comparison exists"
-    },
     "sast.precision.primevul": {
       "category": "B",
-      "why": "same"
+      "why": "PrimeVul (Ding et al., 2024) is function-level C/C++ with a JSONL schema of its own; the OWASP figure is a flow-and-rule measurement on Java, so quoting it here would answer a different question than the one this cell asks"
     },
     "review.f1.crBench": {
       "category": "A",

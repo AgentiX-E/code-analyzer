@@ -214,7 +214,14 @@ describe('buildFunctionCfgs', () => {
           {
             sources: [],
             sinks: [],
-            sanitizers: [{ sanitizerType: 'escaping', line: 12, text: 'html.escape(q)' }],
+            sanitizers: [
+              {
+                sanitizerType: 'escaping',
+                line: 12,
+                text: 'html.escape(q)',
+                neutralizes: ['html'],
+              },
+            ],
           },
         ],
       ]),
@@ -222,7 +229,11 @@ describe('buildFunctionCfgs', () => {
 
     expect(cfg?.stmtFacts.sanitizerSites.size).toBe(1);
     const occurrence = [...(cfg?.stmtFacts.sanitizerSites.values() ?? [])][0];
-    expect(occurrence?.neutralizedKinds.has('escaping')).toBe(true);
+    // **The kind, not the category.** `escaping` is what the neutraliser *is*; `html` is what it makes safe. The set
+    // used to hold the first, which no sink ever asks for, so `neutralizedKinds.has(sink.kind)` was never true and the
+    // neutraliser's only effect was to set `sanitized: true` on every flow it sat between.
+    expect(occurrence?.neutralizedKinds.has('html')).toBe(true);
+    expect(occurrence?.neutralizedKinds.has('escaping')).toBe(false);
     expect(occurrence?.description).toBe('html.escape(q)');
   });
 

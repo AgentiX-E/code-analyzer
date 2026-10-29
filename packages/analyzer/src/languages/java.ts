@@ -7,7 +7,11 @@ import {
   collectCLikeTaintSinks,
   collectCLikeTaintSources,
 } from './base-c-like.js';
-import { JAVA_TAINT_VOCABULARY } from './java-taint.js';
+import {
+  JAVA_TAINT_VOCABULARY,
+  declaredConstructedTypes,
+  writesToResponseBody,
+} from './java-taint.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -664,6 +668,20 @@ export class JavaProvider extends TreeSitterBaseProvider {
 
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     collectCLikeTaintSinks(node, sinks, JAVA_TAINT_NODES, JAVA_TAINT_VOCABULARY);
+  }
+
+  /**
+   * The sinks the vocabulary matched, minus the ones whose destination is not the response.
+   *
+   * **The vocabulary matches a method name, and a method name does not name a destination.** `write` is a response
+   * body, a file, or a string builder depending on the receiver's declared type, and the receiver's type is in the
+   * file this walk just read. Filtering here rather than in the walk keeps the shared collector free of a notion only
+   * Java has, and keeps the filter testable against one file of source.
+   */
+  override extractTaintSinks(source: string): TaintSink[] {
+    const sinks = super.extractTaintSinks(source);
+    const declaredTypes = declaredConstructedTypes(source);
+    return sinks.filter((sink) => writesToResponseBody(sink, declaredTypes));
   }
 
   // Sanitizers. Nothing in this family recognised one before, so every finding was reported unsanitized.

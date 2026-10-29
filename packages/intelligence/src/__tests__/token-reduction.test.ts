@@ -21,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { countTokens } from '../compression/memory-compressor.js';
@@ -82,8 +83,6 @@ describe('what a question costs through the index', () => {
     // The baseline per query is the whole corpus, because that is what has to be in context to answer without one.
     const ratio = perQueryTokens === 0 ? 0 : Math.round((corpusTokens / perQueryTokens) * 10) / 10;
 
-    const fs = await import('node:fs');
-    fs.mkdirSync('benchmarks', { recursive: true });
     const artifact = {
       comment: [
         'What a question costs through the index, against reading the corpus it answers from.',
@@ -91,10 +90,10 @@ describe('what a question costs through the index', () => {
         '**The ratio grows with repository size**, so a small corpus is the honest choice - **measuring on a large',
         'one would flatter the number.** This corpus is small, and that is stated rather than hidden.',
         '',
-        '**Both numbers use the product\s own token estimator**, so the ratio is a ratio of content and not of two',
+        '**Both numbers use the same token estimator the product uses**, so the ratio is a ratio of content and not of two',
         'different estimators.',
         '',
-        '**Comparable to the category\s figures only in shape, not in value**: `code-review-graph` reports a median',
+        '**Comparable to the other rows only in shape, not in value**: `code-review-graph` reports a median',
         '82x and a peak 528x, Graphify 71.5x - each on its own corpus and its own query set, neither published here.',
       ],
       measuredAt: new Date().toISOString().slice(0, 10),
@@ -119,11 +118,9 @@ describe('what a question costs through the index', () => {
         '**Nothing about the competitor figures as values**, only as shapes.',
       ],
     };
-    fs.writeFileSync(
-      'benchmarks/token-reduction.json',
-      JSON.stringify(artifact, null, 2) + '\n',
-      'utf8',
-    );
+    const recorded = recordArtifact('benchmarks/token-reduction.json', artifact);
+    // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
+    if (!recorded.written) console.log(`TOKEN-REDUCTION artifact ${recorded.because}`);
 
     // eslint-disable-next-line no-console
     console.log(

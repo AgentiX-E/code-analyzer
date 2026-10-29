@@ -124,6 +124,14 @@ export interface SanitizerOccurrence {
   readonly point: ProgramPoint;
   /** Sink categories neutralized by this sanitizer. */
   readonly neutralizedKinds: ReadonlySet<string>;
+  /**
+   * The values this neutraliser cleans, by name; **absent** when its arguments could not be read at all.
+   *
+   * **Neutralisation is per value, and the statement is only the approximation.** A call that escapes one argument and
+   * passes another through untouched is one statement, and treating the statement as clean loses the flow through the
+   * second. Empty keeps the statement-level reading for a provider that cannot say.
+   */
+  readonly neutralizedNames?: ReadonlySet<string>;
   /** Human-readable sanitizer description. */
   readonly description: string;
 }

@@ -16,6 +16,7 @@
 // **SNR earns its place**: a reviewer that flags everything has high recall and is worthless, and the field's own
 // numbers show it (GPT-5.2 single-pass: **27.0% recall at 3.6% precision**). Precision alone hides that.
 
+import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 /** Where the diff's file lives, and **the key both the comments and the judge use** - a mismatch would drop every
@@ -249,13 +250,9 @@ describe('review scoring under the Martian and CR-Bench protocols', () => {
       ],
     };
 
-    const fs = await import('node:fs');
-    fs.mkdirSync('benchmarks', { recursive: true });
-    fs.writeFileSync(
-      'benchmarks/review-protocol.json',
-      JSON.stringify(artifact, null, 2) + '\n',
-      'utf8',
-    );
+    const recorded = recordArtifact('benchmarks/review-protocol.json', artifact);
+    // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
+    if (!recorded.written) console.log(`REVIEW-PROTOCOL artifact ${recorded.because}`);
 
     console.log(
       `REVIEW-PROTOCOL reported=${reported.length} tp=${truePositives} fp=${falsePositives} fn=${falseNegatives} ` +

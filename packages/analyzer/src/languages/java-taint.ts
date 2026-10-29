@@ -10,9 +10,9 @@
 // `write` are what a servlet response does with a value, and they are ordinary calls in Python and Ruby. Putting
 // them in the shared list would have made every other language report `print(userInput)` as cross-site scripting.
 
-import { C_LIKE_SANITIZERS, C_LIKE_VOCABULARY } from './base-c-like.js';
+import { C_LIKE_SANITIZERS, C_LIKE_VOCABULARY, TYPE_CONVERSION_KINDS } from './base-c-like.js';
 
-import type { TaintVocabulary } from './base-c-like.js';
+import type { SanitizerVocabulary, TaintVocabulary } from './base-c-like.js';
 
 /**
  * Untrusted input in a servlet request, and in the cookie that 1.2beta's vectors travel in.
@@ -104,47 +104,47 @@ const JAVA_SINKS: ReadonlyArray<readonly [string, string]> = [
  * The type-conversion entries are a different kind of neutraliser and are listed for the same reason: `Integer.parseInt`
  * cannot carry a path or a SQL fragment onward, so a flow through it is over.
  */
-const JAVA_SANITIZERS: ReadonlyArray<readonly [string, string]> = [
+const JAVA_SANITIZERS: SanitizerVocabulary = [
   // OWASP ESAPI, which this benchmark's safe cases use throughout.
-  ['encodeForHTML', 'escaping'],
-  ['encodeForHTMLAttribute', 'escaping'],
-  ['encodeForJavaScript', 'escaping'],
-  ['encodeForCSS', 'escaping'],
-  ['encodeForURL', 'encoding'],
-  ['encodeForSQL', 'escaping'],
-  ['encodeForOS', 'escaping'],
-  ['encodeForLDAP', 'escaping'],
-  ['encodeForDN', 'escaping'],
-  ['encodeForXPath', 'escaping'],
-  ['encodeForXML', 'escaping'],
-  ['getValidSafeHTML', 'validation'],
-  ['getValidInput', 'validation'],
-  ['getValidFileName', 'path'],
-  ['getValidDirectoryPath', 'path'],
-  ['getValidNumber', 'validation'],
-  ['getValidDate', 'validation'],
+  ['encodeForHTML', 'escaping', ['html']],
+  ['encodeForHTMLAttribute', 'escaping', ['html']],
+  ['encodeForJavaScript', 'escaping', ['html']],
+  ['encodeForCSS', 'escaping', ['html']],
+  ['encodeForURL', 'encoding', ['html', 'path']],
+  ['encodeForSQL', 'escaping', ['sql_exec']],
+  ['encodeForOS', 'escaping', ['os_command']],
+  ['encodeForLDAP', 'escaping', ['ldap_query']],
+  ['encodeForDN', 'escaping', ['ldap_query']],
+  ['encodeForXPath', 'escaping', ['xpath_query']],
+  ['encodeForXML', 'escaping', ['html']],
+  ['getValidSafeHTML', 'validation', ['html']],
+  ['getValidInput', 'validation', ['html']],
+  ['getValidFileName', 'path', ['file_read', 'file_write']],
+  ['getValidDirectoryPath', 'path', ['file_read', 'file_write']],
+  ['getValidNumber', 'validation', TYPE_CONVERSION_KINDS],
+  ['getValidDate', 'validation', TYPE_CONVERSION_KINDS],
   // Apache Commons Text and Lang.
-  ['escapeHtml4', 'escaping'],
-  ['escapeXml10', 'escaping'],
-  ['escapeXml11', 'escaping'],
-  ['escapeSql', 'escaping'],
-  ['escapeJava', 'escaping'],
-  ['escapeJavaScript', 'escaping'],
+  ['escapeHtml4', 'escaping', ['html']],
+  ['escapeXml10', 'escaping', ['html']],
+  ['escapeXml11', 'escaping', ['html']],
+  ['escapeSql', 'escaping', ['sql_exec']],
+  ['escapeJava', 'escaping', ['html']],
+  ['escapeJavaScript', 'escaping', ['html']],
   // Type conversion: the value that comes out is a number, not the text that went in.
-  ['parseInt', 'validation'],
-  ['parseLong', 'validation'],
-  ['parseDouble', 'validation'],
-  ['parseFloat', 'validation'],
-  ['parseBoolean', 'validation'],
-  ['fromString', 'validation'],
+  ['parseInt', 'validation', TYPE_CONVERSION_KINDS],
+  ['parseLong', 'validation', TYPE_CONVERSION_KINDS],
+  ['parseDouble', 'validation', TYPE_CONVERSION_KINDS],
+  ['parseFloat', 'validation', TYPE_CONVERSION_KINDS],
+  ['parseBoolean', 'validation', TYPE_CONVERSION_KINDS],
+  ['fromString', 'validation', TYPE_CONVERSION_KINDS],
   // Bound parameters, which is how the benchmark writes a safe SQL statement.
-  ['setString', 'parameterisation'],
-  ['setInt', 'parameterisation'],
-  ['setLong', 'parameterisation'],
-  ['setDouble', 'parameterisation'],
-  ['setBoolean', 'parameterisation'],
-  ['setObject', 'parameterisation'],
-  ['setDate', 'parameterisation'],
+  ['setString', 'parameterisation', ['sql_exec']],
+  ['setInt', 'parameterisation', ['sql_exec']],
+  ['setLong', 'parameterisation', ['sql_exec']],
+  ['setDouble', 'parameterisation', ['sql_exec']],
+  ['setBoolean', 'parameterisation', ['sql_exec']],
+  ['setObject', 'parameterisation', ['sql_exec']],
+  ['setDate', 'parameterisation', ['sql_exec']],
 ];
 
 /**
@@ -166,3 +166,76 @@ export const JAVA_TAINT_VOCABULARY: TaintVocabulary = {
   sanitizers: [...C_LIKE_SANITIZERS, ...JAVA_SANITIZERS],
   ignoreSinkPrefixes: JAVA_IGNORED_SINKS,
 };
+
+/**
+ * Types whose `write`/`append`/`print` does not reach a browser.
+ *
+ * **`html` is a claim about the destination, not about the method.** A servlet writing a value into the response body
+ * is cross-site scripting; the same method name on a `FileWriter` writes into a file whose path was fixed when the
+ * writer was constructed, and the same name on a `StringBuilder` writes into memory. The sink list can only see the
+ * method name, so the destination has to come from somewhere else — and in Java it is one statement away, in the
+ * variable's declared type.
+ *
+ * **Measured on OWASP Benchmark v1.2: this is 85 of the 490 false positives.** Every one of them is a `Crypto` case
+ * that encryption output, or an encoder's output, to a file: `fw.write("secret_value=" + encoded)`. The case's own
+ * label is about the cipher, and no competing scanner reports the write, because no competing scanner calls a file
+ * write cross-site scripting.
+ *
+ * **A builder is on the list for the same reason and with a caveat.** `sb.append(param)` is an intermediate step, and
+ * the value is caught where the builder's contents are written to the response. It is not caught if the builder is
+ * never written anywhere, which is exactly the case where it should not be.
+ */
+const NON_RESPONSE_WRITER_TYPES: ReadonlySet<string> = new Set([
+  'FileWriter',
+  'FileOutputStream',
+  'BufferedWriter',
+  'OutputStreamWriter',
+  'PrintStream',
+  'StringWriter',
+  'ByteArrayOutputStream',
+  'StringBuilder',
+  'StringBuffer',
+]);
+
+/**
+ * Every local variable this file declares with an initialiser, mapped to the simple type it is constructed as.
+ *
+ * **Deliberately narrow.** The pattern is `Type name = new Type(...)`, which is how a writer is declared when the
+ * declaration and the construction are the same statement; a variable assigned later, from a parameter, or declared
+ * without an initialiser is absent and therefore keeps its sink. **An unknown destination is not a safe one**, and the
+ * default has to be the conservative one or the filter becomes a way to lose findings quietly.
+ */
+export function declaredConstructedTypes(source: string): ReadonlyMap<string, string> {
+  const types = new Map<string, string>();
+  const pattern =
+    /\b([A-Za-z_$][\w$.]*)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+([A-Za-z_$][\w$.]*)\s*\(/g;
+  for (const match of source.matchAll(pattern)) {
+    const variable = match[2];
+    const constructed = match[3];
+    if (variable && constructed) types.set(variable, constructed.split('.').pop() ?? constructed);
+  }
+  return types;
+}
+
+/**
+ * Whether a matched `html` sink really writes to the response body.
+ *
+ * Every other kind is left alone: `file_write` names a path position and `sql_exec` names a statement, and the
+ * receiver tells us nothing about either that the argument does not.
+ *
+ * @param sink the sink the vocabulary matched.
+ * @param declaredTypes the file's constructed variables, from {@link declaredConstructedTypes}.
+ */
+export function writesToResponseBody(
+  sink: { readonly name: string; readonly sinkType: string },
+  declaredTypes: ReadonlyMap<string, string>,
+): boolean {
+  if (sink.sinkType !== 'html') return true;
+  const segments = sink.name.split('.');
+  // A bare `write(...)` has no receiver to ask about, and a chain (`x.getWriter().write`) has a call in the receiver
+  // position rather than a variable — neither can be resolved to a declaration, so both keep the sink.
+  if (segments.length < 2) return true;
+  const receiver = segments[segments.length - 2] ?? '';
+  const declared = declaredTypes.get(receiver);
+  return declared === undefined || !NON_RESPONSE_WRITER_TYPES.has(declared);
+}

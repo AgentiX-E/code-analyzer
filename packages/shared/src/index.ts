@@ -8,3 +8,9 @@ export * from './validation/index.js';
 export * from './logging/phase-logger.js';
 export { LRUCache } from './utils/lru-cache.js';
 export type { CacheStats } from './utils/lru-cache.js';
+export {
+  ARTIFACT_WRITE_ENV,
+  artifactRecordingEnabled,
+  recordArtifact,
+} from './benchmark/artifact.js';
+export type { ArtifactRecord } from './benchmark/artifact.js';

@@ -156,11 +156,14 @@ describe('a source in a real file', () => {
    * into its statement-local check. **Whether any of that makes `sanitized` true is a separate question**, and this is
    * the measurement: a source, a sanitizer that neutralises it, and a sink that receives the sanitised binding.
    */
+  // **The neutraliser and the sink have to be for the same parser.** `escape` is an HTML escaper, so the flow this
+  // fixture carries is safe for `document.write` and *not* safe for `db.query` — and the pair is chosen to say so: the
+  // same three lines with a SQL sink are the module's other fixture below, where the answer is the opposite.
   const SANITIZED = [
     'function handler() {',
     '  const id = req.body.id;',
     '  const safe = escape(id);',
-    '  db.query(safe);',
+    '  document.write(safe);',
     '}',
     '',
   ].join('\n');

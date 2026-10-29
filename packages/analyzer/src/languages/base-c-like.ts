@@ -311,7 +311,41 @@ export function extractImportsAsCaptures(
 // ---------------------------------------------------------------------------
 
 /**
- * What a sanitizer is called, and what it neutralises.
+ * The sink kinds a value cannot carry once it has become a number.
+ *
+ * `Integer.parseInt(request.getParameter("p"))` returns an `int`; an `int` is not a SQL fragment, a shell command, or
+ * an element of a page. Every entry below that converts a type neutralises exactly this set — and **not**
+ * `file_read`/`file_write`, because a number is never a path, so a flow through one into a file sink was never a
+ * flow.
+ */
+export const TYPE_CONVERSION_KINDS: readonly string[] = [
+  'sql_exec',
+  'os_command',
+  'html',
+  'eval',
+  'ldap_query',
+  'xpath_query',
+  'trust_boundary',
+  'code_execution',
+  'file_include',
+  'deserialization',
+];
+
+/**
+ * What a sanitizer is called, what kind of neutraliser it is, and **which sink kinds it makes safe**.
+ *
+ * **The third element is the whole point.** Until it existed, `neutralizedKinds` was built from the second —
+ * `escaping`, `validation`, `parameterisation` — while a sink carries a *kind* — `html`, `sql_exec`. `has(kind)` was
+ * therefore never true, so a sanitizer's only effect was to set `sanitized: true` on every finding it sat between,
+ * whatever the sink. That is why escaping a value for an HTML body vouched for a query, and it is recorded as the
+ * largest single item on the false-positive side of `benchmarks/owasp-benchmark.json`: the corpus is full of safe cases
+ * that escape for one context and vulnerable cases that escape for the wrong one, and a kind-blind neutraliser cannot
+ * tell them apart.
+ *
+ * **The category is not a shortcut for the kinds, and the list is written out rather than derived.** `escaping` covers
+ * `html` (`escapeHtml`), `sql_exec` (`escapeSql`, `mysql_real_escape_string`) and `ldap_query` (`escapeDN`) — three
+ * different parsers, three different encodings — so deriving the kinds from the category would reproduce the defect in
+ * a new place.
  *
  * **Nothing in the C family recognised one until this existed.** `extractSanitizers` was implemented for `bash`,
  * `css`, `sql`, `toml` and `markdown` — four of them languages that carry no taint — and the ten languages that do
@@ -323,29 +357,31 @@ export function extractImportsAsCaptures(
  * hypothetical — Java's vocabulary was written that way, and `escape(input)` stopped being recognised in Java while
  * every other C-like language still recognised it.
  */
-export const C_LIKE_SANITIZERS: ReadonlyArray<readonly [string, string]> = [
-  ['escape', 'escaping'],
-  ['escapeHtml', 'escaping'],
+export const C_LIKE_SANITIZERS: ReadonlyArray<
+  readonly [name: string, category: string, neutralizes: readonly string[]]
+> = [
+  ['escape', 'escaping', ['html']],
+  ['escapeHtml', 'escaping', ['html']],
   // Each of the three below was named by a fixture and absent from the list; the fixtures found them, not a reading.
-  ['EscapeString', 'escaping'],
-  ['HtmlEncode', 'escaping'],
-  ['urlencode', 'encoding'],
-  ['filename', 'path'],
-  ['htmlspecialchars', 'escaping'],
-  ['encodeURIComponent', 'encoding'],
-  ['encodeURI', 'encoding'],
-  ['sanitize', 'validation'],
-  ['sanitizeHtml', 'validation'],
-  ['strip_tags', 'validation'],
-  ['parseInt', 'validation'],
-  ['parseFloat', 'validation'],
-  ['Number', 'validation'],
-  ['basename', 'path'],
-  ['realpath', 'path'],
-  ['mysql_real_escape_string', 'escaping'],
-  ['quote', 'escaping'],
-  ['Parameterize', 'parameterisation'],
-  ['PreparedStatement', 'parameterisation'],
+  ['EscapeString', 'escaping', ['html', 'path']],
+  ['HtmlEncode', 'escaping', ['html']],
+  ['urlencode', 'encoding', ['html', 'path']],
+  ['filename', 'path', ['file_read', 'file_write']],
+  ['htmlspecialchars', 'escaping', ['html']],
+  ['encodeURIComponent', 'encoding', ['html', 'path']],
+  ['encodeURI', 'encoding', ['html', 'path']],
+  ['sanitize', 'validation', ['html']],
+  ['sanitizeHtml', 'validation', ['html']],
+  ['strip_tags', 'validation', ['html']],
+  ['parseInt', 'validation', TYPE_CONVERSION_KINDS],
+  ['parseFloat', 'validation', TYPE_CONVERSION_KINDS],
+  ['Number', 'validation', TYPE_CONVERSION_KINDS],
+  ['basename', 'path', ['file_read', 'file_write']],
+  ['realpath', 'path', ['file_read', 'file_write']],
+  ['mysql_real_escape_string', 'escaping', ['sql_exec']],
+  ['quote', 'escaping', ['sql_exec']],
+  ['Parameterize', 'parameterisation', ['sql_exec']],
+  ['PreparedStatement', 'parameterisation', ['sql_exec']],
 ];
 
 /** Source expressions whose value comes from outside the program, and what kind of input it is. */
@@ -476,18 +512,33 @@ const C_LIKE_SINKS: ReadonlyArray<readonly [string, string]> = [
  * ordinary call in Python and Ruby. A single shared list cannot say both, so the walk takes a vocabulary per
  * language and this is the default it uses when a provider does not supply one.
  */
+/**
+ * One neutraliser: what it is called, what kind of neutraliser it is, and which sink kinds it makes safe.
+ *
+ * A tuple rather than an object because the list is read by a matcher that only ever needs the name — the other two
+ * elements travel with the match so that a caller reading the fourth field cannot forget the third.
+ */
+export type SanitizerEntry = readonly [
+  name: string,
+  category: string,
+  neutralizes: readonly string[],
+];
+
+/** A list of neutralisers, in any language's spelling. */
+export type SanitizerVocabulary = ReadonlyArray<SanitizerEntry>;
+
 export interface TaintVocabulary {
   /** Expression or callee, and the kind of input it reads. */
   readonly sources: ReadonlyArray<readonly [string, string]>;
   /** Callee, and what kind of sink it is. */
   readonly sinks: ReadonlyArray<readonly [string, string]>;
   /**
-   * Callee, and what it neutralises.
+   * Callee, the kind of neutraliser it is, and the sink kinds it makes safe.
    *
    * Separate from the shared list because the names are API-specific: `encodeForHTML` is ESAPI's, and a language that
    * has no ESAPI should not carry it. Absent means "the shared list", which is what every provider but Java uses.
    */
-  readonly sanitizers?: ReadonlyArray<readonly [string, string]>;
+  readonly sanitizers?: SanitizerVocabulary;
   /**
    * Callee prefixes that look like a sink and are not one.
    *
@@ -799,10 +850,7 @@ export function collectCLikeTaintSanitizers(
   }
 }
 
-function sanitizerFor(
-  text: string,
-  list: ReadonlyArray<readonly [string, string]>,
-): readonly [string, string] | undefined {
+function sanitizerFor(text: string, list: SanitizerVocabulary): SanitizerEntry | undefined {
   const simple = lastSegmentOf(text);
   return list.find(
     ([name]) =>
@@ -817,6 +865,45 @@ function sanitizerFor(
   );
 }
 
+/**
+ * The names a call's arguments mention.
+ *
+ * **`encodeForHTML(param)` cleans `param`, and this is how the analysis learns that.** The callee is subtracted so its
+ * own segments are not read as arguments; what remains is scanned for word-shaped tokens, which is enough because the
+ * only question asked of the result is "does it name the value being tracked". Reserved words are dropped so `new
+ * OracleCodec()` does not report `new` as a value.
+ */
+function argumentsOf(text: string): readonly string[] | undefined {
+  const end = text.lastIndexOf(')');
+  // `undefined` is "this is not a call, so its arguments cannot be read"; `[]` is "the call has arguments and none of
+  // them names a value". The two lead to different analyses and the difference is load-bearing:
+  // `encodeForHTML("literal")` cleans nothing that is being tracked, while a neutraliser whose arguments could not be
+  // read has to fall back to cleaning its whole statement.
+  if (end < 0) return undefined;
+  const callee = calleeOf(text);
+  const inner = text.slice(callee.length + 1, end);
+  const names = new Set<string>();
+  for (const match of inner.matchAll(/[A-Za-z_$][\w$]*/g)) {
+    if (!RESERVED_IN_ARGUMENTS.has(match[0])) names.add(match[0]);
+  }
+  return [...names];
+}
+
+const RESERVED_IN_ARGUMENTS: ReadonlySet<string> = new Set([
+  'new',
+  'true',
+  'false',
+  'null',
+  'this',
+  'super',
+  'String',
+  'Integer',
+  'Long',
+  'Double',
+  'Boolean',
+  'Object',
+]);
+
 function walkSanitizers(
   node: {
     type: string;
@@ -827,17 +914,34 @@ function walkSanitizers(
   },
   sanitizers: TaintSanitizer[],
   types: TaintNodeTypes,
-  list: ReadonlyArray<readonly [string, string]>,
+  list: SanitizerVocabulary,
+  /**
+   * **A sanitizer is filed where its statement is filed, not where its own name is.**
+   *
+   * `response.getWriter()\n  .println(\n    "value: " + ESCAPE.encode(param))` is one statement. The sink and the
+   * tainted use of `param` are both filed on its first line — the key the CFG files facts under — and the encoder is
+   * two lines below. Keyed by its own line the encoder neutralised a statement that held neither the use nor the sink,
+   * so a flow the code had already made safe stayed live. **Measured, with the kind map in place**: see
+   * `benchmarks/owasp-benchmark.json`.
+   */
+  anchor?: number,
 ): void {
-  if (types.member.includes(node.type) || types.call.includes(node.type)) {
+  const expression = types.member.includes(node.type) || types.call.includes(node.type);
+  const line = anchor ?? (expression ? node.startPosition.row + 1 : undefined);
+
+  if (expression) {
     const candidate = types.call.includes(node.type) ? calleeOf(node.text) : node.text;
     const match = candidate.length > 0 ? sanitizerFor(candidate, list) : undefined;
     if (match) {
+      const readArguments = argumentsOf(node.text);
       sanitizers.push({
         name: candidate,
         sanitizerType: match[1],
-        line: node.startPosition.row + 1,
+        line: line ?? node.startPosition.row + 1,
         text: node.text,
+        neutralizes: match[2],
+        // Absent, not empty, when the call's arguments cannot be read: the two are different analyses downstream.
+        ...(readArguments === undefined ? {} : { arguments: readArguments }),
         properties: {},
       });
     }
@@ -845,7 +949,7 @@ function walkSanitizers(
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i) as Parameters<typeof walkSanitizers>[0] | null;
-    if (child) walkSanitizers(child, sanitizers, types, list);
+    if (child) walkSanitizers(child, sanitizers, types, list, line);
   }
 }
 

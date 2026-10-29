@@ -30,6 +30,7 @@ import {
 } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { DeepSeekProvider } from '../review/llm/provider.js';
@@ -781,12 +782,9 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
           .slice(0, 8),
       };
 
-      mkdirSync(resolve(process.cwd(), 'benchmarks'), { recursive: true });
-      writeFileSync(
-        resolve(process.cwd(), 'benchmarks/paraphrase-search.json'),
-        JSON.stringify(artifact, null, 2) + '\n',
-        'utf8',
-      );
+      const recorded = recordArtifact('benchmarks/paraphrase-search.json', artifact);
+      // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
+      if (!recorded.written) console.log(`PARAPHRASE-SEARCH artifact ${recorded.because}`);
       await queryEmbedder?.dispose().catch(() => undefined);
 
       // The summary line **is** the interface: the workflow greps it into the job summary.

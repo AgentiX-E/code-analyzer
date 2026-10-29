@@ -12,21 +12,57 @@
 // produced.
 
 import { JavaProvider, buildCallSites, groupCaptures } from '@code-analyzer/analyzer';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { analyzeInterproceduralTaint } from '../../packages/intelligence/src/security/interprocedural-entry.js';
+import {
+  evaluateSecurityRules,
+  type RuleSourceFile,
+} from '../../packages/intelligence/src/security/rule-families.js';
 
 import type { ParsedFile } from '@code-analyzer/shared';
 
-/** Where the checkout is: the variable may name either the repository root or the directory holding it. */
+/**
+ * The answer file whose name carries the version this score is about.
+ *
+ * **`find(startsWith('expectedresults'))` scored the wrong corpus, twice.** The v1.2 tarball contains a nested
+ * `BenchmarkJava-1.2beta/` checkout with 2 740 cases of its own, its own `expectedresults-1.2beta.csv` and a
+ * `benchmark.properties` whose chosen algorithm differs — so a search that accepted any answer file, plus a root
+ * resolver that preferred a nested `BenchmarkJava-*` directory, measured the beta tree while the report said v1.2.
+ * **Measured: FPR 0.3615 on the beta tree against 0.3042 on the released one, from the same engine and the same
+ * command.** The version is in the file name, so it is what the suite selects on.
+ */
+const EXPECTED_RESULTS = 'expectedresults-1.2.csv';
+
+/** A directory that is itself a v1.2 checkout: its own labels, its own testcode. */
+function isCorpusRoot(directory: string): boolean {
+  return (
+    existsSync(join(directory, EXPECTED_RESULTS)) &&
+    existsSync(join(directory, 'src/main/java/org/owasp/benchmark/testcode'))
+  );
+}
+
+/**
+ * Where the checkout is: the variable may name the corpus root or a directory holding it.
+ *
+ * **The root wins when it is one**, and that is the fix rather than the heuristic: the version file decides, and a
+ * directory that carries it is the corpus whatever else it contains.
+ */
 function corpusRoot(): string | null {
   const configured = process.env['OWASP_CORPUS'];
   if (!configured) return null;
-  const entries = readdirSync(configured);
-  const nested = entries.find((entry) => entry.startsWith('BenchmarkJava-'));
-  return nested ? join(configured, nested) : configured;
+  if (isCorpusRoot(configured)) return configured;
+  const nested = readdirSync(configured)
+    .map((entry) => join(configured, entry))
+    .find((candidate) => isCorpusRoot(candidate));
+  if (!nested) {
+    throw new Error(
+      `no ${EXPECTED_RESULTS} under ${configured} — this suite scores v1.2 and refuses to score a tree that is not`,
+    );
+  }
+  return nested;
 }
 
 interface Label {
@@ -36,8 +72,8 @@ interface Label {
 }
 
 function labels(root: string): Map<string, Label> {
-  const file = readdirSync(root).find((name) => name.startsWith('expectedresults'));
-  if (!file) throw new Error(`no expectedresults CSV in ${root}`);
+  const file = EXPECTED_RESULTS;
+  if (!existsSync(join(root, file))) throw new Error(`no ${file} in ${root}`);
   const out = new Map<string, Label>();
   for (const line of readFileSync(join(root, file), 'utf8').split('\n')) {
     const trimmed = line.trim();
@@ -59,6 +95,26 @@ interface Scored {
   readonly vulnerable: boolean;
   readonly flagged: boolean;
   readonly sinkKinds: readonly string[];
+  /** The rules that fired, which is how a non-flow category is answered at all. */
+  readonly rules: readonly string[];
+}
+
+/**
+ * The corpus's own configuration, read once.
+ *
+ * Four of the eleven categories are decided by it: the tests read `benchmark.properties` at run time and hand the value
+ * to `MessageDigest.getInstance`, so `hashAlg1=MD5` is what makes 129 cases vulnerable and `hashAlg1=SHA-256` would
+ * make them safe.
+ */
+function configuration(root: string): readonly RuleSourceFile[] {
+  const directory = join(root, 'src/main/resources');
+  return readdirSync(directory)
+    .filter((entry) => entry.endsWith('.properties'))
+    .map((entry) => ({
+      path: `src/main/resources/${entry}`,
+      language: 'properties',
+      text: readFileSync(join(directory, entry), 'utf8'),
+    }));
 }
 
 /** Run the engine on one test case and answer the benchmark's only question about it. */
@@ -95,12 +151,20 @@ function score(root: string, label: Label): Scored {
   // A flow a sanitizer neutralised is not a vulnerability; the engine reports it with `sanitized: true` so the path
   // can be explained, and the benchmark charges a tool only for the flows it stands behind.
   const live = result.findings.filter((finding) => !finding.sanitized);
+  // **The case is flagged when either half of the engine reports it.** A taint engine cannot answer "this program
+  // chose MD5", and a rule cannot answer "this request parameter reached a query"; the benchmark asks one question per
+  // case and both halves are part of the answer.
+  const ruleFindings = evaluateSecurityRules([
+    { path: file, language: 'java', text: code },
+    ...configuration(root),
+  ]).filter((finding) => finding.filePath === file);
   return {
     name: label.name,
     category: label.category,
     vulnerable: label.vulnerable,
-    flagged: live.length > 0,
+    flagged: live.length > 0 || ruleFindings.length > 0,
     sinkKinds: [...new Set(live.map((finding) => finding.sink.kind))].sort(),
+    rules: [...new Set(ruleFindings.map((finding) => finding.ruleId))].sort(),
   };
 }
 
@@ -116,6 +180,14 @@ describe.skipIf(ROOT === null)('the OWASP Benchmark corpus', () => {
     expect(vulnerable.length).toBe(1415);
     const categories = new Set([...all.values()].map((label) => label.category));
     expect(categories.size).toBe(11);
+
+    // **One label per file, and one file per label.** The beta tree beside the root has the same 2 740 labels and a
+    // different formatting and configuration, so labels alone cannot tell the trees apart — the file count can, and a
+    // label with no file would score as a miss for a reason that is not about the engine.
+    const testcode = join(ROOT!, 'src/main/java/org/owasp/benchmark/testcode');
+    const caseFiles = readdirSync(testcode).filter((entry) => entry.endsWith('.java'));
+    expect(caseFiles.length).toBe(2740);
+    expect([...all.keys()].every((name) => caseFiles.includes(`${name}.java`))).toBe(true);
   });
 
   it('names the sink a vulnerable case reaches, and stays quiet on a safe one', () => {
@@ -153,9 +225,9 @@ describe.skipIf(ROOT === null)('the OWASP Benchmark corpus', () => {
 
     // The floors are the measured baseline, so a regression in the vocabulary, the captures or the propagator fails
     // here rather than in a report nobody re-runs.
-    expect(tpr).toBeGreaterThanOrEqual(0.63);
-    expect(fpr).toBeLessThanOrEqual(0.47);
-    expect(tpr - fpr).toBeGreaterThanOrEqual(0.16);
+    expect(tpr).toBeGreaterThanOrEqual(0.81);
+    expect(fpr).toBeLessThanOrEqual(0.31);
+    expect(tpr - fpr).toBeGreaterThanOrEqual(0.5);
 
     // Seven of the eleven categories are flows, and that subset is the one this engine claims.
     const taintCategories = new Set([
@@ -171,9 +243,68 @@ describe.skipIf(ROOT === null)('the OWASP Benchmark corpus', () => {
     const taintSafe = safe.filter((item) => taintCategories.has(item.category));
     const taintTpr = taintVulnerable.filter((item) => item.flagged).length / taintVulnerable.length;
     const taintFpr = taintSafe.filter((item) => item.flagged).length / taintSafe.length;
-    expect(taintTpr).toBeGreaterThanOrEqual(0.76);
-    expect(taintTpr - taintFpr).toBeGreaterThanOrEqual(0.22);
+    expect(taintTpr).toBeGreaterThanOrEqual(0.71);
+    expect(taintTpr - taintFpr).toBeGreaterThanOrEqual(0.2);
   }, 600_000);
+
+  it('answers the four categories a flow cannot, by reading the configuration beside the code', () => {
+    // **The half of the score that has nothing to do with flows.** `BenchmarkTest00005` chooses
+    // `Cipher.getInstance("DES/CBC/PKCS5Padding")`; `BenchmarkTest00087` marks its cookie `setSecure(false)`;
+    // `BenchmarkTest00023` seeds from `java.util.Random`. Each is a rule, and the rule has to fire on the case rather
+    // than on the file's neighbours.
+    const all = labels(ROOT!);
+
+    const weakCipher = score(ROOT!, all.get('BenchmarkTest00005')!);
+    expect(weakCipher.vulnerable).toBe(true);
+    expect(weakCipher.rules).toContain('weak-cipher');
+
+    const insecureCookie = score(ROOT!, all.get('BenchmarkTest00087')!);
+    expect(insecureCookie.rules).toContain('insecure-cookie');
+
+    const weakRandom = score(ROOT!, all.get('BenchmarkTest00023')!);
+    expect(weakRandom.rules).toContain('weak-random');
+
+    // `BenchmarkTest00009` hashes with `sha-384`, and a rule that reports it is charging the project for a choice it
+    // got right. The same is true of `BenchmarkTest00016`, whose cookie sets the flag.
+    expect(score(ROOT!, all.get('BenchmarkTest00009')!).rules).toEqual([]);
+    expect(score(ROOT!, all.get('BenchmarkTest00016')!).rules).toEqual([]);
+  }, 120_000);
+
+  it('finds every vulnerable case in the four categories a rule answers', () => {
+    const all = labels(ROOT!);
+    const ruleCategories = new Set(['crypto', 'hash', 'securecookie', 'weakrand']);
+    const scored = [...all.values()]
+      .filter((label) => ruleCategories.has(label.category))
+      .map((label) => score(ROOT!, label));
+
+    const vulnerable = scored.filter((item) => item.vulnerable);
+    const safe = scored.filter((item) => !item.vulnerable);
+    const tpr = vulnerable.filter((item) => item.rules.length > 0).length / vulnerable.length;
+    const fpr = safe.filter((item) => item.rules.length > 0).length / safe.length;
+
+    // 513 vulnerable cases, 529 safe ones. Both bounds are the measured figures, and the false-positive one is 0
+    // because every rule here names a construct rather than a pattern.
+    expect(vulnerable.length).toBe(513);
+    expect(tpr).toBeGreaterThanOrEqual(1);
+    expect(fpr).toBeLessThanOrEqual(0.01);
+  }, 300_000);
+
+  // **The destination decides what a `write` is.** `BenchmarkTest00054` encrypts a request value and appends the
+  // ciphertext to a file whose path was fixed when the writer was constructed. Its label is `crypto`, it is safe, and
+  // a scanner that calls that write cross-site scripting charges the project for writing its own output down. All 85
+  // safe `Crypto` cases that scored as false positives did so through this sink, which is why the filter exists.
+  it('does not call a write to a file cross-site scripting', () => {
+    const all = labels(ROOT!);
+    const toFile = score(ROOT!, all.get('BenchmarkTest00054')!);
+    expect(toFile.vulnerable).toBe(false);
+    expect(toFile.sinkKinds).not.toContain('html');
+    expect(toFile.flagged).toBe(false);
+
+    // **And the same method name on the response is still a sink**, or the filter would be a way to lose the category
+    // it sits in: `BenchmarkTest00013` writes the parameter to the response body and is vulnerable.
+    const toResponse = score(ROOT!, all.get('BenchmarkTest00013')!);
+    expect(toResponse.sinkKinds).toContain('html');
+  }, 120_000);
 
   it('answers the same way twice, so the score is a measurement rather than a run', () => {
     const all = labels(ROOT!);

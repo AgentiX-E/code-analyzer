@@ -6,21 +6,28 @@
 // in that file, and the result is the Youden index, `TPR - FPR`, which charges a tool for the noise it makes rather
 // than only rewarding what it finds.
 //
-// **What it does not measure.** The engine is a taint tracker, and four of the eleven categories are not taint
-// problems: `crypto` and `hash` ask whether a weak algorithm was chosen in a constant, `weakrand` whether the
-// generator is predictable, and the two cookie categories whether a flag was set. Those are scored here as misses,
-// unsolved rather than excluded — excluding them would inflate the score by exactly the categories the engine
-// cannot see.
+// **Four of the eleven categories are not flows, and they are scored too.** `crypto` and `hash` ask whether a weak
+// algorithm was chosen, `weakrand` whether the generator is predictable, `securecookie` whether a flag was set. The
+// taint engine cannot answer any of them — it found 95 of their 513 vulnerable cases, all by accident — so the case is
+// flagged when either the flow analysis or `evaluateSecurityRules` reports it. Two of those rules read the corpus's own
+// `benchmark.properties`, because the algorithm the tests select is a property value rather than a literal.
+//
+// Both halves are reported separately as well as together: a single number cannot say which of the two found a case,
+// and a rule family that silently stopped working would show up as a smaller total and nothing else.
 //
 // Usage:
 //   tsx scripts/owasp-benchmark.ts --corpus <BenchmarkJava checkout> --out benchmarks/owasp-benchmark.json
 
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { JavaProvider, buildCallSites, groupCaptures } from '@code-analyzer/analyzer';
 
 import { analyzeInterproceduralTaint } from '../packages/intelligence/src/security/interprocedural-entry.js';
+import {
+  evaluateSecurityRules,
+  type RuleSourceFile,
+} from '../packages/intelligence/src/security/rule-families.js';
 
 import type { ParsedFile } from '@code-analyzer/shared';
 
@@ -37,6 +44,8 @@ interface CaseResult {
   readonly vulnerable: boolean;
   readonly flagged: boolean;
   readonly findings: number;
+  /** Rules that fired on this case, which is empty for every case a rule has nothing to say about. */
+  readonly rules: readonly string[];
 }
 
 interface CategoryScore {
@@ -80,6 +89,17 @@ interface Report {
   readonly overall: CategoryScore;
   /** The seven categories a flow analysis can answer, scored on their own. */
   readonly taintSubset: CategoryScore;
+  /**
+   * The same corpus scored twice, once by each half of the engine.
+   *
+   * **A single number cannot say which half found a case.** `overall` credits a case to whichever half reported it, so
+   * a rule family that stopped working would show up as a smaller total and nothing else; these two say what each half
+   * is worth on its own, and their sum is an upper bound on `overall` rather than a decomposition of it.
+   */
+  readonly byEngine: {
+    readonly flows: CategoryScore;
+    readonly rules: CategoryScore;
+  };
   readonly categories: readonly CategoryScore[];
   /** Present only with `--cases`: 2 740 rows belong to an artifact, not to the repository. */
   readonly cases?: readonly CaseResult[];
@@ -105,12 +125,16 @@ function readExpected(path: string): Expected[] {
   return out;
 }
 
-function score(cases: readonly CaseResult[], category: string): CategoryScore {
+function score(
+  cases: readonly CaseResult[],
+  category: string,
+  flagged: (item: CaseResult) => boolean = (item) => item.flagged,
+): CategoryScore {
   const relevant = category === 'all' ? cases : cases.filter((item) => item.category === category);
   const vulnerable = relevant.filter((item) => item.vulnerable);
   const safe = relevant.filter((item) => !item.vulnerable);
-  const truePositives = vulnerable.filter((item) => item.flagged).length;
-  const falsePositives = safe.filter((item) => item.flagged).length;
+  const truePositives = vulnerable.filter(flagged).length;
+  const falsePositives = safe.filter(flagged).length;
   const tpr = vulnerable.length === 0 ? 0 : truePositives / vulnerable.length;
   const fpr = safe.length === 0 ? 0 : falsePositives / safe.length;
   return {
@@ -139,9 +163,42 @@ function main(): void {
   }
 
   const testcode = join(corpus, 'src/main/java/org/owasp/benchmark/testcode');
-  const expectedFile = readdirSync(corpus).find((name) => name.startsWith('expectedresults'));
-  if (!expectedFile) throw new Error(`no expectedresults CSV in ${corpus}`);
+  // **The version is in the file name, and reading any `expectedresults` file was a mistake that silently scored a
+  // different corpus.** The tarball of v1.2 contains a nested `BenchmarkJava-1.2beta/` checkout - 2 740 of its own
+  // cases, its own `expectedresults-1.2beta.csv`, and a `benchmark.properties` whose algorithm differs - and a
+  // `find(startsWith('expectedresults'))` cannot tell the two apart. **Measured: the same engine scored 0.3615 FPR on
+  // the beta tree and 0.3042 on the released one**, from the same command, and the difference is not the engine.
+  const expectedFile = 'expectedresults-1.2.csv';
+  if (!existsSync(join(corpus, expectedFile))) {
+    const found = readdirSync(corpus).filter((name) => name.startsWith('expectedresults'));
+    throw new Error(
+      `${corpus} has no ${expectedFile} (found ${found.length > 0 ? found.join(', ') : 'none'}) — this score is ` +
+        'about v1.2, and a beta tree carries its own labels and its own configuration',
+    );
+  }
   const expected = new Map(readExpected(join(corpus, expectedFile)).map((e) => [e.name, e]));
+
+  // Every file the rules may need: the case itself, plus the corpus's configuration. A Java web application selects
+  // its algorithm in `benchmark.properties`, so a rule that cannot read it can only see the half of the corpus that
+  // spells the algorithm out at the call.
+  const configurationFiles: RuleSourceFile[] = [];
+  for (const resources of ['src/main/resources', 'src/main/webapp/WEB-INF']) {
+    const directory = join(corpus, resources);
+    let entries: string[] = [];
+    try {
+      entries = readdirSync(directory);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.endsWith('.properties')) continue;
+      configurationFiles.push({
+        path: `${resources}/${entry}`,
+        language: 'properties',
+        text: readFileSync(join(directory, entry), 'utf8'),
+      });
+    }
+  }
 
   const provider = new JavaProvider();
   const cases: CaseResult[] = [];
@@ -189,12 +246,17 @@ function main(): void {
     // `sanitized: true` so a reader can see that the path exists and why it is safe; counting it as a finding would
     // make the score charge this engine for the escaping the code actually does.
     const live = result.findings.filter((finding) => !finding.sanitized);
+    const caseFile: RuleSourceFile = { path: file, language: 'java', text: code };
+    const ruleFindings = evaluateSecurityRules([caseFile, ...configurationFiles]).filter(
+      (finding) => finding.filePath === file,
+    );
     cases.push({
       name,
       category: label.category,
       vulnerable: label.vulnerable,
-      flagged: live.length > 0,
+      flagged: live.length > 0 || ruleFindings.length > 0,
       findings: live.length,
+      rules: [...new Set(ruleFindings.map((finding) => finding.ruleId))].sort(),
     });
   }
 
@@ -218,6 +280,10 @@ function main(): void {
       ),
       category: 'taint-subset',
     },
+    byEngine: {
+      flows: score(cases, 'all', (item) => item.findings > 0),
+      rules: score(cases, 'all', (item) => item.rules.length > 0),
+    },
     categories: categories.map((category) => score(cases, category)),
     ...(withCases ? { cases } : {}),
     measuredAt: new Date().toISOString(),
@@ -230,6 +296,10 @@ function main(): void {
       `score ${report.overall.score.toFixed(4)}\n` +
       `taint subset (${report.taintSubset.cases} cases): TPR ${report.taintSubset.tpr.toFixed(4)} · ` +
       `FPR ${report.taintSubset.fpr.toFixed(4)} · score ${report.taintSubset.score.toFixed(4)}\n` +
+      `flows alone: TPR ${report.byEngine.flows.tpr.toFixed(4)} · FPR ${report.byEngine.flows.fpr.toFixed(4)} · ` +
+      `score ${report.byEngine.flows.score.toFixed(4)}\n` +
+      `rules alone: TPR ${report.byEngine.rules.tpr.toFixed(4)} · FPR ${report.byEngine.rules.fpr.toFixed(4)} · ` +
+      `score ${report.byEngine.rules.score.toFixed(4)}\n` +
       `sources ${sources} · sinks ${sinks}\n` +
       report.categories
         .map(

@@ -167,6 +167,16 @@ export interface ExtractedSink {
 /** The same for a sanitizer, whose type names what it neutralises. */
 export interface ExtractedSanitizer {
   readonly sanitizerType: string;
+  /** The values the neutraliser cleans, by name. Empty or absent means "the whole statement". */
+  readonly arguments?: readonly string[];
+  /**
+   * The sink kinds this neutraliser makes safe.
+   *
+   * **Absent is not "every kind" — it is "no kind", and that is the safe direction.** A provider that has not said
+   * which sinks its neutraliser is for has not claimed the flow is safe, so the analysis keeps reporting it. The
+   * opposite default was in place until the kind map landed, and it turned every sanitizer into a blanket excuse.
+   */
+  readonly neutralizes?: readonly string[];
   readonly line: number;
   readonly text: string;
 }
@@ -264,7 +274,15 @@ export function buildOccurrences(
 
     sanitizerSites.set(stmtIndex, {
       point: { blockIndex: 0, stmtIndex, line: sanitizer.line },
-      neutralizedKinds: new Set([sanitizer.sanitizerType]),
+      // The **kinds**, not the category. `sanitizerType` is `escaping`, `validation` or `parameterisation`, and a sink
+      // carries `html`, `sql_exec` or `file_read`; a set built from the first never contains anything the second asks
+      // for, so every sanitizer neutralised every sink and `has(kind)` was dead code.
+      neutralizedKinds: new Set(sanitizer.neutralizes ?? []),
+      // Absent stays absent: a neutraliser whose arguments could not be read keeps the statement-level reading, and an
+      // empty set means its arguments name no value at all — `encodeForHTML("literal")` cleans nothing tracked.
+      ...(sanitizer.arguments === undefined
+        ? {}
+        : { neutralizedNames: new Set(sanitizer.arguments) }),
       description: sanitizer.text,
     });
   }

@@ -183,6 +183,51 @@ describe('a flow that crosses a loop variable', () => {
   });
 });
 
+describe('a neutraliser only neutralises the sink it is for', () => {
+  it('does not clean a value for a query because it escaped it for a page', () => {
+    // **The defect that made every sanitizer look alike.** `neutralizedKinds` was built from the sanitizer's
+    // *category* — `escaping`, `validation` — while a sink carries a *kind* — `html`, `sql_exec`. `has(kind)` was
+    // therefore never true, and the only thing a sanitizer did was mark the finding `sanitized`. Escaping a value for
+    // an HTML body does nothing to a SQL parser, so this flow is live and the corpus counts it as one.
+    const code = [
+      'class Servlet {',
+      '  void doPost(HttpServletRequest request) {',
+      '    String param = request.getParameter("p");',
+      '    String bar = org.owasp.esapi.ESAPI.encoder().encodeForHTML(param);',
+      '    statement.executeQuery("SELECT * from USERS where NAME=\x27" + bar + "\x27");',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(liveKinds(scan(code))).toContain('sql_exec');
+  });
+
+  it('cleans a value for the query when the neutraliser is the one for queries', () => {
+    const code = [
+      'class Servlet {',
+      '  void doPost(HttpServletRequest request) {',
+      '    String param = request.getParameter("p");',
+      '    String bar = org.owasp.esapi.ESAPI.encoder().encodeForSQL(new OracleCodec(), param);',
+      '    statement.executeQuery("SELECT * from USERS where NAME=\x27" + bar + "\x27");',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(liveKinds(scan(code))).toEqual([]);
+  });
+
+  it('cleans a value for the page when the neutraliser is the one for pages', () => {
+    const code = [
+      'class Servlet {',
+      '  void doPost(HttpServletRequest request, HttpServletResponse response) {',
+      '    String param = request.getParameter("p");',
+      '    String bar = org.owasp.esapi.ESAPI.encoder().encodeForHTML(param);',
+      '    response.getWriter().println(bar);',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(liveKinds(scan(code))).toEqual([]);
+  });
+});
+
 describe('a flow that the code neutralises', () => {
   it('is reported as sanitized and does not count as a live finding', () => {
     const code = [

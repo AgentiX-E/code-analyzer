@@ -20,14 +20,14 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
-
+import { GraphBuilder, PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
+import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { recordArtifact } from '@code-analyzer/shared';
+import { describe, expect, it } from 'vitest';
 
 // **The pipeline lives in another package, and it is reached by name rather than by path.** A relative import across
 // package boundaries compiles in a monorepo right up until the packages are built separately, and then it does not.
-import { GraphBuilder, PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
-import { getDefaultConfig } from '@code-analyzer/core';
 
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
@@ -41,7 +41,6 @@ const ROOT = process.cwd();
  */
 const SOURCE = 'packages/shared/src/types/graph.ts';
 const COPIES = 30;
-const ARTIFACT = resolve(ROOT, 'benchmarks/lexical-search-recall.json');
 /**
  * **`SearchOptions` names this `limit`, and its default is 20.** The first version of this file passed `topK`, which
  * the compiler rejected and the runtime ignored - **so it reported "found in top 10" while asking for twenty**, and the
@@ -154,8 +153,9 @@ describe('retrieval, measured on a symbol\u2019s own name', () => {
         .slice(0, 10),
       target: { recall: 0.9, competitorRecall: 0.75, competitor: 'Cody, quoted by the whitepaper' },
     };
-    mkdirSync(resolve(ROOT, 'benchmarks'), { recursive: true });
-    writeFileSync(ARTIFACT, JSON.stringify(artifact, null, 2) + '\n', 'utf8');
+    const recorded = recordArtifact('benchmarks/lexical-search-recall.json', artifact);
+    // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
+    if (!recorded.written) console.log(`SEARCH-RECALL artifact ${recorded.because}`);
 
     // eslint-disable-next-line no-console
     console.log(

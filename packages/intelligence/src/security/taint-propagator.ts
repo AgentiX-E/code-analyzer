@@ -77,6 +77,21 @@ const DEFAULT_CONFIG: TaintPropagationConfig = {
  * TaintPropagator performs intra-procedural forward taint analysis
  * over def→use facts computed by the reaching definitions analysis.
  */
+/**
+ * Whether a neutraliser applies to the value being carried.
+ *
+ * **Three answers, three analyses.** A neutraliser that names the value applies only when the value is one of its
+ * arguments — `encodeForHTML(param)` does not clean `bar` in the same call. One that names nothing but *was* read has
+ * literal arguments only, and literals carry no taint, so it cleans nothing that is being tracked. One whose arguments
+ * could not be read has no answer to give, and the statement-level reading stays for it.
+ */
+function cleansValue(occurrence: SanitizerOccurrence, carriedName: string | undefined): boolean {
+  const names = occurrence.neutralizedNames;
+  if (names === undefined) return true;
+  if (carriedName === undefined) return names.size === 0;
+  return names.has(carriedName);
+}
+
 export class TaintPropagator {
   private config: TaintPropagationConfig;
 
@@ -96,6 +111,9 @@ export class TaintPropagator {
     const findings: TaintFlowFinding[] = [];
     let sanitizerKills = 0;
     let factsProcessed = 0;
+    // Findings a reader can act on, which is what the per-source cap bounds: a neutralised flow is reported so that a
+    // caller can see the engine considered and cleared it, but it does not use up the budget.
+    let liveFindings = 0;
 
     // Step 1: Identify all source occurrences
     const sources = this.collectSources(cfg);
@@ -138,7 +156,16 @@ export class TaintPropagator {
               stmtIndex: defSite.stmtIndex,
               line: source.point.line,
             },
-            exclusions: new Set(),
+            // **A neutraliser on the source's own statement has already run when the value is created**, and this is
+            // the read that needs no propagation to see it: `int id = Integer.parseInt(request.getParameter("id"))`
+            // is one statement, so the flow from the parameter into `id` never leaves it. The seed carried an empty
+            // exclusion set, and the neutraliser was only ever consulted on the statements the value travelled *to* —
+            // so the one statement it could not reach was the one it sat on.
+            exclusions: this.neutralizedAt(
+              sanitizerIndex,
+              defSite.stmtIndex,
+              cfg.bindings[defSite.bindingIdx]?.name,
+            ),
             source,
             viaCall: false,
             processedSize: 0,
@@ -174,57 +201,67 @@ export class TaintPropagator {
       factsProcessed += uses.length;
 
       for (const use of uses) {
+        // **A neutraliser on this statement runs before the call on it does.** `db.query(escape(req.body.id))` is one
+        // statement: the sink and the neutraliser are both filed there, and the neutraliser is the inner expression.
+        // The exclusions were accumulated *after* the sink was checked, so a statement that neutralised its own
+        // argument reported the flow as live — which is what a report full of already-safe code looks like.
+        const useSanitizerKey = this.makeKey(use.use.blockIndex, use.use.stmtIndex);
+        const sanitizers = sanitizerIndex.get(useSanitizerKey);
+
+        let newExclusions = state.exclusions;
+        if (sanitizers && sanitizers.length > 0) {
+          // Union of neutralized kinds from the local neutralisers **that clean this value**. A neutraliser with no
+          // readable arguments keeps the statement-level reading; one that names its arguments cleans only those, so
+          // `println("prefix " + bar + encodeForHTML(param))` no longer reports `bar` as escaped.
+          const neutralized = new Set(state.exclusions);
+          const carriedName = cfg.bindings[state.bindingIdx]?.name;
+          for (const san of sanitizers) {
+            if (!cleansValue(san, carriedName)) continue;
+            for (const kind of san.neutralizedKinds) {
+              neutralized.add(kind);
+            }
+          }
+          if (neutralized.size > state.exclusions.size) {
+            newExclusions = neutralized;
+            sanitizerKills++;
+          }
+        }
+
         // Check for sink at the use site
         const sinkKey = this.makeKey(use.use.blockIndex, use.use.stmtIndex);
         const sinks = sinkIndex.get(sinkKey);
 
         if (sinks && sinks.length > 0) {
           for (const sink of sinks) {
-            // Check if this sink kind is excluded
-            if (!state.exclusions.has(sink.kind)) {
-              // Build path trace from the propagated state's block trace
-              const path = this.buildBlockPath(state);
+            // Build path trace from the propagated state's block trace
+            const path = this.buildBlockPath(state);
 
-              findings.push({
-                id: `taint-${state.source.point.blockIndex}-${use.use.blockIndex}-${findings.length}`,
-                source: state.source,
-                sink,
-                path,
-                hops: path.length,
-                // **The path check, which is what the field is for.** `sanitizerIndex` was passed into the
-                // statement-local check and never used there, and the forward propagation did not look at it at all,
-                // so every finding was reported unsanitized. A sanitizer neutralises this flow when it sits on a
-                // statement between the source's and the sink's.
-                sanitized: this.isNeutralized(
-                  sanitizerIndex,
-                  state.point.stmtIndex,
-                  use.use.stmtIndex,
-                ),
-                truncated: path.length >= this.config.maxPathLength,
-                interproc: state.viaCall,
-                confidence: this.computeConfidence(state, use, path.length),
-              });
+            // **The state's own exclusions decide, and nothing else does.** They were accumulated where a neutraliser
+            // was met on the way here, per sink kind, so a finding is sanitized exactly when the value that reached
+            // this sink passed through a neutraliser for *this* kind. Asking the whole statement range instead — which
+            // is what the previous version did, through `isNeutralized` — made every `PreparedStatement.setString(1,
+            // "constant")` on the same path vouch for a query built by concatenation two lines above it.
+            const sanitized = newExclusions.has(sink.kind);
 
-              if (findings.length >= this.config.maxFindingsPerSource) break;
+            findings.push({
+              id: `taint-${state.source.point.blockIndex}-${use.use.blockIndex}-${findings.length}`,
+              source: state.source,
+              sink,
+              path,
+              hops: path.length,
+              sanitized,
+              truncated: path.length >= this.config.maxPathLength,
+              interproc: state.viaCall,
+              confidence: this.computeConfidence(state, use, path.length),
+            });
+
+            // The cap exists to stop one source from filling the result. A neutralised flow is not a result a reader
+            // can act on, so it does not count against the budget.
+            if (!sanitized) {
+              liveFindings++;
+              if (liveFindings >= this.config.maxFindingsPerSource) break;
             }
           }
-        }
-
-        // Check for sanitizers at the use site
-        const useSanitizerKey = this.makeKey(use.use.blockIndex, use.use.stmtIndex);
-        const sanitizers = sanitizerIndex.get(useSanitizerKey);
-
-        let newExclusions = state.exclusions;
-        if (sanitizers && sanitizers.length > 0) {
-          // Union of neutralized kinds from all local sanitizers
-          const neutralized = new Set(state.exclusions);
-          for (const san of sanitizers) {
-            for (const kind of san.neutralizedKinds) {
-              neutralized.add(kind);
-            }
-          }
-          newExclusions = neutralized;
-          sanitizerKills++;
         }
 
         // Propagate taint: taint the defs produced by the use statement
@@ -307,7 +344,7 @@ export class TaintPropagator {
   }
 
   private checkStatementLocal(
-    _cfg: FunctionCfg,
+    cfg: FunctionCfg,
     source: TaintSourceOccurrence,
     sinkIndex: Map<number, TaintSinkOccurrence[]>,
     sanitizerIndex: Map<number, SanitizerOccurrence[]>,
@@ -324,10 +361,12 @@ export class TaintPropagator {
         sink,
         path: [source.point.blockIndex],
         hops: 1,
+        // One statement, so the neutraliser that matters is the one on it, for this sink's kind, and for this value.
         sanitized: this.isNeutralized(
           sanitizerIndex,
           source.point.stmtIndex,
-          source.point.stmtIndex,
+          sink.kind,
+          cfg.bindings[source.bindingIdx]?.name,
         ),
         truncated: false,
         interproc: false,
@@ -378,23 +417,45 @@ export class TaintPropagator {
     return `${state.bindingIdx}:${state.point.blockIndex}:${state.point.stmtIndex}`;
   }
   /**
-   * Whether a sanitizer sits between two statements, inclusive.
+   * Whether a neutraliser on this one statement makes **this sink kind** safe.
    *
-   * Inclusive because both ends are real: a sanitizer on the source's own statement (`escape(req.body.id)` as the
-   * declaration) and one on the sink's (`db.query(escape(id))`) both neutralise the flow. A statement-local flow -
-   * source and sink on one line - therefore has exactly one statement to check, which is why both bounds are the
-   * same there.
+   * This is only asked where a source and a sink share a statement — `db.query(escape(req.body.id))` — because
+   * everywhere else the answer comes from the exclusions the propagation accumulated, which are per kind and per
+   * path. **Two parameters changed the answer here.** Without `sinkKind` the check returned true for the mere
+   * presence of a neutraliser, so `encodeForHTML(param)` vouched for a query; without the narrowing to one statement
+   * it returned true for a neutraliser anywhere in the range, so `setString(1, "constant")` vouched for a query built
+   * two lines above it.
    */
+  /**
+   * Every sink kind neutralised on one statement **for the value named `carriedName`**.
+   *
+   * A neutraliser that names its arguments contributes only when one of them is the value being carried; one whose
+   * arguments could not be read contributes always, because the statement-level reading is the one every provider
+   * before this could express.
+   */
+  private neutralizedAt(
+    sanitizerIndex: Map<number, SanitizerOccurrence[]>,
+    stmtIndex: number,
+    carriedName: string | undefined,
+  ): Set<string> {
+    const kinds = new Set<string>();
+    for (const occurrence of sanitizerIndex.get(stmtIndex) ?? []) {
+      if (!cleansValue(occurrence, carriedName)) continue;
+      for (const kind of occurrence.neutralizedKinds) kinds.add(kind);
+    }
+    return kinds;
+  }
+
   private isNeutralized(
     sanitizerIndex: Map<number, SanitizerOccurrence[]>,
-    fromStmt: number,
-    toStmt: number,
+    stmtIndex: number,
+    sinkKind: string,
+    carriedName: string | undefined,
   ): boolean {
-    const low = Math.min(fromStmt, toStmt);
-    const high = Math.max(fromStmt, toStmt);
-    for (const [stmtIndex, occurrences] of sanitizerIndex) {
-      if (stmtIndex < low || stmtIndex > high) continue;
-      if (occurrences.length > 0) return true;
+    for (const occurrence of sanitizerIndex.get(stmtIndex) ?? []) {
+      if (!occurrence.neutralizedKinds.has(sinkKind)) continue;
+      if (!cleansValue(occurrence, carriedName)) continue;
+      return true;
     }
     return false;
   }

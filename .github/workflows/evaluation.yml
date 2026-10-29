@@ -73,6 +73,10 @@ jobs:
         run: cp -r benchmarks benchmarks-baseline
 
       - name: Run the protocol scorers
+        # **A runner run is the one that may publish.** Recording is opt-in so an ordinary local run measures without
+        # replacing the committed figure; here the artifacts are also compared against the copies taken above.
+        env:
+          BENCHMARK_WRITE: '1'
         run: |
           npx vitest run --config vitest.config.ts \
             packages/intelligence/src/__tests__/review-benchmark-protocol.test.ts \

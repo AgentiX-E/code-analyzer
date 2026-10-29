@@ -96,6 +96,8 @@ jobs:
         if: steps.credential.outputs.vectors == 'true'
         env:
           COSQA_DIR: benchmarks/corpora/cosqa
+          # **This run publishes figures**: recording is opt-in so a local run cannot replace the committed artifact.
+          BENCHMARK_WRITE: '1'
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           ZHIPU_EMBEDDING_MODEL: embedding-3
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
