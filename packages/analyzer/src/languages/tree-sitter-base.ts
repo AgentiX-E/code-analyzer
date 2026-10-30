@@ -1025,9 +1025,32 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     return CALL_NODE_TYPES.has(nodeType);
   }
 
-  /** Emit a UnifiedCapture for a call site node */
+  /**
+   * Emit a UnifiedCapture for a call site node.
+   *
+   * **The one producer of a call site, and `text` is the callee rather than the whole expression.** Both halves of
+   * that sentence were defects:
+   *
+   * 1. `TypeScriptProvider` emitted its own call capture for `call_expression` *and* called this, so **every
+   *    TypeScript call site was recorded twice** - two identical `CALLS` edges for one `helper()`, and a fan-in
+   *    that read two callers where there was one. Measured on a two-file fixture: 2 edges, 1 reference target.
+   * 2. `text` held `helper()` and `request.args.get(key)`, from which a receiver cannot be read without parsing the
+   *    argument list; `receiverOf` therefore reported none, and **JavaScript lost the receiver for every call it
+   *    ever resolved** - where TypeScript, which passed the callee node, did not. The callee's own text
+   *    (`helper`, `request.args.get`) is the form the resolver wants, and it is what this now stores.
+   */
   protected emitCallCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const name = this.extractCallName(node);
+    // **A call site whose callee has no name is still a call site.** `arr[0]()` and `(f)()` call something the name
+    // extractor cannot spell, and dropping them made the taint analysis quieter rather than more correct: a call is
+    // a sink whether or not the resolver can follow it. The callee's own text is the honest name when nothing better
+    // exists, and a name like `arr[0]` resolves to nothing, which is the correct outcome rather than a missing edge.
+    //
+    // **The recovered text is the last resort, and it is what a malformed file leaves behind.** A call node from
+    // error recovery may carry no named child at all; its text is still the fragment the parser read, and recording
+    // the call site with that fragment keeps a sink where dropping it would have lost one. A node with neither a
+    // child nor a text says nothing about any call, and that is the one case that returns.
+    const calleeText = this.extractCalleeText(node) ?? node.text;
+    const name = this.extractCallName(node) ?? calleeText;
     if (!name) return;
 
     const startLine = node.startPosition.row + 1;
@@ -1040,11 +1063,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       containerName = this.extractContainerName(parent);
     }
 
-    const tag = this.getCallTagForNodeType(node.type);
+    const tag = this.getCallTagForNodeType(node);
 
     captures.push({
       tag,
-      text: node.text,
+      text: calleeText,
       startLine,
       endLine,
       startByte: node.startIndex,
@@ -1058,11 +1081,32 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     });
   }
 
-  /** Determine the capture tag for a call node type */
-  protected getCallTagForNodeType(nodeType: string): CaptureTag {
-    // The only callers (js/ts) emit either call_expression or new_expression;
-    // no other node type reaches this method.
-    return nodeType === 'new_expression' ? CAPTURE_TAGS.NEW_EXPRESSION : CAPTURE_TAGS.FUNCTION_CALL;
+  /**
+   * The capture tag for a call node.
+   *
+   * **`METHOD_CALL` when the callee is written as a member, because the tag is what carries the receiver.** It used
+   * to be decided by node type alone, so every JavaScript method call was a `FUNCTION_CALL` with a `callType` string
+   * saying otherwise - and `receiverOf` reads the tag, so the fact was recorded in a property nothing in the resolver
+   * reads. A `new_expression` stays its own tag: constructing a type is not calling a method.
+   */
+  protected getCallTagForNodeType(node: TreeSitterSyntaxNode): CaptureTag {
+    if (node.type === 'new_expression') return CAPTURE_TAGS.NEW_EXPRESSION;
+    return this.isMethodCall(node) ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL;
+  }
+
+  /**
+   * The text of the callee - `helper` in `helper()`, `request.args.get` in `request.args.get(key)`, `arr[0]` in
+   * `arr[0]()`.
+   *
+   * **The first named child of a call expression is its callee**, in every grammar this class serves, and the
+   * argument list is the second - so the shape is read once rather than matched against a list of node types. An
+   * earlier version whitelisted `identifier`, `member_expression` and four relatives, which meant a subscript or a
+   * parenthesised callee fell back to the whole expression and lost the receiver the text exists to carry.
+   * `undefined` is reserved for a node with no named children at all, which is what an `ERROR` node looks like.
+   */
+  protected extractCalleeText(node: TreeSitterSyntaxNode): string | undefined {
+    const callee = namedChildrenOf(node)[0];
+    return callee?.text;
   }
 
   /** Check if a call node is a method call (has a receiver/object) */

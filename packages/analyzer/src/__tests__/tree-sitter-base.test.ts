@@ -268,6 +268,14 @@ class TestableGenericProvider extends GenericProvider {
   public extractNameFromNodeForTest(node: TreeSitterSyntaxNode): string | undefined {
     return this.extractNameFromNode(node);
   }
+
+  public calleeTextForTest(node: TreeSitterSyntaxNode): string | undefined {
+    return this.extractCalleeText(node);
+  }
+
+  public emitCallForTest(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    this.emitCallCapture(node, captures);
+  }
 }
 
 describe('TreeSitterBaseProvider', () => {
@@ -598,16 +606,19 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect method calls on object members', () => {
       const source = 'function test() { console.log("hello"); }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const methodCalls = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL);
+      const calls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.METHOD_CALL || c.tag === CAPTURE_TAGS.FUNCTION_CALL,
+      );
       // **A member call is a METHOD_CALL, and the assertion now asks for the call rather than for its absence.**
       //
       // **The old comment claimed `METHOD_CALL` was Groovy-only and that a non-empty set here was impossible to
       // satisfy**, so **the assertion was written as `toHaveLength(0)`** - **which passes for an empty array and
       // therefore verified nothing about the call this test is named after.**
-      expect(methodCalls.length).toBeGreaterThanOrEqual(1);
-      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL).length).toBeGreaterThan(
-        0,
-      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.tag).toBe(CAPTURE_TAGS.METHOD_CALL);
+      // **`console.log` and not `console.log("hello")`.** The whole expression cannot be split into a receiver and a
+      // name without re-parsing its argument list, which is why every JavaScript call used to resolve as a bare one.
+      expect(calls[0]!.text).toBe('console.log');
     });
 
     it('parse should detect class with extends (baseClasses property)', () => {
@@ -1005,6 +1016,47 @@ describe('TreeSitterBaseProvider', () => {
         (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL || c.tag === CAPTURE_TAGS.METHOD_CALL,
       );
       expect(calls.length).toBeGreaterThanOrEqual(1);
+      // **The callee is the name when no better name exists**, and `arr[0]` resolves to nothing - which is the
+      // correct outcome, because there is no declaration to reach.
+      expect(calls[0]!.name).toBe('arr[0]');
+      expect(calls[0]!.text).toBe('arr[0]');
+    });
+  });
+
+  describe('the call-site producer, on the shapes a grammar can hand it', () => {
+    // **A call node with no named children is what error recovery produces**, and it is the only input on which the
+    // producer has nothing to name the callee with. The branch it takes there decides whether a malformed file keeps
+    // its call sites or silently loses them, and no amount of well-formed source can reach it - so it is stated here,
+    // with a synthetic node, rather than left as the one arm of this function nothing has ever run.
+    const testable = new TestableGenericProvider();
+
+    it('reads the callee from the first named child', () => {
+      const call = makeNode('call_expression', [
+        makeNode('member_expression', [makeNode('identifier', [], 'request')], 'request.args'),
+        makeNode('arguments'),
+      ]);
+      expect(testable.calleeTextForTest(call)).toBe('request.args');
+    });
+
+    it('reports no callee for a node with no named children', () => {
+      expect(testable.calleeTextForTest(makeNode('call_expression', [], ''))).toBeUndefined();
+    });
+
+    it('records a call site from the recovered text when there is no callee to read', () => {
+      const captures: UnifiedCapture[] = [];
+      // The text is what the parser managed to recover; recording it keeps a sink that a stricter rule would drop.
+      testable.emitCallForTest(makeNode('call_expression', [], 'foo('), captures);
+      expect(captures).toHaveLength(1);
+      expect(captures[0]!.text).toBe('foo(');
+      expect(captures[0]!.name).toBe('foo(');
+    });
+
+    it('records nothing for a call node with neither a child nor a text', () => {
+      const captures: UnifiedCapture[] = [];
+      // **The one case that returns**: a node that says nothing about any call is not a call site, and inventing an
+      // empty-named one would put a nameless edge target into every consumer downstream.
+      testable.emitCallForTest(makeNode('call_expression', [], ''), captures);
+      expect(captures).toEqual([]);
     });
   });
 });

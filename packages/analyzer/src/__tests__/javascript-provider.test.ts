@@ -158,8 +158,16 @@ describe('JavaScriptProvider', () => {
     it('should detect method calls', () => {
       const source = 'obj.method();\n';
       const captures = provider.parse(source, 'test.js');
-      const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+      const calls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.METHOD_CALL || c.tag === CAPTURE_TAGS.FUNCTION_CALL,
+      );
       expect(calls.some((c) => c.name === 'method')).toBe(true);
+      // **The receiver, which JavaScript never had.** `text` held `obj.method()` and a receiver cannot be read out of
+      // a substring of that without cutting the argument list off - so every JavaScript call resolved as a bare one
+      // and the arm that follows a receiver into an inherited method could not fire for the language.
+      const call = calls.find((c) => c.name === 'method')!;
+      expect(call.tag).toBe(CAPTURE_TAGS.METHOD_CALL);
+      expect(call.text).toBe('obj.method');
     });
 
     it('should detect class methods and constructors', () => {

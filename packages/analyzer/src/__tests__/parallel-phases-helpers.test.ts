@@ -28,6 +28,7 @@ import {
   captureTagToReferenceKind,
   groupCaptures,
   getOrLoadProvider,
+  receiverOf,
   toPhaseFailure,
   ParallelScanPhase,
   ParallelParsePhase,
@@ -265,6 +266,64 @@ describe('groupCaptures', () => {
     );
     expect(symbols).toEqual([]);
     expect(references).toEqual([]);
+  });
+
+  it('carries the receiver of a method call into the reference the resolver reads', () => {
+    // **The receiver is the whole difference between a bound method and a free function of the same name.** Both
+    // captures below say "call `get`"; only the first says it was called on `request.args`, and a resolver that
+    // cannot see that has to guess - which is how a five-line `__getattr__` in flask collected edges to `pop`,
+    // `setdefault` and `__repr__`.
+    const { references } = groupCaptures(
+      [
+        makeCapture(CAPTURE_TAGS.METHOD_CALL, {
+          name: 'get',
+          text: 'request.args.get',
+          startLine: 4,
+        }),
+        makeCapture(CAPTURE_TAGS.METHOD_CALL, { name: 'rollback', text: 'rollback', startLine: 5 }),
+      ],
+      '/app/src/a.py',
+    );
+    expect(references[0]).toMatchObject({ targetName: 'get', receiver: 'request.args' });
+    // A provider that stored the callee as a bare name reports no receiver, which reads as "the caller's scope".
+    expect(references[1]).not.toHaveProperty('receiver');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// receiverOf
+// ---------------------------------------------------------------------------
+
+describe('receiverOf', () => {
+  it('reports what stood before the last dot, so a chained call keeps its full receiver', () => {
+    expect(receiverOf(CAPTURE_TAGS.METHOD_CALL, 'self.get', 'get')).toBe('self');
+    expect(receiverOf(CAPTURE_TAGS.METHOD_CALL, 'request.args.get', 'get')).toBe('request.args');
+  });
+
+  it('reports nothing when the provider stored the callee as a bare name', () => {
+    // Reading `get` as if it had a receiver would invent one; `undefined` is the answer that says "own scope".
+    expect(receiverOf(CAPTURE_TAGS.METHOD_CALL, 'get', 'get')).toBeUndefined();
+  });
+
+  it('reports nothing for a capture that is not a method call', () => {
+    // A `FUNCTION_CALL` capture is a bare name by definition, whatever its text looks like.
+    expect(receiverOf(CAPTURE_TAGS.FUNCTION_CALL, 'get', 'get')).toBeUndefined();
+    expect(receiverOf(CAPTURE_TAGS.IMPORT_NAMED, 'os.path', 'path')).toBeUndefined();
+  });
+
+  it('reports nothing when the capture has no text to read', () => {
+    expect(receiverOf(CAPTURE_TAGS.METHOD_CALL, undefined, 'get')).toBeUndefined();
+  });
+
+  it('reports nothing when the text names a different callee', () => {
+    // `self.get` captured for a target of `set`: the segment after the dot disagrees, so this text is not a
+    // spelling of that call and cannot be read as its receiver.
+    expect(receiverOf(CAPTURE_TAGS.METHOD_CALL, 'self.get', 'set')).toBeUndefined();
+  });
+
+  it('reports nothing when the dot leads the text', () => {
+    // `.get` has no receiver before the dot - the empty string is not one.
+    expect(receiverOf(CAPTURE_TAGS.METHOD_CALL, '.get', 'get')).toBeUndefined();
   });
 });
 

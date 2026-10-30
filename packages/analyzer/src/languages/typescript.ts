@@ -321,17 +321,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // **The use side, which TypeScript never emitted.** It recorded a definition, a constant and a call, and nothing
     // that says a name is *used* - so the pipeline had a definition and no use to follow and produced no finding.
     if (nodeType === 'call_expression') {
-      // **A call expression always has its callee and its argument list** - the type says so, and `foo` / `foo(` parse
-      // to an `ERROR` node rather than to a call missing either - so both children are read rather than checked.
-      const callee = node.child(0);
-      const isMethod = callee.type === 'member_expression';
-      captures.push(
-        this.buildCapture(
-          node,
-          isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
-          callee,
-        ),
-      );
+      // **The call site itself is not captured here, and that is the fix rather than an omission.** This block used
+      // to push a second capture for the same node - `buildCapture(node, tag, callee)` - while `walkAndCapture` also
+      // called `emitCallCapture` for every call node, so **one TypeScript call site became two `CALLS` edges**: the
+      // same caller, the same callee, the same line, two rows. The base class now reads the callee's own text, which
+      // is the part this block existed to supply, so there is one producer instead of two.
       const args = node.child(1);
       // **Every name in an argument, not only the ones written bare.** `db.query(id + suffix)` passes taint through
       // an expression, and recording only the direct identifier children left the sink statement contributing no use -

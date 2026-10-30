@@ -26,7 +26,7 @@ import { mergePipelineGraph } from './group-graph.js';
 
 import type { PackageIdentity } from './package-identity.js';
 import type { RepoGroupManager } from './repo-group-manager.js';
-import type { LanguageProvider } from '@code-analyzer/analyzer';
+import type { ExecutablePhase, LanguageProvider } from '@code-analyzer/analyzer';
 import type {
   Contract,
   GraphEdge,
@@ -213,6 +213,19 @@ const WORKSPACE_LANGUAGES: ReadonlySet<string> = new Set(
     .filter((language): language is NonNullable<typeof language> => language !== null),
 );
 
+/**
+ * The phases a workspace index runs: **every phase but the one that reaches the network, unless asked for it.**
+ *
+ * `embed` depends on `dump` and nothing depends on `embed`, so removing it from the DAG leaves every structural
+ * relation intact - which is what makes "index the structure, skip the vectors" a subtraction rather than a flag
+ * threaded through the pipeline. Exported and taking one boolean so the exclusion is a fact a test can state:
+ * the alternative was to prove it by asking for `embed: true`, which on a machine holding a key is a few thousand
+ * API calls and on a machine without one is a phase that cannot run.
+ */
+export function workspacePhases(embed: boolean): ExecutablePhase[] {
+  return createAllPhases().filter((phase) => embed || phase.id !== 'embed');
+}
+
 // ---------------------------------------------------------------------------
 // CrossRepoIndexer
 // ---------------------------------------------------------------------------
@@ -368,13 +381,18 @@ export class CrossRepoIndexer {
     };
   }
 
-  /** The store's edges by relation, sorted by relation so two runs print the same string. */
+  /** The store's edges by relation, keyed in sorted order so two runs of the same input print the same census. */
   censusOfEdges(): Record<string, number> {
     const counts: Record<string, number> = {};
     for (const edge of this.store.getAllEdges()) {
       counts[edge.type] = (counts[edge.type] ?? 0) + 1;
     }
-    return counts;
+    // **Sorted on the way out, because insertion order is a fact about the store and not about the edges.** The
+    // first version counted into an object and returned it, so a census written to a JSON file differed between two
+    // runs whose edges arrived in a different order - a diff in a benchmark report that means nothing.
+    const sorted: Record<string, number> = {};
+    for (const type of Object.keys(counts).sort()) sorted[type] = counts[type]!;
+    return sorted;
   }
 
   /**
@@ -478,13 +496,9 @@ export class CrossRepoIndexer {
       metadata: {},
     } as unknown as PipelineContext;
 
-    // **Every phase but one, and the one left out is the one that reaches the network.** `embed` depends on `dump`
-    // and nothing depends on `embed`, so removing it leaves the DAG valid and every structural relation intact.
-    const phases = createAllPhases().filter(
-      (phase) => options.embed === true || phase.id !== 'embed',
+    const result = await new PipelineOrchestrator(workspacePhases(options.embed === true)).execute(
+      context,
     );
-
-    const result = await new PipelineOrchestrator(phases).execute(context);
     const merged = mergePipelineGraph(result.graph, {
       rootPath: localPath,
       projectId,

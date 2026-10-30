@@ -500,14 +500,22 @@ describe('TypeScriptProvider', () => {
       expect(captures.some((c) => c.tag === CAPTURE_TAGS.NEW_EXPRESSION)).toBe(true);
     });
 
-    it('captures method calls as function calls with method callType', () => {
+    it('captures a method call once, as a method call, with the callee it was made on', () => {
       const captures = provider.parse('obj.method();', 'test.ts');
-      const call = captures.find((c) => c.name === 'method');
-      expect(call).toBeDefined();
-      // tree-sitter-typescript emits `call_expression` (not `method_invocation`),
-      // so the tag is FUNCTION_CALL while the callType metadata marks it a method.
-      expect(call!.tag).toBe(CAPTURE_TAGS.FUNCTION_CALL);
-      expect(call!.properties?.['callType']).toBe('method');
+      const calls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.METHOD_CALL || c.tag === CAPTURE_TAGS.FUNCTION_CALL,
+      );
+      // **One capture, not two.** The provider used to emit its own call capture and the base walk emitted another,
+      // so this expression produced two identical references and therefore two `CALLS` edges - a fan-in of two for
+      // a call made once.
+      expect(calls).toHaveLength(1);
+      const call = calls[0]!;
+      expect(call.name).toBe('method');
+      // **`METHOD_CALL` because the tag is what carries the receiver.** `text` is the callee, so `obj` is readable
+      // from it; `callType` says the same thing in a property nothing in the resolver reads.
+      expect(call.tag).toBe(CAPTURE_TAGS.METHOD_CALL);
+      expect(call.text).toBe('obj.method');
+      expect(call.properties?.['callType']).toBe('method');
     });
   });
 

@@ -398,6 +398,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // of the same-file edges on flask pointed at a name as common as `get`, `load` or `close` - because
             // `request.args.get(key)` and `self.get(key)` were indistinguishable. A bare call, or a call on
             // `self`/`this`/`cls`/`super`, is the case where the enclosing scope is the answer.
+            //
+            // **Two relaxations were tried and both were refused by measurement, not by taste.** Allowing any receiver
+            // at all added 55 same-file edges on flask of which **0** were right (precision 94.7 % -> 81.1 %, recall
+            // unmoved); allowing a receiver *rooted* in the enclosing object - `this.index.buildIndex()` - added 12 on
+            // werkzeug of which **0** were right (95.8 % -> 94.7 %). The calls those relaxations were meant to recover
+            // are the `this.field.method()` shape, and recovering them needs the field's **type**, which is the
+            // resolver's next piece of work rather than a change to this condition.
             if (!target && isOwnScopeCall(ref.receiver)) {
               const scope = fileScopes.get(parsedFile.filePath);
               // A receiver of `self`/`cls`/`this` reaches a member; a bare call reaches the module scope, and a member
