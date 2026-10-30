@@ -504,11 +504,14 @@ export class CrossRepoIndexer {
 
       const startLine = Number(capture.startLine) || 1;
       const endLine = Number(capture.endLine) || startLine;
-      // **A comment belongs to the declaration on the very next line**, and one separated by a blank line belongs to
-      // the file. One line, not two: a decorator or an annotation is *inside* the declaration's own range in every
-      // grammar this project parses, so a gap of two lines is always a blank line, and attaching across it would tell
-      // a reader - and a retriever - that a file's header documents the function below it.
-      const docstring = pending && startLine - pending.endLine <= 1 ? pending.text : null;
+      // **A comment belongs to the declaration that follows it, across one blank line.** Two lines of gap, so one
+      // blank line is allowed and two are not - and the allowance is there because writing a JSDoc block, a blank
+      // line, and then the declaration is a real convention rather than an accident: express's `lib/application.js`
+      // does it for every method it defines, and a rule that refused it left `app.use` - the function whose comment
+      // says "add middleware to the app router" - with no documentation at all, which is why no question containing
+      // that word could reach it. **Two blank lines is a paragraph break**, and a comment above one of those belongs
+      // to the file rather than to the declaration below.
+      const docstring = pending && startLine - pending.endLine <= 2 ? pending.text : null;
       pending = null;
 
       nodes.push({

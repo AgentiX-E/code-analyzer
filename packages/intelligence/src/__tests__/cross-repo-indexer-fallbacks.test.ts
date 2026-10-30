@@ -502,11 +502,11 @@ describe('imports across three repositories', () => {
 
 describe('the documentation a group index keeps', () => {
   /**
-   * One repository whose file has a documented function, a bare one, and a comment separated from its declaration by a
-   * blank line.
+   * One repository whose file holds the four cases the rule has to separate: a comment against its declaration, a
+   * declaration with no comment, a comment one blank line above its declaration, and a comment two blank lines above.
    *
-   * **The three cases are one fixture on purpose**: the rule being tested is a window, and a fixture with only the
-   * first case passes for a rule that attaches every comment in the file to whatever comes next.
+   * **The four cases are one fixture on purpose**: the rule being tested is a gap, and a fixture with only the first
+   * case passes for a rule that attaches every comment in the file to whatever comes next.
    */
   const DOCUMENTED = {
     'repo-doc': {
@@ -523,8 +523,17 @@ describe('the documentation a group index keeps', () => {
         '}',
         '',
         '/**',
+        ' * One blank line, which is how express documents every method of an application.',
+        ' */',
+        '',
+        'export function spaced() {',
+        '  return 3;',
+        '}',
+        '',
+        '/**',
         ' * Belongs to the file, not to `later`: two blank lines away.',
         ' */',
+        '',
         '',
         'export function later() {',
         '  return 2;',
@@ -562,7 +571,20 @@ describe('the documentation a group index keeps', () => {
     expect(bare.docstring).toBeNull();
   });
 
-  it('does not reach across a blank line, where the comment belongs to the file', async () => {
+  it('reaches across one blank line, which is the convention express writes with', async () => {
+    // **This is the case a rule of "the very next line" gets wrong, and it got `app.use` wrong on a released
+    // checkout**: `lib/application.js` puts a blank line between every JSDoc block and the `app.<method> = function`
+    // that follows it, so the comment - the only place the words "middleware" and "mounted" appear - was discarded and
+    // the method whose name is three letters became unreachable by any question about what it does.
+    const store = await indexDocumented();
+    const spaced = store.getNodeByQualifiedName('project:o/repo-doc:src/app.ts:spaced')!;
+    expect(spaced.docstring).toContain('how express documents every method');
+  });
+
+  it('does not reach across two blank lines, where the comment belongs to the file', async () => {
+    // **The boundary, asserted rather than assumed**: two blank lines is a paragraph break, and a comment above one
+    // of those is a section header. A rule loose enough to cross it would document `later` with a sentence about
+    // something else, and a reader - and a retriever - would be told something false.
     const store = await indexDocumented();
     const later = store.getNodeByQualifiedName('project:o/repo-doc:src/app.ts:later')!;
     expect(later.docstring).toBeNull();
