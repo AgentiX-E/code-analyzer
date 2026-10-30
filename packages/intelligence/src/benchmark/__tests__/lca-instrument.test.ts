@@ -10,7 +10,7 @@
 // the harness rather than of the product: a path that was mangled, a test file that was counted, a filter that
 // reordered the ranking, a metric that rounds differently from the authors'.
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -76,6 +76,8 @@ describe('isTestPath', () => {
     ['src/test_helpers/util.py', false],
     ['src/Parser.java', false],
     ['README.md', false],
+    // **No separator at all**: the whole path is the file name, which is the branch a `?? ''` would have made dead.
+    ['test_parser.py', true],
   ])('%s is not a test file: %s', (path, expected) => {
     expect(isTestPath(path)).toBe(expected);
   });
@@ -96,6 +98,10 @@ describe('corpusFiles', () => {
     writeFileSync(join(root, '.git/f.py'), '');
     writeFileSync(join(root, 'node_modules/g.py'), '');
     writeFileSync(join(root, 'README.md'), '');
+    // **A symlink, because a released checkout has them and a directory walk meets them.** It is neither a file nor a
+    // directory to `readdir`, so a walk that only skips `.git` and `node_modules` and then assumes a file would count
+    // one twice, once through the link and once through its target.
+    symlinkSync(join(root, 'src/a.py'), join(root, 'src/link.py'));
     return root;
   };
 
@@ -112,6 +118,12 @@ describe('corpusFiles', () => {
   it('skips test files by the baseline’s rule', () => {
     expect(corpusFiles(build(), '.py')).not.toContain('src/d_test.py');
     expect(corpusFiles(build(), '.py')).not.toContain('tests/e.py');
+  });
+
+  it('does not count a symlink as a file of its own', () => {
+    const files = corpusFiles(build(), '.py');
+    expect(files).not.toContain('src/link.py');
+    expect(files.filter((file) => file.endsWith('a.py')).length).toBe(1);
   });
 
   it('returns an empty list for a checkout with none of the extension', () => {

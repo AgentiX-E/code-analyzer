@@ -54,9 +54,12 @@ export function toCorpusPath(checkout: string, file: string): string {
  * artifact.
  */
 export function isTestPath(path: string): boolean {
-  const segments = path.split('/');
-  const fileName = segments.at(-1) ?? '';
-  const directories = segments.slice(0, -1);
+  // **One index rather than a split and a slice**, because `split('/')` always yields at least one element and the
+  // `?? ''` a defensive version needs is a branch no input can reach - the kind of dead code this project removes
+  // instead of covering.
+  const cut = path.lastIndexOf('/');
+  const fileName = cut === -1 ? path : path.slice(cut + 1);
+  const directories = cut === -1 ? [] : path.slice(0, cut).split('/');
   if (directories.some((segment) => /^(tests?|testing|specs?|__tests__)$/i.test(segment)))
     return true;
   return (
