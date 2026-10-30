@@ -19,11 +19,11 @@
     }
   ],
   "index": {
-    "durationMs": 8749,
-    "nodes": 14688,
-    "edges": 50953,
+    "durationMs": 8079,
+    "nodes": 15849,
+    "edges": 26795,
     "imports": 1117,
-    "calls": 21549,
+    "calls": 1760,
     "crossRepoEdges": 49,
     "byType": {
       "CROSS_REPO_IMPORTS": 49
@@ -32,16 +32,16 @@
     "census": {
       "CONTAINS": 502,
       "DEFINES": 14997,
-      "CALLS": 21549,
-      "EXTENDS": 146,
+      "CALLS": 1760,
+      "EXTENDS": 161,
       "HANDLES_ROUTE": 20,
       "BELONGS_TO": 64,
       "HANDLES": 64,
       "HANDLES_TOOL": 10,
-      "MEMBER_OF": 7895,
-      "TESTS": 16,
+      "MEMBER_OF": 7976,
+      "TESTS": 20,
       "SIMILAR_TO": 25,
-      "SEMANTICALLY_RELATED": 4499,
+      "SEMANTICALLY_RELATED": 30,
       "IMPORTS": 1117,
       "CROSS_REPO_IMPORTS": 49
     },

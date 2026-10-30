@@ -304,6 +304,28 @@ export function captureTagToNodeLabel(tag: string): NodeLabel {
   }
 }
 
+/**
+ * What stood before the last `.` in a method call — `self` in `self.get(key)`.
+ *
+ * **Only a method call has one, and only when the provider wrote the callee out.** A `FUNCTION_CALL` capture is a
+ * bare name by definition, and a provider that stores just the name leaves this `undefined`, which the resolver reads
+ * as "a bare call". Both are the case where a declaration in the caller's own scope is the right answer; the case
+ * that is *not* is `request.args.get(key)`, and this is what tells it apart.
+ */
+export function receiverOf(
+  tag: string,
+  text: string | undefined,
+  targetName: string,
+): string | undefined {
+  if (tag !== CAPTURE_TAGS.METHOD_CALL) return undefined;
+  if (typeof text !== 'string') return undefined;
+  const cut = text.lastIndexOf('.');
+  if (cut <= 0) return undefined;
+  // A provider that stored the callee as `name` alone has no receiver to report.
+  if (text.slice(cut + 1) !== targetName) return undefined;
+  return text.slice(0, cut);
+}
+
 export function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
   switch (tag) {
     case CAPTURE_TAGS.FUNCTION_CALL:
@@ -397,6 +419,7 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
     ) {
       const targetName = capture.name ?? capture.text;
       const referenceKind = captureTagToReferenceKind(tag);
+      const receiver = receiverOf(tag, capture.text, targetName);
 
       references.push({
         sourceFile: filePath,
@@ -404,6 +427,7 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
         sourceColumn: 0,
         targetName,
         referenceKind,
+        ...(receiver === undefined ? {} : { receiver }),
       });
     }
   }
@@ -676,22 +700,34 @@ function resolvePythonModule(
     .split('.')
     .filter((part) => part.length > 0);
 
-  let base: string;
+  const bases: string[] = [];
   if (dots > 0) {
-    base = dirname(sourceFile);
+    let base = dirname(sourceFile);
     for (let level = 1; level < dots; level += 1) base = dirname(base);
+    bases.push(base);
   } else {
-    base = packageAnchor(segments[0] ?? '', sourceFile, projectRoot);
+    bases.push(packageAnchor(segments[0] ?? '', sourceFile, projectRoot));
+    // **A checkout of a library holds the library, and its own tests import it by name.** `from flask import redirect`
+    // in `examples/tutorial/flaskr/auth.py` names the *installed* flask, so a resolver anchored at the importing file
+    // looked for `<root>/flask/__init__.py` and found nothing: measured on `pallets/flask` 3.0.3, every import from
+    // an example or a test into the library resolved to zero files, which is most of the repository. The source roots
+    // below are where a package lives when it is not installed - `src` by the src-layout convention, `lib` and
+    // `python` by long habit - and trying them costs one stat per missing candidate.
+    for (const layout of ['src', 'lib', 'python']) {
+      const candidate = join(projectRoot, layout);
+      if (!bases.includes(candidate)) bases.push(candidate);
+    }
   }
 
   const relative = segments.join(sep);
-  const candidates =
-    relative.length === 0
-      ? [join(base, '__init__.py')]
-      : [join(base, `${relative}.py`), join(base, relative, '__init__.py')];
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
+  for (const base of bases) {
+    const candidates =
+      relative.length === 0
+        ? [join(base, '__init__.py')]
+        : [join(base, `${relative}.py`), join(base, relative, '__init__.py')];
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
   }
   return null;
 }

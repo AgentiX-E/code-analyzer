@@ -17,7 +17,8 @@ const PID = 'pallets/flask';
 
 /** A pipeline node, in the shape the pipeline writes it: absolute path, empty `projectId` on files. */
 function node(overrides: Partial<GraphNode> & { id: number }): GraphNode {
-  const filePath = overrides.filePath === undefined ? `${ROOT}/src/flask/app.py` : overrides.filePath;
+  const filePath =
+    overrides.filePath === undefined ? `${ROOT}/src/flask/app.py` : overrides.filePath;
   return {
     projectId: '',
     label: 'File',
@@ -165,7 +166,15 @@ describe('mergePipelineGraph — the identity a workspace needs', () => {
 
   it('leaves the project node’s own name alone, which is the one name with no suffix', () => {
     const merged = mergePipelineGraph(
-      graph([node({ id: 1, label: 'Project', name: 'flask', filePath: null, qualifiedName: `project:${PID}` })]),
+      graph([
+        node({
+          id: 1,
+          label: 'Project',
+          name: 'flask',
+          filePath: null,
+          qualifiedName: `project:${PID}`,
+        }),
+      ]),
       scope,
     );
     expect(merged.nodes[0]!.qualifiedName).toBe(`project:${PID}`);
@@ -233,10 +242,7 @@ describe('mergePipelineGraph — the edges, as index pairs', () => {
 
   it('keeps `CALLS`, which is the relation the workspace has never had', () => {
     const merged = mergePipelineGraph(
-      graph(
-        [node({ id: 3 }), node({ id: 4 })],
-        [edge(1, 3, 4, 'CALLS'), edge(2, 4, 3, 'TESTS')],
-      ),
+      graph([node({ id: 3 }), node({ id: 4 })], [edge(1, 3, 4, 'CALLS'), edge(2, 4, 3, 'TESTS')]),
       scope,
     );
     expect(merged.edges.map((entry) => entry.type)).toEqual(['CALLS', 'TESTS']);
@@ -260,10 +266,7 @@ describe('mergePipelineGraph — the edges, as index pairs', () => {
     // matches names. An `IMPORTS` edge without them is evidence that an import exists and nothing else, so it is
     // reported as a deferred pair rather than merged as an edge.
     const merged = mergePipelineGraph(
-      graph(
-        [node({ id: 2 }), node({ id: 3 })],
-        [edge(1, 2, 3, 'IMPORTS'), edge(2, 3, 2, 'CALLS')],
-      ),
+      graph([node({ id: 2 }), node({ id: 3 })], [edge(1, 2, 3, 'IMPORTS'), edge(2, 3, 2, 'CALLS')]),
       scope,
     );
     expect(merged.edges.map((entry) => entry.type)).toEqual(['CALLS']);
@@ -275,10 +278,7 @@ describe('mergePipelineGraph — the edges, as index pairs', () => {
     // **The pipeline emits `IMPORTS` from a file to itself** for `from . import x` - measured on flask, where it is
     // how `flask/__init__.py` re-exports. Deferring it would put an edge in the workspace whose only possible
     // traversal answer is "the file depends on itself", so the count is reported and the pair is not.
-    const merged = mergePipelineGraph(
-      graph([node({ id: 2 })], [edge(1, 2, 2, 'IMPORTS')]),
-      scope,
-    );
+    const merged = mergePipelineGraph(graph([node({ id: 2 })], [edge(1, 2, 2, 'IMPORTS')]), scope);
     expect(merged.deferredImports).toEqual([]);
     expect(merged.drops.selfImports).toBe(1);
     expect(merged.edges).toHaveLength(0);
@@ -287,10 +287,7 @@ describe('mergePipelineGraph — the edges, as index pairs', () => {
   it('copies edge properties rather than sharing them with the pipeline’s graph', () => {
     const original = edge(1, 2, 3, 'CALLS');
     original.properties = { confidence: 1 };
-    const merged = mergePipelineGraph(
-      graph([node({ id: 2 }), node({ id: 3 })], [original]),
-      scope,
-    );
+    const merged = mergePipelineGraph(graph([node({ id: 2 }), node({ id: 3 })], [original]), scope);
     expect(merged.edges[0]!.properties).toEqual({ confidence: 1 });
     expect(merged.edges[0]!.properties).not.toBe(original.properties);
   });
@@ -313,7 +310,13 @@ describe('mergePipelineGraph — one namespace, four repositories', () => {
             filePath: `${root}/.github`,
             qualifiedName: `folder:${root}/.github`,
           }),
-          node({ id: 2, label: 'Community', name: 'c1', filePath: null, qualifiedName: 'community:1' }),
+          node({
+            id: 2,
+            label: 'Community',
+            name: 'c1',
+            filePath: null,
+            qualifiedName: 'community:1',
+          }),
         ]),
         { rootPath: root, projectId },
       );

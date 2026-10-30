@@ -169,6 +169,28 @@ export function captureTagToNodeLabel(tag: string): NodeLabel {
   }
 }
 
+/**
+ * What stood before the last `.` in a method call — `self` in `self.get(key)`.
+ *
+ * **Only a method call has one, and only when the provider wrote the callee out.** A `FUNCTION_CALL` capture is a
+ * bare name by definition, and a provider that stores just the name leaves this `undefined`, which the resolver reads
+ * as "a bare call". Both are the case where a declaration in the caller's own scope is the right answer; the case
+ * that is *not* is `request.args.get(key)`, and this is what tells it apart.
+ */
+export function receiverOf(
+  tag: string,
+  text: string | undefined,
+  targetName: string,
+): string | undefined {
+  if (tag !== CAPTURE_TAGS.METHOD_CALL) return undefined;
+  if (typeof text !== 'string') return undefined;
+  const cut = text.lastIndexOf('.');
+  if (cut <= 0) return undefined;
+  // A provider that stored the callee as `name` alone has no receiver to report.
+  if (text.slice(cut + 1) !== targetName) return undefined;
+  return text.slice(0, cut);
+}
+
 export function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
   switch (tag) {
     case CAPTURE_TAGS.FUNCTION_CALL:
@@ -256,6 +278,7 @@ export function groupCaptures(
     ) {
       const targetName = capture.name ?? capture.text;
       const referenceKind = captureTagToReferenceKind(tag);
+      const receiver = receiverOf(tag, capture.text, targetName);
 
       references.push({
         sourceFile: filePath,
@@ -263,6 +286,7 @@ export function groupCaptures(
         sourceColumn: 0,
         targetName,
         referenceKind,
+        ...(receiver === undefined ? {} : { receiver }),
       });
     }
   }

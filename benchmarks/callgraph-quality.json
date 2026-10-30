@@ -1,0 +1,248 @@
+{
+  "generatedBy": "scripts/callgraph-quality.ts",
+  "oracle": "scripts/callgraph-oracle.py",
+  "corpora": [
+    {
+      "generatedBy": "scripts/callgraph-oracle.py",
+      "corpus": "pallets/flask",
+      "files": 82,
+      "definitions": {
+        "moduleLevel": 574,
+        "simpleNameCollisionsPerFile": 26
+      },
+      "sites": {
+        "total": 3144,
+        "internal": 358,
+        "internalRecursion": 7,
+        "external": 782,
+        "variable": 60,
+        "unknown": 170,
+        "silent": 1774,
+        "excludedForDuplicateName": 30
+      },
+      "expectedPairs": 270,
+      "claimedPairs": 263,
+      "precision": {
+        "correct": 249,
+        "wrong": 14,
+        "value": 0.9468
+      },
+      "recall": {
+        "found": 249,
+        "missed": 21,
+        "value": 0.9222
+      },
+      "byArm": {
+        "globalUnique": {
+          "claimed": 9,
+          "correct": 8,
+          "precision": 0.8889
+        },
+        "import": {
+          "claimed": 155,
+          "correct": 140,
+          "precision": 0.9032
+        },
+        "sameFile": {
+          "claimed": 152,
+          "correct": 148,
+          "precision": 0.9737
+        }
+      },
+      "callers": {
+        "oracle": 208,
+        "graph": 176,
+        "graphOnly": 9,
+        "ownersWithAnyCall": 485,
+        "graphCallers": 164
+      },
+      "wrongSamples": [
+        "[globalUnique] examples/celery/src/task_app/__init__.py|__call__ -> src/flask/app.py|run",
+        "[import] src/flask/app.py|raise_routing_exception -> src/flask/debughelpers.py|FormDataRoutingRedirect",
+        "[import] src/flask/app.py|test_request_context -> src/flask/testing.py|EnvironBuilder",
+        "[import] src/flask/templating.py|_get_source_explained -> src/flask/debughelpers.py|explain_template_loading_attempts",
+        "[import] src/flask/wrappers.py|_load_form_data -> src/flask/debughelpers.py|attach_enctype_error_multidict",
+        "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/app.py|Flask",
+        "[import] tests/test_cli.py|test_find_best_app -> src/flask/app.py|Flask",
+        "[import] tests/test_cli.py|test_with_appcontext -> src/flask/app.py|Flask",
+        "[import] tests/test_reqctx.py|test_bad_environ_raises_bad_request -> src/flask/testing.py|EnvironBuilder",
+        "[import] tests/test_reqctx.py|test_environ_for_valid_idna_completes -> src/flask/testing.py|EnvironBuilder",
+        "[sameFile] src/flask/helpers.py|decorator -> src/flask/helpers.py|stream_with_context",
+        "[sameFile] src/flask/sansio/scaffold.py|wrapper_func -> src/flask/sansio/scaffold.py|_check_setup_finished",
+        "[sameFile] src/flask/sessions.py|permanent -> src/flask/sessions.py|get",
+        "[sameFile] tests/test_user_error_handler.py|do_custom -> tests/test_user_error_handler.py|Custom"
+      ],
+      "wrongCauses": {
+        "variable": 6,
+        "external": 4,
+        "owner-makes-no-such-call": 4
+      },
+      "wrongByArm": {
+        "globalUnique": {
+          "external": 1
+        },
+        "import": {
+          "variable": 6,
+          "owner-makes-no-such-call": 3
+        },
+        "sameFile": {
+          "external": 3,
+          "owner-makes-no-such-call": 1
+        }
+      },
+      "missedSamples": [
+        "examples/tutorial/tests/conftest.py|app|examples/tutorial/flaskr/__init__.py|create_app",
+        "examples/tutorial/tests/conftest.py|app|examples/tutorial/flaskr/db.py|get_db",
+        "examples/tutorial/tests/conftest.py|app|examples/tutorial/flaskr/db.py|init_db",
+        "examples/tutorial/tests/test_auth.py|test_register|examples/tutorial/flaskr/db.py|get_db",
+        "examples/tutorial/tests/test_blog.py|test_author_required|examples/tutorial/flaskr/db.py|get_db",
+        "examples/tutorial/tests/test_blog.py|test_create|examples/tutorial/flaskr/db.py|get_db",
+        "examples/tutorial/tests/test_blog.py|test_delete|examples/tutorial/flaskr/db.py|get_db",
+        "examples/tutorial/tests/test_blog.py|test_update|examples/tutorial/flaskr/db.py|get_db",
+        "examples/tutorial/tests/test_db.py|test_get_close_db|examples/tutorial/flaskr/db.py|get_db",
+        "examples/tutorial/tests/test_factory.py|test_config|examples/tutorial/flaskr/__init__.py|create_app",
+        "src/flask/app.py|__init__|src/flask/cli.py|AppGroup",
+        "src/flask/app.py|__init__|src/flask/sansio/app.py|add_url_rule",
+        "src/flask/app.py|run|src/flask/cli.py|load_dotenv",
+        "src/flask/app.py|run|src/flask/cli.py|show_server_banner",
+        "src/flask/cli.py|_env_file_callback|src/flask/cli.py|load_dotenv"
+      ]
+    },
+    {
+      "generatedBy": "scripts/callgraph-oracle.py",
+      "corpus": "pallets/werkzeug",
+      "files": 138,
+      "definitions": {
+        "moduleLevel": 892,
+        "simpleNameCollisionsPerFile": 130
+      },
+      "sites": {
+        "total": 6822,
+        "internal": 1435,
+        "internalRecursion": 5,
+        "external": 1447,
+        "variable": 218,
+        "unknown": 405,
+        "silent": 3317,
+        "excludedForDuplicateName": 220
+      },
+      "expectedPairs": 1004,
+      "claimedPairs": 1010,
+      "precision": {
+        "correct": 968,
+        "wrong": 42,
+        "value": 0.9584
+      },
+      "recall": {
+        "found": 968,
+        "missed": 36,
+        "value": 0.9641
+      },
+      "byArm": {
+        "globalUnique": {
+          "claimed": 3,
+          "correct": 1,
+          "precision": 0.3333
+        },
+        "import": {
+          "claimed": 758,
+          "correct": 736,
+          "precision": 0.971
+        },
+        "sameFile": {
+          "claimed": 448,
+          "correct": 428,
+          "precision": 0.9554
+        }
+      },
+      "callers": {
+        "oracle": 734,
+        "graph": 628,
+        "graphOnly": 19,
+        "ownersWithAnyCall": 792,
+        "graphCallers": 528
+      },
+      "wrongSamples": [
+        "[globalUnique] src/werkzeug/formparser.py|start_file_streaming -> tests/test_formparser.py|stream_factory",
+        "[globalUnique] src/werkzeug/middleware/lint.py|__next__ -> src/werkzeug/wsgi.py|_next",
+        "[import] src/werkzeug/datastructures/csp.py|to_header -> src/werkzeug/http.py|dump_csp_header",
+        "[import] src/werkzeug/datastructures/etag.py|__call__ -> src/werkzeug/http.py|generate_etag",
+        "[import] src/werkzeug/datastructures/etag.py|contains_raw -> src/werkzeug/http.py|unquote_etag",
+        "[import] src/werkzeug/datastructures/file_storage.py|__init__ -> src/werkzeug/datastructures/headers.py|Headers",
+        "[import] src/werkzeug/debug/console.py|showsyntaxerror -> src/werkzeug/debug/tbtools.py|DebugTraceback",
+        "[import] src/werkzeug/debug/console.py|showtraceback -> src/werkzeug/debug/tbtools.py|DebugTraceback",
+        "[import] src/werkzeug/middleware/http_proxy.py|application -> src/werkzeug/exceptions.py|BadGateway",
+        "[import] src/werkzeug/routing/map.py|build -> src/werkzeug/wsgi.py|get_host",
+        "[import] src/werkzeug/routing/map.py|make_redirect_url -> src/werkzeug/wsgi.py|get_host",
+        "[import] src/werkzeug/serving.py|run_simple -> src/werkzeug/_reloader.py|run_with_reloader",
+        "[import] src/werkzeug/serving.py|run_simple -> src/werkzeug/debug/__init__.py|DebuggedApplication",
+        "[import] src/werkzeug/serving.py|run_simple -> src/werkzeug/middleware/shared_data.py|SharedDataMiddleware",
+        "[import] src/werkzeug/serving.py|run_wsgi -> src/werkzeug/debug/tbtools.py|DebugTraceback",
+        "[import] src/werkzeug/utils.py|redirect -> src/werkzeug/wrappers/response.py|Response",
+        "[import] src/werkzeug/wrappers/request.py|from_values -> src/werkzeug/test.py|EnvironBuilder",
+        "[import] src/werkzeug/wrappers/response.py|_process_range_request -> src/werkzeug/exceptions.py|RequestedRangeNotSatisfiable",
+        "[import] src/werkzeug/wrappers/response.py|force_type -> src/werkzeug/sansio/response.py|Response",
+        "[import] tests/test_exceptions.py|test_exception_repr -> src/werkzeug/exceptions.py|HTTPException",
+        "[import] tests/test_exceptions.py|test_response_header_content_type_should_contain_charset -> src/werkzeug/exceptions.py|HTTPException",
+        "[import] tests/test_formparser.py|test_parse_form_data_get_without_content -> src/werkzeug/formparser.py|parse_form_data",
+        "[import] tests/test_formparser.py|test_parse_form_data_put_without_content -> src/werkzeug/formparser.py|parse_form_data",
+        "[sameFile] examples/coolmagic/utils.py|f -> examples/coolmagic/utils.py|TemplateResponse",
+        "[sameFile] src/werkzeug/debug/repr.py|proxy -> src/werkzeug/debug/repr.py|repr",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|createIconForConsole",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|openShell",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|createInteractiveConsole -> src/werkzeug/debug/shared/debugger.js|openShell",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|handleConsoleSubmit -> src/werkzeug/debug/shared/debugger.js|createExpansionButtonForConsole",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|initPinBox -> src/werkzeug/debug/shared/debugger.js|fadeOut",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|createConsole",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|createConsoleInput",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|createConsoleInputForm",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|createConsoleOutput",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|handleConsoleSubmit",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|promptForPin",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|slideToggle",
+        "[sameFile] src/werkzeug/debug/shared/debugger.js|promptForPin -> src/werkzeug/debug/shared/debugger.js|fadeIn",
+        "[sameFile] src/werkzeug/middleware/shared_data.py|get_file_loader -> src/werkzeug/middleware/shared_data.py|_opener",
+        "[sameFile] tests/conftest.py|standard_app -> tests/conftest.py|dev_server"
+      ],
+      "wrongCauses": {
+        "owner-makes-no-such-call": 15,
+        "variable": 15,
+        "external": 5,
+        "silent-receiver": 4,
+        "resolves-elsewhere": 3
+      },
+      "wrongByArm": {
+        "globalUnique": {
+          "external": 2
+        },
+        "import": {
+          "variable": 14,
+          "silent-receiver": 4,
+          "resolves-elsewhere": 3
+        },
+        "sameFile": {
+          "owner-makes-no-such-call": 15,
+          "external": 3,
+          "variable": 1
+        }
+      },
+      "missedSamples": [
+        "examples/coolmagic/views/static.py|about|examples/coolmagic/utils.py|export",
+        "examples/coolmagic/views/static.py|broken|examples/coolmagic/utils.py|export",
+        "examples/coolmagic/views/static.py|index|examples/coolmagic/utils.py|export",
+        "examples/coolmagic/views/static.py|not_found|examples/coolmagic/utils.py|export",
+        "examples/couchy/views.py|display|examples/couchy/utils.py|expose",
+        "examples/couchy/views.py|link|examples/couchy/utils.py|expose",
+        "examples/couchy/views.py|list|examples/couchy/utils.py|expose",
+        "examples/couchy/views.py|new|examples/couchy/utils.py|expose",
+        "examples/i18nurls/views.py|about|examples/i18nurls/application.py|expose",
+        "examples/i18nurls/views.py|blog_index|examples/i18nurls/application.py|expose",
+        "examples/i18nurls/views.py|blog_show|examples/i18nurls/application.py|expose",
+        "examples/i18nurls/views.py|index|examples/i18nurls/application.py|expose",
+        "examples/manage-coolmagic.py|runserver|examples/coolmagic/application.py|make_app",
+        "examples/manage-i18nurls.py|runserver|examples/i18nurls/application.py|make_app",
+        "examples/plnt/views.py|about|examples/plnt/utils.py|expose"
+      ]
+    }
+  ]
+}

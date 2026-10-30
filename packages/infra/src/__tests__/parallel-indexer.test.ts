@@ -793,6 +793,43 @@ describe('ParallelIndexer', () => {
       const sharedUtil = store.getAllNodes().find((n) => n.name === 'sharedUtil');
       expect(callEdges[0]!.sourceId).toBe(bFile!.id);
       expect(callEdges[0]!.targetId).toBe(sharedUtil!.id);
+      // **The caller here is a file, and this indexer says so on the edge.** It resolves a name to the first symbol
+      // carrying it and has no enclosing scope in hand, so its `CALLS` are coarser than the function-level ones
+      // `ScopeResolutionPhase` produces. Tagging the difference is what lets a consumer - and the pipeline's own
+      // test, which holds every pipeline edge to a named resolution rule - tell them apart.
+      expect(callEdges[0]!.properties?.['resolution']).toBe('file-scope');
+    } finally {
+      rmSync(rootPath, { recursive: true, force: true });
+    }
+  });
+
+  it('does not record a property read as a call', async () => {
+    // **Everything that was not an `import` became `CALLS`**, so a field read, a type annotation and an `extends`
+    // clause all arrived downstream as function calls - and `CALLS` is the relation the reachability, hotspot and
+    // community passes walk. Measured before the fix: `parallel-indexer` wrote `CALLS` for `access`, `type` and
+    // `inherit` references alike.
+    const rootPath = createTempDir();
+    try {
+      const dir = join(rootPath, 'src');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'a.ts'), 'export const shared = { value: 1 };\n', 'utf-8');
+      writeFileSync(
+        join(dir, 'b.ts'),
+        'import { shared } from "./a.js";\nconst n = shared.value;\n',
+        'utf-8',
+      );
+
+      const indexer = new ParallelIndexer(store, {
+        concurrency: 1,
+        batchSize: 1,
+        enableIncremental: false,
+      });
+      await indexer.incrementalIndex(rootPath, ['src/a.ts', 'src/b.ts']);
+
+      const calls = store.getAllEdges().filter((e) => e.type === EDGE_CALLS);
+      const nonImportKinds = calls.filter((e) => e.properties?.['resolution'] !== 'file-scope');
+      expect(nonImportKinds).toHaveLength(0);
+      expect(calls.every((e) => e.properties?.['resolution'] === 'file-scope')).toBe(true);
     } finally {
       rmSync(rootPath, { recursive: true, force: true });
     }

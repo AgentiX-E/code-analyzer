@@ -22,10 +22,12 @@ const RULES = [
   ['trace.recall', (r) => r.trace.recall, 1],
   ['impact.recall', (r) => r.impact.recall, 1],
   // **The structural half, which the workspace did not have until the pipeline ran per repository.** Measured on
-  // flask 3.0.3 + werkzeug 3.0.3: `CALLS = 0` before, 21 549 after, with every import, trace and impact figure
-  // unchanged. The floor is set below the measured value rather than at it, because the relation is produced by a
-  // pipeline whose exact edge count is not a contract - what is not allowed is losing it.
-  ['index.calls', (r) => r.index.calls, 20000],
+  // flask 3.0.3 + werkzeug 3.0.3: `CALLS = 0` before, 21 549 after - and then **1 760** once the call graph was
+  // corrected, because 92 % of those 21 549 were a cartesian product rather than calls. The floor follows the
+  // corrected figure, and the accuracy that justifies it is gated separately by `scripts/callgraph-gate.js`, where
+  // these same two checkouts score 94.7 % and 95.8 % precise. **A floor on a count cannot distinguish those two
+  // states**, which is the whole reason that second gate exists.
+  ['index.calls', (r) => r.index.calls, 1500],
 ];
 
 /**

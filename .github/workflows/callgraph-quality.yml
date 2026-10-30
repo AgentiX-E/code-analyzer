@@ -1,0 +1,116 @@
+name: Call Graph Accuracy
+
+# **The call graph had a count and no accuracy, and the count was wrong by 92 %.**
+#
+# Every figure this project published about `CALLS` was how many edges it had. When the edges were finally checked
+# against a parser that is not ours, most of them turned out to be a cartesian product: the pass that produced them
+# joined every function in a file to every name the file mentions, so `__getattr__` was recorded as calling `pop`,
+# `setdefault` and `__repr__` on the strength of a five-line body containing one subscript.
+#
+# This job holds the accuracy instead. It downloads **flask 3.0.3 and werkzeug 3.0.3**, resolves every call site in
+# them twice - once with the product, once with `scripts/callgraph-oracle.py`, which uses CPython's `ast` and
+# Python's own scoping and module rules - and fails when precision or recall falls below the floor.
+#
+# **Why a second implementation is the point**: a measurement whose expected answer comes from the thing being
+# measured is not a measurement. The oracle reads nothing the product writes, and where it cannot decide - a call on
+# a receiver whose type is not in the statement - it says so and the site is excluded from both figures rather than
+# counted as agreement.
+#
+# **The checkouts are downloaded, never committed** (`benchmarks/corpora/` is ignored), so the run measures the tag
+# this workflow names rather than a copy that drifted.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/analyzer/src/pipeline/phases/scope-resolution.ts'
+      - 'packages/analyzer/src/pipeline/phases/cross-file.ts'
+      - 'packages/analyzer/src/pipeline/phase-helpers.ts'
+      - 'packages/analyzer/src/__tests__/scope-resolution-call-graph.test.ts'
+      - 'scripts/callgraph-quality.ts'
+      - 'scripts/callgraph-oracle.py'
+      - 'scripts/callgraph-gate.js'
+      - 'benchmarks/callgraph-quality.json'
+      - '.github/workflows/callgraph-quality.yml'
+
+concurrency:
+  group: callgraph-quality
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FLASK_TAG: '3.0.3'
+  WERKZEUG_TAG: '3.0.3'
+
+jobs:
+  accuracy:
+    name: Precision and recall against CPython's parser
+    runs-on: ubuntu-latest
+    # **Twenty minutes**, stated rather than discovered: two checkouts of ~230 files index in under five seconds and
+    # the oracle walks them in about fifteen; the rest of the budget is dependency installation.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Fetch the two checkouts
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora
+          cd benchmarks/corpora
+          curl -fsSL "https://codeload.github.com/pallets/flask/tar.gz/refs/tags/${FLASK_TAG}" -o flask.tgz
+          curl -fsSL "https://codeload.github.com/pallets/werkzeug/tar.gz/refs/tags/${WERKZEUG_TAG}" -o werkzeug.tgz
+          sha256sum flask.tgz werkzeug.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          tar xzf flask.tgz
+          tar xzf werkzeug.tgz
+          ls -d flask-* werkzeug-*
+
+      - name: Resolve every call site twice and compare
+        run: |
+          set -euo pipefail
+          flask_dir=$(ls -d benchmarks/corpora/flask-* | head -1)
+          werkzeug_dir=$(ls -d benchmarks/corpora/werkzeug-* | head -1)
+          npx tsx scripts/callgraph-quality.ts \
+            --repo "pallets/flask=$flask_dir" \
+            --repo "pallets/werkzeug=$werkzeug_dir" \
+            --out benchmarks/callgraph-quality.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Hold precision and recall to their floors
+        run: node scripts/callgraph-gate.js
+
+      # **The record is compared, not trusted.** A run that writes a different `benchmarks/callgraph-quality.json`
+      # than the one committed means the published figures describe a different graph, and the artifact is where a
+      # reader can see which revision produced which numbers.
+      - name: Show what the run wrote
+        if: always()
+        run: git --no-pager diff --stat -- benchmarks/callgraph-quality.json || true
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: callgraph-quality
+          path: benchmarks/callgraph-quality.json
+          if-no-files-found: warn
+          retention-days: 90

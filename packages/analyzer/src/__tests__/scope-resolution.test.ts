@@ -69,8 +69,15 @@ function makeSymbol(
   return { name, kind, qualifiedName, startLine: 1, endLine: 10, isExported: true, properties };
 }
 
-function makeReference(targetName: string, sourceLine: number): ReferenceSite {
-  return { sourceFile: FILE_A, sourceLine, sourceColumn: 0, targetName, referenceKind: 'call' };
+function makeReference(targetName: string, sourceLine: number, receiver?: string): ReferenceSite {
+  return {
+    sourceFile: FILE_A,
+    sourceLine,
+    sourceColumn: 0,
+    targetName,
+    referenceKind: 'call',
+    ...(receiver === undefined ? {} : { receiver }),
+  };
 }
 
 function makeParsedFile(
@@ -177,7 +184,12 @@ describe('ScopeResolutionPhase', () => {
     expect(store.edges.size).toBe(1);
   });
 
-  it('skips a same-file call resolved via the qualified-name fallback', async () => {
+  it('resolves a call to a declaration in its own file, which nothing did before', async () => {
+    // **This case used to assert the opposite**, under the name "skips a same-file call resolved via the
+    // qualified-name fallback". The skip was justified as "handled elsewhere" and nothing else produced a `CALLS`
+    // edge, so `self.validate()` produced no edge to the `validate` declared above it. Measured on `pallets/flask`
+    // 3.0.3, **182 of 1 109 functions had any caller at all**; the reachability pass that would report dead code is
+    // blocked by exactly this.
     const store = seedGraph(
       [makeNode(10, 'Function', 'helper', 'helper', FILE_A)],
       { [`project:${PROJ}:caller`]: 20 },
@@ -192,6 +204,97 @@ describe('ScopeResolutionPhase', () => {
 
     const result = await new ScopeResolutionPhase().execute(ctx);
     expect(result.status).toBe('success');
+    expect((result.output as { referencesResolved: number }).referencesResolved).toBe(1);
+    const edges = Array.from(store.edges.values());
+    expect(edges).toHaveLength(1);
+    expect(edges[0]!.targetId).toBe(10);
+  });
+
+  it('refuses a name its own file declares twice, rather than picking the first', async () => {
+    // **Two declarations of one spelling have no static answer** - `get` in two classes, `value` in two branches - and
+    // an edge to the first is an edge nobody can defend. The index marks the name ambiguous on the second sighting.
+    const store = seedGraph(
+      [
+        makeNode(10, 'Method', 'get', 'A.get', FILE_A),
+        makeNode(11, 'Method', 'get', 'B.get', FILE_A),
+      ],
+      { [`project:${PROJ}:caller`]: 20 },
+      { [FILE_A]: 1 },
+    );
+    const parsed = makeParsedFile(
+      FILE_A,
+      [makeSymbol('Function', 'caller', 'caller')],
+      [makeReference('get', 2)],
+    );
+    const ctx = makeCtx(store, [parsed]);
+
+    const result = await new ScopeResolutionPhase().execute(ctx);
+    expect((result.output as { referencesResolved: number }).referencesResolved).toBe(0);
+    expect(store.edges.size).toBe(0);
+  });
+
+  it('resolves a method inherited from another file, when the graph declares that name once', async () => {
+    // **The lookup this replaces asked the qualified-name index for a simple name**, and a qualified name here is
+    // `project:<id>:file:<path>:<name>` - so it could never match and the arm was dead. What it is for is the one
+    // case where "declared once elsewhere" is the answer: `self.m()` for an `m` a base class in another file
+    // declares. Measured against CPython's own parser, this arm is 8 of 9 right on `pallets/flask` and the only arm
+    // that resolves `self._find_error_handler(...)` in `flask/app.py` to `sansio/app.py`.
+    const store = seedGraph(
+      [makeNode(10, 'Function', 'helper', 'helper', FILE_B)],
+      { [`project:${PROJ}:caller`]: 20 },
+      { [FILE_A]: 1, [FILE_B]: 2 },
+    );
+    const parsed = makeParsedFile(
+      FILE_A,
+      [makeSymbol('Function', 'caller', 'caller')],
+      [makeReference('helper', 2, 'self')],
+    );
+    const ctx = makeCtx(store, [parsed]);
+
+    const result = await new ScopeResolutionPhase().execute(ctx);
+    expect((result.output as { referencesResolved: number }).referencesResolved).toBe(1);
+    expect(Array.from(store.edges.values())[0]!.targetId).toBe(10);
+  });
+
+  it('refuses a bare name the whole graph declares once, because a builtin is not a declaration', async () => {
+    // **Measured: `open(…)` in eight files resolved to the helper `open` in `flask/testing.py`.** A bare name a file
+    // neither declares nor imports is a builtin, a language global, or a name the reader could not see - and in all
+    // three cases a same-named declaration elsewhere in the repository is a coincidence. This arm claimed 911 edges
+    // on `pallets/flask` at 6.5 % precision before the receiver became a requirement.
+    const store = seedGraph(
+      [makeNode(10, 'Function', 'open', 'open', FILE_B)],
+      { [`project:${PROJ}:caller`]: 20 },
+      { [FILE_A]: 1, [FILE_B]: 2 },
+    );
+    const parsed = makeParsedFile(
+      FILE_A,
+      [makeSymbol('Function', 'caller', 'caller')],
+      [makeReference('open', 2)],
+    );
+    const ctx = makeCtx(store, [parsed]);
+
+    const result = await new ScopeResolutionPhase().execute(ctx);
+    expect((result.output as { referencesResolved: number }).referencesResolved).toBe(0);
+    expect(store.edges.size).toBe(0);
+  });
+
+  it('refuses a name the whole graph declares twice', async () => {
+    const store = seedGraph(
+      [
+        makeNode(10, 'Function', 'helper', 'helper', FILE_B),
+        makeNode(11, 'Function', 'helper', 'helper', FILE_C),
+      ],
+      { [`project:${PROJ}:caller`]: 20 },
+      { [FILE_A]: 1, [FILE_B]: 2, [FILE_C]: 3 },
+    );
+    const parsed = makeParsedFile(
+      FILE_A,
+      [makeSymbol('Function', 'caller', 'caller')],
+      [makeReference('helper', 2)],
+    );
+    const ctx = makeCtx(store, [parsed]);
+
+    const result = await new ScopeResolutionPhase().execute(ctx);
     expect((result.output as { referencesResolved: number }).referencesResolved).toBe(0);
   });
 
@@ -363,7 +466,7 @@ describe('ScopeResolutionPhase', () => {
     expect((result.output as { referencesResolved: number }).referencesResolved).toBe(0);
   });
 
-  it('resolves a call via global name fallback to a cross-file target', async () => {
+  it('resolves a call through a receiver to a cross-file target the graph declares once', async () => {
     const store = seedGraph(
       [makeNode(10, 'Function', 'helper', 'helper', FILE_B)],
       { [`project:${PROJ}:caller`]: 20 },
@@ -372,7 +475,7 @@ describe('ScopeResolutionPhase', () => {
     const parsed = makeParsedFile(
       FILE_A,
       [makeSymbol('Function', 'caller', 'caller')],
-      [makeReference('helper', 2)],
+      [makeReference('helper', 2, 'this')],
     );
     const ctx = makeCtx(store, [parsed]);
     const result = await new ScopeResolutionPhase().execute(ctx);

@@ -144,106 +144,28 @@ export class CrossFilePhase implements ExecutablePhase {
         }
       }
 
-      // **Call edges, from captures the providers were already emitting and nothing was reading.**
+      // **Call edges used to be built here, and the way they were built was wrong by 88 %.**
       //
       // `FUNCTION_CALL` and `METHOD_CALL` captures have been produced by the language providers since they were
-      // written, and **no phase consumed them** - so `CALLS` was in the relationship vocabulary with zero references
-      // anywhere in this package. **The input was there and the edge was not**, which is why the reachability
-      // question had no instrument but a regular expression to answer it.
+      // written, and no phase consumed them - so `CALLS` was in the relationship vocabulary with zero references. The
+      // repair took the shape the data suggested: collect every name the file calls, collect every function the file
+      // declares, and join them. **That join is a cartesian product, and it is not a call graph.** Measured on
+      // `src/flask/ctx.py` from `pallets/flask` 3.0.3: 20 declarations x 35 called names = 700 candidate edges from a
+      // 700-line file, including `__getattr__ -> pop`, `__getattr__ -> setdefault` and `__getattr__ -> __repr__` for a
+      // five-line function whose entire body is `return self.__dict__[name]`. Across the repository the pass wrote
+      // **5 439** edges and only **1 280** references resolved at all, and **88.4 %** of the same-file edges pointed at
+      // a callee the caller never names as a call (122 of 138 in that file).
       //
-      // **Same-file first, then one hop through an explicit import.**
+      // **Nothing is lost by deleting it, because the resolution lives in `ScopeResolutionPhase`, per call site.**
+      // That phase reads every reference with its name, its line **and its receiver**, resolves it through an explicit
+      // import first, then in its own file, then across the graph - and refuses a name that is declared twice because
+      // a wrong edge is worse than a missing one. A per-site resolution through the same `resolvedImports` this phase
+      // publishes is strictly better than a per-pair join, and having two producers of one relation meant the graph
+      // carried both answers with no way to tell which was which.
       //
-      // The first version was same-file only, and deliberately: a name that is not declared where it is called has no
-      // obvious target, and **a guessed target is worse than no edge.** What makes the second step safe is that it is
-      // **not a guess** - it follows the `resolvedImports` built above, so a name reaches another file **only through
-      // an import that names it.** That is the product's own sentence: *"a symbol that changed and is used at four
-      // sites the author never opened"* - **and most of those sites are in other files.**
-      //
-      // **One hop, not a transitive closure.** A name imported from a file that re-exports it is not followed, because
-      // following it needs a module graph rather than a file graph. **The narrower claim is the true one.**
-      const importedFrom = new Map<string, Set<string>>();
-      for (const resolved of resolvedImports) {
-        if (resolved.resolvedFiles.length === 0) continue;
-        const target = resolved.resolvedFiles[0]!;
-        for (const symbol of resolved.importedSymbols) {
-          const key = `${resolved.sourceFile}\u0000${symbol}`;
-          const set = importedFrom.get(key) ?? new Set<string>();
-          set.add(target);
-          importedFrom.set(key, set);
-        }
-      }
-
-      let callEdgesCreated = 0;
-      for (const parsedFile of parseData.parsedFiles) {
-        const ast = parsedFile.ast as UnifiedCapture[] | undefined;
-        if (!Array.isArray(ast) || !ctx.graph) continue;
-
-        // What this file calls, by name, deduplicated.
-        const calledNames = new Set<string>();
-        for (const c of ast) {
-          if (c.tag !== CAPTURE_TAGS.FUNCTION_CALL && c.tag !== CAPTURE_TAGS.METHOD_CALL) continue;
-          const name = c.name;
-          if (typeof name === 'string' && name.length > 0) calledNames.add(name);
-        }
-        if (calledNames.size === 0) continue;
-
-        // What this file declares, by name -> node id. Both ends of a call are in one place, which is what makes
-        // this resolution safe to do without a scope model.
-        const declaredHere = new Map<string, number[]>();
-        for (const node of ctx.graph.nodes.values()) {
-          if (node.filePath !== parsedFile.filePath) continue;
-          if (!/Function|Method/i.test(String(node.label))) continue;
-          if (typeof node.name !== 'string') continue;
-          const list = declaredHere.get(node.name) ?? [];
-          list.push(node.id);
-          declaredHere.set(node.name, list);
-        }
-
-        // **Where a name this file calls could live if it is not here.** Only through an import that names it, and
-        // only in the files that import resolved to.
-        const declaredElsewhere = new Set<string>();
-        for (const calleeName of calledNames) {
-          if (declaredHere.has(calleeName)) continue;
-          for (const target of importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`) ??
-            []) {
-            declaredElsewhere.add(target);
-          }
-        }
-
-        const builder = new GraphBuilder();
-        for (const callerNodeIds of declaredHere.values()) {
-          for (const callerId of callerNodeIds) {
-            for (const calleeName of calledNames) {
-              const targets = [
-                ...(declaredHere.get(calleeName) ?? []),
-                // The cross-file half: every function of that name in a file this one imports it from.
-                ...[...declaredElsewhere]
-                  .filter((file) =>
-                    importedFrom.get(`${parsedFile.filePath}\u0000${calleeName}`)?.has(file),
-                  )
-                  .flatMap((file) =>
-                    [...ctx.graph!.nodes.values()]
-                      .filter((n) => n.filePath === file && n.name === calleeName)
-                      .map((n) => n.id),
-                  ),
-              ];
-              for (const calleeId of targets) {
-                // **Not a self-edge.** A function calling itself is a recursion fact, not a call graph edge, and the
-                // recursion markers elsewhere already record it.
-                if (callerId === calleeId) continue;
-                try {
-                  builder.addEdge(ctx.graph, callerId, calleeId, 'CALLS', ctx.projectId);
-                  callEdgesCreated++;
-                } catch {
-                  // Edge may already exist or node missing
-                }
-              }
-            }
-          }
-        }
-      }
-
-      ctx.phaseData.set('crossFile', { resolvedImports, importEdgesCreated, callEdgesCreated });
+      // The sentence that made this a defect rather than a trade-off is the product's own: a call graph that wrong
+      // cannot be the basis of a reachability pass.
+      ctx.phaseData.set('crossFile', { resolvedImports, importEdgesCreated });
 
       return {
         phaseId: this.id,

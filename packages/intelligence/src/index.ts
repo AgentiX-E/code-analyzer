@@ -357,7 +357,8 @@ export type {
 export { mergePipelineGraph, toRepoPath } from './cross-repo/group-graph.js';
 export type { MergeDrops, MergeScope, MergedEdge, MergedGraph } from './cross-repo/group-graph.js';
 
-export { FederatedSearchEngine } from './cross-repo/federated-search.js';export type {
+export { FederatedSearchEngine } from './cross-repo/federated-search.js';
+export type {
   FederatedSearchOptions,
   FederatedSearchResult,
   FederatedSearchItem,

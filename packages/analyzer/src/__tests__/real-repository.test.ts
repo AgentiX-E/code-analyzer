@@ -11,9 +11,10 @@
 // locally and fails on a runner** — an offline laptop must not turn a measurement into a red build, and a runner that
 // cannot reach the corpus must not turn a red build into a silent green.
 //
-// **The thresholds are the measured values with headroom, not round numbers**: `IMPORTS 181`, `CALLS 5933`,
-// `DEFINES 4856` at this commit. A threshold far below the measurement would pass on a repository that had lost half
-// its edges.
+// **The thresholds are the measured values with headroom, not round numbers**: `IMPORTS 304`, `CALLS 352`,
+// `DEFINES 5562` at this commit. A threshold far below the measurement would pass on a repository that had lost half
+// its edges. **`CALLS` went down by 94 % when the call graph was corrected**, and the comment at that assertion
+// carries the measurement that makes a smaller, truer number the better one.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -230,10 +231,29 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
   it('resolves calls between files, not just within one', (ctx) => {
     if (skipped) return ctx.skip();
 
-    // **The call graph was already built from captures**; what changed is that resolved imports feed scope resolution,
-    // which took it from 5173 to 5933 edges at this commit.
-    expect(edgesOfType('CALLS').length).toBeGreaterThan(5000);
+    // **This threshold went from 5 933 down to 352, and the fall is the point.** The 5 933 came from a pass that
+    // joined every function of a file to every name the file mentions - a cartesian product the captures made easy to
+    // write and impossible to defend: `__getattr__ -> pop`, `__getattr__ -> setdefault`, 88.4 % of the same-file edges
+    // wrong on `src/flask/ctx.py` alone. Measured against CPython's own parser, the graph that pass produced was 20 %
+    // precise on `pallets/flask` 3.0.3. What is left resolves each call site once, and scores 94.7 % precise and
+    // 92.2 % complete on the same corpus. **A count is not a quality**, and this test now holds both ends: a floor on
+    // the count, and the requirement that every edge says which rule produced it.
+    const calls = edgesOfType('CALLS');
+    expect(calls.length).toBeGreaterThan(300);
     expect(edgesOfType('DEFINES').length).toBeGreaterThan(4000);
+
+    // **No edge without a named rule.** The cartesian pass wrote `CALLS` edges from a phase that did not record how,
+    // which is why it took a reconstruction from a wrong edge backwards to find it. A third producer cannot appear
+    // silently while this holds.
+    const arms = new Set(
+      calls.map((edge) => {
+        const arm: unknown = edge.properties?.['resolution'];
+        return typeof arm === 'string' ? arm : 'unknown';
+      }),
+    );
+    expect(
+      [...arms].filter((arm) => !['import', 'sameFile', 'globalUnique'].includes(arm)),
+    ).toEqual([]);
   });
 
   it('records a line range for every symbol it emits', (ctx) => {

@@ -27,12 +27,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { EDGE_IMPORTS } from '@code-analyzer/shared';
 
 import type { NewGraphNode } from '@code-analyzer/infra';
-import type {
-  GraphNode,
-  KnowledgeGraph,
-  NodeLabel,
-  RelationshipType,
-} from '@code-analyzer/shared';
+import type { GraphNode, KnowledgeGraph, NodeLabel, RelationshipType } from '@code-analyzer/shared';
 
 /** Where a repository's graph came from: the checkout the pipeline read and the project it belongs to. */
 export interface MergeScope {
@@ -123,7 +118,9 @@ function checkoutPrefixes(rootPath: string): string[] {
   const forms = new Set([`${resolve(rootPath)}${sep}`, `${resolve(rootPath)}/`]);
   forms.add(`${rootPath}${sep}`);
   forms.add(`${rootPath}/`);
-  return [...forms].filter((form) => form.length > 1).sort((left, right) => right.length - left.length);
+  return [...forms]
+    .filter((form) => form.length > 1)
+    .sort((left, right) => right.length - left.length);
 }
 
 /** A node as the workspace stores it, or `null` when its file is not in the checkout. */

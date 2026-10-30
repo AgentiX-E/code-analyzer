@@ -10,9 +10,12 @@ import { basename, join } from 'node:path';
 
 import {
   getLanguageFromFilename,
+  EDGE_ACCESSES,
   EDGE_CALLS,
   EDGE_DEFINES,
+  EDGE_EXTENDS,
   EDGE_IMPORTS,
+  EDGE_USES_TYPE,
   PhaseLogger,
   createNoopPhaseLogger,
 } from '@code-analyzer/shared';
@@ -102,6 +105,23 @@ const DEFAULT_CONFIG: ParallelIndexerConfig = {
   batchSize: 50,
   enableStreaming: true,
   enableIncremental: true,
+};
+
+/**
+ * The relation each kind of reference becomes.
+ *
+ * **A table rather than a ternary, because the ternary said "not an import, therefore a call".** `ReferenceSite`
+ * carries five kinds - `call`, `import`, `access`, `type`, `inherit` - and the previous expression mapped four of them
+ * to `CALLS`, which is the relation the reachability, hotspot and community passes walk. An unrecognised kind is
+ * deliberately absent rather than defaulted: a missing edge is a gap a reader can see, a mislabelled one is a wrong
+ * answer nobody can.
+ */
+const REFERENCE_EDGE_TYPES: Record<ReferenceSite['referenceKind'], RelationshipType | null> = {
+  import: EDGE_IMPORTS,
+  call: EDGE_CALLS,
+  access: EDGE_ACCESSES,
+  type: EDGE_USES_TYPE,
+  inherit: EDGE_EXTENDS,
 };
 
 const SQLITE_FLUSH_BATCH = 500;
@@ -589,12 +609,19 @@ export class ParallelIndexer {
         for (const ref of result.references) {
           const targetNode = this.findNodeByName(ref.targetName);
           if (targetNode && targetNode.id !== fileNode.id) {
-            const edge = this.createEdge(
-              fileNode.id,
-              targetNode.id,
-              ref.referenceKind === 'import' ? EDGE_IMPORTS : EDGE_CALLS,
-              `project:${rootPath}`,
-            );
+            const type = REFERENCE_EDGE_TYPES[ref.referenceKind];
+            // **A reference is not a call, and this used to say it was.** Everything that was not an `import`
+            // became `CALLS`, so a field read (`ACCESSES`), a type annotation (`USES_TYPE`) and an `extends` clause
+            // (`EXTENDS`) all arrived downstream as function calls - and `CALLS` is what the reachability, hotspot
+            // and community passes walk. An unrecognised kind produces no edge: a missing edge is a gap, a
+            // mislabelled one is a wrong answer.
+            if (!type) continue;
+            const edge = this.createEdge(fileNode.id, targetNode.id, type, `project:${rootPath}`);
+            // **And the caller is a file, not a function**, because this indexer resolves a name to the first symbol
+            // carrying it and has no enclosing scope in hand. The tag says so, so a consumer can tell this coarse
+            // relation from the function-level edges `ScopeResolutionPhase` produces, and the pipeline's own test
+            // holds every pipeline edge to a named resolution rule.
+            edge.properties = { ...edge.properties, resolution: 'file-scope' };
             this.addToBuffer(edge);
             this.edgeCount++;
           }
