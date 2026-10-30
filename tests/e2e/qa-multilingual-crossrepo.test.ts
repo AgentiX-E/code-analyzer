@@ -11,10 +11,10 @@
 // rather than passing on an empty graph - a skip is visible in the report, an empty graph is not.
 //
 // **What is asserted, and what is not.** The expected file has to appear in the **first eight** files the context
-// touches, because eight is what the default twelve-block context can hold once graph neighbours are counted, and a
-// file at position nine is not in the answer. It is not asserted to be first: a retriever that puts the right file
-// first is better, and a test that demanded it would be a test of the ranking rather than of the capability. The
-// ranking is measured on a labelled corpus, which is a different instrument.
+// touches, because the default twelve-block context spends nine slots on retrieval and reserves three for graph
+// neighbours, and a file at position nine is not in the answer. It is not asserted to be first: a retriever that puts
+// the right file first is better, and a test that demanded it would be a test of the ranking rather than of the
+// capability. The ranking is measured on a labelled corpus, which is a different instrument.
 
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -100,6 +100,22 @@ function positionOf(result: AnswerResult, suffix: string): number {
   return result.retrievedFiles.findIndex((file) => file.endsWith(suffix));
 }
 
+/**
+ * What the context actually held, in the order a reader would meet it.
+ *
+ * **Carried into the assertion message**, because "expected -1 to be greater than or equal to 0" on a real corpus says
+ * nothing about whether the retriever missed, the budget dropped the file, or the index never had it.
+ */
+function listing(result: AnswerResult): string {
+  const blocks = result.context
+    .map(
+      (block) =>
+        `  [${String(block.id)}] ${block.origin}${block.reachedBy ? ` ← ${block.reachedBy.relation} [${String(block.reachedBy.from)}]` : ''} ${block.filePath}:${String(block.startLine)} ${block.qualifiedName}`,
+    )
+    .join('\n');
+  return `\nretrieved files: ${result.retrievedFiles.join(', ')}\nblocks:\n${blocks}`;
+}
+
 describe.skipIf(!enabled)('QA on real repositories — one workspace, three languages', () => {
   let workspace: Workspace;
 
@@ -130,8 +146,8 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     expect(result.abstained).toBe('no-provider');
     // **The file the question is about is in the context**, and it is not the only thing there.
     const position = positionOf(result, 'OwnerController.java');
-    expect(position).toBeGreaterThanOrEqual(0);
-    expect(position).toBeLessThan(DEPTH);
+    expect(position, listing(result)).toBeGreaterThanOrEqual(0);
+    expect(position, listing(result)).toBeLessThan(DEPTH);
   });
 
   it('answers a JavaScript question from the JavaScript checkout', async () => {
@@ -144,8 +160,8 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     const position = result.retrievedFiles.findIndex(
       (file) => file.includes('express') && file.endsWith('application.js'),
     );
-    expect(position).toBeGreaterThanOrEqual(0);
-    expect(position).toBeLessThan(DEPTH);
+    expect(position, listing(result)).toBeGreaterThanOrEqual(0);
+    expect(position, listing(result)).toBeLessThan(DEPTH);
   });
 
   it('answers a Python question from the Python checkout', async () => {
@@ -158,8 +174,8 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     const position = result.retrievedFiles.findIndex(
       (file) => file.includes('/flask/') && file.endsWith('app.py'),
     );
-    expect(position).toBeGreaterThanOrEqual(0);
-    expect(position).toBeLessThan(DEPTH);
+    expect(position, listing(result)).toBeGreaterThanOrEqual(0);
+    expect(position, listing(result)).toBeLessThan(DEPTH);
   });
 
   it('answers a question whose answer is in the other repository of the workspace', async () => {
@@ -222,7 +238,7 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     const structural = result.context.filter((block) => block.origin === 'graph');
     // **The product's claim is that structure adds context a bag of words cannot**, so a run on four real checkouts
     // has to have reached at least one neighbour through a named edge.
-    expect(structural.length).toBeGreaterThan(0);
+    expect(structural.length, listing(result)).toBeGreaterThan(0);
     for (const block of structural) {
       expect(block.reachedBy).not.toBeNull();
     }

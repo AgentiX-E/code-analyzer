@@ -551,3 +551,153 @@ describe('assembleContext — the refusals', () => {
     expect(blocks.filter((block) => block.origin === 'graph')).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The structural reservation
+// ---------------------------------------------------------------------------
+
+/**
+ * A repository where retrieval can always fill the context: `count` functions in one file, and `callers` functions
+ * outside the candidate list that call the first few of them.
+ *
+ * **The callers are deliberately not candidates**, because a neighbour that is already a retrieval hit is refused as a
+ * duplicate and would make a reservation test pass for the wrong reason.
+ */
+function oversubscribedRepo(
+  count: number,
+  callers: number,
+): { store: InMemoryGraphStore; ids: number[] } {
+  const store = new InMemoryGraphStore();
+  const insert = (name: string, filePath: string): number =>
+    store.insertNode({
+      projectId: 'qa',
+      label: 'Function',
+      name,
+      qualifiedName: `app.${name}`,
+      filePath,
+      startLine: 1,
+      endLine: 3,
+      language: 'python',
+      properties: { body: `def ${name}():\n    return 1\n` },
+      complexity: null,
+      isExported: true,
+    } as never);
+
+  const ids: number[] = [];
+  for (let index = 0; index < count; index += 1)
+    ids.push(insert(`fn_${String(index)}`, 'app/flat.py'));
+  for (let index = 0; index < callers; index += 1) {
+    const caller = insert(`caller_${String(index)}`, 'app/callers.py');
+    store.insertEdge({
+      projectId: 'qa',
+      sourceId: caller,
+      targetId: ids[index % ids.length]!,
+      type: EDGE_CALLS,
+    });
+  }
+  return { store, ids };
+}
+
+describe('the structural reservation', () => {
+  const asksWith = (
+    store: InMemoryGraphStore,
+    ids: number[],
+    options: Parameters<typeof assembleContext>[2],
+  ): ReturnType<typeof assembleContext> =>
+    assembleContext(
+      store,
+      ids.map((id, index) => candidate(store, id, 100 - index)),
+      options,
+    );
+
+  it('keeps the graph from being starved by a retrieval list longer than the context', () => {
+    // **This is the defect the fourth acceptance case found on four real checkouts**: sixty candidates and twelve
+    // slots meant the retrieved pass filled every slot, the second pass walked the edges, and every neighbour it
+    // found was refused - so the "structural" half of the context was empty on every question ever asked.
+    const { store, ids } = oversubscribedRepo(20, 9);
+    const blocks = asksWith(store, ids, {
+      maxBlocks: 12,
+      neighboursPerHit: 2,
+      structuralBlocks: 3,
+    });
+    expect(blocks).toHaveLength(12);
+    expect(blocks.filter((block) => block.origin === 'retrieved')).toHaveLength(9);
+    expect(blocks.filter((block) => block.origin === 'graph')).toHaveLength(3);
+  });
+
+  it('gives an unused reservation back to retrieval', () => {
+    // **One caller and room for three**: two slots would otherwise sit empty while nineteen candidates are unread.
+    const { store, ids } = oversubscribedRepo(20, 1);
+    const blocks = asksWith(store, ids, {
+      maxBlocks: 12,
+      neighboursPerHit: 2,
+      structuralBlocks: 3,
+    });
+    expect(blocks).toHaveLength(12);
+    expect(blocks.filter((block) => block.origin === 'graph')).toHaveLength(1);
+    // **The tail is retrieval again**, and it says so: eleven blocks are hits, one is a caller.
+    expect(blocks.filter((block) => block.origin === 'retrieved')).toHaveLength(11);
+    expect(blocks.at(-1)!.origin).toBe('retrieved');
+  });
+
+  it('uses every slot for retrieval when the graph is asked for nothing', () => {
+    const { store, ids } = oversubscribedRepo(20, 9);
+    const blocks = asksWith(store, ids, {
+      maxBlocks: 12,
+      neighboursPerHit: 2,
+      structuralBlocks: 0,
+    });
+    expect(blocks).toHaveLength(12);
+    expect(blocks.filter((block) => block.origin === 'graph')).toEqual([]);
+  });
+
+  it('uses every slot for retrieval when expansion is disabled', () => {
+    // **A reservation for neighbours that cannot exist is a bug in the other direction**, and this is the case that
+    // separates "the graph had nothing to add" from "the caller turned the graph off".
+    const { store, ids } = oversubscribedRepo(20, 9);
+    const blocks = asksWith(store, ids, {
+      maxBlocks: 12,
+      neighboursPerHit: 0,
+      structuralBlocks: 3,
+    });
+    expect(blocks).toHaveLength(12);
+    expect(blocks.filter((block) => block.origin === 'graph')).toEqual([]);
+  });
+
+  it('never reserves the last slot', () => {
+    // **A context of one block cannot hold a neighbourhood**, and a reservation that took the only slot would answer
+    // the question with nothing at all.
+    const { store, ids } = oversubscribedRepo(5, 3);
+    const blocks = asksWith(store, ids, { maxBlocks: 2, neighboursPerHit: 2, structuralBlocks: 5 });
+    expect(blocks).toHaveLength(2);
+    expect(blocks.filter((block) => block.origin === 'retrieved')).toHaveLength(1);
+  });
+
+  it('does not let the graph exceed its reservation', () => {
+    // **Five callers per hit and room for three**: the reservation is a bound, not a starting point.
+    const { store, ids } = oversubscribedRepo(20, 15);
+    const blocks = asksWith(store, ids, {
+      maxBlocks: 12,
+      neighboursPerHit: 2,
+      structuralBlocks: 3,
+    });
+    expect(blocks.filter((block) => block.origin === 'graph')).toHaveLength(3);
+  });
+
+  it('numbers the structure after the hits and the tail after the structure', () => {
+    const { store, ids } = oversubscribedRepo(20, 1);
+    const blocks = asksWith(store, ids, {
+      maxBlocks: 12,
+      neighboursPerHit: 2,
+      structuralBlocks: 3,
+    });
+    expect(blocks.map((block) => block.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    const structural = blocks.filter((block) => block.origin === 'graph');
+    expect(structural.map((block) => block.id)).toEqual([10]);
+    // **A parent is a citation id that exists and came earlier**, which is the invariant the prompt relies on.
+    for (const block of structural) {
+      expect(block.reachedBy!.from).toBeGreaterThanOrEqual(1);
+      expect(block.reachedBy!.from).toBeLessThan(block.id);
+    }
+  });
+});

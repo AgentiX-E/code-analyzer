@@ -145,6 +145,20 @@ export interface ContextOptions {
   /** Graph neighbours added per retrieved block. **Default 2, and 0 disables expansion entirely.** */
   neighboursPerHit?: number;
   /**
+   * Slots held back from retrieval for graph neighbours. **Default 3.**
+   *
+   * **Retrieval always has more candidates than the context has slots** - sixty are ranked and twelve are shown - so a
+   * budget with no reservation is filled by retrieval every time and the graph contributes nothing at all. That is not
+   * a hypothesis: it is what the fourth acceptance case measured on four real checkouts before this option existed,
+   * where the structural half of the context was empty on every question while the edges it needed were in the store.
+   *
+   * The reservation is expressed in **slots rather than in characters**, because the two failures are different: a
+   * character overflow drops the tail of whatever was being added, while an unfilled reservation would leave the prompt
+   * short for no reason - so an unused slot falls back to retrieval rather than being wasted. **Zero restores the
+   * retrieval-only behaviour**, which is what a measurement of retrieval should ask for.
+   */
+  structuralBlocks?: number;
+  /**
    * Relations followed when expanding.
    *
    * **Ordered, and the order is the priority** when the neighbour budget is smaller than the number of edges: a

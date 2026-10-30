@@ -1,5 +1,5 @@
 // @code-analyzer/mcp — Tools Index
-// Registers all 48 MCP tools into the ToolRegistry.
+// Registers all 50 MCP tools into the ToolRegistry.
 
 // **The question-answering surface**, first in the local group because that is where its path sorts.
 import { askCodebaseSchema, askCodebaseTool } from './ask.js';

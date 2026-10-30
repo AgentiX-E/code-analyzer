@@ -105,6 +105,7 @@ export const DEFAULT_CONTEXT_OPTIONS: Required<Omit<ContextOptions, 'relations'>
   maxBlocks: 12,
   excerptChars: 800,
   neighboursPerHit: 2,
+  structuralBlocks: 3,
   relations: DEFAULT_EXPANSION_RELATIONS,
   maxChars: 12_000,
 };
@@ -260,6 +261,12 @@ export function neighboursOf(
  * priority the character budget spends by: if the twelve slots fill, what is lost is the far end of the graph rather
  * than the answer the question found.
  *
+ * **A reservation makes "structural blocks after them" mean something.** Retrieval ranks sixty candidates and only a
+ * dozen fit, so without a reserve the retrieved pass fills every slot and the second pass runs against a full context:
+ * the graph is walked, the neighbours are found, and every one of them is refused. `structuralBlocks` holds slots back
+ * so the graph can contribute at all, and the retrieved pass takes them back when `neighboursPerHit` is zero and
+ * nothing could ever fill them.
+ *
  * **A block with no file path is dropped rather than numbered**, which is the invariant every citation downstream
  * relies on.
  */
@@ -275,11 +282,18 @@ export function assembleContext(
   const seen = new Set<number>();
   let chars = 0;
 
-  const admit = (node: GraphNode, score: number | null, from: Origin): boolean => {
+  // **A context that can hold one block cannot hold a neighbourhood**, so the reservation never takes the last slot.
+  const reserved =
+    settings.neighboursPerHit > 0
+      ? Math.max(0, Math.min(settings.structuralBlocks, settings.maxBlocks - 1))
+      : 0;
+  const retrievalCap = settings.maxBlocks - reserved;
+
+  const admit = (node: GraphNode, score: number | null, from: Origin, cap: number): boolean => {
     if (seen.has(node.id)) return false;
     if (!node.filePath) return false;
     if (!EXPLAINABLE_LABELS.has(node.label)) return false;
-    if (blocks.length >= settings.maxBlocks) return false;
+    if (blocks.length >= cap) return false;
     const block = blockOf(node, blocks.length + 1, score, from, settings.excerptChars);
     const cost = blockCost(block);
     // **The budget is checked before the block is numbered**, so an over-budget block never acquires an id that a
@@ -291,10 +305,14 @@ export function assembleContext(
     return true;
   };
 
-  const ranked = rankCandidates(candidates);
-  for (const candidate of ranked) {
-    admit(candidate.node, candidate.score, { origin: 'retrieved', reachedBy: null });
-  }
+  /** Admit retrieved candidates up to `cap`. **Re-running over the same ranking is idempotent**, because `seen`. */
+  const admitRetrieved = (cap: number): void => {
+    for (const candidate of rankCandidates(candidates)) {
+      admit(candidate.node, candidate.score, { origin: 'retrieved', reachedBy: null }, cap);
+    }
+  };
+
+  admitRetrieved(retrievalCap);
 
   // **Neighbours are gathered from the retrieved blocks actually admitted**, not from every candidate: expanding a
   // block the budget dropped would cite code the model never saw. **The parent's citation id is what is recorded**,
@@ -308,12 +326,19 @@ export function assembleContext(
       settings.neighboursPerHit,
       seen,
     )) {
-      admit(neighbour.node, null, {
-        origin: 'graph',
-        reachedBy: { relation: neighbour.relation, from: parent.id },
-      });
+      admit(
+        neighbour.node,
+        null,
+        { origin: 'graph', reachedBy: { relation: neighbour.relation, from: parent.id } },
+        settings.maxBlocks,
+      );
     }
   }
+
+  // **A reservation the graph did not need goes back to retrieval.** A sparse graph - a repository with no resolved
+  // calls, a question about a leaf - would otherwise cost three blocks of context for nothing, and the caller would
+  // read a shorter answer than the budget allowed. The tail arrives after the structure, and says where it came from.
+  if (reserved > 0 && blocks.length < settings.maxBlocks) admitRetrieved(settings.maxBlocks);
 
   return blocks;
 }
