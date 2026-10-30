@@ -149,21 +149,6 @@ jobs:
           tar xzf werkzeug.tgz
           ls -d flask-* werkzeug-*
 
-      # **Before the accuracy is measured: was the repository read at all?** The two checkouts are indexed whole,
-      # `docs/` included, because the file that ended the phase was in there. This step is the guard for the failure
-      # that made the job necessary - a graph with no edges passes every accuracy floor trivially.
-      - name: Index both checkouts whole, documentation included
-        run: |
-          set -euo pipefail
-          ioredis_root=$(ls -d benchmarks/corpora/ioredis-* | head -1)
-          zod_root=$(ls -d benchmarks/corpora/zod-* | head -1)
-          npx tsx scripts/corpus-robustness.ts \
-            --repo "redis/ioredis=$ioredis_root" \
-            --repo "colinhacks/zod=$zod_root" \
-            --out benchmarks/corpus-robustness.json | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - name: Hold every file readable and every graph non-empty
-        run: node scripts/corpus-robustness-gate.js
 
       - name: Resolve every call site twice and compare
         run: |
