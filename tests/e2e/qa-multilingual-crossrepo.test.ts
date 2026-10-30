@@ -297,70 +297,78 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     expect((counts.get('CONTAINS') ?? 0) + (counts.get('TESTS') ?? 0), census).toBe(0);
   });
 
-  it('reaches a graph neighbour on a repository the pipeline indexed, where the calls exist', async () => {
-    // **The other half of the same finding.** The assembler's reservation, its direction table and its parent-id rule
-    // are exercised here on a graph that has `CALLS` edges, because the reason the cross-repository workspace shows no
-    // structural block is the indexer and not the assembly.
-    const petclinic = checkoutNamed('spring-petclinic-');
-    expect(petclinic).not.toBeNull();
-    const context = {
-      projectId: 'spring-projects/spring-petclinic',
-      rootPath: petclinic!,
-      config: getDefaultConfig(),
-      signal: new AbortController().signal,
-      metadata: {},
-    } as unknown as PipelineContext;
-    const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(context);
+  // **An explicit budget, because a full analysis of a real repository is not a sixty-second test.** The suite's
+  // default timeout is what a unit test gets; this case runs nineteen phases over spring-petclinic, and on a two-core
+  // runner with the other end-to-end files running beside it that took longer than the default and was reported as a
+  // hang rather than as the slow thing it is.
+  it(
+    'reaches a graph neighbour on a repository the pipeline indexed, where the calls exist',
+    { timeout: 300_000 },
+    async () => {
+      // **The other half of the same finding.** The assembler's reservation, its direction table and its parent-id rule
+      // are exercised here on a graph that has `CALLS` edges, because the reason the cross-repository workspace shows no
+      // structural block is the indexer and not the assembly.
+      const petclinic = checkoutNamed('spring-petclinic-');
+      expect(petclinic).not.toBeNull();
+      const context = {
+        projectId: 'spring-projects/spring-petclinic',
+        rootPath: petclinic!,
+        config: getDefaultConfig(),
+        signal: new AbortController().signal,
+        metadata: {},
+      } as unknown as PipelineContext;
+      const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(context);
 
-    const store = new InMemoryGraphStore();
-    const storeIdOf = new Map<number, number>();
-    for (const node of pipeline.graph.nodes.values()) {
-      storeIdOf.set(node.id, store.insertNode(node));
-    }
-    for (const edge of pipeline.graph.edges.values()) {
-      const source = storeIdOf.get(edge.sourceId);
-      const target = storeIdOf.get(edge.targetId);
-      if (source === undefined || target === undefined) continue;
-      store.insertEdge({
-        projectId: edge.projectId,
-        sourceId: source,
-        targetId: target,
-        type: edge.type,
-        properties: edge.properties,
-        weight: edge.weight,
-      });
-    }
-
-    const search = new HybridSearchEngine(store);
-    search.initialize();
-
-    let structural = 0;
-    const rows: string[] = [];
-    for (const question of [
-      'where does the owner controller render the page that lists an owner with their pets',
-      'where is a pet saved to the database',
-      'where is the visit added for a pet',
-    ]) {
-      const result = await askCodebase({
-        question,
-        store,
-        search,
-        options: { generate: false, neighboursPerHit: 2 },
-      });
-      const fromGraph = result.context.filter((block) => block.origin === 'graph');
-      structural += fromGraph.length;
-      rows.push(
-        `  ${String(fromGraph.length)} graph / ${String(result.stats.retrieved)} retrieved — ${question}`,
-      );
-      for (const block of fromGraph) {
-        // **A structural block always names the edge that reached it and the block it came from.**
-        expect(block.reachedBy, listing(result)).not.toBeNull();
-        expect(block.reachedBy!.from).toBeLessThan(block.id);
+      const store = new InMemoryGraphStore();
+      const storeIdOf = new Map<number, number>();
+      for (const node of pipeline.graph.nodes.values()) {
+        storeIdOf.set(node.id, store.insertNode(node));
       }
-    }
-    expect(structural, `\n${rows.join('\n')}`).toBeGreaterThan(0);
-    store.close();
-  });
+      for (const edge of pipeline.graph.edges.values()) {
+        const source = storeIdOf.get(edge.sourceId);
+        const target = storeIdOf.get(edge.targetId);
+        if (source === undefined || target === undefined) continue;
+        store.insertEdge({
+          projectId: edge.projectId,
+          sourceId: source,
+          targetId: target,
+          type: edge.type,
+          properties: edge.properties,
+          weight: edge.weight,
+        });
+      }
+
+      const search = new HybridSearchEngine(store);
+      search.initialize();
+
+      let structural = 0;
+      const rows: string[] = [];
+      for (const question of [
+        'where does the owner controller render the page that lists an owner with their pets',
+        'where is a pet saved to the database',
+        'where is the visit added for a pet',
+      ]) {
+        const result = await askCodebase({
+          question,
+          store,
+          search,
+          options: { generate: false, neighboursPerHit: 2 },
+        });
+        const fromGraph = result.context.filter((block) => block.origin === 'graph');
+        structural += fromGraph.length;
+        rows.push(
+          `  ${String(fromGraph.length)} graph / ${String(result.stats.retrieved)} retrieved — ${question}`,
+        );
+        for (const block of fromGraph) {
+          // **A structural block always names the edge that reached it and the block it came from.**
+          expect(block.reachedBy, listing(result)).not.toBeNull();
+          expect(block.reachedBy!.from).toBeLessThan(block.id);
+        }
+      }
+      expect(structural, `\n${rows.join('\n')}`).toBeGreaterThan(0);
+      store.close();
+    },
+  );
 
   it('is deterministic: the same question over the same index gives the same context', async () => {
     const ask = (): Promise<AnswerResult> =>
