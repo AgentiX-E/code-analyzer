@@ -228,20 +228,55 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     }
   });
 
+  it('has the edges the structural half needs, on a workspace it was not built on', () => {
+    // **The precondition for the next case, asserted rather than hoped for.** A structural expansion over a graph with
+    // no edges is a pass that costs time and adds nothing, and a case that only looked at the context could not tell
+    // "the graph had nothing to add" from "the graph was not built".
+    const edges = workspace.store.getAllEdges();
+    const byType = new Map<string, number>();
+    for (const edge of edges) byType.set(edge.type, (byType.get(edge.type) ?? 0) + 1);
+    const census = [...byType.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .map(([type, count]) => `${type}=${String(count)}`)
+      .join(' ');
+    expect(byType.get('IMPORTS') ?? 0, census).toBeGreaterThan(0);
+    expect(byType.get('CONTAINS') ?? 0, census).toBeGreaterThan(0);
+  });
+
   it('includes graph neighbours, and says which edge reached each one', async () => {
-    const result = await askCodebase({
-      question: 'where is the request object created for each incoming call',
-      store: workspace.store,
-      search: workspace.search,
-      options: { generate: false, neighboursPerHit: 2 },
-    });
-    const structural = result.context.filter((block) => block.origin === 'graph');
-    // **The product's claim is that structure adds context a bag of words cannot**, so a run on four real checkouts
-    // has to have reached at least one neighbour through a named edge.
-    expect(structural.length, listing(result)).toBeGreaterThan(0);
-    for (const block of structural) {
-      expect(block.reachedBy).not.toBeNull();
+    // **Six questions, not one.** The graph contributes per hit, and a single question can land on six leaves; the
+    // claim under test is about the workspace, so it is measured over the questions this file already asks - and the
+    // per-question counts and the edge census are the message when it fails.
+    const questions = [
+      'where does the owner controller render the page that lists an owner with their pets',
+      'where does an express application mount middleware and route handlers',
+      'how does flask dispatch an incoming request to the view function that handles it',
+      'where is a session cookie signed and serialised before it is written to the response',
+      'where is the request object created for each incoming call',
+      'where is the request context pushed',
+    ];
+    const rows: string[] = [];
+    let structural = 0;
+    for (const question of questions) {
+      const result = await askCodebase({
+        question,
+        store: workspace.store,
+        search: workspace.search,
+        options: { generate: false, neighboursPerHit: 2 },
+      });
+      const fromGraph = result.context.filter((block) => block.origin === 'graph');
+      structural += fromGraph.length;
+      rows.push(
+        `  ${String(fromGraph.length)} graph / ${String(result.stats.retrieved)} retrieved — ${question}`,
+      );
+      for (const block of fromGraph) {
+        // **A structural block always names the edge that reached it and the block it came from**, or a reader cannot
+        // tell it apart from something the question actually matched.
+        expect(block.reachedBy, listing(result)).not.toBeNull();
+        expect(block.reachedBy!.from).toBeLessThan(block.id);
+      }
     }
+    expect(structural, `\n${rows.join('\n')}`).toBeGreaterThan(0);
   });
 
   it('is deterministic: the same question over the same index gives the same context', async () => {

@@ -77,6 +77,22 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     return out;
   }
 
+  /**
+   * The name a member assignment defines, or `null` when it defines one this walk cannot spell.
+   *
+   * `app.use` and `Foo.prototype.bar` both end in a `property_identifier`, and the object to their left is a receiver
+   * rather than a namespace, so the last segment is the whole name. **A computed member is refused on purpose**:
+   * `handlers[name] = function () {}` defines a function whose name is a value, and a name this walk guessed would be
+   * a symbol in the graph that the source never has.
+   */
+  private assignedName(left: TreeSitterSyntaxNode): string | null {
+    if (left.type === 'identifier') return left.text;
+    if (left.type !== 'member_expression') return null;
+    const last = namedChildrenOf(left).at(-1);
+    if (!last) return null;
+    return last.type === 'property_identifier' || last.type === 'identifier' ? last.text : null;
+  }
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
@@ -163,6 +179,43 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
           containerName,
           properties: { filePath: this.filePath },
         });
+      }
+    } else if (nodeType === 'assignment_expression') {
+      // **A function assigned to a member is a definition, and this walk could not see one.**
+      //
+      // `app.use = function use(fn) {...}` is how express's `lib/application.js` spends 661 lines - every method of an
+      // application is a member assignment - and before this branch that file contributed no function node at all, so
+      // a question about where an express application mounts middleware returned nothing from the file that defines
+      // it. The acceptance case on four real checkouts reported the file as absent from the context, which is what an
+      // unindexed file looks like from the outside.
+      //
+      // **No container is recorded.** The container would be the object on the left - `app`, `req`, `res` - and
+      // making one a type would invent a node per receiver variable in the repository, which is a worse error than an
+      // unqualified name. The assignment itself is kept in `assignedTo`, so the place a function is attached to is
+      // recorded without a claim that the receiver is a class.
+      const [left, right] = namedChildrenOf(node);
+      if (
+        left &&
+        right &&
+        (right.type === 'function_expression' || right.type === 'arrow_function')
+      ) {
+        const assigned = this.assignedName(left);
+        if (assigned) {
+          captures.push({
+            tag: CAPTURE_TAGS.FUNCTION_DEF,
+            text: left.text,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            startByte: left.startIndex,
+            endByte: left.endIndex,
+            name: assigned,
+            properties: {
+              filePath: this.filePath,
+              assignedTo: left.text,
+              async: String(right.text.trimStart().startsWith('async')),
+            },
+          });
+        }
       }
     } else if (nodeType === 'lexical_declaration') {
       for (const child of namedChildrenOf(node)) {

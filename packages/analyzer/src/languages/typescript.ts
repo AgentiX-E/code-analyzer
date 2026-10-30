@@ -159,7 +159,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
    * Splitting the set from the arms is what keeps the walk a traversal: a type outside the set is never materialised.
    */
   protected captureTypes(mappings: NodeTypeMapping[]): ReadonlySet<string> {
-    return captureTypesFor(mappings);
+    // **One extra type, and it is not in the mapping table on purpose.** `app.use = function use() {}` defines a
+    // function, but the name it defines comes from the left of the assignment rather than from a child of the
+    // function, so no row of a `nodeType → nameChildType` table can express it. The walk stops at the assignment and
+    // the arm in `captureNode` reads both halves.
+    return new Set([...captureTypesFor(mappings), 'assignment_expression']);
   }
 
   /**
@@ -191,6 +195,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     captures: UnifiedCapture[],
   ): void {
     this.captureExtra(node, nodeType, captures);
+
+    if (nodeType === 'assignment_expression') {
+      this.captureMemberAssignment(node, captures);
+      return;
+    }
 
     for (const mapping of mappings) {
       if (nodeType === mapping.nodeType) {
@@ -533,6 +542,52 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   }
 
   // ---- Helpers ----
+
+  /**
+   * A function defined by assigning it to a member, which the mapping table cannot express.
+   *
+   * `app.use = function use(fn) {...}`, `Router.prototype.get = function () {...}`, `handlers.onError = (e) => {...}` -
+   * the name is on the left and the function is on the right, so the row that names an arrow function from its
+   * `variable_declarator` parent never fires and the function does not exist in the index. **Express's
+   * `lib/application.js` is 661 lines of this shape**, and the JavaScript provider had the same hole; both arms were
+   * written from the same real checkouts.
+   *
+   * **No container is recorded**: the receiver is a variable, not a type, and a container node per receiver would put
+   * `app`, `req` and `res` in the graph as classes. A computed member is refused for the same reason a guessed name is:
+   * `handlers[name] = ...` defines a function whose name is a value.
+   */
+  private captureMemberAssignment(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const [left, right] = namedChildrenOf(node);
+    if (!left || !right) return;
+    if (right.type !== 'function_expression' && right.type !== 'arrow_function') return;
+    const name = this.assignedName(left);
+    if (!name) return;
+    captures.push(
+      this.attachDocComment({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: left.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: left.startIndex,
+        endByte: left.endIndex,
+        name,
+        properties: {
+          filePath: this.filePath,
+          assignedTo: left.text,
+          async: String(right.text.trimStart().startsWith('async')),
+        },
+      }),
+    );
+  }
+
+  /** The name a member assignment defines, or `null` when it defines one this walk cannot spell. */
+  private assignedName(left: TreeSitterSyntaxNode): string | null {
+    if (left.type === 'identifier') return left.text;
+    if (left.type !== 'member_expression') return null;
+    const last = namedChildrenOf(left).at(-1);
+    if (!last) return null;
+    return last.type === 'property_identifier' || last.type === 'identifier' ? last.text : null;
+  }
 
   private buildCapture(
     node: TreeSitterSyntaxNode,

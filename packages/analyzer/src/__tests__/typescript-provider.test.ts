@@ -675,3 +675,40 @@ describe('TypeScriptProvider', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Functions defined by assignment
+// ---------------------------------------------------------------------------
+
+describe('a function assigned to a member', () => {
+  const local = new TypeScriptProvider();
+  const defs = (source: string): string[] =>
+    local
+      .parse(source, 'app.ts')
+      .filter((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF)
+      .map((capture) => capture.name);
+
+  it('is a definition, named by the member it is assigned to', () => {
+    expect(
+      defs('app.use = function use(fn: Handler): void {\n  this.router.use(fn);\n};\n'),
+    ).toEqual(['use']);
+  });
+
+  it('takes the last segment of a prototype path', () => {
+    expect(defs('Router.prototype.handle = function (req: Req): void {};\n')).toEqual(['handle']);
+  });
+
+  it('is a definition when the right side is an arrow function', () => {
+    // **The arrow arm already existed, but only for a `variable_declarator` parent**: an arrow assigned to a member
+    // declares nothing, so the index had no name for it either.
+    expect(defs('app.engine = (ext: string): string => ext;\n')).toEqual(['engine']);
+  });
+
+  it('is not invented when the member is computed', () => {
+    expect(defs('handlers[name] = function () {\n  return 1;\n};\n')).toEqual([]);
+  });
+
+  it('is not invented when the right side is not a function', () => {
+    expect(defs('app.port = 3000;\nconst typed: number = 1;\n')).toEqual([]);
+  });
+});

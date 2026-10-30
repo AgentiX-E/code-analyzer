@@ -684,3 +684,76 @@ function run(param) {
     expect(facts.unreachableLines.size).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Functions defined by assignment
+// ---------------------------------------------------------------------------
+
+describe('a function assigned to a member', () => {
+  const local = new JavaScriptProvider();
+  const functionDefs = (source: string): UnifiedCapture[] =>
+    local.parse(source, 'app.js').filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+
+  it('is a definition, named by the member it is assigned to', () => {
+    // **The shape express is made of**: `lib/application.js` defines every method of an application this way, and
+    // before this branch the file contributed no function node at all - so a real checkout answered a question about
+    // it with nothing.
+    const defs = functionDefs('app.use = function use(fn) {\n  this._router.use(fn);\n};\n');
+    expect(defs).toHaveLength(1);
+    expect(defs[0]!.name).toBe('use');
+    expect(defs[0]!.properties?.['assignedTo']).toBe('app.use');
+  });
+
+  it('takes the last segment of a prototype path', () => {
+    // **The other half of the same idiom**: `Foo.prototype.bar = function () {}` is a method of `Foo`, and the name a
+    // reader would use is `bar`.
+    const defs = functionDefs(
+      'Router.prototype.handle = function (req, res) {\n  return res.end();\n};\n',
+    );
+    expect(defs.map((def) => def.name)).toEqual(['handle']);
+    expect(defs[0]!.properties?.['assignedTo']).toBe('Router.prototype.handle');
+  });
+
+  it('is a definition when the right side is an arrow function', () => {
+    const defs = functionDefs('app.engine = (ext) => ext;\n');
+    expect(defs.map((def) => def.name)).toEqual(['engine']);
+  });
+
+  it('is not invented when the member is computed', () => {
+    // **`handlers[name] = function () {}` defines a function whose name is a value.** A guess here would put a symbol
+    // in the graph that the source does not have, which is worse than the missing node it replaces.
+    expect(functionDefs('handlers[name] = function () {\n  return 1;\n};\n')).toHaveLength(0);
+  });
+
+  it('is not invented when the right side is not a function', () => {
+    expect(functionDefs('app.settings = { x: 1 };\napp.port = 3000;\n')).toHaveLength(0);
+  });
+
+  it('does not double-count a declared function', () => {
+    // **The branch is an `else if`**, so a `function_declaration` reaches the arm that already existed and only that
+    // one; this case is the guard against a future refactor that emits from both.
+    const defs = functionDefs('function declared() {}\napp.assigned = function () {};\n');
+    expect(defs.map((def) => def.name).sort()).toEqual(['assigned', 'declared']);
+  });
+
+  it('keeps a whole file of them, in order', () => {
+    // **A miniature of `lib/application.js`**: five member assignments and one declaration, and all six have to be
+    // functions in the index for the file to be findable at all.
+    const source = [
+      'app.init = function init() {};',
+      'app.defaultConfiguration = function defaultConfiguration() {};',
+      'app.lazyrouter = function lazyrouter() {};',
+      'app.handle = function handle(req, res) {};',
+      'app.use = function use(fn) {};',
+      'function helper() {}',
+    ].join('\n');
+    expect(functionDefs(source).map((def) => def.name)).toEqual([
+      'init',
+      'defaultConfiguration',
+      'lazyrouter',
+      'handle',
+      'use',
+      'helper',
+    ]);
+  });
+});
