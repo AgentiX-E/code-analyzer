@@ -686,7 +686,7 @@ describe('a function assigned to a member', () => {
     local
       .parse(source, 'app.ts')
       .filter((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF)
-      .map((capture) => capture.name);
+      .map((capture) => capture.name ?? '');
 
   it('is a definition, named by the member it is assigned to', () => {
     expect(

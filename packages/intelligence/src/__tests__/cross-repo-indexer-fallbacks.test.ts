@@ -495,3 +495,76 @@ describe('imports across three repositories', () => {
     expect([...secondHop]).toEqual(['o/repo-c']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// What a cross-repository node keeps
+// ---------------------------------------------------------------------------
+
+describe('the documentation a group index keeps', () => {
+  /**
+   * One repository whose file has a documented function, a bare one, and a comment separated from its declaration by a
+   * blank line.
+   *
+   * **The three cases are one fixture on purpose**: the rule being tested is a window, and a fixture with only the
+   * first case passes for a rule that attaches every comment in the file to whatever comes next.
+   */
+  const DOCUMENTED = {
+    'repo-doc': {
+      'src/app.ts': [
+        '/**',
+        ' * Proxy the router: this is where an application mounts middleware and route handlers.',
+        ' */',
+        'export function use(handler: Handler) {',
+        '  return handler;',
+        '}',
+        '',
+        'export function undocumented() {',
+        '  return 1;',
+        '}',
+        '',
+        '/**',
+        ' * Belongs to the file, not to `later`: two blank lines away.',
+        ' */',
+        '',
+        'export function later() {',
+        '  return 2;',
+        '}',
+      ].join('\n'),
+    },
+  };
+
+  async function indexDocumented(): Promise<InMemoryGraphStore> {
+    const root = makeGroupDir(DOCUMENTED);
+    const manager = new RepoGroupManager();
+    manager.createGroup(GROUP, 'Group', '');
+    manager.addRepo(GROUP, 'o', 'repo-doc', 'url', join(root, 'repo-doc'));
+    const store = new InMemoryGraphStore();
+    await new CrossRepoIndexer(store, manager).indexGroup(GROUP);
+    return store;
+  }
+
+  it('keeps the comment above a declaration, which is what a question is answered from', async () => {
+    // **Every node in a group used to be written with `docstring: null`**, and the search index is built from name,
+    // qualified name, signature and docstring - so a cross-repository workspace answered questions from identifiers
+    // alone. On four released checkouts that is why a question about mounting middleware could not reach the express
+    // application's `use`, whose name is three letters and whose comment says exactly that.
+    const store = await indexDocumented();
+    const use = store.getNodeByQualifiedName('project:o/repo-doc:src/app.ts:use')!;
+    expect(use.label).toBe('Function');
+    expect(use.docstring).toContain('mounts middleware and route handlers');
+  });
+
+  it('does not attach a comment to a declaration that already has none', async () => {
+    // **The pair**: a rule that attached every comment to the next declaration would also put the first comment on
+    // `undocumented`, and a reader (and a retriever) would be told something false.
+    const store = await indexDocumented();
+    const bare = store.getNodeByQualifiedName('project:o/repo-doc:src/app.ts:undocumented')!;
+    expect(bare.docstring).toBeNull();
+  });
+
+  it('does not reach across a blank line, where the comment belongs to the file', async () => {
+    const store = await indexDocumented();
+    const later = store.getNodeByQualifiedName('project:o/repo-doc:src/app.ts:later')!;
+    expect(later.docstring).toBeNull();
+  });
+});

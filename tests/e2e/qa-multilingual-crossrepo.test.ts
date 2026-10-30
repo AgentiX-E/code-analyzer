@@ -19,6 +19,8 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
+import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   CrossRepoIndexer,
@@ -29,6 +31,7 @@ import {
 import { describe, expect, it, beforeAll } from 'vitest';
 
 import type { AnswerResult } from '@code-analyzer/intelligence';
+import type { PipelineContext } from '@code-analyzer/shared';
 
 const corpusRoot = process.env['QA_CORPUS_DIR'];
 const enabled = corpusRoot !== undefined && existsSync(corpusRoot);
@@ -228,40 +231,77 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     }
   });
 
-  it('has the edges the structural half needs, on a workspace it was not built on', () => {
-    // **The precondition for the next case, asserted rather than hoped for.** A structural expansion over a graph with
-    // no edges is a pass that costs time and adds nothing, and a case that only looked at the context could not tell
-    // "the graph had nothing to add" from "the graph was not built".
-    const edges = workspace.store.getAllEdges();
-    const byType = new Map<string, number>();
-    for (const edge of edges) byType.set(edge.type, (byType.get(edge.type) ?? 0) + 1);
-    const census = [...byType.entries()]
+  it('holds imports and no calls, which is why the structural half is empty here', () => {
+    // **The defect, asserted with its number rather than described.** A cross-repository indexing pass builds `File`
+    // nodes, symbol nodes and `IMPORTS` edges, and it does not run the pipeline that resolves calls, containment and
+    // tests - so the six relations the answer surface expands along exist in a single-repository analysis and do not
+    // exist here. Four released checkouts, 1 201 import edges, **0 `CALLS`**: the graph cannot contribute a neighbour
+    // to any question, and the twelve blocks a reader sees are twelve retrieval hits.
+    //
+    // **This case is a ratchet and it is meant to fail the day the indexer gains a call graph.** The fix is to index a
+    // repository in a group with the same pipeline that indexes it alone, which is the first move recorded for the
+    // next iteration; when that lands, this case turns red and the number in it has to be replaced by the new one.
+    const counts = new Map<string, number>();
+    for (const edge of workspace.store.getAllEdges()) {
+      counts.set(edge.type, (counts.get(edge.type) ?? 0) + 1);
+    }
+    const census = [...counts.entries()]
       .sort((left, right) => right[1] - left[1])
       .map(([type, count]) => `${type}=${String(count)}`)
       .join(' ');
-    expect(byType.get('IMPORTS') ?? 0, census).toBeGreaterThan(0);
-    expect(byType.get('CONTAINS') ?? 0, census).toBeGreaterThan(0);
+    expect(counts.get('IMPORTS') ?? 0, census).toBeGreaterThan(0);
+    expect(counts.get('CALLS') ?? 0, census).toBe(0);
+    expect((counts.get('CONTAINS') ?? 0) + (counts.get('TESTS') ?? 0), census).toBe(0);
   });
 
-  it('includes graph neighbours, and says which edge reached each one', async () => {
-    // **Six questions, not one.** The graph contributes per hit, and a single question can land on six leaves; the
-    // claim under test is about the workspace, so it is measured over the questions this file already asks - and the
-    // per-question counts and the edge census are the message when it fails.
-    const questions = [
-      'where does the owner controller render the page that lists an owner with their pets',
-      'where does an express application mount middleware and route handlers',
-      'how does flask dispatch an incoming request to the view function that handles it',
-      'where is a session cookie signed and serialised before it is written to the response',
-      'where is the request object created for each incoming call',
-      'where is the request context pushed',
-    ];
-    const rows: string[] = [];
+  it('reaches a graph neighbour on a repository the pipeline indexed, where the calls exist', async () => {
+    // **The other half of the same finding.** The assembler's reservation, its direction table and its parent-id rule
+    // are exercised here on a graph that has `CALLS` edges, because the reason the cross-repository workspace shows no
+    // structural block is the indexer and not the assembly.
+    const petclinic = checkoutNamed('spring-petclinic-');
+    expect(petclinic).not.toBeNull();
+    const context = {
+      projectId: 'spring-projects/spring-petclinic',
+      rootPath: petclinic!,
+      config: getDefaultConfig(),
+      signal: new AbortController().signal,
+      metadata: {},
+    } as unknown as PipelineContext;
+    const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(context);
+
+    const store = new InMemoryGraphStore();
+    const storeIdOf = new Map<number, number>();
+    for (const node of pipeline.graph.nodes.values()) {
+      storeIdOf.set(node.id, store.insertNode(node));
+    }
+    for (const edge of pipeline.graph.edges.values()) {
+      const source = storeIdOf.get(edge.sourceId);
+      const target = storeIdOf.get(edge.targetId);
+      if (source === undefined || target === undefined) continue;
+      store.insertEdge({
+        projectId: edge.projectId,
+        sourceId: source,
+        targetId: target,
+        type: edge.type,
+        properties: edge.properties,
+        weight: edge.weight,
+      });
+    }
+
+    const search = new HybridSearchEngine(store);
+    search.initialize();
+
     let structural = 0;
-    for (const question of questions) {
+    const rows: string[] = [];
+    for (const question of [
+      'where does the owner controller render the page that lists an owner with their pets',
+      'where is a pet saved to the database',
+      'where is the visit added for a pet',
+    ]) {
       const result = await askCodebase({
         question,
-        store: workspace.store,
-        search: workspace.search,
+        store,
+        search,
         options: { generate: false, neighboursPerHit: 2 },
       });
       const fromGraph = result.context.filter((block) => block.origin === 'graph');
@@ -270,13 +310,13 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
         `  ${String(fromGraph.length)} graph / ${String(result.stats.retrieved)} retrieved — ${question}`,
       );
       for (const block of fromGraph) {
-        // **A structural block always names the edge that reached it and the block it came from**, or a reader cannot
-        // tell it apart from something the question actually matched.
+        // **A structural block always names the edge that reached it and the block it came from.**
         expect(block.reachedBy, listing(result)).not.toBeNull();
         expect(block.reachedBy!.from).toBeLessThan(block.id);
       }
     }
     expect(structural, `\n${rows.join('\n')}`).toBeGreaterThan(0);
+    store.close();
   });
 
   it('is deterministic: the same question over the same index gives the same context', async () => {

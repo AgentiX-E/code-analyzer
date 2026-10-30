@@ -454,6 +454,14 @@ export class CrossRepoIndexer {
    * **Only the capture tags that name a symbol become nodes.** A capture list also carries docstrings, imports and
    * call sites, and those are not nodes. **The mapping is by tag rather than by guessing from the text**, which is
    * the whole reason to ask a parser instead of a regex.
+   *
+   * **The docstring of a symbol is kept, and it is what a question is answered from.** Every node here used to be
+   * written with `docstring: null`, and the search index is built from name, qualified name, signature and docstring -
+   * so a cross-repository workspace answered questions from identifiers alone. The acceptance case on four released
+   * checkouts is what made that visible: the express application's methods are named `use`, `route` and `handle`, the
+   * word that describes them ("middleware") lives in the comment above each one, and no question using that word
+   * could reach the file. **The comment above a declaration is attached to the declaration that follows it**, which is
+   * the rule the pipeline's own walk uses.
    */
   private nodesFromCaptures(
     captures: UnifiedCapture[],
@@ -474,7 +482,18 @@ export class CrossRepoIndexer {
 
     const nodes: GraphNode[] = [];
     const seen = new Set<string>();
+    /** The last doc comment seen, waiting for the declaration it documents. **Consumed once.** */
+    let pending: { text: string; endLine: number } | null = null;
+
     for (const capture of captures) {
+      if (String(capture.tag) === CAPTURE_TAGS.DOCSTRING) {
+        const text = typeof capture.text === 'string' ? capture.text.trim() : '';
+        if (text.length > 0) {
+          pending = { text, endLine: Number(capture.endLine) || Number(capture.startLine) || 0 };
+        }
+        continue;
+      }
+
       const label = labelFor[String(capture.tag)];
       if (!label) continue;
       const name = typeof capture.name === 'string' ? capture.name : '';
@@ -485,6 +504,13 @@ export class CrossRepoIndexer {
 
       const startLine = Number(capture.startLine) || 1;
       const endLine = Number(capture.endLine) || startLine;
+      // **A comment belongs to the declaration on the very next line**, and one separated by a blank line belongs to
+      // the file. One line, not two: a decorator or an annotation is *inside* the declaration's own range in every
+      // grammar this project parses, so a gap of two lines is always a blank line, and attaching across it would tell
+      // a reader - and a retriever - that a file's header documents the function below it.
+      const docstring = pending && startLine - pending.endLine <= 1 ? pending.text : null;
+      pending = null;
+
       nodes.push({
         id: 0, // Will be assigned by store
         projectId,
@@ -497,7 +523,7 @@ export class CrossRepoIndexer {
         language,
         properties: { name, filePath: relPath, startLine, endLine, language },
         signature: null,
-        docstring: null,
+        docstring,
         complexity: null,
         isExported: false,
         fingerprint: null,
