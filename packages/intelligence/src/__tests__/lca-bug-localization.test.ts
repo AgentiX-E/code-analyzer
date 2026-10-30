@@ -62,7 +62,29 @@ const CAN_ASK_A_MODEL = Boolean(process.env['DEEPSEEK_API_KEY']);
 // fifty per language exhausted a ninety-minute budget and produced no figure at all, which is the least useful outcome
 // a measurement can have. Twelve is what a runner finishes, the row count is recorded in the artifact beside every
 // figure, and raising it is one dispatch input rather than a code change.
-const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '12', 10);
+const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '8', 10);
+
+/**
+ * The largest repository an instance may use, in files of the configuration's extension. **A cap, because an unbounded
+ * instrument measures nothing.**
+ *
+ * The published protocol analyses whatever repository the issue came from, and some of them are enormous: three attempts
+ * at this job - fifty instances a language, then twelve, then twelve again - were still running after ninety minutes,
+ * after two and a half hours, and were cancelled, and none produced a figure. **An instance whose repository is larger
+ * than this is skipped and counted rather than analysed**, because a measurement that excludes big repositories and
+ * says how many it excluded is worth more than a measurement that never finishes. The number is recorded in the
+ * artifact beside every figure.
+ */
+const FILE_CAP = Number.parseInt(process.env['LCA_MAX_FILES'] ?? '2000', 10);
+
+/**
+ * Whether the answer arm runs. **Off unless asked for.**
+ *
+ * It costs one completion per instance against a real endpoint, and a completion that reaches its timeout costs the
+ * whole budget - thirty-six of those is most of an hour spent on the slower half of the same measurement. The retrieval
+ * arm needs no model, is deterministic to the digit, and is the arm the published baselines are comparable with.
+ */
+const ANSWER_ARM = process.env['LCA_ANSWER_ARM'] === '1';
 const CONFIGS = ['py', 'java', 'kt'] as const;
 /** The cuts the retrieval arm reports. **Fixed in advance**, because a cut chosen after seeing the answer is a fit. */
 const CUTS = [1, 3, 5, 10] as const;
@@ -296,7 +318,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
     const cacheRoot = join(root, 'checkouts');
     mkdirSync(cacheRoot, { recursive: true });
 
-    const provider = CAN_ASK_A_MODEL ? new DeepSeekProvider({ timeout: 90_000 }) : null;
+    const provider =
+      CAN_ASK_A_MODEL && ANSWER_ARM ? new DeepSeekProvider({ timeout: 45_000 }) : null;
     const perConfig: Record<string, unknown> = {};
     const allOutcomes: RowOutcome[] = [];
     const allFilesOf = new Map<number, string[]>();
@@ -346,6 +369,20 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         }
 
         const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
+        // **The size bound, applied before any analysis**: an analysis that would not finish is not a measurement of
+        // anything, and the skip is recorded so the artifact can say what the bound cost the sample.
+        if (allFiles.length > FILE_CAP) {
+          outcomes.push({
+            id: row.id,
+            repo: `${row.repo_owner}/${row.repo_name}`,
+            files: allFiles.length,
+            expected: row.changed_files.length,
+            retrieval: {},
+            answer: null,
+            skipped: `the repository holds ${String(allFiles.length)} files, above the cap of ${String(FILE_CAP)}`,
+          });
+          continue;
+        }
 
         const ctx = {
           projectId: `${row.repo_owner}/${row.repo_name}`,
@@ -473,6 +510,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       },
       measuredAt: new Date().toISOString().slice(0, 10),
       rowLimit: ROW_LIMIT,
+      fileCap: FILE_CAP,
+      answerArm: ANSWER_ARM,
       cuts: CUTS.join(', '),
       space: {
         semantic: false,

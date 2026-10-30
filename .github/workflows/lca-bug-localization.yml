@@ -20,11 +20,23 @@ on:
   workflow_dispatch:
     inputs:
       max_rows:
-        # **Twelve by default**: each instance needs its own checkout at its own commit plus a full analysis, and fifty
-        # per language exhausted a ninety-minute budget and reported nothing. Raise it when there is time to spend.
+        # **Eight by default**: each instance needs its own checkout at its own commit plus a full analysis, and fifty
+        # per language exhausted a ninety-minute budget and reported nothing, and twelve reported nothing in two and a
+        # half hours. Raise it when there is time to spend.
         description: 'How many instances of each language split to measure'
         required: false
-        default: '12'
+        default: '8'
+      max_files:
+        # **The size bound.** An instance whose repository holds more files than this is skipped and counted, because
+        # an analysis that does not finish is not a measurement. Recorded in the artifact.
+        description: 'Skip instances whose repository holds more than this many files'
+        required: false
+        default: '2000'
+      answer_arm:
+        # **The model arm, off by default.** One completion per instance, on the slower half of the same measurement.
+        description: 'Run the answer arm as well (1) or the deterministic retrieval arm alone (0)'
+        required: false
+        default: '0'
   push:
     branches: [master]
     paths:
@@ -154,7 +166,9 @@ jobs:
       - name: Measure
         env:
           LCA_DIR: benchmarks/corpora/lca
-          LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '12' }}
+          LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '8' }}
+          LCA_MAX_FILES: ${{ github.event.inputs.max_files || '2000' }}
+          LCA_ANSWER_ARM: ${{ github.event.inputs.answer_arm || '0' }}
           BENCHMARK_WRITE: '1'
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
