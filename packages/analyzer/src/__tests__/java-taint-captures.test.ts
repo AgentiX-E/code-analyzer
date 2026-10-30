@@ -181,6 +181,38 @@ describe('the servlet vocabulary', () => {
     expect(names).not.toContain('htmlUnescape');
   });
 
+  it('names the sinks the corpus actually writes its dangerous calls with', () => {
+    // **A sink the vocabulary does not name is a vulnerability the engine cannot find, whatever its analysis does.**
+    // Two families were missing and each was measured: `PrintWriter.printf(format, args)` writes its format string
+    // into the response body exactly as `print` does (51 vulnerable `xss` cases were silent for that one word), and
+    // Spring's `JdbcTemplate` answers the same question through `queryForRowSet`, `queryForList`, `queryForMap`,
+    // `queryForObject`, `queryForLong` and `batchUpdate` rather than through JDBC's `executeQuery` (52 more).
+    //
+    // **Asserted against the list and against the extraction**, because the two fail differently: a missing entry is a
+    // vocabulary hole, and an entry the matcher cannot reach is a comparison hole - the same pair that produced the
+    // `Process.Start` and `std::system` defects before it.
+    const names = JAVA_TAINT_VOCABULARY.sinks.map(([name]) => name);
+    for (const name of [
+      'printf',
+      'batchUpdate',
+      'queryForList',
+      'queryForLong',
+      'queryForMap',
+      'queryForObject',
+      'queryForRowSet',
+    ]) {
+      expect(names).toContain(name);
+    }
+
+    const printed = provider.extractTaintSinks('response.getWriter().printf(param, obj);');
+    expect(printed.map((sink) => sink.sinkType)).toContain('html');
+
+    const queried = provider.extractTaintSinks(
+      'org.owasp.benchmark.helpers.DatabaseHelper.JDBCtemplate.queryForRowSet(sql);',
+    );
+    expect(queried.map((sink) => sink.sinkType)).toContain('sql_exec');
+  });
+
   it('keeps the C family vocabulary it extends, so nothing an earlier language relied on was dropped', () => {
     const shared = JAVA_TAINT_VOCABULARY.sources.map(([name]) => name);
     expect(shared).toContain('process.env');

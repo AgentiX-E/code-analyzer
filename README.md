@@ -91,7 +91,7 @@ Checkmarks indicate features verified through automated tests.
 | Impact Analysis (BFS-based change propagation)                 | Tested — integration                                                |
 | Cross-Repo Analysis (federated search, contract detection)     | Verified — 49/49 imports, 73/73 traces on two real checkouts        |
 | Security Rule Families (weak cipher/hash/random, cookie flags) | Verified — 513/513 vulnerable, 0 false positives on OWASP Benchmark |
-| Taint Analysis (source → sink path tracking)                   | Verified — OWASP Benchmark score 0.853 (TPR 0.853 / FPR 0.000)      |
+| Taint Analysis (source → sink path tracking)                   | Verified — OWASP Benchmark score 0.926 (TPR 0.926 / FPR 0.000)      |
 | Graph Store (in-memory + SQLite with FTS5)                     | Tested — unit                                                       |
 | Rate Limiting (sliding window)                                 | Tested — unit                                                       |
 | Health Checks + Graceful Shutdown                              | Tested — integration                                                |

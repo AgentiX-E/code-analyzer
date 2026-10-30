@@ -7,38 +7,38 @@
   },
   "engine": {
     "sources": 6157,
-    "sinks": 9930
+    "sinks": 10185
   },
   "overall": {
     "category": "all",
     "cases": 2740,
     "vulnerable": 1415,
-    "truePositives": 1207,
+    "truePositives": 1310,
     "falsePositives": 0,
-    "tpr": 0.8530035335689046,
+    "tpr": 0.9257950530035336,
     "fpr": 0,
-    "score": 0.8530035335689046
+    "score": 0.9257950530035336
   },
   "taintSubset": {
     "category": "taint-subset",
     "cases": 1698,
     "vulnerable": 902,
-    "truePositives": 694,
+    "truePositives": 797,
     "falsePositives": 0,
-    "tpr": 0.7694013303769401,
+    "tpr": 0.8835920177383592,
     "fpr": 0,
-    "score": 0.7694013303769401
+    "score": 0.8835920177383592
   },
   "byEngine": {
     "flows": {
       "category": "all",
       "cases": 2740,
       "vulnerable": 1415,
-      "truePositives": 694,
+      "truePositives": 797,
       "falsePositives": 0,
-      "tpr": 0.49045936395759715,
+      "tpr": 0.5632508833922262,
       "fpr": 0,
-      "score": 0.49045936395759715
+      "score": 0.5632508833922262
     },
     "rules": {
       "category": "all",
@@ -116,11 +116,11 @@
       "category": "sqli",
       "cases": 504,
       "vulnerable": 272,
-      "truePositives": 203,
+      "truePositives": 255,
       "falsePositives": 0,
-      "tpr": 0.7463235294117647,
+      "tpr": 0.9375,
       "fpr": 0,
-      "score": 0.7463235294117647
+      "score": 0.9375
     },
     {
       "category": "trustbound",
@@ -156,12 +156,12 @@
       "category": "xss",
       "cases": 455,
       "vulnerable": 246,
-      "truePositives": 169,
+      "truePositives": 220,
       "falsePositives": 0,
-      "tpr": 0.6869918699186992,
+      "tpr": 0.8943089430894309,
       "fpr": 0,
-      "score": 0.6869918699186992
+      "score": 0.8943089430894309
     }
   ],
-  "measuredAt": "2026-10-30T00:47:30.047Z"
+  "measuredAt": "2026-10-30T01:22:10.438Z"
 }

@@ -490,6 +490,7 @@ itself scores: a case is flagged if the engine reports one live (unsanitised) fl
 | + what a container holds, at the point a statement reads it                | 0.8530 | 0.0302 | 0.8228 |
 | + whether a statement keeps the value it computes                          | 0.8530 | 0.0015 | 0.8515 |
 | + a declaration is a variable, and a name is not                           | 0.8530 | 0.0000 | 0.8530 |
+| + a sink's name is part of the vocabulary                                  | 0.9258 | 0.0000 | 0.9258 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 every row from `+ statements anchored to a line` onward is the v1.2 corpus the published figures come from, so the step
@@ -804,6 +805,59 @@ corpus labels safe.
 declaration reports nothing, the same file with the sink moved into the loop that read the request reports — one line
 moved, opposite answers — and a single declaration read in two sibling loops still reports, which is the shape every
 real vulnerability of this kind is written in.
+
+### A sink's name is part of the vocabulary
+
+**A flow that reaches no name the engine calls a sink is a vulnerability the engine cannot report, however correct its
+model is.** The corpus's next 105 silent cases split across seven categories, and the two largest groups were not
+modelling failures at all: the source was extracted, the helper was followed, the value was carried through a container
+and the path was built — and then the last call in the chain was a method name that `JAVA_SINKS` did not list.
+
+| missing name(s)                                                                                  | whose call it is                                            | cases recovered |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | --------------- |
+| `printf`                                                                                         | `PrintWriter`, which is what `response.getWriter()` returns | 51 (`xss`)      |
+| `queryForRowSet`, `queryForList`, `queryForMap`, `queryForObject`, `queryForLong`, `batchUpdate` | Spring's `JdbcTemplate`                                     | 52 (`sqli`)     |
+
+**The first one is a hole with no defence, because `printf` is the same call as `print`.** `print`, `println` and
+`write` were all in the table: a servlet writing into the response body is cross-site scripting whatever the spelling.
+`printf(format, args)` writes the same body through a different method name, the destination filter that separates a
+`FileWriter` from a `PrintWriter` had already answered for the receiver, and the format string is not a neutraliser —
+so the only thing that stood between the engine and 51 real findings was a missing row. A vocabulary that models the
+destination and then omits a name is measuring its own list, not the code.
+
+**The second one is a fork that lost an entry.** `query` was in the shared C-family list from the beginning, and the
+Java table is _appended_ to it — but the corpus's SQL cases do not call `query`: they call the `JdbcTemplate` family,
+which is the Spring API for the same act and which no shared list could know about. Six entries were added and `query`
+was deliberately not repeated, because an entry listed twice is two spellings of one answer and the second one can
+never be the one that fires.
+
+| figure           | before | after  | true positives | false positives |
+| ---------------- | ------ | ------ | -------------- | --------------- |
+| `overall`        | 0.8530 | 0.9258 | 1 207 → 1 310  | 0 → 0           |
+| `taintSubset`    | 0.7694 | 0.8836 | 694 → 797      | 0 → 0           |
+| `xss`            | 0.6869 | 0.8943 | 169 → 220      | 0 → 0           |
+| `sqli`           | 0.7463 | 0.9375 | 203 → 255      | 0 → 0           |
+| `flows` (engine) | 0.4905 | 0.5633 | 694 → 797      | 0 → 0           |
+| `rules` (engine) | 0.3625 | 0.3625 | 513 → 513      | 0 → 0           |
+
+**No figure in the two directions moved the wrong way, and that is the whole claim.** Adding names to a sink list is the
+cheapest way to buy recall and the fastest way to lose precision — every new name is a new place a value can be
+reported — so the pair (TPR up, FPR flat at zero) is what makes this a vocabulary fix rather than a detector that
+started guessing. It is also why the two families are held by separate category floors: `xss.tpr ≥ 0.8942` and
+`sqli.tpr ≥ 0.9374` mean one of them cannot be undone while the other's figure hides it.
+
+`sink-vocabulary-end-to-end.test.ts` holds both directions through the provider rather than the list: a value that
+reaches `response.getWriter().printf(param)` is reported as `html`, the same call with a constant format string
+argument reports nothing, `JDBCtemplate.queryForRowSet(sql)` is reported as `sql_exec`, three more `JdbcTemplate`
+spellings are reported through their own files, and a constant SQL string reports nothing. **The test was verified by
+deleting the entry it depends on**: with `printf` removed, exactly the first case fails and the other four pass, which
+is the difference between a suite that asserts a list and one that asserts a behaviour.
+
+**What remains is 105 cases and no shared cause**: `cmdi` 32, `xss` 26, `sqli` 17, `pathtraver` 15, `trustbound` 11,
+`ldapi` 3, `xpathi` 1. The largest group is not another missing word — it is `new ProcessBuilder().command(argList)`
+followed by `.start()`, where the command is handed over as a **list** and the current model follows a value into a
+container but not into an argument the container is built from. That is a modelling question of the kind the last four
+sections were about, and it is the next one to answer.
 
 ## MCP Protocol Integration
 

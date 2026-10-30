@@ -56,6 +56,16 @@ const FILE = process.argv.includes('--file')
  *     vanish. Until the two were told apart, every nested call in a chain was a "cannot say", and the corpus's long
  *     copy-wrap-cut chains were all reported. Measured: `overall` 0.8228 → 0.8515, false positives 40 → 2, **no true
  *     positive lost** (1207 before and after), and ten of the eleven categories at FPR 0.0000.
+ *   - **a sink's name** — the vocabulary that decides whether a call is a sink at all — is the model behind the largest
+ *     single move in this file, and it restored recall without touching a single false positive. Two families were
+ *     missing: `PrintWriter.printf(format, args)`, which the corpus writes hundreds of responses through and which the
+ *     Java vocabulary did not list, and Spring's `JdbcTemplate` family (`query`, `queryForList`, `queryForMap`,
+ *     `queryForObject`, `queryForLong`, `queryForRowSet`, `batchUpdate`), which is how the corpus reaches a database.
+ *     A missing sink is not a conservative answer: the sources were already extracted, the path through the helper was
+ *     already modelled, and the flow died at the last name because the vocabulary that names sinks did not contain it.
+ *     Measured: `overall` 0.8530 → 0.9258, `xss` 0.6869 → 0.8943, `sqli` 0.7463 → 0.9375, true positives 1 207 → 1 310,
+ *     **and false positives 0 → 0**. The two families are independent — `printf` recovered 51 and `JdbcTemplate` 52 —
+ *     so a regression in either shows up as its own category's floor rather than as a rounded overall figure.
  *
  * The container model is what justifies the ceiling this file now holds `overall.fpr` to. Its claim is not "the value
  * probably does not come back" but "it cannot": a container whose every access this function made is a call on a
@@ -77,14 +87,14 @@ const FILE = process.argv.includes('--file')
  * code does not.
  */
 const RULES = [
-  ['overall.tpr', (r) => r.overall?.tpr, 0.853],
+  ['overall.tpr', (r) => r.overall?.tpr, 0.9257],
   ['overall.fpr', (r) => r.overall?.fpr, null, 0.0008],
-  ['overall.score', (r) => r.overall?.score, 0.8529],
-  ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.7694],
+  ['overall.score', (r) => r.overall?.score, 0.9257],
+  ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.8835],
   // **The category-weighted figure, and the one this engine is actually scored on.** Its TPR is lower than `overall`
   // because the four rule categories are not in it.
   ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.0013],
-  ['taintSubset.score', (r) => r.taintSubset?.score, 0.7693],
+  ['taintSubset.score', (r) => r.taintSubset?.score, 0.8835],
   // The four categories a flow cannot answer, which now have a rule family of their own. **One is set to 1.0**: a
   // rule names a construct, so a case in these categories that has the construct is found and one that does not is not,
   // and a floor below 1 would let the family lose a case without failing.
@@ -104,7 +114,7 @@ const RULES = [
   // propagator that stopped working would hide behind them. Every false positive in the corpus is a flow finding and
   // the rule families contribute none, so `flows.fpr` and `overall.fpr` are the same number reached by two routes;
   // stating both keeps a rule family that starts reporting from hiding behind a flow engine that stopped.
-  ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.4904],
+  ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.5632],
   ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.0008],
   ['cmdi.tpr', (r) => category(r, 'cmdi')?.tpr, 0.746],
   ['cmdi.fpr', (r) => category(r, 'cmdi')?.fpr, null, 0.008],
@@ -114,7 +124,7 @@ const RULES = [
   ['ldapi.fpr', (r) => category(r, 'ldapi')?.fpr, null, 0.032],
   ['pathtraver.tpr', (r) => category(r, 'pathtraver')?.tpr, 0.8872],
   ['pathtraver.fpr', (r) => category(r, 'pathtraver')?.fpr, null, 0.0074],
-  ['sqli.tpr', (r) => category(r, 'sqli')?.tpr, 0.7463],
+  ['sqli.tpr', (r) => category(r, 'sqli')?.tpr, 0.9374],
   ['sqli.fpr', (r) => category(r, 'sqli')?.fpr, null, 0.0043],
   ['trustbound.tpr', (r) => category(r, 'trustbound')?.tpr, 0.8674],
   // **Zero false positives, and the ceiling is still not 0.** `trustbound` is 83 vulnerable cases and 43 safe ones, so
@@ -123,7 +133,7 @@ const RULES = [
   ['trustbound.fpr', (r) => category(r, 'trustbound')?.fpr, null, 0.0233],
   ['xpathi.tpr', (r) => category(r, 'xpathi')?.tpr, 0.9333],
   ['xpathi.fpr', (r) => category(r, 'xpathi')?.fpr, null, 0.05],
-  ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.6869],
+  ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.8942],
   ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.0048],
 ];
 
