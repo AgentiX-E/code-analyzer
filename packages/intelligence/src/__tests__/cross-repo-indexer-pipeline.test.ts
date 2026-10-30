@@ -83,7 +83,7 @@ function fileNode(name: string): NewGraphNode {
   };
 }
 
-/** Every edge of one relation between the two nodes addressed by qualified name. */function edgesBetween(
+/** Every edge of one relation between the two nodes addressed by qualified name. */ function edgesBetween(
   store: InMemoryGraphStore,
   type: string,
   from: string,
