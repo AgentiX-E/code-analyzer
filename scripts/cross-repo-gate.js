@@ -21,7 +21,22 @@ const RULES = [
   ['resolution.nameRecall', (r) => r.resolution.nameRecall, 0.99],
   ['trace.recall', (r) => r.trace.recall, 1],
   ['impact.recall', (r) => r.impact.recall, 1],
+  // **The structural half, which the workspace did not have until the pipeline ran per repository.** Measured on
+  // flask 3.0.3 + werkzeug 3.0.3: `CALLS = 0` before, 21 549 after, with every import, trace and impact figure
+  // unchanged. The floor is set below the measured value rather than at it, because the relation is produced by a
+  // pipeline whose exact edge count is not a contract - what is not allowed is losing it.
+  ['index.calls', (r) => r.index.calls, 20000],
 ];
+
+/**
+ * Values that must be **exactly** this, not at least this.
+ *
+ * **A count of edges nothing supports has one acceptable value.** Two repositories share relative paths and every
+ * community detector numbers from one, so a merge that does not scope its names makes one repository's folder edges
+ * point at another's nodes: measured, **375 `CROSS_REPO_DEPENDS` edges** that no import, call or contract
+ * corroborates. A floor of zero would be satisfied by them.
+ */
+const EXACT = [['index.unsupportedCrossRepoEdges', (r) => r.index.unsupportedCrossRepoEdges, 0]];
 
 function main() {
   let record;
@@ -48,6 +63,18 @@ function main() {
     if (!ok) failures.push(`${name}: ${value} < ${floor}`);
   }
 
+  for (const [name, read, expected] of EXACT) {
+    const value = read(record);
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      failures.push(`${name}: absent`);
+      rows.push(`| ${name} | absent | = ${expected} | ✗ |`);
+      continue;
+    }
+    const ok = value === expected;
+    rows.push(`| ${name} | ${value} | = ${expected} | ${ok ? '✓' : '✗'} |`);
+    if (!ok) failures.push(`${name}: ${value} ≠ ${expected}`);
+  }
+
   const summary = [
     '| figure | measured | floor | |',
     '|---|---|---|---|',
@@ -55,6 +82,7 @@ function main() {
     '',
     `corpora: ${(record.corpora ?? []).map((corpus) => corpus.repo).join(' + ')}`,
     `cross-repository import edges: ${record.index?.crossRepoEdges ?? 'absent'}`,
+    `call edges in the workspace: ${record.index?.calls ?? 'absent'}`,
     `impact strict precision (re-exports and namespace imports count as extra): ${record.impact?.strictPrecision ?? 'absent'}`,
   ].join('\n');
 

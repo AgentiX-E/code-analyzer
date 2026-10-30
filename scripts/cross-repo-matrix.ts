@@ -92,8 +92,12 @@ async function main(): Promise<void> {
     groupManager.addRepo(groupId, owner ?? '', name ?? repo.name, '', repo.path);
   }
 
+  // **The pipeline, so the workspace holds what a single-repository analysis holds.** Without it the graph below is
+  // imports and nothing else, and the three questions this script answers are answered from a graph with no calls in
+  // it. `index.census` publishes every relation the store ended up with, because "1 201 edges" cannot say that none
+  // of them is a call.
   const started = Date.now();
-  const index = await indexer.indexGroup(groupId);
+  const index = await indexer.indexGroup(groupId, { pipeline: true });
   const indexMs = Date.now() - started;
 
   const allEdges = store.getAllEdges();
@@ -292,8 +296,22 @@ async function main(): Promise<void> {
       nodes: store.getNodeCount(),
       edges: store.getEdgeCount(),
       imports: allEdges.filter((edge) => edge.type === 'IMPORTS').length,
+      // **The relation a workspace did not have.** A number in the record rather than a claim in a document.
+      calls: index.edgesByType['CALLS'] ?? 0,
       crossRepoEdges: crossByType['CROSS_REPO_IMPORTS'] ?? 0,
       byType: crossByType,
+      /**
+       * Cross-repository edges that are neither an import nor a call the pipeline resolved.
+       *
+       * **A workspace may not claim a dependency nothing else supports.** Two repositories share relative paths
+       * (`.github`, `.devcontainer`) and every community detector numbers from one, so merging their graphs without
+       * scoping the names made one repository's folder edges point at the other's nodes - **375 `CROSS_REPO_DEPENDS`
+       * edges** that no import, call or contract corroborates. The figure is written so a gate can hold it at zero.
+       */
+      unsupportedCrossRepoEdges: Object.entries(crossByType)
+        .filter(([type]) => type !== 'CROSS_REPO_IMPORTS' && type !== 'CROSS_REPO_CALLS')
+        .reduce((total, [, count]) => total + count, 0),
+      census: index.edgesByType,
       reposIndexed: index.reposIndexed,
       errors: index.errors,
     },

@@ -315,6 +315,7 @@ export class IncrementalCrossRepoIndexer {
       contracts: 0,
       duration: Date.now() - startTime,
       errors,
+      edgesByType: this.indexer.censusOfEdges(),
       changeSet: {
         added: [],
         modified: [],

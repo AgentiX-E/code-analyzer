@@ -95,7 +95,11 @@ async function openWorkspace(): Promise<Workspace> {
     projects.set(checkout.name, fullName);
   }
 
-  await indexer.indexGroup(GROUP);
+  // **The pipeline, not only the workspace's own pass.** The pass inside `CrossRepoIndexer` builds files, symbols and
+  // named imports; the pipeline is what turns a repository into a graph with calls, definitions, containment and
+  // tests in it. Answering a question from a workspace is a claim about the *graph*, so the graph here is the one a
+  // single-repository analysis produces.
+  await indexer.indexGroup(GROUP, { pipeline: true });
 
   const search = new HybridSearchEngine(store);
   search.initialize();
@@ -278,16 +282,12 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     }
   });
 
-  it('holds imports and no calls, which is why the structural half is empty here', () => {
-    // **The defect, asserted with its number rather than described.** A cross-repository indexing pass builds `File`
-    // nodes, symbol nodes and `IMPORTS` edges, and it does not run the pipeline that resolves calls, containment and
-    // tests - so the six relations the answer surface expands along exist in a single-repository analysis and do not
-    // exist here. Four released checkouts, 1 201 import edges, **0 `CALLS`**: the graph cannot contribute a neighbour
-    // to any question, and the twelve blocks a reader sees are twelve retrieval hits.
-    //
-    // **This case is a ratchet and it is meant to fail the day the indexer gains a call graph.** The fix is to index a
-    // repository in a group with the same pipeline that indexes it alone, which is the first move recorded for the
-    // next iteration; when that lands, this case turns red and the number in it has to be replaced by the new one.
+  it('holds a call graph, which is what a workspace was missing', () => {
+    // **This was a ratchet that read `CALLS = 0`, and it was the reason the structural half of every answer here was
+    // empty.** A cross-repository pass built `File` nodes, symbols and `IMPORTS` edges and did not run the pipeline
+    // that resolves calls, so four released checkouts held 1 201 import edges and no call edge at all - and the
+    // twelve blocks a reader saw were twelve retrieval hits. The pipeline now runs per repository and its graph is
+    // merged into the workspace, and this case states the census it produced.
     const counts = new Map<string, number>();
     for (const edge of workspace.store.getAllEdges()) {
       counts.set(edge.type, (counts.get(edge.type) ?? 0) + 1);
@@ -297,8 +297,60 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
       .map(([type, count]) => `${type}=${String(count)}`)
       .join(' ');
     expect(counts.get('IMPORTS') ?? 0, census).toBeGreaterThan(0);
-    expect(counts.get('CALLS') ?? 0, census).toBe(0);
-    expect((counts.get('CONTAINS') ?? 0) + (counts.get('TESTS') ?? 0), census).toBe(0);
+    expect(counts.get('CALLS') ?? 0, census).toBeGreaterThan(1_000);
+    expect(counts.get('DEFINES') ?? 0, census).toBeGreaterThan(1_000);
+    expect(counts.get('CONTAINS') ?? 0, census).toBeGreaterThan(100);
+    expect(counts.get('TESTS') ?? 0, census).toBeGreaterThan(0);
+  });
+
+  it('does not report a cross-repository dependency that no import supports', () => {
+    // **The defect the pipeline merge produced before the names were scoped.** Every checkout has a `.github` folder
+    // and every community detector numbers from one, so two repositories' nodes shared a qualified name, the second
+    // was merged onto the first, and an edge between them read as a cross-repository dependency: **375 of them, none
+    // supported by an import, a call or a contract.** This case is the ratchet against it - the only cross-repository
+    // relation a workspace may claim is one an import statement carries.
+    const counts = new Map<string, number>();
+    for (const edge of workspace.store.getAllEdges()) {
+      if (!edge.type.startsWith('CROSS_REPO_')) continue;
+      counts.set(edge.type, (counts.get(edge.type) ?? 0) + 1);
+    }
+    expect([...counts.keys()]).toEqual(['CROSS_REPO_IMPORTS']);
+    expect(counts.get('CROSS_REPO_IMPORTS') ?? 0).toBeGreaterThan(0);
+  });
+
+  it('adds a block the retrieval ranking never returned, in the workspace it did not come from', async () => {
+    // **The claim the indexer change was made for.** Before it, every block a workspace answer held was a retrieval
+    // hit; a structural block is code the ranking did not return and the graph did, cited through the block it hangs
+    // off. This case asks a question whose answer is in one repository and asserts that at least one block arrived
+    // that way - and that it names the relation and the parent citation a reader can follow.
+    let structural = 0;
+    const rows: string[] = [];
+    for (const question of [
+      'where does an express application mount middleware and route handlers',
+      'how does flask dispatch an incoming request to the view function that handles it',
+      'where is a session cookie signed and serialised before it is written to the response',
+    ]) {
+      const result = await askCodebase({
+        question,
+        store: workspace.store,
+        search: workspace.search,
+        options: { generate: false, neighboursPerHit: 2 },
+      });
+      const fromGraph = result.context.filter((block) => block.origin === 'graph');
+      structural += fromGraph.length;
+      rows.push(
+        `  ${String(fromGraph.length)} graph / ${String(result.stats.retrieved)} retrieved — ${question}`,
+      );
+      for (const block of fromGraph) {
+        expect(block.reachedBy, listing(result)).not.toBeNull();
+        // **The parent is a citation a reader can find above this block**, not a node id that appears nowhere.
+        expect(block.reachedBy!.from).toBeLessThan(block.id);
+        // **And the block is a different piece of code from the parent**, or the expansion said nothing.
+        const parent = result.context.find((other) => other.id === block.reachedBy!.from)!;
+        expect(parent.filePath.length).toBeGreaterThan(0);
+      }
+    }
+    expect(structural, `\n${rows.join('\n')}`).toBeGreaterThan(0);
   });
 
   // **An explicit budget, because a full analysis of a real repository is not a sixty-second test.** The suite's
@@ -309,9 +361,10 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
     'reaches a graph neighbour on a repository the pipeline indexed, where the calls exist',
     { timeout: 300_000 },
     async () => {
-      // **The other half of the same finding.** The assembler's reservation, its direction table and its parent-id rule
-      // are exercised here on a graph that has `CALLS` edges, because the reason the cross-repository workspace shows no
-      // structural block is the indexer and not the assembly.
+      // **The assembler on one repository, without a workspace around it.** The reservation, the direction table and
+      // the parent-id rule are exercised on the graph the pipeline produces for a single checkout - which is the shape
+      // most analyses have - so a workspace that failed to reach a neighbour could be told apart from an assembler
+      // that could not expand at all.
       const petclinic = checkoutNamed('spring-petclinic-');
       expect(petclinic).not.toBeNull();
       const context = {

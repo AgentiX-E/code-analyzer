@@ -9,7 +9,7 @@
     "**`falseEdges` is the precision half**: an edge the graph claims that the parser does not corroborate is",
     "listed by name, because a wrong edge is worse than a missing one for every question that follows."
   ],
-  "measuredAt": "2026-10-27",
+  "measuredAt": "2026-10-30",
   "corpora": [
     {
       "repo": "pallets/flask"
@@ -19,12 +19,30 @@
     }
   ],
   "index": {
-    "durationMs": 3609,
-    "nodes": 7769,
-    "edges": 1159,
-    "imports": 1110,
+    "durationMs": 8749,
+    "nodes": 14688,
+    "edges": 50953,
+    "imports": 1117,
+    "calls": 21549,
     "crossRepoEdges": 49,
     "byType": {
+      "CROSS_REPO_IMPORTS": 49
+    },
+    "unsupportedCrossRepoEdges": 0,
+    "census": {
+      "CONTAINS": 502,
+      "DEFINES": 14997,
+      "CALLS": 21549,
+      "EXTENDS": 146,
+      "HANDLES_ROUTE": 20,
+      "BELONGS_TO": 64,
+      "HANDLES": 64,
+      "HANDLES_TOOL": 10,
+      "MEMBER_OF": 7895,
+      "TESTS": 16,
+      "SIMILAR_TO": 25,
+      "SEMANTICALLY_RELATED": 4499,
+      "IMPORTS": 1117,
       "CROSS_REPO_IMPORTS": 49
     },
     "reposIndexed": 2,

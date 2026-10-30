@@ -6,7 +6,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join, posix, relative } from 'node:path';
 
-import { getOrLoadProvider } from '@code-analyzer/analyzer';
+import { PipelineOrchestrator, createAllPhases, getOrLoadProvider } from '@code-analyzer/analyzer';
+import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   CAPTURE_TAGS,
@@ -21,6 +22,7 @@ import {
 } from '@code-analyzer/shared';
 
 import { detectPackageIdentities, resolvePackageMember } from './package-identity.js';
+import { mergePipelineGraph } from './group-graph.js';
 
 import type { PackageIdentity } from './package-identity.js';
 import type { RepoGroupManager } from './repo-group-manager.js';
@@ -31,6 +33,7 @@ import type {
   GraphNode,
   GroupRepo,
   NodeLabel,
+  PipelineContext,
   UnifiedCapture,
 } from '@code-analyzer/shared';
 
@@ -45,6 +48,29 @@ export interface IndexOptions {
   languages?: string[];
   /** Force re-index even if previously indexed */
   force?: boolean;
+  /**
+   * Index each repository with **the pipeline** as well as with this class's own pass (default false).
+   *
+   * **This is the difference between a workspace that holds files and one that holds a call graph.** The pass below
+   * builds `File` nodes, symbols and named `IMPORTS` edges, and nothing else - so `CALLS`, `DEFINES`, `CONTAINS`,
+   * `TESTS` and the inheritance relations do not exist in a workspace, and the answer surface has no neighbour to
+   * expand along. Measured on four released checkouts: 1 201 `IMPORTS` edges and **0 `CALLS`**.
+   *
+   * It is an option rather than the default because the pipeline reads every file with a grammar and takes minutes on
+   * a large tree, while the pass below takes seconds - and a caller who only wants "who imports whom" should not pay
+   * for a call graph.
+   */
+  pipeline?: boolean;
+  /**
+   * Run the pipeline's **embedding** phase as well (default false).
+   *
+   * **An index a quota can change is not a fixture.** The embedding phase resolves its backend through a chain that
+   * ends at the network when `ZHIPU_API_KEY` is set, so on a machine with the key a workspace index of four
+   * checkouts becomes a few thousand API calls that can fail the run for a reason that has nothing to do with the
+   * code. Nothing in a workspace reads the vectors either: its search is lexical, and `registerEmbeddings` is never
+   * called for it. The phase is therefore **not run**, and a caller that wants the vectors can ask for them.
+   */
+  embed?: boolean;
 }
 
 export interface IndexResult {
@@ -56,6 +82,14 @@ export interface IndexResult {
   contracts: number;
   duration: number;
   errors: string[];
+  /**
+   * The store's edges by relation, after indexing.
+   *
+   * **A census is the only way to state what a workspace can answer.** `totalEdges` says 1 201 and cannot say that
+   * every one of them is an import, which is the fact that decided what the product could do with a workspace for
+   * three iterations. Written by every indexing path so a gate can read a number rather than a claim.
+   */
+  edgesByType: Record<string, number>;
 }
 
 export interface CrossRepoSymbolMatch {
@@ -164,6 +198,21 @@ const SOURCE_EXTENSIONS = new Set([
   '.exs',
 ]);
 
+/**
+ * The languages this workspace indexes, **derived from the extensions its own discovery admits**.
+ *
+ * **Two readers, one scope, and the scope is the narrower one.** The pipeline's scanner admits `.md`, `.html`, `.yml`
+ * and `.json` because a repository contains them; `discoverFiles` above admits none of them. Merging the pipeline's
+ * graph without saying so made a workspace answer "where does express mount middleware" with `Charter.md:22` and
+ * `History.md:1502` — and pushed the file the question is about out of the nine slots a twelve-block context has.
+ * The derivation is by extension rather than by a list, so the two cannot drift.
+ */
+const WORKSPACE_LANGUAGES: ReadonlySet<string> = new Set(
+  [...SOURCE_EXTENSIONS]
+    .map((extension) => getLanguageFromFilename(`file${extension}`))
+    .filter((language): language is NonNullable<typeof language> => language !== null),
+);
+
 // ---------------------------------------------------------------------------
 // CrossRepoIndexer
 // ---------------------------------------------------------------------------
@@ -234,6 +283,7 @@ export class CrossRepoIndexer {
         contracts: 0,
         duration: Date.now() - startTime,
         errors: [],
+        edgesByType: {},
       };
     }
 
@@ -281,6 +331,7 @@ export class CrossRepoIndexer {
       contracts: contracts.length,
       duration: Date.now() - startTime,
       errors,
+      edgesByType: this.censusOfEdges(),
     };
   }
 
@@ -313,7 +364,17 @@ export class CrossRepoIndexer {
       contracts: 0,
       duration: Date.now() - startTime,
       errors: [],
+      edgesByType: this.censusOfEdges(),
     };
+  }
+
+  /** The store's edges by relation, sorted by relation so two runs print the same string. */
+  censusOfEdges(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const edge of this.store.getAllEdges()) {
+      counts[edge.type] = (counts[edge.type] ?? 0) + 1;
+    }
+    return counts;
   }
 
   /**
@@ -335,24 +396,35 @@ export class CrossRepoIndexer {
     const langFilter = options.languages ? new Set(options.languages) : null;
     const selected = langFilter ? files.filter((f) => langFilter.has(f.language)) : files;
 
+    // **The structural half, when the caller asked for it.** The pipeline's graph is merged first, so every `File`
+    // node it created already exists when the pass below asks for one - and `ensureFileNode` then writes nothing,
+    // which is what keeps one file to one node.
+    const deferred = options.pipeline
+      ? await this.indexWithPipeline(projectId, localPath, options)
+      : [];
+
     // Two passes, because an edge can point at a file that has not been visited yet: create every File node
     // first, then resolve the imports. Building an edge as each file is visited meant the target's node did not
     // exist yet, so no import ever resolved and `totalEdges` stayed at zero.
     for (const file of selected) {
-      try {
-        const content = readFileSync(file.filePath, 'utf-8');
-        const symbols = await this.extractSymbols(
-          file.filePath,
-          content,
-          projectId,
-          localPath,
-          file.language,
-        );
-        this.insertNodes(projectId, symbols);
-        this.ensureFileNode(projectId, file.filePath, localPath, file.language);
-      } catch {
-        // Skip files that can't be read or parsed
+      if (!options.pipeline) {
+        // **The pipeline's symbols are the ones the graph keeps** when it ran: it asks the language's grammar for
+        // kinds, ranges and bodies, where the fallback below reads a list of JavaScript-shaped regexes.
+        try {
+          const content = readFileSync(file.filePath, 'utf-8');
+          const symbols = await this.extractSymbols(
+            file.filePath,
+            content,
+            projectId,
+            localPath,
+            file.language,
+          );
+          this.insertNodes(projectId, symbols);
+        } catch {
+          // Skip files that can't be read or parsed
+        }
       }
+      this.ensureFileNode(projectId, file.filePath, localPath, file.language);
     }
 
     // **What this repository can be called, read once per checkout** rather than once per file: the manifests are
@@ -372,6 +444,107 @@ export class CrossRepoIndexer {
       } catch {
         // Skip files whose imports can't be read
       }
+    }
+
+    // **Last, because it is the fallback for the pass above.** A deferred pair is an import the pipeline resolved and
+    // this class's own reader did not - a Java or Kotlin package name, most often - so it is inserted only where the
+    // workspace has no edge for that pair at all.
+    this.insertDeferredImports(projectId, deferred);
+  }
+
+  /**
+   * A repository indexed by the pipeline, merged into the workspace store.
+   *
+   * Returns the deferred import pairs as **store ids**, so the caller can insert them after its own import pass has
+   * had its say.
+   */
+  private async indexWithPipeline(
+    projectId: string,
+    localPath: string,
+    options: IndexOptions,
+  ): Promise<Array<{ source: number; target: number }>> {
+    const config = getDefaultConfig();
+    config.projectId = projectId;
+    config.rootPath = localPath;
+
+    // **The context a phase needs, built the way the CLI learned to build it.** `execute` fills in `phaseData` and
+    // `graph` itself, and repairs a missing `rootPath` - so the only two fields that must be right here are the two
+    // the pipeline indexes: which project, and which directory.
+    const context = {
+      projectId,
+      rootPath: localPath,
+      config,
+      signal: new AbortController().signal,
+      metadata: {},
+    } as unknown as PipelineContext;
+
+    // **Every phase but one, and the one left out is the one that reaches the network.** `embed` depends on `dump`
+    // and nothing depends on `embed`, so removing it leaves the DAG valid and every structural relation intact.
+    const phases = createAllPhases().filter(
+      (phase) => options.embed === true || phase.id !== 'embed',
+    );
+
+    const result = await new PipelineOrchestrator(phases).execute(context);
+    const merged = mergePipelineGraph(result.graph, {
+      rootPath: localPath,
+      projectId,
+      languages: WORKSPACE_LANGUAGES,
+    });
+
+    const ids: number[] = [];
+    for (const node of merged.nodes) {
+      // **A second pass over one checkout re-uses the nodes the first wrote.** `insertNode` refuses a qualified name
+      // it already holds, and an edge that skipped the node would dangle - so the id is looked up rather than the
+      // node being inserted twice.
+      const existing = this.store.getNodeByQualifiedName(node.qualifiedName);
+      ids.push(existing ? existing.id : this.store.insertNode(node));
+    }
+
+    const now = new Date().toISOString();
+    for (const edge of merged.edges) {
+      // Invariant: every index in `merged.edges` came from the map `mergePipelineGraph` built over these nodes, so
+      // both endpoints exist and `insertEdge` cannot reject the pair.
+      this.store.insertEdge({
+        projectId,
+        sourceId: ids[edge.source]!,
+        targetId: ids[edge.target]!,
+        type: edge.type,
+        properties: edge.properties,
+        weight: edge.weight,
+        createdAt: now,
+      });
+    }
+
+    return merged.deferredImports.map((pair) => ({
+      source: ids[pair.source]!,
+      target: ids[pair.target]!,
+    }));
+  }
+
+  /** Insert the pipeline's import pairs where this class's reader resolved nothing. */
+  private insertDeferredImports(
+    projectId: string,
+    pairs: ReadonlyArray<{ source: number; target: number }>,
+  ): void {
+    const now = new Date().toISOString();
+    for (const pair of pairs) {
+      const already = this.store
+        .getEdgesForNode(pair.source, EDGE_IMPORTS)
+        .some((edge) => edge.targetId === pair.target);
+      if (already) continue;
+
+      this.store.insertEdge({
+        projectId,
+        sourceId: pair.source,
+        targetId: pair.target,
+        type: EDGE_IMPORTS,
+        // **`resolution: 'pipeline'` rather than `'path'`**, so a consumer can tell an edge whose names are unknown
+        // from one whose names this subsystem read. `importedSymbols` is absent rather than `[]` for the same reason:
+        // absent says "not read", and an empty list says "read and empty", which is a different claim.
+        properties: { resolution: 'pipeline', scope: 'repo' },
+        weight: 1,
+        createdAt: now,
+      });
     }
   }
 
