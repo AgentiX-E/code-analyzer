@@ -1,0 +1,71 @@
+name: Corpus Probe
+
+# **Whether a corpus can be reached from a runner at all, asked before a measurement is designed around it.**
+#
+# **Why this job exists.** Two cells in the competitor matrix are `MISSING` because their corpora are published on a
+# hub this project has never fetched from. **A measurement plan built on a dataset nobody has downloaded is a plan, not
+# a number** - so the first question is whether the bytes arrive, what their shape is, and what they hash to. This job
+# answers only that question, and it prints the answer instead of asserting it.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Can each candidate corpus be downloaded, and what is inside it
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: CrossCodeEval — dataset listing
+        run: |
+          set -uo pipefail
+          for spec in \
+            "https://huggingface.co/api/datasets/AWS/crosscode-eval" \
+            "https://huggingface.co/api/datasets/AWS/crosscode-eval/tree/main"; do
+            echo "### $spec"
+            code=$(curl -sS -o /tmp/out.json -w '%{http_code}' --max-time 60 "$spec" || true)
+            echo "http=$code bytes=$(wc -c < /tmp/out.json)"
+            head -c 1200 /tmp/out.json || true
+            echo
+          done
+
+      - name: CrossCodeEval — one split file, head and hash
+        run: |
+          set -uo pipefail
+          base="https://huggingface.co/datasets/AWS/crosscode-eval/resolve/main"
+          for f in "crosscodeeval_python.jsonl.gz" "python/crosscodeeval_python.jsonl.gz" "crosscodeeval_python_test.jsonl.gz"; do
+            echo "### $f"
+            code=$(curl -sSL -o /tmp/x.gz -w '%{http_code}' --max-time 120 "$base/$f" || true)
+            echo "http=$code bytes=$(wc -c < /tmp/x.gz)"
+            if [ "$code" = "200" ]; then sha256sum /tmp/x.gz; gzip -dc /tmp/x.gz | head -c 600; echo; fi
+          done
+
+      - name: LongCodeArena — repository listing
+        run: |
+          set -uo pipefail
+          for spec in \
+            "https://huggingface.co/api/datasets/JetBrains-Research/lca-bug-localization" \
+            "https://huggingface.co/api/datasets/JetBrains-Research/lca-code-generation"; do
+            echo "### $spec"
+            code=$(curl -sS -o /tmp/l.json -w '%{http_code}' --max-time 60 "$spec" || true)
+            echo "http=$code bytes=$(wc -c < /tmp/l.json)"
+            head -c 800 /tmp/l.json || true
+            echo
+          done
+
+      - name: RepoBench — the retrieval split
+        run: |
+          set -uo pipefail
+          for spec in \
+            "https://huggingface.co/api/datasets/tianyang/repobench_python_v1.1" \
+            "https://raw.githubusercontent.com/Leolty/repobench/main/README.md"; do
+            echo "### $spec"
+            code=$(curl -sSL -o /tmp/r.json -w '%{http_code}' --max-time 60 "$spec" || true)
+            echo "http=$code bytes=$(wc -c < /tmp/r.json)"
+            head -c 600 /tmp/r.json || true
+            echo
+          done
