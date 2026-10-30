@@ -42,3 +42,6 @@ tests/benchmarks/real-world/.stress-data/
 # files live in the repository that publishes them and the workflow downloads them per run, recording the SHA-256 in
 # the artifact. Committing them would also put somebody else's licence inside this one.
 benchmarks/corpora/
+
+# Local working files from scripts/callgraph-quality.ts (the JSON record is committed, the dumps are not).
+.callgraph-quality/

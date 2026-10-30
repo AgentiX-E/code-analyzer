@@ -71,7 +71,9 @@
     "measure:semantic": "npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/real-ground-truth-semantic.test.ts",
     "measure:heuristic": "npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/real-ground-truth-benchmark.test.ts",
     "matrix": "node scripts/competitor-matrix-gate.js",
-    "matrix:update": "node scripts/competitor-matrix-gate.js --update --json benchmarks/competitor-matrix-report.json"
+    "matrix:update": "node scripts/competitor-matrix-gate.js --update --json benchmarks/competitor-matrix-report.json",
+    "measure:callgraph": "tsx scripts/callgraph-quality.ts",
+    "callgraph": "node scripts/callgraph-gate.js"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
