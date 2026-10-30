@@ -184,6 +184,22 @@ export const CALL_NODE_TYPES: ReadonlySet<string> = new Set([
   'command',
 ]);
 
+/**
+ * The call node types of the C-family grammars this package reads as TypeScript and JavaScript.
+ *
+ * **A union loses the languages that did not contribute to it, and this set is the receipt.** `CALL_NODE_TYPES` was
+ * assembled from eight grammars and then consulted by the two providers whose grammar contributes two names to it -
+ * `call_expression` and `new_expression`. The other four C-family-looking entries are not calls in those grammars at
+ * all, and asking the question of every node made **`a ?? b` a call site with `a` as its callee**: measured on
+ * `this.store.get(k) ?? 0`, one call produced two references, one of them named after the whole expression, and any
+ * `x + y` in a TypeScript file became a `FUNCTION_CALL` to `x` - a phantom call site that the resolver could then
+ * resolve to a function that was never called.
+ */
+export const C_FAMILY_CALL_NODE_TYPES: ReadonlySet<string> = new Set([
+  'call_expression',
+  'new_expression',
+]);
+
 // ---------------------------------------------------------------------------
 // Dynamic import helpers with graceful fallback
 // ---------------------------------------------------------------------------
@@ -1057,9 +1073,20 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // Call site capture — AST-based function/method call extraction
   // -----------------------------------------------------------------------
 
+  /**
+   * The call node types of this provider's grammar.
+   *
+   * **A provider declares its own**, because a set that answers for eight grammars at once answers wrongly for most of
+   * them: the question is asked once per node by the walk that emits call sites, and a node this returns `true` for
+   * becomes a call whether or not it is one.
+   */
+  protected callNodeTypes(): ReadonlySet<string> {
+    return CALL_NODE_TYPES;
+  }
+
   /** Check if a node type represents a call expression */
   protected isCallNodeType(nodeType: string): boolean {
-    return CALL_NODE_TYPES.has(nodeType);
+    return this.callNodeTypes().has(nodeType);
   }
 
   /**

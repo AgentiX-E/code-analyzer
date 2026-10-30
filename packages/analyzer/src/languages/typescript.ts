@@ -8,7 +8,7 @@ import { FUNCTION_SCOPED_CONSTANTS } from './constant-fold.js';
 import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
-import { CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -37,8 +37,11 @@ const tsGlobs = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.d.ts'];
  * no name was recorded as leaving, and every TypeScript callee answered "no return reads this parameter" — the one
  * answer a summary must not give by accident. An arm outside the set is a comment, not code.
  */
-function captureTypesFor(mappings: NodeTypeMapping[]): ReadonlySet<string> {
-  const types = new Set<string>(CALL_NODE_TYPES);
+function captureTypesFor(
+  mappings: NodeTypeMapping[],
+  callNodeTypes: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const types = new Set<string>(callNodeTypes);
   for (const mapping of mappings) types.add(mapping.nodeType);
   types.add('lexical_declaration');
   types.add('import_statement');
@@ -65,6 +68,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       tsx: TreeSitterLanguage;
     };
     return tsGrammar.typescript;
+  }
+
+  /** Two node types are calls in this grammar, and the walk stops nowhere else. */
+  protected override callNodeTypes(): ReadonlySet<string> {
+    return C_FAMILY_CALL_NODE_TYPES;
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {
@@ -163,7 +171,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // function, but the name it defines comes from the left of the assignment rather than from a child of the
     // function, so no row of a `nodeType → nameChildType` table can express it. The walk stops at the assignment and
     // the arm in `captureNode` reads both halves.
-    return new Set([...captureTypesFor(mappings), 'assignment_expression']);
+    return new Set([...captureTypesFor(mappings, this.callNodeTypes()), 'assignment_expression']);
   }
 
   /**

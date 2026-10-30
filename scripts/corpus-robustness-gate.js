@@ -28,8 +28,8 @@ const FILE = process.argv.includes('--file')
  * moves this figure by hundreds and a parser that drifts by one edge should not fail the build.
  */
 const FLOORS = {
-  'redis/ioredis': { calls: 220, filesFailed: 0 },
-  'colinhacks/zod': { calls: 480, filesFailed: 0 },
+  'redis/ioredis': { calls: 215, filesFailed: 0 },
+  'colinhacks/zod': { calls: 465, filesFailed: 0 },
 };
 
 function main() {

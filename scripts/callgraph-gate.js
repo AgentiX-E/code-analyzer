@@ -45,16 +45,16 @@ const PYTHON_FLOORS = {
  */
 const TYPESCRIPT_FLOORS = {
   'colinhacks/zod': {
-    precision: 0.84,
+    precision: 0.88,
     recall: 0.43,
     claimed: 60,
-    arms: { import: 0.9, sameFile: 0.85 },
+    arms: { import: 0.95, sameFile: 0.99 },
   },
   'redis/ioredis': {
-    precision: 0.9,
+    precision: 0.91,
     recall: 0.54,
     claimed: 155,
-    arms: { import: 0.9, sameFile: 0.97 },
+    arms: { import: 0.93, sameFile: 0.98 },
   },
 };
 

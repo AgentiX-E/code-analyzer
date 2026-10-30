@@ -8,8 +8,8 @@
       "filesFailed": 0,
       "failureSamples": [],
       "regexFallbackFiles": 0,
-      "nodes": 20457,
-      "calls": 227
+      "nodes": 20459,
+      "calls": 225
     },
     {
       "corpus": "colinhacks/zod",
@@ -18,8 +18,8 @@
       "filesFailed": 0,
       "failureSamples": [],
       "regexFallbackFiles": 1,
-      "nodes": 13659,
-      "calls": 494
+      "nodes": 13667,
+      "calls": 477
     }
   ]
 }

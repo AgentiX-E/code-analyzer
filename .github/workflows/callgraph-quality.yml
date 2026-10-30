@@ -149,7 +149,6 @@ jobs:
           tar xzf werkzeug.tgz
           ls -d flask-* werkzeug-*
 
-
       - name: Resolve every call site twice and compare
         run: |
           set -euo pipefail

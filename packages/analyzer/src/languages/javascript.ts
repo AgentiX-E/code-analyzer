@@ -6,7 +6,7 @@ import { collectCLikeTaint } from './base-c-like.js';
 import { FUNCTION_SCOPED_CONSTANTS } from './constant-fold.js';
 import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
-import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -24,6 +24,11 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   readonly extensions = jsExtensions;
   readonly globs = jsGlobs;
   readonly importSemantics = 'named' as const;
+
+  /** The same two node types TypeScript has: this grammar is the same grammar with fewer annotations. */
+  protected override callNodeTypes(): ReadonlySet<string> {
+    return C_FAMILY_CALL_NODE_TYPES;
+  }
 
   protected override loadGrammar(): TreeSitterLanguage | null {
     // tree-sitter-javascript is a direct dependency of the analyzer, so this
