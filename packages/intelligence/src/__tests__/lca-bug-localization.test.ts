@@ -55,7 +55,14 @@ import type { PipelineContext } from '@code-analyzer/shared';
 /** Where the workflow put `py`, `java`, `kt` splits and the checkouts. **Unset means this file measured nothing.** */
 const CORPUS_DIR = process.env['LCA_DIR'];
 const CAN_ASK_A_MODEL = Boolean(process.env['DEEPSEEK_API_KEY']);
-const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '50', 10);
+// **How many instances of each language split to measure. Twelve by default, and the artifact states it.**
+//
+// The published protocol is the whole test split - hundreds of instances per language - and **each instance needs its
+// own checkout of its own repository at its own commit**, then a full analysis of that checkout: the first attempt at
+// fifty per language exhausted a ninety-minute budget and produced no figure at all, which is the least useful outcome
+// a measurement can have. Twelve is what a runner finishes, the row count is recorded in the artifact beside every
+// figure, and raising it is one dispatch input rather than a code change.
+const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '12', 10);
 const CONFIGS = ['py', 'java', 'kt'] as const;
 /** The cuts the retrieval arm reports. **Fixed in advance**, because a cut chosen after seeing the answer is a fit. */
 const CUTS = [1, 3, 5, 10] as const;
@@ -506,5 +513,5 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
     // corpus. Whether the number is good is what the published baselines are for.
     expect(measured.length).toBeGreaterThan(0);
     expect(at10.recall).toBeGreaterThan(0);
-  }, 5_400_000);
+  }, 10_200_000);
 });
