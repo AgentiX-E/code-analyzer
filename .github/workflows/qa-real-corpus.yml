@@ -79,10 +79,13 @@ jobs:
           curl -fsSL "https://codeload.github.com/pallets/flask/tar.gz/refs/tags/${FLASK_TAG}" -o flask.tgz
           curl -fsSL "https://codeload.github.com/pallets/werkzeug/tar.gz/refs/tags/${WERKZEUG_TAG}" -o werkzeug.tgz
           sha256sum petclinic.tgz express.tgz flask.tgz werkzeug.tgz | tee -a "$GITHUB_STEP_SUMMARY"
-          for archive in petclinic express flask werkzeug; do
-            mkdir -p "$archive" && tar xzf "$archive.tgz" -C "$archive" --strip-components=1
-            mv "$archive" "${archive}-checkout"
-          done
+          # **The directory names are the contract with the test**: it finds a checkout by the prefix of the project
+          # it is looking for, so the name carries the revision and the identity at once.
+          mkdir -p "spring-petclinic-$PETCLINIC_SHA" "express-$EXPRESS_TAG" "flask-$FLASK_TAG" "werkzeug-$WERKZEUG_TAG"
+          tar xzf petclinic.tgz -C "spring-petclinic-$PETCLINIC_SHA" --strip-components=1
+          tar xzf express.tgz -C "express-$EXPRESS_TAG" --strip-components=1
+          tar xzf flask.tgz -C "flask-$FLASK_TAG" --strip-components=1
+          tar xzf werkzeug.tgz -C "werkzeug-$WERKZEUG_TAG" --strip-components=1
           ls -d */ | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Are the credentials present?
