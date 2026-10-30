@@ -352,7 +352,21 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.parsedTree = tree;
     }
 
-    this.walkAndCapture(rootNode, captures);
+    // **A walk that exhausts the stack degrades to the reader rather than failing the file.**
+    //
+    // Twenty providers override `walkAndCapture` with their own recursion, and an input's nesting depth is bounded by
+    // nothing this program controls: a JSON array 20 000 deep and a JavaScript expression parenthesised 20 000 times
+    // both raise `RangeError: Maximum call stack size exceeded`. In the pipeline that was worse than one unread file -
+    // the phase failed and every other file's captures went with it. The fallback path already exists for a grammar
+    // that cannot read a file; this is the same answer for a grammar that cannot finish reading it, and
+    // `lastParseWasARegularExpressionFallback` reports it, so the index says how much of itself came from the reader.
+    try {
+      this.walkAndCapture(rootNode, captures);
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      this.parseFellBack = true;
+      return this.finishCaptures(this.fallbackParse(sanitized, filePath));
+    }
 
     return this.finishCaptures(captures);
   }
@@ -468,6 +482,13 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     }
 
     // Recurse into children
+    //
+    // **The recursion stays, and an iterative rewrite was measured and refused.** Twenty providers override this method
+    // and several of them - `php`, `ruby` - handle the nodes they care about and then call `super.walkAndCapture(node)`
+    // to descend, which works only because the base's own recursion dispatches through `this.walkAndCapture`. A stack
+    // that called `emitCapture` for each node instead stopped at the first overridden node type: **22 tests across
+    // `php-*` and `ruby-*` lost their captures.** What the depth needs is not a different traversal but a bound on the
+    // damage, and `parse` supplies one: a walk that exhausts the stack falls back to the reader and says so.
     for (const child of childrenOf(node)) {
       this.walkAndCapture(child, captures);
     }
@@ -537,6 +558,16 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     const kept: UnifiedCapture[] = [];
     let pending: string | null = null;
+    /**
+     * The last declaration seen, which is the only candidate a comment can belong to.
+     *
+     * **The scan this replaces was quadratic and it is what crashed on a real file.** `[...kept].reverse().find(…)`
+     * copied the whole list for every comment, so a generated API page - `docs/classes/Cluster.html` in
+     * `redis/ioredis@5.4.2`, 5.8 MB and ~100 000 captures - spent 10¹⁰ element visits on one file. **A pointer is
+     * exactly equivalent** because the list only grows and the rule reads the *last* declaration in it; the comment's
+     * own `endLine` test is unchanged.
+     */
+    let lastDeclaration: UnifiedCapture | undefined;
 
     for (const capture of captures) {
       if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
@@ -551,7 +582,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
         // documentation for the one before it** - **which is what a docstring inside a body is** - **and a comment that
         // comes before any declaration is documentation for what follows.** **Both readings come from position, not from
         // a range that different grammars compute differently.**
-        const owner = [...kept].reverse().find((c) => DECLARATIONS.has(c.tag));
+        const owner = lastDeclaration;
         if (text.length > 0 && owner && capture.startLine <= owner.endLine) {
           (owner.properties as Record<string, unknown>)['docstring'] = text;
         } else if (text.length > 0) {
@@ -568,12 +599,18 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
         pending = null;
       }
       kept.push(capture);
+      if (DECLARATIONS.has(capture.tag)) lastDeclaration = capture;
     }
 
     // **A value still pending documented nothing**, so **it stays a capture rather than becoming an attribution to a
     // declaration that does not exist.**
+    //
+    // **Copied element by element, because `push(...kept)` is an argument list.** V8 raises
+    // `RangeError: Maximum call stack size exceeded` when that list is long enough - a hundred thousand captures is
+    // long enough - and the failure surfaced as the *whole parse phase* failing, so a documentation page in a real
+    // repository cost the index its entire call graph. An argument list is not a container.
     captures.length = 0;
-    captures.push(...kept);
+    for (const capture of kept) captures.push(capture);
   }
 
   /**

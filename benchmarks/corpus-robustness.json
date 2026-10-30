@@ -1,0 +1,25 @@
+{
+  "generatedBy": "scripts/corpus-robustness.ts",
+  "corpora": [
+    {
+      "corpus": "redis/ioredis",
+      "filesDiscovered": 174,
+      "filesParsed": 174,
+      "filesFailed": 0,
+      "failureSamples": [],
+      "regexFallbackFiles": 0,
+      "nodes": 20457,
+      "calls": 227
+    },
+    {
+      "corpus": "colinhacks/zod",
+      "filesDiscovered": 194,
+      "filesParsed": 194,
+      "filesFailed": 0,
+      "failureSamples": [],
+      "regexFallbackFiles": 1,
+      "nodes": 13659,
+      "calls": 494
+    }
+  ]
+}

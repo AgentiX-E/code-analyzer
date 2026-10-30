@@ -1,0 +1,183 @@
+{
+  "generatedBy": "scripts/callgraph-quality.ts",
+  "oracle": "scripts/callgraph-oracle-ts.mjs",
+  "corpora": [
+    {
+      "generatedBy": "scripts/callgraph-oracle-ts.mjs",
+      "corpus": "colinhacks/zod",
+      "files": 82,
+      "definitions": {
+        "simpleNameCollisionsPerFile": 39
+      },
+      "sites": {
+        "total": 7550,
+        "internal": 749,
+        "internalRecursion": 38,
+        "external": 206,
+        "variable": 3,
+        "unknown": 6568,
+        "silent": 24,
+        "excludedForDuplicateName": 511
+      },
+      "expectedPairs": 130,
+      "claimedPairs": 67,
+      "precision": {
+        "correct": 57,
+        "wrong": 10,
+        "value": 0.8507
+      },
+      "recall": {
+        "found": 57,
+        "missed": 73,
+        "value": 0.4385
+      },
+      "byArm": {
+        "globalUnique": {
+          "claimed": 8,
+          "correct": 0,
+          "precision": 0
+        },
+        "import": {
+          "claimed": 25,
+          "correct": 24,
+          "precision": 0.96
+        },
+        "sameFile": {
+          "claimed": 41,
+          "correct": 36,
+          "precision": 0.878
+        }
+      },
+      "callers": {
+        "oracle": 149,
+        "graph": 50,
+        "graphOnly": 2,
+        "ownersWithAnyCall": 188
+      },
+      "wrongCauses": {
+        "differentTarget": 6,
+        "ownerHasNoCall": 2,
+        "calleeNotCalledHere": 2
+      },
+      "wrongSamples": [
+        "[globalUnique] __tests__/Mocker.ts|booleanNullable -> types.ts|pick",
+        "[globalUnique] __tests__/Mocker.ts|booleanOptional -> types.ts|pick",
+        "[globalUnique] __tests__/Mocker.ts|numberNullable -> types.ts|pick",
+        "[globalUnique] __tests__/Mocker.ts|numberOptional -> types.ts|pick",
+        "[globalUnique] __tests__/Mocker.ts|stringNullable -> types.ts|pick",
+        "[globalUnique] __tests__/Mocker.ts|stringOptional -> types.ts|pick",
+        "[globalUnique] helpers/parseUtil.ts|abort -> types.ts|value",
+        "[globalUnique] helpers/parseUtil.ts|dirty -> types.ts|value",
+        "[import] types.ts|_processInputParams -> helpers/parseUtil.ts|ParseStatus",
+        "[sameFile] types.ts|deepPartialify -> types.ts|schema"
+      ],
+      "missedSamples": [
+        "helpers/parseUtil.ts|mergeArray|helpers/parseUtil.ts|dirty",
+        "helpers/parseUtil.ts|mergeObjectAsync|helpers/parseUtil.ts|mergeObjectSync",
+        "helpers/parseUtil.ts|mergeObjectSync|helpers/parseUtil.ts|dirty",
+        "locales/en.ts|errorMap|helpers/util.ts|assertNever",
+        "locales/en.ts|errorMap|helpers/util.ts|joinValues",
+        "types.ts|_regex|helpers/errorUtil.ts|errToObj",
+        "types.ts|cuid2|helpers/errorUtil.ts|errToObj",
+        "types.ts|cuid|helpers/errorUtil.ts|errToObj",
+        "types.ts|email|helpers/errorUtil.ts|errToObj",
+        "types.ts|emoji|helpers/errorUtil.ts|errToObj",
+        "types.ts|nanoid|helpers/errorUtil.ts|errToObj",
+        "types.ts|nullish|types.ts|optional",
+        "types.ts|setError|types.ts|getIssueProperties",
+        "types.ts|url|helpers/errorUtil.ts|errToObj",
+        "types.ts|uuid|helpers/errorUtil.ts|errToObj"
+      ]
+    },
+    {
+      "generatedBy": "scripts/callgraph-oracle-ts.mjs",
+      "corpus": "redis/ioredis",
+      "files": 37,
+      "definitions": {
+        "simpleNameCollisionsPerFile": 3
+      },
+      "sites": {
+        "total": 1201,
+        "internal": 348,
+        "internalRecursion": 12,
+        "external": 241,
+        "variable": 0,
+        "unknown": 247,
+        "silent": 365,
+        "excludedForDuplicateName": 15
+      },
+      "expectedPairs": 268,
+      "claimedPairs": 162,
+      "precision": {
+        "correct": 148,
+        "wrong": 14,
+        "value": 0.9136
+      },
+      "recall": {
+        "found": 148,
+        "missed": 120,
+        "value": 0.5522
+      },
+      "byArm": {
+        "globalUnique": {
+          "claimed": 10,
+          "correct": 0,
+          "precision": 0
+        },
+        "import": {
+          "claimed": 47,
+          "correct": 43,
+          "precision": 0.9149
+        },
+        "sameFile": {
+          "claimed": 124,
+          "correct": 122,
+          "precision": 0.9839
+        }
+      },
+      "callers": {
+        "oracle": 130,
+        "graph": 94,
+        "graphOnly": 3,
+        "ownersWithAnyCall": 179
+      },
+      "wrongCauses": {
+        "calleeNotCalledHere": 11,
+        "ownerHasNoCall": 3
+      },
+      "wrongSamples": [
+        "[globalUnique] Pipeline.ts|exec -> connectors/SentinelConnector/index.ts|resolve",
+        "[globalUnique] Pipeline.ts|fillResult -> connectors/SentinelConnector/index.ts|resolve",
+        "[globalUnique] redis/event_handler.ts|connectHandler -> Redis.ts|_readyCheck",
+        "[globalUnique] redis/event_handler.ts|connectHandler -> Redis.ts|recoverFromFatalError",
+        "[globalUnique] redis/event_handler.ts|connectHandler -> Redis.ts|resetCommandQueue",
+        "[globalUnique] redis/event_handler.ts|connectHandler -> Redis.ts|silentEmit",
+        "[globalUnique] redis/event_handler.ts|errorHandler -> Redis.ts|silentEmit",
+        "[globalUnique] redis/event_handler.ts|readyHandler -> connectors/SentinelConnector/FailoverDetector.ts|subscribe",
+        "[globalUnique] transaction.ts|exec -> Pipeline.ts|exec",
+        "[import] DataHandler.ts|returnReply -> SubscriptionSet.ts|SubscriptionSet",
+        "[import] Script.ts|execute -> Command.ts|Command",
+        "[import] cluster/index.ts|handleError -> utils/index.ts|timeout",
+        "[sameFile] Command.ts|toWritable -> Command.ts|MixedBuffers",
+        "[sameFile] cluster/index.ts|quit -> cluster/index.ts|handleCloseEvent"
+      ],
+      "missedSamples": [
+        "Command.ts|constructor|Command.ts|_iterateKeys",
+        "Command.ts|constructor|Command.ts|initPromise",
+        "Command.ts|hsetArgumentTransformer|utils/index.ts|convertMapToArray",
+        "Command.ts|hsetArgumentTransformer|utils/index.ts|convertObjectToArray",
+        "Command.ts|msetArgumentTransformer|utils/index.ts|convertMapToArray",
+        "Command.ts|msetArgumentTransformer|utils/index.ts|convertObjectToArray",
+        "Command.ts|toWritable|Command.ts|push",
+        "Command.ts|toWritable|Command.ts|toBuffer",
+        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|add",
+        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|del",
+        "DataHandler.ts|returnError|DataHandler.ts|handleReconnection",
+        "DataHandler.ts|returnFatalError|DataHandler.ts|recoverFromFatalError",
+        "DataHandler.ts|returnReply|Command.ts|checkFlag",
+        "DataHandler.ts|returnReply|SubscriptionSet.ts|add",
+        "DataHandler.ts|returnReply|types.ts|resolve"
+      ]
+    }
+  ]
+}

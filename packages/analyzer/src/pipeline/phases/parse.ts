@@ -32,6 +32,9 @@ import type {
 /** How much of a symbol's own source is kept. **A page, not a file** - see `bodyOf`. */
 const MAX_BODY_CHARS = 800;
 
+/** How many per-file failures are carried with their message. **The count is not bounded, the messages are.** */
+const MAX_FAILURE_PATHS = 20;
+
 /**
  * The source lines a symbol spans, bounded.
  *
@@ -69,6 +72,15 @@ export class ParsePhase implements ExecutablePhase {
       >();
       let taintExtractedCount = 0;
       let successCount = 0;
+      /**
+       * Files the providers could not read, and the reason for the first few.
+       *
+       * **The output has always had a `filesFailed` field and it always said zero**, because the only way to fail was
+       * to throw out of the phase, and a phase that throws reports a failure rather than a count. Two figures and not
+       * one: the count says whether an index is complete, and the messages say what to fix.
+       */
+      let filesFailed = 0;
+      const failurePaths: Array<{ filePath: string; message: string }> = [];
 
       const regexFallbackFiles: string[] = [];
 
@@ -79,163 +91,179 @@ export class ParsePhase implements ExecutablePhase {
         const provider = await getOrLoadProvider(lang);
         if (!provider) continue;
 
-        const captures = provider.parse(file.content, file.filePath);
+        // **One file's failure is not the phase's.** The try this replaces was wrapped around the whole loop, so
+        // a single input the grammar could not survive ended the phase and every other file went unparsed: measured
+        // on `redis/ioredis@5.4.2`, where 174 files were discovered and **the call graph came out empty** because a
+        // generated API page overflowed the stack in the doc-comment pass. A repository is a set of files, and the
+        // index reports how many it could not read rather than losing all of them.
+        try {
+          const captures = provider.parse(file.content, file.filePath);
 
-        // **A file whose symbols came from the regex reader rather than the grammar.** The provider reports it, and
-        // nothing was reading that report - so "how much of this index is a fallback" had no answer. **The symbols a
-        // fallback produces are a smaller and differently-shaped set**, which makes the count something a caller
-        // needs rather than a curiosity: an index that is 30% regex-derived is a different product from one that is
-        // not, and both report identical success.
-        if (provider.lastParseWasARegularExpressionFallback === true) {
-          regexFallbackFiles.push(file.filePath);
-        }
-
-        // Determine if items are exported. Providers may emit captures
-        // without a `name` (e.g. regex docstring/decorator captures), which
-        // cannot be export-checked and are skipped.
-        // **The set, in one walk, instead of a question per name.** Two earlier fixes removed most of this cost -
-        // **a cache so the file is parsed once**, and **deduplication so each name is asked about once** - and the
-        // remainder was the shape of the check itself: **`checkExported` is a predicate that recurses the whole tree
-        // for every name**, so 66 names meant 66 walks. **Measured at 10,036ms of a 20,908ms index on a real
-        // repository, and this is the replacement.**
-        //
-        // **The set is collected once and the loop reads from it**, and **`exported-names.test.ts` is a differential
-        // rather than a fixture** - it compares the set against the predicate on real files, **because a faster
-        // wrong answer is worse than a slow right one.**
-        // **The set when the provider provides one**, and **the predicate when it does not** - because a provider
-        // that cannot answer is better than one that guesses, **and a fallback is what makes the method safe to add
-        // as optional rather than as a breaking change across the interface.**
-        const exportedNames = provider.exportedNames?.(file.content) ?? null;
-        const exportedBy = new Map<string, boolean>();
-        for (const capture of captures) {
-          if (capture.name && capture.properties) {
-            let isExported: boolean;
-            if (exportedNames) {
-              isExported = exportedNames.has(capture.name);
-            } else {
-              const known = exportedBy.get(capture.name);
-              isExported = known ?? provider.isExported(file.content, capture.name);
-              exportedBy.set(capture.name, isExported);
-            }
-            // Every named capture carries a `properties` bag.
-            capture.properties['exported'] = String(isExported);
+          // **A file whose symbols came from the regex reader rather than the grammar.** The provider reports it, and
+          // nothing was reading that report - so "how much of this index is a fallback" had no answer. **The symbols a
+          // fallback produces are a smaller and differently-shaped set**, which makes the count something a caller
+          // needs rather than a curiosity: an index that is 30% regex-derived is a different product from one that is
+          // not, and both report identical success.
+          if (provider.lastParseWasARegularExpressionFallback === true) {
+            regexFallbackFiles.push(file.filePath);
           }
-        }
 
-        const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
+          // Determine if items are exported. Providers may emit captures
+          // without a `name` (e.g. regex docstring/decorator captures), which
+          // cannot be export-checked and are skipped.
+          // **The set, in one walk, instead of a question per name.** Two earlier fixes removed most of this cost -
+          // **a cache so the file is parsed once**, and **deduplication so each name is asked about once** - and the
+          // remainder was the shape of the check itself: **`checkExported` is a predicate that recurses the whole tree
+          // for every name**, so 66 names meant 66 walks. **Measured at 10,036ms of a 20,908ms index on a real
+          // repository, and this is the replacement.**
+          //
+          // **The set is collected once and the loop reads from it**, and **`exported-names.test.ts` is a differential
+          // rather than a fixture** - it compares the set against the predicate on real files, **because a faster
+          // wrong answer is worse than a slow right one.**
+          // **The set when the provider provides one**, and **the predicate when it does not** - because a provider
+          // that cannot answer is better than one that guesses, **and a fallback is what makes the method safe to add
+          // as optional rather than as a breaking change across the interface.**
+          const exportedNames = provider.exportedNames?.(file.content) ?? null;
+          const exportedBy = new Map<string, boolean>();
+          for (const capture of captures) {
+            if (capture.name && capture.properties) {
+              let isExported: boolean;
+              if (exportedNames) {
+                isExported = exportedNames.has(capture.name);
+              } else {
+                const known = exportedBy.get(capture.name);
+                isExported = known ?? provider.isExported(file.content, capture.name);
+                exportedBy.set(capture.name, isExported);
+              }
+              // Every named capture carries a `properties` bag.
+              capture.properties['exported'] = String(isExported);
+            }
+          }
 
-        // Taint sources and sinks, from the provider that just parsed this file — the only code that sees its text.
-        // They are stored per file rather than per function, because the extraction knows lines and the function
-        // boundaries are known downstream; joining them is `buildOccurrences`' job.
-        // Not every provider implements the taint capability — `TaintProvider` is a separate interface — so the
-        // call is guarded rather than assumed. A provider that does not implement it contributes nothing.
-        const taintProvider = provider as Partial<TaintProvider>;
-        const taintSources: TaintSource[] = taintProvider.extractTaintSources?.(file.content) ?? [];
-        const taintSinks: TaintSink[] = taintProvider.extractTaintSinks?.(file.content) ?? [];
-        // Sanitizers are the third of the trio and were the last to be extracted. **Without them the propagator's
-        // sanitizer index is empty and every finding is reported unsanitized**, which is what happened until now.
-        const taintSanitizers: TaintSanitizer[] =
-          taintProvider.extractSanitizers?.(file.content) ?? [];
-        if (taintSources.length > 0 || taintSinks.length > 0 || taintSanitizers.length > 0) {
-          taintExtraction.set(file.filePath, {
-            sources: taintSources,
-            sinks: taintSinks,
-            sanitizers: taintSanitizers,
+          const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
+
+          // Taint sources and sinks, from the provider that just parsed this file — the only code that sees its text.
+          // They are stored per file rather than per function, because the extraction knows lines and the function
+          // boundaries are known downstream; joining them is `buildOccurrences`' job.
+          // Not every provider implements the taint capability — `TaintProvider` is a separate interface — so the
+          // call is guarded rather than assumed. A provider that does not implement it contributes nothing.
+          const taintProvider = provider as Partial<TaintProvider>;
+          const taintSources: TaintSource[] =
+            taintProvider.extractTaintSources?.(file.content) ?? [];
+          const taintSinks: TaintSink[] = taintProvider.extractTaintSinks?.(file.content) ?? [];
+          // Sanitizers are the third of the trio and were the last to be extracted. **Without them the propagator's
+          // sanitizer index is empty and every finding is reported unsanitized**, which is what happened until now.
+          const taintSanitizers: TaintSanitizer[] =
+            taintProvider.extractSanitizers?.(file.content) ?? [];
+          if (taintSources.length > 0 || taintSinks.length > 0 || taintSanitizers.length > 0) {
+            taintExtraction.set(file.filePath, {
+              sources: taintSources,
+              sinks: taintSinks,
+              sanitizers: taintSanitizers,
+            });
+          }
+          taintExtractedCount += taintSources.length + taintSinks.length + taintSanitizers.length;
+
+          parsedFiles.push({
+            filePath: file.filePath,
+            language: lang,
+            symbols,
+            references,
+            scopeTree,
+            ast: captures, // Use capture array as AST representation
           });
-        }
-        taintExtractedCount += taintSources.length + taintSinks.length + taintSanitizers.length;
 
-        parsedFiles.push({
-          filePath: file.filePath,
-          language: lang,
-          symbols,
-          references,
-          scopeTree,
-          ast: captures, // Use capture array as AST representation
-        });
+          // Add symbol nodes to the graph
+          if (ctx.graph) {
+            const builder = // **No store, and the type now says so.** This phase builds nodes and never dumps, so an optional
+              // parameter describes it exactly - where a cast to a non-null store described the opposite.
+              new GraphBuilder();
+            const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
 
-        // Add symbol nodes to the graph
-        if (ctx.graph) {
-          const builder = // **No store, and the type now says so.** This phase builds nodes and never dumps, so an optional
-            // parameter describes it exactly - where a cast to a non-null store described the opposite.
-            new GraphBuilder();
-          const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
+            if (fileNodeId) {
+              let currentClassNodeId: number | null = null;
+              // **Split once per file, not once per symbol**: the body of every symbol in a thousand-line file would
+              // otherwise cost a thousand splits of the same text.
+              const fileLines = file.content.split('\n');
 
-          if (fileNodeId) {
-            let currentClassNodeId: number | null = null;
-            // **Split once per file, not once per symbol**: the body of every symbol in a thousand-line file would
-            // otherwise cost a thousand splits of the same text.
-            const fileLines = file.content.split('\n');
+              for (const symbol of symbols) {
+                const label = symbol.kind;
+                const qualifiedName = `project:${ctx.projectId}:${symbol.qualifiedName}`;
 
-            for (const symbol of symbols) {
-              const label = symbol.kind;
-              const qualifiedName = `project:${ctx.projectId}:${symbol.qualifiedName}`;
+                const properties: NodeProperties = {
+                  name: symbol.name,
+                  filePath: file.filePath,
+                  startLine: symbol.startLine,
+                  endLine: symbol.endLine,
+                  language: lang,
+                  isExported: symbol.isExported,
+                  signature: symbol.signature,
+                  returnType: symbol.returnType,
+                  docstring: symbol.docstring,
+                  ...symbol.properties,
+                  // **The implementation, because nothing else in the graph holds it.** A search for what a function
+                  // *does* had only its name and its types to match against: on a paraphrase corpus (the question written
+                  // by a model from the documentation, with no doc comment in the index) that answered **12.2 % at top
+                  // 20**, and a vector built from the same three fields could not do better - there was no text about the
+                  // behaviour anywhere in the index. Bounded, because a body is a page and the vector is one string.
+                  ...bodyOf(fileLines, symbol.startLine, symbol.endLine),
+                };
 
-              const properties: NodeProperties = {
-                name: symbol.name,
-                filePath: file.filePath,
-                startLine: symbol.startLine,
-                endLine: symbol.endLine,
-                language: lang,
-                isExported: symbol.isExported,
-                signature: symbol.signature,
-                returnType: symbol.returnType,
-                docstring: symbol.docstring,
-                ...symbol.properties,
-                // **The implementation, because nothing else in the graph holds it.** A search for what a function
-                // *does* had only its name and its types to match against: on a paraphrase corpus (the question written
-                // by a model from the documentation, with no doc comment in the index) that answered **12.2 % at top
-                // 20**, and a vector built from the same three fields could not do better - there was no text about the
-                // behaviour anywhere in the index. Bounded, because a body is a page and the vector is one string.
-                ...bodyOf(fileLines, symbol.startLine, symbol.endLine),
-              };
+                const node = builder.addNode(
+                  ctx.graph,
+                  label,
+                  symbol.name,
+                  properties,
+                  qualifiedName,
+                );
 
-              const node = builder.addNode(
-                ctx.graph,
-                label,
-                symbol.name,
-                properties,
-                qualifiedName,
-              );
+                // Create appropriate edges
+                if (label === 'Method' || label === 'Constructor') {
+                  // Method within its parent class
+                  if (currentClassNodeId) {
+                    builder.addEdge(
+                      ctx.graph,
+                      currentClassNodeId,
+                      node.id,
+                      EDGE_HAS_METHOD,
+                      ctx.projectId,
+                    );
+                  } else {
+                    builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
+                  }
+                } else if (label === 'Class') {
+                  currentClassNodeId = node.id;
+                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
 
-              // Create appropriate edges
-              if (label === 'Method' || label === 'Constructor') {
-                // Method within its parent class
-                if (currentClassNodeId) {
-                  builder.addEdge(
-                    ctx.graph,
-                    currentClassNodeId,
-                    node.id,
-                    EDGE_HAS_METHOD,
-                    ctx.projectId,
-                  );
+                  // EXTENDS edge for base classes
+                  const baseClasses = symbol.properties['baseClasses'] as string | undefined;
+                  if (baseClasses) {
+                    // Will be resolved in scopeResolution phase — store for now
+                    if (symbol.properties['interfaces']) {
+                      // Store implements info for later resolution
+                    }
+                  }
+                } else if (label === 'Interface') {
+                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
+                } else if (label === 'Function') {
+                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                 } else {
                   builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                 }
-              } else if (label === 'Class') {
-                currentClassNodeId = node.id;
-                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-
-                // EXTENDS edge for base classes
-                const baseClasses = symbol.properties['baseClasses'] as string | undefined;
-                if (baseClasses) {
-                  // Will be resolved in scopeResolution phase — store for now
-                  if (symbol.properties['interfaces']) {
-                    // Store implements info for later resolution
-                  }
-                }
-              } else if (label === 'Interface') {
-                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-              } else if (label === 'Function') {
-                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-              } else {
-                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
               }
             }
           }
-        }
 
-        successCount++;
+          successCount++;
+        } catch (err) {
+          filesFailed++;
+          if (failurePaths.length < MAX_FAILURE_PATHS) {
+            failurePaths.push({
+              filePath: file.filePath,
+              message: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
       }
 
       ctx.phaseData.set('parse', {
@@ -245,12 +273,14 @@ export class ParsePhase implements ExecutablePhase {
         // **The count and the paths**, because a count alone does not say which files to look at.
         regexFallbackFiles: regexFallbackFiles.length,
         regexFallbackPaths: regexFallbackFiles.slice(0, 20),
+        filesFailed,
+        failurePaths,
       });
 
       return {
         phaseId: this.id,
         status: 'success',
-        output: { filesParsed: successCount, filesFailed: 0 },
+        output: { filesParsed: successCount, filesFailed },
       };
     } catch (err) {
       return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);

@@ -73,6 +73,9 @@
     "matrix": "node scripts/competitor-matrix-gate.js",
     "matrix:update": "node scripts/competitor-matrix-gate.js --update --json benchmarks/competitor-matrix-report.json",
     "measure:callgraph": "tsx scripts/callgraph-quality.ts",
+    "measure:callgraph:ts": "tsx scripts/callgraph-quality.ts --oracle ts --repo colinhacks/zod=benchmarks/corpora/zod-3.23.8/src --repo redis/ioredis=benchmarks/corpora/ioredis-5.4.2/lib --out benchmarks/callgraph-ts-quality.json",
+    "measure:robustness": "tsx scripts/corpus-robustness.ts --repo redis/ioredis=benchmarks/corpora/ioredis-5.4.2 --repo colinhacks/zod=benchmarks/corpora/zod-3.23.8 --out benchmarks/corpus-robustness.json",
+    "robustness": "node scripts/corpus-robustness-gate.js",
     "callgraph": "node scripts/callgraph-gate.js",
     "measure:selfcheck": "tsx scripts/callgraph-selfcheck.ts",
     "selfcheck": "node scripts/callgraph-selfcheck-gate.js"

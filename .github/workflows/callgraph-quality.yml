@@ -11,6 +11,12 @@ name: Call Graph Accuracy
 # them twice - once with the product, once with `scripts/callgraph-oracle.py`, which uses CPython's `ast` and
 # Python's own scoping and module rules - and fails when precision or recall falls below the floor.
 #
+# **And the same question in the language the product is written in.** Two TypeScript repositories - `zod 3.23.8` and
+# `ioredis 5.4.2` - are resolved twice by `scripts/callgraph-oracle-ts.mjs`, which asks the TypeScript checker rather
+# than `ast`. That job exists because the Python figures said nothing about TypeScript, and the first run of it found
+# that **`redis/ioredis` produced no call graph at all**: a generated API page in its `docs/` overflowed the stack in
+# the doc-comment pass, the parse phase failed as a whole, and 174 discovered files yielded zero edges.
+#
 # **Why a second implementation is the point**: a measurement whose expected answer comes from the thing being
 # measured is not a measurement. The oracle reads nothing the product writes, and where it cannot decide - a call on
 # a receiver whose type is not in the statement - it says so and the site is excluded from both figures rather than
@@ -33,8 +39,14 @@ on:
       - 'scripts/callgraph-gate.js'
       - 'scripts/callgraph-selfcheck.ts'
       - 'scripts/callgraph-selfcheck-gate.js'
+      - 'scripts/callgraph-oracle-ts.mjs'
+      - 'scripts/corpus-robustness.ts'
+      - 'scripts/corpus-robustness-gate.js'
+      - 'benchmarks/corpus-robustness.json'
       - 'benchmarks/callgraph-quality.json'
+      - 'benchmarks/callgraph-ts-quality.json'
       - 'benchmarks/callgraph-selfcheck.json'
+      - 'packages/analyzer/src/pipeline/phases/parse.ts'
       - '.github/workflows/callgraph-quality.yml'
       - 'packages/analyzer/src/languages/**'
 
@@ -48,6 +60,8 @@ permissions:
 env:
   FLASK_TAG: '3.0.3'
   WERKZEUG_TAG: '3.0.3'
+  ZOD_TAG: 'v3.23.8'
+  IOREDIS_TAG: 'v5.4.2'
 
 jobs:
   selfcheck:
@@ -135,6 +149,22 @@ jobs:
           tar xzf werkzeug.tgz
           ls -d flask-* werkzeug-*
 
+      # **Before the accuracy is measured: was the repository read at all?** The two checkouts are indexed whole,
+      # `docs/` included, because the file that ended the phase was in there. This step is the guard for the failure
+      # that made the job necessary - a graph with no edges passes every accuracy floor trivially.
+      - name: Index both checkouts whole, documentation included
+        run: |
+          set -euo pipefail
+          ioredis_root=$(ls -d benchmarks/corpora/ioredis-* | head -1)
+          zod_root=$(ls -d benchmarks/corpora/zod-* | head -1)
+          npx tsx scripts/corpus-robustness.ts \
+            --repo "redis/ioredis=$ioredis_root" \
+            --repo "colinhacks/zod=$zod_root" \
+            --out benchmarks/corpus-robustness.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Hold every file readable and every graph non-empty
+        run: node scripts/corpus-robustness-gate.js
+
       - name: Resolve every call site twice and compare
         run: |
           set -euo pipefail
@@ -161,5 +191,92 @@ jobs:
         with:
           name: callgraph-quality
           path: benchmarks/callgraph-quality.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  typescript-accuracy:
+    name: Precision and recall against the TypeScript checker
+    runs-on: ubuntu-latest
+    # **Ten minutes more than the Python job for the same work**: `zod` is 82 files and `ioredis` 37, and the checker
+    # builds a program over both, which is the slowest thing in this workflow.
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Fetch the two TypeScript checkouts
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora
+          cd benchmarks/corpora
+          curl -fsSL "https://codeload.github.com/colinhacks/zod/tar.gz/refs/tags/${ZOD_TAG}" -o zod.tgz
+          curl -fsSL "https://codeload.github.com/redis/ioredis/tar.gz/refs/tags/${IOREDIS_TAG}" -o ioredis.tgz
+          sha256sum zod.tgz ioredis.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          tar xzf zod.tgz
+          tar xzf ioredis.tgz
+          ls -d zod-* ioredis-*
+
+      # **Before the accuracy is measured: was the repository read at all?** The two checkouts are indexed whole,
+      # `docs/` included, because the file that ended the phase was in there. This step is the guard for the failure
+      # that made the job necessary - a graph with no edges passes every accuracy floor trivially.
+      - name: Index both checkouts whole, documentation included
+        run: |
+          set -euo pipefail
+          ioredis_root=$(ls -d benchmarks/corpora/ioredis-* | head -1)
+          zod_root=$(ls -d benchmarks/corpora/zod-* | head -1)
+          npx tsx scripts/corpus-robustness.ts \
+            --repo "redis/ioredis=$ioredis_root" \
+            --repo "colinhacks/zod=$zod_root" \
+            --out benchmarks/corpus-robustness.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Hold every file readable and every graph non-empty
+        run: node scripts/corpus-robustness-gate.js
+
+      - name: Resolve every call site twice and compare
+        run: |
+          set -euo pipefail
+          zod_dir=$(ls -d benchmarks/corpora/zod-*/src | head -1)
+          ioredis_dir=$(ls -d benchmarks/corpora/ioredis-*/lib | head -1)
+          npx tsx scripts/callgraph-quality.ts --oracle ts \
+            --repo "colinhacks/zod=$zod_dir" \
+            --repo "redis/ioredis=$ioredis_dir" \
+            --out benchmarks/callgraph-ts-quality.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Hold precision, recall and each arm to their floors
+        run: node scripts/callgraph-gate.js --file benchmarks/callgraph-ts-quality.json
+
+      # **The record is compared, not trusted.** A run that writes a different
+      # `benchmarks/callgraph-ts-quality.json` than the one committed means the published figures describe a
+      # different graph.
+      - name: Show what the run wrote
+        if: always()
+        run: git --no-pager diff --stat -- benchmarks/callgraph-ts-quality.json || true
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: callgraph-ts-quality
+          path: |
+            benchmarks/callgraph-ts-quality.json
+            benchmarks/corpus-robustness.json
           if-no-files-found: warn
           retention-days: 90

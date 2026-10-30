@@ -14,8 +14,15 @@
 // the oracle's silence is excluded from both rather than counted as agreement, and the collisions the graph's
 // `(file, name)` identity cannot represent are published as the ceiling.
 //
+// **And a second oracle, for the language the product is written in.** The figures above describe Python; nothing
+// scored a TypeScript edge, so a rule that resolved `this.index.buildIndex()` or `request.args.get(key)` the same way
+// could not be told from one that did. `--oracle ts` runs `scripts/callgraph-oracle-ts.mjs`, which asks the TypeScript
+// checker the same question the Python oracle asks `ast`, and produces the same report shape - so the two languages
+// are measured by one table, one gate and one habit.
+//
 // Usage:
 //   npx tsx scripts/callgraph-quality.ts --repo pallets/flask=<dir> --out benchmarks/callgraph-quality.json
+//   npx tsx scripts/callgraph-quality.ts --oracle ts --repo colinhacks/zod=<dir> --out benchmarks/callgraph-ts-quality.json
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -64,7 +71,11 @@ function repoPath(root: string, filePath: string): string {
   return rel.split(sep).join('/');
 }
 
-async function measure(repo: RepoArgument, dumpPath: string): Promise<OracleReport> {
+async function measure(
+  repo: RepoArgument,
+  dumpPath: string,
+  oracle: 'py' | 'ts',
+): Promise<OracleReport> {
   const root = join(process.cwd(), repo.path);
   const ctx = {
     projectId: repo.name,
@@ -89,19 +100,13 @@ async function measure(repo: RepoArgument, dumpPath: string): Promise<OracleRepo
   writeFileSync(dumpPath, JSON.stringify({ project: repo.name, nodes, edges }));
 
   const reportPath = dumpPath.replace(/\.graph\.json$/, '.oracle.json');
+  const [command, prefix] =
+    oracle === 'ts'
+      ? ['node', ['scripts/callgraph-oracle-ts.mjs']]
+      : ['python3', ['scripts/callgraph-oracle.py']];
   const output = execFileSync(
-    'python3',
-    [
-      'scripts/callgraph-oracle.py',
-      '--root',
-      root,
-      '--graph',
-      dumpPath,
-      '--name',
-      repo.name,
-      '--out',
-      reportPath,
-    ],
+    command,
+    [...prefix, '--root', root, '--graph', dumpPath, '--name', repo.name, '--out', reportPath],
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );
   return JSON.parse(output) as OracleReport;
@@ -122,6 +127,7 @@ function line(label: string, report: OracleReport): string {
 async function main(): Promise<void> {
   const repos = args('repo').map(parsePair);
   const outPath = args('out')[0] ?? 'benchmarks/callgraph-quality.json';
+  const oracle = args('oracle')[0] === 'ts' ? 'ts' : 'py';
   if (repos.length === 0) {
     console.error('usage: callgraph-quality --repo owner/name=<dir> [--repo …] --out <file.json>');
     process.exit(2);
@@ -134,7 +140,7 @@ async function main(): Promise<void> {
   const reports: OracleReport[] = [];
   for (const repo of repos) {
     const slug = repo.name.replace(/[^\w.-]+/g, '_');
-    const report = await measure(repo, join(workDir, `${slug}.graph.json`));
+    const report = await measure(repo, join(workDir, `${slug}.graph.json`), oracle);
     reports.push(report);
     console.log(line(repo.name, report));
     for (const [arm, value] of Object.entries(report.byArm)) {
@@ -146,7 +152,7 @@ async function main(): Promise<void> {
 
   const payload = {
     generatedBy: 'scripts/callgraph-quality.ts',
-    oracle: 'scripts/callgraph-oracle.py',
+    oracle: oracle === 'ts' ? 'scripts/callgraph-oracle-ts.mjs' : 'scripts/callgraph-oracle.py',
     corpora: reports,
   };
   writeFileSync(outPath, JSON.stringify(payload, null, 2) + '\n');
