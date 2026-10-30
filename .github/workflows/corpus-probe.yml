@@ -9,6 +9,11 @@ name: Corpus Probe
 
 on:
   workflow_dispatch:
+  # **Dispatch is only offered for a workflow the default branch knows about**, so the probe also runs on a push that
+  # touches it - which is how a branch that is not `master` can ask the question before it is merged.
+  push:
+    paths:
+      - '.github/workflows/corpus-probe.yml'
 
 permissions:
   contents: read
