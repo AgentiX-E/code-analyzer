@@ -22,10 +22,17 @@
 import { hasGroundedClaim, verifyCitations } from './citations.js';
 import { assembleContext, contextChars, filesOf, rankCandidates } from './context.js';
 import { answerPrompt } from './prompt.js';
+import { resolveScope } from './scope.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { rerankCandidates } from '../search/rerank.js';
 
-import type { AnswerResult, AskOptions, ContextBlock, ContextOptions } from './types.js';
+import type {
+  AnswerResult,
+  AskOptions,
+  ContextBlock,
+  ContextOptions,
+  ScopeReport,
+} from './types.js';
 import type { LLMProvider } from '../review/llm/provider.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
@@ -63,9 +70,11 @@ export async function retrieveContext(
   candidates: number;
   rerankApplied: boolean;
   rerankReason: string | null;
+  scope: ScopeReport | null;
 }> {
   const options = input.options ?? {};
   const limit = options.retrieveLimit ?? DEFAULT_RETRIEVE_LIMIT;
+  const scope = resolveContextScope(input.question, input.store, input.projectId, options);
 
   const lexical = input.search.bm25Search(input.question);
   const vector = await input.search.vectorSearch(input.question, limit, null);
@@ -85,8 +94,8 @@ export async function retrieveContext(
 
   // **The project filter runs before the rerank**, so the model is asked to order a list it could be shown rather than
   // a list the caller would then cut - an ordering of four candidates out of sixty is not an ordering of the four.
-  if (input.projectId !== undefined) {
-    const projectId = input.projectId;
+  if (scope) {
+    const projectId = scope.projectId;
     compacted = compacted.filter((candidate) => candidate.node.projectId === projectId);
   }
 
@@ -119,7 +128,34 @@ export async function retrieveContext(
 
   const contextOptions: ContextOptions = { ...options };
   const blocks = assembleContext(input.store, compacted, contextOptions);
-  return { blocks, candidates: fused.length, rerankApplied, rerankReason };
+  return { blocks, candidates: fused.length, rerankApplied, rerankReason, scope };
+}
+
+/**
+ * Decide which repository a question is about, and say so.
+ *
+ * **Three inputs in priority order: what the caller asked for, what the question named, and nothing.** A caller that
+ * passed `projectId` has decided already and is not second-guessed; `scope: 'workspace'` overrides only the second;
+ * and a question that names two repositories is a comparison rather than a scope, so it resolves to `null` and searches
+ * the workspace - picking one would answer half of it.
+ */
+function resolveContextScope(
+  question: string,
+  store: InMemoryGraphStore,
+  requested: string | undefined,
+  options: AskOptions,
+): ScopeReport | null {
+  if (requested !== undefined) return { projectId: requested, because: 'requested by the caller' };
+  if (options.scope === 'workspace') return null;
+
+  const projectIds = new Set<string>();
+  for (const node of store.getAllNodes()) projectIds.add(node.projectId);
+  // **One project is not a choice**, so a single-repository store never pays for the scan's result and never reports a
+  // scope it did not have to make.
+  if (projectIds.size < 2) return null;
+
+  const named = resolveScope(question, [...projectIds]);
+  return named ? { projectId: named.projectId, because: 'named in the question' } : null;
 }
 
 /**
@@ -134,14 +170,22 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
   const options = input.options ?? {};
   const notes: string[] = [];
 
-  const { blocks, candidates, rerankApplied, rerankReason } = await retrieveContext(input);
+  const { blocks, candidates, rerankApplied, rerankReason, scope } = await retrieveContext(input);
   if (rerankApplied) notes.push('the fused list was reordered by a listwise rerank');
   else if (rerankReason) notes.push(`the fused list kept its order: ${rerankReason}`);
+  if (scope) {
+    notes.push(
+      scope.because === 'named in the question'
+        ? `the question names ${scope.projectId}, so the workspace was narrowed to it`
+        : `the caller asked for ${scope.projectId}`,
+    );
+  }
 
   const base = {
     question: input.question,
     context: blocks,
     retrievedFiles: filesOf(blocks),
+    scope,
   };
 
   const counters = {

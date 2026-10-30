@@ -47,13 +47,21 @@ const RULES = [
   ['retrieval.at3.recall', ['overall', 'retrieval', 'at3', 'recall'], 0.03, null, false],
   ['retrieval.at5.recall', ['overall', 'retrieval', 'at5', 'recall'], 0.05, null, false],
   ['retrieval.at10.recall', ['overall', 'retrieval', 'at10', 'recall'], 0.08, null, false],
-  // **A ceiling, because a retriever can buy recall with noise**, and the corpus's FPR is what charges for it.
-  ['retrieval.at10.fpr', ['overall', 'retrieval', 'at10', 'fpr'], null, 0.02, false],
+  // **A ceiling at the cut where it means something, and not at the cut where it only measures the cut.** A retriever
+  // can buy recall with noise and the corpus's FPR is what charges for it - but the filter is *fixed in advance at k*,
+  // so the false positives at k=10 have a floor of (10 - expected files) whatever the retriever does, and a ceiling
+  // there would be a statement about arithmetic rather than about quality. **k=1 is the cut that can lie**: naming one
+  // file and having it be wrong is the mistake a reader pays for immediately. **`at10.fpr` is still published in the
+  // artifact**, with its precision and recall, and it is not gated for the reason above.
+  ['retrieval.at1.fpr', ['overall', 'retrieval', 'at1', 'fpr'], null, 0.05, false],
   ['retrieval.at10.precision', ['overall', 'retrieval', 'at10', 'precision'], 0.05, null, false],
-  // **The answer arm**: what the model cited, scored with the same ruler. Present only with a key.
-  ['answer.f1', ['overall', 'answer', 'f1'], 0.05, null, true],
-  ['answer.precision', ['overall', 'answer', 'precision'], 0.05, null, true],
-  ['answer.recall', ['overall', 'answer', 'recall'], 0.05, null, true],
+  // **The answer arm**: what the model cited, scored with the same ruler. Present only with a key. **Floors of one
+  // hundredth, because this arm has never been measured**: a floor of 0.05 chosen before the first number existed
+  // would be a guess that could only fail, and the point of a first measurement is to learn what the number is. It is
+  // raised in the commit that records it.
+  ['answer.f1', ['overall', 'answer', 'f1'], 0.01, null, true],
+  ['answer.precision', ['overall', 'answer', 'precision'], 0.01, null, true],
+  ['answer.recall', ['overall', 'answer', 'recall'], 0.01, null, true],
 ];
 
 function row(name, value, floor, ceiling, optional) {

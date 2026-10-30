@@ -592,3 +592,154 @@ describe('askCodebase — defensive edges', () => {
     expect(result.notes.join(' ')).toContain('upstream said no');
   });
 });
+
+// ---------------------------------------------------------------------------
+// The repository a question names
+// ---------------------------------------------------------------------------
+
+/**
+ * Two repositories in one store, each with the vocabulary a question about the other would use.
+ *
+ * **The collision is the point**: `express`'s mount function and `werkzeug`'s middleware class share the word
+ * "middleware", and the workspace has to decide which of them the question is about from the question itself.
+ */
+function buildTwoProjects(): { store: InMemoryGraphStore; search: HybridSearchEngine } {
+  const store = new InMemoryGraphStore();
+  const insert = (projectId: string, name: string, filePath: string, body: string): void => {
+    store.insertNode({
+      projectId,
+      label: 'Function',
+      name,
+      qualifiedName: `project:${projectId}:${filePath}:${name}`,
+      filePath,
+      startLine: 10,
+      endLine: 20,
+      language: projectId === 'expressjs/express' ? 'javascript' : 'python',
+      properties: { body, docstring: body },
+      signature: null,
+      docstring: body,
+      complexity: null,
+      isExported: true,
+    } as never);
+  };
+
+  insert(
+    'expressjs/express',
+    'use',
+    'lib/application.js',
+    'add middleware to the app router and mount a route handler on a path',
+  );
+  insert(
+    'pallets/werkzeug',
+    'DispatcherMiddleware',
+    'src/werkzeug/middleware/dispatcher.py',
+    'Dispatch to another middleware application mounted at a path',
+  );
+
+  const search = new HybridSearchEngine(store);
+  search.initialize();
+  return { store, search };
+}
+
+describe('the scope a question implies', () => {
+  const QUESTION = 'where does express mount a middleware route handler';
+
+  it('narrows the workspace to the repository the question names', async () => {
+    // **The measured failure this exists for**: on four released checkouts the express node that answers a question
+    // about mounting middleware ranked 22nd, because another repository in the same workspace is a library whose every
+    // module is named after a kind of middleware. The name in the question is the one signal the product already has.
+    const { store, search } = buildTwoProjects();
+    const result = await askCodebase({
+      question: QUESTION,
+      store,
+      search,
+      options: { generate: false },
+    });
+    expect(result.scope).toEqual({
+      projectId: 'expressjs/express',
+      because: 'named in the question',
+    });
+    expect(result.context.length).toBeGreaterThan(0);
+    for (const block of result.context) {
+      expect(block.qualifiedName).toContain('project:expressjs/express:');
+    }
+  });
+
+  it('says so in the notes, because a restriction a caller cannot see is a bug', async () => {
+    const { store, search } = buildTwoProjects();
+    const result = await askCodebase({
+      question: QUESTION,
+      store,
+      search,
+      options: { generate: false },
+    });
+    expect(result.notes).toContain(
+      'the question names expressjs/express, so the workspace was narrowed to it',
+    );
+  });
+
+  it('searches every repository when the question names none', async () => {
+    const { store, search } = buildTwoProjects();
+    const result = await askCodebase({
+      question: 'where is a middleware handler mounted on a path',
+      store,
+      search,
+      options: { generate: false },
+    });
+    expect(result.scope).toBeNull();
+    const projects = new Set(result.context.map((block) => block.qualifiedName.split(':')[1]));
+    expect(projects.size).toBe(2);
+  });
+
+  it('searches every repository when the caller asks for the workspace', async () => {
+    // **The escape hatch**: a caller that wants a sweep of a question that happens to mention a repository passes
+    // `scope: 'workspace'`, and the result says it searched everything.
+    const { store, search } = buildTwoProjects();
+    const result = await askCodebase({
+      question: QUESTION,
+      store,
+      search,
+      options: { generate: false, scope: 'workspace' },
+    });
+    expect(result.scope).toBeNull();
+    expect(result.notes).not.toContain(
+      'the question names expressjs/express, so the workspace was narrowed to it',
+    );
+  });
+
+  it('lets an explicit projectId win over the name in the question', async () => {
+    // **A caller that decided is not second-guessed**, and the report says the restriction was its idea rather than
+    // the question's.
+    const { store, search } = buildTwoProjects();
+    const result = await askCodebase({
+      question: QUESTION,
+      store,
+      search,
+      projectId: 'pallets/werkzeug',
+      options: { generate: false },
+    });
+    expect(result.scope).toEqual({
+      projectId: 'pallets/werkzeug',
+      because: 'requested by the caller',
+    });
+  });
+
+  it('does not narrow a single-repository store, where there is nothing to choose', async () => {
+    const fixture = buildFixture();
+    const result = await askCodebase({
+      question: 'where is the token parsed',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false },
+    });
+    expect(result.scope).toBeNull();
+  });
+
+  it('reports the scope from the retrieval arm as well as from the answer', async () => {
+    // **`retrieveContext` is the exported half of the pipeline**, and a measurement that reads it has to be able to
+    // say which repository it searched.
+    const { store, search } = buildTwoProjects();
+    const context = await retrieveContext({ question: QUESTION, store, search });
+    expect(context.scope?.projectId).toBe('expressjs/express');
+  });
+});

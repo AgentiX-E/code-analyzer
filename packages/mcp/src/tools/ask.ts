@@ -47,6 +47,12 @@ export const askCodebaseSchema = {
       description:
         'Whether to reorder the retrieved blocks with a model before answering (default: true).',
     },
+    scope: {
+      type: 'string',
+      enum: ['auto', 'workspace'],
+      description:
+        'Whether a repository named in the question narrows the answer to it (default: auto). Pass "workspace" to search every indexed repository even when the question names one.',
+    },
   },
   required: ['question'],
 };
@@ -57,6 +63,7 @@ interface AskCodebaseParams {
   maxBlocks?: number;
   generate?: boolean;
   rerank?: boolean;
+  scope?: string;
 }
 
 /** What the tool hands back. **A shape rather than a string of prose**, because every field is separately useful. */
@@ -68,6 +75,8 @@ export interface AskCodebaseResponse {
   citations: Array<{ id: number; filePath: string; startLine: number | null; name: string }>;
   files: string[];
   retrievedFiles: string[];
+  /** The repository the answer was narrowed to, or `null` when the whole workspace was searched. */
+  scope: { projectId: string; because: string } | null;
   grounding: { unknownIds: number[]; uncited: number[]; allCitationsResolve: boolean };
   context: Array<{
     id: number;
@@ -97,6 +106,7 @@ export function toResponse(result: AnswerResult): AskCodebaseResponse {
     })),
     files: result.files,
     retrievedFiles: result.retrievedFiles,
+    scope: result.scope,
     grounding: {
       unknownIds: result.grounding.unknownIds,
       uncited: result.grounding.uncited,
@@ -181,6 +191,7 @@ export async function askCodebaseTool(
         : {}),
       ...(params.generate === false ? { generate: false } : {}),
       ...(params.rerank === false ? { rerank: false } : {}),
+      ...(params.scope === 'workspace' ? { scope: 'workspace' as const } : {}),
     },
   });
 

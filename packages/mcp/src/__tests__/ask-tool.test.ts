@@ -119,6 +119,7 @@ describe('askCodebaseSchema', () => {
       'projectId',
       'question',
       'rerank',
+      'scope',
     ]);
   });
 });
@@ -387,6 +388,7 @@ describe('toResponse', () => {
     citations: [{ id: 1, filePath: 'app/auth.py', startLine: 3, endLine: 9, name: 'parse' }],
     files: ['app/auth.py'],
     retrievedFiles: ['app/auth.py', 'app/views.py'],
+    scope: { projectId: 'o/auth', because: 'named in the question' },
     grounding: {
       unknownIds: [],
       cited: [{ id: 1, filePath: 'app/auth.py', startLine: 3, endLine: 9, name: 'parse' }],

@@ -154,17 +154,60 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
   });
 
   it('answers a JavaScript question from the JavaScript checkout', async () => {
+    // **The question names one repository and vier of them are in the workspace**, and the word that looks most
+    // specific in it - "middleware" - is the name of another repository's entire package: werkzeug has
+    // `middleware/dispatcher.py`, `middleware/lint.py`, `middleware/profiler.py` and more, and every one of them scored
+    // above express's `lib/application.js:use` (measured: rank 22 of the fused list, which is not in the twelve-block
+    // context at all). **The product reads the name it already has**: the question says "express", the store holds a
+    // project called `express`, and the workspace narrows to it - which is what a person meant.
     const result = await askCodebase({
       question: 'where does an express application mount middleware and route handlers',
       store: workspace.store,
       search: workspace.search,
       options: { generate: false },
     });
-    const position = result.retrievedFiles.findIndex(
-      (file) => file.includes('express') && file.endsWith('application.js'),
-    );
+    expect(result.scope).toEqual({
+      projectId: 'expressjs/express',
+      because: 'named in the question',
+    });
+    // **The path is relative to the checkout**, so it carries no repository name: `application.js` is express's
+    // `lib/application.js` and nothing else in the workspace has that file name.
+    const position = positionOf(result, 'application.js');
     expect(position, listing(result)).toBeGreaterThanOrEqual(0);
     expect(position, listing(result)).toBeLessThan(DEPTH);
+    // **And everything in the context comes from the repository the question named.** Symbol nodes qualify as
+    // `project:<id>:<path>:<name>` and file nodes as `file:<id>:<path>`, so the test looks for the id rather than for
+    // one of the two prefixes.
+    for (const block of result.context) {
+      expect(block.qualifiedName).toContain(':expressjs/express:');
+    }
+  });
+
+  it('sweeps the workspace when the caller asks for it by name', async () => {
+    // **The escape hatch, asserted**: the same question with `scope: 'workspace'` searches all four checkouts, and the
+    // result says it did. A restriction a caller cannot turn off is a bug that looks like a feature.
+    const result = await askCodebase({
+      question: 'where does an express application mount middleware and route handlers',
+      store: workspace.store,
+      search: workspace.search,
+      options: { generate: false, scope: 'workspace' },
+    });
+    expect(result.scope).toBeNull();
+    expect(
+      result.retrievedFiles.some((file) => file.startsWith('src/werkzeug/')),
+      listing(result),
+    ).toBe(true);
+  });
+
+  it('does not narrow a question that names two repositories, which is a comparison', async () => {
+    const result = await askCodebase({
+      question: 'how does the flask session use werkzeug to sign a cookie',
+      store: workspace.store,
+      search: workspace.search,
+      options: { generate: false },
+    });
+    // **Two names is not a scope**: answering half a comparison silently is worse than answering all of it noisily.
+    expect(result.scope).toBeNull();
   });
 
   it('answers a Python question from the Python checkout', async () => {

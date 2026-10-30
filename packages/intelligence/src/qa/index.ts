@@ -23,6 +23,16 @@ export { answerPrompt, renderBlock } from './prompt.js';
 export { askCodebase, nodesForFiles, retrieveContext } from './ask.js';
 export type { AskInput } from './ask.js';
 
+export {
+  GENERIC_REPOSITORY_NAMES,
+  indexOfWords,
+  isDistinctiveName,
+  namedProjects,
+  projectName,
+  resolveScope,
+} from './scope.js';
+export type { NamedProject } from './scope.js';
+
 export { ABSTAIN_REASONS } from './types.js';
 export type {
   AbstainReason,
@@ -32,4 +42,5 @@ export type {
   ContextBlock,
   ContextOptions,
   GroundingReport,
+  ScopeReport,
 } from './types.js';

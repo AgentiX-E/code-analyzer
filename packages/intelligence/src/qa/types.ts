@@ -122,6 +122,14 @@ export interface AnswerResult {
   abstained: AbstainReason | null;
   /** Free-form detail for a reader debugging a run; never used by a gate. */
   notes: string[];
+  /**
+   * The repository the answer was restricted to, and why.
+   *
+   * **`null` means the whole workspace was searched**, which is the correct reading for a question that names no
+   * repository or names two. It is a field rather than a note because a measurement has to be able to say which of the
+   * two happened without parsing prose.
+   */
+  scope: ScopeReport | null;
   /** Counts, so a page can report what the graph contributed without re-deriving it. */
   stats: {
     retrieved: number;
@@ -181,4 +189,19 @@ export interface AskOptions extends ContextOptions {
   maxAnswerTokens?: number;
   /** Wall-clock budget for the completion. **Default 60 s.** */
   timeoutMs?: number;
+  /**
+   * Whether a repository named in the question restricts the answer to that repository. **Default `auto`.**
+   *
+   * `auto` reads the names of the projects in the store against the question and scopes when exactly one is named;
+   * `workspace` ignores them and searches everything, which is what a caller that wants a cross-repository sweep of a
+   * question which happens to mention a repository should ask for.
+   */
+  scope?: 'auto' | 'workspace';
+}
+
+/** A decision about which repository a question is about. */
+export interface ScopeReport {
+  projectId: string;
+  /** Why the answer was restricted. **Stated, because an implicit restriction that a reader cannot see is a bug.** */
+  because: 'named in the question' | 'requested by the caller';
 }
