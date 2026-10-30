@@ -190,11 +190,13 @@ Base URL: `http://localhost:3000/api/v1`
 
 Code Analyzer exposes **50 tools** via the MCP (Model Context Protocol) interface.
 
-> **On the counts in this section.** The headings below are _this document's_ grouping, and they add up to 40. The
+> **On the counts in this section.** The headings below are _this document's_ grouping, and they add up to 41. The
 > registry declares three categories — `analysis` (35), `all` (9) and `scout` (1) — which add up to 45. The two
-> groupings are not the same, and neither enumerates all 48 registrations individually. Both numbers are computed
+> groupings are not the same, and neither enumerates all 50 registrations individually. The tool count is computed
 > from `packages/mcp/src/tools/index.ts` by `scripts/doc-code-sync-gate.js`, which is also why this note exists:
 > the previous revision of the sentence above said 40, and the headings said 40, and neither was the tool count.
+> **The generated inventory is [`docs/MCP-SERVER.md`](./MCP-SERVER.md#all-50-tools)**, which lists all 50 with the
+> description each declares; this section is the short version for a reader who wants the shape of the surface.
 
 ### Indexing & Lifecycle (4 tools)
 
@@ -205,10 +207,11 @@ Code Analyzer exposes **50 tools** via the MCP (Model Context Protocol) interfac
 | `delete_project`     | Delete an indexed project and its data | `all`   |
 | `index_status`       | Get indexing status for a project      | `all`   |
 
-### Querying & Exploration (10 tools)
+### Querying & Exploration (11 tools)
 
 | Tool                   | Description                              | Profile    |
 | ---------------------- | ---------------------------------------- | ---------- |
+| `ask_codebase`         | Answer a question from the code, cited   | `analysis` |
 | `search_graph`         | Search the knowledge graph by keyword    | `analysis` |
 | `search_code`          | Full-text source code search             | `analysis` |
 | `semantic_search`      | Semantic search using embeddings         | `analysis` |
@@ -219,6 +222,13 @@ Code Analyzer exposes **50 tools** via the MCP (Model Context Protocol) interfac
 | `get_graph_schema`     | Get graph schema information             | `analysis` |
 | `explore_symbol`       | Explore a symbol and its relationships   | `analysis` |
 | `find_implementations` | Find interface implementations           | `analysis` |
+
+**`ask_codebase`** is the one tool here that returns prose, and the only one whose answer can be checked against its
+own evidence: it retrieves, reranks, assembles a numbered context under a stated budget, asks a provider for an answer
+under a citation contract, and verifies every `[n]` against the blocks it showed. `generate: false` returns the context
+and no completion, and an answer that could not be grounded is reported with the reason rather than invented. A question
+that names exactly one indexed repository is answered about that repository — the result says so in
+`scope: { projectId, because }` — and `scope: "workspace"` searches every repository in the store.
 
 ### Change & Impact (4 tools)
 
