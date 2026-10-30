@@ -34,7 +34,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, posix, relative, sep } from 'node:path';
+import { isAbsolute, join, posix, relative, sep } from 'node:path';
 
 import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
@@ -424,8 +424,21 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           options: { generate: Boolean(provider), rerank: Boolean(provider), maxBlocks: 40 },
         });
 
+        // **The two halves of this comparison are recorded in different coordinate systems, and the first run of this
+        // instrument scored 0.0000 because of it.** The pipeline writes `filePath` as an absolute path - it is given a
+        // root and it joins - while the corpus records `changed_files` as repository-relative. Comparing them directly
+        // matched nothing in three languages, and the figure that came out was a property of the units rather than of
+        // the retriever. **Every retrieved path is therefore reduced to the corpus's own form before it is scored**,
+        // which is the only step in this file that touches the product's output.
+        const relativePath = (file: string): string =>
+          relative(checkout, isAbsolute(file) ? file : join(checkout, file))
+            .split(sep)
+            .join(posix.sep);
+        const retrieved = result.retrievedFiles.map(relativePath);
+        const answered = result.files.map(relativePath);
+
         const retrieval: Record<string, string[]> = {};
-        for (const cut of CUTS) retrieval[String(cut)] = result.retrievedFiles.slice(0, cut);
+        for (const cut of CUTS) retrieval[String(cut)] = retrieved.slice(0, cut);
 
         outcomes.push({
           id: row.id,
@@ -433,7 +446,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           files: allFiles.length,
           expected: row.changed_files.length,
           retrieval,
-          answer: provider ? result.files : null,
+          answer: provider ? answered : null,
           skipped: null,
         });
         filesOf.set(row.id, allFiles);
