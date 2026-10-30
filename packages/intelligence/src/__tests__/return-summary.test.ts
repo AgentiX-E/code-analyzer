@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { summarizeReturns } from '../security/return-summary.js';
 
 import type { DefUseFact, FunctionCfg, StatementFacts } from '../cfg/types.js';
+import type { SourceRegion } from '@code-analyzer/analyzer';
 
 /**
  * `doSomething(request, param)` whose body writes `bar` from `param` and returns it on line 5.
@@ -225,5 +226,101 @@ describe('summarizeReturns', () => {
     expect(summary.byParameter.size).toBe(2);
     // Position 1 declares binding 99, which does not exist, so nothing was seeded for it and nothing can reach a return.
     expect([...summary.byParameter.get(1)!.lines]).toEqual([]);
+  });
+});
+
+describe('a value that travels through a statement which keeps it', () => {
+  /**
+   * `void doSomething(String param) { String a = / new String(decode(param)); return a; }`, in the corpus's shape.
+   *
+   * The parameter is read on line 3, which is a line of the statement that declares `a` - a statement that keeps what
+   * the call chain returned. Whether that read is a loss is the whole question: one answer says the callee cannot be
+   * asked, the other says the value never left.
+   */
+  function nested(discarded: readonly SourceRegion[] | undefined): FunctionCfg {
+    return {
+      functionName: 'doSomething',
+      filePath: 'T.java',
+      startLine: 1,
+      startColumn: 0,
+      blocks: [
+        { index: 0, startLine: 1, endLine: 4, statementCount: 4, isEntry: true, isExit: true },
+      ],
+      edges: [],
+      bindings: [
+        {
+          index: 0,
+          name: 'param',
+          kind: 'local',
+          declLine: 1,
+          declColumn: 0,
+          synthetic: false,
+          parameterIndex: 0,
+        },
+        { index: 1, name: 'a', kind: 'local', declLine: 2, declColumn: 0, synthetic: false },
+      ],
+      parameterBindings: [0],
+      stmtFacts: {
+        defs: new Map([
+          [0, [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'may' }]],
+          [1, [{ point: { blockIndex: 0, stmtIndex: 1, line: 2 }, bindingIdx: 1, kind: 'must' }]],
+        ]),
+        uses: new Map([[2, [{ point: { blockIndex: 0, stmtIndex: 2, line: 3 }, bindingIdx: 0 }]]]),
+        sourceSites: new Map(),
+        sinkSites: new Map(),
+        sanitizerSites: new Map(),
+        returnLines: new Set([4]),
+      },
+      entryIndex: 0,
+      exitIndex: 0,
+      callSites: [
+        {
+          blockIndex: 0,
+          stmtIndex: 2,
+          line: 3,
+          calleeName: 'decode',
+          argBindings: [0],
+          resultBinding: -1,
+        },
+      ],
+      // The file's discarded-statement ranges, or the absence of them. `undefined` is a grammar that could not say.
+      ...(discarded === undefined ? {} : { discardedValueRegions: discarded }),
+    };
+  }
+
+  /** `param` is read on line 3, which writes no name; `a` is read by the return on line 4. */
+  const NESTED_FACTS: DefUseFact[] = [
+    {
+      bindingIdx: 0,
+      def: { blockIndex: 0, stmtIndex: 0, line: 1 },
+      use: { blockIndex: 0, stmtIndex: 2, line: 3 },
+      bindingName: 'param',
+    },
+    {
+      bindingIdx: 1,
+      def: { blockIndex: 0, stmtIndex: 1, line: 2 },
+      use: { blockIndex: 0, stmtIndex: 3, line: 4 },
+      bindingName: 'a',
+    },
+  ];
+
+  it('is not lost when the statement it passes through keeps its value', () => {
+    // The file declares which statements keep nothing, and line 3 is not one of them: the statement spans lines 2-3
+    // and its first child is the declaration of `a`. The value travelled, so a caller may be answered.
+    const summary = summarizeReturns(nested([]), NESTED_FACTS);
+    expect([...summary.lost]).toEqual([]);
+    expect([...summary.byParameter.get(0)!.lines]).toEqual([]);
+  });
+
+  it('is lost when the statement it passes through keeps nothing', () => {
+    const summary = summarizeReturns(nested([{ from: 2, to: 3 }]), NESTED_FACTS);
+    expect([...summary.lost]).toEqual([0]);
+  });
+
+  it('is lost when nobody could say which statements keep their value', () => {
+    // **The conservative direction, and the one that was the answer before the fact existed.** An analysis that cannot
+    // read the shapes must not conclude that a value went nowhere, so the caller is asked to prove its own negative.
+    const summary = summarizeReturns(nested(undefined), NESTED_FACTS);
+    expect([...summary.lost]).toEqual([0]);
   });
 });

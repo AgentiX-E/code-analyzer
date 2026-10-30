@@ -87,6 +87,23 @@ export interface ConstantDialect {
    * of its own, and the line ranges that divide functions already keep its statements out of the enclosing one.
    */
   readonly conditionalTypes: readonly string[];
+  /**
+   * Nodes that are a statement in their own right and evaluate one expression.
+   *
+   * **This is the vocabulary of "computes a value and may throw it away"**, and it exists because a bare call statement
+   * is the one place a value leaves the def→use graph without a name to carry it. An empty list means the grammar has
+   * no such production — every language this project declares says `expression_statement`, and the ones it does not
+   * declare answer `null` from the provider rather than claiming a statement kind they do not have.
+   */
+  readonly expressionStatementTypes: readonly string[];
+  /**
+   * Statement kinds whose value is kept, because they write it somewhere.
+   *
+   * The complement is what a statement discards: `bar = call(x)` is an `expression_statement` whose first child is an
+   * assignment, and `call(x);` is the same node whose first child is the call. `x += 1` and `i++` write as well, so
+   * they are listed here — a statement that writes a name never throws its value away.
+   */
+  readonly valueKeepingTypes: readonly string[];
   /** Fields that carry a declarator's name, tried in order. `init_declarator` uses `declarator`. */
   readonly declaratorNameFields: readonly string[];
   /** Field that carries a declarator's initial value. */
@@ -153,6 +170,15 @@ export const C_FAMILY_CONSTANTS: ConstantDialect = {
   ],
   declaratorNameFields: ['name', 'declarator'],
   declaratorValueField: 'value',
+  // Java, JavaScript, TypeScript, C, C++, C# and PHP all wrap a bare call in `expression_statement`, and all of them
+  // spell the assignment below it `assignment_expression`. `update_expression` (`i++`) and, in JavaScript,
+  // `augmented_assignment_expression` (`x += 1`) write a name as well, so neither discards anything.
+  expressionStatementTypes: ['expression_statement'],
+  valueKeepingTypes: [
+    'assignment_expression',
+    'augmented_assignment_expression',
+    'update_expression',
+  ],
   assignmentLeftField: 'left',
   assignmentRightField: 'right',
   ifConditionField: 'condition',
@@ -185,6 +211,9 @@ export const PYTHON_CONSTANTS: ConstantDialect = {
     'case_clause',
   ],
   conditionalOrder: 'consequence-condition-alternative',
+  // Python wraps a bare call in `expression_statement` too, and its assignments are their own nodes rather than an
+  // expression: `x = 1` is an `assignment`, `x += 1` an `augmented_assignment`, and `(x := 1)` a `named_expression`.
+  valueKeepingTypes: ['assignment', 'augmented_assignment', 'named_expression'],
 };
 
 /** A plain identifier, which is the only thing this module can name in an environment. */

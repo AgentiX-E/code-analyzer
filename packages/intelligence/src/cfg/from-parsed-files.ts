@@ -21,7 +21,7 @@ import { buildOccurrences, buildStatementFacts } from './statement-facts.js';
 
 import type { ExtractedSanitizer, ExtractedSink, ExtractedSource } from './statement-facts.js';
 import type { BindingEntry, DefinitionSite, FunctionCfg, StatementFacts } from './types.js';
-import type { ConditionalRegion, ConstantFacts, ContainerCall } from '@code-analyzer/analyzer';
+import type { SourceRegion, ConstantFacts, ContainerCall } from '@code-analyzer/analyzer';
 import type { CallSite, ParsedFile, SymbolDefinition, UnifiedCapture } from '@code-analyzer/shared';
 
 /** One file's taint-relevant extraction: what the provider saw, and what its arithmetic decides. */
@@ -58,7 +58,17 @@ export interface ExtractedFileFacts {
    * **`undefined` is not `[]`**: absent means no statement can be called unconditional, so every definition stays a
    * may-definition; an empty list means the file has no branch at all, so every definition is a kill.
    */
-  readonly conditionalRegions?: readonly ConditionalRegion[] | null;
+  readonly conditionalRegions?: readonly SourceRegion[] | null;
+  /**
+   * The ranges of the statements that compute a value and keep none of it, or `null` when the provider cannot read
+   * their shape.
+   *
+   * **`undefined` is not `[]`, and the two answers are opposites.** An empty list says no statement in this file throws
+   * a value away, so every value that leaves the def→use graph left it for good and a callee may say "no". Absent
+   * says the shapes could not be read, so a value that vanishes may have gone into a side effect the model cannot see,
+   * and the summary keeps the conservative answer.
+   */
+  readonly discardedValueRegions?: readonly SourceRegion[] | null;
 }
 
 /** Symbol kinds that become a function CFG. Shared with the call-site builder by intent, not by import. */
@@ -166,6 +176,12 @@ export function buildFunctionCfgs(
         ...cfg,
         stmtFacts: flow.stmtFacts,
         containerFollowed: flow.followed,
+        // **A `null` region list is not carried as an empty one.** The provider answering `null` means the grammar
+        // could not read the statement shapes, and the summary has to keep assuming that a vanishing value may have
+        // gone somewhere it cannot see; carrying `[]` instead would turn "unknown" into "nothing discards".
+        ...(perFile?.discardedValueRegions == null
+          ? {}
+          : { discardedValueRegions: perFile.discardedValueRegions }),
       });
     }
   }

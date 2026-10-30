@@ -4,17 +4,17 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import { extractConditionalRegions } from './conditional-regions.js';
 import { extractConstantFacts } from './constant-fold.js';
 import { extractContainerCalls } from './container-calls.js';
+import { extractConditionalRegions, extractDiscardedValueRegions } from './regions.js';
 import { extractReturnLines } from './return-sites.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { exportedNamesByCursor } from './syntax-cursor.js';
 
-import type { ConditionalRegion } from './conditional-regions.js';
 import type { ConstantDialect, ConstantFacts } from './constant-fold.js';
 import type { ContainerCall, ContainerDialect } from './container-calls.js';
 import type { LanguageProvider, ParsedImport } from './provider.js';
+import type { SourceRegion } from './regions.js';
 import type { TreeSitterTreeCursor } from './syntax-cursor.js';
 import type { TaintCollections } from './taint-scan.js';
 import type { UnifiedCapture, CaptureTag, ImportSemantics } from '@code-analyzer/shared';
@@ -784,12 +784,31 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * what a constant condition closes - both are questions about which statements run, so a language that answers one
    * answers the other, and a language that answers neither keeps every definition a may-definition.
    */
-  extractConditionalRegions(source: string): readonly ConditionalRegion[] | null {
+  extractConditionalRegions(source: string): readonly SourceRegion[] | null {
     const dialect = this.constantDialect();
     if (!dialect || !this.parser || !this.languageGrammar) return null;
     const tree = this.cachedTree(source);
     if (!tree) return null;
     return extractConditionalRegions(tree.rootNode, dialect.conditionalTypes);
+  }
+
+  /**
+   * The line ranges of this file's statements that compute a value and keep none of it, or `null` when it cannot be
+   * read.
+   *
+   * **The same cached tree and the same dialect as the branches**, because both are questions about a statement's shape
+   * rather than about its contents: a language that can say whether a statement sits inside an `if` can say whether it
+   * is an assignment. Answering `null` is not the same as answering `[]` — the first leaves every vanishing value a
+   * "cannot say", and the second says no statement in this file throws a value away.
+   */
+  extractDiscardedValueRegions(source: string): readonly SourceRegion[] | null {
+    const dialect = this.constantDialect();
+    if (!dialect || !this.parser || !this.languageGrammar) return null;
+    // **The assertion is sound rather than convenient**: `cachedTree` answers `null` only when there is no parser, and
+    // the guard above has excluded exactly that — the same reasoning `isExported` states. Writing it as a second
+    // `if` would add a branch no test can reach, and a branch nobody can reach is a branch nobody can believe.
+    const tree = this.cachedTree(source)!;
+    return extractDiscardedValueRegions(tree.rootNode, dialect);
   }
 
   /**

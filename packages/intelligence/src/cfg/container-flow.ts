@@ -30,7 +30,7 @@
 import { CONTAINER_OPERATIONS } from '@code-analyzer/analyzer';
 
 import type { BindingEntry, FunctionCfg, StatementFacts, UseSite } from './types.js';
-import type { ConditionalRegion, ContainerCall, ContainerRole } from '@code-analyzer/analyzer';
+import type { SourceRegion, ContainerCall, ContainerRole } from '@code-analyzer/analyzer';
 
 /** The key a value was written under. Strings are map keys; numbers are sequence positions. */
 type SlotKey = string | number;
@@ -78,7 +78,7 @@ export interface ContainerInputs {
   readonly bindings: readonly BindingEntry[];
   readonly calls: readonly ContainerCall[];
   /** The file's branch ranges, which decide whether a position op and a read share a path. */
-  readonly regions: readonly ConditionalRegion[];
+  readonly regions: readonly SourceRegion[];
   readonly startLine: number;
   readonly endLine: number;
 }
@@ -225,7 +225,7 @@ export function withContainerUses(
 export function containerFlowOf(
   cfg: FunctionCfg,
   calls: readonly ContainerCall[] | null | undefined,
-  regions: readonly ConditionalRegion[] | null | undefined,
+  regions: readonly SourceRegion[] | null | undefined,
 ): { readonly stmtFacts: StatementFacts; readonly followed: ReadonlySet<string> } {
   if (!calls || calls.length === 0) return { stmtFacts: cfg.stmtFacts, followed: new Set() };
   const resolution = resolveContainerFlow({
@@ -512,7 +512,7 @@ function isIndex(literal: string): boolean {
  * an `if` inside an `if` may not run even when the outer one did, and a position op inside it is not comparable with a
  * read at the outer level.
  */
-function contextOf(line: number, regions: readonly ConditionalRegion[]): string {
+function contextOf(line: number, regions: readonly SourceRegion[]): string {
   let context = '';
   for (const region of regions)
     if (line >= region.from && line <= region.to) context += `${region.from}:${region.to}|`;

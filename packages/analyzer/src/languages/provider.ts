@@ -1,8 +1,8 @@
 // @code-analyzer/analyzer — Language Provider Interface
 
-import type { ConditionalRegion } from './conditional-regions.js';
 import type { ConstantFacts } from './constant-fold.js';
 import type { ContainerCall } from './container-calls.js';
+import type { SourceRegion } from './regions.js';
 import type { UnifiedCapture, ImportSemantics } from '@code-analyzer/shared';
 
 export interface ParsedImport {
@@ -85,7 +85,20 @@ export interface LanguageProvider {
    * **Absent means every definition stays a may-definition**, which is the answer this project gave before the fact
    * existed and the correct one when a grammar cannot say whether a statement sits inside an `if`.
    */
-  extractConditionalRegions?(source: string): readonly ConditionalRegion[] | null;
+  extractConditionalRegions?(source: string): readonly SourceRegion[] | null;
+
+  /**
+   * The line ranges of the statements that compute a value and keep none of it, or `null` when the grammar cannot say.
+   *
+   * **This is what separates "the value vanished" from "the value travelled".** A bare call statement -
+   * `map.put("k", param)`, `log(param)` - is the only place a value leaves the def→use graph without a name to carry
+   * it, and a range list is the only shape that says which. `bar = new String(decode(encode(param)))` passes the value
+   * through three calls, and every one of them belongs to one statement that writes `bar`.
+   *
+   * **Absent or `null` means every statement may be discarding**, which is the conservative direction: an analysis
+   * that does not know asks a callee to prove its negative instead of asserting one.
+   */
+  extractDiscardedValueRegions?(source: string): readonly SourceRegion[] | null;
 
   readonly importSemantics: ImportSemantics;
 }

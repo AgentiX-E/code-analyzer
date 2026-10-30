@@ -163,11 +163,17 @@ export type { ConstantDialect, ConstantFacts } from './languages/constant-fold.j
 // parameter" - stays in the analysis.
 export { extractReturnLines } from './languages/return-sites.js';
 
-// **Which statements may not run at all, and which calls put a value into a container.** Both are readings of the tree
-// that only this package can take, and both are facts rather than policies: the analysis decides that a definition
-// outside every branch is a kill, and that a slot the model resolved is a slot it may speak for.
-export { extractConditionalRegions, isConditional } from './languages/conditional-regions.js';
-export type { ConditionalRegion } from './languages/conditional-regions.js';
+// **Which statements may not run at all, which of them keep their value, and which calls put a value into a
+// container.** All three are readings of the tree that only this package can take, and all three are facts rather than
+// policies: the analysis decides that a definition outside every branch is a kill, that a value which only ever
+// travelled through a statement that keeps it did not vanish, and that a slot the model resolved is a slot it may
+// speak for.
+export {
+  extractConditionalRegions,
+  extractDiscardedValueRegions,
+  insideRegion,
+} from './languages/regions.js';
+export type { SourceRegion } from './languages/regions.js';
 export {
   CONTAINER_OPERATIONS,
   JAVA_CONTAINERS,

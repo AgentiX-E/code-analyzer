@@ -14,7 +14,7 @@
 // **Source and sink sites are not here**, because `CAPTURE_TAGS` has no source-and-sink vocabulary. That half needs
 // new tags from the per-language queries, and without them the propagator has no sources, so no findings.
 
-import { isConditional } from '@code-analyzer/analyzer';
+import { insideRegion } from '@code-analyzer/analyzer';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import type {
@@ -26,7 +26,7 @@ import type {
   TaintSourceOccurrence,
   UseSite,
 } from './types.js';
-import type { ConditionalRegion } from '@code-analyzer/analyzer';
+import type { SourceRegion } from '@code-analyzer/analyzer';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 /** The key convention `computeReachingDefinitions` and `TaintPropagator` share. */
@@ -64,7 +64,7 @@ export function buildStatementFacts(
   captures: readonly UnifiedCapture[],
   startLine: number,
   endLine: number,
-  regions?: readonly ConditionalRegion[],
+  regions?: readonly SourceRegion[],
 ): { bindings: BindingEntry[]; stmtFacts: StatementFacts } {
   const bindings: BindingEntry[] = [];
   const byName = new Map<string, number>();
@@ -123,7 +123,7 @@ export function buildStatementFacts(
       // `regions` is the branch ranges the provider read, and **`undefined` is not `[]`**: absent means the grammar
       // could not say which statements are guarded, so every definition stays a maybe - the answer this analysis gave
       // before the fact existed. An empty list is a file with no branch at all, where every definition is a kill.
-      kind: regions === undefined || isConditional(capture.startLine, regions) ? 'may' : 'must',
+      kind: regions === undefined || insideRegion(capture.startLine, regions) ? 'may' : 'must',
     });
     defs.set(stmtIndex, sites);
   }

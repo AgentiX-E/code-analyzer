@@ -42,6 +42,13 @@ const FILE = process.argv.includes('--file')
  *     names into *uses* of the statement that read it. That closed 102 of the remaining false positives, recovered 51
  *     true positives that had been silent, and put every category at a lower FPR than it has ever held (`overall`
  *     0.7098 → 0.8228, `taintSubset` 0.5345 → 0.7192, `trustbound` 0.2326 → 0.0000).
+ *   - **a statement's shape** — whether it keeps the value it computes — closed 38 of the last 40, and is the reason
+ *     the ceilings below are what they are. A bare call statement (`map.put("k", param);`) throws its result away, so a
+ *     value that reaches it may come back through a side effect and a callee cannot be answered for; a statement that
+ *     writes a name (`bar = new String(decode(encode(param)))`) keeps the value, and the read on its third line did not
+ *     vanish. Until the two were told apart, every nested call in a chain was a "cannot say", and the corpus's long
+ *     copy-wrap-cut chains were all reported. Measured: `overall` 0.8228 → 0.8515, false positives 40 → 2, **no true
+ *     positive lost** (1207 before and after), and ten of the eleven categories at FPR 0.0000.
  *
  * The container model is what justifies the ceiling this file now holds `overall.fpr` to. Its claim is not "the value
  * probably does not come back" but "it cannot": a container whose every access this function made is a call on a
@@ -50,20 +57,26 @@ const FILE = process.argv.includes('--file')
  * `lost`, which is why the figure can be held at 0.031 rather than at a share of the corpus.
  *
  * So `overall.fpr` and `xss.fpr` are stated at what a model-aware engine measures, not at what a conservative one
- * measured: a regression to any of the four shows up as a figure above the ceiling rather than as a lower score.
- * **`xss.fpr` has now fallen by an order of magnitude across these four changes** (0.2105 → 0.0191), which is why it is
- * a ceiling of its own rather than a share of `overall`: 40 of the corpus's 455 `xss` cases surfaced in four separate
- * commits and the only figure that would have shown one of them being undone is this one.
+ * measured: a regression to any of the five shows up as a figure above the ceiling rather than as a lower score.
+ * **`xss.fpr` has fallen from 0.2105 to 0.0000 across those changes**, which is why it is a ceiling of its own rather
+ * than a share of `overall`: the corpus's `xss` safe cases surfaced one commit at a time and the only figure that would
+ * have shown one of them being undone is this one.
+ *
+ * **A ceiling at zero would be a gate that fails on a real finding**, so every category's ceiling is stated as one case
+ * of its own safe set — the noise a single genuine answer would add — and no more. `xpathi` is the exception and it is
+ * the honest one: its two remaining false positives are real, they are the same bug seen twice (a name written inside a
+ * loop does not kill an earlier write of the same name in a single-block CFG), and its ceiling stays where that bug
+ * measures rather than where the rest of the corpus does.
  */
 const RULES = [
   ['overall.tpr', (r) => r.overall?.tpr, 0.853],
-  ['overall.fpr', (r) => r.overall?.fpr, null, 0.031],
-  ['overall.score', (r) => r.overall?.score, 0.8228],
+  ['overall.fpr', (r) => r.overall?.fpr, null, 0.0025],
+  ['overall.score', (r) => r.overall?.score, 0.8514],
   ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.7694],
   // **The category-weighted figure, and the one this engine is actually scored on.** Its TPR is lower than `overall`
   // because the four rule categories are not in it.
-  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.051],
-  ['taintSubset.score', (r) => r.taintSubset?.score, 0.7191],
+  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.004],
+  ['taintSubset.score', (r) => r.taintSubset?.score, 0.7668],
   // The four categories a flow cannot answer, which now have a rule family of their own. **One is set to 1.0**: a
   // rule names a construct, so a case in these categories that has the construct is found and one that does not is not,
   // and a floor below 1 would let the family lose a case without failing.
@@ -84,26 +97,26 @@ const RULES = [
   // the rule families contribute none, so `flows.fpr` and `overall.fpr` are the same number reached by two routes;
   // stating both keeps a rule family that starts reporting from hiding behind a flow engine that stopped.
   ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.4904],
-  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.031],
+  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.0025],
   ['cmdi.tpr', (r) => category(r, 'cmdi')?.tpr, 0.746],
-  ['cmdi.fpr', (r) => category(r, 'cmdi')?.fpr, null, 0.048],
+  ['cmdi.fpr', (r) => category(r, 'cmdi')?.fpr, null, 0.008],
   // **`ldapi` had no floor at all**, which is how a category can reach 0.85 TPR in one commit and quietly halve in the
   // next: the only figure that would have moved is `overall`, and it moves by 1/2740 per case.
   ['ldapi.tpr', (r) => category(r, 'ldapi')?.tpr, 0.8888],
   ['ldapi.fpr', (r) => category(r, 'ldapi')?.fpr, null, 0.032],
   ['pathtraver.tpr', (r) => category(r, 'pathtraver')?.tpr, 0.8872],
-  ['pathtraver.fpr', (r) => category(r, 'pathtraver')?.fpr, null, 0.104],
+  ['pathtraver.fpr', (r) => category(r, 'pathtraver')?.fpr, null, 0.0074],
   ['sqli.tpr', (r) => category(r, 'sqli')?.tpr, 0.7463],
-  ['sqli.fpr', (r) => category(r, 'sqli')?.fpr, null, 0.052],
+  ['sqli.fpr', (r) => category(r, 'sqli')?.fpr, null, 0.0043],
   ['trustbound.tpr', (r) => category(r, 'trustbound')?.tpr, 0.8674],
   // **Zero false positives, and the ceiling is still not 0.** `trustbound` is 83 vulnerable cases and 43 safe ones, so
   // a genuine finding on one of the 43 would be a real answer this corpus happened not to label — and a gate that fails
   // on a real finding teaches the next person to widen the gate. One case of slack, and no more.
-  ['trustbound.fpr', (r) => category(r, 'trustbound')?.fpr, null, 0.031],
+  ['trustbound.fpr', (r) => category(r, 'trustbound')?.fpr, null, 0.0233],
   ['xpathi.tpr', (r) => category(r, 'xpathi')?.tpr, 0.9333],
   ['xpathi.fpr', (r) => category(r, 'xpathi')?.fpr, null, 0.15],
   ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.6869],
-  ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.02],
+  ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.0048],
 ];
 
 function category(record, name) {

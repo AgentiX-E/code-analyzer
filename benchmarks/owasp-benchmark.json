@@ -14,20 +14,20 @@
     "cases": 2740,
     "vulnerable": 1415,
     "truePositives": 1207,
-    "falsePositives": 40,
+    "falsePositives": 2,
     "tpr": 0.8530035335689046,
-    "fpr": 0.03018867924528302,
-    "score": 0.8228148543236216
+    "fpr": 0.0015094339622641509,
+    "score": 0.8514940996066405
   },
   "taintSubset": {
     "category": "taint-subset",
     "cases": 1698,
     "vulnerable": 902,
     "truePositives": 694,
-    "falsePositives": 40,
+    "falsePositives": 2,
     "tpr": 0.7694013303769401,
-    "fpr": 0.05025125628140704,
-    "score": 0.7191500740955331
+    "fpr": 0.002512562814070352,
+    "score": 0.7668887675628698
   },
   "byEngine": {
     "flows": {
@@ -35,10 +35,10 @@
       "cases": 2740,
       "vulnerable": 1415,
       "truePositives": 694,
-      "falsePositives": 40,
+      "falsePositives": 2,
       "tpr": 0.49045936395759715,
-      "fpr": 0.03018867924528302,
-      "score": 0.46027068471231414
+      "fpr": 0.0015094339622641509,
+      "score": 0.488949929995333
     },
     "rules": {
       "category": "all",
@@ -57,10 +57,10 @@
       "cases": 251,
       "vulnerable": 126,
       "truePositives": 94,
-      "falsePositives": 6,
+      "falsePositives": 0,
       "tpr": 0.746031746031746,
-      "fpr": 0.048,
-      "score": 0.698031746031746
+      "fpr": 0,
+      "score": 0.746031746031746
     },
     {
       "category": "crypto",
@@ -87,20 +87,20 @@
       "cases": 59,
       "vulnerable": 27,
       "truePositives": 24,
-      "falsePositives": 1,
+      "falsePositives": 0,
       "tpr": 0.8888888888888888,
-      "fpr": 0.03125,
-      "score": 0.8576388888888888
+      "fpr": 0,
+      "score": 0.8888888888888888
     },
     {
       "category": "pathtraver",
       "cases": 268,
       "vulnerable": 133,
       "truePositives": 118,
-      "falsePositives": 14,
+      "falsePositives": 0,
       "tpr": 0.8872180451127819,
-      "fpr": 0.1037037037037037,
-      "score": 0.7835143414090782
+      "fpr": 0,
+      "score": 0.8872180451127819
     },
     {
       "category": "securecookie",
@@ -117,10 +117,10 @@
       "cases": 504,
       "vulnerable": 272,
       "truePositives": 203,
-      "falsePositives": 12,
+      "falsePositives": 0,
       "tpr": 0.7463235294117647,
-      "fpr": 0.05172413793103448,
-      "score": 0.6945993914807302
+      "fpr": 0,
+      "score": 0.7463235294117647
     },
     {
       "category": "trustbound",
@@ -147,21 +147,21 @@
       "cases": 35,
       "vulnerable": 15,
       "truePositives": 14,
-      "falsePositives": 3,
+      "falsePositives": 2,
       "tpr": 0.9333333333333333,
-      "fpr": 0.15,
-      "score": 0.7833333333333333
+      "fpr": 0.1,
+      "score": 0.8333333333333334
     },
     {
       "category": "xss",
       "cases": 455,
       "vulnerable": 246,
       "truePositives": 169,
-      "falsePositives": 4,
+      "falsePositives": 0,
       "tpr": 0.6869918699186992,
-      "fpr": 0.019138755980861243,
-      "score": 0.667853113937838
+      "fpr": 0,
+      "score": 0.6869918699186992
     }
   ],
-  "measuredAt": "2026-10-29T22:45:18.254Z"
+  "measuredAt": "2026-10-30T07:47:00.000Z"
 }

@@ -13,6 +13,8 @@
 // `null`, and a summary built from `null` says nothing at all: "no return reads this parameter" is a statement only
 // where the returns were read in the first place.
 
+import { insideRegion } from '@code-analyzer/analyzer';
+
 import { TaintPropagator } from './taint-propagator.js';
 
 import type {
@@ -121,6 +123,10 @@ export function summarizeReturns(
   // walk failed to follow the value, and treating them as one would disable every summary in the corpus.
   const callLines = new Set((cfg.callSites ?? []).map((call) => call.line));
   const returnsHere = returnLines;
+  // **The shapes that keep their value, or `undefined` when nobody could read them.** Absent is not empty: a grammar
+  // that cannot say whether a statement is an assignment leaves every vanishing value a "cannot say", and a file with
+  // no discarded statement at all is the one case where the walk's silence is an answer.
+  const kept = cfg.discardedValueRegions;
 
   // **The walk runs even when the function declares no parameters.** It was gated on the parameter sources, and that
   // gate is why "a function that reads the input and returns it" reported nothing at all: with no parameter there were
@@ -140,6 +146,12 @@ export function summarizeReturns(
         // to stop being the answer.
         const followed = cfg.containerFollowed;
         if (followed?.has(`${use.use.stmtIndex}:${use.bindingIdx}`)) return;
+        // **A value that only ever travelled through a statement which keeps it did not vanish.** `bar = new
+        // String(decode(encode(param)))` reads `param` on three lines, and every one of them is part of one statement
+        // whose value lands in `bar` — the walk reaches `bar` from the same definition, so the value has a name to
+        // travel in and the silence at the nested calls is not a gap in the model. Measured: this is 38 of the 40
+        // false positives the corpus had left, each a chain of such statements ending in a call on a constant.
+        if (kept !== undefined && !insideRegion(use.use.line, kept)) return;
         const position = positionOf.get(state.source.bindingIdx);
         if (position === undefined) ownLost = true;
         else lost.add(position);

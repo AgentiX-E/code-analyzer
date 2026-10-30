@@ -60,6 +60,7 @@ function liveFlows(source: string): number {
     returnLines: provider.extractReturnLines(source),
     containerCalls: provider.extractContainerCalls(source),
     conditionalRegions: provider.extractConditionalRegions(source),
+    discardedValueRegions: provider.extractDiscardedValueRegions(source),
   };
 
   const result = analyzeInterproceduralTaint(

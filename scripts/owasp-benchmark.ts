@@ -247,6 +247,10 @@ function main(): void {
           // first every definition is a maybe and the last write to a name never wins; without the second every value
           // put into a map is "lost" and the summary has to decline the question.
           conditionalRegions: provider.extractConditionalRegions(code),
+          // **Which statements keep the value they compute.** A bare call statement is the only place a value leaves
+          // the def→use graph, and telling it apart from `bar = new String(decode(encode(param)))` is what lets the
+          // summary answer "no" instead of "cannot say".
+          discardedValueRegions: provider.extractDiscardedValueRegions(code),
           containerCalls: provider.extractContainerCalls(code),
         },
       ],

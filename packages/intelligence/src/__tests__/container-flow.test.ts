@@ -16,7 +16,7 @@ import {
 
 import type { ContainerInputs } from '../cfg/container-flow.js';
 import type { BindingEntry, FunctionCfg, StatementFacts, UseSite } from '../cfg/types.js';
-import type { ConditionalRegion, ContainerCall } from '@code-analyzer/analyzer';
+import type { SourceRegion, ContainerCall } from '@code-analyzer/analyzer';
 
 /** Bindings named `param`, `bar`, `map`, ... indexed in the order given. */
 function bindingsOf(names: readonly string[]): BindingEntry[] {
@@ -52,7 +52,7 @@ function inputs(
   names: readonly string[],
   calls: readonly ContainerCall[],
   extraUses: readonly { stmtIndex: number; name: string }[] = [],
-  regions: readonly ConditionalRegion[] = [],
+  regions: readonly SourceRegion[] = [],
 ): ContainerInputs {
   const bindings = bindingsOf(names);
   const indexOf = (name: string): number =>

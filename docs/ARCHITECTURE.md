@@ -488,6 +488,7 @@ itself scores: a case is flagged if the engine reports one live (unsanitised) fl
 | + a callee's returns decide what a call hands back                         | 0.8170 | 0.1155 | 0.7015 |
 | + Spring's HTML escaper, and a suffix test that read `htmlUnescape` as one | 0.8170 | 0.1072 | 0.7098 |
 | + what a container holds, at the point a statement reads it                | 0.8530 | 0.0302 | 0.8228 |
+| + whether a statement keeps the value it computes                          | 0.8530 | 0.0015 | 0.8515 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
@@ -700,6 +701,60 @@ That is the next question, and it is a question about what an **unresolved call'
 callee cannot reach the caller's locals except through its arguments, so the honest answer for `thing.doSomething(x)`
 with no body to read is "whatever `x` and `thing` carry" rather than "unknown, therefore carry". Nothing about it is a
 container.
+
+### Whether a statement keeps the value it computes
+
+**The 38 turned out not to need a new model of calls. They needed one bit about statements, and the previous iteration's
+own comment had already named the symptom without following it: the value was "carried" because the return read a name
+whose definition could not be resolved — but the taint never reached that return, and the summary had said so.** What it
+also said was `lost`, and `lost` blocked the negative answer.
+
+`ReturnSummary.lost` exists for one reason: a value that vanishes into a call which writes no name may come back through
+a side effect that no def→use edge records, so a callee must refuse to say "no". It was recorded wherever a walk reached
+a line that has no definition — and **that is not the same thing**. In
+
+```java
+String e = new String(Base64.decodeBase64(Base64.encodeBase64(d.getBytes())));
+```
+
+`d` is read on a line of its own, three times, and none of those lines writes a name. The value is not lost: the
+statement it belongs to keeps the result in `e`, and the walk reaches `e` from the same definition. Recording those
+lines as losses made every nested call in the corpus's copy-wrap-cut chains a "cannot say", and a "cannot say" is exactly
+what a false positive is made of.
+
+**The bit that separates the two is whether the statement keeps what it computes**, and it is read from the tree the way
+the branch ranges are: a statement node whose first child is an assignment writes that child's value somewhere, and one
+whose first child is anything else evaluates it and drops it. `map.put("k", param);` keeps nothing; `bar = ...` keeps
+`bar`. `analyzer/src/languages/regions.ts` produces the ranges, `FunctionCfg.discardedValueRegions` carries them, and
+`summarizeReturns` records a loss only inside them.
+
+| the file says                                                | a value that reaches a line with no definition of its own is              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| the line is inside a discarded statement                     | lost — a side effect may hand it back, so no callee may be answered for   |
+| the line is inside a statement that keeps its value          | not lost — the value travelled, and the name it landed in carries it      |
+| nothing (`undefined`: the grammar could not read the shapes) | lost — the conservative answer, and the one given before the fact existed |
+
+**The `undefined` row is the one that keeps this honest.** Every language this project reads but Java, JavaScript,
+TypeScript and Python has no `ConstantDialect` at all, so it answers `null` and keeps the conservative behaviour it had:
+a fact that is absent must not read as "nothing is ever lost". Inside the four that do declare it, `[]` is a real answer
+— a file where no statement throws a value away — and `undefined` is a gap.
+
+Measured: `score 0.8228 → 0.8515`, FPR `0.0302 → 0.0015`, **true positives unchanged at 1 207**. Set difference over the
+2 740 cases: **38 left the false-positive set, none entered it, none were lost.** Ten of the eleven categories are now
+at FPR 0.0000 — `cmdi`, `ldapi`, `pathtraver`, `sqli`, `trustbound` and `xss` all went to zero, `crypto`, `hash`,
+`securecookie` and `weakrand` were already there, and `xpathi` is the only one that still reports.
+
+**Deleting `lost` entirely measures the same figures**, which is stated because it is the obvious objection: FPR 0.0015
+and TPR 0.8530 either way, so nothing in this corpus depends on the guard. It is kept because the guard is right and the
+corpus does not contain the shape that needs it — a value handed to a call that keeps nothing, followed by a return the
+file cannot decide. `discarded-value-end-to-end.test.ts` holds both halves: that shape reports (the guard is doing its
+job), and the same shape with a return the file _does_ decide does not (the constant-return rule answering first).
+
+**The remaining 2 are not this shape and not a container either.** `BenchmarkTest01479` and `BenchmarkTest02370` are one
+bug seen twice: a name written inside a loop does not kill an earlier write of the same name, because the CFG is a single
+block per function and a `may`-definition never kills. `String value = values[i]` in one loop and `Element value =
+nodeList.item(i)` in the next are two definitions of one binding, and the taint from the first reaches the sink through
+the second. Answering it needs blocks, not a fact about statements, and it is worth 2 cases rather than 38.
 
 ## MCP Protocol Integration
 

@@ -1,3 +1,4 @@
+import type { SourceRegion } from '@code-analyzer/analyzer';
 import type { CallSite } from '@code-analyzer/shared';
 
 // @code-analyzer/intelligence — Control Flow Graph Data Model
@@ -245,6 +246,20 @@ export interface FunctionCfg {
    * was before containers existed.
    */
   readonly containerFollowed?: ReadonlySet<string>;
+
+  /**
+   * The statements in this function that compute a value and keep none of it.
+   *
+   * **This is the list that says when a vanishing value may have vanished for good.** `map.put("k", param);` evaluates
+   * the parameter and stores nothing; `bar = new String(decode(encode(param)))` passes the value through three calls
+   * and keeps the result in `bar`, so nothing vanished at all. Without this list the summary cannot tell the two apart
+   * and has to decline every question a nested call appears in — measured at 38 of the corpus's 40 remaining false
+   * positives, every one of them a chain of such statements ending in a call on a constant.
+   *
+   * Absent means the provider could not read the file's statement shapes, which leaves every vanishing value a "cannot
+   * say" — the answer given before this field existed.
+   */
+  readonly discardedValueRegions?: readonly SourceRegion[];
 }
 
 // `CallSite` lives in @code-analyzer/shared: the analyser builds them and this package consumes them, and
