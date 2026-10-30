@@ -165,7 +165,12 @@ jobs:
       # measurement. **The answer arm keeps `DEEPSEEK_API_KEY`**, because that one is the model.
       - name: Measure
         env:
-          LCA_DIR: benchmarks/corpora/lca
+          # **Absolute, because the pipeline joins its root and a relative root makes every path in the measurement
+          # carry the corpus directory**: `benchmarks/.../checkouts/o__n/src/app.py` matched nothing in the corpus's
+          # universe, and the second published figure was 0 for that reason alone. `toCorpusPath` handles it now, and
+          # the fixture stays absolute anyway - two defences, because a figure that depends on one is a figure that
+          # dies with it.
+          LCA_DIR: ${{ github.workspace }}/benchmarks/corpora/lca
           LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '8' }}
           LCA_MAX_FILES: ${{ github.event.inputs.max_files || '2000' }}
           LCA_ANSWER_ARM: ${{ github.event.inputs.answer_arm || '0' }}

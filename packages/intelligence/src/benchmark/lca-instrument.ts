@@ -20,7 +20,7 @@
 //    produced is preserved exactly.
 
 import { readdirSync } from 'node:fs';
-import { isAbsolute, join, posix, relative, sep } from 'node:path';
+import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 
 /** The three language configurations the corpus publishes. **`mixed` is a fourth and is not measured here.** */
 export const LCA_CONFIGS = ['py', 'java', 'kt'] as const;
@@ -35,15 +35,38 @@ export const CONFIG_EXTENSION: Record<LcaConfigName, string> = {
 };
 
 /**
- * Reduce a path the product reports to the form the corpus uses.
+ * Reduce a path the product reports to the form the corpus uses: repository-relative POSIX.
  *
- * The product's `filePath` is absolute; `changed_files` is repository-relative POSIX. **Both forms are accepted**
- * because a node that came from a cross-repository index may already be relative, and a conversion that only handles
- * the absolute form silently mangles the relative one.
+ * **Three forms arrive here and the first version of this function handled two of them by accident.** The pipeline
+ * joins its `rootPath` onto a relative path, so when the checkout is given as an absolute path the node carries an
+ * absolute path - and when the corpus is unpacked at a *relative* path, as it is in the workflow
+ * (`benchmarks/corpora/lca/checkouts/<owner>__<name>`), the node carries that relative path with the checkout already
+ * inside it. Treating every relative path as checkout-relative then joined the checkout onto itself and produced
+ * `../../benchmarks/corpora/lca/checkouts/<owner>__<name>/src/app.py`, which matches nothing in the universe: the
+ * second published run reported `offered: 0, outside: 10..17` on every instance, which is the signature.
+ *
+ * So: an absolute path is measured from the checkout; a relative path that already begins with the checkout is that
+ * path; and a relative path that does not is already in the corpus's own form. **Resolved against the working
+ * directory rather than assumed**, because that is the only reading under which all three are the same question.
  */
 export function toCorpusPath(checkout: string, file: string): string {
-  const absolute = isAbsolute(file) ? file : join(checkout, file);
-  return relative(checkout, absolute).split(sep).join(posix.sep);
+  const absoluteCheckout = resolve(checkout);
+  if (isAbsolute(file)) {
+    return relative(absoluteCheckout, file).split(sep).join(posix.sep);
+  }
+  const resolved = resolve(file);
+  const fromCheckout = relative(absoluteCheckout, resolved);
+  const inside =
+    fromCheckout !== '' &&
+    fromCheckout !== '..' &&
+    !fromCheckout.startsWith(`..${sep}`) &&
+    !isAbsolute(fromCheckout);
+  // **Inside the checkout means the path carried it**; otherwise the path is already corpus-relative and joins
+  // nothing.
+  if (inside) return fromCheckout.split(sep).join(posix.sep);
+  // **Normalised, not resolved**: `./a/../b.py` is `b.py` in the corpus's form, and it is already relative, so the
+  // only thing left to do is the textual part.
+  return posix.normalize(file.split(sep).join(posix.sep));
 }
 
 /**

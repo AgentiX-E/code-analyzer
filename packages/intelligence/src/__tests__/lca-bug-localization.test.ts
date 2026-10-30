@@ -48,6 +48,7 @@ import {
   corpusFiles,
   lcaQualityMetrics,
   mean,
+  dedupePreservingOrder,
   outsideUniverse,
   restrictToUniverse,
   toCorpusPath,
@@ -163,8 +164,16 @@ interface RowOutcome {
   /** Files the model cited, when one was available. */
   answer: string[] | null;
   skipped: string | null;
-  /** Every file the retriever offered, before the answer space was applied. **The full ranking, for diagnosis.** */
+  /** The retriever's file ranking restricted to the corpus's answer space, in the retriever's order. */
   offered: string[];
+  /**
+   * The same ranking **before** the answer space was applied.
+   *
+   * **This is the field whose absence cost a third run.** The second run reported `offered: 0, outside: 10..17` on
+   * every instance - the retriever had returned files and every one of them had fallen outside the universe - and the
+   * artifact kept only the filtered list, so the paths that would have named the cause in one line were gone.
+   */
+  offeredRaw: string[];
   /** How many of those the corpus does not count. **Published**, because a filter that hides its own removals is a fit. */
   outside: number;
   /** How many of the expected files fall outside the answer space - the ceiling the restriction puts on recall. */
@@ -250,6 +259,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             answer: null,
             skipped: 'the commit could not be fetched',
             offered: [],
+            offeredRaw: [],
             outside: 0,
             expectedOutside: 0,
           });
@@ -265,6 +275,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             answer: null,
             skipped: 'the checkout is empty',
             offered: [],
+            offeredRaw: [],
             outside: 0,
             expectedOutside: 0,
           });
@@ -284,6 +295,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             answer: null,
             skipped: `the repository holds ${String(allFiles.length)} files, above the cap of ${String(FILE_CAP)}`,
             offered: [],
+            offeredRaw: [],
             outside: 0,
             expectedOutside: 0,
           });
@@ -351,8 +363,10 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         // candidate that lost - it was never in the running. Restricting to that set is a filter that preserves the
         // retriever's order, and the count of what it removed is published beside the figure rather than dropped.
         const universe = new Set(allFiles);
-        const offered = result.retrievedFiles.map((file) => toCorpusPath(checkout, file));
-        const candidates = restrictToUniverse(offered, universe);
+        const offeredRaw = dedupePreservingOrder(
+          result.retrievedFiles.map((file) => toCorpusPath(checkout, file)),
+        );
+        const candidates = restrictToUniverse(offeredRaw, universe);
         const answered = restrictToUniverse(
           result.files.map((file) => toCorpusPath(checkout, file)),
           universe,
@@ -370,7 +384,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           answer: provider ? answered : null,
           skipped: null,
           offered: candidates,
-          outside: outsideUniverse(offered, universe),
+          offeredRaw,
+          outside: outsideUniverse(offeredRaw, universe),
           expectedOutside: row.changed_files.filter((file) => !universe.has(file)).length,
         });
         filesOf.set(row.id, allFiles);
@@ -499,7 +514,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         expectedOutside: outcome.expectedOutside,
         offered: outcome.offered.length,
         outside: outcome.outside,
-        offeredPaths: outcome.offered.slice(0, 10),
+        offeredPaths: outcome.offeredRaw.slice(0, 10),
         skipped: outcome.skipped,
       })),
     };

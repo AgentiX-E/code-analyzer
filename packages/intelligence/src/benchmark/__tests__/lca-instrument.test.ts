@@ -44,6 +44,22 @@ describe('toCorpusPath', () => {
     expect(toCorpusPath('/checkouts/express', './lib/../lib/router.js')).toBe('lib/router.js');
   });
 
+  it('strips a checkout that the path already carries, because the pipeline joined a relative root', () => {
+    // **The second published zero's signature.** The workflow unpacks the corpus at a relative path, so the pipeline's
+    // `join(rootPath, file)` yields `benchmarks/.../checkouts/o__n/src/app.py` - relative, checkout included. Treating
+    // it as checkout-relative joined the checkout onto itself and matched nothing: `offered: 0, outside: 10..17`.
+    expect(
+      toCorpusPath(
+        'benchmarks/corpora/lca/checkouts/thealgorithms__python',
+        'benchmarks/corpora/lca/checkouts/thealgorithms__python/strings/anagram.py',
+      ),
+    ).toBe('strings/anagram.py');
+  });
+
+  it('leaves a path that is already corpus-relative alone even when the checkout is absolute', () => {
+    expect(toCorpusPath('/checkouts/flask', 'src/flask/sessions.py')).toBe('src/flask/sessions.py');
+  });
+
   it('refuses to pretend a path outside the checkout is inside it', () => {
     expect(toCorpusPath('/checkouts/express', '/elsewhere/vendor/x.py')).toBe(
       '../../elsewhere/vendor/x.py',
