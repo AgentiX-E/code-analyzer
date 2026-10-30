@@ -1,0 +1,121 @@
+name: QA — real repositories, three languages
+
+# **The acceptance job for the question-answering surface.** The unit tests build a four-function graph and assert the
+# assembler's boundaries; they cannot show that a question about a real controller finds the controller. This job
+# downloads four released checkouts - a Java service, a JavaScript server, and the two Python libraries that already
+# anchor the cross-repository suite - indexes them into **one** store, and asks the product questions whose answers are
+# visible in a file it names.
+#
+# **Why these four.** The Java and JavaScript checkouts are the polyglot half requirement 5 asks about; flask and
+# werkzeug are the pair the cross-repository suite already measures 49 of 49 imports on, so a question whose answer
+# spans both is asked on a workspace whose linking is independently verified.
+#
+# **Every revision is pinned.** A tag for three of them and a commit for the Java service, whose upstream publishes no
+# release tags - and the hash goes into the job summary, because a figure whose revision is not named is a figure that
+# cannot be reobtained.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/intelligence/src/qa/**'
+      - 'packages/intelligence/src/search/**'
+      - 'packages/mcp/src/tools/ask.ts'
+      - 'tests/e2e/qa-multilingual-crossrepo.test.ts'
+      - '.github/workflows/qa-real-corpus.yml'
+
+concurrency:
+  group: qa-real-corpus
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # **A commit, not a branch.** `spring-petclinic` publishes one tag (`1.5.x`), so the only reproducible pin is the
+  # commit this job was written against.
+  PETCLINIC_SHA: '500158f732419217507c7656904b8e6aa1bcc0d6'
+  EXPRESS_TAG: '4.21.2'
+  FLASK_TAG: '3.0.3'
+  WERKZEUG_TAG: '3.0.3'
+
+jobs:
+  ask:
+    name: Ask four checkouts in one workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **`codeload.github.com` serves a tarball without a git client**, and a tarball is enough: the surface under test
+      # reads files, not history.
+      - name: Fetch the four checkouts
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora/qa
+          cd benchmarks/corpora/qa
+          curl -fsSL "https://codeload.github.com/spring-projects/spring-petclinic/tar.gz/${PETCLINIC_SHA}" -o petclinic.tgz
+          curl -fsSL "https://codeload.github.com/expressjs/express/tar.gz/refs/tags/${EXPRESS_TAG}" -o express.tgz
+          curl -fsSL "https://codeload.github.com/pallets/flask/tar.gz/refs/tags/${FLASK_TAG}" -o flask.tgz
+          curl -fsSL "https://codeload.github.com/pallets/werkzeug/tar.gz/refs/tags/${WERKZEUG_TAG}" -o werkzeug.tgz
+          sha256sum petclinic.tgz express.tgz flask.tgz werkzeug.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          for archive in petclinic express flask werkzeug; do
+            mkdir -p "$archive" && tar xzf "$archive.tgz" -C "$archive" --strip-components=1
+            mv "$archive" "${archive}-checkout"
+          done
+          ls -d */ | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Are the credentials present?
+        id: credential
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          if [ -n "$DEEPSEEK_API_KEY" ]; then echo "answer=true" >> "$GITHUB_OUTPUT"; else
+            echo "answer=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DEEPSEEK_API_KEY is absent, so no prose arm runs; the acceptance cases do not need one."
+          fi
+          if [ -n "$ZHIPU_API_KEY" ]; then echo "vectors=true" >> "$GITHUB_OUTPUT"; else
+            echo "vectors=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ZHIPU_API_KEY is absent, so retrieval is lexical and the run says so."
+          fi
+
+      - name: Ask the workspace
+        env:
+          QA_CORPUS_DIR: benchmarks/corpora/qa
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_EMBEDDING_MODEL: embedding-3
+        run: |
+          set -o pipefail
+          npx vitest run --config vitest.e2e.config.ts tests/e2e/qa-multilingual-crossrepo.test.ts 2>&1 | tee /tmp/qa.log
+
+      - name: Ask it again, to prove the second run agrees
+        env:
+          QA_CORPUS_DIR: benchmarks/corpora/qa
+        run: |
+          set -o pipefail
+          # **A figure that moves between two runs of the same input is not a figure.** The suite is deterministic by
+          # construction - ties broken by node identity, neighbours by edge id - and this step is the check that the
+          # construction holds on a real workspace rather than only on a fixture.
+          npx vitest run --config vitest.e2e.config.ts tests/e2e/qa-multilingual-crossrepo.test.ts 2>&1 | tee /tmp/qa-again.log

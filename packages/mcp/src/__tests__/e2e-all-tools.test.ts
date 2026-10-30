@@ -1,12 +1,14 @@
-// @code-analyzer/mcp — E2E Integration Test: All 49 MCP Tools
+// @code-analyzer/mcp — E2E Integration Test: All 50 MCP Tools
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import { createToolRegistry, ToolRegistry } from '../tools/index.js';
+import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
 
 // ---------------------------------------------------------------------------
 // Test Fixture Setup
@@ -378,7 +380,7 @@ function populateStore(store: InMemoryGraphStore): void {
 // Test Suite
 // ---------------------------------------------------------------------------
 
-describe('MCP E2E — All 49 Tools Integration', () => {
+describe('MCP E2E — All 50 Tools Integration', () => {
   let store: InMemoryGraphStore;
   let ctx: ToolContext;
   let registry: ToolRegistry;
@@ -405,13 +407,13 @@ describe('MCP E2E — All 49 Tools Integration', () => {
   // =========================================================================
 
   describe('Tool Registry Structure', () => {
-    it('should register exactly 49 tools', () => {
-      expect(registry.size).toBe(49);
+    it('should register exactly 50 tools', () => {
+      expect(registry.size).toBe(50);
     });
 
     it('should list all tools without handlers in output', () => {
       const list = registry.list();
-      expect(list.length).toBe(49);
+      expect(list.length).toBe(50);
       for (const tool of list) {
         expect(tool.name).toBeTruthy();
         expect(tool.description).toBeTruthy();
@@ -569,6 +571,26 @@ describe('MCP E2E — All 49 Tools Integration', () => {
       const data = JSON.parse(result.content[0]!.text!);
       expect(data.items).toBeDefined();
       expect(data.searchMethod).toBeDefined();
+    });
+
+    it('ask_codebase: answers with the blocks the answer came from, and with no provider says so', async () => {
+      const result = await registry.execute(
+        'ask_codebase',
+        { question: 'where is the user service defined' },
+        ctx,
+      );
+
+      expect(result.isError).toBeFalsy();
+      const data = JSON.parse(result.content[0]!.text!);
+      // **The retrieval arm is a legitimate answer**: no key on the machine means no prose, and the result states it
+      // rather than failing. What it must always carry is the evidence and the place it points at.
+      expect(Array.isArray(data.context)).toBe(true);
+      expect(Array.isArray(data.retrievedFiles)).toBe(true);
+      expect(data.abstained === null || typeof data.abstained === 'string').toBe(true);
+      for (const block of data.context as Array<{ id: number; filePath: string }>) {
+        expect(block.id).toBeGreaterThan(0);
+        expect(block.filePath).toBeTruthy();
+      }
     });
 
     it('trace_call_path: traces from source symbol', async () => {

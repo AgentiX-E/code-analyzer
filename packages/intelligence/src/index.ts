@@ -456,3 +456,39 @@ export type {
 // Taint analysis, from the analyser's output to a result. `mcp` calls these after a pipeline run.
 export { analyzeInterproceduralTaint, resolveCallSites } from './security/interprocedural-entry.js';
 export type { InterprocTaintFinding, InterprocTaintResult } from './security/interproc-solver.js';
+
+// Question answering — retrieval, a bounded graph-aware context, a provider-agnostic answer, and a citation check.
+// **The composition is the feature**: every stage existed and nothing asked a question end to end.
+export {
+  ABSTAIN_REASONS,
+  DEFAULT_CONTEXT_OPTIONS,
+  DEFAULT_EXPANSION_RELATIONS,
+  askCodebase,
+  answerPrompt,
+  assembleContext,
+  blockCost,
+  contextChars,
+  excerpt,
+  filesOf,
+  hasGroundedClaim,
+  neighboursOf,
+  nodeBody,
+  nodesForFiles,
+  parseCitationIds,
+  rankCandidates,
+  renderBlock,
+  retrieveContext,
+  sentences,
+  verifyCitations,
+} from './qa/index.js';
+export type {
+  AbstainReason,
+  AnswerResult,
+  AskInput,
+  AskOptions,
+  Citation,
+  ContextBlock,
+  ContextOptions,
+  GroundingReport,
+  RetrievedCandidate,
+} from './qa/index.js';

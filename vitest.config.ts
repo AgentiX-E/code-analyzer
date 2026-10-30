@@ -117,6 +117,9 @@ export default defineConfig({
         'packages/core/src/errors/index.ts',
         'packages/core/src/i18n/index.ts',
         'packages/core/src/logging/index.ts',
+        // **A barrel that is a barrel**: eighteen re-exports and no construct of its own. The module behind it is at
+        // 100 % on all four dimensions, so what this excludes is an import list.
+        'packages/intelligence/src/qa/index.ts',
         'packages/infra/src/resilience/index.ts',
         'packages/infra/src/index.ts',
         'packages/cli/src/index.ts', // Process entry point — covered by the same reason as `**/start.ts`

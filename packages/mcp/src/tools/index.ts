@@ -1,6 +1,8 @@
 // @code-analyzer/mcp — Tools Index
 // Registers all 48 MCP tools into the ToolRegistry.
 
+// **The question-answering surface**, first in the local group because that is where its path sorts.
+import { askCodebaseSchema, askCodebaseTool } from './ask.js';
 import { ToolRegistry } from './registry.js';
 
 export { ToolRegistry };
@@ -129,7 +131,7 @@ import { hallucinationDetectionTool } from './hallucination-detection.js';
 // Register All Tools
 // ---------------------------------------------------------------------------
 
-/** Create and configure a ToolRegistry with all 48 tools. */
+/** Create and configure a ToolRegistry with all 50 tools. */
 export function createToolRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
 
@@ -502,6 +504,15 @@ export function createToolRegistry(): ToolRegistry {
     reportGenerationTool.description,
     reportGenerationTool.inputSchema,
     reportGenerationTool.handler,
+    'analysis',
+  );
+
+  // **The question-answering surface, registered last because it composes the others.**
+  registry.register(
+    'ask_codebase',
+    'Ask a natural-language question about the indexed code and get an answer with the code blocks each claim came from',
+    askCodebaseSchema,
+    askCodebaseTool,
     'analysis',
   );
 
