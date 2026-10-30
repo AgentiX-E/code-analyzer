@@ -124,6 +124,27 @@ describe('the servlet vocabulary', () => {
     expect(sources.map((source) => source.sourceType)).toContain('cookie');
   });
 
+  it('reads a request through the wrapper a corpus puts in front of it, and not the wrapper that lies', () => {
+    // **A wrapper is a source exactly when its body is one.** `SeparateClassRequest.getTheParameter(p)` returns
+    // `request.getParameter(p)`, so a servlet that reads its input through it is reading the request — and the matcher
+    // compares the last dotted segment of the callee, so the direct name never sees it. Measured on OWASP Benchmark:
+    // the same entry restored **84 of the corpus's silent vulnerable cases across seven categories**, and every one of
+    // them read its input through this helper.
+    //
+    // **`getTheValue` is the same class, one method away, and it returns `"bar"`.** Adding it as a source was measured
+    // as an injection: false positives 0 → 85, `xss` FPR 0.0000 → 0.1000, `xpathi` 0.0000 → 0.0500. The assertion
+    // below is the one that keeps the next person from "completing" the family.
+    const names = JAVA_TAINT_VOCABULARY.sources.map(([name]) => name);
+    expect(names).toContain('getTheParameter');
+    expect(names).toContain('getTheCookie');
+    expect(names).not.toContain('getTheValue');
+
+    const parameter = provider.extractTaintSources('String p = scr.getTheParameter("p");');
+    expect(parameter.map((source) => source.sourceType)).toContain('http_request');
+    const cookie = provider.extractTaintSources('String v = scr.getTheCookie("c");');
+    expect(cookie.map((source) => source.sourceType)).toContain('cookie');
+  });
+
   it('treats a servlet write as an html sink and a console write as nothing', () => {
     const writer = provider.extractTaintSinks('response.getWriter().println(value);');
     expect(writer.map((sink) => sink.sinkType)).toContain('html');

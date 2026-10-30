@@ -491,6 +491,7 @@ itself scores: a case is flagged if the engine reports one live (unsanitised) fl
 | + whether a statement keeps the value it computes                          | 0.8530 | 0.0015 | 0.8515 |
 | + a declaration is a variable, and a name is not                           | 0.8530 | 0.0000 | 0.8530 |
 | + a sink's name is part of the vocabulary                                  | 0.9258 | 0.0000 | 0.9258 |
+| + a receiver configured and then executed, and a wrapper that is a source  | 1.0000 | 0.0000 | 1.0000 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
 every row from `+ statements anchored to a line` onward is the v1.2 corpus the published figures come from, so the step
@@ -843,8 +844,8 @@ never be the one that fires.
 **No figure in the two directions moved the wrong way, and that is the whole claim.** Adding names to a sink list is the
 cheapest way to buy recall and the fastest way to lose precision — every new name is a new place a value can be
 reported — so the pair (TPR up, FPR flat at zero) is what makes this a vocabulary fix rather than a detector that
-started guessing. It is also why the two families are held by separate category floors: `xss.tpr ≥ 0.8942` and
-`sqli.tpr ≥ 0.9374` mean one of them cannot be undone while the other's figure hides it.
+started guessing. It is also why the two families are held by separate category floors: `xss.tpr ≥ 1` and
+`sqli.tpr ≥ 1` mean one of them cannot be undone while the other's figure hides it.
 
 `sink-vocabulary-end-to-end.test.ts` holds both directions through the provider rather than the list: a value that
 reaches `response.getWriter().printf(param)` is reported as `html`, the same call with a constant format string
@@ -853,11 +854,76 @@ spellings are reported through their own files, and a constant SQL string report
 deleting the entry it depends on**: with `printf` removed, exactly the first case fails and the other four pass, which
 is the difference between a suite that asserts a list and one that asserts a behaviour.
 
-**What remains is 105 cases and no shared cause**: `cmdi` 32, `xss` 26, `sqli` 17, `pathtraver` 15, `trustbound` 11,
-`ldapi` 3, `xpathi` 1. The largest group is not another missing word — it is `new ProcessBuilder().command(argList)`
-followed by `.start()`, where the command is handed over as a **list** and the current model follows a value into a
-container but not into an argument the container is built from. That is a modelling question of the kind the last four
-sections were about, and it is the next one to answer.
+**What remained was 105 cases and no shared cause**: `cmdi` 32, `xss` 26, `sqli` 17, `pathtraver` 15, `trustbound` 11,
+`ldapi` 3, `xpathi` 1. The largest group was not another missing word — it was `ProcessBuilder().command(argList)`
+followed by `.start()`, where the sink has no argument of its own — and answering it, together with the wrapper the
+corpus reads its input through, is the next section.
+
+### A receiver that is configured and then executed
+
+**The last 105 cases were three questions, and none of them was about the path.** The path was there every time: the
+source was extracted, the helper was followed, the value was carried through a container. What was missing sat at the
+two ends of the flow — a sink with no argument of its own, and a source the matcher could not name.
+
+| question                                                  | what it looked like                                                    | cases |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- | ----- |
+| does a sink read its **receiver**?                        | `argList.add("echo " + param); pb.command(argList); pb.start();`       | 11    |
+| does handing a container to a call read its **contents**? | `new ProcessBuilder(argList)`, `Runtime.exec(list)`                    | 10    |
+| is a **wrapper** a source?                                | `String param = scr.getTheParameter("p");`, whose body reads `request` | 84    |
+
+**The first is the container model applied to a receiver.** `pb.command(argList)` stores the command and `pb.start()`
+runs what was stored, which is `append` followed by `read-all` on the same state machine that already answered
+`map.put`/`map.get` — so `command` and `start` are two rows in `CONTAINER_OPERATIONS` and nothing else changed. Both
+names had been sinks for a year: the engine knew where the danger landed and not how the value got there, which is why
+this was invisible to every check on arguments. **The two rows are inert on a receiver nothing wrote into**, and that is
+the condition which keeps `timer.start()` and `Thread.start()` quiet — `start` reads the contents of a container, and a
+receiver with no state has none.
+
+**The second is the second half of the escape rule the container model already stated.** Its header says a container
+that leaves the function is one anything can read; the statement that hands it out was marked escaped and nothing else,
+so `new ProcessBuilder(argList)` — a sink whose only argument is the whole list — received no names. The fix is one
+call: record what the container held as a **use of the statement that handed it out**, which is the same `carried` map
+every exact read already writes into. A constructor is not special here; `Runtime.exec(list)` is the same sentence.
+
+**The third is a vocabulary question with a trap in it, and the corpus supplied both halves.** OWASP Benchmark does not
+call `request.getParameter` in most of its cases — it calls
+`org.owasp.benchmark.helpers.SeparateClassRequest.getTheParameter(p)`, whose body is `return request.getParameter(p)`.
+The matcher compares the last dotted segment of the callee, so no entry for the direct name can ever see it, and 84
+vulnerable cases across seven categories read their input through that helper and nothing else. **The same class spells
+`getTheValue(p)` as `return "bar";` and comments it "This method is a 'safe' source"** — and adding that name was
+measured as an injection: false positives `0 → 85`, `xss` FPR `0.0000 → 0.1000`, `xpathi` `0.0000 → 0.0500`, score
+`1.0000 → 0.9358`. Adding a wrapper to a source list is reading its implementation, or it is guessing, and the test that
+asserts `getTheValue` is **absent** is the one that keeps the next reader from "completing the family".
+
+| figure           | before | after  | true positives | false positives |
+| ---------------- | ------ | ------ | -------------- | --------------- |
+| `overall`        | 0.9258 | 1.0000 | 1 310 → 1 415  | 0 → 0           |
+| `taintSubset`    | 0.8836 | 1.0000 | 797 → 902      | 0 → 0           |
+| `cmdi`           | 0.9127 | 1.0000 | 115 → 126      | 0 → 0           |
+| `xss`            | 0.8943 | 1.0000 | 220 → 246      | 0 → 0           |
+| `sqli`           | 0.9375 | 1.0000 | 255 → 272      | 0 → 0           |
+| `pathtraver`     | 0.8872 | 1.0000 | 118 → 133      | 0 → 0           |
+| `trustbound`     | 0.8675 | 1.0000 | 72 → 83        | 0 → 0           |
+| `flows` (engine) | 0.5633 | 0.6375 | 797 → 902      | 0 → 0           |
+| `rules` (engine) | 0.3625 | 0.3625 | 513 → 513      | 0 → 0           |
+
+**The corpus is now answered completely: 1 415 of 1 415 vulnerable cases reported, 1 325 of 1 325 safe cases
+silent.** The gate says so in the only way a gate can — every floor except `flows.tpr` is now `1`, because a floor below
+the measurement would let a case be lost while the build stayed green, and `flows.tpr` cannot reach 1 by construction:
+its denominator is all 1 415 vulnerable cases and 513 of them belong to the four categories only a rule can answer.
+
+**A perfect score on this corpus is not a claim about real code, and the difference is worth stating plainly.**
+OWASP Benchmark is 2 740 generated servlets, one shape each, labelled by construction; it measures whether an engine
+follows a flow and whether it confuses a safe shape with a dangerous one, and it does not measure whether a real
+codebase's sources, sinks and frameworks have been enumerated. `sast.precision.primevul` is still **MISSING** — PrimeVul
+is function-level C/C++ and no parser is wired — and that is where the next figure has to come from, because the
+remaining questions are about languages and frameworks this corpus does not contain.
+
+`receiver-state-end-to-end.test.ts` (5 cases) holds both directions with one line changed per pair: the container that
+carries the parameter into `pb.start()` reports, the same container of constants stays silent, a container handed to
+`ProcessBuilder(...)` reports, one holding constants stays silent, and a `timer.start()` on a receiver nothing wrote
+into stays silent. It was verified by mutation in both directions: removing the `command`/`start` rows fails exactly the
+first case, and removing the escape `record` fails exactly the constructor case.
 
 ## MCP Protocol Integration
 

@@ -71,6 +71,16 @@ export const CONTAINER_OPERATIONS: ReadonlyMap<string, ContainerOperation> = new
   ['delete', { role: 'remove', valueArgument: -1, keyArgument: 0 }],
   ['clear', { role: 'clear', valueArgument: -1, keyArgument: -1 }],
   ['toString', { role: 'read-all', valueArgument: -1, keyArgument: -1 }],
+  // **A receiver that is configured and then executed is a container written and then read.** `pb.command(argList)`
+  // stores the command and `pb.start()` runs what was stored, which is `append` followed by `read-all` in every way
+  // that matters here - the value's destination is the receiver, and the receiver's contents are what the second call
+  // acts on. Measured on OWASP Benchmark: 24 vulnerable `cmdi` cases are written exactly this way, and both names were
+  // already sinks, so the engine knew where the danger landed and not how the value got there.
+  //
+  // **Both entries are inert on a receiver this model has no state for**, which is what keeps `timer.start()` and
+  // `Thread.start()` out of it: `start` reads the contents of a container, and a receiver nothing wrote into has none.
+  ['command', { role: 'append', valueArgument: 0, keyArgument: -1 }],
+  ['start', { role: 'read-all', valueArgument: -1, keyArgument: -1 }],
 ] as const);
 
 /**

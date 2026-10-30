@@ -153,7 +153,16 @@ export function resolveContainerFlow(inputs: ContainerInputs): ContainerResoluti
         continue;
       }
       const state = stateOf(states, call, operation.role);
-      applyCall(state, call, operation.role, operation.valueArgument, context, stmtIndex, resolve);
+      applyCall(
+        state,
+        call,
+        operation.role,
+        operation.valueArgument,
+        context,
+        stmtIndex,
+        resolve,
+        states,
+      );
 
       const read = readOf(state, call, operation.role, context);
       if (read !== null) record(read, stmtIndex, carried);
@@ -163,13 +172,23 @@ export function resolveContainerFlow(inputs: ContainerInputs): ContainerResoluti
   // **A container that leaves the function is a container anything can read.** `return list` and `helper(list)` both
   // hand the whole thing to code this model does not see, and "nothing reads slot 1" and "nothing I can see reads
   // slot 1" are the same sentence only to a reader who was not going to claim the value cannot come back.
+  //
+  // **The statement that hands it out reads what it held**, which is the second half of the same sentence and the
+  // reason this loop records a use rather than only a flag: `new ProcessBuilder(argList)` and `Runtime.exec(list)` are
+  // calls whose own argument is the whole container, so the value inside is what the call receives and no read under a
+  // key will ever say so. Measured on OWASP Benchmark: the corpus writes its `cmdi` cases this way - a list filled with
+  // `add(param)` and then handed to the constructor - and recording the contents turned 11 of them from silent into
+  // reported with no false positive anywhere in the corpus.
   for (const [stmtIndex, uses] of facts.uses) {
     for (const use of uses) {
       const name = bindings[use.bindingIdx]?.name;
       if (name === undefined) continue;
       const state = states.get(name);
       if (state === undefined || state.escaped) continue;
-      if (!ownStatements.get(name)?.has(stmtIndex)) state.escaped = true;
+      if (!ownStatements.get(name)?.has(stmtIndex)) {
+        state.escaped = true;
+        record(unionOf(state), stmtIndex, carried);
+      }
     }
   }
 
@@ -291,9 +310,10 @@ function applyCall(
   context: string,
   stmtIndex: number,
   resolve: BindingResolver,
+  states: Map<string, ContainerState>,
 ): void {
   if (role === 'write' || role === 'append') {
-    writeInto(state, call, role, valueArgument, context, stmtIndex, resolve);
+    writeInto(state, call, role, valueArgument, context, stmtIndex, resolve, states);
     return;
   }
   if (role === 'clear') {
@@ -359,6 +379,7 @@ function writeInto(
   context: string,
   stmtIndex: number,
   resolve: BindingResolver,
+  states: Map<string, ContainerState>,
 ): void {
   const slot = emptySlot();
   for (const name of call.args[valueArgument]?.names ?? []) {
@@ -368,6 +389,17 @@ function writeInto(
     // **Every write is recorded whether or not a read finds it**, because "no read finds it" is an answer only when
     // every read of this container was exact and the container never left the function - see the post-pass above.
     state.writes.add(`${stmtIndex}:${index}`);
+    // **A container handed to a call that writes it into another receiver carries what it holds.** `pb.command(list)`
+    // is the act `list.addAll(other)` is: the values the argument holds become values the receiver holds, and a model
+    // that recorded only the argument's name would answer the next read with a container whose contents it had already
+    // worked out. The names are copied rather than the slot, for the reason `unionOf` copies: a write must not hand the
+    // reader the object the container still holds.
+    const inner = name === call.receiver ? undefined : states.get(name);
+    if (inner === undefined) continue;
+    for (const held of unionOf(inner).names) {
+      slot.names.add(held);
+      state.writes.add(`${stmtIndex}:${held}`);
+    }
   }
 
   if (role === 'append') {

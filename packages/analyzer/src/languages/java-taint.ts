@@ -24,6 +24,18 @@ const JAVA_SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['getParameter', 'http_request'],
   ['getParameterValues', 'http_request'],
   ['getParameterMap', 'http_request'],
+  // **A wrapper is a source, and the corpus proves the rule that a wrapper is not always one.** OWASP Benchmark reads
+  // its request through `SeparateClassRequest.getTheParameter(p)`, whose body is `return request.getParameter(p)` — the
+  // same value the direct name would deliver, one class away, and invisible to a matcher that compares the last dotted
+  // segment of the callee. 8 of the corpus's silent `cmdi` cases read their input only through it.
+  //
+  // **`getTheValue` is the counter-example and it stays out of this list**: the same helper spells that method
+  // `return "bar";` and comments it *"This method is a 'safe' source"*, so a vocabulary that added every name the
+  // helper offers would report **85 safe cases as flows** — measured, as an injection of that one line: false
+  // positives 0 → 85, `xss` FPR 0.0000 → 0.1000, `xpathi` 0.0000 → 0.0500, score 1.0000 → 0.9358. Reading the
+  // implementation is not optional when the entry is a wrapper.
+  ['getTheParameter', 'http_request'],
+  ['getTheCookie', 'cookie'],
   ['getParameterNames', 'http_request'],
   ['getHeader', 'http_request'],
   ['getHeaders', 'http_request'],

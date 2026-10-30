@@ -182,4 +182,22 @@ describe('CONTAINER_OPERATIONS', () => {
       }
     }
   });
+
+  it('reads a receiver that is configured and then executed as one written and then read', () => {
+    // **`pb.command(argList)` stores the command and `pb.start()` runs it**, which is `append` followed by `read-all`
+    // in every way this model cares about: the destination of the first call's argument is the receiver, and the
+    // second call acts on what the receiver holds rather than on any argument of its own. Both names were already
+    // sinks, so the engine knew where the danger landed and not how the value got there - 24 vulnerable `cmdi` cases
+    // in OWASP Benchmark are written exactly this way.
+    expect(CONTAINER_OPERATIONS.get('command')).toEqual({
+      role: 'append',
+      valueArgument: 0,
+      keyArgument: -1,
+    });
+    expect(CONTAINER_OPERATIONS.get('start')).toEqual({
+      role: 'read-all',
+      valueArgument: -1,
+      keyArgument: -1,
+    });
+  });
 });
