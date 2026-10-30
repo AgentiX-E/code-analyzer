@@ -1,0 +1,50 @@
+{
+  "measuredAt": "2026-10-30",
+  "roots": [
+    "packages/analyzer/src",
+    "packages/cli/src",
+    "packages/core/src",
+    "packages/infra/src",
+    "packages/intelligence/src",
+    "packages/mcp/src",
+    "packages/server/src",
+    "packages/shared/src",
+    "packages/vscode/src",
+    "packages/web/src"
+  ],
+  "nodes": 54027,
+  "byLabel": {
+    "Folder": 119,
+    "File": 961,
+    "Variable": 20877,
+    "Function": 2328,
+    "Class": 523,
+    "Method": 2431,
+    "Constructor": 167,
+    "Interface": 1094,
+    "TypeAlias": 129,
+    "Route": 227,
+    "Tool": 63,
+    "Community": 25101,
+    "Module": 3,
+    "Enum": 4
+  },
+  "calls": {
+    "edges": 4750,
+    "distinctSites": 4724,
+    "repeatedEdges": 26,
+    "share": 0.0055
+  },
+  "byLanguage": {
+    "typescript": {
+      "edges": 4750,
+      "withReceiver": 2248
+    }
+  },
+  "byArm": {
+    "sameFile": 3842,
+    "import": 874,
+    "globalUnique": 34
+  },
+  "untagged": 0
+}

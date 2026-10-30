@@ -466,9 +466,15 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                     // resolution from an inference. `receiver` is kept beside it because the arm that follows an
                     // import does not require the receiver to be the enclosing object, and the ones that do are the
                     // ones where a foreign receiver would be a defect.
+                    //
+                    // **`sourceLine` is here because a call site's identity is `(caller, callee, line)`.** Without the
+                    // line, two edges for one call site and one function calling one callee from two statements have
+                    // the same shape in the graph - which is how a provider that emitted every call twice survived a
+                    // suite of graph assertions. A line is also what an impact answer prints next to a caller.
                     edge.properties = {
                       ...edge.properties,
                       resolution: arm,
+                      sourceLine: ref.sourceLine,
                       ...(ref.receiver === undefined ? {} : { receiver: ref.receiver }),
                     };
                     callsByArm[arm] = (callsByArm[arm] ?? 0) + 1;

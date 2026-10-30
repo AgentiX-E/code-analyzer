@@ -31,8 +31,12 @@ on:
       - 'scripts/callgraph-quality.ts'
       - 'scripts/callgraph-oracle.py'
       - 'scripts/callgraph-gate.js'
+      - 'scripts/callgraph-selfcheck.ts'
+      - 'scripts/callgraph-selfcheck-gate.js'
       - 'benchmarks/callgraph-quality.json'
+      - 'benchmarks/callgraph-selfcheck.json'
       - '.github/workflows/callgraph-quality.yml'
+      - 'packages/analyzer/src/languages/**'
 
 concurrency:
   group: callgraph-quality
@@ -46,6 +50,51 @@ env:
   WERKZEUG_TAG: '3.0.3'
 
 jobs:
+  selfcheck:
+    name: One call site, one edge — the graph the product builds of itself
+    runs-on: ubuntu-latest
+    # **No download and no pinned corpus.** The subject is this checkout, so the job cannot skip itself on a machine
+    # that lacks a tarball, and the figure cannot drift because an upstream tag moved.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Index this repository's own sources and count repeated call sites
+        run: |
+          set -euo pipefail
+          npx tsx scripts/callgraph-selfcheck.ts | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Hold the repeated-site share to its floor
+        run: node scripts/callgraph-selfcheck-gate.js
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: callgraph-selfcheck
+          path: benchmarks/callgraph-selfcheck.json
+          if-no-files-found: warn
+          retention-days: 90
+
   accuracy:
     name: Precision and recall against CPython's parser
     runs-on: ubuntu-latest
