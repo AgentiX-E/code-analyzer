@@ -95,6 +95,43 @@ export function projectName(projectId: string): string {
 }
 
 /**
+ * Suffixes that name a language or a file format rather than the thing.
+ *
+ * **`micro-kinetic-ts` is about kinetics, not about TypeScript**, and `my-app.js` is about an app. A name whose head
+ * word is on this list is read through to the word before it, which is what a person means when they say the name.
+ */
+export const LANGUAGE_SUFFIXES: ReadonlySet<string> = new Set([
+  'c',
+  'cpp',
+  'cs',
+  'go',
+  'js',
+  'json',
+  'kt',
+  'py',
+  'rb',
+  'rs',
+  'sh',
+  'sql',
+  'ts',
+  'yml',
+]);
+
+/**
+ * The word of a name that decides whether it is distinctive.
+ *
+ * **The head word, because it is the noun** - unless the head is a language suffix, in which case the noun is the word
+ * before it: `micro-kinetic-ts` is distinctive because `kinetic` is, and `my-app.js` is not because `app` is not.
+ */
+export function headWord(name: string): string {
+  const words = tokenize(name);
+  if (words.length === 0) return '';
+  const last = words[words.length - 1]!;
+  if (LANGUAGE_SUFFIXES.has(last) && words.length > 1) return words[words.length - 2]!;
+  return last;
+}
+
+/**
  * Whether a name is distinctive enough to scope a question with.
  *
  * **The head word decides, because it is the noun**: `my-app` and `payments-api` are generic, `spring-petclinic` and
@@ -102,9 +139,7 @@ export function projectName(projectId: string): string {
  * other words' identifiers, and a scope chosen by accident is worse than no scope.
  */
 export function isDistinctiveName(name: string): boolean {
-  const words = tokenize(name);
-  if (words.length === 0) return false;
-  const head = words[words.length - 1]!;
+  const head = headWord(name);
   if (head.length < 3) return false;
   return !GENERIC_REPOSITORY_NAMES.has(head);
 }

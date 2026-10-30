@@ -25,6 +25,8 @@ export type { AskInput } from './ask.js';
 
 export {
   GENERIC_REPOSITORY_NAMES,
+  LANGUAGE_SUFFIXES,
+  headWord,
   indexOfWords,
   isDistinctiveName,
   namedProjects,

@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   GENERIC_REPOSITORY_NAMES,
+  LANGUAGE_SUFFIXES,
+  headWord,
   indexOfWords,
   isDistinctiveName,
   namedProjects,
@@ -16,7 +18,12 @@ import {
   resolveScope,
 } from '../qa/scope.js';
 
-const WORKSPACE = ['expressjs/express', 'pallets/flask', 'pallets/werkzeug', 'spring-projects/spring-petclinic'];
+const WORKSPACE = [
+  'expressjs/express',
+  'pallets/flask',
+  'pallets/werkzeug',
+  'spring-projects/spring-petclinic',
+];
 
 describe('projectName', () => {
   it('is the part after the owner', () => {
@@ -53,6 +60,15 @@ describe('isDistinctiveName', () => {
     expect(isDistinctiveName('spring-petclinic')).toBe(true);
   });
 
+  it('reads through a language suffix to the noun before it', () => {
+    // **`micro-kinetic-ts` is about kinetics**, and a rule that stopped at `ts` would refuse to scope a question that
+    // named this project's own sibling repository by name.
+    expect(isDistinctiveName('micro-kinetic-ts')).toBe(true);
+    expect(isDistinctiveName('code-analyzer')).toBe(true);
+    // **And the same rule refuses `my-app.js`**, because the word it read through to is generic.
+    expect(isDistinctiveName('my-app.js')).toBe(false);
+  });
+
   it('refuses a name too short to be a mention', () => {
     // **Three characters is the floor**: a two-letter token appears inside other identifiers constantly, and a scope
     // chosen by accident is worse than no scope.
@@ -68,6 +84,28 @@ describe('isDistinctiveName', () => {
     for (const name of GENERIC_REPOSITORY_NAMES) {
       expect(name).toBe(name.toLowerCase());
     }
+  });
+});
+
+describe('headWord', () => {
+  it('is the last word of a name', () => {
+    expect(headWord('spring-petclinic')).toBe('petclinic');
+    expect(headWord('express')).toBe('express');
+  });
+
+  it('is the word before a language suffix', () => {
+    expect(headWord('micro-kinetic-ts')).toBe('kinetic');
+    expect(headWord('schema.json')).toBe('schema');
+  });
+
+  it('is the suffix itself when there is no word before it', () => {
+    // **A repository called `go`** is a name, and the rule has to return something it can then judge.
+    expect(headWord('go')).toBe('go');
+    expect(LANGUAGE_SUFFIXES.has('go')).toBe(true);
+  });
+
+  it('is empty for an empty name', () => {
+    expect(headWord('')).toBe('');
   });
 });
 
@@ -115,7 +153,9 @@ describe('namedProjects', () => {
   });
 
   it('finds nothing when the question names no repository', () => {
-    expect(namedProjects('where is the request object created for each call', WORKSPACE)).toEqual([]);
+    expect(namedProjects('where is the request object created for each call', WORKSPACE)).toEqual(
+      [],
+    );
   });
 
   it('does not scope on a generic name', () => {
