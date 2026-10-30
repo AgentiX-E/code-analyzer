@@ -14,13 +14,16 @@ import { describe, expect, it } from 'vitest';
 
 import { C_FAMILY_CONSTANTS, PYTHON_CONSTANTS } from '../constant-fold.js';
 import { JavaProvider } from '../java.js';
+import { JavaScriptProvider } from '../javascript.js';
 import { JsonProvider } from '../json.js';
 import { PythonProvider } from '../python.js';
 import {
-  extractConditionalRegions,
   extractDiscardedValueRegions,
+  innermostRegion,
   insideRegion,
+  regionsOfType,
 } from '../regions.js';
+import { TypeScriptProvider } from '../typescript.js';
 
 import type { SourceRegion } from '../regions.js';
 import type { CursorWalkable } from '../syntax-cursor.js';
@@ -128,7 +131,7 @@ describe('extractConditionalRegions', () => {
         throw new Error('the walk should not start when there is nothing to look for');
       },
     } as unknown as CursorWalkable;
-    expect(extractConditionalRegions(unwalkable, [])).toEqual([]);
+    expect(regionsOfType(unwalkable, [])).toEqual([]);
   });
 
   it('lists Python`s own spellings, which share none of the C family`s clause names', () => {
@@ -208,7 +211,9 @@ describe('extractDiscardedValueRegions', () => {
     // **A provider without a parser is a gap, not an answer.** Java declares the vocabulary, so the dialect is there;
     // what is missing is the tree, and an empty list there would say every value that leaves the graph left it for
     // good. The two answers are separated by one guard, and this is the guard.
-    expect(new ParserlessJava().extractDiscardedValueRegions('class A { void run() {} }')).toBeNull();
+    expect(
+      new ParserlessJava().extractDiscardedValueRegions('class A { void run() {} }'),
+    ).toBeNull();
   });
 
   it('reports nothing for a file whose every statement keeps its value, and `null` for a grammar it cannot read', () => {
@@ -268,7 +273,85 @@ describe('extractDiscardedValueRegions', () => {
   });
 });
 
-/** One node of a tree a test can build by hand, with the span and children the walk reads. */
+describe('extractScopeRegions', () => {
+  it('closes a method body, a loop, a `catch` clause and a `switch` body, because each is its own variable space', () => {
+    const code = [
+      'class A {', // 1
+      '  void run(String[] xs) {', // 2
+      '    for (int i = 0; i < xs.length; i++) {', // 3
+      '      String v = xs[i];', // 4
+      '    }', // 5
+      '    try {', // 6
+      '      int n = 1;', // 7
+      '    } catch (Exception e) {', // 8
+      '      int m = 2;', // 9
+      '    }', // 10
+      '    switch (xs.length) {', // 11
+      '      case 1:', // 12
+      '        int k = 3;', // 13
+      '    }', // 14
+      '  }', // 15
+      '}',
+    ].join('\n');
+    const regions = new JavaProvider().extractScopeRegions(code) ?? [];
+    // The method body, the `for` **statement** (which declares `i` in its own header) and the `for` body's block, the
+    // `try` body's block, the `catch` clause and its block, and the `switch` body. Two entries share `3-5`: the loop's
+    // header writes `i` into the statement's scope, and its brace-enclosed body is a block inside it.
+    expect(regions.map((region) => `${region.from}-${region.to}`)).toEqual([
+      '2-15',
+      '3-5',
+      '3-5',
+      '6-8',
+      '8-10',
+      '8-10',
+      '11-14',
+    ]);
+  });
+
+  it('finds the innermost region containing a line, which is the one a declaration is visible in', () => {
+    const regions = [
+      { from: 1, to: 20 },
+      { from: 5, to: 10 },
+      { from: 6, to: 8 },
+    ];
+    // **Containment rather than membership, and the difference is the whole point**: line 7 is in all three and inside
+    // the innermost, line 12 is in the outer one only, and line 30 is in none of them - which a caller reads as "this
+    // declaration is at the file's own level" rather than as a failure.
+    expect(innermostRegion(7, regions)).toBe(2);
+    expect(innermostRegion(12, regions)).toBe(0);
+    expect(innermostRegion(30, regions)).toBe(-1);
+    expect(innermostRegion(7, [])).toBe(-1);
+  });
+
+  it('answers an empty list for Python, whose blocks are not scopes', () => {
+    // **Python has function scope and nothing narrower**, so a block list here would split one variable in two:
+    // `if c: x = tainted` and `sink(x)` afterwards are the same `x`, and the flow between them would end at the block.
+    const code = ['def run(x):', '    if x:', '        y = x', '    return y'].join('\n');
+    expect(new PythonProvider().extractScopeRegions(code)).toEqual([]);
+    expect(PYTHON_CONSTANTS.scopeTypes).toEqual([]);
+  });
+
+  it('answers an empty list for JavaScript and TypeScript, where `var` is function-scoped', () => {
+    // **`var` and `let` are spelled differently and only one of them is a block scope.** Splitting by block would give
+    // one variable two identities for every `var` in the repository, which loses flows instead of inventing them, so
+    // the grammar answers nothing rather than answering wrong.
+    const code = [
+      'function f(x) {',
+      '  if (x) {',
+      '    let y = x;',
+      '  }',
+      '  return y;',
+      '}',
+    ].join('\n');
+    expect(new JavaScriptProvider().extractScopeRegions(code)).toEqual([]);
+    expect(new TypeScriptProvider().extractScopeRegions(code)).toEqual([]);
+  });
+
+  it('answers `null` for a grammar with no dialect, and for a provider with no parser', () => {
+    expect(new JsonProvider().extractScopeRegions('{"a": 1}')).toBeNull();
+    expect(new ParserlessJava().extractScopeRegions('class A { void run() {} }')).toBeNull();
+  });
+});
 interface FakeNode {
   readonly type: string;
   readonly from: number;

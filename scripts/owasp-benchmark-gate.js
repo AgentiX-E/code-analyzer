@@ -42,6 +42,13 @@ const FILE = process.argv.includes('--file')
  *     names into *uses* of the statement that read it. That closed 102 of the remaining false positives, recovered 51
  *     true positives that had been silent, and put every category at a lower FPR than it has ever held (`overall`
  *     0.7098 → 0.8228, `taintSubset` 0.5345 → 0.7192, `trustbound` 0.2326 → 0.0000).
+ *   - **a name is not a variable** — the scope a declaration sits in — closed the last two, and it is the model that
+ *     made the corpus's precision exact. `String value` in one loop and `Element value` in another are two variables
+ *     that share a spelling, and one binding for the spelling carried the first one's taint to the second one's sink.
+ *     A declaration now begins a variable, a write inside a variable's own scope joins it (a write is not a
+ *     declaration, and the capture vocabulary spells both `variable.def`), and a write in a scope the first one does
+ *     not contain begins a new one. Measured: false positives 2 → 0, **no true positive lost** (1207 before and
+ *     after), `overall` 0.8515 → 0.8530, and every one of the eleven categories at FPR 0.0000.
  *   - **a statement's shape** — whether it keeps the value it computes — closed 38 of the last 40, and is the reason
  *     the ceilings below are what they are. A bare call statement (`map.put("k", param);`) throws its result away, so a
  *     value that reaches it may come back through a side effect and a callee cannot be answered for; a statement that
@@ -62,21 +69,22 @@ const FILE = process.argv.includes('--file')
  * than a share of `overall`: the corpus's `xss` safe cases surfaced one commit at a time and the only figure that would
  * have shown one of them being undone is this one.
  *
- * **A ceiling at zero would be a gate that fails on a real finding**, so every category's ceiling is stated as one case
- * of its own safe set — the noise a single genuine answer would add — and no more. `xpathi` is the exception and it is
- * the honest one: its two remaining false positives are real, they are the same bug seen twice (a name written inside a
- * loop does not kill an earlier write of the same name in a single-block CFG), and its ceiling stays where that bug
- * measures rather than where the rest of the corpus does.
+ * **A ceiling at zero would be a gate that fails on a real finding**, so every figure's ceiling is stated as one case
+ * of its own safe set — the noise a single genuine answer would add — and no more. Every category now measures zero
+ * false positives, so every ceiling here is one case and none of them is zero: `overall` 0.0008 is one of its 1 325
+ * safe cases, `xpathi` 0.05 is one of its 20, `trustbound` 0.0233 is one of its 43. The engine is exact on this
+ * corpus, and "exact" as a bound would fail the build the first time it answered a case the corpus labels safe and the
+ * code does not.
  */
 const RULES = [
   ['overall.tpr', (r) => r.overall?.tpr, 0.853],
-  ['overall.fpr', (r) => r.overall?.fpr, null, 0.0025],
-  ['overall.score', (r) => r.overall?.score, 0.8514],
+  ['overall.fpr', (r) => r.overall?.fpr, null, 0.0008],
+  ['overall.score', (r) => r.overall?.score, 0.8529],
   ['taintSubset.tpr', (r) => r.taintSubset?.tpr, 0.7694],
   // **The category-weighted figure, and the one this engine is actually scored on.** Its TPR is lower than `overall`
   // because the four rule categories are not in it.
-  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.004],
-  ['taintSubset.score', (r) => r.taintSubset?.score, 0.7668],
+  ['taintSubset.fpr', (r) => r.taintSubset?.fpr, null, 0.0013],
+  ['taintSubset.score', (r) => r.taintSubset?.score, 0.7693],
   // The four categories a flow cannot answer, which now have a rule family of their own. **One is set to 1.0**: a
   // rule names a construct, so a case in these categories that has the construct is found and one that does not is not,
   // and a floor below 1 would let the family lose a case without failing.
@@ -97,7 +105,7 @@ const RULES = [
   // the rule families contribute none, so `flows.fpr` and `overall.fpr` are the same number reached by two routes;
   // stating both keeps a rule family that starts reporting from hiding behind a flow engine that stopped.
   ['flows.tpr', (r) => r.byEngine?.flows?.tpr, 0.4904],
-  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.0025],
+  ['flows.fpr', (r) => r.byEngine?.flows?.fpr, null, 0.0008],
   ['cmdi.tpr', (r) => category(r, 'cmdi')?.tpr, 0.746],
   ['cmdi.fpr', (r) => category(r, 'cmdi')?.fpr, null, 0.008],
   // **`ldapi` had no floor at all**, which is how a category can reach 0.85 TPR in one commit and quietly halve in the
@@ -114,7 +122,7 @@ const RULES = [
   // on a real finding teaches the next person to widen the gate. One case of slack, and no more.
   ['trustbound.fpr', (r) => category(r, 'trustbound')?.fpr, null, 0.0233],
   ['xpathi.tpr', (r) => category(r, 'xpathi')?.tpr, 0.9333],
-  ['xpathi.fpr', (r) => category(r, 'xpathi')?.fpr, null, 0.15],
+  ['xpathi.fpr', (r) => category(r, 'xpathi')?.fpr, null, 0.05],
   ['xss.tpr', (r) => category(r, 'xss')?.tpr, 0.6869],
   ['xss.fpr', (r) => category(r, 'xss')?.fpr, null, 0.0048],
 ];

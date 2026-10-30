@@ -169,6 +169,7 @@ function score(root: string, label: Label): Scored {
         // put into a map is "lost" and the summary has to decline the question.
         conditionalRegions: provider.extractConditionalRegions(code),
         discardedValueRegions: provider.extractDiscardedValueRegions(code),
+        scopeRegions: provider.extractScopeRegions(code),
         containerCalls: provider.extractContainerCalls(code),
       },
     ],

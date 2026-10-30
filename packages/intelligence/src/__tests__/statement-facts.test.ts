@@ -79,10 +79,56 @@ describe('buildStatementFacts', () => {
   });
 
   it('gives one binding per name, so a redefinition does not create a second', () => {
+    // **The answer when no scope was read**, which is every grammar that cannot say and every caller that did not ask.
+    // Two writes to `x` are one variable unless something separates them.
     const { bindings } = buildStatementFacts(
       [capture('variable.def', 'x', 12), capture('variable.def', 'x', 14)],
       10,
       20,
+    );
+
+    expect(bindings).toHaveLength(1);
+  });
+
+  it('gives two bindings to one spelling when the writes sit in sibling scopes', () => {
+    // **A name is not a variable.** `String value` in one loop and `Element value` in another are two variables: their
+    // scopes are disjoint, so neither write is in the scope of the other, and each gets a binding of its own.
+    const { bindings, stmtFacts } = buildStatementFacts(
+      [
+        capture('variable.def', 'value', 12),
+        capture('variable.access', 'value', 13),
+        capture('variable.def', 'value', 17),
+        capture('variable.access', 'value', 18),
+      ],
+      10,
+      20,
+      undefined,
+      [
+        { from: 11, to: 14 },
+        { from: 16, to: 19 },
+      ],
+    );
+
+    expect(bindings.map((b) => `${b.name}@${b.declLine}`)).toEqual(['value@12', 'value@17']);
+    // And the reads belong to their own declaration, which is the whole point of the split.
+    expect(stmtFacts.uses.get(3)?.map((u) => u.bindingIdx)).toEqual([0]);
+    expect(stmtFacts.uses.get(8)?.map((u) => u.bindingIdx)).toEqual([1]);
+  });
+
+  it('keeps one binding when the later write sits inside the first one`s scope', () => {
+    // **A write is not a declaration, and the capture vocabulary says the same word for both.** `String param = "x";`
+    // and `param = decode(...)` are both `variable.def`; the second is inside the first's scope, so it is the same
+    // variable. Keying the binding by `(name, scope)` instead of asking this split every name into one binding per
+    // block and cut 503 real vulnerabilities out of the corpus report.
+    const { bindings } = buildStatementFacts(
+      [capture('variable.def', 'param', 11), capture('variable.def', 'param', 13)],
+      10,
+      20,
+      undefined,
+      [
+        { from: 11, to: 20 },
+        { from: 12, to: 14 },
+      ],
     );
 
     expect(bindings).toHaveLength(1);

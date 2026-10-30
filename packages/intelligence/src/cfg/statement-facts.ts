@@ -14,8 +14,10 @@
 // **Source and sink sites are not here**, because `CAPTURE_TAGS` has no source-and-sink vocabulary. That half needs
 // new tags from the per-language queries, and without them the propagator has no sources, so no findings.
 
-import { insideRegion } from '@code-analyzer/analyzer';
+import { innermostRegion, insideRegion } from '@code-analyzer/analyzer';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+import { WHOLE_FILE, bindingResolver } from './bindings.js';
 
 import type {
   BindingEntry,
@@ -59,15 +61,23 @@ function isWithin(line: number, startLine: number, endLine: number): boolean {
  *
  * `declColumn` is 0 for every binding: `UnifiedCapture` carries byte offsets rather than columns, and a column
  * invented from an offset would be wrong in a file with tabs.
+ *
+ * **A binding is a declaration, not a spelling.** `scopes` is what makes that true: a declaration's variable is the
+ * innermost scope region containing its line, so `String value` inside one loop and `Element value` inside another
+ * become two bindings rather than one, and every def and use is resolved to the declaration its line actually sees.
+ * The defect this removes was measured: OWASP Benchmark's last two false positives are that exact pair, the first
+ * tainted and the second read at a sink, joined by nothing but the letters they share.
  */
 export function buildStatementFacts(
   captures: readonly UnifiedCapture[],
   startLine: number,
   endLine: number,
   regions?: readonly SourceRegion[],
+  scopes?: readonly SourceRegion[],
 ): { bindings: BindingEntry[]; stmtFacts: StatementFacts } {
   const bindings: BindingEntry[] = [];
-  const byName = new Map<string, number>();
+  /** Every binding, with the scope region it is visible in, so a second def can ask whether it is the same variable. */
+  const bindingsByName = new Map<string, Array<{ index: number; from: number; to: number }>>();
   const defs = new Map<number, DefinitionSite[]>();
   const uses = new Map<number, UseSite[]>();
 
@@ -77,13 +87,57 @@ export function buildStatementFacts(
     return stmtIndex;
   };
 
+  /**
+   * The binding a write on this line belongs to, when the name already means something there.
+   *
+   * **A write is not a declaration, and the capture vocabulary cannot tell them apart**: `String param = "x";` and
+   * `param = decode(...)` are both `variable.def`, because the analysis needs both as definitions. What separates them
+   * is where they sit: a declaration inside the scope of an existing variable of the same name is not a new variable —
+   * Java forbids it — so the second write joins the first, and only a write in a scope the first one does not contain
+   * begins a new one. That is the whole rule, and it is what makes the corpus's `String value` in one loop and
+   * `Element value` in another two variables while leaving every assignment inside a `try` attached to the name the
+   * `try` is inside.
+   *
+   * Answering like this rather than keying the binding by `(name, scope)` on the first write was measured: the naive
+   * key gave the corpus's every assignment a scope of its own, split each variable into one binding per block, and cut
+   * 503 real vulnerabilities out of the report.
+   */
+  const ownerOf = (name: string, line: number): number | undefined => {
+    const list = bindingsByName.get(name);
+    if (list === undefined) return undefined;
+    let best: number | undefined;
+    let span = Number.POSITIVE_INFINITY;
+    for (const candidate of list) {
+      if (line < candidate.from || line > candidate.to) continue;
+      const width = candidate.to - candidate.from;
+      // **The first containing candidate wins, then a narrower one replaces it.** Written this way rather than as
+      // `width < span` alone because the widest scope there is has an infinite width, and `Infinity < Infinity` is
+      // false — so a name whose only binding was at the file's own level would have been treated as having none.
+      if (best === undefined || width < span) {
+        best = candidate.index;
+        span = width;
+      }
+    }
+    return best;
+  };
+
+  /** The scope region a line sits in, or the whole file where the grammar answered nothing. */
+  const regionOfLine = (line: number): SourceRegion => {
+    if (scopes === undefined) return WHOLE_FILE;
+    const index = innermostRegion(line, scopes);
+    // A line outside every region is at the file's own level - a parameter's signature line, for one - and the whole
+    // file is the region that says exactly that.
+    return index === -1 ? WHOLE_FILE : scopes[index]!;
+  };
+
   // Definitions first, so a use on the same line as its definition still finds the binding.
   for (const capture of captures) {
     if (!DEFINITION_TAGS.includes(capture.tag)) continue;
     if (!capture.name || !isWithin(capture.startLine, startLine, endLine)) continue;
-    if (byName.has(capture.name)) continue;
+    if (ownerOf(capture.name, capture.startLine) !== undefined) continue;
 
     const index = bindings.length;
+    const region = regionOfLine(capture.startLine);
     // **A parameter's position, when the provider recorded one.** It is the only thing a call site agrees with: the
     // caller passes argument 1, and the callee's argument 1 is whatever it declared second.
     const recorded = (capture.properties as { parameterIndex?: string } | undefined)
@@ -100,13 +154,17 @@ export function buildStatementFacts(
       synthetic: false,
       ...(parameterIndex === undefined ? {} : { parameterIndex }),
     });
-    byName.set(capture.name, index);
+    const list = bindingsByName.get(capture.name) ?? [];
+    list.push({ index, from: region.from, to: region.to });
+    bindingsByName.set(capture.name, list);
   }
+
+  const resolve = bindingResolver(bindings, scopes);
 
   for (const capture of captures) {
     if (!DEFINITION_TAGS.includes(capture.tag)) continue;
     if (!capture.name || !isWithin(capture.startLine, startLine, endLine)) continue;
-    const bindingIdx = byName.get(capture.name);
+    const bindingIdx = resolve(capture.name, capture.startLine);
     const stmtIndex = key(capture.startLine);
     if (bindingIdx === undefined || stmtIndex === null) continue;
 
@@ -131,7 +189,7 @@ export function buildStatementFacts(
   for (const capture of captures) {
     if (!USE_TAGS.includes(capture.tag)) continue;
     if (!capture.name || !isWithin(capture.startLine, startLine, endLine)) continue;
-    const bindingIdx = byName.get(capture.name);
+    const bindingIdx = resolve(capture.name, capture.startLine);
     const stmtIndex = key(capture.startLine);
     if (bindingIdx === undefined || stmtIndex === null) continue;
 

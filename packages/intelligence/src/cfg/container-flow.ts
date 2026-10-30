@@ -29,6 +29,9 @@
 
 import { CONTAINER_OPERATIONS } from '@code-analyzer/analyzer';
 
+import { bindingResolver } from './bindings.js';
+
+import type { BindingResolver } from './bindings.js';
 import type { BindingEntry, FunctionCfg, StatementFacts, UseSite } from './types.js';
 import type { SourceRegion, ContainerCall, ContainerRole } from '@code-analyzer/analyzer';
 
@@ -79,6 +82,15 @@ export interface ContainerInputs {
   readonly calls: readonly ContainerCall[];
   /** The file's branch ranges, which decide whether a position op and a read share a path. */
   readonly regions: readonly SourceRegion[];
+  /**
+   * The file's name scopes, so a receiver and an argument are the declarations their own line sees.
+   *
+   * **A container is keyed by name, and two declarations of one spelling are two containers.** Without this the second
+   * `list` in a function inherits the first one's contents, and an argument is attributed to whichever declaration of
+   * its name happened to be emitted first. Absent means one container per name, which is the model that existed before
+   * scopes travelled with the facts.
+   */
+  readonly scopes?: readonly SourceRegion[];
   readonly startLine: number;
   readonly endLine: number;
 }
@@ -89,11 +101,11 @@ export interface ContainerInputs {
  * @param inputs the function's facts, bindings, the file's container calls and branch ranges, and its line range
  */
 export function resolveContainerFlow(inputs: ContainerInputs): ContainerResolution {
-  const { facts, bindings, calls, regions, startLine, endLine } = inputs;
+  const { facts, bindings, calls, regions, scopes, startLine, endLine } = inputs;
   if (calls.length === 0) return NO_CONTAINER_FLOW;
 
-  const indexByName = new Map<string, number>();
-  for (const binding of bindings) indexByName.set(binding.name, binding.index);
+  // **Resolved per line rather than by name**, because `list` may be two containers in one function.
+  const resolve = bindingResolver(bindings, scopes);
 
   const byStatement = new Map<number, ContainerCall[]>();
   for (const call of calls) {
@@ -125,7 +137,7 @@ export function resolveContainerFlow(inputs: ContainerInputs): ContainerResoluti
       const operation = CONTAINER_OPERATIONS.get(call.method);
       // A receiver that is not a binding of this function is a field or an outer variable: it outlives the statement,
       // so nothing here can say what it holds.
-      if (!indexByName.has(call.receiver)) continue;
+      if (resolve(call.receiver, call.line) === undefined) continue;
 
       // **Every method invoked on the receiver counts as reading it as a container**, whether or not this model knows
       // what the method does. `b.replace(lo, hi, "Chars")` is not in the table and is still a use of the builder -
@@ -137,19 +149,11 @@ export function resolveContainerFlow(inputs: ContainerInputs): ContainerResoluti
       const context = contexts.get(stmtIndex) ?? contextOf(startLine + stmtIndex, regions);
       contexts.set(stmtIndex, context);
       if (operation === undefined) {
-        mutateUnknown(states.get(call.receiver), call, stmtIndex, indexByName);
+        mutateUnknown(states.get(call.receiver), call, stmtIndex, resolve);
         continue;
       }
       const state = stateOf(states, call, operation.role);
-      applyCall(
-        state,
-        call,
-        operation.role,
-        operation.valueArgument,
-        context,
-        stmtIndex,
-        indexByName,
-      );
+      applyCall(state, call, operation.role, operation.valueArgument, context, stmtIndex, resolve);
 
       const read = readOf(state, call, operation.role, context);
       if (read !== null) record(read, stmtIndex, carried);
@@ -226,6 +230,7 @@ export function containerFlowOf(
   cfg: FunctionCfg,
   calls: readonly ContainerCall[] | null | undefined,
   regions: readonly SourceRegion[] | null | undefined,
+  scopes?: readonly SourceRegion[],
 ): { readonly stmtFacts: StatementFacts; readonly followed: ReadonlySet<string> } {
   if (!calls || calls.length === 0) return { stmtFacts: cfg.stmtFacts, followed: new Set() };
   const resolution = resolveContainerFlow({
@@ -233,6 +238,7 @@ export function containerFlowOf(
     bindings: cfg.bindings,
     calls,
     regions: regions ?? [],
+    ...(scopes === undefined ? {} : { scopes }),
     startLine: cfg.startLine,
     endLine: cfg.blocks[0]?.endLine ?? cfg.startLine,
   });
@@ -284,10 +290,10 @@ function applyCall(
   valueArgument: number,
   context: string,
   stmtIndex: number,
-  indexByName: ReadonlyMap<string, number>,
+  resolve: BindingResolver,
 ): void {
   if (role === 'write' || role === 'append') {
-    writeInto(state, call, role, valueArgument, context, stmtIndex, indexByName);
+    writeInto(state, call, role, valueArgument, context, stmtIndex, resolve);
     return;
   }
   if (role === 'clear') {
@@ -329,13 +335,13 @@ function mutateUnknown(
   state: ContainerState | undefined,
   call: ContainerCall,
   stmtIndex: number,
-  indexByName: ReadonlyMap<string, number>,
+  resolve: BindingResolver,
 ): void {
   if (state === undefined) return;
   const slot: Slot = { names: new Set() };
   for (const argument of call.args) {
     for (const name of argument.names) {
-      const index = indexByName.get(name);
+      const index = resolve(name, call.line);
       if (index === undefined) continue;
       slot.names.add(index);
       state.writes.add(`${stmtIndex}:${index}`);
@@ -352,11 +358,11 @@ function writeInto(
   valueArgument: number,
   context: string,
   stmtIndex: number,
-  indexByName: ReadonlyMap<string, number>,
+  resolve: BindingResolver,
 ): void {
   const slot = emptySlot();
   for (const name of call.args[valueArgument]?.names ?? []) {
-    const index = indexByName.get(name);
+    const index = resolve(name, call.line);
     if (index === undefined) continue;
     slot.names.add(index);
     // **Every write is recorded whether or not a read finds it**, because "no read finds it" is an answer only when

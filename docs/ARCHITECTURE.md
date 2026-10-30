@@ -489,10 +489,11 @@ itself scores: a case is flagged if the engine reports one live (unsanitised) fl
 | + Spring's HTML escaper, and a suffix test that read `htmlUnescape` as one | 0.8170 | 0.1072 | 0.7098 |
 | + what a container holds, at the point a statement reads it                | 0.8530 | 0.0302 | 0.8228 |
 | + whether a statement keeps the value it computes                          | 0.8530 | 0.0015 | 0.8515 |
+| + a declaration is a variable, and a name is not                           | 0.8530 | 0.0000 | 0.8530 |
 
 The first three rows were measured on the 1.2beta checkout while the vocabulary and the captures were being fixed;
-the last two are the v1.2 corpus the published figures come from, so the step from row three onward is the
-comparable one. **TPR 0.2671 → 0.6382 and the score 0.0717 → 0.1695 came from two modelling decisions, not from
+every row from `+ statements anchored to a line` onward is the v1.2 corpus the published figures come from, so the step
+from row three onward is the comparable one. **TPR 0.2671 → 0.6382 and the score 0.0717 → 0.1695 came from two modelling decisions, not from
 adding words to a list.**
 
 **A statement is a line.** A call is one statement, but the first version recorded the callee on the line the call
@@ -750,11 +751,59 @@ corpus does not contain the shape that needs it — a value handed to a call tha
 file cannot decide. `discarded-value-end-to-end.test.ts` holds both halves: that shape reports (the guard is doing its
 job), and the same shape with a return the file _does_ decide does not (the constant-return rule answering first).
 
-**The remaining 2 are not this shape and not a container either.** `BenchmarkTest01479` and `BenchmarkTest02370` are one
-bug seen twice: a name written inside a loop does not kill an earlier write of the same name, because the CFG is a single
-block per function and a `may`-definition never kills. `String value = values[i]` in one loop and `Element value =
-nodeList.item(i)` in the next are two definitions of one binding, and the taint from the first reaches the sink through
-the second. Answering it needs blocks, not a fact about statements, and it is worth 2 cases rather than 38.
+**The remaining 2 are not this shape and not a container either, and the guess made here was wrong.** They were
+described as a block problem — a name written inside a loop does not kill an earlier write of the same name, and a
+single-block CFG makes every write in a loop a `may`-definition. The first half is true and it is not the defect:
+`String value = values[i]` in one loop and `Element value = nodeList.item(i)` in the next are not two definitions of one
+binding, they are two binding*s*. See [A name is not a variable](#a-name-is-not-a-variable).
+
+### A name is not a variable
+
+**The corpus's last two false positives were not about blocks, and the block theory was testable in a minute.** Building
+one CFG for `BenchmarkTest01479` and printing the `value` bindings showed a single binding declared on line 51 and a
+second definition on line 85 reaching a use on line 86 — and `String value = values[i]` and `Element value =
+nodeList.item(i)` are not the same variable, whatever a def→use graph keyed by spelling says. The two loops are siblings,
+neither scope contains the other, and a name is not a variable.
+
+The model is one table entry and one rule:
+
+| question                          | answer                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| which regions are a name scope?   | `ConstantDialect.scopeTypes` — Java's block, both loop forms, `catch`, resource declarations, `switch` body  |
+| which variable does a write mean? | the innermost existing binding of that name whose scope contains the write, if any; otherwise a new variable |
+| which variable does a read mean?  | the innermost binding of that name whose scope contains the read, else the outermost                         |
+
+**The "if any" is where the difficulty is, and the first attempt at it was measured and thrown away.** The capture
+vocabulary spells a declaration and an assignment the same way — `String param = "x";` and `param = decode(...)` are both
+`variable.def`, because the analysis needs both as definitions — so keying a binding by `(name, scope)` turned every
+assignment into a declaration: 15 bindings became 20 in one file, each variable was split into one binding per block it
+was written in, and the corpus lost **503 of its 1 207 true positives** while driving FPR to zero. A precision change
+that buys its figure with recall is the one trade this project refuses, and the run said so in one sentence: `TP 706`.
+
+What replaced it is containment rather than identity. A write inside the scope of an existing variable of the same name
+is not a new variable — a language that allows it does not have block scope — so the write joins it; only a write in a
+scope the existing one does not contain begins a new variable. That single asymmetry separates the corpus's two loops
+(disjoint, so two variables) and keeps every assignment inside a `try` attached to the name the `try` is inside (nested,
+so one).
+
+| grammar                                        | scopes it declares              | why                                                                                                          |
+| ---------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Java, and the C family's block-scoped grammars | block, loops, `catch`, `switch` | every declaration in them is block-scoped, so a nested one is impossible and a sibling one is a new variable |
+| Python                                         | none                            | an assignment inside an `if` writes the function's variable; block scopes would cut flows                    |
+| JavaScript, TypeScript                         | none                            | `var` is function-scoped and `let` is not, and the grammar answers one vocabulary for both                   |
+| JSON, YAML, and every grammar with no dialect  | `null`                          | there are no names to scope                                                                                  |
+
+Measured: `score 0.8515 → 0.8530`, FPR `0.0015 → 0.0000`, **true positives unchanged at 1 207**. Set difference over the
+2 740 cases: **2 left the false-positive set, none entered it, none were lost.** Every one of the eleven categories is
+now at FPR 0.0000 — the first time this engine reports no safe case in the corpus — and the gate's ceilings moved from
+"one safe case of slack" to "one safe case of slack from zero" for all of them: `overall.fpr ≤ 0.0008`, `xpathi.fpr ≤
+0.05`, and not one of them zero, because a ceiling of zero fails the build the first time the engine answers a case the
+corpus labels safe.
+
+`shadowed-name-end-to-end.test.ts` holds the pair that matters: the two-loop file with the sink reading its own loop's
+declaration reports nothing, the same file with the sink moved into the loop that read the request reports — one line
+moved, opposite answers — and a single declaration read in two sibling loops still reports, which is the shape every
+real vulnerability of this kind is written in.
 
 ## MCP Protocol Integration
 

@@ -3,7 +3,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
-import { C_FAMILY_CONSTANTS } from './constant-fold.js';
+import { FUNCTION_SCOPED_CONSTANTS } from './constant-fold.js';
 import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
@@ -563,7 +563,9 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
    * only thing a grammar has to supply. This grammar shares the C-family vocabulary.
    */
   protected override constantDialect(): ConstantDialect {
-    return C_FAMILY_CONSTANTS;
+    // **`var` and `let` are spelled differently and only one of them is a block scope**, so this grammar answers no
+    // scope regions at all: see `FUNCTION_SCOPED_CONSTANTS`. Everything else about the vocabulary is shared.
+    return FUNCTION_SCOPED_CONSTANTS;
   }
 
   protected override containerDialect(): ContainerDialect {

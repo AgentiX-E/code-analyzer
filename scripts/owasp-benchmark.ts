@@ -251,6 +251,9 @@ function main(): void {
           // the def→use graph, and telling it apart from `bar = new String(decode(encode(param)))` is what lets the
           // summary answer "no" instead of "cannot say".
           discardedValueRegions: provider.extractDiscardedValueRegions(code),
+          // **Which declarations are different variables.** A name is not a variable: the corpus's last two false
+          // positives are `String value` in one loop and `Element value` in another, joined only by their spelling.
+          scopeRegions: provider.extractScopeRegions(code),
           containerCalls: provider.extractContainerCalls(code),
         },
       ],

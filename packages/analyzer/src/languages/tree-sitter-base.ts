@@ -6,7 +6,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { extractConstantFacts } from './constant-fold.js';
 import { extractContainerCalls } from './container-calls.js';
-import { extractConditionalRegions, extractDiscardedValueRegions } from './regions.js';
+import { extractDiscardedValueRegions, regionsOfType } from './regions.js';
 import { extractReturnLines } from './return-sites.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { exportedNamesByCursor } from './syntax-cursor.js';
@@ -789,7 +789,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     if (!dialect || !this.parser || !this.languageGrammar) return null;
     const tree = this.cachedTree(source);
     if (!tree) return null;
-    return extractConditionalRegions(tree.rootNode, dialect.conditionalTypes);
+    return regionsOfType(tree.rootNode, dialect.conditionalTypes);
   }
 
   /**
@@ -809,6 +809,23 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // `if` would add a branch no test can reach, and a branch nobody can reach is a branch nobody can believe.
     const tree = this.cachedTree(source)!;
     return extractDiscardedValueRegions(tree.rootNode, dialect);
+  }
+
+  /**
+   * The line ranges of this file's name scopes, or `null` when the grammar cannot say.
+   *
+   * **The same cached tree and the same dialect again**, and the third question asked of it: a grammar that can say a
+   * statement sits inside an `if` can say a declaration sits inside a block. A grammar whose declarations are not all
+   * block-scoped returns `[]` from its dialect, which reads as "the function body is the scope" — the answer that
+   * existed before this question was asked, and the only one JavaScript can honestly give while `var` is in it.
+   */
+  extractScopeRegions(source: string): readonly SourceRegion[] | null {
+    const dialect = this.constantDialect();
+    if (!dialect || !this.parser || !this.languageGrammar) return null;
+    // The same soundness argument as the method above: `cachedTree` answers `null` only when there is no parser, and
+    // that is exactly what the guard excluded.
+    const tree = this.cachedTree(source)!;
+    return regionsOfType(tree.rootNode, dialect.scopeTypes);
   }
 
   /**

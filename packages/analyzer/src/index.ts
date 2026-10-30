@@ -153,6 +153,7 @@ export type {
 } from './languages/constant-expression.js';
 export {
   C_FAMILY_CONSTANTS,
+  FUNCTION_SCOPED_CONSTANTS,
   PYTHON_CONSTANTS,
   extractConstantFacts,
 } from './languages/constant-fold.js';
@@ -163,15 +164,16 @@ export type { ConstantDialect, ConstantFacts } from './languages/constant-fold.j
 // parameter" - stays in the analysis.
 export { extractReturnLines } from './languages/return-sites.js';
 
-// **Which statements may not run at all, which of them keep their value, and which calls put a value into a
-// container.** All three are readings of the tree that only this package can take, and all three are facts rather than
-// policies: the analysis decides that a definition outside every branch is a kill, that a value which only ever
-// travelled through a statement that keeps it did not vanish, and that a slot the model resolved is a slot it may
-// speak for.
+// **Which statements may not run at all, which of them keep their value, which regions are a name scope, and which
+// calls put a value into a container.** All of them are readings of the tree that only this package can take, and all
+// are facts rather than policies: the analysis decides that a definition outside every branch is a kill, that a value
+// which only ever travelled through a statement that keeps it did not vanish, that two declarations of one spelling in
+// two scopes are two variables, and that a slot the model resolved is a slot it may speak for.
 export {
-  extractConditionalRegions,
   extractDiscardedValueRegions,
+  innermostRegion,
   insideRegion,
+  regionsOfType,
 } from './languages/regions.js';
 export type { SourceRegion } from './languages/regions.js';
 export {

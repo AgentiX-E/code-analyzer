@@ -97,6 +97,23 @@ export interface ConstantDialect {
    */
   readonly expressionStatementTypes: readonly string[];
   /**
+   * Nodes that introduce a **name scope**, so a declaration inside one is a different variable from a declaration of
+   * the same spelling outside it.
+   *
+   * **A name is not a variable, and a def→use graph keyed by spelling draws an edge between two of them.** Java makes
+   * the difference structural: `String value` inside one loop and `Element value` inside another are two variables, and
+   * the corpus's last two false positives are exactly that pair — the first is tainted, the second is read at a sink,
+   * and one spelling made them one thing. The scope a declaration belongs to is the innermost node here that contains
+   * its line, so this list is the whole of "which regions are a scope".
+   *
+   * **Only grammars whose every declaration is block-scoped may fill this in.** JavaScript and TypeScript spell `var`
+   * and `let` differently, `var` is function-scoped, and block-scoping it would give one variable two identities —
+   * which loses flows rather than inventing them. Those grammars answer an empty list, which is the answer they gave
+   * before this field existed. Python's blocks are not scopes at all: an assignment inside an `if` writes the
+   * function's variable, so its scopes are the function bodies the line ranges already divide.
+   */
+  readonly scopeTypes: readonly string[];
+  /**
    * Statement kinds whose value is kept, because they write it somewhere.
    *
    * The complement is what a statement discards: `bar = call(x)` is an `expression_statement` whose first child is an
@@ -174,6 +191,18 @@ export const C_FAMILY_CONSTANTS: ConstantDialect = {
   // spell the assignment below it `assignment_expression`. `update_expression` (`i++`) and, in JavaScript,
   // `augmented_assignment_expression` (`x += 1`) write a name as well, so neither discards anything.
   expressionStatementTypes: ['expression_statement'],
+  // Java's block, its two loop forms, its `catch` parameter, its resource declarations and its `switch` body are each
+  // a scope of their own, and every declaration in them is block-scoped — which is the condition this field's comment
+  // states. `switch_block` is listed beside `block` because a `case` arm without braces still declares into the switch.
+  scopeTypes: [
+    'block',
+    'for_statement',
+    'enhanced_for_statement',
+    'catch_clause',
+    'try_with_resources_statement',
+    'switch_block',
+    'lambda_expression',
+  ],
   valueKeepingTypes: [
     'assignment_expression',
     'augmented_assignment_expression',
@@ -194,6 +223,11 @@ export const PYTHON_CONSTANTS: ConstantDialect = {
   declaratorTypes: [],
   assignmentTypes: ['assignment'],
   callableTypes: ['function_definition'],
+  // **Python has no block scope**, so the C family's list would be wrong in the direction that loses flows:
+  // `if c: x = tainted` and `sink(x)` afterwards are one variable, and two bindings would cut the flow between them.
+  // An empty list says "the function body is the scope", which is what Python means and what the line ranges already
+  // divide.
+  scopeTypes: [],
   // Python's `try`/`except`/`with` spell the clause differently and its `if` is the shared name, so only the
   // differences are listed: `elif_clause` and `else_clause` sit inside an `if_statement` and are named anyway, because
   // a caller reading this field alone should not have to know the grammar's nesting.
@@ -214,6 +248,21 @@ export const PYTHON_CONSTANTS: ConstantDialect = {
   // Python wraps a bare call in `expression_statement` too, and its assignments are their own nodes rather than an
   // expression: `x = 1` is an `assignment`, `x += 1` an `augmented_assignment`, and `(x := 1)` a `named_expression`.
   valueKeepingTypes: ['assignment', 'augmented_assignment', 'named_expression'],
+};
+
+/**
+ * The C-family vocabulary for a grammar whose declarations are **all** function-scoped rather than block-scoped.
+ *
+ * **JavaScript and TypeScript say `var` and `let` with the same weight, and only one of them is a block scope.** A
+ * `var` block-scoped by this table would become two variables where the language has one, and a flow through it would
+ * end at the block boundary — a false negative produced by a precision improvement, which is the one kind of error this
+ * project refuses to trade for. The honest answer for the grammar as a whole is therefore "no scope regions", which is
+ * the behaviour it had before the question was asked; splitting it by declaration keyword is a real option and it needs
+ * a vocabulary entry no grammar supplies yet.
+ */
+export const FUNCTION_SCOPED_CONSTANTS: ConstantDialect = {
+  ...C_FAMILY_CONSTANTS,
+  scopeTypes: [],
 };
 
 /** A plain identifier, which is the only thing this module can name in an environment. */

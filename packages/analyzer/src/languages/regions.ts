@@ -1,4 +1,4 @@
-// The line ranges a statement occupies, and the two questions that need them.
+// The line ranges a statement occupies, and the three questions that need them.
 //
 // **Since this project's CFG has a single block per function, every definition it records is a `may`-definition**, and
 // the comment on that decision says why: nothing knows whether a statement sits inside an `if`, so treating an
@@ -23,6 +23,14 @@
 // passes the value through three calls, and every one of them belongs to one statement that writes `bar`. Whether a
 // statement keeps its value is therefore one bit per statement too, and it is the bit that decides whether a value
 // "disappeared" or merely travelled.
+//
+// **The third question is not about execution at all, and it is the one whose absence generated the other two's
+// errors.** A name is not a variable. `String value` inside one loop and `Element value` inside another are two
+// variables that share a spelling, and a def→use graph keyed by spelling draws an edge between them — which is a false
+// positive when the first is tainted and the second is read at a sink, and a false negative when the second's write
+// kills the first's value on a path where both are live. The bit that separates them is the scope each declaration's
+// line sits in, so the third question is "which regions are a scope", and its answer is the answer to the other two
+// questions' mistakes.
 
 import { walkPreOrder } from './syntax-cursor.js';
 
@@ -36,15 +44,18 @@ export interface SourceRegion {
 }
 
 /**
- * Every region in the file whose statements may run zero times or more than once, in document order.
+ * Every node of the listed types, as the line range it occupies, in document order.
  *
- * Nested constructs produce nested ranges, and that is harmless: membership is a disjunction, so the outer range
- * already answers for the inner one. Keeping both means a caller never has to reason about containment.
+ * **One mechanism, three questions.** "Which statements may not run", "which declarations are a new variable" and "does
+ * this statement keep its value" are all reads of the same tree over a different vocabulary, and the vocabulary is what
+ * a grammar supplies — so the walk is written once and the caller names the question. A caller that passes an empty
+ * vocabulary gets an empty list rather than a guess.
+ *
+ * Nested constructs produce nested ranges, and for the first two questions that is harmless: membership is a
+ * disjunction, so the outer range already answers for the inner one. The third question needs containment rather than
+ * membership, which is why `innermostRegion` exists beside it.
  */
-export function extractConditionalRegions(
-  root: CursorWalkable,
-  types: readonly string[],
-): SourceRegion[] {
+export function regionsOfType(root: CursorWalkable, types: readonly string[]): SourceRegion[] {
   if (types.length === 0) return [];
   const ranges: SourceRegion[] = [];
   walkPreOrder(root, (type, _depth, cursor) => {
@@ -52,6 +63,29 @@ export function extractConditionalRegions(
     ranges.push({ from: cursor.startPosition.row + 1, to: cursor.endPosition.row + 1 });
   });
   return ranges;
+}
+
+/**
+ * The index of the smallest region containing the line, or `-1` when none does.
+ *
+ * **This is the question a name's meaning depends on, and it is not the same as "is the line inside any region".** Two
+ * sibling loops both contain lines and neither contains the other's, so a declaration in one is not visible in the
+ * other; a nested block is contained by the block around it, and a declaration in the outer one is visible in both.
+ * The answer is therefore the innermost containing region, and a tie is impossible in a grammar whose nodes nest.
+ */
+export function innermostRegion(line: number, regions: readonly SourceRegion[]): number {
+  let best = -1;
+  let span = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < regions.length; i++) {
+    const region = regions[i]!;
+    if (line < region.from || line > region.to) continue;
+    const width = region.to - region.from;
+    if (width < span) {
+      best = i;
+      span = width;
+    }
+  }
+  return best;
 }
 
 /**

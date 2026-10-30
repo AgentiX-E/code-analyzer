@@ -100,5 +100,19 @@ export interface LanguageProvider {
    */
   extractDiscardedValueRegions?(source: string): readonly SourceRegion[] | null;
 
+  /**
+   * The line ranges of the nodes that introduce a **name scope**, or `null` when the grammar cannot say.
+   *
+   * **A name is not a variable, and this is the fact that separates them.** `String value` inside one loop and
+   * `Element value` inside another are two variables sharing a spelling; a def→use graph keyed by spelling connects
+   * the first's value to the second's sink, which is a false positive, and lets the second's write end the first's
+   * value, which is a false negative. A declaration's variable is decided by the innermost region here that contains
+   * its line.
+   *
+   * **Absent or `null` means one variable per name**, which is the answer that existed before this question was asked
+   * and the correct one for a grammar whose blocks are not scopes.
+   */
+  extractScopeRegions?(source: string): readonly SourceRegion[] | null;
+
   readonly importSemantics: ImportSemantics;
 }

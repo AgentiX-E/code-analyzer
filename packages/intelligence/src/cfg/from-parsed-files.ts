@@ -16,6 +16,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { bindingResolver } from './bindings.js';
 import { containerFlowOf } from './container-flow.js';
 import { buildOccurrences, buildStatementFacts } from './statement-facts.js';
 
@@ -69,6 +70,15 @@ export interface ExtractedFileFacts {
    * and the summary keeps the conservative answer.
    */
   readonly discardedValueRegions?: readonly SourceRegion[] | null;
+  /**
+   * The line ranges of this file's name scopes, or `null` when the provider cannot read its blocks.
+   *
+   * **A name is not a variable, and this is the fact that separates them.** `String value` inside one loop and
+   * `Element value` inside another are two variables sharing a spelling; without this the first one's taint reaches the
+   * second one's sink, which was the last two false positives OWASP Benchmark had to offer. Absent or `null` means one
+   * variable per name, which is the model that existed before this question was asked.
+   */
+  readonly scopeRegions?: readonly SourceRegion[] | null;
 }
 
 /** Symbol kinds that become a function CFG. Shared with the call-site builder by intent, not by import. */
@@ -108,6 +118,10 @@ export function buildFunctionCfgs(
         // `?? undefined` rather than `?? []`: a provider that could not answer leaves every definition a maybe, and a
         // provider that answered "no branches" makes every definition a kill. The two are different facts.
         perFile?.conditionalRegions ?? undefined,
+        // The same `undefined` distinction as the branches: a provider that answered nothing leaves one binding per
+        // name, and a provider that answered `[]` says the function body is the whole scope - which is what Python
+        // means and what JavaScript honestly answers while `var` is in the grammar.
+        perFile?.scopeRegions ?? undefined,
       );
       const occurrences = buildOccurrences(
         perFile?.sources ?? [],
@@ -165,13 +179,21 @@ export function buildFunctionCfgs(
           bindings,
           symbol.startLine,
           endLine,
+          // **A call's arguments are the declarations its own line sees.** With two `list`s in one function, the first
+          // declaration of the name is not the one at the call.
+          perFile?.scopeRegions ?? undefined,
         ),
       };
 
       // **The container model runs last, because it reads the facts the rest of this function just built** - the defs
       // that say when a receiver is a new object, and the line range that says which calls are this function's. It
       // returns the same object when the file has no container calls, so a repository with none allocates nothing.
-      const flow = containerFlowOf(cfg, perFile?.containerCalls, perFile?.conditionalRegions);
+      const flow = containerFlowOf(
+        cfg,
+        perFile?.containerCalls,
+        perFile?.conditionalRegions,
+        perFile?.scopeRegions ?? undefined,
+      );
       out.set(symbol.qualifiedName, {
         ...cfg,
         stmtFacts: flow.stmtFacts,
@@ -316,11 +338,11 @@ function attachArgumentBindings(
   bindings: readonly BindingEntry[],
   startLine: number,
   endLine: number,
+  scopes?: readonly SourceRegion[],
 ): CallSite[] {
   if (sites.length === 0) return [];
 
-  const bindingByName = new Map<string, number>();
-  for (const binding of bindings) bindingByName.set(binding.name, binding.index);
+  const resolve = bindingResolver(bindings, scopes);
 
   // Argument reads, per line, in document order.
   //
@@ -367,7 +389,7 @@ function attachArgumentBindings(
         const bindings: number[] = [];
         const argumentsOf: number[] = [];
         for (const entry of ordered) {
-          const index = bindingByName.get(entry.name);
+          const index = resolve(entry.name, site.line);
           if (index === undefined) continue;
           bindings.push(index);
           argumentsOf.push(entry.argument);
@@ -377,6 +399,6 @@ function attachArgumentBindings(
         }
       }
     }
-    return { ...site, argBindings: names.map((name) => bindingByName.get(name) ?? -1) };
+    return { ...site, argBindings: names.map((name) => resolve(name, site.line) ?? -1) };
   });
 }
