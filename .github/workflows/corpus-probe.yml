@@ -7,11 +7,14 @@ name: Corpus Probe
 # a number** - so the first question is whether the bytes arrive, what their shape is, and what they hash to. This job
 # answers only that question, and it prints the answer instead of asserting it.
 #
-# **What the first run answered.** `AWS/crosscode-eval` is **gated** (HTTP 401 without an accepted licence), and so is
-# `JetBrains-Research/lca-code-generation`. `JetBrains-Research/lca-bug-localization` and
-# `tianyang/repobench_python_v1.1` are **public**. This second run reads the two public ones far enough to know the
-# column names, the row count and the shape of one row, because a harness written against a guessed schema is a harness
-# that fails on its first real run.
+# **What the first two runs answered.** `AWS/crosscode-eval` is **gated** (HTTP 401 without an accepted licence), and so
+# is `JetBrains-Research/lca-code-generation`; `JetBrains-Research/lca-bug-localization` and
+# `tianyang/repobench_python_v1.1` are **public**. The bug-localization dataset keeps one directory per configuration
+# (`py`, `java`, `kt`) and one for the archived repositories, not a `data/` prefix. This run reads those four trees and
+# one row of `py`, because a harness written against a guessed path fails on its first real run.
+#
+# **The listing and the row dump are separate scripts on disk**, because a heredoc inside a loop indents its own
+# terminator and the shell then never finds it - a defect this job had on its second run.
 
 on:
   workflow_dispatch:
@@ -34,67 +37,70 @@ jobs:
       - name: Install parquet support
         run: python3 -m pip install --quiet pyarrow pandas
 
-      - name: Long Code Arena — bug localization, file list
+      - name: Write the two readers
         run: |
-          set -uo pipefail
-          curl -sS --max-time 120 \
-            "https://huggingface.co/api/datasets/JetBrains-Research/lca-bug-localization/tree/main" \
-            -o /tmp/tree.json
-          python3 - <<'PY'
-          import json
-          entries = json.load(open('/tmp/tree.json'))
-          for e in entries:
-              print(e['type'], e.get('size'), e['path'])
+          set -euo pipefail
+          mkdir -p /tmp/probe
+          cat > /tmp/probe/list.py <<'PY'
+          import json, sys
+          entries = json.load(open(sys.argv[1]))
+          for entry in entries:
+              print(' ', entry['type'], entry.get('size'), entry['path'])
           PY
-
-      - name: Long Code Arena — bug localization, schema and one row
-        run: |
-          set -uo pipefail
-          base="https://huggingface.co/datasets/JetBrains-Research/lca-bug-localization/resolve/main"
-          curl -sSL --max-time 300 "$base/data/test-00000-of-00001.parquet" -o /tmp/lca.parquet
-          ls -l /tmp/lca.parquet
-          sha256sum /tmp/lca.parquet
-          python3 - <<'PY'
-          import json
+          cat > /tmp/probe/row.py <<'PY'
+          import json, sys
           import pyarrow.parquet as pq
-
-          table = pq.read_table('/tmp/lca.parquet')
+          table = pq.read_table(sys.argv[1])
           print('rows:', table.num_rows)
           print('columns:', table.column_names)
           row = {name: table.column(name)[0].as_py() for name in table.column_names}
           for name, value in row.items():
               text = value if isinstance(value, str) else json.dumps(value, default=str)
               print(f'--- {name} ({type(value).__name__}, {len(text)} chars)')
-              print(text[:1500])
+              print(text[:1200])
           PY
+          echo written
 
-      - name: RepoBench — retrieval split, file list
+      - name: The four directories of the bug-localization dataset
+        run: |
+          set -uo pipefail
+          for dir in py java kt repos; do
+            echo "### $dir"
+            curl -sS --max-time 120 \
+              "https://huggingface.co/api/datasets/JetBrains-Research/lca-bug-localization/tree/main/$dir" \
+              -o /tmp/tree-$dir.json
+            python3 /tmp/probe/list.py /tmp/tree-$dir.json
+          done
+
+      - name: The archived-repository index
+        run: |
+          set -uo pipefail
+          curl -sSL --max-time 120 \
+            "https://huggingface.co/datasets/JetBrains-Research/lca-bug-localization/resolve/main/repos.json" \
+            -o /tmp/repos.json
+          ls -l /tmp/repos.json
+          sha256sum /tmp/repos.json
+          head -c 2500 /tmp/repos.json
+          echo
+
+      - name: One row of py, schema and fields
+        run: |
+          set -uo pipefail
+          base="https://huggingface.co/datasets/JetBrains-Research/lca-bug-localization/resolve/main"
+          for candidate in "py/test-00000-of-00001.parquet" "py/test.parquet" "py/dev-00000-of-00001.parquet"; do
+            code=$(curl -sSL -o /tmp/lca.parquet -w '%{http_code}' --max-time 300 "$base/$candidate" || true)
+            echo "$candidate http=$code bytes=$(wc -c < /tmp/lca.parquet)"
+            if [ "$code" = "200" ] && [ "$(wc -c < /tmp/lca.parquet)" -gt 1000 ]; then
+              sha256sum /tmp/lca.parquet
+              python3 /tmp/probe/row.py /tmp/lca.parquet
+              break
+            fi
+          done
+
+      - name: RepoBench — retrieval split, schema
         run: |
           set -uo pipefail
           curl -sS --max-time 120 \
             "https://huggingface.co/api/datasets/tianyang/repobench_python_v1.1/tree/main" \
             -o /tmp/rb-tree.json
-          python3 - <<'PY'
-          import json
-          entries = json.load(open('/tmp/rb-tree.json'))
-          for e in entries:
-              print(e['type'], e.get('size'), e['path'])
-          PY
-
-      - name: RepoBench — retrieval split, schema and one row
-        run: |
-          set -uo pipefail
-          base="https://huggingface.co/datasets/tianyang/repobench_python_v1.1/resolve/main"
-          curl -sSL --max-time 300 "$base/repobench_v1.1_python_test_r.jsonl" -o /tmp/rb.jsonl || true
-          ls -l /tmp/rb.jsonl 2>/dev/null || echo "no jsonl at that path"
-          head -c 2000 /tmp/rb.jsonl 2>/dev/null || true
-          echo
-
-      - name: Which LCA splits exist
-        run: |
-          set -uo pipefail
-          for split in train validation test; do
-            code=$(curl -sSL -o /tmp/p.parquet -w '%{http_code}' --max-time 300 \
-              "https://huggingface.co/datasets/JetBrains-Research/lca-bug-localization/resolve/main/data/${split}-00000-of-00001.parquet" || true)
-            echo "$split http=$code bytes=$(wc -c < /tmp/p.parquet)"
-          done
+          python3 /tmp/probe/list.py /tmp/rb-tree.json
