@@ -141,6 +141,37 @@ To contribute new benchmark fixtures:
 
 ---
 
+## Public corpora, and what each one can and cannot say
+
+The suite above is **internal**: twenty fixtures written by the same people who wrote the rules, which makes it a
+regression test rather than evidence. The figures that are comparable with other tools come from corpora somebody else
+published, and each of them is gated by a script that fails when the figure falls:
+
+| corpus                                 | what it measures                                                                                                                                                      | artifact                                                        | gate                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------- |
+| **OWASP Benchmark v1.2**               | whether a taint flow is followed, on 2 740 generated servlets whose ground truth is the generator                                                                     | `benchmarks/owasp-benchmark.json`                               | `scripts/owasp-benchmark-gate.js`   |
+| **CoSQA**                              | retrieval of the code that answers a natural-language question (MRR@10)                                                                                               | `benchmarks/cosqa-retrieval.json`                               | `scripts/cosqa-gate.js`             |
+| **Martian / AACR**                     | whether a review finding is the one a human recorded                                                                                                                  | `benchmarks/martian-our-row.json`, `benchmarks/aacr-bench.json` | `scripts/real-ground-truth-gate.js` |
+| **Long Code Arena — bug localisation** | given an issue and the repository at the commit where it reproduces, are the files a fix touches among the files named? Metric: the authors' own `quality_metrics.py` | `benchmarks/lca-bug-localization.json`                          | `scripts/lca-gate.js`               |
+
+**The last row is the newest and the most demanding**, because its ground truth is a fixing commit rather than a
+generator: Python, Java and Kotlin, decided by what a maintainer actually changed. Two things about it are worth
+stating plainly rather than leaving to a footnote:
+
+1. **It showed that the product reports absolute paths while every corpus records repository-relative ones.** The
+   conversion lives in `packages/intelligence/src/benchmark/lca-instrument.ts` with its own tests, and the acceptance
+   suite asserts both coordinate systems, because a measurement that assumes one form silently scores zero.
+2. **The retrieval arm needs no model** — it is the fused list cut at k — so its figure is a property of the retriever
+   and is reproducible to the digit. The model's arm (`LCA_ANSWER_ARM=1`) is reported separately and has not been run
+   at scale.
+
+**What this corpus cannot say.** Its published baselines include `filepath_imports`, which shows a model every path in
+the repository plus the import graph; this product shows a model the blocks a hybrid retriever selected under a
+character budget. Same question, different amounts of context — the artifact states the configuration instead of
+implying the numbers are interchangeable.
+
+---
+
 ## Related Documents
 
 - [DEPLOYMENT.md](DEPLOYMENT.md) — Production deployment guide
