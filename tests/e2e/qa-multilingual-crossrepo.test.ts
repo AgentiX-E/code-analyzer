@@ -17,7 +17,7 @@
 // capability. The ranking is measured on a labelled corpus, which is a different instrument.
 
 import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 
 import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
@@ -27,6 +27,10 @@ import {
   HybridSearchEngine,
   RepoGroupManager,
   askCodebase,
+  corpusFiles,
+  outsideUniverse,
+  restrictToUniverse,
+  toCorpusPath,
 } from '@code-analyzer/intelligence';
 import { describe, expect, it, beforeAll } from 'vitest';
 
@@ -367,6 +371,64 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
       }
       expect(structural, `\n${rows.join('\n')}`).toBeGreaterThan(0);
       store.close();
+    },
+  );
+
+  // **The case that would have caught a published zero.** The bug-localisation instrument reported 0.0000 in three
+  // languages on its first real run, and nothing in the suite object. The reason was a unit mismatch: the product
+  // reports absolute paths because the pipeline is handed a root and joins, the corpus records repository-relative
+  // ones, and the intersection was empty on every instance. **A test that never converts a path cannot fail that way**,
+  // so this one converts: it states both coordinate systems, both conversions, and the answer space the corpus counts.
+  it(
+    'offers the file a fix would touch, in the coordinate system a corpus records',
+    { timeout: 300_000 },
+    async () => {
+      const flask = checkoutNamed('flask-');
+      expect(flask).not.toBeNull();
+
+      // **A symptom, as a bug report states it** - no file name, no function name, nothing but what a user saw.
+      const result = await askCodebase({
+        question: 'session cookie is not refreshed when the response is a redirect',
+        store: workspace.store,
+        search: workspace.search,
+        options: { generate: false, retrieveLimit: 200 },
+      });
+
+      // **The two indexers do not agree about the coordinate system, and this is where that is written down.** The
+      // pipeline is handed a root and joins, so it reports absolute paths; the cross-repository indexer records what it
+      // read, so it reports repository-relative ones. A measurement that assumed either form alone published 0.0000 in
+      // three languages, which is why the conversion accepts both and why this test states both rather than one.
+      expect(result.retrievedFiles.length).toBeGreaterThan(0);
+      const absolute = result.retrievedFiles.filter((file) => isAbsolute(file));
+      const relativeOnes = result.retrievedFiles.filter((file) => !isAbsolute(file));
+      expect(absolute.length + relativeOnes.length).toBe(result.retrievedFiles.length);
+      // **This workspace is the group index**, so every path here is already relative - and the assertion that would
+      // have caught the defect is the one below it: whatever form they arrive in, they reduce to the corpus's form.
+      expect(relativeOnes.length).toBeGreaterThan(0);
+
+      // **And the corpus's**: repository-relative POSIX, which is what `changed_files` holds. **A relative path passes
+      // through unchanged**, because joining it to the checkout and taking the difference is the identity on it.
+      const offered = result.retrievedFiles.map((file) => toCorpusPath(flask!, file));
+      expect(offered.every((file) => !isAbsolute(file))).toBe(true);
+      expect(offered.filter((_file, index) => !isAbsolute(result.retrievedFiles[index]!))).toEqual(
+        relativeOnes,
+      );
+
+      // **The answer space is the non-test files of the configuration's extension**, which is the set the published
+      // baselines rank: a document the retriever returns is not a candidate that lost.
+      const universe = new Set(corpusFiles(flask!, '.py'));
+      const inUniverse = restrictToUniverse(offered, universe);
+      expect(inUniverse.length).toBeGreaterThan(0);
+      // **A filter, not a re-score**: the first survivor is the first offered file that is in the space, so the order
+      // the retriever produced is the order the measurement sees.
+      expect(inUniverse[0]).toBe(offered.find((file) => universe.has(file)));
+      expect(outsideUniverse(offered, universe)).toBe(offered.length - inUniverse.length);
+
+      // **The file whose fix the report needs is among them, near the top.** Flask keeps its session interface in
+      // `src/flask/sessions.py`, and a cookie that is not refreshed on a redirect is that file's business.
+      const position = inUniverse.indexOf('src/flask/sessions.py');
+      expect(position, listing(result)).toBeGreaterThanOrEqual(0);
+      expect(position, listing(result)).toBeLessThan(DEPTH);
     },
   );
 

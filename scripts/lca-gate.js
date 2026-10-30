@@ -43,10 +43,18 @@ function at(record, path) {
 const RULES = [
   // **Recall at one file.** The strictest useful statement of "the answer was found": a developer who opens the first
   // file the product names is right. This is the figure the corpus's published tables are hardest on.
+  //
+  // **Every floor in this block is 0.01, and the reason is written down rather than implied.** The first published
+  // run of the instrument reported 0.0000 at all four cuts in all three languages, and that figure was a measurement
+  // of the harness: the product reports absolute paths, the corpus records repository-relative ones, and the
+  // intersection was therefore empty on every instance. `benchmark/lca-instrument.ts` now owns both conversions and
+  // has its own tests. **Those floors (0.01, 0.03, 0.05, 0.08) were therefore fitted to a number produced by a defect**
+  // and have been reset: an arm that has never produced a valid figure has never been measured, and the floor is
+  // raised in the commit that records the first one.
   ['retrieval.at1.recall', ['overall', 'retrieval', 'at1', 'recall'], 0.01, null, false],
-  ['retrieval.at3.recall', ['overall', 'retrieval', 'at3', 'recall'], 0.03, null, false],
-  ['retrieval.at5.recall', ['overall', 'retrieval', 'at5', 'recall'], 0.05, null, false],
-  ['retrieval.at10.recall', ['overall', 'retrieval', 'at10', 'recall'], 0.08, null, false],
+  ['retrieval.at3.recall', ['overall', 'retrieval', 'at3', 'recall'], 0.01, null, false],
+  ['retrieval.at5.recall', ['overall', 'retrieval', 'at5', 'recall'], 0.01, null, false],
+  ['retrieval.at10.recall', ['overall', 'retrieval', 'at10', 'recall'], 0.01, null, false],
   // **A ceiling at the cut where it means something, and not at the cut where it only measures the cut.** A retriever
   // can buy recall with noise and the corpus's FPR is what charges for it - but the filter is *fixed in advance at k*,
   // so the false positives at k=10 have a floor of (10 - expected files) whatever the retriever does, and a ceiling
@@ -54,7 +62,7 @@ const RULES = [
   // file and having it be wrong is the mistake a reader pays for immediately. **`at10.fpr` is still published in the
   // artifact**, with its precision and recall, and it is not gated for the reason above.
   ['retrieval.at1.fpr', ['overall', 'retrieval', 'at1', 'fpr'], null, 0.05, false],
-  ['retrieval.at10.precision', ['overall', 'retrieval', 'at10', 'precision'], 0.05, null, false],
+  ['retrieval.at10.precision', ['overall', 'retrieval', 'at10', 'precision'], 0.01, null, false],
   // **The answer arm**: what the model cited, scored with the same ruler. Present only with a key. **Floors of one
   // hundredth, because this arm has never been measured**: a floor of 0.05 chosen before the first number existed
   // would be a guess that could only fail, and the point of a first measurement is to learn what the number is. It is

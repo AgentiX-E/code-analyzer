@@ -115,6 +115,12 @@ export interface AnswerResult {
    * **A second field rather than a fallback**, because the two are different claims: `files` is what the answer
    * rested on and `retrievedFiles` is what retrieval offered. A measurement that wants the retrieval arm reads the
    * second, one that wants the answer arm reads the first, and neither has to infer which it got from a note.
+   *
+   * **The coordinate system depends on which indexer built the graph**, and that is stated here because a caller
+   * cannot see it from a string: the pipeline is handed a root and joins, so it reports absolute paths, while the
+   * cross-repository indexer records what it read and reports repository-relative ones. `toCorpusPath` in
+   * `benchmark/lca-instrument.ts` accepts both, and the acceptance test asserts both, because a measurement that
+   * assumed one form published 0.0000 in three languages on every instance.
    */
   retrievedFiles: string[];
   grounding: GroundingReport;

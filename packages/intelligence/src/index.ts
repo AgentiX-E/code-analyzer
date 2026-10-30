@@ -444,6 +444,20 @@ export type {
 } from './benchmark/benchmark-runner.js';
 export { ALL_BENCHMARK_CASES, lines } from './benchmark/benchmark-data.js';
 export type { BenchmarkCase, FileContent, GroundTruthIssue } from './benchmark/benchmark-data.js';
+// **The two conversions a public corpus needs**, exported because the measurement and the acceptance test have to make
+// them the same way: the product reports absolute paths and every corpus records repository-relative ones, and a
+// conversion written twice is a conversion that disagrees with itself once.
+export {
+  CONFIG_EXTENSION,
+  LCA_CONFIGS,
+  corpusFiles,
+  isTestPath,
+  lcaQualityMetrics,
+  outsideUniverse,
+  restrictToUniverse,
+  toCorpusPath,
+} from './benchmark/lca-instrument.js';
+export type { LcaConfigName } from './benchmark/lca-instrument.js';
 
 // Community Rule Registry
 export { RuleRegistry } from './rules/rule-registry.js';

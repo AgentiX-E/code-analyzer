@@ -33,8 +33,8 @@
 // because a measurement that silently ran on a stale copy would be a measurement of the copy.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { isAbsolute, join, posix, relative, sep } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
@@ -42,6 +42,16 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
+import {
+  CONFIG_EXTENSION,
+  LCA_CONFIGS,
+  corpusFiles,
+  lcaQualityMetrics,
+  mean,
+  outsideUniverse,
+  restrictToUniverse,
+  toCorpusPath,
+} from '../benchmark/lca-instrument.js';
 import { askCodebase } from '../qa/ask.js';
 import { DeepSeekProvider } from '../review/llm/provider.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
@@ -85,13 +95,10 @@ const FILE_CAP = Number.parseInt(process.env['LCA_MAX_FILES'] ?? '2000', 10);
  * arm needs no model, is deterministic to the digit, and is the arm the published baselines are comparable with.
  */
 const ANSWER_ARM = process.env['LCA_ANSWER_ARM'] === '1';
-const CONFIGS = ['py', 'java', 'kt'] as const;
 /** The cuts the retrieval arm reports. **Fixed in advance**, because a cut chosen after seeing the answer is a fit. */
 const CUTS = [1, 3, 5, 10] as const;
 /** What a checkout is allowed to take before the row is reported as skipped rather than failed. */
 const FETCH_TIMEOUT_MS = 240_000;
-
-type ConfigName = (typeof CONFIGS)[number];
 
 interface LcaRow {
   id: number;
@@ -102,124 +109,6 @@ interface LcaRow {
   issue_title: string;
   issue_body: string;
   changed_files: string[];
-}
-
-// ---------------------------------------------------------------------------
-// The corpus's own metric, transcribed
-// ---------------------------------------------------------------------------
-
-/**
- * The authors' `get_quality_metrics`, field for field.
- *
- * **Transcribed rather than paraphrased**, because a re-derived F1 that rounds differently is a number that cannot be
- * compared with the table it is meant to compare against. The only change is types.
- */
-export function lcaQualityMetrics(
-  allFiles: string[],
-  expectedFiles: string[],
-  actualFiles: string[],
-): {
-  allFilesCount: number;
-  expectedCount: number;
-  actualCount: number;
-  percentOfBugFiles: number;
-  precision: number;
-  recall: number;
-  f1: number;
-  fpr: number;
-  allCorrect: number;
-  atLeastOneCorrect: number;
-  allIncorrect: number;
-} {
-  const all = new Set(allFiles);
-  const expected = new Set(expectedFiles);
-  const actual = new Set(actualFiles);
-
-  const truePositives = [...expected].filter((file) => actual.has(file)).length;
-  const falsePositives = [...actual].filter((file) => !expected.has(file)).length;
-  const falseNegatives = [...expected].filter((file) => !actual.has(file)).length;
-  const trueNegatives = [...all].filter((file) => !expected.has(file) && !actual.has(file)).length;
-
-  const precision =
-    truePositives + falsePositives > 0 ? truePositives / (truePositives + falsePositives) : 0;
-  const recall =
-    truePositives + falseNegatives > 0 ? truePositives / (truePositives + falseNegatives) : 0;
-  const f1 = precision + recall > 0 ? (2 * (precision * recall)) / (precision + recall) : 0;
-  const fpr =
-    falsePositives + trueNegatives > 0 ? falsePositives / (falsePositives + trueNegatives) : 0;
-
-  return {
-    allFilesCount: all.size,
-    expectedCount: expected.size,
-    actualCount: actual.size,
-    percentOfBugFiles: all.size > 0 ? actual.size / all.size : 0,
-    precision,
-    recall,
-    f1,
-    fpr,
-    allCorrect: actual.size === expected.size && truePositives === expected.size ? 1 : 0,
-    atLeastOneCorrect: truePositives > 0 ? 1 : 0,
-    // **The authors' definition**, which counts an empty answer as neither correct nor incorrect rather than as all
-    // incorrect: `len(actual_set) > 0` is part of the condition.
-    allIncorrect: truePositives === 0 && actual.size > 0 ? 1 : 0,
-  };
-}
-
-/** Mean of a numeric field over the rows that produced one. **Rounded to four places, as the corpus's tables are.** */
-function mean(values: number[]): number {
-  if (values.length === 0) return 0;
-  return (
-    Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10000) / 10000
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Which files the corpus counts
-// ---------------------------------------------------------------------------
-
-/**
- * Whether a path is a test file, by the rule the baseline applies with `ignore_tests`.
- *
- * **Stated rather than imported**, because the authors' helper is Python and this is not; the cases it has to cover are
- * the three languages in the corpus, and the effect of getting it wrong is visible in `allFilesCount` in the artifact.
- */
-export function isTestPath(path: string): boolean {
-  const segments = path.split('/');
-  const fileName = segments.at(-1) ?? '';
-  const directories = segments.slice(0, -1);
-  if (directories.some((segment) => /^(tests?|testing|specs?|__tests__)$/i.test(segment)))
-    return true;
-  return (
-    /^test_/i.test(fileName) ||
-    /_test\./i.test(fileName) ||
-    /\.(test|spec)\./i.test(fileName) ||
-    /Tests?\.(java|kt)$/.test(fileName)
-  );
-}
-
-/** The extension a configuration restricts the diff to. **`mixed` is not measured here and is not accepted.** */
-const CONFIG_EXTENSION: Record<ConfigName, string> = { py: '.py', java: '.java', kt: '.kt' };
-
-/** Every file in a checkout that the corpus would count, as workspace-relative POSIX paths. */
-export function corpusFiles(root: string, extension: string): string[] {
-  const found: string[] = [];
-  const walk = (directory: string): void => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      if (entry.name === '.git' || entry.name === 'node_modules') continue;
-      const full = join(directory, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      if (!entry.name.endsWith(extension)) continue;
-      const path = relative(root, full).split(sep).join(posix.sep);
-      if (isTestPath(path)) continue;
-      found.push(path);
-    }
-  };
-  walk(root);
-  return found.sort();
 }
 
 // ---------------------------------------------------------------------------
@@ -265,13 +154,21 @@ function ensureCheckout(cacheRoot: string, row: LcaRow): string | null {
 interface RowOutcome {
   id: number;
   repo: string;
+  /** How many files the corpus counts in this checkout. */
   files: number;
+  /** How many files the fixing commit changed. */
   expected: number;
-  /** Files the retriever named at each cut. */
+  /** Files the retriever named at each cut, in the corpus's coordinate system and inside its answer space. */
   retrieval: Record<string, string[]>;
   /** Files the model cited, when one was available. */
   answer: string[] | null;
   skipped: string | null;
+  /** Every file the retriever offered, before the answer space was applied. **The full ranking, for diagnosis.** */
+  offered: string[];
+  /** How many of those the corpus does not count. **Published**, because a filter that hides its own removals is a fit. */
+  outside: number;
+  /** How many of the expected files fall outside the answer space - the ceiling the restriction puts on recall. */
+  expectedOutside: number;
 }
 
 interface ArmScore {
@@ -325,7 +222,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
     const allFilesOf = new Map<number, string[]>();
     const expectedOf = new Map<number, string[]>();
 
-    for (const config of CONFIGS) {
+    for (const config of LCA_CONFIGS) {
       const splitFile = join(root, config, 'test.jsonl');
       if (!existsSync(splitFile)) {
         perConfig[config] = { reason: `${config}/test.jsonl is absent from the corpus directory` };
@@ -352,6 +249,9 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             retrieval: {},
             answer: null,
             skipped: 'the commit could not be fetched',
+            offered: [],
+            outside: 0,
+            expectedOutside: 0,
           });
           continue;
         }
@@ -364,6 +264,9 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             retrieval: {},
             answer: null,
             skipped: 'the checkout is empty',
+            offered: [],
+            outside: 0,
+            expectedOutside: 0,
           });
           continue;
         }
@@ -380,6 +283,9 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             retrieval: {},
             answer: null,
             skipped: `the repository holds ${String(allFiles.length)} files, above the cap of ${String(FILE_CAP)}`,
+            offered: [],
+            outside: 0,
+            expectedOutside: 0,
           });
           continue;
         }
@@ -415,30 +321,45 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         const search = new HybridSearchEngine(store);
         search.initialize();
 
+        // **The budget is stated rather than inherited from a default.** Forty blocks is what a caller asking for
+        // evidence gets, and a candidate pool of two hundred is what makes the cuts at three, five and ten different
+        // from each other instead of three views of the same four files. Both numbers are recorded in the artifact,
+        // because a figure measured under an unstated budget is a figure about the budget.
         const question = `${row.issue_title}\n\n${row.issue_body}`.trim();
         const result = await askCodebase({
           question,
           store,
           search,
           ...(provider ? { provider } : {}),
-          options: { generate: Boolean(provider), rerank: Boolean(provider), maxBlocks: 40 },
+          options: {
+            generate: Boolean(provider),
+            rerank: Boolean(provider),
+            maxBlocks: 40,
+            retrieveLimit: 200,
+          },
         });
 
-        // **The two halves of this comparison are recorded in different coordinate systems, and the first run of this
-        // instrument scored 0.0000 because of it.** The pipeline writes `filePath` as an absolute path - it is given a
-        // root and it joins - while the corpus records `changed_files` as repository-relative. Comparing them directly
-        // matched nothing in three languages, and the figure that came out was a property of the units rather than of
-        // the retriever. **Every retrieved path is therefore reduced to the corpus's own form before it is scored**,
-        // which is the only step in this file that touches the product's output.
-        const relativePath = (file: string): string =>
-          relative(checkout, isAbsolute(file) ? file : join(checkout, file))
-            .split(sep)
-            .join(posix.sep);
-        const retrieved = result.retrievedFiles.map(relativePath);
-        const answered = result.files.map(relativePath);
+        // **The two halves of this comparison are recorded in different coordinate systems, and the first published
+        // run of this instrument scored 0.0000 in three languages because of it.** The pipeline writes `filePath` as an
+        // absolute path - it is given a root and it joins - while the corpus records `changed_files` as
+        // repository-relative, so the set intersection was empty on every instance and the figure was a property of
+        // the units rather than of the retriever. `toCorpusPath` is the conversion and it has its own tests, because a
+        // conversion that lives inside one `it()` block can only be tested with a corpus.
+        //
+        // **The second conversion is the answer space.** The corpus counts the non-test files of the configuration's
+        // extension and the published baselines rank exactly that set, so a `History.md` our retriever offers is not a
+        // candidate that lost - it was never in the running. Restricting to that set is a filter that preserves the
+        // retriever's order, and the count of what it removed is published beside the figure rather than dropped.
+        const universe = new Set(allFiles);
+        const offered = result.retrievedFiles.map((file) => toCorpusPath(checkout, file));
+        const candidates = restrictToUniverse(offered, universe);
+        const answered = restrictToUniverse(
+          result.files.map((file) => toCorpusPath(checkout, file)),
+          universe,
+        );
 
         const retrieval: Record<string, string[]> = {};
-        for (const cut of CUTS) retrieval[String(cut)] = retrieved.slice(0, cut);
+        for (const cut of CUTS) retrieval[String(cut)] = candidates.slice(0, cut);
 
         outcomes.push({
           id: row.id,
@@ -448,6 +369,9 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           retrieval,
           answer: provider ? answered : null,
           skipped: null,
+          offered: candidates,
+          outside: outsideUniverse(offered, universe),
+          expectedOutside: row.changed_files.filter((file) => !universe.has(file)).length,
         });
         filesOf.set(row.id, allFiles);
         expectedFilesOf.set(row.id, row.changed_files);
@@ -515,7 +439,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       ],
       dataset: {
         name: 'JetBrains-Research/lca-bug-localization',
-        configurations: [...CONFIGS],
+        configurations: [...LCA_CONFIGS],
         split: 'test',
         licence: 'Apache-2.0',
         metricSource:
@@ -526,6 +450,24 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       fileCap: FILE_CAP,
       answerArm: ANSWER_ARM,
       cuts: CUTS.join(', '),
+      configuration: {
+        maxBlocks: 40,
+        retrieveLimit: 200,
+        excerptChars: null,
+        rerank: Boolean(provider),
+        generate: Boolean(provider),
+        note:
+          'The context budget the measurement asked for. **Stated because a figure measured under an unstated budget ' +
+          'is a figure about the budget**: a pool of twenty candidates makes the cuts at three, five and ten into ' +
+          'three views of the same four files.',
+        units: [
+          "Retrieved paths are reduced to the corpus's own coordinate system (repository-relative POSIX) before they " +
+            'are scored; the product reports absolute paths because the pipeline is given a root and joins.',
+          "Candidates are restricted to the corpus's answer space - non-test files of the configuration's extension, " +
+            "which is the set the published baselines rank. **The filter preserves the retriever's order** and the " +
+            'count it removed is in every row as `outside`.',
+        ],
+      },
       space: {
         semantic: false,
         reason:
@@ -541,6 +483,25 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           : { reason: 'DEEPSEEK_API_KEY is absent' },
       },
       byLanguage: perConfig,
+      /**
+       * One entry per instance, so that a zero can be explained from the artifact alone.
+       *
+       * **This is the field whose absence cost two runs.** The first published figure was 0.0000 with nothing beside it
+       * saying whether the index was empty, the paths were in another coordinate system, or the retriever had missed -
+       * and the three have nothing in common except the number they produce. Every row now carries what was expected,
+       * what was offered, and how much of each fell outside the answer space.
+       */
+      rows: allOutcomes.map((outcome) => ({
+        id: outcome.id,
+        repo: outcome.repo,
+        corpusFiles: outcome.files,
+        expectedFiles: outcome.expected,
+        expectedOutside: outcome.expectedOutside,
+        offered: outcome.offered.length,
+        outside: outcome.outside,
+        offeredPaths: outcome.offered.slice(0, 10),
+        skipped: outcome.skipped,
+      })),
     };
 
     const recorded = recordArtifact('benchmarks/lca-bug-localization.json', artifact);
@@ -556,6 +517,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       `LCA-BUG-LOC rows=${String(measured.length)}/${String(allOutcomes.length)} ` +
         `retrieval@10 P=${String(at10.precision)} R=${String(at10.recall)} F1=${String(at10.f1)} ` +
         `retrieval@1 R=${String(overallRetrieval['at1']!.recall)} ` +
+        `offered=${String(mean(measured.map((outcome) => outcome.offered.length)))} ` +
+        `outside=${String(mean(measured.map((outcome) => outcome.outside)))} ` +
         (provider
           ? `answer F1=${String((artifact.overall.answer as ArmScore).f1)}`
           : 'answer=none'),
