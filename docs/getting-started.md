@@ -225,7 +225,7 @@ code-analyzer agent configure
 **Expected output:**
 
 ```
-✓ Configured Claude Desktop (38 tools)
+✓ Configured Claude Desktop (50 tools)
 ✓ Configured Cursor (28 tools, analysis profile)
 ✓ Configured Windsurf (28 tools, analysis profile)
 

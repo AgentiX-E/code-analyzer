@@ -4,19 +4,12 @@
 
 > **Alpha Status**: The MCP server framework, middleware, transports, and Cypher query engine are fully functional. The 38 tool definitions exist and are callable, but most tool implementations currently return placeholder or empty data. The table below summarizes per-tool status. Use the legends `[Functional]` (tested and working), `[Partial]` (may return real data in some cases), and `[Experimental]` (placeholder data only) to understand what to expect.
 
-### Tool Implementation Status Summary
+### The tool surface
 
-| Category                          | Tools                                                                                                                                                                                    | Status                                                                                        |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Indexing & Lifecycle (4 tools)    | `analyze_repository`, `list_projects`, `delete_project`, `index_status`                                                                                                                  | [Experimental] — Placeholder responses                                                        |
-| Querying & Exploration (10 tools) | `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `get_graph_schema`, `explore_symbol`, `find_implementations` | [Partial] — `search_graph` and `query_graph` work on in-memory data; rest return placeholders |
-| Change & Impact (4 tools)         | `detect_changes`, `impact_analysis`, `route_map`, `check_cycles`                                                                                                                         | [Experimental] — Placeholder responses                                                        |
-| Code Review (2 tools)             | `review_diff`, `review_file`                                                                                                                                                             | [Experimental] — Empty results; requires LLM backend                                          |
-| PR Review (2 tools)               | `review_pr`, `check_standards`                                                                                                                                                           | [Experimental] — Placeholder responses                                                        |
-| Reports (3 tools)                 | `generate_report`, `export_report`, `get_recommendations`                                                                                                                                | [Experimental] — Placeholder responses                                                        |
-| Cross-Repo (6 tools)              | All cross-repo tools                                                                                                                                                                     | [Experimental] — Placeholder responses                                                        |
-| PDG (3 tools)                     | `pdg_query`, `taint_analysis`, `explain_taint`                                                                                                                                           | [Experimental] — Requires PDG construction                                                    |
-| Standards, ADR, Agent (4 tools)   | `list_standards`, `create_standard`, `manage_adr`, `install_skills`                                                                                                                      | [Partial] — `install_skills` functional; rest are stubs                                       |
+**50 tools.** Three facts about them are enforced by CI rather than asserted here: the count is read from the code by
+`scripts/doc-code-sync-gate.js`, every tool is called through the server by `e2e-all-tools` (66 cases), and each
+tool's own suite covers the behaviour a client sees. **The complete, generated inventory is
+[All 50 tools](#all-50-tools).**
 
 ---
 
@@ -425,98 +418,130 @@ npx @code-analyzer/mcp --transport http
 
 ---
 
-## All 38 Tools
+## All 50 tools
+
+**Generated from the registry, not written by hand.** The list below is what `createToolRegistry()` returns, in
+registration order, with the description each tool declares; `tools/list` returns the same inventory with each
+tool's JSON Schema. The status column this table used to carry said "placeholder responses" for tools that have
+been implemented and exercised for many iterations, so it is gone rather than corrected: **a claim about each
+tool that nobody measures is a claim that goes stale**, and the record of what works is
+`packages/mcp/src/__tests__/e2e-all-tools.test.ts` — **66 cases that call every registered tool through the
+server**, one per tool at least.
 
 ### Indexing & Lifecycle (4 tools)
 
-| Tool                 | Status         | Description                            | Key Parameters                               |
-| -------------------- | -------------- | -------------------------------------- | -------------------------------------------- |
-| `analyze_repository` | [Experimental] | Analyze and index a code repository    | `path` (required), `language`, `incremental` |
-| `list_projects`      | [Experimental] | List all indexed projects              | None                                         |
-| `delete_project`     | [Experimental] | Delete an indexed project and its data | `projectId` (required)                       |
-| `index_status`       | [Experimental] | Get indexing status for a project      | `projectId` (required)                       |
+| Tool                 | Description                            |
+| -------------------- | -------------------------------------- |
+| `analyze_repository` | Analyze and index a code repository    |
+| `list_projects`      | List all indexed projects              |
+| `delete_project`     | Delete an indexed project and its data |
+| `index_status`       | Get indexing status for a project      |
 
 ### Querying & Exploration (10 tools)
 
-| Tool                   | Status         | Description                                    | Key Parameters                                |
-| ---------------------- | -------------- | ---------------------------------------------- | --------------------------------------------- |
-| `search_graph`         | [Partial]      | Search the knowledge graph by keyword          | `query` (required), `labels`, `limit`         |
-| `search_code`          | [Partial]      | Search source code using full-text search      | `query` (required), `filePath`, `limit`       |
-| `semantic_search`      | [Experimental] | Semantic search using embeddings               | `query` (required), `limit`                   |
-| `trace_call_path`      | [Experimental] | Trace call paths between symbols               | `source` (required), `target`, `maxDepth`     |
-| `query_graph`          | [Partial]      | Execute a Cypher query against the graph       | `query` (required), `limit`                   |
-| `get_code_snippet`     | [Experimental] | Retrieve a code snippet by file and line range | `filePath` (required), `startLine`, `endLine` |
-| `get_architecture`     | [Experimental] | Get architectural overview of a project        | `projectId` (required)                        |
-| `get_graph_schema`     | [Experimental] | Get graph schema information                   | None                                          |
-| `explore_symbol`       | [Experimental] | Explore a symbol and its relationships         | `symbol` (required), `projectId`              |
-| `find_implementations` | [Experimental] | Find implementations of an interface           | `interfaceName` (required), `projectId`       |
+| Tool                   | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `search_graph`         | Search the knowledge graph by keyword          |
+| `search_code`          | Search source code using full-text search      |
+| `semantic_search`      | Semantic search using embeddings               |
+| `trace_call_path`      | Trace call paths between symbols               |
+| `query_graph`          | Execute a Cypher query against the graph       |
+| `get_code_snippet`     | Retrieve a code snippet by file and line range |
+| `get_architecture`     | Get architectural overview of a project        |
+| `get_graph_schema`     | Get graph schema information                   |
+| `explore_symbol`       | Explore a symbol and its relationships         |
+| `find_implementations` | Find implementations of an interface           |
 
-### Change & Impact (4 tools)
+### Change & Impact (5 tools)
 
-| Tool              | Status         | Description                            | Key Parameters                              |
-| ----------------- | -------------- | -------------------------------------- | ------------------------------------------- |
-| `detect_changes`  | [Experimental] | Detect code changes between references | `projectId` (required), `fromRef`, `toRef`  |
-| `impact_analysis` | [Experimental] | Analyze impact of code changes         | `projectId` (required), `symbol` (required) |
-| `route_map`       | [Experimental] | Get route map for a project            | `projectId` (required)                      |
-| `check_cycles`    | [Experimental] | Check for circular dependencies        | `projectId` (required)                      |
+| Tool              | Description                            |
+| ----------------- | -------------------------------------- |
+| `detect_changes`  | Detect code changes between references |
+| `tests_for`       | Find the tests that cover a symbol     |
+| `impact_analysis` | Analyze impact of code changes         |
+| `route_map`       | Get route map for a project            |
+| `check_cycles`    | Check for circular dependencies        |
 
 ### Code Review (2 tools)
 
-| Tool          | Status         | Description                     | Key Parameters                              |
-| ------------- | -------------- | ------------------------------- | ------------------------------------------- |
-| `review_diff` | [Experimental] | Review a git diff for issues    | `projectId` (required), `fromRef`, `toRef`  |
-| `review_file` | [Experimental] | Review a single file for issues | `filePath` (required), `content` (required) |
+| Tool          | Description                     |
+| ------------- | ------------------------------- |
+| `review_diff` | Review a git diff for issues    |
+| `review_file` | Review a single file for issues |
 
 ### PR Review (2 tools)
 
-| Tool              | Status         | Description                          | Key Parameters                                  |
-| ----------------- | -------------- | ------------------------------------ | ----------------------------------------------- |
-| `review_pr`       | [Experimental] | Review a pull request                | `projectId` (required), `prNumber` (required)   |
-| `check_standards` | [Experimental] | Check code against project standards | `projectId` (required), `standardId` (required) |
+| Tool              | Description                          |
+| ----------------- | ------------------------------------ |
+| `review_pr`       | Review a pull request                |
+| `check_standards` | Check code against project standards |
 
 ### Reports (3 tools)
 
-| Tool                  | Status         | Description                          | Key Parameters                           |
-| --------------------- | -------------- | ------------------------------------ | ---------------------------------------- |
-| `generate_report`     | [Experimental] | Generate an analysis report          | `projectId` (required), `type`, `format` |
-| `export_report`       | [Experimental] | Export a report in specified format  | `reportId` (required), `format`          |
-| `get_recommendations` | [Experimental] | Get code improvement recommendations | `projectId` (required), `category`       |
+| Tool                  | Description                          |
+| --------------------- | ------------------------------------ |
+| `generate_report`     | Generate an analysis report          |
+| `export_report`       | Export a report in specified format  |
+| `get_recommendations` | Get code improvement recommendations |
 
-### Cross-Repo (6 tools)
+### Cross-Repo (7 tools)
 
-| Tool                     | Status         | Description                          | Key Parameters                  |
-| ------------------------ | -------------- | ------------------------------------ | ------------------------------- |
-| `cross_repo_search`      | [Experimental] | Search across multiple repositories  | `query` (required), `groupIds`  |
-| `cross_repo_trace`       | [Experimental] | Trace call paths across repositories | `source` (required), `target`   |
-| `cross_repo_impact`      | [Experimental] | Analyze cross-repo impact of changes | `symbol` (required), `groupIds` |
-| `manage_repo_group`      | [Experimental] | Manage repository groups             | `action` (required), `groupId`  |
-| `sync_contracts`         | [Experimental] | Synchronize contracts across repos   | `groupId` (required)            |
-| `discover_related_repos` | [Experimental] | Discover related repositories        | `owner` (required), `topics`    |
+| Tool                     | Description                                   |
+| ------------------------ | --------------------------------------------- |
+| `cross_repo_search`      | Search across multiple repositories           |
+| `cross_repo_trace`       | Trace call paths across repositories          |
+| `cross_repo_impact`      | Analyze cross-repo impact of changes          |
+| `manage_repo_group`      | Manage repository groups                      |
+| `sync_contracts`         | Synchronize contracts across repos            |
+| `discover_related_repos` | Discover related repositories                 |
+| `cross_repo_review_pr`   | Review a pull request with cross-repo context |
 
 ### PDG (3 tools)
 
-| Tool             | Status         | Description                         | Key Parameters                                |
-| ---------------- | -------------- | ----------------------------------- | --------------------------------------------- |
-| `pdg_query`      | [Experimental] | Query the program dependence graph  | `projectId` (required), `function` (required) |
-| `taint_analysis` | [Experimental] | Perform taint analysis for security | `projectId` (required), `source` (required)   |
-| `explain_taint`  | [Experimental] | Explain a taint analysis path       | `pathId` (required)                           |
+| Tool             | Description                         |
+| ---------------- | ----------------------------------- |
+| `pdg_query`      | Query the program dependence graph  |
+| `taint_analysis` | Perform taint analysis for security |
+| `explain_taint`  | Explain a taint analysis path       |
 
-### Standards, ADR, Agent (4 tools)
+### Standards (2 tools)
 
-| Tool              | Status         | Description                          | Key Parameters                      |
-| ----------------- | -------------- | ------------------------------------ | ----------------------------------- |
-| `list_standards`  | [Experimental] | List project standards               | `projectId`, `category`             |
-| `create_standard` | [Experimental] | Create a new project standard        | `standard` (required)               |
-| `manage_adr`      | [Experimental] | Manage Architecture Decision Records | `action` (required), `projectId`    |
-| `install_skills`  | [Functional]   | Install agent skills for the project | `agentType` (required), `projectId` |
+| Tool              | Description                   |
+| ----------------- | ----------------------------- |
+| `list_standards`  | List project standards        |
+| `create_standard` | Create a new project standard |
 
-### Tool Profiles
+### ADR (1 tools)
 
-| Profile    | Tool Count | Categories Included                                           |
-| ---------- | ---------- | ------------------------------------------------------------- |
-| `all`      | 38         | All tools                                                     |
-| `analysis` | 28         | Querying, Review, Impact, PR Review, Reports, Cross-Repo, PDG |
-| `scout`    | 1          | `discover_related_repos` only                                 |
+| Tool         | Description                          |
+| ------------ | ------------------------------------ |
+| `manage_adr` | Manage Architecture Decision Records |
+
+### Agent (1 tools)
+
+| Tool             | Description                          |
+| ---------------- | ------------------------------------ |
+| `install_skills` | Install agent skills for the project |
+
+### Benchmark (1 tools)
+
+| Tool            | Description                                                                       |
+| --------------- | --------------------------------------------------------------------------------- |
+| `run_benchmark` | Run the review quality benchmark suite to measure precision, recall, and F1 score |
+
+### Intelligence Tools (5) (9 tools)
+
+| Tool                      | Description                                                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trend_analysis`          | Analyze code quality metrics from the knowledge graph — complexity distribution, dependency density, and structural health indicators.                                          |
+| `hotspot_detection`       | Identify code hotspots — files/functions with high structural complexity (edge degree) that are most likely to contain bugs.                                                    |
+| `refactor_suggestion`     | Analyze the codebase and suggest refactoring opportunities — extract method, split class, reduce parameters, reduce coupling.                                                   |
+| `test_generation`         | Generate test skeletons for functions and methods based on knowledge graph analysis — includes dependency mocking stubs and edge case suggestions.                              |
+| `doc_generation`          | Generate documentation skeletons for symbols based on knowledge graph analysis — includes parameter placeholders and usage-based descriptions.                                  |
+| `code_suggestion`         | Generate fix suggestions for review findings. Supports code transformation suggestions with syntax validation, effort estimation, and auto-applicability detection.             |
+| `hallucination_detection` | Validate review comments against the source code knowledge graph. Detects fabricated line numbers, non-existent symbols, mismatched file paths, and other hallucinated content. |
+| `report_generation`       | Generate formatted reports from code review results. Supports markdown and JSON output formats with category/severity breakdowns and actionable recommendations.                |
+| `ask_codebase`            | Ask a natural-language question about the indexed code and get an answer with the code blocks each claim came from                                                              |
 
 ---
 
@@ -574,7 +599,7 @@ LIMIT number
 
 ### Supported Node Labels
 
-All 33 node labels are queryable. Common labels:
+All 36 node labels are queryable. Common labels:
 
 | Label       | Description             |
 | ----------- | ----------------------- |

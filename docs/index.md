@@ -22,7 +22,7 @@ features:
     details: Federated search across multiple repos, version compatibility matrices, cross-repo PR review, and dependency tracing between microservices and shared libraries.
   - icon: 🤖
     title: AI Agent Ready
-    details: MCP server with 38 tools for AI coding agents. Auto-detect and configure 12 agents including Claude Code, Cursor, Copilot, Aider, and Windsurf.
+    details: MCP server with 50 tools for AI coding agents. Auto-detect and configure 12 agents including Claude Code, Cursor, Copilot, Aider, and Windsurf.
   - icon: 🛡️
     title: Automated Code Review
     details: Multi-lens PR review with 70+ production-grade rules covering bugs, security, performance, and maintainability. Customizable project standards with compliance scoring.
