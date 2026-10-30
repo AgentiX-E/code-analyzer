@@ -59,7 +59,10 @@ const TYPESCRIPT_FLOORS = {
 };
 
 function floorsFor(record) {
-  return typeof record.oracle === 'string' && record.oracle.includes('ts')
+  // **`includes('ts')` matched `scripts`.** Every record names its oracle as `scripts/callgraph-oracle…`, so the
+  // substring test selected the TypeScript floors for the Python record and the gate reported both Python corpora
+  // absent from a record that contained them. The file name decides, not a substring of the path.
+  return typeof record.oracle === 'string' && record.oracle.includes('oracle-ts')
     ? TYPESCRIPT_FLOORS
     : PYTHON_FLOORS;
 }
