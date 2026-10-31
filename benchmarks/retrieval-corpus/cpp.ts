@@ -1,0 +1,667 @@
+// @code-analyzer/analyzer — C++ Tree-sitter Provider
+
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+import {
+  collectCLikeTaintSanitizers,
+  collectCLikeTaintSinks,
+  collectCLikeTaintSources,
+} from './base-c-like.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
+import type { ParsedImport } from './provider.js';
+import type {
+  TaintSanitizer,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+  TaintSink,
+  TaintSource,
+} from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
+
+const CPP_EXTENSIONS = ['.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx'];
+const CPP_GLOBS = ['**/*.cpp', '**/*.cc', '**/*.cxx', '**/*.hpp', '**/*.hh', '**/*.hxx'];
+
+/**
+ * cpp's names for the three node kinds the collectors need. C writes `getenv("K")` and `system(cmd)`, so the
+ * interesting nodes are calls; its argument list is `argument_list` rather than the C family default `arguments`.
+ */
+const CPP_TAINT_NODES = {
+  member: ['field_expression', 'subscript_expression', 'identifier'],
+  call: ['call_expression'],
+  argumentContainer: ['argument_list'],
+};
+
+/**
+ * Declarator wrappers that can enclose a `function_declarator` in a definition.
+ *
+ * **`int &f(int &r)` is `function_definition declarator: (reference_declarator (function_declarator …))`** - the
+ * return type's `&` owns the declarator, so **the `function_declarator` is one level down**, and **a search that only
+ * looks at the definition's direct children finds nothing for every function that returns a reference or a pointer.**
+ * A probe of `int &f(int &r) { return r; }` shows the wrapping, and **the same wrapping reaches `checkExported`,
+ * which asserted the declarator was present and would have thrown on the first such function.**
+ */
+const CPP_DECLARATOR_WRAPPERS = new Set([
+  'pointer_declarator',
+  'reference_declarator',
+  'parenthesized_declarator',
+]);
+
+export class CppProvider extends TreeSitterBaseProvider {
+  readonly language = 'cpp';
+  readonly displayName = 'C++';
+  readonly extensions = CPP_EXTENSIONS;
+  readonly globs = CPP_GLOBS;
+  readonly importSemantics = 'named' as const;
+
+  protected override loadGrammar(): TreeSitterLanguage | null {
+    // tree-sitter-cpp is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-cpp') as TreeSitterLanguage;
+  }
+
+  /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
+  private namesUnder(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (current.type === 'identifier' || current.type === 'field_identifier') {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
+  }
+
+  /** The member name of a field access, for both `s.flush` and `s->flush`. */
+  private memberName(text: string): string {
+    const parts = text.split(/->|\./);
+    return parts[parts.length - 1]!;
+  }
+
+  /** The declared name under a declarator, which may be wrapped in pointer, array or function declarators. */
+  private nameIn(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | undefined {
+    if (node.type === 'identifier') return node;
+    for (const child of namedChildrenOf(node)) {
+      const found = this.nameIn(child);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  /**
+   * Every `function_declarator` a definition carries, looking through the declarator wrappers the return type adds.
+   *
+   * **A definition always has one**: the declarator field of a `function_definition` is reachable through
+   * `pointer_declarator`, `reference_declarator` or `parenthesized_declarator` chains, never absent. The recursion
+   * stops where it finds one, because a `function_declarator`'s own descendants describe the parameters, not another
+   * definition.
+   */
+  private functionDeclarators(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    return namedChildrenOf(node).flatMap((child) =>
+      child.type === 'function_declarator'
+        ? [child]
+        : CPP_DECLARATOR_WRAPPERS.has(child.type)
+          ? this.functionDeclarators(child)
+          : [],
+    );
+  }
+
+  /** Record every name under `node` as a use. */
+  private captureAccesses(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    for (const name of this.namesUnder(node)) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
+  /**
+   * Record a def for each parameter of a function, which is what makes a parameter a binding.
+   *
+   * `attachArgumentBindings` resolves a call's arguments against the function's bindings, so without this a parameter
+   * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
+   * function" - can never be matched to the sink that receives it.
+   *
+   * The node names are read from this grammar's own tree rather than assumed.
+   */
+  private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    // **The parameter list is not a child of the function**: `function_definition` holds a `function_declarator`,
+    // and the `parameter_list` hangs off that - **possibly through the wrapper the return type adds**, which is why
+    // the declarator is found by the same search that `walkAndCapture` uses rather than by looking one level down.
+    for (const declarator of this.functionDeclarators(node)) {
+      for (const list of namedChildrenOf(declarator).filter((c) => c.type === 'parameter_list')) {
+        for (const parameter of namedChildrenOf(list)) {
+          // **A C parameter wraps its name in declarators**: `char *x` is a `parameter_declaration` around a
+          // `pointer_declarator` around the identifier, so one level down finds the pointer, not the name.
+          // **`void f(void)` declares a parameter with no name at all**, so an absent name is the ordinary case
+          // rather than an impossible one.
+          const wrapped = this.nameIn(parameter);
+          if (!wrapped) continue;
+          captures.push({
+            tag: CAPTURE_TAGS.VARIABLE_DEF,
+            text: wrapped.text,
+            startLine: wrapped.startPosition.row + 1,
+            endLine: wrapped.endPosition.row + 1,
+            startByte: wrapped.startIndex,
+            endByte: wrapped.endIndex,
+            name: wrapped.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      }
+    }
+  }
+
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+
+    if (nodeType === 'function_definition') {
+      this.emitParameterDefs(node, captures);
+    }
+
+    // **C++'s statements, which it recorded none of.** Declarations alone give the pipeline no use to follow,
+    // so taint has nothing to travel along - the same gap as the other languages and the same table finds it.
+    if (nodeType === 'declaration') {
+      // **The same defect as the C provider, in a second copy of the same function.**
+      //
+      // **`int add(int a, int b);` produced no captures at all**, because **the declaration branch looked for an
+      // `init_declarator` or an `identifier` among the direct children**, and **a forward declaration's declarator is a
+      // `function_declarator`**. **And the later `else if` in this file names only `function_definition`**, so **the
+      // path that would have caught it in C does not exist here.**
+      //
+      // **That the two providers each own a copy of this walker is the reason the same bug had to be found twice** -
+      // and **the fix is applied to both rather than to the one the first failing test pointed at.**
+      // **`extractFunctionNameNode` in this file takes a DECLARATOR, not a node.**
+      //
+      // **And that is why the first attempt at this fix changed nothing.** **The two providers have a method with the
+      // same name and different signatures**: **`c.ts` takes a node and finds the `function_declarator` itself**, while
+      // **`cpp.ts` takes the declarator and looks for the name inside it.** **Passing a `declaration` to the C++ one
+      // made it search `primitive_type` and `function_declarator` for an `identifier`, find none, and return null** - so
+      // **the branch fell through to the variable path and produced nothing, exactly as before.**
+      //
+      // **The evidence was one probe away**: **`findNamedChild(decl, 'function_declarator')` returned the node**, and
+      // **`extractFunctionNameNode(decl)` returned null in the same run** - **a function that receives the right input
+      // and returns nothing is a function whose parameter means something else.**
+      const declarationDeclarator = this.functionDeclarators(node)[0];
+      const declaredFunction = declarationDeclarator
+        ? this.extractFunctionNameNode(declarationDeclarator)
+        : null;
+      if (declaredFunction) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: declaredFunction.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: declaredFunction.startIndex,
+          endByte: declaredFunction.endIndex,
+          name: declaredFunction.text,
+          properties: { filePath: this.filePath },
+        });
+        return;
+      }
+      const declarator = namedChildrenOf(node).find(
+        (c) => c.type === 'init_declarator' || c.type === 'identifier',
+      );
+      // A C declaration can wrap its name in any number of declarator wrappers - `char *sql` is an
+      // `init_declarator` around a `pointer_declarator` around the identifier - so the name is found by descending
+      // rather than by looking one level down.
+      const name = declarator ? this.nameIn(declarator) : undefined;
+      if (name) {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: name.text,
+          startLine: name.startPosition.row + 1,
+          endLine: name.endPosition.row + 1,
+          startByte: name.startIndex,
+          endByte: name.endIndex,
+          name: name.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      if (declarator && declarator.type === 'init_declarator') {
+        // `init_declarator` is `declarator '=' value` - **three children, always** - so the value is `[1]` and there
+        // is no absent case to guard.
+        this.captureAccesses(namedChildrenOf(declarator)[1]!, captures);
+      }
+    } else if (nodeType === 'assignment_expression') {
+      // `assignment_expression` is `left '=' right`; **`child(2)` always exists**, so the guard that used to sit
+      // here described a production the grammar does not have.
+      const target = node.child(0);
+      if (target.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+          text: target.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: target.startIndex,
+          endByte: target.endIndex,
+          name: target.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      this.captureAccesses(node.child(2), captures);
+    } else if (nodeType === 'call_expression') {
+      // `call_expression` is `callee(args)` - **the callee is `child(0)` and the argument list is `child(1)`, which
+      // exists even when empty**, because `g()` has one.
+      const callee = node.child(0);
+      const isMethod = callee.type === 'field_expression';
+      captures.push({
+        tag: isMethod ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: callee.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: callee.startIndex,
+        endByte: callee.endIndex,
+        // **A C++ member access is written `s->flush()` as often as `s.flush()`**, so splitting on `.` alone named the
+        // method `s->flush` - a name no definition in the graph could match.
+        name: isMethod ? this.memberName(callee.text) : callee.text,
+        properties: { filePath: this.filePath },
+      });
+      // A method call reads its receiver, so the receiver is a use.
+      if (isMethod) this.captureAccesses(callee.childForFieldName('argument')!, captures);
+      this.captureAccesses(node.child(1), captures);
+    } else if (nodeType === 'expression_statement') {
+      const inner = node.child(0);
+      if (inner.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+          text: inner.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: inner.startIndex,
+          endByte: inner.endIndex,
+          name: inner.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'function_definition') {
+      // **The span has to be the function's, not its declarator's.** A `function_declarator` ends at the closing
+      // parenthesis of the signature, so `void inner(const char *x) { ... }` was recorded as ending on its first
+      // line - and `buildCallSites` keeps a reference only when `ref.sourceLine <= symbol.endLine`, which put every
+      // call in the body outside its own function and left an empty call-site map.
+      //
+      // **The name can genuinely be absent from the declarator's direct children**: `int (*getfn())(int) { … }`
+      // declares a function that returns a function pointer, and its name sits inside a `parenthesized_declarator >
+      // pointer_declarator > function_declarator`, one level too deep for `extractFunctionNameNode` to reach. That is
+      // the case the guard below exists for.
+      const nameNode = this.extractFunctionNameNode(this.functionDeclarators(node)[0]!);
+      if (nameNode && this.isValidFnName(nameNode.text)) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'class_specifier') {
+      const nameNode = this.extractTypeNameNode(node);
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.CLASS_DEF,
+          text: `class ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'struct_specifier') {
+      const nameNode = this.extractTypeNameNode(node);
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.STRUCT_DEF,
+          text: `struct ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'enum_specifier') {
+      const nameNode = this.extractTypeNameNode(node);
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.ENUM_DEF,
+          text: `enum ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'preproc_include') {
+      const path = this.extractIncludePath(node);
+      if (path) {
+        captures.push({
+          tag: CAPTURE_TAGS.IMPORT,
+          text: path,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: path,
+          properties: { filePath: this.filePath },
+        });
+      }
+    }
+
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
+    }
+  }
+
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'preproc_include') {
+      const path = this.extractIncludePath(node);
+      if (path) {
+        imports.push({
+          source: path,
+          names: [path.split('/').pop()!],
+          type: 'named',
+          lineNumber: node.startPosition.row + 1,
+        });
+      }
+      return;
+    }
+
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
+    }
+  }
+
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    if (
+      node.type === 'function_definition' ||
+      node.type === 'class_specifier' ||
+      node.type === 'struct_specifier' ||
+      node.type === 'enum_specifier'
+    ) {
+      // For functions the name lives inside the declarator, which the return type may have wrapped;
+      // for class/struct/enum it is a direct type/qualified/template name child.
+      let nameNode: TreeSitterSyntaxNode | null;
+      if (node.type === 'function_definition') {
+        nameNode = this.extractFunctionNameNode(this.functionDeclarators(node)[0]!);
+      } else {
+        nameNode = this.extractTypeNameNode(node);
+      }
+
+      if (nameNode && nameNode.text === symbolName) {
+        // C++ file-scope declarations have external linkage (exported) unless
+        // they carry internal linkage (`static`) or sit in an anonymous namespace.
+        if (/^\s*static\b/.test(node.text)) return false;
+        if (this.isInAnonymousNamespace(node)) return false;
+        return true;
+      }
+    }
+
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
+    }
+    return false;
+  }
+
+  // Fallbacks
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+    const captures: UnifiedCapture[] = [];
+    let m: RegExpExecArray | null;
+
+    // Class definitions: class ClassName
+    const classRegex = /(?:(?:template\s*<[^>]*>\s*)?(?:class|typename)\s+)?\bclass\s+(\w+)/g;
+    while ((m = classRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+
+    // Struct definitions
+    const structRegex = /(?:typedef\s+)?struct\s+(\w+)/g;
+    while ((m = structRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.STRUCT_DEF,
+        text: `struct ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+
+    // Enum definitions
+    const enumRegex = /enum\s+(?:class\s+)?(\w+)/g;
+    while ((m = enumRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.ENUM_DEF,
+        text: `enum ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+
+    // Function definitions (return type + name + parens + {)
+    const funcRegex =
+      /(?:(?:static|inline|virtual|explicit|constexpr|const)\s+)*(?:\w+(?:<[^>]*>)?(?:::|\s+)+)?(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)/g;
+    while ((m = funcRegex.exec(source)) !== null) {
+      const name = m[1]!;
+      if (!this.isValidFnName(name)) continue;
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: name,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name,
+        properties: { filePath },
+      });
+    }
+
+    // Includes
+    const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
+    while ((m = incRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { importType: 'named', filePath },
+      });
+    }
+
+    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+  }
+
+  public override fallbackExtractImports(source: string): ParsedImport[] {
+    const imports: ParsedImport[] = [];
+    let m: RegExpExecArray | null;
+    const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
+    while ((m = incRegex.exec(source)) !== null) {
+      imports.push({
+        source: m[1]!,
+        names: [m[1]!.split('/').pop()!],
+        type: 'named',
+        lineNumber: this.ln(source, m.index),
+      });
+    }
+    return imports;
+  }
+
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
+    // In C++, everything not in an anonymous namespace is exported at file level.
+    // Check for 'static' keyword before the symbol.
+    const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const staticRegex = new RegExp(`static\\s+\\w+\\s+${s}\\s*\\(`);
+    if (staticRegex.test(source)) return false;
+
+    // Check if symbol exists as a top-level declaration
+    return new RegExp(`\\b(?:class|struct|enum|\\w+)\\s+${s}\\b`, 'g').test(source);
+  }
+
+  // Helpers
+  private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
+    }
+    return null;
+  }
+
+  /**
+   * Resolve the function name node of a `function_declarator`. The name is one
+   * of identifier (free function / constructor), field_identifier (in-class
+   * member), qualified_identifier (out-of-class `Foo::bar`), destructor_name,
+   * or operator_name. Function pointers (`int (*fp)(int)`) nest the name too
+   * deep to reach and return null.
+   */
+  private extractFunctionNameNode(declarator: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+    const id = this.findNamedChild(declarator, 'identifier');
+    if (id) return id;
+    const field = this.findNamedChild(declarator, 'field_identifier');
+    if (field) return field;
+    const qualified = this.findNamedChild(declarator, 'qualified_identifier');
+    if (qualified) return this.trailingName(qualified);
+    const dtor = this.findNamedChild(declarator, 'destructor_name');
+    if (dtor) return dtor;
+    const op = this.findNamedChild(declarator, 'operator_name');
+    if (op) return op;
+    return null;
+  }
+
+  /**
+   * Resolve the name node of a class/struct/enum specifier. The grammar emits
+   * type_identifier (plain), qualified_identifier (`class ns::Foo`), or
+   * template_type (`class Foo<T>` specialization); anonymous specifiers have
+   * no name and return null.
+   */
+  private extractTypeNameNode(specifier: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+    const typeId = this.findNamedChild(specifier, 'type_identifier');
+    if (typeId) return typeId;
+    const qualified = this.findNamedChild(specifier, 'qualified_identifier');
+    if (qualified) return this.trailingName(qualified);
+    const templateType = this.findNamedChild(specifier, 'template_type');
+    if (templateType) return this.findNamedChild(templateType, 'type_identifier');
+    return null;
+  }
+
+  /**
+   * Return the trailing (unqualified) name node of a qualified_identifier. In
+   * tree-sitter-cpp the trailing name is always the last named child, possibly
+   * nested one level deeper (`a::b::foo`).
+   */
+  private trailingName(qualified: TreeSitterSyntaxNode): TreeSitterSyntaxNode {
+    const last = qualified.namedChild(qualified.namedChildCount - 1);
+    if (last.type === 'qualified_identifier') return this.trailingName(last);
+    return last;
+  }
+
+  /** Extract the literal path of a `preproc_include`, or '' for a macro include. */
+  private extractIncludePath(node: TreeSitterSyntaxNode): string {
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === 'string_literal' || child.type === 'system_lib_string') {
+        return child.text.replace(/^["'<]|["'>]$/g, '');
+      }
+    }
+    return '';
+  }
+
+  /** Whether the node is nested inside an anonymous namespace. */
+  private isInAnonymousNamespace(node: TreeSitterSyntaxNode): boolean {
+    let parent = node.parent;
+    while (parent) {
+      if (parent.type === 'namespace_definition') {
+        const hasName =
+          this.findNamedChild(parent, 'namespace_identifier') !== null ||
+          this.findNamedChild(parent, 'nested_namespace_specifier') !== null;
+        if (!hasName) return true;
+      }
+      parent = parent.parent;
+    }
+    return false;
+  }
+
+  private isValidFnName(name: string): boolean {
+    return ![
+      'if',
+      'else',
+      'while',
+      'for',
+      'switch',
+      'case',
+      'catch',
+      'try',
+      'return',
+      'break',
+      'continue',
+      'goto',
+      'throw',
+      'new',
+      'delete',
+      'sizeof',
+      'typedef',
+      'using',
+      'namespace',
+      'template',
+      'auto',
+      'register',
+      'volatile',
+      'typeof',
+      'const',
+    ].includes(name);
+  }
+
+  private ln(source: string, offset: number): number {
+    return source.slice(0, offset).split('\n').length;
+  }
+
+  // Taint sources and sinks. C and C++ are where a buffer overflow starts, and neither had a walk.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources, CPP_TAINT_NODES);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks, CPP_TAINT_NODES);
+  }
+
+  // Sanitizers. Nothing in this family recognised one before, so every finding was reported unsanitized.
+  protected override walkForSanitizers(
+    node: TreeSitterSyntaxNode,
+    sanitizers: TaintSanitizer[],
+  ): void {
+    collectCLikeTaintSanitizers(node, sanitizers, CPP_TAINT_NODES);
+  }
+}

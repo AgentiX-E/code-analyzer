@@ -3,3 +3,8 @@ dist/
 .turbo/
 coverage/
 pnpm-lock.yaml
+# **A measurement input is not code we maintain.** `benchmarks/retrieval-corpus/` is a snapshot of a directory the
+# retrieval measurement runs on, and a formatter that reformatted it would change the corpus a recorded figure was
+# measured against - the same reason the questions beside it are frozen. It passes `--check` today; the entry is here so
+# that a future change to the formatter's opinion cannot silently rewrite the input.
+benchmarks/retrieval-corpus/

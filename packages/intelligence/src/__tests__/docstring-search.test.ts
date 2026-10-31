@@ -45,8 +45,16 @@ import type { PipelineContext } from '@code-analyzer/shared';
  * **The largest documented corpus in this repository that indexes in the time available.** Twenty-one files carry
  * block comments, against one in the directory this measurement started on - and **seven queries cannot separate a
  * good retriever from a lucky one**, which is the reason for moving.
+ *
+ * **It is a snapshot, and it is the same snapshot `paraphrase-search.test.ts` measures.** This file derives its queries
+ * from the corpus at run time, so it cannot go stale the way a frozen question set can - but a figure is only
+ * reproducible if its input is fixed, and this one was not: a commit that touched `packages/analyzer/src/languages`
+ * moved the corpus under it, and the published figure moved with the corpus rather than with the retriever. On
+ * 2026-10-29 a tie-breaking fix moved it again and the run was right to call it out. **One corpus, two protocols** -
+ * here the doc comment is the query and the index holds it, there the query is a paraphrase and the index holds
+ * nothing - so the two figures are finally comparable with themselves and with each other.
  */
-const CORPUS = 'packages/analyzer/src/languages';
+const CORPUS = 'benchmarks/retrieval-corpus';
 const TOP_K = 20;
 /** The cut a user actually looks at. Reported beside top 20 because they answer different questions. */
 const TOP_5 = 5;

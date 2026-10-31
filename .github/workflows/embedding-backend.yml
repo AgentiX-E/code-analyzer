@@ -25,6 +25,8 @@ on:
       - 'packages/intelligence/src/search/hybrid-search.ts'
       - 'packages/intelligence/src/__tests__/paraphrase-search.test.ts'
       - 'benchmarks/paraphrase-queries.json'
+      - 'benchmarks/retrieval-corpus/**'
+      - 'benchmarks/retrieval-corpus.md'
       - 'packages/intelligence/src/__tests__/docstring-search.test.ts'
       - '.github/workflows/embedding-backend.yml'
 

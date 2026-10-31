@@ -11,7 +11,13 @@
 // Without it the measurement still happens - the assertion still runs, the printed line still appears - and the
 // committed artifact is left alone, with a `because` that says why.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+// **And a figure may not be replaced by a weaker measurement of the same question.** `space.semantic` says whether the
+// semantic half ran, and it is not a detail of the artifact: a run with `true` and a run with `false` are two different
+// measurements, the second being the fallback. **A laptop without `ZHIPU_API_KEY` therefore may not overwrite a
+// runner's figure even with `BENCHMARK_WRITE=1`** - which is exactly how the docstring artifact in this repository lost
+// its vector column and published a lexical figure under a semantic name for two commits.
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, posix, resolve } from 'node:path';
 
 /** The environment variable that turns recording on. Strictly `1`: a typo must read as off, not as half-on. */
@@ -39,6 +45,30 @@ export function artifactRecordingEnabled(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   return env[ARTIFACT_WRITE_ENV] === '1';
+}
+
+/**
+ * Whether a figure's semantic half ran, when the artifact says so.
+ *
+ * @param value an artifact body, which may be any shape: a non-object, a missing `space`, or a `semantic` that is not a
+ *   boolean all read as "this artifact makes no claim about a measurement space".
+ */
+function semanticHalfRan(value: unknown): boolean | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const space = (value as { space?: unknown }).space;
+  if (typeof space !== 'object' || space === null) return undefined;
+  const semantic = (space as { semantic?: unknown }).semantic;
+  return typeof semantic === 'boolean' ? semantic : undefined;
+}
+
+/** The space of the figure already on disk. **Read leniently**: an unreadable file makes no claim and blocks nothing. */
+function publishedSemanticHalf(absolute: string): boolean | undefined {
+  if (!existsSync(absolute)) return undefined;
+  try {
+    return semanticHalfRan(JSON.parse(readFileSync(absolute, 'utf8')));
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -72,6 +102,15 @@ export function recordArtifact(
     };
   }
   const absolute = resolve(process.cwd(), normalised);
+  // **Only an explicit `false` blocks a write.** An artifact that records no space at all is a different artifact, and
+  // a refused write has to be explainable in one sentence to the person who set the variable.
+  if (publishedSemanticHalf(absolute) === true && semanticHalfRan(value) === false) {
+    return {
+      path: normalised,
+      written: false,
+      because: `${normalised} records a figure measured with the semantic half running and this run could not run it: that is a different measurement, not a newer one (delete the file to publish a fallback figure)`,
+    };
+  }
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, JSON.stringify(value, null, 2) + '\n', 'utf8');
   return { path: normalised, written: true, because: `written with ${ARTIFACT_WRITE_ENV}=1` };

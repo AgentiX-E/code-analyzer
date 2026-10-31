@@ -1,0 +1,535 @@
+// @code-analyzer/analyzer — Ruby Tree-sitter Provider (with regex fallback)
+
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+import {
+  collectCLikeTaintSanitizers,
+  collectCLikeTaintSinks,
+  collectCLikeTaintSources,
+} from './base-c-like.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
+import type { ParsedImport } from './provider.js';
+import type {
+  TaintSanitizer,
+  NodeTypeMapping,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+  TaintSink,
+  TaintSource,
+} from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
+
+const RUBY_EXTENSIONS = ['.rb'];
+const RUBY_GLOBS = ['**/*.rb'];
+
+/**
+ * Ruby's names for the three node kinds the collectors need. Ruby has one call node, so `params[:id]` and
+ * `File.read(path)` are both `call`; what distinguishes them is the text the collectors compare.
+ */
+const RUBY_TAINT_NODES = {
+  // `identifier`, because `params[:id]` is an `element_reference` whose **text is the whole expression** — the name
+  // `params` lives on the `identifier` inside it, and the source matcher compares the text. Ordinary identifiers are
+  // filtered out by the vocabulary, so listing them costs nothing.
+  member: ['call', 'element_reference', 'constant', 'identifier'],
+  call: ['call'],
+  argumentContainer: ['argument_list'],
+};
+
+export class RubyProvider extends TreeSitterBaseProvider {
+  readonly language = 'ruby';
+  readonly displayName = 'Ruby';
+  readonly extensions = RUBY_EXTENSIONS;
+  readonly globs = RUBY_GLOBS;
+  readonly importSemantics = 'named' as const;
+
+  protected override loadGrammar(): TreeSitterLanguage | null {
+    // tree-sitter-ruby is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-ruby') as TreeSitterLanguage;
+  }
+
+  protected override getNodeMappings(): NodeTypeMapping[] {
+    return [
+      { nodeType: 'method', captureTag: CAPTURE_TAGS.METHOD_DEF, nameChildType: 'identifier' },
+      { nodeType: 'class', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'constant' },
+      { nodeType: 'module', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'constant' },
+      {
+        nodeType: 'singleton_method',
+        captureTag: CAPTURE_TAGS.METHOD_DEF,
+        nameChildType: 'identifier',
+      },
+    ];
+  }
+
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    const nodeType = node.type;
+
+    // Ruby: classes, modules, methods are public by default
+    if (
+      nodeType === 'class' ||
+      nodeType === 'module' ||
+      nodeType === 'method' ||
+      nodeType === 'singleton_method'
+    ) {
+      const nameNode =
+        this.findNamedChild(node, 'constant') ?? this.findNamedChild(node, 'identifier');
+      if (nameNode && nameNode.text === symbolName) return true;
+    }
+
+    // Check children (class/module bodies may contain methods)
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
+    }
+
+    return false;
+  }
+
+  /** Every identifier under `node`, in document order, without descending again where the walk will arrive. */
+  private namesUnder(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode[] {
+    const out: TreeSitterSyntaxNode[] = [];
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      if (['identifier', 'constant'].includes(current.type)) {
+        out.push(current);
+        return;
+      }
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+    return out;
+  }
+
+  /** Record every name under `node` as a use. */
+  private captureAccesses(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    for (const name of this.namesUnder(node)) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_ACCESS,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
+  /**
+   * Record a def for each parameter of a function, which is what makes a parameter a binding.
+   *
+   * `attachArgumentBindings` resolves a call's arguments against the function's bindings, so without this a parameter
+   * passed to a callee is recorded as `-1` and the taint the interprocedural wave carries - "parameter 0 of this
+   * function" - can never be matched to the sink that receives it.
+   *
+   * The node names are read from this grammar's own tree rather than assumed.
+   *
+   * **Every parameter kind carries a `name:` field** - a probe of `def m(a = 1, *rest)` gives
+   * `optional_parameter name: (identifier) value: …` and `splat_parameter name: (identifier)` - so the name is read
+   * from the production rather than searched for, and **an anonymous splat (`def m(*)`) is the one parameter with no
+   * name at all**, which the filter drops.
+   */
+  private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    // **A method without parameters has no `method_parameters` child at all** - `def m; end` is
+    // `method name: (identifier) body: …` - so the list is genuinely optional rather than always present.
+    //
+    // **And a plain parameter is a bare `identifier`, while every wrapped kind carries `name:`** - `def m(a, b = 1,
+    // *rest)` is `(identifier) (optional_parameter name: …) (splat_parameter name: …)` - so both shapes are read, and
+    // **`def m(*)` is the one parameter with neither**, which is what the empty list is for.
+    const names = namedChildrenOf(node)
+      .flatMap((child) => (child.type === 'method_parameters' ? namedChildrenOf(child) : []))
+      .flatMap((parameter) => {
+        const named = parameter.childForFieldName('name');
+        return named ? [named] : parameter.type === 'identifier' ? [parameter] : [];
+      });
+    for (const name of names) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: name.text,
+        startLine: name.startPosition.row + 1,
+        endLine: name.endPosition.row + 1,
+        startByte: name.startIndex,
+        endByte: name.endIndex,
+        name: name.text,
+        properties: { filePath: this.filePath },
+      });
+    }
+  }
+
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+
+    if (nodeType === 'method' || nodeType === 'singleton_method') {
+      this.emitParameterDefs(node, captures);
+    }
+
+    // **Ruby's statements, which it recorded none of.**
+    if (nodeType === 'assignment') {
+      // **The target is an `identifier` for `x = …` and an `instance_variable`/`global_variable`/`constant` for the
+      // others** - a probe of `@count = 1` shows `assignment left: (instance_variable)` - so the type test is what
+      // separates a local write from a field write.
+      const target = node.child(0);
+      if (target.type === 'identifier') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: target.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: target.startIndex,
+          endByte: target.endIndex,
+          name: target.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+      this.captureAccesses(node.child(2), captures);
+      // **And a constant assignment is an assignment, so it is handled in the same branch.**
+      //
+      // **This block used to sit in an `else` attached to this very `if`** - `} else` on one line and
+      // `if (nodeType === 'assignment')` on the next - so **it was the else-branch of the test that had already
+      // matched**, and **`MAX_SIZE = 100` produced no `CONSTANT_DEF` at all.**
+      //
+      // **That is a third shape of the same mistake**: `java.ts` and `python.ts` each had **two `else if` clauses on
+      // one node type**, and this one has **one condition inside the `else` of itself** - **harder to see, because
+      // there is no repeated `else if` to search for** - and **the same symptom: a test asking a branch that cannot
+      // run.**
+      const constantChild = this.findNamedChild(node, 'constant');
+      if (constantChild) {
+        captures.push({
+          tag: CAPTURE_TAGS.CONSTANT_DEF,
+          text: constantChild.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: constantChild.startIndex,
+          endByte: constantChild.endIndex,
+          name: constantChild.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'call') {
+      // **`call` is `receiver? '.' method(arguments?)`, and the method is its own field**: a probe of `obj.foo` gives
+      // `(call receiver: (identifier) method: (identifier))`, so **taking `child(0)` named the receiver** - `obj` -
+      // and every method call in the corpus was recorded under its object's name.
+      const methodNode = node.childForFieldName('method')!;
+      const receiver = node.childForFieldName('receiver');
+      captures.push({
+        tag: receiver ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
+        text: methodNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: methodNode.startIndex,
+        endByte: methodNode.endIndex,
+        name: methodNode.text,
+        properties: { filePath: this.filePath },
+      });
+      // A call reads its receiver, and a call without parentheses (`obj.foo`) has no argument list at all.
+      if (receiver) this.captureAccesses(receiver, captures);
+      const args = node.childForFieldName('arguments');
+      if (args) this.captureAccesses(args, captures);
+    }
+
+    // Handle method calls (attr_accessor, import/require)
+    if (nodeType === 'call') {
+      let methodName = '';
+      for (const child of namedChildrenOf(node)) {
+        if (child.type === 'identifier') {
+          methodName = child.text;
+          break;
+        }
+      }
+
+      // attr_accessor, attr_reader, attr_writer
+      if (methodName.startsWith('attr_')) {
+        for (const child of namedChildrenOf(node)) {
+          if (child.type === 'argument_list') {
+            for (let j = 0; j < child.namedChildCount; j++) {
+              const arg = child.namedChild(j);
+              const name =
+                arg.type === 'simple_symbol'
+                  ? arg.text.replace(/^:/, '')
+                  : arg.type === 'string'
+                    ? arg.text.slice(1, -1)
+                    : arg.text;
+              captures.push({
+                tag: CAPTURE_TAGS.VARIABLE_DEF,
+                text: name,
+                startLine: arg.startPosition.row + 1,
+                endLine: arg.endPosition.row + 1,
+                startByte: arg.startIndex,
+                endByte: arg.endIndex,
+                name,
+                properties: { isAttribute: 'true', filePath: this.filePath },
+              });
+            }
+          }
+        }
+      }
+
+      // require / require_relative / load → emit as import
+      if (methodName === 'require' || methodName === 'require_relative' || methodName === 'load') {
+        for (const child of namedChildrenOf(node)) {
+          if (child.type === 'argument_list') {
+            for (let j = 0; j < child.namedChildCount; j++) {
+              const arg = child.namedChild(j);
+              if (arg.type === 'string') {
+                const raw = arg.text;
+                const path = raw.slice(1, -1);
+                captures.push({
+                  tag: CAPTURE_TAGS.IMPORT,
+                  text: path,
+                  startLine: arg.startPosition.row + 1,
+                  endLine: arg.endPosition.row + 1,
+                  startByte: arg.startIndex,
+                  endByte: arg.endIndex,
+                  name: path,
+                  properties: { filePath: this.filePath },
+                });
+              }
+            }
+          }
+        }
+        return; // Don't recurse into import calls
+      }
+    }
+
+    // Delegate to base class for mapped node types (class, module, method, singleton_method)
+    super.walkAndCapture(node, captures);
+  }
+
+  // ---- Import extraction (tree-sitter AST) ----
+
+  /**
+   * Walk the AST to find and extract Ruby import statements.
+   * Ruby uses `require`, `require_relative`, and `load` calls,
+   * which are parsed as `call` nodes in the tree-sitter AST.
+   *
+   * Syntax handled:
+   *   require 'json'                  // standard library / gem
+   *   require_relative '../lib/foo'   // relative path
+   *   load 'config.rb'                // load a file
+   */
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'call') {
+      this.extractRubyRequireImport(node, imports);
+      return; // Don't recurse into call children
+    }
+
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
+    }
+  }
+
+  /**
+   * Extract import details from a Ruby `call` AST node.
+   * Checks if the call is to `require`, `require_relative`, or `load`,
+   * then extracts the string argument as the import source.
+   */
+  private extractRubyRequireImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    const lineNumber = node.startPosition.row + 1;
+
+    // Find the method identifier (require, require_relative, load). A call's
+    // first named child may be a receiver (`self`, a `constant`, ...), so scan
+    // past it to the `identifier` that names the invoked method.
+    let methodName = '';
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === 'identifier') {
+        methodName = child.text;
+        break;
+      }
+    }
+
+    if (methodName !== 'require' && methodName !== 'require_relative' && methodName !== 'load') {
+      return;
+    }
+
+    // The string argument always lives inside an `argument_list` (tree-sitter-ruby
+    // emits one even without parentheses). Non-string arguments (a variable or
+    // constant) are skipped.
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === 'argument_list') {
+        for (let j = 0; j < child.namedChildCount; j++) {
+          const sub = child.namedChild(j);
+          if (sub.type === 'string') {
+            const raw = sub.text;
+            const path = raw.slice(1, -1);
+            // `split('/').pop()` is typed `string | undefined`; slicing after the last
+            // separator is the same value and total.
+            const name = path.slice(path.lastIndexOf('/') + 1);
+            imports.push({ source: path, names: [name], type: 'named', lineNumber });
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // Fallbacks
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+    const captures: UnifiedCapture[] = [];
+    let m: RegExpExecArray | null;
+
+    // Method definitions: def method_name or def self.method_name
+    const methRegex = /def\s+(?:self\.)?(\w+[?!]?)/g;
+    while ((m = methRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.METHOD_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+
+    // Classes (uppercase start convention)
+    const clsRegex = /class\s+([A-Z]\w*)/g;
+    while ((m = clsRegex.exec(source)) !== null) {
+      let baseClasses = '';
+      const afterClass = source.slice(m.index + m[0].length, m.index + m[0].length + 100);
+      const extendsMatch = afterClass.match(/<\s*([A-Z]\w*)/);
+      if (extendsMatch) baseClasses = extendsMatch[1]!;
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { baseClasses, filePath },
+      });
+    }
+
+    // Modules
+    const modRegex = /module\s+([A-Z]\w*)/g;
+    while ((m = modRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `module ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { isModule: 'true', filePath },
+      });
+    }
+
+    // Constants
+    const constRegex = /([A-Z][A-Z_]*[A-Z]\w*)\s*=/g;
+    while ((m = constRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.CONSTANT_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+
+    // attr_accessor, attr_reader, attr_writer
+    const attrRegex = /attr_(?:accessor|reader|writer)\s+:(\w+)/g;
+    while ((m = attrRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { isAttribute: 'true', filePath },
+      });
+    }
+
+    // Imports (require, require_relative, load) — mirror the tree-sitter path
+    // and fallbackExtractImports so the regex fallback does not silently drop
+    // the relative/load forms.
+    const impRegex = /(?:require|require_relative|load)\s+['"]([^'"]+)['"]/g;
+    while ((m = impRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+
+    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+  }
+
+  public override fallbackExtractImports(source: string): ParsedImport[] {
+    const imports: ParsedImport[] = [];
+    let m: RegExpExecArray | null;
+
+    // require, require_relative, load
+    const reqRegex = /(?:require|require_relative|load)\s+['"]([^'"]+)['"]/g;
+    while ((m = reqRegex.exec(source)) !== null) {
+      const path = m[1]!;
+      const name = path.slice(path.lastIndexOf('/') + 1);
+      imports.push({
+        source: path,
+        names: [name],
+        type: 'named',
+        lineNumber: this.ln(source, m.index),
+      });
+    }
+
+    return imports;
+  }
+
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
+    // Ruby: methods are public by default
+    const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Check if any private/protected keyword comes before the method
+    const isPrivate =
+      source.includes('private') && source.indexOf('private') < source.indexOf(`def ${symbolName}`);
+    return (
+      !isPrivate &&
+      new RegExp(`def\\s+(?:self\.)?${s}\\b|class\\s+${s}\\b|module\\s+${s}\\b`).test(source)
+    );
+  }
+
+  // ---- Utility helpers ----
+
+  /**
+   * Find the first named child with the given type.
+   */
+  protected findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
+    }
+    return null;
+  }
+
+  private ln(source: string, offset: number): number {
+    return source.slice(0, offset).split('\n').length;
+  }
+
+  // Taint sources and sinks. Ruby reads its input from `params`, and Rails is where a great deal of it arrives.
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    collectCLikeTaintSources(node, sources, RUBY_TAINT_NODES);
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    collectCLikeTaintSinks(node, sinks, RUBY_TAINT_NODES);
+  }
+
+  // Sanitizers. Nothing in this family recognised one before, so every finding was reported unsanitized.
+  protected override walkForSanitizers(
+    node: TreeSitterSyntaxNode,
+    sanitizers: TaintSanitizer[],
+  ): void {
+    collectCLikeTaintSanitizers(node, sanitizers, RUBY_TAINT_NODES);
+  }
+}

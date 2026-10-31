@@ -1,0 +1,361 @@
+// @code-analyzer/analyzer — Rust Tree-sitter Provider
+
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+
+import type { ParsedImport } from './provider.js';
+import type {
+  NodeTypeMapping,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from './tree-sitter-base.js';
+import type { UnifiedCapture } from '@code-analyzer/shared';
+
+const RUST_EXTENSIONS = ['.rs'];
+const RUST_GLOBS = ['**/*.rs'];
+
+export class RustProvider extends TreeSitterBaseProvider {
+  readonly language = 'rust';
+  readonly displayName = 'Rust';
+  readonly extensions = RUST_EXTENSIONS;
+  readonly globs = RUST_GLOBS;
+  readonly importSemantics = 'named' as const;
+
+  protected override loadGrammar(): TreeSitterLanguage | null {
+    // tree-sitter-rust is a direct dependency of the analyzer, so this require
+    // never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-rust') as TreeSitterLanguage;
+  }
+
+  protected override getNodeMappings(): NodeTypeMapping[] {
+    return [
+      {
+        nodeType: 'function_item',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
+        nameChildType: 'identifier',
+      },
+      {
+        nodeType: 'struct_item',
+        captureTag: CAPTURE_TAGS.CLASS_DEF,
+        nameChildType: 'type_identifier',
+      },
+      {
+        nodeType: 'trait_item',
+        captureTag: CAPTURE_TAGS.INTERFACE_DEF,
+        nameChildType: 'type_identifier',
+      },
+      {
+        nodeType: 'enum_item',
+        captureTag: CAPTURE_TAGS.ENUM_DEF,
+        nameChildType: 'type_identifier',
+      },
+      { nodeType: 'use_declaration', captureTag: CAPTURE_TAGS.IMPORT, useFirstNamedChild: true },
+    ];
+  }
+
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+
+    if (nodeType === 'function_item') {
+      // A function_item always carries its name as a direct `identifier` child.
+      const nameNode = this.requireChild(node, 'identifier');
+      const isPublic = this.source
+        .slice(Math.max(0, node.startIndex - 5), node.startIndex)
+        .includes('pub');
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { isPublic: String(isPublic), filePath: this.filePath },
+      });
+    } else if (nodeType === 'struct_item') {
+      // A struct_item always carries its name as a direct `type_identifier` child.
+      const nameNode = this.requireChild(node, 'type_identifier');
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `struct ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'trait_item') {
+      // A trait_item always carries its name as a direct `type_identifier` child.
+      const nameNode = this.requireChild(node, 'type_identifier');
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `trait ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'enum_item') {
+      // An enum_item always carries its name as a direct `type_identifier` child.
+      const nameNode = this.requireChild(node, 'type_identifier');
+      captures.push({
+        tag: CAPTURE_TAGS.ENUM_DEF,
+        text: `enum ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'impl_item') {
+      // impl block - extract type name
+      const typeNode = this.findChild(node, 'type_identifier');
+      if (typeNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.CLASS_DEF,
+          text: `impl ${typeNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: typeNode.startIndex,
+          endByte: typeNode.endIndex,
+          name: typeNode.text,
+          properties: { isImpl: 'true', filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'const_item' || nodeType === 'static_item') {
+      // A const/static item always carries its name as a direct `identifier` child.
+      const nameNode = this.requireChild(node, 'identifier');
+      captures.push({
+        tag: CAPTURE_TAGS.CONSTANT_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'use_declaration') {
+      // use_declaration wraps a scoped_identifier (named), use_wildcard (glob),
+      // or use_as_clause (aliased); resolve the scoped path in each shape
+      const wildcard = this.findChild(node, 'use_wildcard');
+      const asClause = this.findChild(node, 'use_as_clause');
+      const scopedId = wildcard
+        ? this.findChild(wildcard, 'scoped_identifier')
+        : asClause
+          ? this.findChild(asClause, 'scoped_identifier')
+          : this.findChild(node, 'scoped_identifier');
+      if (scopedId) {
+        const path = wildcard ? `${scopedId.text}::*` : scopedId.text;
+        captures.push({
+          tag: CAPTURE_TAGS.IMPORT,
+          text: path,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: path,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'attribute_item') {
+      // #[derive(Debug)] — the attribute name is an identifier nested inside
+      // the 'attribute' child, not a direct identifier of the attribute_item.
+      // An attribute_item always carries an `attribute` child whose first named
+      // child is the attribute's identifier name.
+      const attrNode = this.requireChild(node, 'attribute');
+      const nameNode = this.requireChild(attrNode, 'identifier');
+      captures.push({
+        tag: CAPTURE_TAGS.DECORATOR,
+        text: node.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: nameNode.text,
+        properties: { decorator: nameNode.text, filePath: this.filePath },
+      });
+    }
+
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
+    }
+  }
+
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'use_declaration') {
+      const line = node.startPosition.row + 1;
+      // use_declaration wraps a scoped_identifier (named), use_wildcard (glob),
+      // or use_as_clause (aliased); resolve the scoped path in each shape
+      const wildcard = this.findChild(node, 'use_wildcard');
+      const asClause = this.findChild(node, 'use_as_clause');
+      const scopedId = wildcard
+        ? this.findChild(wildcard, 'scoped_identifier')
+        : asClause
+          ? this.findChild(asClause, 'scoped_identifier')
+          : this.findChild(node, 'scoped_identifier');
+      if (scopedId) {
+        const path = scopedId.text;
+        const isWildcard = wildcard !== null;
+        const parts = path.split('::');
+        imports.push({
+          source: path,
+          names: isWildcard ? [] : [parts[parts.length - 1]!],
+          type: isWildcard ? 'wildcard' : 'named',
+          lineNumber: line,
+        });
+      }
+      return;
+    }
+
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
+    }
+  }
+
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    if (
+      node.type === 'function_item' ||
+      node.type === 'struct_item' ||
+      node.type === 'trait_item' ||
+      node.type === 'enum_item' ||
+      node.type === 'impl_item' ||
+      node.type === 'const_item' ||
+      node.type === 'static_item'
+    ) {
+      const before = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex);
+      const nodeText = this.source.slice(
+        node.startIndex,
+        Math.min(node.startIndex + 20, this.source.length),
+      );
+      if (before.includes('pub') || nodeText.includes('pub ')) {
+        const nameNode =
+          this.findChild(node, 'identifier') || this.findChild(node, 'type_identifier');
+        if (nameNode && nameNode.text === symbolName) return true;
+      }
+    }
+
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
+    }
+    return false;
+  }
+
+  // Fallbacks
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+    const captures: UnifiedCapture[] = [];
+    let m: RegExpExecArray | null;
+    const fnRegex = /(?:pub(?:\s*\(\s*crate\s*\))?\s+)?fn\s+(\w+)/g;
+    while ((m = fnRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+    const stRegex = /(?:pub\s+)?struct\s+(\w+)/g;
+    while ((m = stRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `struct ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+    const trRegex = /(?:pub\s+)?trait\s+(\w+)/g;
+    while ((m = trRegex.exec(source)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `trait ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
+    }
+    const uses = this.fallbackExtractImports(source);
+    for (const u of uses) {
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: u.source,
+        startLine: u.lineNumber,
+        endLine: u.lineNumber,
+        startByte: 0,
+        endByte: 0,
+        name: u.source,
+        properties: { names: u.names.join(','), importType: u.type, filePath },
+      });
+    }
+    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+  }
+
+  public override fallbackExtractImports(source: string): ParsedImport[] {
+    const imports: ParsedImport[] = [];
+    let m: RegExpExecArray | null;
+    const regex = /use\s+([\w:]+(?:::[\w*]+)*)\s*;/g;
+    while ((m = regex.exec(source)) !== null) {
+      const parts = m[1]!.split('::');
+      const last = parts[parts.length - 1]!;
+      imports.push({
+        source: m[1]!,
+        names: last === '*' ? [] : [last],
+        type: last === '*' ? 'wildcard' : 'named',
+        lineNumber: this.ln(source, m.index),
+      });
+    }
+    return imports;
+  }
+
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
+    const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(
+      `pub\\s+(?:fn|struct|enum|trait|mod|type|const|static|union)\\s+${s}\\b`,
+    ).test(source);
+  }
+
+  /**
+   * The direct child of the given type, which the grammar guarantees.
+   *
+   * Every call site below sits on a node type that always carries this child in an
+   * error-free parse. `findChild` would make each of them re-check a condition the
+   * grammar already settles; throwing names the violation once, at the point it is
+   * detected, instead of letting `undefined` reach a capture and record it as a
+   * symbol name.
+   */
+  private requireChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode {
+    const child = this.findChild(node, type);
+    if (!child) {
+      throw new Error(`rust: no ${type} child on ${node.type}`);
+    }
+    return child;
+  }
+
+  private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
+    }
+    return null;
+  }
+
+  private ln(source: string, offset: number): number {
+    return source.slice(0, offset).split('\n').length;
+  }
+}

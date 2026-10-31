@@ -41,7 +41,24 @@ import { rerankCandidates } from '../search/rerank.js';
 import type { HybridSearchResult } from '../search/hybrid-search.js';
 import type { GraphNode, PipelineContext } from '@code-analyzer/shared';
 
-const CORPUS = 'packages/analyzer/src/languages';
+/**
+ * **A snapshot, not a directory of the product - and that is the whole correction.**
+ *
+ * Freezing the questions and letting the corpus move is freezing half a measurement. The questions were written from
+ * `packages/analyzer/src/languages` on 2026-10-26; on 2026-10-29 two refactors renamed four symbols they ask about -
+ * `ArkTSProvider.walkAndCapture` became `captureTypes` (`818f9bd`) and the three `collectCLikeTaint*` helpers became one
+ * `collectCLikeTaint` (`e0d5f68`). **From then on every run of this file failed**, and the failure was a fact about the
+ * corpus rather than about the retriever: four questions named answers that no longer existed, and a question whose
+ * answer is gone scores as a miss for both columns.
+ *
+ * `benchmarks/retrieval-corpus/` holds that directory as of `4ae5c62` - the last commit in which all ninety-nine names
+ * still existed - so the two inputs are pinned to each other and neither can drift underneath the other. It answers all
+ * ninety-nine questions at 3 600 nodes, and it is **the first corpus this file has had that cannot move**: the recorded
+ * figure was measured on 2026-10-27 against the live directory at 3 357 nodes, so it is re-measured once here and then
+ * only the retriever can change it. Editing the snapshot is a deliberate act in the same sense that regenerating the
+ * questions is, and `benchmarks/retrieval-corpus.md` beside it says how.
+ */
+const CORPUS = 'benchmarks/retrieval-corpus';
 const TOP_K = 20;
 const TOP_5 = 5;
 const MIN_DOCSTRING = 30;
@@ -149,6 +166,31 @@ function writeQuerySet(path: string, queries: FrozenQuery[], dropped: number): v
     ) + '\n',
     'utf8',
   );
+}
+
+/**
+ * The pinned corpus, analysed.
+ *
+ * **The same call the measurement makes**, and two seconds of work: small enough that the integrity check below runs on
+ * every machine, credentials or not, rather than only where the semantic half can run.
+ */
+async function analyseCorpus(): Promise<{
+  corpusRoot: string;
+  pipeline: Awaited<ReturnType<PipelineOrchestrator['execute']>>;
+}> {
+  const corpusRoot = resolve(process.cwd(), CORPUS);
+  const ctx = {
+    projectId: 'paraphrase-search',
+    rootPath: corpusRoot,
+    config: getDefaultConfig(),
+    signal: new AbortController().signal,
+    metadata: {},
+  } as unknown as PipelineContext;
+  const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(ctx);
+  // **Every phase but the external tool probe**, which reports the absence of a toolchain as an error and would make
+  // this file depend on what is installed on the machine that runs it.
+  expect(pipeline.errors.map((e) => e.phaseId).filter((id) => id !== 'tools')).toEqual([]);
+  return { corpusRoot, pipeline };
 }
 
 /** One candidate composition, measured on the same questions as the control. */
@@ -347,7 +389,7 @@ describe('the recall arithmetic', () => {
   it('matches an answer with the corpus root removed, so two machines agree', () => {
     // **The absolute path a runner hands out and the relative one the frozen set stores are the same answer**, and the
     // qualified name of a file-scoped symbol carries that absolute path inside it.
-    const root = '/home/runner/work/code-analyzer/code-analyzer/packages/analyzer/src/languages';
+    const root = '/home/runner/work/code-analyzer/code-analyzer/benchmarks/retrieval-corpus';
     expect(
       answerKey(
         { filePath: `${root}/arkts.ts`, qualifiedName: `project:p:file:${root}/arkts.ts:walk` },
@@ -358,25 +400,36 @@ describe('the recall arithmetic', () => {
   });
 });
 
+// **The two inputs are pinned to each other, and this is the assertion that says so.** It needs no credential, because
+// the defect it guards against ran for four days precisely because the only check lived inside a block that is skipped
+// wherever one is absent: a question about a symbol the corpus has lost is a broken measurement, not a retrieval miss,
+// and scoring it as a miss understates whichever column is being compared.
+describe('the frozen questions and the frozen corpus', () => {
+  it('asks only about symbols the corpus still has', async () => {
+    const { corpusRoot, pipeline } = await analyseCorpus();
+    const present = new Set(
+      [...pipeline.graph.nodes.values()].map((node) => answerKey(node, corpusRoot)),
+    );
+    const frozen = readQuerySet(QUERY_SET);
+    expect(frozen, `${QUERY_SET} is the input this measurement is defined on`).not.toBeNull();
+    const unknown = (frozen?.queries ?? []).filter(
+      (candidate) => !present.has(`${candidate.file}::${candidate.qualifiedName}`),
+    );
+    expect(
+      unknown.map((candidate) => `${candidate.file}::${candidate.qualifiedName}`),
+      `${QUERY_SET} asks about symbols ${CORPUS} no longer contains`,
+    ).toEqual([]);
+  }, 120_000);
+});
+
 describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
   'finding a symbol from a paraphrase, with its documentation removed',
   () => {
     it('measures lexical and fused recall on an index that holds no doc comments', async () => {
       // **The root the graph was built from, and the one both sides of every match are normalised against.**
-      const corpusRoot = resolve(process.cwd(), CORPUS);
+      const { corpusRoot, pipeline } = await analyseCorpus();
       const frozenKey = (candidate: FrozenQuery): string =>
         `${candidate.file}::${candidate.qualifiedName}`;
-
-      const ctx = {
-        projectId: 'paraphrase-search',
-        rootPath: corpusRoot,
-        config: getDefaultConfig(),
-        signal: new AbortController().signal,
-        metadata: {},
-      } as unknown as PipelineContext;
-
-      const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(ctx);
-      expect(pipeline.errors.map((e) => e.phaseId).filter((id) => id !== 'tools')).toEqual([]);
 
       // **Every node loses its doc comment before indexing**, for every symbol rather than for the queried one: a
       // leave-one-out index would need a rebuild per query, and a global strip is the same statement about every query
@@ -439,14 +492,9 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         source = 'frozen';
         dropped = frozen.dropped;
         paraphrases.push(...frozen.queries);
-        // **A question about a symbol the corpus no longer has is a broken measurement, not a miss.** Silently scoring
-        // it as a retrieval failure would turn a corpus edit into a regression of the retriever.
-        const present = new Set([...stripped.values()].map((node) => answerKey(node, corpusRoot)));
-        const unknown = paraphrases.filter((candidate) => !present.has(frozenKey(candidate)));
-        expect(
-          unknown.map((candidate) => frozenKey(candidate)),
-          `${QUERY_SET} asks about symbols this corpus no longer contains; regenerate it`,
-        ).toEqual([]);
+        // **That every question still has an answer is asserted in `the frozen questions and the frozen corpus`**, which
+        // runs on a machine with no credential. The check used to live here, inside a block that is skipped without one,
+        // which is how four questions about renamed symbols scored as misses for four days without a red run that said so.
       } else {
         source = 'generated';
         // **The queries come from the doc comments of the *original* graph** - the documentation is the source of the
@@ -734,6 +782,11 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
           '**The questions are written by DeepSeek from the documentation**, with a rule against using the symbol name,',
           'and a question that still contains one is dropped and counted in `dropped`. **The set is frozen in',
           '`benchmarks/paraphrase-queries.json`** so that two runs differ in the retriever and not in the questions.',
+          '',
+          '**The corpus is pinned the same way.** `benchmarks/retrieval-corpus` is the tree those questions were written',
+          'from, so this figure is comparable with the figure from any other commit: both inputs are fixed and only the',
+          'retriever moves between runs. When the corpus was the live `packages/analyzer/src/languages`, a rename in the',
+          'product invalidated four questions and the measurement failed for four days without measuring anything.',
           '',
           '**Every column is measured at the same cut**: `recallAt20` counts answers inside the top 20, `mrr` gives a rank',
           'beyond 20 the value 0, and `found` is `found@20`. The lexical list is unbounded, so an arithmetic that counted',
