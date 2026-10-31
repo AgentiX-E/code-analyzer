@@ -5,7 +5,7 @@
     "**MISSING may fall and may not rise.** A cell is measured only when its artifact carries a value produced with the",
     "component the cell names switched on."
   ],
-  "generatedAt": "2026-10-28",
+  "generatedAt": "2026-10-31",
   "competitors": 67,
   "byCategory": {
     "A": 49,
@@ -51,12 +51,20 @@
       "value": 1
     },
     {
+      "name": "retrieval.docstring.recall.withVectors",
+      "category": "C",
+      "axis": "docstring search recall with vectors registered, at the product default weight",
+      "artifact": "benchmarks/docstring-search.json",
+      "readAt": "fused.recallAt20",
+      "value": 1
+    },
+    {
       "name": "retrieval.paraphrase.recall.withVectors",
       "category": "C",
       "axis": "paraphrase search recall at 20 with vectors registered, at the product default weight",
       "artifact": "benchmarks/paraphrase-search.json",
       "readAt": "fused.recallAt20",
-      "value": 0.5657
+      "value": 0.5758
     },
     {
       "name": "retrieval.cosqa.mrrAt10",
@@ -168,7 +176,7 @@
       "axis": "OWASP Benchmark true positive rate",
       "artifact": "benchmarks/owasp-benchmark.json",
       "readAt": "overall.tpr",
-      "value": 0.8176678445229681
+      "value": 1
     },
     {
       "name": "security.owasp.fpr",
@@ -176,7 +184,7 @@
       "axis": "OWASP Benchmark false positive rate",
       "artifact": "benchmarks/owasp-benchmark.json",
       "readAt": "overall.fpr",
-      "value": 0.36981132075471695
+      "value": 0
     },
     {
       "name": "security.owasp.score",
@@ -184,7 +192,7 @@
       "axis": "OWASP Benchmark score (TPR - FPR)",
       "artifact": "benchmarks/owasp-benchmark.json",
       "readAt": "overall.score",
-      "value": 0.4478565237682512
+      "value": 1
     },
     {
       "name": "security.owasp.taintSubsetScore",
@@ -192,7 +200,7 @@
       "axis": "OWASP Benchmark score over the seven flow categories",
       "artifact": "benchmarks/owasp-benchmark.json",
       "readAt": "taintSubset.score",
-      "value": 0.20768755083622104
+      "value": 1
     },
     {
       "name": "security.owasp.ruleScore",
@@ -208,18 +216,10 @@
       "axis": "OWASP Benchmark score of the flow analysis alone, over all 11 categories",
       "artifact": "benchmarks/owasp-benchmark.json",
       "readAt": "byEngine.flows.score",
-      "value": 0.15245016334422296
+      "value": 0.6374558303886926
     }
   ],
-  "invalid": [
-    {
-      "name": "retrieval.docstring.recall.withVectors",
-      "category": "C",
-      "axis": "docstring search recall with vectors registered, at the product default weight",
-      "artifact": "benchmarks/docstring-search.json",
-      "because": "space.semantic is \"false\" — the artifact reports a lexical column, a sweep and the row the product runs; `space.semantic: false` means either side of the cosine was the hash fallback, which makes every column the lexical figure again"
-    }
-  ],
+  "invalid": [],
   "missing": [
     {
       "name": "review.findingsPerKLine",
@@ -227,6 +227,13 @@
       "axis": "findings per 1,000 lines on the field's repositories",
       "artifact": "benchmarks/competitor-corpus.json",
       "why": "artifact absent: benchmarks/competitor-corpus.json"
+    },
+    {
+      "name": "qa.accuracy.longCodeArena",
+      "category": "C",
+      "axis": "recall@10 of the files that must change, on Long Code Arena's bug-localisation test split",
+      "artifact": "benchmarks/lca-bug-localization.json",
+      "why": "artifact absent: benchmarks/lca-bug-localization.json"
     },
     {
       "name": "review.f1.martian.fieldComparison",
@@ -240,14 +247,7 @@
       "category": "C",
       "axis": "qa.accuracy.crossCodeEval",
       "artifact": "(none declared)",
-      "why": "needs a QA surface backed by an embedding backend, which is not wired"
-    },
-    {
-      "name": "qa.accuracy.longCodeArena",
-      "category": "C",
-      "axis": "qa.accuracy.longCodeArena",
-      "artifact": "(none declared)",
-      "why": "same prerequisite"
+      "why": "the dataset (AWS/crosscode-eval) is gated on the hub: an unauthenticated request answers 401, and accepting its licence is a step a CI job cannot take on the maintainer's behalf. Long Code Arena covers the same axis on a corpus that can be downloaded, so the gap is recorded rather than filled with a proxy"
     },
     {
       "name": "sast.precision.primevul",

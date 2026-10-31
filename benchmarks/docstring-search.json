@@ -14,60 +14,60 @@
   ],
   "measuredAt": "2026-10-31",
   "corpus": {
-    "path": "packages/analyzer/src/languages",
-    "nodes": 4383,
-    "nodesWithADocstring": 390,
-    "queries": 377
+    "path": "benchmarks/retrieval-corpus",
+    "nodes": 3600,
+    "nodesWithADocstring": 218,
+    "queries": 214
   },
   "space": {
-    "index": "deterministic",
-    "query": "deterministic",
-    "semantic": false,
-    "reason": "onnx: createFromPackage failed: Tokenizer not found: /workspace/repos/code-analyzer/node_modules/.pnpm/@agentix-e+embed-code-node@0.1.1/node_modules/@agentix-e/embed-code-node/models/tokenizer.json · api: ZHIPU_API_KEY is not set"
+    "index": "api",
+    "query": "api",
+    "semantic": true,
+    "reason": null
   },
   "topK": 20,
   "lexical": {
-    "recallAt5": 0.9973,
+    "recallAt5": 0.9953,
     "recallAt20": 1,
-    "mrr": 0.9884,
-    "found": 377
+    "mrr": 0.9796,
+    "found": 214
   },
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.9973,
+      "recallAt5": 0.9766,
       "recallAt20": 1,
-      "mrr": 0.5928,
-      "found": 377
+      "mrr": 0.9519,
+      "found": 214
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.9973,
+      "recallAt5": 0.9813,
       "recallAt20": 1,
-      "mrr": 0.9605,
-      "found": 377
+      "mrr": 0.9642,
+      "found": 214
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.9973,
+      "recallAt5": 0.9813,
       "recallAt20": 1,
-      "mrr": 0.9632,
-      "found": 377
+      "mrr": 0.965,
+      "found": 214
     },
     {
       "vectorWeight": 0.1,
-      "recallAt5": 0.9973,
+      "recallAt5": 0.9907,
       "recallAt20": 1,
-      "mrr": 0.9817,
-      "found": 377
+      "mrr": 0.9705,
+      "found": 214
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.9973,
+    "recallAt5": 0.9766,
     "recallAt20": 1,
-    "mrr": 0.5928,
-    "found": 377
+    "mrr": 0.9519,
+    "found": 214
   },
   "target": {
     "recall": 0.9,

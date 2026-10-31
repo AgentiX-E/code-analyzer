@@ -10,6 +10,11 @@
     "and a question that still contains one is dropped and counted in `dropped`. **The set is frozen in",
     "`benchmarks/paraphrase-queries.json`** so that two runs differ in the retriever and not in the questions.",
     "",
+    "**The corpus is pinned the same way.** `benchmarks/retrieval-corpus` is the tree those questions were written",
+    "from, so this figure is comparable with the figure from any other commit: both inputs are fixed and only the",
+    "retriever moves between runs. When the corpus was the live `packages/analyzer/src/languages`, a rename in the",
+    "product invalidated four questions and the measurement failed for four days without measuring anything.",
+    "",
     "**Every column is measured at the same cut**: `recallAt20` counts answers inside the top 20, `mrr` gives a rank",
     "beyond 20 the value 0, and `found` is `found@20`. The lexical list is unbounded, so an arithmetic that counted",
     "any rank would have measured a longer list against a shorter one.",
@@ -17,15 +22,15 @@
     "**Both columns run on the same index**: BM25 over name/signature only, and the same list fused with one",
     "semantic ranking at each weight."
   ],
-  "measuredAt": "2026-10-27",
+  "measuredAt": "2026-10-31",
   "querySet": {
     "source": "frozen",
     "path": "benchmarks/paraphrase-queries.json",
     "size": 99
   },
   "corpus": {
-    "path": "packages/analyzer/src/languages",
-    "nodes": 3357,
+    "path": "benchmarks/retrieval-corpus",
+    "nodes": 3600,
     "queries": 99,
     "dropped": 1,
     "withAWordFromTheName": 52
@@ -38,76 +43,76 @@
   },
   "topK": 20,
   "lexical": {
-    "recallAt5": 0.1515,
-    "recallAt20": 0.2929,
-    "mrr": 0.1051,
-    "found": 29
+    "recallAt5": 0.1313,
+    "recallAt20": 0.2727,
+    "mrr": 0.0948,
+    "found": 27
   },
   "variants": [
     {
       "name": "no-path",
       "note": "the composition the product shipped before the path was measured in",
-      "recallAt5": 0.3434,
-      "recallAt20": 0.4747,
-      "mrr": 0.2274,
-      "found": 47
+      "recallAt5": 0.3333,
+      "recallAt20": 0.4848,
+      "mrr": 0.2105,
+      "found": 48
     },
     {
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.4444,
-      "recallAt20": 0.6162,
-      "mrr": 0.2657,
-      "found": 61
+      "recallAt5": 0.4343,
+      "recallAt20": 0.6263,
+      "mrr": 0.2786,
+      "found": 62
     },
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
-      "reranked": 99,
-      "poolRecallAt20": 0.7475,
-      "recallAt5": 0.6465,
-      "recallAt20": 0.7172,
-      "mrr": 0.5424,
-      "found": 71
+      "reranked": 97,
+      "poolRecallAt20": 0.7172,
+      "recallAt5": 0.596,
+      "recallAt20": 0.697,
+      "mrr": 0.5068,
+      "found": 69
     }
   ],
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.3838,
-      "recallAt20": 0.5657,
-      "mrr": 0.247,
-      "found": 56
+      "recallAt5": 0.3939,
+      "recallAt20": 0.5758,
+      "mrr": 0.2276,
+      "found": 57
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.2525,
-      "recallAt20": 0.2929,
-      "mrr": 0.1733,
-      "found": 29
+      "recallAt5": 0.2323,
+      "recallAt20": 0.2727,
+      "mrr": 0.1463,
+      "found": 27
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.2525,
-      "recallAt20": 0.2929,
-      "mrr": 0.1725,
-      "found": 29
+      "recallAt5": 0.2323,
+      "recallAt20": 0.2727,
+      "mrr": 0.145,
+      "found": 27
     },
     {
       "vectorWeight": 0.1,
       "recallAt5": 0.202,
-      "recallAt20": 0.2929,
-      "mrr": 0.1425,
-      "found": 29
+      "recallAt20": 0.2727,
+      "mrr": 0.1116,
+      "found": 27
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.3838,
-    "recallAt20": 0.5657,
-    "mrr": 0.247,
-    "found": 56
+    "recallAt5": 0.3939,
+    "recallAt20": 0.5758,
+    "mrr": 0.2276,
+    "found": 57
   },
   "target": {
     "recall": 0.9,

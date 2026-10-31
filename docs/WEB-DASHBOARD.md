@@ -59,12 +59,12 @@ Two figures decide whether that semantic half earns its slots, and both come fro
 
 | corpus                                                 | column                        | recall@5   | recall@20  | MRR        |
 | ------------------------------------------------------ | ----------------------------- | ---------- | ---------- | ---------- |
-| a symbol's own doc comment (191 queries)               | lexical                       | 0.9948     | 1.000      | 0.9849     |
-|                                                        | fused, weight 1               | 0.9738     | 1.000      | 0.9592     |
-| a paraphrase of it, doc comments stripped (99 queries) | lexical                       | 0.1515     | 0.2929     | 0.1051     |
-|                                                        | fused, weight 1 — the product | **0.3838** | **0.5657** | **0.2470** |
-|                                                        | + `expand: true` (HyDE)       | **0.4444** | **0.6162** | **0.2657** |
-|                                                        | + `rerank: true` (top 50)     | **0.6465** | **0.7172** | **0.5424** |
+| a symbol's own doc comment (214 queries)               | lexical                       | 0.9953     | 1.000      | 0.9796     |
+|                                                        | fused, weight 1               | 0.9766     | 1.000      | 0.9519     |
+| a paraphrase of it, doc comments stripped (99 queries) | lexical                       | 0.1313     | 0.2727     | 0.0948     |
+|                                                        | fused, weight 1 — the product | **0.3939** | **0.5758** | **0.2276** |
+|                                                        | + `expand: true` (HyDE)       | **0.4343** | **0.6263** | **0.2786** |
+|                                                        | + `rerank: true` (top 50)     | **0.5960** | **0.6970** | **0.5068** |
 
 ### On somebody else's corpus
 
@@ -82,8 +82,13 @@ Two figures decide whether that semantic half earns its slots, and both come fro
 artifact says so itself. What they do establish is the shape of the product's strength: **the ranking is where the
 value is** (MRR 0.264 → 0.771), and recall at ten is 95 % before any fine-tuning.
 
+> **Both measurements read one corpus, and it is committed**: `benchmarks/retrieval-corpus` is a snapshot of
+> `packages/analyzer/src/languages` at `4ae5c62`, 3 600 nodes. A frozen question set measured against a live directory
+> is half a measurement — two refactors renamed four of the ninety-nine symbols and the figure counted them as misses —
+> so the two inputs are pinned to each other and only the retriever can move between runs.
+
 > The paraphrase artifact used to report lexical **0.5455**. It was measuring `rank !== null` on an unbounded list —
-> "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.2929**, and
+> "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.2727**, and
 > the twenty-five points that made the semantic half look like a regression were the arithmetic's.
 
 ### 3. Dashboard

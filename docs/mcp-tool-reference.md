@@ -125,7 +125,7 @@ and `rerank` — `{ applied, pool?, reason? }`.
 the code that answers it. `expand: true` asks the configured LLM for a plausible implementation of the question and
 searches with the mean of the question's vector and the hypothesis's — _Precise Zero-Shot Dense Retrieval without
 Relevance Labels_ (Gao et al., 2022). Measured on 99 questions over this repository with every doc comment stripped
-from the index: **recall@20 0.4747 → 0.6061, MRR 0.2271 → 0.2639**, against a lexical baseline of 0.2929 / 0.1051.
+from the index: **recall@20 0.5758 → 0.6263, MRR 0.2276 → 0.2786**, against a lexical baseline of 0.2727 / 0.0948.
 It costs one completion and needs `DEEPSEEK_API_KEY`; without either, the tool answers the plain query and says so in
 `queryExpansion.reason`.
 
@@ -134,8 +134,8 @@ and order is what a reader feels. `rerank: true` gives the model the fused **top
 240-character excerpt — and asks for a bracketed ordering; the first `limit` of that order is returned. **A rerank is
 enforced to be a permutation**: an invented id is dropped, a repeat is ignored, and a candidate the answer did not
 mention keeps its fused position, so no candidate can be lost by asking for a better order. Measured on the same 99
-questions: **recall@20 0.5657 → 0.7172, MRR 0.2470 → 0.5424**, against a pool ceiling of **0.7475** — 71 of the 74
-answerable questions are found. It costs one completion; without a provider the fused order is returned with the reason
+questions: **recall@20 0.5758 → 0.6970, MRR 0.2276 → 0.5068**, against a pool ceiling of **0.7172** — 69 of the 71
+answerable questions inside the pool are returned. It costs one completion; without a provider the fused order is returned with the reason
 in `rerank.reason`.
 
 ---
