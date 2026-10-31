@@ -14,6 +14,7 @@ import { buildCallSites } from '../../resolution/call-sites.js';
 import {
   buildFileTypes,
   classMemberOf,
+  containerOf,
   createClassIndex,
   mergeClassIndex,
   ownerKeyOf,
@@ -490,7 +491,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               const receiverType = receiverTypeOf(
                 typeFacts.get(parsedFile.filePath),
                 ref.receiver,
-                owner === undefined ? undefined : ownerKeyOf(owner.containerName, owner.name),
+                owner === undefined ? undefined : ownerKeyOf(containerOf(owner), owner.name),
               );
               if (receiverType !== undefined) {
                 const member = classMemberOf(classIndex, receiverType.className, ref.targetName);

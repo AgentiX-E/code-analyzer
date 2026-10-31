@@ -11,26 +11,26 @@
         "simpleNameCollisionsPerFile": 26
       },
       "sites": {
-        "total": 3144,
-        "internal": 358,
+        "total": 3681,
+        "internal": 367,
         "internalRecursion": 7,
-        "external": 782,
+        "external": 788,
         "variable": 60,
-        "unknown": 170,
-        "silent": 1774,
-        "excludedForDuplicateName": 30
+        "unknown": 742,
+        "silent": 1724,
+        "excludedForDuplicateName": 35
       },
-      "expectedPairs": 270,
-      "claimedPairs": 263,
+      "expectedPairs": 274,
+      "claimedPairs": 265,
       "precision": {
-        "correct": 249,
+        "correct": 251,
         "wrong": 14,
-        "value": 0.9468
+        "value": 0.9472
       },
       "recall": {
-        "found": 249,
-        "missed": 21,
-        "value": 0.9222
+        "found": 251,
+        "missed": 23,
+        "value": 0.9161
       },
       "byArm": {
         "globalUnique": {
@@ -43,6 +43,11 @@
           "correct": 140,
           "precision": 0.9032
         },
+        "receiverType": {
+          "claimed": 2,
+          "correct": 2,
+          "precision": 1
+        },
         "sameFile": {
           "claimed": 152,
           "correct": 148,
@@ -50,10 +55,10 @@
         }
       },
       "callers": {
-        "oracle": 208,
+        "oracle": 212,
         "graph": 176,
         "graphOnly": 9,
-        "ownersWithAnyCall": 485,
+        "ownersWithAnyCall": 486,
         "graphCallers": 164
       },
       "wrongSamples": [
@@ -74,8 +79,8 @@
       ],
       "wrongCauses": {
         "variable": 6,
-        "external": 4,
-        "owner-makes-no-such-call": 4
+        "owner-makes-no-such-call": 4,
+        "external": 4
       },
       "wrongByArm": {
         "globalUnique": {
@@ -117,26 +122,26 @@
         "simpleNameCollisionsPerFile": 130
       },
       "sites": {
-        "total": 6822,
-        "internal": 1435,
+        "total": 7890,
+        "internal": 1473,
         "internalRecursion": 5,
-        "external": 1447,
-        "variable": 218,
-        "unknown": 405,
-        "silent": 3317,
-        "excludedForDuplicateName": 220
+        "external": 1454,
+        "variable": 219,
+        "unknown": 1532,
+        "silent": 3212,
+        "excludedForDuplicateName": 225
       },
-      "expectedPairs": 1004,
-      "claimedPairs": 1010,
+      "expectedPairs": 1032,
+      "claimedPairs": 1015,
       "precision": {
-        "correct": 968,
+        "correct": 973,
         "wrong": 42,
-        "value": 0.9584
+        "value": 0.9586
       },
       "recall": {
-        "found": 968,
-        "missed": 36,
-        "value": 0.9641
+        "found": 973,
+        "missed": 59,
+        "value": 0.9428
       },
       "byArm": {
         "globalUnique": {
@@ -149,6 +154,11 @@
           "correct": 736,
           "precision": 0.971
         },
+        "receiverType": {
+          "claimed": 5,
+          "correct": 5,
+          "precision": 1
+        },
         "sameFile": {
           "claimed": 448,
           "correct": 428,
@@ -156,11 +166,11 @@
         }
       },
       "callers": {
-        "oracle": 734,
-        "graph": 628,
+        "oracle": 742,
+        "graph": 633,
         "graphOnly": 19,
-        "ownersWithAnyCall": 792,
-        "graphCallers": 528
+        "ownersWithAnyCall": 797,
+        "graphCallers": 529
       },
       "wrongSamples": [
         "[globalUnique] src/werkzeug/formparser.py|start_file_streaming -> tests/test_formparser.py|stream_factory",
@@ -205,8 +215,8 @@
         "[sameFile] tests/conftest.py|standard_app -> tests/conftest.py|dev_server"
       ],
       "wrongCauses": {
-        "owner-makes-no-such-call": 15,
         "variable": 15,
+        "owner-makes-no-such-call": 15,
         "external": 5,
         "silent-receiver": 4,
         "resolves-elsewhere": 3
@@ -227,6 +237,7 @@
         }
       },
       "missedSamples": [
+        "examples/coolmagic/application.py|__call__|src/werkzeug/routing/map.py|bind_to_environ",
         "examples/coolmagic/views/static.py|about|examples/coolmagic/utils.py|export",
         "examples/coolmagic/views/static.py|broken|examples/coolmagic/utils.py|export",
         "examples/coolmagic/views/static.py|index|examples/coolmagic/utils.py|export",
@@ -235,13 +246,12 @@
         "examples/couchy/views.py|link|examples/couchy/utils.py|expose",
         "examples/couchy/views.py|list|examples/couchy/utils.py|expose",
         "examples/couchy/views.py|new|examples/couchy/utils.py|expose",
+        "examples/cupoftee/application.py|update_server_browser|examples/cupoftee/network.py|sync",
         "examples/i18nurls/views.py|about|examples/i18nurls/application.py|expose",
         "examples/i18nurls/views.py|blog_index|examples/i18nurls/application.py|expose",
         "examples/i18nurls/views.py|blog_show|examples/i18nurls/application.py|expose",
         "examples/i18nurls/views.py|index|examples/i18nurls/application.py|expose",
-        "examples/manage-coolmagic.py|runserver|examples/coolmagic/application.py|make_app",
-        "examples/manage-i18nurls.py|runserver|examples/i18nurls/application.py|make_app",
-        "examples/plnt/views.py|about|examples/plnt/utils.py|expose"
+        "examples/manage-coolmagic.py|runserver|examples/coolmagic/application.py|make_app"
       ]
     }
   ]

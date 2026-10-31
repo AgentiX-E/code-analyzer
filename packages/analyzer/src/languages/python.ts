@@ -7,6 +7,7 @@ import { PYTHON_CONSTANTS } from './constant-fold.js';
 import { PYTHON_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { ownerKeyOf } from '../resolution/receiver-types.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -26,6 +27,19 @@ const PYTHON_TAINT_NODES = {
 };
 
 export class PythonProvider extends TreeSitterBaseProvider {
+  /**
+   * The field annotations read during the current parse, by class name.
+   *
+   * **Cleared at the end of every parse**, in `decorateCaptures`, which is the last step a file's captures pass
+   * through. A provider instance is reused across files, so a map that outlives its file would file one module's
+   * fields onto another module's class. **The key admits `undefined`** because it is read with the name a capture
+   * carries, and a capture can carry none - a miss, which is the right answer and needs no guard.
+   */
+  private readonly classFieldTypes = new Map<string | undefined, Map<string, string>>();
+
+  /** The names a method receives its own object under, which is what makes an annotated attribute a field. */
+  private static readonly SELF_NAMES: ReadonlySet<string> = new Set(['self', 'cls']);
+
   readonly language = 'python';
   readonly displayName = 'Python';
   readonly extensions = pyExtensions;
@@ -156,11 +170,23 @@ export class PythonProvider extends TreeSitterBaseProvider {
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const list = namedChildrenOf(node).find((c) => c.type === 'parameters');
     if (!list) return;
+    // **A parameter's type is filed under the function that declares it**, and for a method that key is the class and
+    // the method - `Holder.run` - because the call site that reads it knows the class and not the file.
+    const ownerName = this.findNamedChild(node, 'identifier')?.text;
+    const enclosing = this.findContainerNode(node);
+    const owner =
+      ownerName === undefined ? undefined : ownerKeyOf(this.nameOf(enclosing), ownerName);
     for (const [parameterIndex, parameter] of namedChildrenOf(list).entries()) {
       const direct = ['identifier'].includes(parameter.type) ? parameter : undefined;
       const wrapped =
         direct ?? namedChildrenOf(parameter).find((c) => ['identifier'].includes(c.type));
       if (!wrapped) continue;
+      // `other: Other` is a `typed_parameter` whose `type` child is the annotation; `*args` and `**kwargs` carry
+      // none, and a parameter that says nothing is a parameter this provider cannot type.
+      const parameterType =
+        parameter.type === 'typed_parameter'
+          ? this.findNamedChild(parameter, 'type')?.text
+          : undefined;
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
         text: wrapped.text,
@@ -171,9 +197,134 @@ export class PythonProvider extends TreeSitterBaseProvider {
         name: wrapped.text,
         // **The position, which is the only handle a call site has on a parameter.** The caller passes argument 1;
         // the callee's argument 1 is whatever it declared second.
-        properties: { filePath: this.filePath, parameterIndex: String(parameterIndex) },
+        properties: {
+          filePath: this.filePath,
+          parameterIndex: String(parameterIndex),
+          ...(owner === undefined ? {} : { parameterOwner: owner }),
+          ...(parameterType === undefined ? {} : { parameterType }),
+        },
       });
     }
+  }
+
+  /** The name a container node declares, or `undefined` when it has none. */
+  private nameOf(container: TreeSitterSyntaxNode | null): string | undefined {
+    return container === null ? undefined : this.extractContainerName(container);
+  }
+
+  /**
+   * Whether a function declaration sits between this node and the class that encloses it.
+   *
+   * **`local: Index = None` inside a method annotates a local variable, and `index: Index` in a class body declares a
+   * field.** The two are the same node type with the same `type` child, and the difference is exactly which scope the
+   * statement is in - so the climb stops at the first function it meets and the answer decides whether the fact is the
+   * class's or nobody's.
+   */
+  private declaredInsideFunction(node: TreeSitterSyntaxNode): boolean {
+    let current = node.parent ?? null;
+    while (current !== null) {
+      if (current.type === 'function_definition') return true;
+      if (current.type === 'class_definition') return false;
+      current = current.parent ?? null;
+    }
+    return false;
+  }
+
+  /**
+   * The field an annotated assignment declares, if it declares one.
+   *
+   * **Python writes a field's type in two places.** A class body may annotate it (`index: Index`), and a method may
+   * annotate the attribute it assigns (`self.cache: Cache = Cache()`); the second is how a class whose `__init__`
+   * assigns everything says what its fields are, and it is the shape the flask and werkzeug codebases are written in.
+   * `Holder.other: Index = ...` inside a method annotates *another* class's field and is refused: this parse knows
+   * what the assignment says and not what `Holder` is.
+   */
+  private declaredFieldOf(
+    node: TreeSitterSyntaxNode,
+  ): { className: string; field: string; annotation: string } | undefined {
+    const left = namedChildrenOf(node)[0];
+    if (left === undefined) return undefined;
+    const annotation = this.findNamedChild(node, 'type')?.text ?? this.constructorCallOf(node);
+    if (annotation === undefined) return undefined;
+    const className = this.nameOf(this.findContainerNode(node));
+    if (className === undefined) return undefined;
+
+    if (left.type === 'identifier') {
+      // A class body's statement is the class's; a method's is the method's.
+      return this.declaredInsideFunction(node)
+        ? undefined
+        : { className, field: left.text, annotation };
+    }
+    if (left.type !== 'attribute') return undefined;
+
+    // `self.cache` and `cls.cache` are the class's own fields; `holder.cache` is somebody else's and this parse cannot
+    // say which. The attribute's name is its last identifier, because `self.a.b` is an attribute of `a`.
+    const parts = namedChildrenOf(left).filter((child) => child.type === 'identifier');
+    const object = parts[0];
+    const attribute = parts[parts.length - 1];
+    if (object === undefined || attribute === undefined || parts.length !== 2) return undefined;
+    if (!PythonProvider.SELF_NAMES.has(object.text)) return undefined;
+    return { className, field: attribute.text, annotation };
+  }
+
+  /**
+   * The class named by the call an assignment makes, or `undefined` when it makes none.
+   *
+   * **`self.index = InvertedIndex()` states the field's type as plainly as an annotation does**, and Python written
+   * before annotations existed says it that way and no other. Only a bare name is read - `Foo.bar()` and
+   * `make_index()` are a member call and a factory, and neither says what the field *is* - and **the resolver is what
+   * decides whether the name is a class**, because only it holds the index: a name no class carries resolves nothing
+   * and costs nothing.
+   */
+  private constructorCallOf(node: TreeSitterSyntaxNode): string | undefined {
+    const call = namedChildrenOf(node).find((child) => child.type === 'call');
+    if (call === undefined) return undefined;
+    return this.findNamedChild(call, 'identifier')?.text;
+  }
+
+  /** Record the annotation an assignment declares, on the class it belongs to. */
+  private captureFieldAnnotation(node: TreeSitterSyntaxNode): void {
+    const declared = this.declaredFieldOf(node);
+    if (declared === undefined) return;
+    let fields = this.classFieldTypes.get(declared.className);
+    if (fields === undefined) {
+      fields = new Map();
+      this.classFieldTypes.set(declared.className, fields);
+    }
+    // **The first declaration wins and a second one with a different type drops the name**, on the same rule the
+    // resolver applies to every other name: a field two annotations disagree about has no type.
+    if (fields.has(declared.field) && fields.get(declared.field) !== declared.annotation) {
+      fields.delete(declared.field);
+      return;
+    }
+    fields.set(declared.field, declared.annotation);
+  }
+
+  /**
+   * File the facts that belong to more than the node they were read from.
+   *
+   * **A field's type is a fact about its class, and the graph stores it there** - one property, no node per field, for
+   * the reason iteration 45 measured on TypeScript: a symbol per field competes with the functions of the file for a
+   * search query and cost the product's own docstring search 0.0145 MRR.
+   */
+  protected override decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
+    const decorated = captures.map((capture) => {
+      if (capture.tag !== CAPTURE_TAGS.CLASS_DEF) return capture;
+      // **The map is keyed by `string` and read with whatever the capture carries.** A capture with no name is a class
+      // this parse could not identify, and asking the map for `undefined` is a miss - which is the answer, and the
+      // reason this is a lookup rather than a guard: a branch for a state no walk produces is a branch nobody runs.
+      const fields = this.classFieldTypes.get(capture.name);
+      if (fields === undefined || fields.size === 0) return capture;
+      return {
+        ...capture,
+        properties: {
+          ...capture.properties,
+          fieldTypes: JSON.stringify(Object.fromEntries(fields)),
+        },
+      };
+    });
+    this.classFieldTypes.clear();
+    return decorated;
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
@@ -185,6 +336,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
 
     if (nodeType === 'function_definition') {
       const nameNode = this.findNamedChild(node, 'identifier');
+      const enclosingClass = this.nameOf(this.findContainerNode(node));
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -194,7 +346,14 @@ export class PythonProvider extends TreeSitterBaseProvider {
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          properties: { filePath: this.filePath, ...docstringProperty(node) },
+          properties: {
+            filePath: this.filePath,
+            // **The class a method is declared in, which the graph does not record for Python.** `def run(self)` is
+            // emitted as a plain `Function` with an empty container, and the resolver has read line spans instead since
+            // iteration 41 - right for deciding scope, and useless for naming the class a `self.` call is written on.
+            ...(enclosingClass === undefined ? {} : { enclosingClass }),
+            ...docstringProperty(node),
+          },
         });
       }
     } else if (nodeType === 'class_definition') {
@@ -314,6 +473,9 @@ export class PythonProvider extends TreeSitterBaseProvider {
       // **Python contributed no defs and no uses, and these three branches are why.** A provider whose walk captures
       // only declarations contributes nothing that `buildStatementFacts` can derive defs and uses from, so the
       // propagator has no taint state to seed - the pipeline reached a finding for JavaScript and for nothing else.
+      // **An annotated assignment is also where a field's type is written**, which is the fact a `self.field.call()`
+      // needs and which nothing else in this walk reads.
+      this.captureFieldAnnotation(node);
       const left = node.child(0);
       const right = node.child(2);
       if (left && left.type === 'identifier') {

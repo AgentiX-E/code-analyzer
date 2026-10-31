@@ -204,6 +204,133 @@ describe('PythonProvider', () => {
     });
   });
 
+  // **Python writes a field's type in two places and the graph stored neither.** A class body may annotate a field
+  // (`index: Index`), and `__init__` may annotate the attribute it assigns (`self.cache: Cache = Cache()`); both are
+  // declarations a call on `self.index` or `self.cache` needs, and both are invisible to a walk that only looks for
+  // `def` and `class`. The fact is filed on the **class**, as one property, for the reason iteration 45 measured on
+  // TypeScript: a node per field competes with the functions of the file for a search query.
+  describe('field types and the class a method is declared in', () => {
+    const classOf = (captures: UnifiedCapture[], name: string): unknown =>
+      captures.find((capture) => capture.tag === CAPTURE_TAGS.CLASS_DEF && capture.name === name)
+        ?.properties?.['fieldTypes'];
+
+    it('files a class-body annotation on the class', () => {
+      const captures = provider.parse(
+        'class Holder:\n    index: Index\n    plain = 1\n    def run(self):\n        pass\n',
+        '/p/a.py',
+      );
+      expect(classOf(captures, 'Holder')).toBe(JSON.stringify({ index: 'Index' }));
+    });
+
+    it('files an attribute annotated in a method on the class that method belongs to', () => {
+      const captures = provider.parse(
+        [
+          'class Holder:',
+          '    def __init__(self):',
+          '        self.cache: Cache = Cache()',
+          '        self.count = 0',
+          '',
+        ].join('\n'),
+        '/p/a.py',
+      );
+      // `self.count` has no annotation, so it is not a fact; `self.cache` has one, and it is the class's field.
+      expect(classOf(captures, 'Holder')).toBe(JSON.stringify({ cache: 'Cache' }));
+    });
+
+    it('keeps a parameter annotation out of the fields', () => {
+      // `def run(self, other: Holder)` annotates a parameter, which the provider already files on the parameter.
+      const captures = provider.parse(
+        'class Holder:\n    def run(self, other: Holder):\n        pass\n',
+        '/p/a.py',
+      );
+      expect(classOf(captures, 'Holder')).toBeUndefined();
+    });
+
+    it('names the class a method is declared in, which is what a `self.` call needs', () => {
+      const captures = provider.parse(
+        'class Holder:\n    def run(self):\n        pass\n\ndef free():\n    pass\n',
+        '/p/a.py',
+      );
+      const run = captures.find(
+        (capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF && capture.name === 'run',
+      );
+      const free = captures.find(
+        (capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF && capture.name === 'free',
+      );
+      expect(run?.properties?.['enclosingClass']).toBe('Holder');
+      // A module-level function belongs to no class, and says so rather than naming the last one it saw.
+      expect(free?.properties?.['enclosingClass']).toBeUndefined();
+    });
+
+    it('reads a field declared by what it is assigned, which is how Python wrote it before annotations', () => {
+      const captures = provider.parse(
+        [
+          'class Holder:',
+          '    index = InvertedIndex()',
+          '    def __init__(self):',
+          '        self.cache = Cache()',
+          '        self.helper = make_helper()',
+          '        self.pair = Pair.build()',
+          '',
+        ].join('\n'),
+        '/p/a.py',
+      );
+      // **`InvertedIndex()` says the type as plainly as an annotation**, and a bare call is the only shape recorded:
+      // `make_helper()` is a factory and `Pair.build()` is a member call, and neither says what the field *is*. The
+      // resolver is what decides whether `make_helper` names a class, so recording it costs nothing either way.
+      expect(classOf(captures, 'Holder')).toBe(
+        JSON.stringify({ index: 'InvertedIndex', cache: 'Cache', helper: 'make_helper' }),
+      );
+    });
+
+    it('prefers the annotation when a field carries both', () => {
+      const captures = provider.parse('class Holder:\n    index: Index = Index()\n', '/p/a.py');
+      expect(classOf(captures, 'Holder')).toBe(JSON.stringify({ index: 'Index' }));
+    });
+
+    it('refuses an attribute written on anybody but `self` or `cls`, and one that is two levels deep', () => {
+      const captures = provider.parse(
+        [
+          'class Holder:',
+          '    def run(self, holder):',
+          '        holder.cache: Cache = Cache()',
+          '        self.a.b: Index = None',
+          '        cls.index: Index = None',
+          '',
+        ].join('\n'),
+        '/p/a.py',
+      );
+      // `holder.cache` is somebody else's field - this parse knows what the annotation says and not what `holder` is.
+      // `self.a.b` names a field of `self.a`, and only the first hop is a type this file could state. `cls.index` is
+      // the class's own and is recorded.
+      expect(classOf(captures, 'Holder')).toBe(JSON.stringify({ index: 'Index' }));
+    });
+
+    it('records what a class writes, and never a method local or an unannotated field', () => {
+      const captures = provider.parse(
+        [
+          'class Holder:',
+          '    items: list[Item] = []',
+          '    maybe: Optional[Index] = None',
+          '    plain = 1',
+          '    def run(self):',
+          '        local: Index = None',
+          '',
+        ].join('\n'),
+        '/p/a.py',
+      );
+      // **What a container, a union or a primitive is worth is the resolver's decision, not the parser's**: this
+      // records the text that was written, and `simpleTypeName` refuses it later. `local` is the one thing the
+      // provider must not record - a variable in a method is not a field, and `plain` has no annotation at all.
+      expect(classOf(captures, 'Holder')).toBe(
+        JSON.stringify({
+          items: 'list[Item]',
+          maybe: 'Optional[Index]',
+        }),
+      );
+    });
+  });
+
   describe('extractImports', () => {
     it('should parse simple imports', () => {
       const source = `import os\nimport sys`;
@@ -410,6 +537,40 @@ describe('PythonProvider defensive branches (synthetic nodes)', () => {
 
     it('emits no class capture for a class_definition without an identifier', () => {
       const node = makeNode('class_definition', []);
+      const captures = provider.walkAndCaptureForTest(node);
+      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF)).toEqual([]);
+    });
+
+    it('files no parameter owner and no class for a function the tree gives no name', () => {
+      // **A parameter list with no function name**: the walk still emits the parameter, and neither the owner key nor
+      // the enclosing class can be built - so the parameter carries its index and nothing else. No Python source
+      // produces this; the grammar's `ERROR` recovery under a truncated file does.
+      const parameter = makeNode('identifier', [], 'self');
+      const parameters = makeNode('parameters', [parameter], '(self)');
+      const node = makeNode('function_definition', [parameters], 'def (self):');
+      const captures = provider.walkAndCaptureForTest(node);
+      const defs = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(defs).toHaveLength(1);
+      expect(defs[0]!.properties?.['parameterOwner']).toBeUndefined();
+      expect(
+        captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF)?.properties?.['enclosingClass'],
+      ).toBeUndefined();
+    });
+  });
+
+  describe('walkAndCapture — a statement with no scope', () => {
+    it('files no field for an assignment with no left-hand side', () => {
+      // A truncated `x` at the end of a file parses as an `assignment` with nothing under it. The annotation walk must
+      // answer "no field" rather than read the first child of nothing.
+      const node = makeNode('assignment', [], '');
+      expect(() => provider.walkAndCaptureForTest(node)).not.toThrow();
+    });
+
+    it('files no field for an annotated assignment that sits in no class at all', () => {
+      // A node detached from any parent has no container, so there is no class to file its annotation on.
+      const name = makeNode('identifier', [], 'x');
+      const annotation = makeNode('type', [makeNode('identifier', [], 'Index')], 'Index');
+      const node = makeNode('assignment', [name, annotation], 'x: Index', null);
       const captures = provider.walkAndCaptureForTest(node);
       expect(captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF)).toEqual([]);
     });

@@ -56,6 +56,29 @@ export function ownerKeyOf(containerName: string | undefined, name: string): str
     : `${containerName}.${name}`;
 }
 
+/**
+ * The class a declaration sits in, read from wherever its language files it.
+ *
+ * **`containerName` is the graph's answer and it is empty for every Python method.** `def run(self)` inside
+ * `class Holder` is emitted as a plain `Function` with no container, so the resolver has read line spans instead since
+ * iteration 41 - which is right for deciding scope and useless for naming a class. The provider knows the class
+ * syntactically, so it records it as `enclosingClass` on the declaration, and this is the one place that decides which
+ * of the two answers a key is built from.
+ *
+ * A property that is not a non-empty string is not a name, and a declaration nobody filed is a declaration with no
+ * class - both answers are `undefined` rather than a guess.
+ */
+export function containerOf(declaration: {
+  readonly containerName?: string;
+  readonly properties?: Record<string, unknown>;
+}): string | undefined {
+  if (typeof declaration.containerName === 'string' && declaration.containerName.length > 0) {
+    return declaration.containerName;
+  }
+  const filed = declaration.properties?.['enclosingClass'];
+  return typeof filed === 'string' && filed.length > 0 ? filed : undefined;
+}
+
 /** Types whose members are built into the language, and which are therefore never a class in the graph. */
 const PRIMITIVES = new Set([
   'string',
@@ -151,7 +174,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   };
 
   for (const declaration of declarations) {
-    const container = declaration.containerName;
+    const container = containerOf(declaration);
     const parameterOwner = declaration.properties['parameterOwner'];
     const parameterType = simpleTypeName(declaration.properties['parameterType']);
 

@@ -15,9 +15,9 @@
   "measuredAt": "2026-10-31",
   "corpus": {
     "path": "packages/analyzer/src/languages",
-    "nodes": 4345,
-    "nodesWithADocstring": 383,
-    "queries": 370
+    "nodes": 4383,
+    "nodesWithADocstring": 390,
+    "queries": 377
   },
   "space": {
     "index": "deterministic",
@@ -29,45 +29,45 @@
   "lexical": {
     "recallAt5": 0.9973,
     "recallAt20": 1,
-    "mrr": 0.9881,
-    "found": 370
+    "mrr": 0.9884,
+    "found": 377
   },
   "semanticSweep": [
     {
       "vectorWeight": 1,
       "recallAt5": 0.9973,
       "recallAt20": 1,
-      "mrr": 0.5878,
-      "found": 370
+      "mrr": 0.5928,
+      "found": 377
     },
     {
       "vectorWeight": 0.5,
       "recallAt5": 0.9973,
       "recallAt20": 1,
-      "mrr": 0.9598,
-      "found": 370
+      "mrr": 0.9605,
+      "found": 377
     },
     {
       "vectorWeight": 0.25,
       "recallAt5": 0.9973,
       "recallAt20": 1,
-      "mrr": 0.9611,
-      "found": 370
+      "mrr": 0.9632,
+      "found": 377
     },
     {
       "vectorWeight": 0.1,
       "recallAt5": 0.9973,
       "recallAt20": 1,
-      "mrr": 0.9814,
-      "found": 370
+      "mrr": 0.9817,
+      "found": 377
     }
   ],
   "fused": {
     "vectorWeight": 1,
     "recallAt5": 0.9973,
     "recallAt20": 1,
-    "mrr": 0.5878,
-    "found": 370
+    "mrr": 0.5928,
+    "found": 377
   },
   "target": {
     "recall": 0.9,

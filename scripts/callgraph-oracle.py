@@ -52,6 +52,10 @@ class ClassInfo:
     line: int
     methods: dict[str, int] = field(default_factory=dict)
     bases: list[str] = field(default_factory=list)
+    #: field name -> the class its annotation names, for `self.field.m()`. Only a bare name is recorded: a container
+    #: (`list[Item]`), a union (`A | None`) and a string annotation say nothing this oracle can look a member up in,
+    #: and recording one would make every guess it supports look like an expectation.
+    fields: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -134,6 +138,67 @@ def bound_names(fn: ast.AST) -> tuple[set[str], set[str]]:
     return names - globalised, globalised
 
 
+#: Names a method receives its own object under, which is what makes an annotated attribute a field.
+OWN_SCOPE_NAMES = frozenset({"self", "cls"})
+
+
+def annotation_name(node: ast.AST | None) -> str | None:
+    """The class an annotation names, or `None` when it names no single one.
+
+    **`Index` is a name, and `list[Index]`, `Index | None` and `"Index"` are not** - a container's members are not the
+    receiver's, a union has two answers, and a string annotation is a forward reference this oracle cannot read. None
+    of the three is refused because it is unlikely; each is refused because a lookup of it would be a guess.
+    """
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def dotted(node: ast.AST) -> str | None:
+    """The dotted path a receiver is written as, or `None` when it is not a name at all - `f()[0].m()`."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        inner = dotted(node.value)
+        return None if inner is None else f"{inner}.{node.attr}"
+    return None
+
+
+def record_field(fields: dict[str, str], node: ast.AST, *, in_class_body: bool) -> None:
+    """Record `field -> the class its annotation names` for one statement of a class.
+
+    **Two shapes, and the flag is the difference between them.** A class body's `index: Index` declares a field; a
+    method's `local: Index` declares a local variable and nothing else. `self.cache: Cache` inside a method is a field
+    again, because the attribute is written on the object rather than on a name.
+
+    **And a field is very often declared by what it is assigned** - `self.index = InvertedIndex()` says the type as
+    plainly as an annotation does, and Python code written before annotations existed says it that way and no other.
+    The name is recorded whether or not it turns out to be a class: `field_type` answers only for a name that exactly
+    one file declares *as a class*, so a factory function called `make_index` is dropped there rather than here.
+    """
+    target: ast.expr | None = None
+    annotation: str | None = None
+    if isinstance(node, ast.AnnAssign):
+        target = node.target
+        annotation = annotation_name(node.annotation)
+    elif isinstance(node, ast.Assign) and len(node.targets) == 1:
+        target = node.targets[0]
+        value = node.value
+        annotation = value.func.id if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) else None
+    if target is None or annotation is None:
+        return
+    if isinstance(target, ast.Name) and in_class_body:
+        fields.setdefault(target.id, annotation)
+    elif (
+        isinstance(target, ast.Attribute)
+        and isinstance(target.value, ast.Name)
+        and target.value.id in OWN_SCOPE_NAMES
+    ):
+        fields.setdefault(target.attr, annotation)
+
+
 def read_unit(path: Path, root: Path) -> tuple[Unit, ast.Module]:
     rel = path.relative_to(root).as_posix()
     module = module_name(path, root)
@@ -147,8 +212,15 @@ def read_unit(path: Path, root: Path) -> tuple[Unit, ast.Module]:
             unit.defs.setdefault(node.name, []).append(node.lineno)
             info = ClassInfo(name=node.name, line=node.lineno)
             for item in node.body:
-                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if isinstance(item, (ast.AnnAssign, ast.Assign)):
+                    record_field(info.fields, item, in_class_body=True)
+                elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     info.methods[item.name] = item.lineno
+                    # **`self.cache: Cache = Cache()` in `__init__` is where a Python class declares most of its
+                    # fields**, so the annotations inside a method are read as well as the ones in the class body.
+                    # A plain `local: Cache` inside a method is a local variable and is refused by the same function.
+                    for statement in ast.walk(item):
+                        record_field(info.fields, statement, in_class_body=False)
             for base in node.bases:
                 if isinstance(base, ast.Name):
                     info.bases.append(base.id)
@@ -193,6 +265,49 @@ class Corpus:
             if unit.module:
                 self.by_module.setdefault(unit.module, unit.rel)
             self.by_basename.setdefault(path.name, []).append(unit.rel)
+        #: class name -> the files that declare it, because a field's annotation is written in the file that uses the
+        #: type and the class is declared in the file that defines it.
+        self.by_class: dict[str, list[str]] = {}
+        for rel, unit in self.units.items():
+            for class_name in unit.classes:
+                self.by_class.setdefault(class_name, []).append(rel)
+
+    def files_declaring(self, class_name: str) -> list[str]:
+        """The one file that declares a class, or nothing when it is undeclared or declared twice."""
+        files = self.by_class.get(class_name, [])
+        return files if len(files) == 1 else []
+
+    def field_type(self, file: str, class_name: str, field_name: str) -> str | None:
+        """The class a class's field was annotated with, read through the bases when the class does not say."""
+        unit = self.units.get(file)
+        if unit is None:
+            return None
+        seen: set[str] = set()
+        current_file, current_name = file, class_name
+        while True:
+            key = f"{current_file}#{current_name}"
+            if key in seen:
+                return None
+            seen.add(key)
+            current = self.units.get(current_file)
+            if current is None:
+                return None
+            info = current.classes.get(current_name)
+            if info is None:
+                return None
+            if field_name in info.fields:
+                return info.fields[field_name]
+            if not info.bases:
+                return None
+            base = info.bases[0]
+            if base in current.classes:
+                current_name = base
+                continue
+            resolved = self.resolve_import(current, base)
+            if resolved is None:
+                return None
+            current_file, current_name = resolved
+
 
     def file_for_module(self, module: str) -> str | None:
         if module in self.by_module:
@@ -331,6 +446,25 @@ def class_of(tree: ast.Module) -> dict[int, str]:
     return owner
 
 
+def parameter_types(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> dict[str, str]:
+    """A function's parameters that say what they are, by name.
+
+    **`def run_command(info: ScriptInfo)` says `info.load_app()` names a member of `ScriptInfo`**, and an oracle that
+    reads only names has to call that site unresolvable - which scores a resolver that reads the annotation as wrong.
+    `self` and `cls` are left out: the enclosing class is not an annotation and is answered elsewhere.
+    """
+    typed: dict[str, str] = {}
+    args = fn.args
+    every = [*args.posonlyargs, *args.args, *args.kwonlyargs]
+    for arg in [*every, args.vararg, args.kwarg]:
+        if arg is None or arg.arg in OWN_SCOPE_NAMES:
+            continue
+        name = annotation_name(arg.annotation)
+        if name is not None:
+            typed.setdefault(arg.arg, name)
+    return typed
+
+
 def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
     out: list[Site] = []
     enclosing = class_of(tree)
@@ -345,6 +479,7 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
 
     def collect(fn: ast.FunctionDef | ast.AsyncFunctionDef, cls: str | None) -> None:
         local, _globals = bound_names(fn)
+        typed = parameter_types(fn)
         body = list(own_scope_nodes(fn))
         for node in body:
             if not isinstance(node, ast.Call):
@@ -352,7 +487,7 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
             callee, receiver = call_target(node.func)
             if callee is None:
                 continue
-            verdict, target = classify(unit, cls, callee, receiver, local)
+            verdict, target = classify(unit, cls, callee, receiver, local, typed)
             out.append(
                 Site(
                     file=unit.rel,
@@ -369,20 +504,54 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
     def call_target(func: ast.expr) -> tuple[str | None, str | None]:
         if isinstance(func, ast.Name):
             return func.id, None
-        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-            return func.attr, func.value.id
+        # **The receiver is kept whole, not only when it is a bare name.** `self.session_interface.is_null_session()`
+        # has an `Attribute` as its receiver, and the first version of this function answered `(None, None)` for it -
+        # so the site was never classified, and every graph that resolved it was scored as wrong. A receiver is the
+        # dotted path written before the callee, and what it *is* is decided by `classify`.
+        if isinstance(func, ast.Attribute):
+            return func.attr, dotted(func.value)
         return None, None
 
     def classify(
-        unit: Unit, cls: str | None, callee: str, receiver: str | None, local: set[str]
+        unit: Unit,
+        cls: str | None,
+        callee: str,
+        receiver: str | None,
+        local: set[str],
+        typed: dict[str, str],
     ) -> tuple[str, str | None]:
+        # **`self.field.m()` - the field's annotation names the class the member is looked up in.** A Python reader
+        # that stops at one level cannot answer it: the field is a name the class declares and the callee is a name the
+        # *field's type* declares, and only the annotation joins them. Two segments, and the annotation must name one
+        # class the corpus declares once; anything else is `unknown` rather than a guess.
+        if receiver is not None and "." in receiver:
+            base, _, path = receiver.partition(".")
+            if base in OWN_SCOPE_NAMES and cls is not None and "." not in path:
+                annotation = corpus.field_type(unit.rel, cls, path)
+                if annotation is not None:
+                    files = corpus.files_declaring(annotation)
+                    if files:
+                        found = corpus.find_method(files[0], annotation, callee, set())
+                        if found:
+                            return "internal", found
+            return "unknown", None
         # `self.m()` / `cls.m()` - the enclosing class, then a base class inside the corpus.
-        if receiver in {"self", "cls"}:
+        if receiver in OWN_SCOPE_NAMES:
             if cls:
                 found = corpus.find_method(unit.rel, cls, callee, set())
                 if found:
                     return "internal", found
             return "external", None
+        # **`param.m()` where the parameter says what it is** - the same question as `self.field.m()` with the
+        # annotation written on the parameter instead of on a field.
+        if receiver is not None and receiver in typed:
+            annotation = typed[receiver]
+            files = corpus.files_declaring(annotation)
+            if files:
+                found = corpus.find_method(files[0], annotation, callee, set())
+                if found:
+                    return "internal", found
+            return "unknown", None
         # `mod.f()` - only when the receiver is a module this file imported.
         if receiver is not None:
             namespace = corpus.resolve_namespace(unit, receiver)

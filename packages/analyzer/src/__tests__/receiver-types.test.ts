@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildFileTypes,
   classMemberOf,
+  containerOf,
   createClassIndex,
   mergeClassIndex,
   ownerKeyOf,
@@ -240,5 +241,51 @@ describe('the classes the graph knows, and what a name with two answers means', 
     expect(ownerKeyOf('Holder', 'run')).toBe('Holder.run');
     expect(ownerKeyOf(undefined, 'connect')).toBe('connect');
     expect(ownerKeyOf('', 'connect')).toBe('connect');
+  });
+});
+
+// **A method's class is a fact every language has and only some of them file on the declaration.** TypeScript puts a
+// method inside `class_declaration` and the capture carries `containerName`; Python's `def run(self)` is emitted as a
+// plain `Function` with no container at all, and the resolver has worked around that since iteration 41 by reading line
+// spans. The receiver's-type rule needs the class by *name*, so the provider records it where the graph does not:
+// a property, `enclosingClass`, which `containerOf` reads when `containerName` is absent.
+describe('the class a declaration belongs to, when the language files it elsewhere', () => {
+  it('prefers the container the graph already carries', () => {
+    expect(containerOf({ containerName: 'Holder', properties: { enclosingClass: 'Other' } })).toBe(
+      'Holder',
+    );
+  });
+
+  it('reads the property a language files it in', () => {
+    expect(containerOf({ properties: { enclosingClass: 'Holder' } })).toBe('Holder');
+    // An empty container is an answer of "none", which is what every Python capture carries today.
+    expect(containerOf({ containerName: '', properties: { enclosingClass: 'Holder' } })).toBe(
+      'Holder',
+    );
+  });
+
+  it('answers nothing when neither says so, or when the property is not a name', () => {
+    expect(containerOf({ properties: {} })).toBeUndefined();
+    expect(containerOf({ properties: { enclosingClass: 7 } })).toBeUndefined();
+    expect(containerOf({ properties: { enclosingClass: '' } })).toBeUndefined();
+  });
+
+  it('files a method under its class from the property alone', () => {
+    // The Python shape: no container, one property, and the class declared in the same file.
+    const facts = buildFileTypes([
+      declaration('Class', 'Holder', undefined, { fieldTypes: '{"index":"Index"}' }, 1),
+      declaration('Function', 'run', undefined, { enclosingClass: 'Holder' }, 2),
+      declaration('Class', 'Index', undefined, {}, 3),
+      declaration('Function', 'build', undefined, { enclosingClass: 'Index' }, 4),
+    ]);
+    expect(facts.classOfFunction.get('Holder.run')).toBe('Holder');
+    // **And the call it makes resolvable is the one this whole rule exists for.** `self.index.build()` in Python is
+    // exactly `this.index.buildIndex()` in TypeScript: the field's type decides which `build` the call names.
+    expect(receiverTypeOf(facts, 'self.index', 'Holder.run')).toEqual({
+      className: 'Index',
+      via: 'thisField',
+    });
+    // A field nobody annotated is still not a fact, whatever the class carries.
+    expect(receiverTypeOf(facts, 'self.store', 'Holder.run')).toBeUndefined();
   });
 });

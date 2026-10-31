@@ -236,7 +236,8 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
     // write and impossible to defend: `__getattr__ -> pop`, `__getattr__ -> setdefault`, 88.4 % of the same-file edges
     // wrong on `src/flask/ctx.py` alone. Measured against CPython's own parser, the graph that pass produced was 20 %
     // precise on `pallets/flask` 3.0.3. What is left resolves each call site once, and scores 94.7 % precise and
-    // 92.2 % complete on the same corpus. **A count is not a quality**, and this test now holds both ends: a floor on
+    // 91.6 % complete on the same corpus - the completeness figure fell when the oracle learned to derive an expected
+    // pair for `self.field.m()`, which it used to leave unclassified. **A count is not a quality**, and this test now holds both ends: a floor on
     // the count, and the requirement that every edge says which rule produced it.
     const calls = edgesOfType('CALLS');
     expect(calls.length).toBeGreaterThan(300);
@@ -244,7 +245,7 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
 
     // **No edge without a named rule.** The cartesian pass wrote `CALLS` edges from a phase that did not record how,
     // which is why it took a reconstruction from a wrong edge backwards to find it. A third producer cannot appear
-    // silently while this holds.
+    // silently while this holds - and an arm that is added has to be named here, which is where `receiverType` is.
     const arms = new Set(
       calls.map((edge) => {
         const arm: unknown = edge.properties?.['resolution'];
@@ -252,8 +253,34 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
       }),
     );
     expect(
-      [...arms].filter((arm) => !['import', 'sameFile', 'globalUnique'].includes(arm)),
+      [...arms].filter(
+        (arm) => !['import', 'sameFile', 'globalUnique', 'receiverType'].includes(arm),
+      ),
     ).toEqual([]);
+  });
+
+  it('resolves a call through the type its receiver was declared to have', (ctx) => {
+    if (skipped) return ctx.skip();
+
+    // **The end-to-end acceptance for the fourth arm.** `self.session_interface.is_null_session(...)` names a method
+    // the *file* does not declare and the *class* does, so only the field's declared type can join the two - and on a
+    // real repository the arm has to fire, carry the class it fired through, and point at a node that exists.
+    const resolved = edgesOfType('CALLS').filter(
+      (edge) => edge.properties?.['resolution'] === 'receiverType',
+    );
+    expect(resolved.length).toBeGreaterThan(0);
+    for (const edge of resolved) {
+      // The two facts the rule used, on the edge: the receiver it read and the class the receiver's type names.
+      expect(typeof edge.properties?.['receiver']).toBe('string');
+      expect(typeof edge.properties?.['receiverClass']).toBe('string');
+      // And the callee is a node, because an edge to nothing is not a resolution.
+      expect(graph.nodes.get(edge.targetId)?.name).toBeTypeOf('string');
+    }
+    // The rule did not become an excuse to resolve everything: the three name arms still carry the graph.
+    const named = edgesOfType('CALLS').filter((edge) =>
+      ['import', 'sameFile', 'globalUnique'].includes(String(edge.properties?.['resolution'])),
+    );
+    expect(named.length).toBeGreaterThan(resolved.length * 10);
   });
 
   it('records a line range for every symbol it emits', (ctx) => {
