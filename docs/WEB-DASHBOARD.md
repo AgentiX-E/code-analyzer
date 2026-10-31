@@ -59,12 +59,12 @@ Two figures decide whether that semantic half earns its slots, and both come fro
 
 | corpus                                                 | column                        | recall@5   | recall@20  | MRR        |
 | ------------------------------------------------------ | ----------------------------- | ---------- | ---------- | ---------- |
-| a symbol's own doc comment (214 queries)               | lexical                       | 0.9953     | 1.000      | 0.9796     |
-|                                                        | fused, weight 1               | 0.9766     | 1.000      | 0.9519     |
-| a paraphrase of it, doc comments stripped (99 queries) | lexical                       | 0.1313     | 0.2727     | 0.0948     |
-|                                                        | fused, weight 1 — the product | **0.3939** | **0.5758** | **0.2276** |
-|                                                        | + `expand: true` (HyDE)       | **0.4343** | **0.6263** | **0.2786** |
-|                                                        | + `rerank: true` (top 50)     | **0.5960** | **0.6970** | **0.5068** |
+| a symbol's own doc comment (214 queries)               | lexical                       | 0.9953     | 1.000      | 0.9819     |
+|                                                        | fused, weight 1               | 0.9766     | 1.000      | 0.9542     |
+| a paraphrase of it, doc comments stripped (99 queries) | lexical                       | 0.1515     | 0.3030     | 0.1021     |
+|                                                        | fused, weight 1 — the product | **0.4242** | **0.6162** | **0.2513** |
+|                                                        | + `expand: true` (HyDE)       | **0.4646** | **0.6566** | **0.3065** |
+|                                                        | + `rerank: true` (top 50)     | **0.5859** | **0.6869** | **0.5212** |
 
 ### On somebody else's corpus
 
@@ -88,7 +88,7 @@ value is** (MRR 0.264 → 0.771), and recall at ten is 95 % before any fine-tuni
 > so the two inputs are pinned to each other and only the retriever can move between runs.
 
 > The paraphrase artifact used to report lexical **0.5455**. It was measuring `rank !== null` on an unbounded list —
-> "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.2727**, and
+> "found anywhere" — against a fused list truncated to twenty. Cut at the same twenty, lexical answers **0.3030**, and
 > the twenty-five points that made the semantic half look like a regression were the arithmetic's.
 
 ### 3. Dashboard

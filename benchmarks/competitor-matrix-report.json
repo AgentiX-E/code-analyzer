@@ -64,7 +64,7 @@
       "axis": "paraphrase search recall at 20 with vectors registered, at the product default weight",
       "artifact": "benchmarks/paraphrase-search.json",
       "readAt": "fused.recallAt20",
-      "value": 0.5758
+      "value": 0.6162
     },
     {
       "name": "retrieval.cosqa.mrrAt10",
