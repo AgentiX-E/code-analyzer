@@ -258,7 +258,10 @@ export function groupCaptures(
         returnType: retType,
         docstring: doc,
         containerName,
-        isExported: false,
+        // **The same bit `phase-helpers.groupCaptures` reads**, kept in step with it: this file is a second
+        // implementation of the same grouping that no phase calls, and two implementations that disagree about what
+        // `isExported` means is how the first one stayed wrong for eleven weeks.
+        isExported: props['exported'] === 'true',
         visibility: 'public',
         properties: props,
       });

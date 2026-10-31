@@ -380,7 +380,7 @@ function populateStore(store: InMemoryGraphStore): void {
 // Test Suite
 // ---------------------------------------------------------------------------
 
-describe('MCP E2E — All 50 Tools Integration', () => {
+describe('MCP E2E — All 51 Tools Integration', () => {
   let store: InMemoryGraphStore;
   let ctx: ToolContext;
   let registry: ToolRegistry;
@@ -407,13 +407,13 @@ describe('MCP E2E — All 50 Tools Integration', () => {
   // =========================================================================
 
   describe('Tool Registry Structure', () => {
-    it('should register exactly 50 tools', () => {
-      expect(registry.size).toBe(50);
+    it('should register exactly 51 tools', () => {
+      expect(registry.size).toBe(51);
     });
 
     it('should list all tools without handlers in output', () => {
       const list = registry.list();
-      expect(list.length).toBe(50);
+      expect(list.length).toBe(51);
       for (const tool of list) {
         expect(tool.name).toBeTruthy();
         expect(tool.description).toBeTruthy();

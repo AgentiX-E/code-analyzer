@@ -8,7 +8,12 @@ import {
 } from '@code-analyzer/shared';
 
 import { GraphBuilder } from '../../graph/graph-builder.js';
-import { getOrLoadProvider, groupCaptures, toPhaseFailure } from '../phase-helpers.js';
+import {
+  attachDecorators,
+  getOrLoadProvider,
+  groupCaptures,
+  toPhaseFailure,
+} from '../phase-helpers.js';
 
 import type {
   TaintProvider,
@@ -139,6 +144,11 @@ export class ParsePhase implements ExecutablePhase {
               capture.properties['exported'] = String(isExported);
             }
           }
+
+          // **The decorators the providers emitted and no phase had ever read.** Attached here, before grouping, so
+          // the symbol carries the facts a framework-invoked function needs: `@app.route`, `@pytest.fixture` and
+          // `@Test` are all invocations with no call site, and reachability asks exactly that question.
+          attachDecorators(captures);
 
           const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
 

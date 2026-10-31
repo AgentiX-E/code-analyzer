@@ -188,14 +188,14 @@ Base URL: `http://localhost:3000/api/v1`
 
 ## MCP Tools Reference
 
-Code Analyzer exposes **50 tools** via the MCP (Model Context Protocol) interface.
+Code Analyzer exposes **51 tools** via the MCP (Model Context Protocol) interface.
 
 > **On the counts in this section.** The headings below are _this document's_ grouping, and they add up to 41. The
 > registry declares three categories — `analysis` (35), `all` (9) and `scout` (1) — which add up to 45. The two
-> groupings are not the same, and neither enumerates all 50 registrations individually. The tool count is computed
+> groupings are not the same, and neither enumerates all 51 registrations individually. The tool count is computed
 > from `packages/mcp/src/tools/index.ts` by `scripts/doc-code-sync-gate.js`, which is also why this note exists:
 > the previous revision of the sentence above said 40, and the headings said 40, and neither was the tool count.
-> **The generated inventory is [`docs/MCP-SERVER.md`](./MCP-SERVER.md#all-50-tools)**, which lists all 50 with the
+> **The generated inventory is [`docs/MCP-SERVER.md`](./MCP-SERVER.md#all-51-tools)**, which lists all 51 with the
 > description each declares; this section is the short version for a reader who wants the shape of the surface.
 
 ### Indexing & Lifecycle (4 tools)

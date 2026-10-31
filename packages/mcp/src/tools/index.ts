@@ -3,6 +3,7 @@
 
 // **The question-answering surface**, first in the local group because that is where its path sorts.
 import { askCodebaseSchema, askCodebaseTool } from './ask.js';
+import { deadCodeDetectionTool } from './dead-code-detection.js';
 import { ToolRegistry } from './registry.js';
 
 export { ToolRegistry };
@@ -513,6 +514,17 @@ export function createToolRegistry(): ToolRegistry {
     'Ask a natural-language question about the indexed code and get an answer with the code blocks each claim came from',
     askCodebaseSchema,
     askCodebaseTool,
+    'analysis',
+  );
+
+  // **Story 10: what can never run.** Registered after the answering surface because it reads the graph the same way,
+  // and it is the only tool whose findings are a statement about absence — so its input carries the two escape hatches
+  // (`entryPoints`, `ignoreNames`) that make an absence claim checkable.
+  registry.register(
+    deadCodeDetectionTool.name,
+    deadCodeDetectionTool.description,
+    deadCodeDetectionTool.inputSchema,
+    deadCodeDetectionTool.handler,
     'analysis',
   );
 

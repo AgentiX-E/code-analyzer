@@ -1,0 +1,2314 @@
+{
+  "measuredAt": "2026-10-31T15:34:20.739Z",
+  "languages": ["python", "typescript"],
+  "corpora": [
+    {
+      "repo": "colinhacks/zod",
+      "package": "src",
+      "language": "typescript"
+    },
+    {
+      "repo": "pallets/flask",
+      "package": "src/flask",
+      "language": "python"
+    },
+    {
+      "repo": "pallets/werkzeug",
+      "package": "src/werkzeug",
+      "language": "python"
+    },
+    {
+      "repo": "redis/ioredis",
+      "package": "lib",
+      "language": "typescript"
+    }
+  ],
+  "comment": "Story 10 measured against the reference dead-code tool of each language — vulture for Python, ts-prune for TypeScript — on the same checkouts, the same package and the same universe. Both sides are scored over the oracle's decidable universe and nothing else: private functions for Python, module-scope declarations for TypeScript, with a re-export from the package entry counting as publication. Claims outside that universe are neither right nor wrong and are reported as `outside`. The public half is reported as the disagreement it is, with the root that keeps each symbol alive.",
+  "rows": [
+    {
+      "repo": "colinhacks/zod",
+      "package": "src",
+      "language": "typescript",
+      "indexedMs": 4275,
+      "nodes": 13700,
+      "edges": 20614,
+      "roots": 575,
+      "rootsByKind": {
+        "published": 501,
+        "test": 64,
+        "entry": 8,
+        "route": 2
+      },
+      "considered": 598,
+      "callEdges": 671,
+      "oursDead": 0,
+      "publishedRescued": 164,
+      "competitor": "ts-prune",
+      "competitorVersion": "0.10.3",
+      "competitorTotal": 14,
+      "comparison": {
+        "agree": 0,
+        "oursOnly": 0,
+        "competitorOnly": 14,
+        "agreement": null
+      },
+      "rows": {
+        "agree": [],
+        "oursOnly": [],
+        "competitorOnly": [
+          {
+            "file": "src/__tests__/crazySchema.ts",
+            "line": 33,
+            "name": "asyncCrazySchema",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 3,
+            "name": "filePath",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 7,
+            "name": "Test",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 13,
+            "name": "instanceOfTest",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 19,
+            "name": "TestMerge",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 27,
+            "name": "instanceOfTestMerge",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 34,
+            "name": "TestUnion",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 43,
+            "name": "instanceOfTestUnion",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 50,
+            "name": "TestPartial",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 54,
+            "name": "instanceOfTestPartial",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 60,
+            "name": "TestPick",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 64,
+            "name": "instanceOfTestPick",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 70,
+            "name": "TestOmit",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          },
+          {
+            "file": "src/__tests__/language-server.source.ts",
+            "line": 74,
+            "name": "instanceOfTestOmit",
+            "ourVerdict": "test: the runner collects this file, so nothing calls it"
+          }
+        ]
+      },
+      "decidable": {
+        "universe": 75,
+        "oracleDead": 0,
+        "ours": {
+          "correct": 0,
+          "wrong": 0,
+          "outside": 0,
+          "missed": 0,
+          "precision": null,
+          "recall": null
+        },
+        "competitor": {
+          "correct": 0,
+          "wrong": 0,
+          "outside": 14,
+          "missed": 0,
+          "precision": null,
+          "recall": null
+        }
+      },
+      "overall": {
+        "ours": {
+          "correct": 0,
+          "wrong": 0,
+          "outside": 0,
+          "missed": 0,
+          "precision": null,
+          "recall": null
+        },
+        "competitor": {
+          "correct": 0,
+          "wrong": 0,
+          "outside": 14,
+          "missed": 0,
+          "precision": null,
+          "recall": null
+        }
+      }
+    },
+    {
+      "repo": "pallets/flask",
+      "package": "src/flask",
+      "language": "python",
+      "indexedMs": 2080,
+      "nodes": 5859,
+      "edges": 10944,
+      "roots": 1105,
+      "rootsByKind": {
+        "entry": 438,
+        "test": 403,
+        "published": 259,
+        "route": 5
+      },
+      "considered": 1247,
+      "callEdges": 378,
+      "oursDead": 3,
+      "publishedRescued": 80,
+      "competitor": "vulture",
+      "competitorVersion": "vulture 2.16",
+      "competitorTotal": 64,
+      "comparison": {
+        "agree": 1,
+        "oursOnly": 2,
+        "competitorOnly": 59,
+        "agreement": 0.3333333333333333
+      },
+      "rows": {
+        "agree": [
+          {
+            "file": "src/flask/cli.py",
+            "name": "_path_is_ancestor",
+            "line": 680
+          }
+        ],
+        "oursOnly": [
+          {
+            "file": "src/flask/app.py",
+            "name": "_make_timedelta",
+            "line": 72,
+            "oracleSays": "referenced"
+          },
+          {
+            "file": "src/flask/wrappers.py",
+            "name": "_load_form_data",
+            "line": 114,
+            "oracleSays": "referenced"
+          }
+        ],
+        "competitorOnly": [
+          {
+            "file": "src/flask/__init__.py",
+            "line": 46,
+            "name": "__getattr__",
+            "ourVerdict": "entry: the interpreter invokes it by syntax"
+          },
+          {
+            "file": "src/flask/app.py",
+            "line": 322,
+            "name": "open_resource",
+            "ourVerdict": "published: it is a public member of the published class `Flask`"
+          },
+          {
+            "file": "src/flask/app.py",
+            "line": 349,
+            "name": "open_instance_resource",
+            "ourVerdict": "published: it is a public member of the published class `Flask`"
+          },
+          {
+            "file": "src/flask/app.py",
+            "line": 509,
+            "name": "run",
+            "ourVerdict": "published: it is a public member of the published class `Flask`"
+          },
+          {
+            "file": "src/flask/app.py",
+            "line": 632,
+            "name": "test_client",
+            "ourVerdict": "published: it is a public member of the published class `Flask`"
+          },
+          {
+            "file": "src/flask/app.py",
+            "line": 690,
+            "name": "test_cli_runner",
+            "ourVerdict": "published: it is a public member of the published class `Flask`"
+          },
+          {
+            "file": "src/flask/app.py",
+            "line": 762,
+            "name": "show_exception",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/app.py",
+            "line": 1225,
+            "name": "status_code",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/blueprints.py",
+            "line": 104,
+            "name": "open_resource",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/config.py",
+            "line": 35,
+            "name": "owner",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/config.py",
+            "line": 102,
+            "name": "from_envvar",
+            "ourVerdict": "published: it is a public member of the published class `Config`"
+          },
+          {
+            "file": "src/flask/config.py",
+            "line": 126,
+            "name": "from_prefixed_env",
+            "ourVerdict": "published: it is a public member of the published class `Config`"
+          },
+          {
+            "file": "src/flask/config.py",
+            "line": 259,
+            "name": "from_file",
+            "ourVerdict": "published: it is a public member of the published class `Config`"
+          },
+          {
+            "file": "src/flask/config.py",
+            "line": 326,
+            "name": "get_namespace",
+            "ourVerdict": "published: it is a public member of the published class `Config`"
+          },
+          {
+            "file": "src/flask/ctx.py",
+            "line": 439,
+            "name": "exc_type",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/ctx.py",
+            "line": 319,
+            "name": "json_module",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/debughelpers.py",
+            "line": 17,
+            "name": "UnexpectedUnicodeError",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/flask/sansio/app.py",
+            "line": 388,
+            "name": "extensions",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/sansio/app.py",
+            "line": 569,
+            "name": "register_blueprint",
+            "ourVerdict": "published: it is a public member of the published class `App`"
+          },
+          {
+            "file": "src/flask/sansio/app.py",
+            "line": 663,
+            "name": "template_filter",
+            "ourVerdict": "published: it is a public member of the published class `App`"
+          },
+          {
+            "file": "src/flask/sansio/app.py",
+            "line": 697,
+            "name": "template_test",
+            "ourVerdict": "published: it is a public member of the published class `App`"
+          },
+          {
+            "file": "src/flask/sansio/app.py",
+            "line": 740,
+            "name": "template_global",
+            "ourVerdict": "published: it is a public member of the published class `App`"
+          },
+          {
+            "file": "src/flask/sansio/app.py",
+            "line": 778,
+            "name": "teardown_appcontext",
+            "ourVerdict": "published: it is a public member of the published class `App`"
+          },
+          {
+            "file": "src/flask/sansio/app.py",
+            "line": 812,
+            "name": "shell_context_processor",
+            "ourVerdict": "published: it is a public member of the published class `App`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 255,
+            "name": "register_blueprint",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 443,
+            "name": "app_template_filter",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 477,
+            "name": "app_template_test",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 515,
+            "name": "app_template_global",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 553,
+            "name": "before_app_request",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 563,
+            "name": "after_app_request",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 573,
+            "name": "teardown_app_request",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 583,
+            "name": "app_context_processor",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 595,
+            "name": "app_errorhandler",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 612,
+            "name": "app_url_value_preprocessor",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/blueprints.py",
+            "line": 624,
+            "name": "app_url_defaults",
+            "ourVerdict": "published: it is a public member of the published class `Blueprint`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 303,
+            "name": "post",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 311,
+            "name": "put",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 319,
+            "name": "delete",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 327,
+            "name": "patch",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 459,
+            "name": "before_request",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 486,
+            "name": "after_request",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 507,
+            "name": "teardown_request",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 541,
+            "name": "context_processor",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sansio/scaffold.py",
+            "line": 558,
+            "name": "url_value_preprocessor",
+            "ourVerdict": "published: it is a public member of the published class `Scaffold`"
+          },
+          {
+            "file": "src/flask/sessions.py",
+            "line": 39,
+            "name": "new",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/sessions.py",
+            "line": 108,
+            "name": "clear",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/sessions.py",
+            "line": 108,
+            "name": "popitem",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/sessions.py",
+            "line": 160,
+            "name": "pickle_based",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/testing.py",
+            "line": 88,
+            "name": "json_dumps",
+            "ourVerdict": "published: it is a public member of the published class `EnvironBuilder`"
+          },
+          {
+            "file": "src/flask/testing.py",
+            "line": 135,
+            "name": "session_transaction",
+            "ourVerdict": "published: it is a public member of the published class `FlaskClient`"
+          },
+          {
+            "file": "src/flask/testing.py",
+            "line": 240,
+            "name": "json_module",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/testing.py",
+            "line": 257,
+            "name": "exc_type",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/typing.py",
+            "line": 52,
+            "name": "BeforeFirstRequestCallable",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/views.py",
+            "line": 85,
+            "name": "as_view",
+            "ourVerdict": "published: it is a public member of the published class `View`"
+          },
+          {
+            "file": "src/flask/views.py",
+            "line": 138,
+            "name": "MethodView",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/flask/wrappers.py",
+            "line": 159,
+            "name": "json_module",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/wrappers.py",
+            "line": 55,
+            "name": "max_content_length",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/flask/wrappers.py",
+            "line": 157,
+            "name": "default_mimetype",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/flask/wrappers.py",
+            "line": 161,
+            "name": "autocorrect_location_header",
+            "ourVerdict": "not considered live by either surface"
+          }
+        ]
+      },
+      "decidable": {
+        "universe": 37,
+        "oracleDead": 1,
+        "ours": {
+          "correct": 1,
+          "wrong": 2,
+          "outside": 0,
+          "missed": 0,
+          "precision": 0.3333333333333333,
+          "recall": 1
+        },
+        "competitor": {
+          "correct": 1,
+          "wrong": 0,
+          "outside": 59,
+          "missed": 0,
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "overall": {
+        "ours": {
+          "correct": 1,
+          "wrong": 2,
+          "outside": 0,
+          "missed": 0,
+          "precision": 0.3333333333333333,
+          "recall": 1
+        },
+        "competitor": {
+          "correct": 1,
+          "wrong": 0,
+          "outside": 59,
+          "missed": 0,
+          "precision": 1,
+          "recall": 1
+        }
+      }
+    },
+    {
+      "repo": "pallets/werkzeug",
+      "package": "src/werkzeug",
+      "language": "python",
+      "indexedMs": 4175,
+      "nodes": 11262,
+      "edges": 24430,
+      "roots": 1810,
+      "rootsByKind": {
+        "entry": 497,
+        "published": 765,
+        "test": 547,
+        "route": 1
+      },
+      "considered": 1954,
+      "callEdges": 1694,
+      "oursDead": 4,
+      "publishedRescued": 192,
+      "competitor": "vulture",
+      "competitorVersion": "vulture 2.16",
+      "competitorTotal": 207,
+      "comparison": {
+        "agree": 2,
+        "oursOnly": 2,
+        "competitorOnly": 198,
+        "agreement": 0.5
+      },
+      "rows": {
+        "agree": [
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "name": "_find",
+            "line": 88
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "name": "_encode_query_vars",
+            "line": 588
+          }
+        ],
+        "oursOnly": [
+          {
+            "file": "src/werkzeug/_internal.py",
+            "name": "_DictAccessorProperty",
+            "line": 123,
+            "oracleSays": "not-in-universe"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "name": "_clean_status",
+            "line": 160,
+            "oracleSays": "referenced"
+          }
+        ],
+        "competitorOnly": [
+          {
+            "file": "src/werkzeug/__init__.py",
+            "line": 11,
+            "name": "__getattr__",
+            "ourVerdict": "entry: the interpreter invokes it by syntax"
+          },
+          {
+            "file": "src/werkzeug/_reloader.py",
+            "line": 364,
+            "name": "exc_tb",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/_reloader.py",
+            "line": 364,
+            "name": "exc_val",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/_reloader.py",
+            "line": 324,
+            "name": "on_any_event",
+            "ourVerdict": "published: it is a public member of the published class `EventHandler`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/accept.py",
+            "line": 174,
+            "name": "best",
+            "ourVerdict": "published: it is a public member of the published class `Accept`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/accept.py",
+            "line": 236,
+            "name": "accept_html",
+            "ourVerdict": "published: it is a public member of the published class `MIMEAccept`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/accept.py",
+            "line": 248,
+            "name": "accept_json",
+            "ourVerdict": "published: it is a public member of the published class `MIMEAccept`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 58,
+            "name": "no_cache",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 59,
+            "name": "no_store",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 61,
+            "name": "no_transform",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 118,
+            "name": "cache_property",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 139,
+            "name": "max_stale",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 140,
+            "name": "min_fresh",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 141,
+            "name": "only_if_cached",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 166,
+            "name": "public",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 167,
+            "name": "private",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 168,
+            "name": "must_revalidate",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 169,
+            "name": "proxy_revalidate",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 170,
+            "name": "s_maxage",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/cache_control.py",
+            "line": 171,
+            "name": "immutable",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 36,
+            "name": "base_uri",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 37,
+            "name": "child_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 38,
+            "name": "connect_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 39,
+            "name": "default_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 40,
+            "name": "font_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 41,
+            "name": "form_action",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 42,
+            "name": "frame_ancestors",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 43,
+            "name": "frame_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 44,
+            "name": "img_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 45,
+            "name": "manifest_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 46,
+            "name": "media_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 47,
+            "name": "navigate_to",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 48,
+            "name": "object_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 49,
+            "name": "prefetch_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 50,
+            "name": "plugin_types",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 51,
+            "name": "report_to",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 52,
+            "name": "report_uri",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 53,
+            "name": "sandbox",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 54,
+            "name": "script_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 55,
+            "name": "script_src_attr",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 56,
+            "name": "script_src_elem",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 57,
+            "name": "style_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 58,
+            "name": "style_src_attr",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 59,
+            "name": "style_src_elem",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/csp.py",
+            "line": 60,
+            "name": "worker_src",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/etag.py",
+            "line": 20,
+            "name": "as_set",
+            "ourVerdict": "published: it is a public member of the published class `ETags`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/etag.py",
+            "line": 48,
+            "name": "contains_raw",
+            "ourVerdict": "published: it is a public member of the published class `ETags`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/file_storage.py",
+            "line": 101,
+            "name": "save",
+            "ourVerdict": "published: it is a public member of the published class `FileStorage`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/headers.py",
+            "line": 150,
+            "name": "get_all",
+            "ourVerdict": "published: it is a public member of the published class `Headers`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/headers.py",
+            "line": 276,
+            "name": "add_header",
+            "ourVerdict": "published: it is a public member of the published class `Headers`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/mixins.py",
+            "line": 61,
+            "name": "reverse",
+            "ourVerdict": "published: it is a public member of the published class `ImmutableListMixin`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/mixins.py",
+            "line": 75,
+            "name": "fromkeys",
+            "ourVerdict": "published: it is a public member of the published class `ImmutableDictMixin`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/mixins.py",
+            "line": 132,
+            "name": "popitemlist",
+            "ourVerdict": "published: it is a public member of the published class `ImmutableMultiDictMixin`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/mixins.py",
+            "line": 170,
+            "name": "add_header",
+            "ourVerdict": "published: it is a public member of the published class `ImmutableHeadersMixin`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/range.py",
+            "line": 74,
+            "name": "make_content_range",
+            "ourVerdict": "published: it is a public member of the published class `Range`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/range.py",
+            "line": 145,
+            "name": "_units",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/range.py",
+            "line": 146,
+            "name": "_start",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/range.py",
+            "line": 147,
+            "name": "_stop",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/range.py",
+            "line": 148,
+            "name": "_length",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/datastructures/range.py",
+            "line": 152,
+            "name": "unset",
+            "ourVerdict": "published: it is a public member of the published class `ContentRange`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/structures.py",
+            "line": 746,
+            "name": "listvalues",
+            "ourVerdict": "published: it is a public member of the published class `MultiDict`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/structures.py",
+            "line": 643,
+            "name": "popitemlist",
+            "ourVerdict": "published: it is a public member of the published class `MultiDict`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/structures.py",
+            "line": 684,
+            "name": "fromkeys",
+            "ourVerdict": "published: it is a public member of the published class `CombinedMultiDict`"
+          },
+          {
+            "file": "src/werkzeug/datastructures/structures.py",
+            "line": 956,
+            "name": "as_set",
+            "ourVerdict": "published: it is a public member of the published class `HeaderSet`"
+          },
+          {
+            "file": "src/werkzeug/debug/console.py",
+            "line": 34,
+            "name": "mode",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/debug/console.py",
+            "line": 55,
+            "name": "writelines",
+            "ourVerdict": "published: it is a public member of the published class `HTMLStringO`"
+          },
+          {
+            "file": "src/werkzeug/debug/console.py",
+            "line": 125,
+            "name": "get_source_by_code",
+            "ourVerdict": "published: it is a public member of the published class `_ConsoleLoader`"
+          },
+          {
+            "file": "src/werkzeug/debug/console.py",
+            "line": 175,
+            "name": "runcode",
+            "ourVerdict": "published: it is a public member of the published class `_InteractiveConsole`"
+          },
+          {
+            "file": "src/werkzeug/debug/console.py",
+            "line": 188,
+            "name": "showsyntaxerror",
+            "ourVerdict": "published: it is a public member of the published class `_InteractiveConsole`"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 253,
+            "name": "Unauthorized",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 325,
+            "name": "Forbidden",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 389,
+            "name": "NotAcceptable",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 405,
+            "name": "RequestTimeout",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 418,
+            "name": "Conflict",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 435,
+            "name": "Gone",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 449,
+            "name": "LengthRequired",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 463,
+            "name": "PreconditionFailed",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 487,
+            "name": "RequestURITooLarge",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 549,
+            "name": "ExpectationFailed",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 561,
+            "name": "ImATeapot",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 574,
+            "name": "UnprocessableEntity",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 588,
+            "name": "Locked",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 598,
+            "name": "FailedDependency",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 613,
+            "name": "PreconditionRequired",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 667,
+            "name": "TooManyRequests",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 688,
+            "name": "RequestHeaderFieldsTooLarge",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 700,
+            "name": "UnavailableForLegalReasons",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 766,
+            "name": "ServiceUnavailable",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 788,
+            "name": "GatewayTimeout",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 799,
+            "name": "HTTPVersionNotSupported",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/exceptions.py",
+            "line": 866,
+            "name": "abort",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/formparser.py",
+            "line": 319,
+            "name": "fail",
+            "ourVerdict": "published: it is a public member of the published class `MultiPartParser`"
+          },
+          {
+            "file": "src/werkzeug/http.py",
+            "line": 128,
+            "name": "REQUIRE_CORP",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/http.py",
+            "line": 135,
+            "name": "SAME_ORIGIN_ALLOW_POPUPS",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/http.py",
+            "line": 136,
+            "name": "SAME_ORIGIN",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/http.py",
+            "line": 175,
+            "name": "unquote_header_value",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/http.py",
+            "line": 770,
+            "name": "make_inclusive",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/http.py",
+            "line": 1124,
+            "name": "remove_hop_by_hop_headers",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/local.py",
+            "line": 186,
+            "name": "LocalManager",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/local.py",
+            "line": 239,
+            "name": "middleware",
+            "ourVerdict": "published: it is a public member of the published class `LocalManager`"
+          },
+          {
+            "file": "src/werkzeug/middleware/dispatcher.py",
+            "line": 44,
+            "name": "DispatcherMiddleware",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/middleware/http_proxy.py",
+            "line": 28,
+            "name": "ProxyMiddleware",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/middleware/lint.py",
+            "line": 113,
+            "name": "writelines",
+            "ourVerdict": "published: it is a public member of the published class `ErrorStream`"
+          },
+          {
+            "file": "src/werkzeug/middleware/lint.py",
+            "line": 227,
+            "name": "LintMiddleware",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/middleware/profiler.py",
+            "line": 34,
+            "name": "ProfilerMiddleware",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/middleware/proxy_fix.py",
+            "line": 37,
+            "name": "ProxyFix",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/routing/map.py",
+            "line": 134,
+            "name": "is_endpoint_expecting",
+            "ourVerdict": "published: it is a public member of the published class `Map`"
+          },
+          {
+            "file": "src/werkzeug/routing/map.py",
+            "line": 252,
+            "name": "bind_to_environ",
+            "ourVerdict": "published: it is a public member of the published class `Map`"
+          },
+          {
+            "file": "src/werkzeug/routing/map.py",
+            "line": 412,
+            "name": "dispatch",
+            "ourVerdict": "published: it is a public member of the published class `MapAdapter`"
+          },
+          {
+            "file": "src/werkzeug/routing/map.py",
+            "line": 666,
+            "name": "test",
+            "ourVerdict": "published: it is a public member of the published class `MapAdapter`"
+          },
+          {
+            "file": "src/werkzeug/routing/map.py",
+            "line": 683,
+            "name": "allowed_methods",
+            "ourVerdict": "published: it is a public member of the published class `MapAdapter`"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 21,
+            "name": "number_static_weights",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 23,
+            "name": "number_argument_weights",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 468,
+            "name": "is_leaf",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 469,
+            "name": "is_branch",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 548,
+            "name": "refresh",
+            "ourVerdict": "published: it is a public member of the published class `Rule`"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 575,
+            "name": "variable_name",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 803,
+            "name": "kwarg",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 820,
+            "name": "end_lineno",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/routing/rules.py",
+            "line": 824,
+            "name": "end_col_offset",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/multipart.py",
+            "line": 182,
+            "name": "disposition",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 181,
+            "name": "access_route",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 194,
+            "name": "full_path",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 226,
+            "name": "host_url",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 240,
+            "name": "cookies",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 272,
+            "name": "content_encoding",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 284,
+            "name": "content_md5",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 296,
+            "name": "referrer",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 317,
+            "name": "max_forwards",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 353,
+            "name": "pragma",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 365,
+            "name": "accept_mimetypes",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 372,
+            "name": "accept_charsets",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 379,
+            "name": "accept_encodings",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 387,
+            "name": "accept_languages",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 424,
+            "name": "if_modified_since",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 433,
+            "name": "if_unmodified_since",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 465,
+            "name": "user_agent",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 480,
+            "name": "authorization",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 493,
+            "name": "origin",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 503,
+            "name": "access_control_request_headers",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/request.py",
+            "line": 515,
+            "name": "access_control_request_method",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 361,
+            "name": "content_encoding",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 370,
+            "name": "content_md5",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 453,
+            "name": "vary",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 460,
+            "name": "content_language",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 467,
+            "name": "allow",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 500,
+            "name": "get_etag",
+            "ourVerdict": "published: it is a public member of the published class `Response`"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 704,
+            "name": "access_control_allow_headers",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 711,
+            "name": "access_control_allow_methods",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 718,
+            "name": "access_control_allow_origin",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 723,
+            "name": "access_control_expose_headers",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 730,
+            "name": "access_control_max_age",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 737,
+            "name": "cross_origin_opener_policy",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/sansio/response.py",
+            "line": 746,
+            "name": "cross_origin_embedder_policy",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/security.py",
+            "line": 73,
+            "name": "generate_password_hash",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/security.py",
+            "line": 109,
+            "name": "check_password_hash",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 97,
+            "name": "readable",
+            "ourVerdict": "published: it is a public member of the published class `DechunkedInput`"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 371,
+            "name": "close_connection",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 433,
+            "name": "log_request",
+            "ourVerdict": "published: it is a public member of the published class `WSGIRequestHandler`"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 465,
+            "name": "log_message",
+            "ourVerdict": "published: it is a public member of the published class `WSGIRequestHandler`"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 544,
+            "name": "make_ssl_devcert",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 699,
+            "name": "request_queue_size",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 867,
+            "name": "daemon_threads",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/serving.py",
+            "line": 894,
+            "name": "max_children",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 144,
+            "name": "encode_multipart",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 830,
+            "name": "get_cookie",
+            "ourVerdict": "published: it is a public member of the published class `Client`"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1164,
+            "name": "post",
+            "ourVerdict": "published: it is a public member of the published class `Client`"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1169,
+            "name": "put",
+            "ourVerdict": "published: it is a public member of the published class `Client`"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1174,
+            "name": "delete",
+            "ourVerdict": "published: it is a public member of the published class `Client`"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1179,
+            "name": "patch",
+            "ourVerdict": "published: it is a public member of the published class `Client`"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1189,
+            "name": "head",
+            "ourVerdict": "published: it is a public member of the published class `Client`"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1194,
+            "name": "trace",
+            "ourVerdict": "published: it is a public member of the published class `Client`"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1203,
+            "name": "create_environ",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1349,
+            "name": "_compat_tuple",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1405,
+            "name": "http_only",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/test.py",
+            "line": 1408,
+            "name": "same_site",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/user_agent.py",
+            "line": 29,
+            "name": "language",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/utils.py",
+            "line": 195,
+            "name": "secure_filename",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/utils.py",
+            "line": 282,
+            "name": "append_slash_redirect",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/utils.py",
+            "line": 509,
+            "name": "no_cache",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/utils.py",
+            "line": 510,
+            "name": "public",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/utils.py",
+            "line": 538,
+            "name": "send_from_directory",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "src/werkzeug/wrappers/request.py",
+            "line": 132,
+            "name": "from_values",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/wrappers/request.py",
+            "line": 312,
+            "name": "exc_value",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/wrappers/request.py",
+            "line": 504,
+            "name": "url_root",
+            "ourVerdict": "published: it is a public member of the published class `Request`"
+          },
+          {
+            "file": "src/werkzeug/wrappers/request.py",
+            "line": 511,
+            "name": "remote_user",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/wrappers/request.py",
+            "line": 517,
+            "name": "is_multithread",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/wrappers/request.py",
+            "line": 522,
+            "name": "is_multiprocess",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/wrappers/request.py",
+            "line": 527,
+            "name": "is_run_once",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/wrappers/response.py",
+            "line": 197,
+            "name": "force_type",
+            "ourVerdict": "published: it is a public member of the published class `Response`"
+          },
+          {
+            "file": "src/werkzeug/wrappers/response.py",
+            "line": 242,
+            "name": "from_app",
+            "ourVerdict": "published: it is a public member of the published class `Response`"
+          },
+          {
+            "file": "src/werkzeug/wrappers/response.py",
+            "line": 410,
+            "name": "exc_value",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/wrappers/response.py",
+            "line": 413,
+            "name": "freeze",
+            "ourVerdict": "published: it is a public member of the published class `Response`"
+          },
+          {
+            "file": "src/werkzeug/wrappers/response.py",
+            "line": 795,
+            "name": "mode",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "src/werkzeug/wrappers/response.py",
+            "line": 809,
+            "name": "writelines",
+            "ourVerdict": "published: it is a public member of the published class `ResponseStream`"
+          },
+          {
+            "file": "src/werkzeug/wsgi.py",
+            "line": 18,
+            "name": "responder",
+            "ourVerdict": "entry: /tmp/corpus/werkzeug-3.0.3/src/werkzeug/wsgi.py is executed rather than imported"
+          },
+          {
+            "file": "src/werkzeug/wsgi.py",
+            "line": 505,
+            "name": "exhaust",
+            "ourVerdict": "published: it is a public member of the published class `LimitedStream`"
+          },
+          {
+            "file": "src/werkzeug/wsgi.py",
+            "line": 594,
+            "name": "readable",
+            "ourVerdict": "published: it is a public member of the published class `LimitedStream`"
+          }
+        ]
+      },
+      "decidable": {
+        "universe": 107,
+        "oracleDead": 1,
+        "ours": {
+          "correct": 1,
+          "wrong": 2,
+          "outside": 1,
+          "missed": 0,
+          "precision": 0.3333333333333333,
+          "recall": 1
+        },
+        "competitor": {
+          "correct": 1,
+          "wrong": 1,
+          "outside": 198,
+          "missed": 0,
+          "precision": 0.5,
+          "recall": 1
+        }
+      },
+      "overall": {
+        "ours": {
+          "correct": 1,
+          "wrong": 2,
+          "outside": 1,
+          "missed": 0,
+          "precision": 0.3333333333333333,
+          "recall": 1
+        },
+        "competitor": {
+          "correct": 1,
+          "wrong": 1,
+          "outside": 198,
+          "missed": 0,
+          "precision": 0.5,
+          "recall": 1
+        }
+      }
+    },
+    {
+      "repo": "redis/ioredis",
+      "package": "lib",
+      "language": "typescript",
+      "indexedMs": 87424,
+      "nodes": 20451,
+      "edges": 411784,
+      "roots": 283,
+      "rootsByKind": {
+        "entry": 30,
+        "published": 248,
+        "test": 1,
+        "route": 4
+      },
+      "considered": 486,
+      "callEdges": 255,
+      "oursDead": 2,
+      "publishedRescued": 74,
+      "competitor": "ts-prune",
+      "competitorVersion": "0.10.3",
+      "competitorTotal": 42,
+      "comparison": {
+        "agree": 0,
+        "oursOnly": 2,
+        "competitorOnly": 42,
+        "agreement": 0
+      },
+      "rows": {
+        "agree": [],
+        "oursOnly": [
+          {
+            "file": "lib/index.ts",
+            "name": "get",
+            "line": 77,
+            "oracleSays": "not-in-universe"
+          },
+          {
+            "file": "lib/index.ts",
+            "name": "set",
+            "line": 83,
+            "oracleSays": "not-in-universe"
+          }
+        ],
+        "competitorOnly": [
+          {
+            "file": "lib/autoPipelining.ts",
+            "line": 93,
+            "name": "getFirstValueInFlattenedArray",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/autoPipelining.ts",
+            "line": 6,
+            "name": "kExec",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "lib/autoPipelining.ts",
+            "line": 7,
+            "name": "kCallbacks",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "lib/autoPipelining.ts",
+            "line": 8,
+            "name": "notAllowedAutoPipelineCommands",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 93,
+            "name": "print",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 3,
+            "name": "default",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 4,
+            "name": "Redis",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 5,
+            "name": "Cluster",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 10,
+            "name": "Command",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 16,
+            "name": "RedisCommander",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 17,
+            "name": "Result",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 18,
+            "name": "ClientContext",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 24,
+            "name": "ScanStream",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 29,
+            "name": "Pipeline",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 34,
+            "name": "AbstractConnector",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 40,
+            "name": "SentinelConnector",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 41,
+            "name": "SentinelIterator",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 47,
+            "name": "Callback",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 51,
+            "name": "SentinelAddress",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 52,
+            "name": "SentinelConnectionOptions",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 54,
+            "name": "StandaloneConnectionOptions",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 55,
+            "name": "RedisOptions",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 55,
+            "name": "CommonRedisOptions",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 56,
+            "name": "ClusterNode",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 58,
+            "name": "ClusterOptions",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 59,
+            "name": "DNSLookupFunction",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 60,
+            "name": "DNSResolveSrvFunction",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 61,
+            "name": "NatMap",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 63,
+            "name": "NodeRole",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 65,
+            "name": "RedisKey",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 66,
+            "name": "RedisValue",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 67,
+            "name": "ChainableCommander",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/index.ts",
+            "line": 71,
+            "name": "ReplyError",
+            "ourVerdict": "published: the package entry re-exports it, so it is the API"
+          },
+          {
+            "file": "lib/cluster/DelayQueue.ts",
+            "line": 6,
+            "name": "DelayQueueOptions",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/cluster/util.ts",
+            "line": 16,
+            "name": "SrvRecordsGroup",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/cluster/util.ts",
+            "line": 21,
+            "name": "GroupedSrvRecords",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/connectors/index.ts",
+            "line": 4,
+            "name": "SentinelConnector",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "lib/redis/event_handler.ts",
+            "line": 233,
+            "name": "readyHandler",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/utils/debug.ts",
+            "line": 106,
+            "name": "MAX_ARGUMENT_LENGTH",
+            "ourVerdict": "not considered live by either surface"
+          },
+          {
+            "file": "lib/utils/debug.ts",
+            "line": 106,
+            "name": "getStringValue",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/utils/debug.ts",
+            "line": 106,
+            "name": "genRedactedString",
+            "ourVerdict": "published: it is exported from a published package"
+          },
+          {
+            "file": "lib/utils/RedisCommander.ts",
+            "line": 15,
+            "name": "ResultTypes",
+            "ourVerdict": "published: it is exported from a published package"
+          }
+        ]
+      },
+      "decidable": {
+        "universe": 69,
+        "oracleDead": 1,
+        "ours": {
+          "correct": 0,
+          "wrong": 0,
+          "outside": 2,
+          "missed": 1,
+          "precision": null,
+          "recall": 0
+        },
+        "competitor": {
+          "correct": 0,
+          "wrong": 5,
+          "outside": 37,
+          "missed": 1,
+          "precision": 0,
+          "recall": 0
+        }
+      },
+      "overall": {
+        "ours": {
+          "correct": 0,
+          "wrong": 0,
+          "outside": 2,
+          "missed": 1,
+          "precision": null,
+          "recall": 0
+        },
+        "competitor": {
+          "correct": 0,
+          "wrong": 5,
+          "outside": 37,
+          "missed": 1,
+          "precision": 0,
+          "recall": 0
+        }
+      }
+    }
+  ],
+  "byRepo": {
+    "colinhacks/zod": {
+      "language": "typescript",
+      "package": "src",
+      "findings": 0,
+      "published": 164,
+      "oracleUniverse": 75,
+      "oracleDead": 0,
+      "precision": null,
+      "recall": null,
+      "competitor": "ts-prune",
+      "competitorFindings": 14,
+      "competitorPrecision": null,
+      "competitorRecall": null
+    },
+    "pallets/flask": {
+      "language": "python",
+      "package": "src/flask",
+      "findings": 3,
+      "published": 80,
+      "oracleUniverse": 37,
+      "oracleDead": 1,
+      "precision": 0.3333333333333333,
+      "recall": 1,
+      "competitor": "vulture",
+      "competitorFindings": 64,
+      "competitorPrecision": 1,
+      "competitorRecall": 1
+    },
+    "pallets/werkzeug": {
+      "language": "python",
+      "package": "src/werkzeug",
+      "findings": 4,
+      "published": 192,
+      "oracleUniverse": 107,
+      "oracleDead": 1,
+      "precision": 0.3333333333333333,
+      "recall": 1,
+      "competitor": "vulture",
+      "competitorFindings": 207,
+      "competitorPrecision": 0.5,
+      "competitorRecall": 1
+    },
+    "redis/ioredis": {
+      "language": "typescript",
+      "package": "lib",
+      "findings": 2,
+      "published": 74,
+      "oracleUniverse": 69,
+      "oracleDead": 1,
+      "precision": null,
+      "recall": 0,
+      "competitor": "ts-prune",
+      "competitorFindings": 42,
+      "competitorPrecision": 0,
+      "competitorRecall": 0
+    }
+  },
+  "assertionLoad": {
+    "ours": 9,
+    "competitor": 327,
+    "ratio": 0.027522935779816515
+  }
+}

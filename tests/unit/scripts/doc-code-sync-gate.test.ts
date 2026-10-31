@@ -114,9 +114,10 @@ describe('doc-code-sync-gate', () => {
     // **It used to take the first quoted string within 400 characters**, and **three tools whose name comes from an
     // object were counted as the profile that follows** - so the total was right and **the distinct count was three
     // short**, and **the gate spent that difference on a note accusing the code of a duplicate registration.**
-    // **The fifty is `ask_codebase`, added with the answer surface**: this number is the gate's own count of
-    // `registerTool` calls in the committed code, so it moves whenever a tool is added and never before.
-    expect(parsed.summary.mcpToolCalls).toBe(50);
+    // **The fifty is `ask_codebase`, added with the answer surface**, and the fifty-first is `find_dead_code`: this
+    // number is the gate's own count of `registerTool` calls in the committed code, so it moves whenever a tool is
+    // added and never before.
+    expect(parsed.summary.mcpToolCalls).toBe(51);
     expect(parsed.summary.pipelinePhases).toBe(19);
     expect(parsed.summary.nodeTypes).toBe(36);
     expect(parsed.summary.relationshipTypes).toBe(43);

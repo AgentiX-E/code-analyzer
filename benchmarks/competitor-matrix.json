@@ -493,7 +493,7 @@
           "equals": false
         }
       ],
-      "note": "one artifact, one producer: `real-corpus-benchmark.yml` clones a third-party repository at a pinned tag onto a GitHub runner and records `secondsPerMillionLines` beside `completed`. **The self-index figure that used to be written into this same path moved to `benchmarks/indexing-self-index.json`** \u2014 a different corpus on whatever machine ran the benchmark, which is a regression signal rather than a competitor comparison, and two producers on one path let the last writer decide what this table cited. `invalidWhen` still rejects a bound (`completed: false`) and a run that indexed nothing (`valid: false`)."
+      "note": "one artifact, one producer: `real-corpus-benchmark.yml` clones a third-party repository at a pinned tag onto a GitHub runner and records `secondsPerMillionLines` beside `completed`. **The self-index figure that used to be written into this same path moved to `benchmarks/indexing-self-index.json`** — a different corpus on whatever machine ran the benchmark, which is a regression signal rather than a competitor comparison, and two producers on one path let the last writer decide what this table cited. `invalidWhen` still rejects a bound (`completed: false`) and a run that indexed nothing (`valid: false`)."
     },
     "tokens.reduction": {
       "category": "A",
@@ -618,6 +618,27 @@
       "artifact": "benchmarks/lca-bug-localization.json",
       "read": ["overall", "retrieval", "at10", "recall"],
       "note": "A natural-language issue and a real repository at the commit where it reproduces; the ground truth is the fixing commit and the metric is the authors' own. **The retrieval arm needs no model**, so the figure is deterministic and reproducible to the digit; `overall.answer` carries the model arm when a key was present. CrossCodeEval would be the other natural corpus and is gated on the hub, which is why this one is here."
+    },
+    "deadcode.recall.flask": {
+      "category": "B",
+      "axis": "dead-code recall, decided by an independent reader",
+      "artifact": "benchmarks/dead-code.json",
+      "read": ["byRepo", "pallets/flask", "recall"],
+      "note": "one symbol in flask's decidable universe is provably dead; this product reports it, and so does vulture"
+    },
+    "deadcode.precision.flask": {
+      "category": "B",
+      "axis": "dead-code precision inside the decidable universe",
+      "artifact": "benchmarks/dead-code.json",
+      "read": ["byRepo", "pallets/flask", "precision"],
+      "note": "3 claims, 1 confirmed by the reader inside the private-function universe; the other two are named in the artifact with the reason each survives"
+    },
+    "deadcode.assertionRatio": {
+      "category": "B",
+      "axis": "dead-code claims as a share of the reference tool's, over four checkouts",
+      "artifact": "benchmarks/dead-code.json",
+      "read": ["assertionLoad", "ratio"],
+      "note": "9 claims against 327 across flask, werkzeug, zod and ioredis at equal recall on the decidable half"
     }
   },
   "pendingOurMetrics": {
@@ -684,19 +705,19 @@
     },
     "corpora": {
       "martian-offline": {
-        "size": "50 PRs \u00b7 173 golden comments",
+        "size": "50 PRs · 173 golden comments",
         "license": "MIT, dataset and shipped reviews public",
         "hosts": "all 49 shipped tools, ours, and open-code-review",
         "why": "it is the only corpus where the field's own outputs are published"
       },
       "aacr-bench": {
-        "size": "200 PRs \u00b7 1,505 expert-confirmed issues \u00b7 10 languages",
+        "size": "200 PRs · 1,505 expert-confirmed issues · 10 languages",
         "license": "Apache-2.0, goldens public, diffs fetched by URL",
         "hosts": "ours and open-code-review - the two tools that can be executed",
         "why": "its ground truth carries Repo Level issues, which are cross-file by construction"
       },
       "ours-real-ground-truth": {
-        "size": "100 issues \u00b7 246 bug ranges",
+        "size": "100 issues · 246 bug ranges",
         "license": "ours",
         "hosts": "ours, and any tool we can execute",
         "why": "the only corpus whose ground truth this project controls end to end"
@@ -842,7 +863,7 @@
         },
         "Kodus": {
           "invocable": false,
-          "reason": "`spawnSync kodus ENOENT` \u2014 **the package is not on npm under the name the workflow installed**, which is **a guessed name rather than a documented one**, and the probe is what said so"
+          "reason": "`spawnSync kodus ENOENT` — **the package is not on npm under the name the workflow installed**, which is **a guessed name rather than a documented one**, and the probe is what said so"
         }
       },
       "counts": {

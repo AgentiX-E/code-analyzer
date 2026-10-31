@@ -264,6 +264,62 @@ async function readSourceFromDisk(filePath: string, language: string): Promise<s
 }
 
 // ---------------------------------------------------------------------------
+// Helper: file a decorator on the definition it decorates
+// ---------------------------------------------------------------------------
+
+/** Tags that begin a definition a decorator can precede. */
+const DECORATABLE_TAGS: ReadonlySet<string> = new Set([
+  CAPTURE_TAGS.FUNCTION_DEF,
+  CAPTURE_TAGS.METHOD_DEF,
+  CAPTURE_TAGS.CLASS_DEF,
+  CAPTURE_TAGS.CONSTRUCTOR_DEF,
+  CAPTURE_TAGS.PROPERTY_DEF,
+]);
+
+/**
+ * Write each decorator onto the definition below it, as `decoratorNames`.
+ *
+ * **The tag was emitted by eight language providers and read by no phase** — `CAPTURE_TAGS.DECORATOR` exists, Java,
+ * Kotlin, C#, C-like, Python, Rust and the rest all push captures for `@app.route`, `@pytest.fixture`, `@Test` and
+ * `@RestController`, and the parse phase walked straight past them. **So the graph knew that a function is invoked by
+ * a framework and threw it away**, which is the same shape of defect as `CALLS` before iteration 41: a producer with
+ * no consumer looks exactly like a feature that works.
+ *
+ * **The rule is ordering, because that is what a decorator is**: the annotation sits on the lines immediately above the
+ * definition it applies to, so a decorator attaches to the nearest following definition in its own file. A decorator
+ * with no definition after it — a trailing one in a file that failed to parse — attaches to nothing and is skipped
+ * rather than guessed at.
+ *
+ * **The join is in the pipeline rather than in each provider** because a provider that had to pair its own captures
+ * would have to hold the same rule eight times, and seven of them would eventually disagree.
+ */
+export function attachDecorators(captures: UnifiedCapture[]): void {
+  let decorators: UnifiedCapture[] = [];
+  for (const capture of captures) {
+    if (capture.tag === CAPTURE_TAGS.DECORATOR) decorators.push(capture);
+  }
+  if (decorators.length === 0) return;
+
+  const definitions = captures
+    .filter((capture) => DECORATABLE_TAGS.has(capture.tag) && capture.properties !== undefined)
+    .sort((left, right) => left.startLine - right.startLine);
+  if (definitions.length === 0) return;
+
+  decorators = decorators.sort((left, right) => left.startLine - right.startLine);
+  for (const decorator of decorators) {
+    const target = definitions.find((definition) => definition.startLine > decorator.startLine);
+    if (target === undefined) continue;
+    const name = decorator.name ?? decorator.text;
+    if (name === undefined || name.length === 0) continue;
+    const known = target.properties?.['decoratorNames'];
+    target.properties =
+      typeof known === 'string' && known.length > 0
+        ? { ...target.properties, decoratorNames: `${known},${name}` }
+        : { ...target.properties, decoratorNames: name };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helper: map UnifiedCapture tag to NodeLabel
 // ---------------------------------------------------------------------------
 
@@ -398,7 +454,13 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
         returnType: capture.properties?.['returnType'],
         docstring: capture.properties?.['docstring'],
         containerName,
-        isExported: false, // Will be determined by provider
+        // **The export bit the capture already carries.** It was hardcoded `false` here with a comment promising a
+        // provider would decide it later, and nothing ever did: the parse phase computes `properties.exported` from
+        // `provider.isExported(...)` three lines before this call and this line threw it away, so **every node in
+        // every graph had `isExported: false`** — 5 859 nodes on `pallets/flask@3.0.3`, 0 of them exported — and every
+        // consumer asking "is this part of the API" was answered "no". The reachability pass asks exactly that, which
+        // is how the defect surfaced.
+        isExported: capture.properties?.['exported'] === 'true',
         visibility: 'public',
         properties: capture.properties ?? {},
       });

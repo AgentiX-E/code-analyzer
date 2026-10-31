@@ -1,15 +1,15 @@
 # MCP Server Guide
 
-> Setup and usage guide for the Code Analyzer MCP server — expose 50 tools, 15 resources, and 5 prompts to AI coding agents.
+> Setup and usage guide for the Code Analyzer MCP server — expose 51 tools, 15 resources, and 5 prompts to AI coding agents.
 
-> **Alpha Status**: The MCP server framework, middleware, transports, and Cypher query engine are fully functional. The 38 tool definitions exist and are callable, but most tool implementations currently return placeholder or empty data. The table below summarizes per-tool status. Use the legends `[Functional]` (tested and working), `[Partial]` (may return real data in some cases), and `[Experimental]` (placeholder data only) to understand what to expect.
+> **Alpha Status**: The MCP server framework, middleware, transports, and Cypher query engine are fully functional. The 51 tool definitions exist and are callable, but most tool implementations currently return placeholder or empty data. The table below summarizes per-tool status. Use the legends `[Functional]` (tested and working), `[Partial]` (may return real data in some cases), and `[Experimental]` (placeholder data only) to understand what to expect.
 
 ### The tool surface
 
-**50 tools.** Three facts about them are enforced by CI rather than asserted here: the count is read from the code by
+**51 tools.** Three facts about them are enforced by CI rather than asserted here: the count is read from the code by
 `scripts/doc-code-sync-gate.js`, every tool is called through the server by `e2e-all-tools` (66 cases), and each
 tool's own suite covers the behaviour a client sees. **The complete, generated inventory is
-[All 50 tools](#all-50-tools).**
+[All 51 tools](#all-51-tools).**
 
 ---
 
@@ -44,9 +44,9 @@ Code Analyzer works with every major MCP-compatible AI coding client. Below are 
 }
 ```
 
-**After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 50 tools are available.
+**After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 51 tools are available.
 
-**Tools available:** All 50 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
+**Tools available:** All 51 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
 
 **Example queries you can ask Claude:**
 
@@ -418,7 +418,7 @@ npx @code-analyzer/mcp --transport http
 
 ---
 
-## All 50 tools
+## All 51 tools
 
 **Generated from the registry, not written by hand.** The list below is what `createToolRegistry()` returns, in
 registration order, with the description each tool declares; `tools/list` returns the same inventory with each
@@ -452,15 +452,16 @@ server**, one per tool at least.
 | `explore_symbol`       | Explore a symbol and its relationships         |
 | `find_implementations` | Find implementations of an interface           |
 
-### Change & Impact (5 tools)
+### Change & Impact (6 tools)
 
-| Tool              | Description                            |
-| ----------------- | -------------------------------------- |
-| `detect_changes`  | Detect code changes between references |
-| `tests_for`       | Find the tests that cover a symbol     |
-| `impact_analysis` | Analyze impact of code changes         |
-| `route_map`       | Get route map for a project            |
-| `check_cycles`    | Check for circular dependencies        |
+| Tool              | Description                                                 |
+| ----------------- | ----------------------------------------------------------- |
+| `detect_changes`  | Detect code changes between references                      |
+| `tests_for`       | Find the tests that cover a symbol                          |
+| `impact_analysis` | Analyze impact of code changes                              |
+| `find_dead_code`  | Report symbols nothing can reach, and what keeps each alive |
+| `route_map`       | Get route map for a project                                 |
+| `check_cycles`    | Check for circular dependencies                             |
 
 ### Code Review (2 tools)
 
@@ -754,7 +755,7 @@ const policy = new ToolPolicy('analysis');
 // Only analysis-profile tools are available
 
 policy.setProfile('all');
-// All 50 tools are now available
+// All 51 tools are now available
 ```
 
 ---

@@ -1,0 +1,263 @@
+name: Dead Code Accuracy
+
+# **The one feature every competitor shipped and this product did not.**
+#
+# Story 10 of the product's feature table was the last row marked `competitor-only`: `vulture`, `ts-prune`, `knip`,
+# SonarQube and every IDE have reported unused code for years, and this product had nothing. The first draft of it here
+# was worse than the competitors': "no incoming `CALLS` edge" answered **979 of 1 109 functions** on
+# `pallets/flask@3.0.3` — nine tenths of a published library, which is a report about the question rather than about
+# the code.
+#
+# This job measures the question the way the field measures it, on four real checkouts, against the reference tool of
+# each language, and against a third reader that shares nothing with either:
+#
+#   * **`vulture`** for Python and **`ts-prune`** for TypeScript — the tools the field actually uses, run on the same
+#     checkout, the same package and the same universe the product is asked about.
+#   * **`scripts/deadcode-oracle.py`** (CPython's `ast`) and **`scripts/deadcode-oracle-ts.mjs`** (the TypeScript parser,
+#     no checker) ask one mechanical question: is this symbol reachable by any route the language offers — a call, a
+#     mention, an import, a re-export from the package entry?
+#
+# **Why an oracle per language.** The Python question is "does anything name this private function"; the TypeScript
+# question is not the same one, because a TypeScript module exports its own helpers and `ts-prune` reports *re-export
+# sites in the entry module* — it reports the package's public API because nothing inside the package imports it. The
+# TypeScript oracle therefore resolves the entry's `export *` graph, which is the half `ts-prune` does not model.
+#
+# **The gate holds a ceiling, not only a floor.** A dead-code tool can always raise its recall by claiming more, so
+# `scripts/dead-code-gate.js` fails when the number of claims rises above the measured figure, when a hand-verified
+# finding disappears, or when the product's total claims exceed a tenth of the competitors'.
+#
+# **The checkouts are downloaded, never committed**, and the tags are pinned, so the job measures the release it names.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/intelligence/src/impact/reachability.ts'
+      - 'packages/intelligence/src/__tests__/reachability.test.ts'
+      - 'packages/mcp/src/tools/dead-code-detection.ts'
+      - 'packages/mcp/src/__tests__/dead-code-e2e.test.ts'
+      - 'packages/analyzer/src/pipeline/phases/scope-resolution.ts'
+      - 'packages/analyzer/src/pipeline/phase-helpers.ts'
+      - 'scripts/dead-code-quality.ts'
+      - 'scripts/deadcode-oracle.py'
+      - 'scripts/deadcode-oracle-ts.mjs'
+      - 'scripts/dead-code-gate.js'
+      - 'benchmarks/dead-code.json'
+      - '.github/workflows/dead-code-quality.yml'
+
+concurrency:
+  group: dead-code-quality
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FLASK_TAG: '3.0.3'
+  WERKZEUG_TAG: '3.0.3'
+  ZOD_TAG: 'v3.23.8'
+  IOREDIS_TAG: 'v5.4.2'
+
+jobs:
+  python:
+    name: vulture and CPython's parser, on two published libraries
+    runs-on: ubuntu-latest
+    # **Twenty minutes.** Two checkouts of ~230 files index in seconds; the cost is dependency installation and the two
+    # oracle walks over every file in both packages.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Install the reference tool
+        run: |
+          set -euo pipefail
+          pip install --disable-pip-version-check vulture
+          vulture --version | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Fetch the two checkouts
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora
+          cd benchmarks/corpora
+          curl -fsSL "https://codeload.github.com/pallets/flask/tar.gz/refs/tags/${FLASK_TAG}" -o flask.tgz
+          curl -fsSL "https://codeload.github.com/pallets/werkzeug/tar.gz/refs/tags/${WERKZEUG_TAG}" -o werkzeug.tgz
+          sha256sum flask.tgz werkzeug.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          tar xzf flask.tgz
+          tar xzf werkzeug.tgz
+          ls -d flask-* werkzeug-*
+
+      - name: Ask both readers the same question
+        run: |
+          set -euo pipefail
+          flask_dir=$(ls -d benchmarks/corpora/flask-* | head -1)
+          werkzeug_dir=$(ls -d benchmarks/corpora/werkzeug-* | head -1)
+          npx tsx scripts/dead-code-quality.ts \
+            --repo "pallets/flask=$flask_dir@src/flask" \
+            --repo "pallets/werkzeug=$werkzeug_dir@src/werkzeug" \
+            --lang python \
+            --out benchmarks/dead-code.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the Python half
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dead-code-python
+          path: benchmarks/dead-code.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  typescript:
+    name: ts-prune and the entry's re-export graph, on two published libraries
+    runs-on: ubuntu-latest
+    # **Twenty-five minutes**: `zod` is 82 files and `ioredis` 37, and `ts-prune` builds a program over each checkout.
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Fetch the two checkouts
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora
+          cd benchmarks/corpora
+          curl -fsSL "https://codeload.github.com/colinhacks/zod/tar.gz/refs/tags/${ZOD_TAG}" -o zod.tgz
+          curl -fsSL "https://codeload.github.com/redis/ioredis/tar.gz/refs/tags/${IOREDIS_TAG}" -o ioredis.tgz
+          sha256sum zod.tgz ioredis.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          tar xzf zod.tgz
+          tar xzf ioredis.tgz
+          ls -d zod-* ioredis-*
+
+      - name: Ask both readers the same question
+        run: |
+          set -euo pipefail
+          zod_dir=$(ls -d benchmarks/corpora/zod-* | head -1)
+          ioredis_dir=$(ls -d benchmarks/corpora/ioredis-* | head -1)
+          npx tsx scripts/dead-code-quality.ts \
+            --repo "colinhacks/zod=$zod_dir@src" \
+            --repo "redis/ioredis=$ioredis_dir@lib" \
+            --lang typescript \
+            --out benchmarks/dead-code.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the TypeScript half
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dead-code-typescript
+          path: benchmarks/dead-code.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  gate:
+    name: Both halves held to their floors, and to the ceiling
+    needs: [python, typescript]
+    runs-on: ubuntu-latest
+    # **Two minutes**: the gate reads a JSON file. It runs as its own job so that a red floor is one line in the checks
+    # list rather than a step inside a job whose name is about measurement.
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download the Python half
+        uses: actions/download-artifact@v4
+        with:
+          name: dead-code-python
+
+      - name: Download the TypeScript half
+        uses: actions/download-artifact@v4
+        with:
+          name: dead-code-typescript
+          # **The two halves are written by separate jobs**, so they are merged here rather than by a third run that
+          # would have to re-index both corpora. The TypeScript artifact lands under a name of its own so that this
+          # step cannot silently overwrite the Python one.
+          path: ts-half
+
+      - name: Merge the two halves into one record
+        run: |
+          set -euo pipefail
+          node - <<'NODE' | tee -a "$GITHUB_STEP_SUMMARY"
+          const fs = require('node:fs');
+          const python = JSON.parse(fs.readFileSync('benchmarks/dead-code.json', 'utf8'));
+          const typescript = JSON.parse(fs.readFileSync('ts-half/benchmarks/dead-code.json', 'utf8'));
+          const rows = [...python.rows, ...typescript.rows].sort((a, b) =>
+            String(a.repo).localeCompare(String(b.repo)),
+          );
+          const merged = {
+            ...python,
+            typescriptMeasuredAt: typescript.measuredAt,
+            languages: [...new Set(rows.map((row) => String(row.language)))].sort(),
+            corpora: rows.map((row) => ({
+              repo: String(row.repo),
+              package: String(row.package),
+              language: String(row.language),
+            })),
+            rows,
+            byRepo: Object.fromEntries(
+              Object.entries(python.byRepo ?? {}).concat(Object.entries(typescript.byRepo ?? {})),
+            ),
+          };
+          fs.writeFileSync('benchmarks/dead-code.json', JSON.stringify(merged, null, 2) + '\n');
+          for (const row of rows) console.log(`${row.repo}: ${row.oursDead} findings`);
+          NODE
+
+      - name: Hold every corpus to its floor, and to its ceiling
+        run: node scripts/dead-code-gate.js
+
+      # **The record is compared, not trusted.** A run that writes a different `benchmarks/dead-code.json` than the one
+      # committed means the published figures describe a different graph.
+      - name: Show what the run wrote
+        if: always()
+        run: git --no-pager diff --stat -- benchmarks/dead-code.json || true
+
+      - name: Upload the merged record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dead-code
+          path: benchmarks/dead-code.json
+          if-no-files-found: warn
+          retention-days: 90

@@ -80,10 +80,10 @@ describe('CodeAnalyzerMCPServer', () => {
   });
 
   describe('tool dispatch', () => {
-    it('should have all 50 tools registered', () => {
+    it('should have all 51 tools registered', () => {
       server = new CodeAnalyzerMCPServer();
       const tools = server.getRegistry().list();
-      expect(tools.length).toBe(50);
+      expect(tools.length).toBe(51);
     });
 
     it('should have expected tool names', () => {
@@ -331,10 +331,10 @@ describe('MCP Server Integration Tests', () => {
   });
 
   describe('tool listing and invocation', () => {
-    it('should list all 50 tools via registry', () => {
+    it('should list all 51 tools via registry', () => {
       server = new CodeAnalyzerMCPServer();
       const tools = server.getRegistry().list();
-      expect(tools.length).toBe(50);
+      expect(tools.length).toBe(51);
     });
 
     it('should list tools filtered by analysis profile', () => {
@@ -346,7 +346,7 @@ describe('MCP Server Integration Tests', () => {
     it('should list all tools with "all" profile', () => {
       server = new CodeAnalyzerMCPServer({ toolProfile: 'all' });
       const tools = server.getRegistry().listByProfile('all');
-      expect(tools.length).toBe(50);
+      expect(tools.length).toBe(51);
     });
 
     it('should list tools filtered by scout profile', () => {

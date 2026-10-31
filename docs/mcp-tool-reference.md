@@ -1,6 +1,12 @@
 # MCP Tool Reference
 
-> Complete reference for all 45 MCP tools exposed by Code Analyzer. Tools are organized by category, with descriptions, parameters, examples, and output formats.
+> Reference for the MCP tools Code Analyzer exposes, grouped by capability and documenting parameters, examples and
+> output shapes.
+>
+> **The authoritative inventory is [`docs/MCP-SERVER.md`](./MCP-SERVER.md#all-51-tools)**, which is generated from the
+> registry, lists all 51 registered tool names and is held to the code by `scripts/doc-code-sync-gate.js`. This page
+> predates several of those registrations and documents the ones it covers — including some names that were later
+> registered under another one.
 
 ---
 
@@ -11,7 +17,7 @@
 | [Querying & Exploration](#1-querying--exploration-10-tools) |  10   | Search, explore, and query the knowledge graph   |
 | [Code Review](#2-code-review-5-tools)                       |   5   | Automated code review with standards enforcement |
 | [PR Review](#3-pr-review-4-tools)                           |   4   | Pull request review and CI check management      |
-| [Change Impact](#4-change-impact-3-tools)                   |   3   | Analyze the impact of proposed changes           |
+| [Change Impact](#4-change-impact-4-tools)                   |   4   | Analyze the impact of proposed changes           |
 | [Refactoring](#5-refactoring-3-tools)                       |   3   | Detect code smells and suggest refactorings      |
 | [Test Generation](#6-test-generation-2-tools)               |   2   | Generate tests and analyze coverage              |
 | [Code Suggestion](#7-code-suggestion-2-tools)               |   2   | Suggest fixes and improvements                   |
@@ -469,7 +475,7 @@ Update a PR check run with analysis results.
 
 ---
 
-## 4. Change Impact (3 tools)
+## 4. Change Impact (4 tools)
 
 ### `analyze_impact`
 
@@ -499,6 +505,59 @@ Analyze the impact of modifying a specific symbol.
   "breakingChangeRisk": "medium"
 }
 ```
+
+---
+
+### `find_dead_code`
+
+Report the symbols nothing can reach, and name what keeps each survivor alive.
+
+**The question is reachability, not an edge count.** A function called only by a function that is itself dead is dead;
+a method nothing in the repository calls is the normal state of a library's API. So the pass walks from roots — entry
+points, routes a framework dispatches, tests a runner collects, and the names a package publishes — over the use edges,
+and a symbol is a finding only when **both** surfaces miss it.
+
+| Parameter          | Type       | Required | Description                                                                 |
+| ------------------ | ---------- | :------: | --------------------------------------------------------------------------- |
+| `projectId`        | `string`   |   Yes    | The indexed project to report on                                            |
+| `includePublished` | `boolean`  |    No    | List the symbols only the published surface keeps alive (default: `false`)  |
+| `includeTests`     | `boolean`  |    No    | Treat test files as reachable from the runner (default: `true`)             |
+| `entryPoints`      | `string[]` |    No    | Qualified names the caller knows are executed and the analysis cannot infer |
+| `ignoreNames`      | `string[]` |    No    | Names a project invokes by reflection, a string key or a configuration file |
+| `filePattern`      | `string`   |    No    | Restrict the report to files whose path contains this text                  |
+| `maxResults`       | `number`   |    No    | Report at most this many findings (default: 50)                             |
+
+**Example:**
+
+```json
+{ "projectId": "shop", "includePublished": true, "entryPoints": ["shop.cli.main"] }
+```
+
+**Output:**
+
+```text
+**2 symbols unreachable** — 118 considered, 96 reachable from an entry point, 41 from the published surface.
+
+### Unreachable
+
+- `src/shop/orders.py:88` `_migrate_order` (Function)
+  dead: nothing reaches it — no call, mention, override or registration names it
+- `src/shop/orders.py:104` `_rewrite_row` (Function)
+  dead: nothing reaches it — no call, mention, override or registration names it
+
+### Not called here, but published
+
+- `src/shop/__init__.py:12` `Order` (Class)
+  kept alive because it is exported from a published package
+```
+
+The two surfaces are reported separately because they are two different statements: `_migrate_order` runs nowhere, and
+`Order.total` is the API.
+
+**Measured** on `pallets/flask@3.0.3` and `pallets/werkzeug@3.0.3` against `vulture`, and on `colinhacks/zod@3.23.8` and
+`redis/ioredis@5.4.2` against `ts-prune`, with an independent reader per language deciding each claim —
+[`benchmarks/dead-code.json`](../benchmarks/dead-code.json), held by `scripts/dead-code-gate.js` in the
+`dead-code-quality` workflow.
 
 ---
 

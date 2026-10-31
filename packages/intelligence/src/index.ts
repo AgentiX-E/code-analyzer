@@ -201,6 +201,18 @@ export type {
 
 // IoU Overlap Detection
 export { IoUOverlapDetector } from './impact/iou-overlap.js';
+// **Story 10: whether a symbol can ever run.** Exported here rather than kept internal because two surfaces ask it —
+// the `find_dead_code` tool and the dead-code benchmark — and a second copy of the rule in either would be a second
+// answer to the same question.
+export { computeReachability, publishedRoots } from './impact/reachability.js';
+export type {
+  DeadSymbol,
+  Liveness,
+  ReachabilityOptions,
+  ReachabilityReport,
+  ReachRoot,
+  RootKind,
+} from './impact/reachability.js';
 export type { CommentRegion } from './impact/iou-overlap.js';
 
 // GitHub PR Webhook

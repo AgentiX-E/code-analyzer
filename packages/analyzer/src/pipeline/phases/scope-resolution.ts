@@ -7,6 +7,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
+  EDGE_ACCESSES,
   EDGE_CALLS,
   EDGE_EXTENDS,
   EDGE_IMPLEMENTS,
@@ -241,7 +242,12 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         return {
           phaseId: this.id,
           status: 'success',
-          output: { referencesResolved: 0, callSiteCount: 0, callsByArm: {} },
+          output: {
+            referencesResolved: 0,
+            unresolvedMentions: 0,
+            callSiteCount: 0,
+            callsByArm: {},
+          },
         };
       }
 
@@ -251,6 +257,8 @@ export class ScopeResolutionPhase implements ExecutablePhase {
 
       const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
       let referencesResolved = 0;
+      /** Call sites that resolved to nothing and were recorded as mentions instead, so the count is auditable. */
+      let unresolvedMentions = 0;
       /**
        * Which arm produced each `CALLS` edge.
        *
@@ -302,6 +310,15 @@ export class ScopeResolutionPhase implements ExecutablePhase {
        * coincidences.
        */
       const fileScopes = new Map<string, FileScope>();
+      /**
+       * Names a file declares more than once — `get` in two classes, `value` in two branches.
+       *
+       * **A mention of an ambiguous name is not evidence about either declaration**, for the same reason the call arm
+       * refuses it: an edge to whichever one the index happened to see first is an edge nobody can defend. Without this
+       * set the mention fallback would have re-introduced exactly that defect, and a test written for the call arm
+       * caught it — the mention path pointed at `A.get` because `A` was declared first.
+       */
+      const ambiguousNames = new Map<string, Set<string>>();
 
       for (const [, node] of ctx.graph.nodes) {
         if (
@@ -327,6 +344,10 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // Store by simple name (in context of this file)
             if (node.name && !fileMap.has(node.name)) {
               fileMap.set(node.name, { nodeId: node.id, label: node.label });
+            } else if (node.name) {
+              const known = ambiguousNames.get(filePath);
+              if (known === undefined) ambiguousNames.set(filePath, new Set([node.name]));
+              else known.add(node.name);
             }
             // Also store by qualifiedName for full path matching
             fileMap.set(node.qualifiedName, { nodeId: node.id, label: node.label });
@@ -434,6 +455,79 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               symbol.qualifiedName.length > 0,
           )
           .sort((a, b) => a.endLine - a.startLine - (b.endLine - b.startLine));
+
+        type Reference = (typeof parsedFile.references)[number];
+
+        /**
+         * The symbol a bare mention of `name` refers to: the same file, then a file this one imports, then one
+         * re-export hop.
+         *
+         * **Two producers now share it, and they must not drift.** The access arm uses it to turn
+         * `callback=_set_app` into evidence; the call arm uses it as the last resort for a call it could not resolve
+         * at all (`lambda x: x._get_cache_value(...)`, where `x` has no type). A second implementation of the same
+         * three hops is a second answer to the same question, and the one written later is always the one that is
+         * wrong.
+         */
+        const mentionOf = (name: string): { nodeId: number; label: NodeLabel } | undefined => {
+          // **A mention written as `self._get_file_stream` names `_get_file_stream`.** The Python provider files an
+          // attribute use with its full dotted text — `stream_factory=self._get_file_stream` arrived here as
+          // `self._get_file_stream` — and an index keyed by declaration name can only answer for the last segment.
+          // The call arm has always split the same way (`callee.text.split('.').pop()`); this is the access arm
+          // catching up, and it was worth two of werkzeug's eight remaining findings.
+          const resolved = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : name;
+          if (ambiguousNames.get(parsedFile.filePath)?.has(resolved) === true) return undefined;
+          let target = fileSymbolIndex.get(parsedFile.filePath)?.get(resolved);
+          if (target === undefined && fileImports) {
+            for (const [importedFile, importedSymbols] of fileImports) {
+              if (!importedSymbols.has(resolved)) continue;
+              target = fileSymbolIndex.get(importedFile)?.get(resolved);
+              if (target === undefined) {
+                // **One re-export hop, for the same reason the call arm needs one**: `from flask import redirect`
+                // names a package file that imports the definition rather than making it.
+                const reExported = importMap.get(importedFile);
+                if (reExported) {
+                  for (const [sourceFile, names] of reExported) {
+                    if (!names.has(resolved)) continue;
+                    target = fileSymbolIndex.get(sourceFile)?.get(resolved);
+                    if (target !== undefined) break;
+                  }
+                }
+              }
+              if (target !== undefined) break;
+            }
+          }
+          return target;
+        };
+
+        /**
+         * The node a reference is written in: its innermost callable, else its class, else its file.
+         *
+         * **A module-level mention belongs to the file, because the file is what runs.** `_app_option =
+         * click.Option(..., callback=_set_app)` at flask's module scope is a statement executed on import, and it is
+         * the only place `_set_app` is ever named — attributing it to "no owner" loses the edge and the function it
+         * keeps alive. **A mention inside a class body belongs to the class**, because a class body is executed when
+         * the class is created: `_get_cache_value = property(...)` at class scope names a function that runs on
+         * attribute access, and attributing it to the file loses the second half of werkzeug's descriptor definitions.
+         */
+        const mentionSourceOf = (ref: Reference): number | undefined => {
+          const graph = ctx.graph;
+          if (graph === undefined) return undefined;
+          const owner = callables.find(
+            (symbol) => symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
+          );
+          if (owner !== undefined) {
+            return graph.qnameIndex.get(`project:${ctx.projectId}:${owner.qualifiedName}`);
+          }
+          const enclosingClass = parsedFile.symbols.find(
+            (symbol) =>
+              symbol.kind === 'Class' &&
+              symbol.startLine <= ref.sourceLine &&
+              symbol.endLine >= ref.sourceLine,
+          );
+          return enclosingClass === undefined
+            ? graph.fileIndex.get(parsedFile.filePath)
+            : graph.qnameIndex.get(`project:${ctx.projectId}:${enclosingClass.qualifiedName}`);
+        };
 
         // Process references — try to resolve CALLS edges
         for (const ref of parsedFile.references) {
@@ -574,9 +668,16 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                 );
                 const ownerClass = owner === undefined ? undefined : containerOf(owner);
                 if (ownerClass !== undefined) {
+                  // **`self.m()` searches the whole class chain, not only the class it is written in.** A mixin's
+                  // method called from a subclass — `self._get_cache_value(...)` inside werkzeug's
+                  // `ResponseCacheControl(_CacheControl)` — is a call to a declaration the enclosing class does not
+                  // make, and the own-scope arm stopped at `classMemberOf` and returned nothing. That is the same
+                  // statement `super()` makes, one link further up, so it is the same walk: the base chain is the
+                  // receiver's scope whenever the receiver *is* the enclosing object.
                   const member = sup
                     ? baseMemberOf(classIndex, ownerClass, ref.targetName, origin)
-                    : classMemberOf(classIndex, ownerClass, ref.targetName, origin);
+                    : (classMemberOf(classIndex, ownerClass, ref.targetName, origin) ??
+                      baseMemberOf(classIndex, ownerClass, ref.targetName, origin));
                   if (member !== undefined) {
                     target = member;
                     arm = sup ? 'super' : 'inherited';
@@ -680,6 +781,110 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   } catch {
                     // Edge may already exist
                   }
+                }
+              } else {
+                // **A call at module scope has no caller, and it still runs.**
+                //
+                // `_find_exceptions()` at the bottom of `werkzeug/exceptions.py` is followed by
+                // `del _find_exceptions` — a one-shot idiom that defines a function, calls it once, and removes the
+                // name. The call resolves perfectly and the edge was then dropped for want of an enclosing callable,
+                // so the function read as dead. It becomes an `ACCESSES` edge from the **file** rather than a `CALLS`
+                // edge from nowhere: a file is a node that runs, the call graph stays free of a caller that does not
+                // exist, and reachability — the reader that asks whether anything can run this — gets the fact.
+                const sourceNode = mentionSourceOf(ref);
+                if (sourceNode !== undefined && sourceNode !== target.nodeId) {
+                  try {
+                    const edge = builder.addEdge(
+                      ctx.graph,
+                      sourceNode,
+                      target.nodeId,
+                      EDGE_ACCESSES,
+                      ctx.projectId,
+                    );
+                    edge.properties = {
+                      ...edge.properties,
+                      sourceLine: ref.sourceLine,
+                      resolution: 'module-level-call',
+                    };
+                    referencesResolved++;
+                  } catch {
+                    // Edge may already exist
+                  }
+                }
+              }
+            }
+
+            // **A call nothing could resolve is still a mention of the name, and the last resort is to record it as
+            // one.**
+            //
+            // `lambda x: x._get_cache_value(key, empty, type)` calls a method through a parameter with no annotation,
+            // so no arm here can say what `x` is — and `werkzeug` wires its whole property layer that way. Dropping the
+            // reference made every method it names read as dead, which the measurement then scored as a wrong claim:
+            // three of werkzeug's findings were exactly this shape.
+            //
+            // So the site becomes an `ACCESSES` edge **and not a `CALLS` edge**: the source does depend on that name,
+            // and the call graph must not be told a call goes to a specific declaration when the receiver was never
+            // typed. `resolution: 'unresolved-mention'` is on the edge, so a reader of the report sees why the symbol
+            // is alive and can disagree with the rule rather than with the finding.
+            if (!target) {
+              const mentioned = mentionOf(ref.targetName);
+              const sourceNode = mentionSourceOf(ref);
+              if (
+                mentioned !== undefined &&
+                sourceNode !== undefined &&
+                mentioned.nodeId !== sourceNode
+              ) {
+                try {
+                  const edge = builder.addEdge(
+                    ctx.graph,
+                    sourceNode,
+                    mentioned.nodeId,
+                    EDGE_ACCESSES,
+                    ctx.projectId,
+                  );
+                  edge.properties = {
+                    ...edge.properties,
+                    sourceLine: ref.sourceLine,
+                    resolution: 'unresolved-mention',
+                  };
+                  unresolvedMentions++;
+                } catch {
+                  // Edge may already exist
+                }
+              }
+            }
+          } else if (ref.referenceKind === 'access') {
+            // **A function used as a value is reachable, and nothing in the graph said so.**
+            //
+            // `callback=_set_app`, `handlers[name] = dispatch`, `signals.connect(on_ready)`: each of these *invokes*
+            // the named function later, and none of them is a call site, so the call graph has no edge for it and a
+            // detector reading only `CALLS` reports the function as dead. **On `pallets/flask@3.0.3` that was 38 of
+            // the 39 findings** — every one of them a name that occurs in the file, passed rather than called.
+            //
+            // So a reference that is not a call becomes an `ACCESSES` edge from the callable that mentions the name to
+            // the symbol it names. **It is deliberately not a `CALLS` edge**: no call happens at this site, and
+            // recording one would inflate the call graph with sites the oracle would score as wrong. What it says is
+            // exactly what the source says — this code depends on that symbol — and reachability is the reader that
+            // asks for no more than that.
+            const target = mentionOf(ref.targetName);
+            if (target) {
+              const sourceNode = mentionSourceOf(ref);
+              if (sourceNode !== undefined && sourceNode !== target.nodeId) {
+                try {
+                  const edge = builder.addEdge(
+                    ctx.graph,
+                    sourceNode,
+                    target.nodeId,
+                    EDGE_ACCESSES,
+                    ctx.projectId,
+                  );
+                  edge.properties = {
+                    ...edge.properties,
+                    sourceLine: ref.sourceLine,
+                    resolution: 'mention',
+                  };
+                } catch {
+                  // Edge may already exist
                 }
               }
             }
@@ -792,6 +997,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
 
       ctx.phaseData.set('scopeResolution', {
         referencesResolved,
+        unresolvedMentions,
         callSites,
         callSiteCount,
         callsByArm,
@@ -800,7 +1006,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       return {
         phaseId: this.id,
         status: 'success',
-        output: { referencesResolved, callSiteCount, callsByArm },
+        output: { referencesResolved, unresolvedMentions, callSiteCount, callsByArm },
       };
     } catch (err) {
       this.logger.error(

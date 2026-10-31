@@ -104,6 +104,11 @@ describe('ScopeResolutionPhase', () => {
     const result = await new ScopeResolutionPhase().execute(context(undefined));
 
     expect(result.status).toBe('success');
-    expect(result.output).toEqual({ referencesResolved: 0, callSiteCount: 0, callsByArm: {} });
+    expect(result.output).toEqual({
+      referencesResolved: 0,
+      unresolvedMentions: 0,
+      callSiteCount: 0,
+      callsByArm: {},
+    });
   });
 });
