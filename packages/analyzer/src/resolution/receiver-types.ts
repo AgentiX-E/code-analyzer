@@ -163,6 +163,13 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       if (declaration.nodeId !== undefined) {
         classes.set(declaration.name, { nodeId: declaration.nodeId, label: declaration.kind });
       }
+      // **A field's type is filed on the class, not as a symbol of its own.** The provider records the annotations it
+      // read during its walk and hands them back as one property, so a file of 200 fields adds no 200 nodes and no
+      // 200 symbols competing with the functions of the file for a search query.
+      for (const [field, annotation] of fieldTypesOf(declaration.properties['fieldTypes'])) {
+        const fieldType = simpleTypeName(annotation);
+        if (fieldType !== undefined) fields.set(`${declaration.name}.${field}`, fieldType);
+      }
       continue;
     }
 
@@ -190,6 +197,22 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   }
 
   return { fields, parameters, classOfFunction, classes, members };
+}
+
+/** The `field → annotation` pairs a class carries, whether the provider wrote them as one blob or one symbol each. */
+function fieldTypesOf(blob: unknown): [string, string][] {
+  if (typeof blob !== 'string' || blob.length === 0) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(blob);
+  } catch {
+    // A property that is not the JSON this module wrote is a property this module does not read.
+    return [];
+  }
+  if (parsed === null || typeof parsed !== 'object') return [];
+  return Object.entries(parsed as Record<string, unknown>).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string',
+  );
 }
 
 /** A receiver's type, as far as the declarations can say. */

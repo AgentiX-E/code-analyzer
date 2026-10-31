@@ -70,6 +70,9 @@ function declaredTypeOf(node: TreeSitterSyntaxNode): string | undefined {
 }
 
 export class TypeScriptProvider extends TreeSitterBaseProvider {
+  /** The field types recorded during the current parse, by class name. **Cleared at the end of every parse.** */
+  private readonly classFieldTypes = new Map<string, Map<string, string>>();
+
   readonly language: string = 'typescript';
   readonly displayName: string = 'TypeScript';
   readonly extensions: string[] = tsExtensions;
@@ -604,20 +607,84 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   /**
    * A field, with the type it was declared to have.
    *
-   * **Only a field with an annotation is captured.** A field with no declared type is not a fact this provider can
-   * report, and inserting it as a symbol would move every node count in the product - including the self-check's - for
-   * an edge the resolver could not build anyway. What the resolver needs from a field is exactly its type; what it can
-   * do without is the name.
+   * **Only a field with an annotation is captured**, and the capture is marked `typeFact` so the parse phase files it
+   * with the file's declarations without inserting a node for it. Both halves of that were measured:
+   *
+   * * A field with no type is not a fact anybody can resolve through, and capturing one would move every count in the
+   *   product for an edge the resolver could not build.
+   * * A field **with** a type, inserted as a symbol, moved the search index: this repository's own docstring-search
+   *   benchmark fell **0.9894 -> 0.9748 MRR** when 13 891 `Property` nodes joined the corpus, because a field whose
+   *   name overlaps a function's now competes with it for the query. The resolver needs the type and not a node;
+   *   `buildFileTypes` reads the declarations of a file, and a declaration it can read is a fact whether or not the
+   *   graph stores it.
    */
-  private captureFieldDeclaration(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+  private captureFieldDeclaration(node: TreeSitterSyntaxNode, _captures: UnifiedCapture[]): void {
     // A computed key (`[key: string]: T`) and an index signature have no property name, so there is nothing to file
     // the type under and the node is skipped rather than filed under the text of the whole expression.
     const nameNode = this.findNamedChild(node, 'property_identifier');
     if (nameNode === null) return;
     const fieldType = declaredTypeOf(node);
     if (fieldType === undefined) return;
-    const capture = this.buildCapture(node, CAPTURE_TAGS.PROPERTY_DEF, nameNode);
-    captures.push({ ...capture, properties: { ...capture.properties, fieldType } });
+    const className = this.containerNameOf(node);
+    if (className === undefined) return;
+    let fields = this.classFieldTypes.get(className);
+    if (fields === undefined) {
+      fields = new Map();
+      this.classFieldTypes.set(className, fields);
+    }
+    // **The first declaration wins and a second one drops the name**, on the same rule the resolver applies to every
+    // other name: a field declared twice with two types has no type this module can defend.
+    if (fields.has(nameNode.text) && fields.get(nameNode.text) !== fieldType)
+      fields.delete(nameNode.text);
+    else fields.set(nameNode.text, fieldType);
+  }
+
+  /**
+   * The nearest container of `node` that has a name.
+   *
+   * **A container can be anonymous, and the one that owns an interface's fields always is.** `interface Shape { radius:
+   * Radius }` puts the `property_signature` inside an `object_type`, which is a container type with no name - so the
+   * first answer is `undefined` and the name is one level up, on the `interface_declaration`. The climb is bounded
+   * because every step goes strictly upwards.
+   */
+  private containerNameOf(node: TreeSitterSyntaxNode): string | undefined {
+    let container = this.findContainerNode(node);
+    while (container !== null) {
+      const name = this.extractContainerName(container);
+      if (name !== undefined) return name;
+      container = container.parent === null ? null : this.findContainerNode(container);
+    }
+    return undefined;
+  }
+
+  /**
+   * The field types this walk recorded, filed onto the class each one belongs to.
+   *
+   * **One property on the class rather than a symbol per field** - see `decorateCaptures` for the measurement. A class
+   * that declares no annotated field carries nothing, so the graph of a file is unchanged when the file has no
+   * annotations in it.
+   */
+  protected override decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
+    for (const capture of captures) {
+      if (this.classFieldTypes.size === 0) break;
+      if (
+        capture.tag !== CAPTURE_TAGS.CLASS_DEF &&
+        capture.tag !== CAPTURE_TAGS.INTERFACE_DEF &&
+        capture.tag !== CAPTURE_TAGS.STRUCT_DEF
+      ) {
+        continue;
+      }
+      const name = capture.name;
+      if (name === undefined) continue;
+      const fields = this.classFieldTypes.get(name);
+      if (fields === undefined || fields.size === 0) continue;
+      capture.properties = {
+        ...capture.properties,
+        fieldTypes: JSON.stringify(Object.fromEntries(fields)),
+      };
+    }
+    this.classFieldTypes.clear();
+    return captures;
   }
 
   /**

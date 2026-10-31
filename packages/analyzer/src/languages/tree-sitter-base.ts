@@ -644,7 +644,20 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   private finishCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
     const ordered = captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
     this.attachDocCommentsInOrder(ordered);
-    return ordered;
+    return this.decorateCaptures(ordered);
+  }
+
+  /**
+   * A provider's last chance to file a fact that belongs to more than the node it was read from.
+   *
+   * **A field's declared type is a fact about its class, not a symbol of its own.** Recording it by emitting a
+   * `Property` capture cost this repository 0.0146 of MRR on its own docstring-search benchmark - the field's name
+   * competed with the function it belongs to for the query - and put 13 891 nodes in the graph that nothing resolves
+   * through. A provider that reads such a fact during the walk hands it back here, and the capture it belongs to
+   * carries it out of `parse`.
+   */
+  protected decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
+    return captures;
   }
 
   protected attachDocComment(capture: UnifiedCapture): UnifiedCapture {

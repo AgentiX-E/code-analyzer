@@ -78,6 +78,39 @@ describe('one file, read for the types its declarations carry', () => {
     declaration('Function', 'connectHandler', undefined, {}, 8),
   ]);
 
+  it('reads the field types a class carries, and only when they are names', () => {
+    const fromClass = buildFileTypes([
+      declaration(
+        'Class',
+        'Holder',
+        undefined,
+        {
+          fieldTypes: JSON.stringify({
+            index: 'Index',
+            store: 'Map<string, number>',
+            count: 'number',
+          }),
+        },
+        1,
+      ),
+      declaration('Method', 'run', 'Holder', {}, 2),
+    ]);
+    expect(fromClass.fields.get('Holder.index')).toBe('Index');
+    // A container, and a primitive: neither is a name a member can be looked up in.
+    expect(fromClass.fields.has('Holder.store')).toBe(false);
+    expect(fromClass.fields.has('Holder.count')).toBe(false);
+  });
+
+  it('ignores a class property that is not the JSON it wrote', () => {
+    // A property of the wrong shape is a property this module does not read, rather than a parse that throws.
+    for (const blob of ['not json', '', '[]', 'null', '{"index":7}']) {
+      const types = buildFileTypes([
+        declaration('Class', 'Holder', undefined, { fieldTypes: blob }, 1),
+      ]);
+      expect(types.fields.size).toBe(0);
+    }
+  });
+
   it('files a field under its class, and only when its type is a name', () => {
     expect(facts.fields.get('Holder.index')).toBe('Index');
     // `Map<string, number>` is not a name, so the field is not a fact anybody can resolve through.

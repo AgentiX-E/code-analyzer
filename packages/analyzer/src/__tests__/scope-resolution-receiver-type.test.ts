@@ -222,10 +222,9 @@ describe('ScopeResolution — the receiver names a class, and the class names th
   it('resolves a call on a field whose type was declared in another file', async () => {
     // `class Holder { index: Index; run() { this.index.buildIndex(); } }`
     const symbols = [
-      declaration('Class', 'Holder', 1, 20),
-      declaration('Property', 'index', 2, 2, {
-        containerName: 'Holder',
-        properties: { fieldType: 'Index' },
+      // **The field's type is filed on the class**, which is what the provider emits and what the resolver reads.
+      declaration('Class', 'Holder', 1, 20, {
+        properties: { fieldTypes: JSON.stringify({ index: 'Index' }) },
       }),
       declaration('Method', 'run', 3, 19, { containerName: 'Holder' }),
     ];
@@ -257,7 +256,6 @@ describe('ScopeResolution — the receiver names a class, and the class names th
   it('resolves nothing from a receiver whose type nobody wrote down', async () => {
     const symbols = [
       declaration('Class', 'Holder', 1, 20),
-      declaration('Property', 'index', 2, 2, { containerName: 'Holder' }),
       declaration('Method', 'run', 3, 19, { containerName: 'Holder' }),
     ];
     const { graph } = built({ [FILE_A]: indexFile(), [FILE_B]: symbols });
@@ -275,10 +273,9 @@ describe('ScopeResolution — the receiver names a class, and the class names th
 
   it('resolves nothing when two classes answer to the type name', async () => {
     const symbols = [
-      declaration('Class', 'Holder', 1, 20),
-      declaration('Property', 'index', 2, 2, {
-        containerName: 'Holder',
-        properties: { fieldType: 'Index' },
+      // **The field's type is filed on the class**, which is what the provider emits and what the resolver reads.
+      declaration('Class', 'Holder', 1, 20, {
+        properties: { fieldTypes: JSON.stringify({ index: 'Index' }) },
       }),
       declaration('Method', 'run', 3, 19, { containerName: 'Holder' }),
     ];

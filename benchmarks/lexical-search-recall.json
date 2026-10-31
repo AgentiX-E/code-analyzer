@@ -11,7 +11,7 @@
     "backend in this repository is intermittent: one probe threw `Tokenizer not found`, and later runs report a",
     "loaded `onnx` backend. A recall figure that changes with the backend is a figure about the backend."
   ],
-  "measuredAt": "2026-10-27",
+  "measuredAt": "2026-10-31",
   "mode": "lexical",
   "backend": {
     "embeddingsRegistered": false,

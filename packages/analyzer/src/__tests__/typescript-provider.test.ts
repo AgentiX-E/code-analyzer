@@ -1,4 +1,4 @@
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { CAPTURE_TAGS, type CaptureTag } from '@code-analyzer/shared';
 import { describe, it, expect } from 'vitest';
 
 import { TypeScriptProvider } from '../languages/typescript.js';
@@ -236,6 +236,92 @@ describe('TypeScriptProvider', () => {
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes).toHaveLength(1);
       expect(classes[0]!.name).toBe('Service');
+    });
+  });
+
+  // **A field's declared type leaves the parse as one property on its class**, which is what the receiver's-type arm
+  // reads. Every case below is a shape that either produces that property or must not: a field without an annotation,
+  // a computed key, a name a class declares twice, and an interface, whose members are fields without bodies.
+  describe('field types, filed on the class', () => {
+    const TYPE_TAGS: readonly CaptureTag[] = [
+      CAPTURE_TAGS.CLASS_DEF,
+      CAPTURE_TAGS.INTERFACE_DEF,
+      CAPTURE_TAGS.STRUCT_DEF,
+    ];
+    const classNode = (captures: ReturnType<typeof provider.parse>, name: string): unknown =>
+      captures.find((capture) => TYPE_TAGS.includes(capture.tag) && capture.name === name)
+        ?.properties?.['fieldTypes'];
+
+    it('records what a field was declared to be', () => {
+      const captures = provider.parse(
+        'class Holder {\n  index: Index;\n  name: string;\n  run(): void {}\n}',
+        '/p/a.ts',
+      );
+      expect(classNode(captures, 'Holder')).toBe(
+        JSON.stringify({ index: 'Index', name: 'string' }),
+      );
+    });
+
+    it('records an interface member the same way, because an interface declares fields too', () => {
+      const captures = provider.parse('interface Shape {\n  radius: Radius;\n}', '/p/a.ts');
+      expect(classNode(captures, 'Shape')).toBe(JSON.stringify({ radius: 'Radius' }));
+    });
+
+    it('says nothing about a class whose fields carry no annotation', () => {
+      const captures = provider.parse('class Holder {\n  index = new Index();\n}', '/p/a.ts');
+      expect(classNode(captures, 'Holder')).toBeUndefined();
+    });
+
+    it('refuses a computed key, whose name is not a property name', () => {
+      const captures = provider.parse('class Holder {\n  [key: string]: Index;\n}', '/p/a.ts');
+      expect(classNode(captures, 'Holder')).toBeUndefined();
+    });
+
+    it('drops a name the class declares twice with two different types', () => {
+      // A field declared twice with two types has no type a resolution can defend, and the same rule the resolver
+      // applies to every other name applies here.
+      const captures = provider.parse(
+        'class Holder {\n  index: Index;\n}\ninterface Holder {\n  index: Other;\n}',
+        '/p/a.ts',
+      );
+      expect(classNode(captures, 'Holder')).toBeUndefined();
+    });
+
+    it('keeps a name the class declares twice with the same type', () => {
+      const captures = provider.parse(
+        'class Holder {\n  index: Index;\n}\ninterface Holder {\n  index: Index;\n}',
+        '/p/a.ts',
+      );
+      expect(classNode(captures, 'Holder')).toBe(JSON.stringify({ index: 'Index' }));
+    });
+
+    it('names a function assigned to a bare identifier', () => {
+      // `handlers = function () {}` - the name is the identifier on the left, which is the arm beside the member one.
+      const captures = provider.parse('handlers = function () {};', '/p/a.ts');
+      expect(captures.filter((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF)).toHaveLength(
+        1,
+      );
+    });
+
+    it('refuses a function assigned through a computed member, whose name is a value', () => {
+      // `handlers[name] = function () {}` defines a function whose name nobody can spell, so it is not emitted.
+      const captures = provider.parse('handlers[0] = function () {};', '/p/a.ts');
+      expect(captures.filter((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF)).toHaveLength(
+        0,
+      );
+    });
+
+    it('refuses a field whose key is not a property name', () => {
+      // A quoted key is a `string` node, not a `property_identifier`, so there is no name to file the type under.
+      const captures = provider.parse("class Holder {\n  'a-b': Index;\n}", '/p/a.ts');
+      expect(classNode(captures, 'Holder')).toBeUndefined();
+    });
+
+    it('leaves the class alone when a field sits outside one', () => {
+      // A field declaration is only ever read inside a class or an interface body; the guard is what says so if a
+      // dialect ever hands one over elsewhere.
+      const captures = provider.parse('const holder = { index: new Index() };', '/p/a.ts');
+      expect(classNode(captures, 'holder')).toBeUndefined();
     });
   });
 

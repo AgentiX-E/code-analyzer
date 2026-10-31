@@ -10,7 +10,7 @@
     "**SNR is reported because precision alone hides over-generation**, which the field numbers show -",
     "single-pass GPT-5.2 reaches 27.0% recall at 3.6% precision."
   ],
-  "measuredAt": "2026-10-27",
+  "measuredAt": "2026-10-31",
   "protocol": {
     "review": "Martian Code Review Bench shape: per-diff precision / recall / F1",
     "signalToNoise": "CR-Bench: true positives over all comments emitted"

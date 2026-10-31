@@ -8,7 +8,7 @@
       "filesFailed": 0,
       "failureSamples": [],
       "regexFallbackFiles": 0,
-      "nodes": 20887,
+      "nodes": 20447,
       "calls": 256
     },
     {
@@ -18,7 +18,7 @@
       "filesFailed": 0,
       "failureSamples": [],
       "regexFallbackFiles": 1,
-      "nodes": 14367,
+      "nodes": 13667,
       "calls": 477
     }
   ]
