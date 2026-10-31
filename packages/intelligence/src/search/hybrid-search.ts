@@ -1,6 +1,8 @@
 // @code-analyzer/intelligence — Hybrid Search Engine
 // Combines BM25 text search with vector semantic search using Reciprocal Rank Fusion.
 
+import { basename, extname } from 'node:path';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import { DataflowSearchEngine, type DataflowPath } from './dataflow-search.js';
@@ -40,7 +42,33 @@ interface SearchFilters {
 // ---------------------------------------------------------------------------
 
 /**
- * Tokenize an identifier string by splitting on camelCase, snake_case, and kebab-case boundaries.
+ * The name a document is indexed under: **the symbol's path through the code, never the machine's.**
+ *
+ * Qualified names carry the file system, in three shapes taken from one corpus - `project:<id>:file:<absolute
+ * path>:<symbol>` for a symbol, `file:<absolute path>` for a file, `folder:<absolute path>` for a directory - and the
+ * index used to take them verbatim. **So the retrieval figure was a property of where the repository lived**: the same
+ * corpus, analysed twice through two roots, reported lexical MRR **0.9819** at `/workspace/repos/code-analyzer` and
+ * **0.9796** through a longer symlink. Not a difference of ranking: a difference of vocabulary.
+ *
+ * The path is also search noise of the worst kind. `runner`, `work` and `repos` appear in **every** document, so a
+ * query for any of them matches the whole graph and cannot be told from a real one by a reader looking at the scores.
+ *
+ * **What is kept is the part a developer would say out loud**: the file's own name and the symbol -
+ * `file:arkts:ArkTSProvider`. Every directory is dropped, not only the ones above the analysed root, because the index
+ * is not told where the root is and a name that is *sometimes* relative would be worse than one that never is. **The
+ * price is that a directory is no longer a search word**, and that price is already paid twice over: `SearchOptions`
+ * has a `filePattern` for asking about paths, and `ranking.ts` still breaks ties on the qualified name, which a caller
+ * that reached this point already holds in full.
+ */
+export function indexableName(node: Pick<GraphNode, 'qualifiedName'>): string {
+  const parts = node.qualifiedName
+    .split(':')
+    .map((part) => (part.startsWith('/') ? basename(part, extname(part)) : part));
+  // **The workspace is not part of a name**, and dropping it is also what makes the two scopes comparable.
+  return parts[0] === 'project' ? parts.slice(2).join(':') : parts.join(':');
+}
+
+/** Tokenize an identifier string by splitting on camelCase, snake_case, and kebab-case boundaries.
  * Example: "getUserProfile" -> ["get", "user", "profile"]
  * Example: "process_request" -> ["process", "request"]
  * Example: "my-component" -> ["my", "component"]
@@ -118,8 +146,8 @@ class InvertedIndex {
   addDocument(node: GraphNode): void {
     const nodeId = node.id;
 
-    // Build text from name + signature
-    const fields: string[] = [node.name, node.qualifiedName];
+    // Build text from name + the symbol's own path + signature
+    const fields: string[] = [node.name, indexableName(node)];
     if (node.signature) fields.push(node.signature);
     if (node.docstring) fields.push(node.docstring);
 
