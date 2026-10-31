@@ -13,8 +13,12 @@
 // twice rather than picking one.
 //
 // **The arm floors are the reason this gate has a second dimension.** An aggregate hides a bad arm inside a good one:
-// `redis/ioredis` reads 91 % precision while the arm that resolves a name unique to the whole graph contributes
+// `redis/ioredis` reads 92 % precision while the arm that resolves a name unique to the whole graph contributes
 // nothing correct at all, and only a per-arm floor can say so.
+//
+// **An arm that stops firing is also a failure**, because a missing arm has no precision to compare and the gate
+// reports it as absent rather than skipping it. That is what holds the newest arm - `receiverType`, the one that reads
+// a field's declared type - to the thing it was built for: resolving calls, not merely being present in the code.
 //
 // Usage: node scripts/callgraph-gate.js [--file benchmarks/callgraph-quality.json]
 
@@ -45,16 +49,16 @@ const PYTHON_FLOORS = {
  */
 const TYPESCRIPT_FLOORS = {
   'colinhacks/zod': {
-    precision: 0.88,
-    recall: 0.43,
-    claimed: 60,
-    arms: { import: 0.95, sameFile: 0.99 },
+    precision: 0.89,
+    recall: 0.45,
+    claimed: 64,
+    arms: { import: 0.95, sameFile: 0.99, receiverType: 0.99 },
   },
   'redis/ioredis': {
-    precision: 0.91,
-    recall: 0.54,
-    claimed: 155,
-    arms: { import: 0.93, sameFile: 0.98 },
+    precision: 0.92,
+    recall: 0.63,
+    claimed: 180,
+    arms: { import: 0.93, sameFile: 0.98, receiverType: 0.99 },
   },
 };
 

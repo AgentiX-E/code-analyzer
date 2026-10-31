@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-30",
+  "measuredAt": "2026-10-31",
   "roots": [
     "packages/analyzer/src",
     "packages/cli/src",
@@ -12,39 +12,41 @@
     "packages/vscode/src",
     "packages/web/src"
   ],
-  "nodes": 54069,
+  "nodes": 68026,
   "byLabel": {
     "Folder": 119,
-    "File": 962,
-    "Variable": 20892,
-    "Function": 2330,
+    "File": 966,
+    "Variable": 20577,
+    "Function": 2351,
     "Class": 523,
-    "Method": 2434,
+    "Method": 2428,
     "Constructor": 167,
-    "Interface": 1094,
+    "Interface": 1101,
+    "Property": 7322,
     "TypeAlias": 129,
     "Route": 227,
     "Tool": 63,
-    "Community": 25122,
+    "Community": 32046,
     "Module": 3,
     "Enum": 4
   },
   "calls": {
-    "edges": 4748,
-    "distinctSites": 4723,
-    "repeatedEdges": 25,
-    "share": 0.0053
+    "edges": 5105,
+    "distinctSites": 5071,
+    "repeatedEdges": 34,
+    "share": 0.0067
   },
   "byLanguage": {
     "typescript": {
-      "edges": 4748,
-      "withReceiver": 2251
+      "edges": 5105,
+      "withReceiver": 2588
     }
   },
   "byArm": {
-    "sameFile": 3840,
-    "import": 874,
-    "globalUnique": 34
+    "sameFile": 3854,
+    "receiverType": 333,
+    "import": 883,
+    "globalUnique": 35
   },
   "untagged": 0
 }

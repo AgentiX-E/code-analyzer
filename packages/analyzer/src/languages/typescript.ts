@@ -9,6 +9,7 @@ import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
 import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { ownerKeyOf } from '../resolution/receiver-types.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -50,6 +51,22 @@ function captureTypesFor(
   types.add('method_definition');
   types.add('return_statement');
   return types;
+}
+
+/**
+ * The type a declaration was annotated with, as written, or `undefined` when it carries no annotation.
+ *
+ * **The text and not an interpretation.** `Index`, `pkg.Index` and `Index<T>` are three different questions and the
+ * caller is the one that knows how to reduce them; this returns `Index`, `pkg.Index` and `Index<T>` and lets
+ * `simpleTypeName` refuse the last. The leading colon is syntax, not part of the name.
+ */
+function declaredTypeOf(node: TreeSitterSyntaxNode): string | undefined {
+  for (const child of namedChildrenOf(node)) {
+    if (child.type !== 'type_annotation') continue;
+    const text = child.text.replace(/^:\s*/, '').trim();
+    return text.length === 0 ? undefined : text;
+  }
+  return undefined;
 }
 
 export class TypeScriptProvider extends TreeSitterBaseProvider {
@@ -171,7 +188,18 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // function, but the name it defines comes from the left of the assignment rather than from a child of the
     // function, so no row of a `nodeType → nameChildType` table can express it. The walk stops at the assignment and
     // the arm in `captureNode` reads both halves.
-    return new Set([...captureTypesFor(mappings, this.callNodeTypes()), 'assignment_expression']);
+    //
+    // **And two more, for the same reason one layer down: a field's declared type lives on a node no mapping row
+    // describes.** `index: Index;` is a `public_field_definition` whose name is a `property_identifier` and whose type
+    // is a sibling `type_annotation`, so a table of `nodeType → nameChildType` cannot carry the second half. Without
+    // the type the resolver cannot answer `this.index.buildIndex()`, which is the shape that made two receiver
+    // relaxations fail their own measurement in iteration 42.
+    return new Set([
+      ...captureTypesFor(mappings, this.callNodeTypes()),
+      'assignment_expression',
+      'public_field_definition',
+      'property_signature',
+    ]);
   }
 
   /**
@@ -206,6 +234,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
     if (nodeType === 'assignment_expression') {
       this.captureMemberAssignment(node, captures);
+      return;
+    }
+
+    if (nodeType === 'public_field_definition' || nodeType === 'property_signature') {
+      this.captureFieldDeclaration(node, captures);
       return;
     }
 
@@ -308,6 +341,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       for (const params of namedChildrenOf(node).filter(
         (child) => child.type === 'formal_parameters',
       )) {
+        // **The function's own name, because a parameter is filed under the function that declares it.** A method
+        // belongs to its class and is spelled `Class.method`; a module-level function is spelled by its name alone,
+        // which is the same identity its graph node carries.
+        const ownerName = this.extractNameFromNode(node);
         for (const [parameterIndex, parameter] of namedChildrenOf(params).entries()) {
           // **A TypeScript parameter is always wrapped** - `required_parameter` or `optional_parameter` - so the name
           // is a child and never the node itself; a bare `identifier` parameter is the JavaScript grammar's shape, and
@@ -315,11 +352,30 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
           const parameterName = namedChildrenOf(parameter).find((c) => c.type === 'identifier');
           if (parameterName) {
             // **The position, so a call site's argument can be matched to it.** `buildCapture` has no place for a
-            // property, so the two fields it needs are composed here rather than added to a helper every other caller
+            // property, so the fields it needs are composed here rather than added to a helper every other caller
             // would then have to ignore.
+            //
+            // **And the declared type, which is what a call on this parameter needs.** `connectHandler(self: Redis)`
+            // makes `self.get(…)` a call on a `Redis`, and without the annotation the resolver has a name and no type
+            // to look a member up in - which is why `globalUnique` scored 0 of 18 claims on `redis/ioredis`.
+            const capture = this.buildCapture(
+              parameterName,
+              CAPTURE_TAGS.VARIABLE_DEF,
+              parameterName,
+            );
+            const parameterType = declaredTypeOf(parameter);
             captures.push({
-              ...this.buildCapture(parameterName, CAPTURE_TAGS.VARIABLE_DEF, parameterName),
-              properties: { filePath: this.filePath, parameterIndex: String(parameterIndex) },
+              ...capture,
+              properties: {
+                ...capture.properties,
+                parameterIndex: String(parameterIndex),
+                ...(ownerName === undefined
+                  ? {}
+                  : {
+                      parameterOwner: ownerKeyOf(capture.containerName, ownerName),
+                    }),
+                ...(parameterType === undefined ? {} : { parameterType }),
+              },
             });
           }
         }
@@ -544,6 +600,25 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   }
 
   // ---- Helpers ----
+
+  /**
+   * A field, with the type it was declared to have.
+   *
+   * **Only a field with an annotation is captured.** A field with no declared type is not a fact this provider can
+   * report, and inserting it as a symbol would move every node count in the product - including the self-check's - for
+   * an edge the resolver could not build anyway. What the resolver needs from a field is exactly its type; what it can
+   * do without is the name.
+   */
+  private captureFieldDeclaration(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    // A computed key (`[key: string]: T`) and an index signature have no property name, so there is nothing to file
+    // the type under and the node is skipped rather than filed under the text of the whole expression.
+    const nameNode = this.findNamedChild(node, 'property_identifier');
+    if (nameNode === null) return;
+    const fieldType = declaredTypeOf(node);
+    if (fieldType === undefined) return;
+    const capture = this.buildCapture(node, CAPTURE_TAGS.PROPERTY_DEF, nameNode);
+    captures.push({ ...capture, properties: { ...capture.properties, fieldType } });
+  }
 
   /**
    * A function defined by assigning it to a member, which the mapping table cannot express.

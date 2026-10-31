@@ -11,7 +11,16 @@ import {
 
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { buildCallSites } from '../../resolution/call-sites.js';
+import {
+  buildFileTypes,
+  classMemberOf,
+  createClassIndex,
+  mergeClassIndex,
+  ownerKeyOf,
+  receiverTypeOf,
+} from '../../resolution/receiver-types.js';
 
+import type { FileTypes } from '../../resolution/receiver-types.js';
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
@@ -20,6 +29,7 @@ import type {
   ResolvedImport,
   NodeLabel,
   GraphNode,
+  SymbolDefinition,
 } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -205,7 +215,12 @@ export class ScopeResolutionPhase implements ExecutablePhase {
        * inference; an edge into a name declared once in the whole graph is a guess. Writing which one it was onto the
        * edge is what lets the precision be measured per arm instead of in aggregate, where a good arm hides a bad one.
        */
-      const callsByArm: Record<string, number> = { import: 0, sameFile: 0, globalUnique: 0 };
+      const callsByArm: Record<string, number> = {
+        import: 0,
+        sameFile: 0,
+        receiverType: 0,
+        globalUnique: 0,
+      };
 
       // Build a file-level import resolution map: sourceFile -> targetFile -> importedSymbols
       const importMap = new Map<string, Map<string, Set<string>>>();
@@ -316,6 +331,38 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         }
       }
 
+      /**
+       * What each file says about the types its declarations have, and the classes the graph knows between them.
+       *
+       * **The one fact a call site writes and the resolver could not read.** `this.index.buildIndex()` names a method
+       * of whatever class `index` was declared to be, and until the annotation is read the receiver is a string that
+       * matches no declaration: the same-file arm refuses it because it is not the enclosing object, and the
+       * global-name arm refuses it because `buildIndex` is declared once and the name says nothing about the receiver.
+       * Measured in iteration 42, the two rules that tried to bridge that gap without the type added 55 and 12 edges
+       * and **not one correct one**.
+       *
+       * **Built once, from the symbols the parse phase already produced**, because a type is declared in the file
+       * that defines it and used in the file that names it - `this.index` in one file, `class Index` in another.
+       */
+      const nodeIdOf = (symbol: SymbolDefinition): number | undefined =>
+        qnameIndex.get(`project:${ctx.projectId}:${symbol.qualifiedName}`)?.nodeId;
+
+      const typeFacts = new Map<string, FileTypes>();
+      const classIndex = createClassIndex();
+      for (const parsedFile of parseData.parsedFiles) {
+        const facts = buildFileTypes(
+          parsedFile.symbols.map((symbol) => ({
+            name: symbol.name,
+            kind: symbol.kind,
+            containerName: symbol.containerName,
+            properties: symbol.properties ?? {},
+            nodeId: nodeIdOf(symbol),
+          })),
+        );
+        typeFacts.set(parsedFile.filePath, facts);
+        mergeClassIndex(classIndex, facts);
+      }
+
       for (const parsedFile of parseData.parsedFiles) {
         const fileNodeId = ctx.graph.fileIndex.get(parsedFile.filePath);
         if (!fileNodeId) continue;
@@ -348,7 +395,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         for (const ref of parsedFile.references) {
           if (ref.referenceKind === 'call') {
             let target: { nodeId: number; label: NodeLabel } | undefined;
-            let arm: 'import' | 'sameFile' | 'globalUnique' = 'import';
+            let arm: 'import' | 'sameFile' | 'receiverType' | 'globalUnique' = 'import';
 
             // First, try cross-file resolution via imports
             if (fileImports) {
@@ -403,8 +450,8 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // at all added 55 same-file edges on flask of which **0** were right (precision 94.7 % -> 81.1 %, recall
             // unmoved); allowing a receiver *rooted* in the enclosing object - `this.index.buildIndex()` - added 12 on
             // werkzeug of which **0** were right (95.8 % -> 94.7 %). The calls those relaxations were meant to recover
-            // are the `this.field.method()` shape, and recovering them needs the field's **type**, which is the
-            // resolver's next piece of work rather than a change to this condition.
+            // are the `this.field.method()` shape, and recovering them needs the field's **type** - which is the arm
+            // below, and not a change to this condition.
             if (!target && isOwnScopeCall(ref.receiver)) {
               const scope = fileScopes.get(parsedFile.filePath);
               // A receiver of `self`/`cls`/`this` reaches a member; a bare call reaches the module scope, and a member
@@ -416,6 +463,43 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   ? module
                   : (member ?? module);
               if (target) arm = 'sameFile';
+            }
+
+            // **Then the receiver's type, which is the only rule that can say what `this.index.buildIndex()` calls.**
+            //
+            // **The two arms around this one are name-based** - the same-file arm asks the file, the global-name arm
+            // asks the whole graph - and both are asking the wrong question about a call written on a field. `this.index.buildIndex()` names `buildIndex`, which the
+            // file may declare once - on the class `index` happens to be an instance of - and without reading the
+            // annotation there is nothing to prefer it over `request.args.get(key)`'s `get`. That is what the thirty
+            // minutes spent widening the same-file rule in iteration 42 was actually measuring: **55 added edges on
+            // flask, 0 correct; 12 on werkzeug, 0 correct**, because the discriminator was never the receiver's
+            // spelling. It is the receiver's type, and the type is written on the field the receiver names.
+            //
+            // **Placed before the global-name arm, because it is stronger evidence than that one and weaker than the
+            // two above it**: an import says where a name comes from, a file scope says it is the only declaration
+            // there, and a receiver's class says which class's member this is. When this arm answers, the arm recorded
+            // on the edge is this one, so the precision of the rule is measured rather than averaged away.
+            let receiverClass: string | undefined;
+            if (!target && ref.receiver !== undefined) {
+              // **The facts are optional and the rule is what handles that**, rather than a guard here: a file the
+              // parse phase reported but that contributed no declarations has no type facts, and a rule that is only
+              // ever handed a value is a rule whose "no facts" path nobody ever exercises.
+              const owner = callables.find(
+                (symbol) => symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
+              );
+              const receiverType = receiverTypeOf(
+                typeFacts.get(parsedFile.filePath),
+                ref.receiver,
+                owner === undefined ? undefined : ownerKeyOf(owner.containerName, owner.name),
+              );
+              if (receiverType !== undefined) {
+                const member = classMemberOf(classIndex, receiverType.className, ref.targetName);
+                if (member !== undefined) {
+                  target = member;
+                  arm = 'receiverType';
+                  receiverClass = receiverType.className;
+                }
+              }
             }
 
             // **Then a name unique across the whole graph**, in another file. This replaces a lookup that could not
@@ -476,6 +560,10 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                       resolution: arm,
                       sourceLine: ref.sourceLine,
                       ...(ref.receiver === undefined ? {} : { receiver: ref.receiver }),
+                      // **The class the receiver was read to be**, when a type answered the call. It is the evidence
+                      // for the edge, and the difference between `this.index.buildIndex()` (a `Index`) and
+                      // `request.args.get(key)` (nothing) is exactly what a review of this edge needs to see.
+                      ...(receiverClass === undefined ? {} : { receiverClass }),
                     };
                     callsByArm[arm] = (callsByArm[arm] ?? 0) + 1;
                     referencesResolved++;
