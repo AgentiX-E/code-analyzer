@@ -34,6 +34,7 @@ import ast
 import builtins
 import collections
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -141,6 +142,9 @@ def bound_names(fn: ast.AST) -> tuple[set[str], set[str]]:
 #: Names a method receives its own object under, which is what makes an annotated attribute a field.
 OWN_SCOPE_NAMES = frozenset({"self", "cls"})
 
+#: `super()` and `super`, the receiver that means "the class above this one".
+SUPER_RECEIVER = re.compile(r"^super(\(.*\))?$")
+
 
 def annotation_name(node: ast.AST | None) -> str | None:
     """The class an annotation names, or `None` when it names no single one.
@@ -157,12 +161,20 @@ def annotation_name(node: ast.AST | None) -> str | None:
 
 
 def dotted(node: ast.AST) -> str | None:
-    """The dotted path a receiver is written as, or `None` when it is not a name at all - `f()[0].m()`."""
+    """The dotted path a receiver is written as, or `None` when it is not a name at all - `f()[0].m()`.
+
+    **`super()` is the one call that is also a receiver**, and it was read as no receiver at all: `super().__init__()`
+    became a call to a method named `__init__` with nothing written on it, which the oracle could only call unknown -
+    so every correct edge through `super()` was scored as a false claim. The keyword is part of the receiver's spelling
+    and it is what says which class the call reaches.
+    """
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
         inner = dotted(node.value)
         return None if inner is None else f"{inner}.{node.attr}"
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        return f"{node.func.id}()" if node.func.id == "super" else None
     return None
 
 
@@ -199,6 +211,76 @@ def record_field(fields: dict[str, str], node: ast.AST, *, in_class_body: bool) 
         fields.setdefault(target.attr, annotation)
 
 
+def record_from_import(
+    node: ast.ImportFrom,
+    imports: dict[str, tuple[str | None, int, str]],
+    namespaces: dict[str, tuple[str | None, int]],
+) -> None:
+    """Record what `from ... import ...` binds, in the two maps a resolution needs.
+
+    **`from . import views` binds a *module*, and the level is what says where it is.** The first version stored the
+    level as 0 because the module name is `None`, so every `views.not_found(...)` in a package was a receiver the
+    oracle could not resolve - and a graph that resolved it correctly was scored as wrong. Measured on
+    `pallets/werkzeug` 3.0.3: 130 wrong claims, all of them this shape.
+    """
+    for alias in node.names:
+        if alias.name == "*":
+            continue
+        local = alias.asname or alias.name
+        imports[local] = (node.module, node.level, alias.name)
+        # **`from pkg import name` may bind a *module* of that package**, and only the corpus can say which. The
+        # namespace entry is the dotted candidate; `resolve_namespace` answers with a file only when a module of that
+        # name exists, so `from werkzeug import exceptions` becomes `werkzeug/exceptions.py` while
+        # `from werkzeug import Request` - a class, not a module - stays unanswered.
+        namespaces[local] = (
+            alias.name if node.module is None else f"{node.module}.{alias.name}",
+            node.level,
+        )
+
+
+def record_import_node(
+    node: ast.AST,
+    imports: dict[str, tuple[str | None, int, str]],
+    namespaces: dict[str, tuple[str | None, int]],
+) -> bool:
+    """Record one `import`/`from ... import` statement into the two maps. `False` when it is neither."""
+    if isinstance(node, ast.Import):
+        for alias in node.names:
+            local = alias.asname or alias.name.split(".")[0]
+            # `import a.b` binds `a`; `import a.b as c` binds `c` to the module `a.b` itself.
+            bound = alias.name if alias.asname else alias.name.split(".")[0]
+            imports[local] = (bound, 0, alias.name.split(".")[-1])
+            namespaces[local] = (bound, 0)
+        return True
+    if isinstance(node, ast.ImportFrom):
+        record_from_import(node, imports, namespaces)
+        return True
+    return False
+
+
+def register_class(unit: Unit, node: ast.ClassDef) -> None:
+    """Record one class: its methods, the fields it declares, and the classes it extends."""
+    if node.name in unit.classes:
+        return
+    info = ClassInfo(name=node.name, line=node.lineno)
+    for item in node.body:
+        if isinstance(item, (ast.AnnAssign, ast.Assign)):
+            record_field(info.fields, item, in_class_body=True)
+        elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            info.methods[item.name] = item.lineno
+            # **`self.cache: Cache = Cache()` in `__init__` is where a Python class declares most of its fields**, so
+            # the annotations inside a method are read as well as the ones in the class body. A plain `local: Cache`
+            # inside a method is a local variable and is refused by the same function.
+            for statement in ast.walk(item):
+                record_field(info.fields, statement, in_class_body=False)
+    for base in node.bases:
+        if isinstance(base, ast.Name):
+            info.bases.append(base.id)
+        elif isinstance(base, ast.Attribute):
+            info.bases.append(base.attr)
+    unit.classes[node.name] = info
+
+
 def read_unit(path: Path, root: Path) -> tuple[Unit, ast.Module]:
     rel = path.relative_to(root).as_posix()
     module = module_name(path, root)
@@ -210,36 +292,21 @@ def read_unit(path: Path, root: Path) -> tuple[Unit, ast.Module]:
             unit.defs.setdefault(node.name, []).append(node.lineno)
         elif isinstance(node, ast.ClassDef):
             unit.defs.setdefault(node.name, []).append(node.lineno)
-            info = ClassInfo(name=node.name, line=node.lineno)
-            for item in node.body:
-                if isinstance(item, (ast.AnnAssign, ast.Assign)):
-                    record_field(info.fields, item, in_class_body=True)
-                elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    info.methods[item.name] = item.lineno
-                    # **`self.cache: Cache = Cache()` in `__init__` is where a Python class declares most of its
-                    # fields**, so the annotations inside a method are read as well as the ones in the class body.
-                    # A plain `local: Cache` inside a method is a local variable and is refused by the same function.
-                    for statement in ast.walk(item):
-                        record_field(info.fields, statement, in_class_body=False)
-            for base in node.bases:
-                if isinstance(base, ast.Name):
-                    info.bases.append(base.id)
-                elif isinstance(base, ast.Attribute):
-                    info.bases.append(base.attr)
-            unit.classes[node.name] = info
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                alias_name = alias.asname or alias.name.split(".")[0]
-                unit.imports[alias_name] = (alias.asname and alias.name or alias.name, 0, alias.name.split(".")[-1])
-                unit.namespaces[alias_name] = (alias.name, 0)
-        elif isinstance(node, ast.ImportFrom):
-            for alias in node.names:
-                if alias.name == "*":
-                    continue
-                local = alias.asname or alias.name
-                unit.imports[local] = (node.module, node.level, alias.name)
-                if node.module is None:
-                    unit.namespaces[local] = (alias.name, 0)
+
+    # **An import is an import wherever it is written.** `if t.TYPE_CHECKING: from .app import Flask` is how a module
+    # says what its annotations mean, and every such name was invisible to an oracle that only read the module's
+    # top-level statements - so a graph that resolved the annotation through it was scored as making a wrong claim.
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            record_import_node(node, unit.imports, unit.namespaces)
+
+    # **A class is a class wherever it is declared.** Test suites declare their fixture classes inside a test function -
+    # `class PathAwareSessionInterface(SecureCookieSessionInterface)` in a test body is a real subclass with a real
+    # `super()` call - and reading only the module's own body left every such class invisible. The cost of that was a
+    # correct edge into the base class scored as a wrong claim.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            register_class(unit, node)
     return unit, tree
 
 
@@ -277,6 +344,25 @@ class Corpus:
         files = self.by_class.get(class_name, [])
         return files if len(files) == 1 else []
 
+    def class_file(self, unit: Unit, class_name: str, local_imports=None) -> str | None:
+        """The file a class name means from where it is written.
+
+        **A simple name is not a class.** `flask/templating.py` annotates a parameter `app: Flask`, and the checkout
+        declares a second `Flask` somewhere else, so a global index by simple name answers nothing - while the file's
+        own import says exactly which `Flask` it means. The order is the reader's: this file, then the file the import
+        resolves to, then the one class in the corpus that carries the name.
+        """
+        if class_name in unit.classes:
+            return unit.rel
+        resolved = self.resolve_import(unit, class_name, local_imports)
+        if resolved is not None:
+            file, name = resolved
+            target = self.units.get(file)
+            if target is not None and name in target.classes:
+                return file
+        files = self.files_declaring(class_name)
+        return files[0] if files else None
+
     def field_type(self, file: str, class_name: str, field_name: str) -> str | None:
         """The class a class's field was annotated with, read through the bases when the class does not say."""
         unit = self.units.get(file)
@@ -312,12 +398,12 @@ class Corpus:
     def file_for_module(self, module: str) -> str | None:
         if module in self.by_module:
             return self.by_module[module]
-        # A checkout laid out as `src/<package>/...`: the package root is not on `sys.path` for the parser, so the
-        # dotted name arrives without its leading segment.
-        for known, rel in self.by_module.items():
-            if known.endswith("." + module) or known == module:
-                return rel
-        return None
+        # **A checkout laid out as `src/<package>/...` or `examples/<program>/<package>/...` puts the package root
+        # somewhere the parser does not know about**, so the dotted name arrives without its leading segments. A suffix
+        # match is what recognises it - and only when exactly one module carries that suffix, because two candidates is
+        # the case where the oracle would be picking a file rather than reading one.
+        matches = [rel for known, rel in self.by_module.items() if known.endswith("." + module)]
+        return matches[0] if len(matches) == 1 else None
 
     def resolve_relative(self, unit: Unit, level: int, module: str | None) -> str | None:
         if not unit.module:
@@ -337,7 +423,13 @@ class Corpus:
         target = base + (module.split(".") if module else [])
         return self.file_for_module(".".join(target)) if target else None
 
-    def resolve_import(self, unit: Unit, local: str, seen: set[tuple[str, str]] | None = None) -> tuple[str, str] | None:
+    def resolve_import(
+        self,
+        unit: Unit,
+        local: str,
+        local_imports: dict[str, tuple[str | None, int, str]] | None = None,
+        seen: set[tuple[str, str]] | None = None,
+    ) -> tuple[str, str] | None:
         """The file and the original name an alias binds, or `None` when it leaves the corpus.
 
         **One hop of re-export is followed, because a package file is where a public name is usually declared.** A
@@ -345,7 +437,9 @@ class Corpus:
         flash` names `flask/__init__.py`, which does not define `flash`, it re-exports it. Stopping there would have
         called a correct resolution a false positive and rewarded a graph that gave up.
         """
-        entry = unit.imports.get(local)
+        # **A name imported inside the function wins**, because that is where the call is written and Python binds it
+        # there; the module's own imports are the fallback a reader uses when the function says nothing.
+        entry = (local_imports or {}).get(local) or unit.imports.get(local)
         if entry is None:
             return None
         module, level, original = entry
@@ -369,13 +463,18 @@ class Corpus:
         if key in seen or len(seen) > 8:
             return file, original
         seen.add(key)
-        deeper = self.resolve_import(target_unit, original, seen)
+        deeper = self.resolve_import(target_unit, original, None, seen)
         if deeper is not None:
             return deeper
         return file, original
 
-    def resolve_namespace(self, unit: Unit, local: str) -> str | None:
-        entry = unit.namespaces.get(local)
+    def resolve_namespace(
+        self,
+        unit: Unit,
+        local: str,
+        local_namespaces: dict[str, tuple[str | None, int]] | None = None,
+    ) -> str | None:
+        entry = (local_namespaces or {}).get(local) or unit.namespaces.get(local)
         if entry is None:
             return None
         module, level = entry
@@ -383,7 +482,14 @@ class Corpus:
             return self.resolve_relative(unit, level, module)
         return self.file_for_module(module) if module else None
 
-    def find_method(self, file: str, class_name: str, method: str, seen: set[str]) -> str | None:
+    def find_method(
+        self,
+        file: str,
+        class_name: str,
+        method: str,
+        seen: set[str],
+        skip_own: bool = False,
+    ) -> str | None:
         key = f"{file}#{class_name}"
         if key in seen:
             return None
@@ -394,7 +500,9 @@ class Corpus:
         info = unit.classes.get(class_name)
         if info is None:
             return None
-        if method in info.methods:
+        # **`super().m()` never runs this class's own `m`**, which is what the keyword is for; every other caller of
+        # this function wants the nearest declaration and gets it.
+        if method in info.methods and not skip_own:
             return file
         for base in info.bases:
             base_file = file if base in unit.classes else None
@@ -481,13 +589,23 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
         local, _globals = bound_names(fn)
         typed = parameter_types(fn)
         body = list(own_scope_nodes(fn))
+        # **A function-scope import binds a name for that function, and Python code puts them there to break an
+        # import cycle.** `from ..http import dump_csp_header` inside a method is a real import with a real target, and
+        # an oracle that only read the module's own imports called every such call site `unknown` - which is how a
+        # graph that resolved them correctly came to be scored as making 38 wrong claims on `pallets/werkzeug`.
+        imports_local: dict[str, tuple[str | None, int, str]] = {}
+        namespaces_local: dict[str, tuple[str | None, int]] = {}
+        for node in body:
+            record_import_node(node, imports_local, namespaces_local)
         for node in body:
             if not isinstance(node, ast.Call):
                 continue
             callee, receiver = call_target(node.func)
             if callee is None:
                 continue
-            verdict, target = classify(unit, cls, callee, receiver, local, typed)
+            verdict, target = classify(
+                unit, cls, callee, receiver, local, typed, imports_local, namespaces_local
+            )
             out.append(
                 Site(
                     file=unit.rel,
@@ -519,6 +637,8 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
         receiver: str | None,
         local: set[str],
         typed: dict[str, str],
+        imports_local: dict[str, tuple[str | None, int, str]] | None = None,
+        namespaces_local: dict[str, tuple[str | None, int]] | None = None,
     ) -> tuple[str, str | None]:
         # **`self.field.m()` - the field's annotation names the class the member is looked up in.** A Python reader
         # that stops at one level cannot answer it: the field is a name the class declares and the callee is a name the
@@ -529,12 +649,20 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
             if base in OWN_SCOPE_NAMES and cls is not None and "." not in path:
                 annotation = corpus.field_type(unit.rel, cls, path)
                 if annotation is not None:
-                    files = corpus.files_declaring(annotation)
-                    if files:
-                        found = corpus.find_method(files[0], annotation, callee, set())
+                    declaring = corpus.class_file(unit, annotation, imports_local)
+                    if declaring is not None:
+                        found = corpus.find_method(declaring, annotation, callee, set())
                         if found:
                             return "internal", found
             return "unknown", None
+        # **`super().m()` - the class above, never this one.** The walk starts at the bases for exactly the reason the
+        # keyword exists: a `super` call inside `Child.m` reaches `Base.m` and pointing it at `Child.m` would make every
+        # override look recursive.
+        if receiver is not None and SUPER_RECEIVER.match(receiver):
+            if cls is None:
+                return "external", None
+            found = corpus.find_method(unit.rel, cls, callee, set(), skip_own=True)
+            return ("internal", found) if found else ("external", None)
         # `self.m()` / `cls.m()` - the enclosing class, then a base class inside the corpus.
         if receiver in OWN_SCOPE_NAMES:
             if cls:
@@ -546,27 +674,30 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
         # annotation written on the parameter instead of on a field.
         if receiver is not None and receiver in typed:
             annotation = typed[receiver]
-            files = corpus.files_declaring(annotation)
-            if files:
-                found = corpus.find_method(files[0], annotation, callee, set())
+            declaring = corpus.class_file(unit, annotation, imports_local)
+            if declaring is not None:
+                found = corpus.find_method(declaring, annotation, callee, set())
                 if found:
                     return "internal", found
             return "unknown", None
         # `mod.f()` - only when the receiver is a module this file imported.
         if receiver is not None:
-            namespace = corpus.resolve_namespace(unit, receiver)
+            namespace = corpus.resolve_namespace(unit, receiver, namespaces_local)
             if namespace is not None:
                 target_unit = corpus.units.get(namespace)
                 if target_unit and callee in target_unit.defs:
                     return "internal", namespace
                 return "external", None
             return "silent", None
-        # A bare call: a variable first, because that is what a bound name is.
-        if callee in local:
+        # A bare call: a variable first, because that is what a bound name is - **unless the binding is an import**,
+        # which `bound_names` counts as a local because a function-scope import does bind a name there. Reading it as a
+        # variable made every `from ..test import EnvironBuilder` inside a method invisible, and the calls that used it
+        # were then claimed by the graph and refused by the oracle.
+        if callee in local and callee not in imports_local and callee not in unit.imports:
             return "variable", None
         if callee in unit.defs:
             return "internal", unit.rel
-        resolved = corpus.resolve_import(unit, callee)
+        resolved = corpus.resolve_import(unit, callee, imports_local)
         if resolved:
             file, original = resolved
             target_unit = corpus.units.get(file)

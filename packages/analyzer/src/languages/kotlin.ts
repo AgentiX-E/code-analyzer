@@ -33,9 +33,11 @@ export class KotlinProvider extends TreeSitterBaseProvider {
 
     if (nodeType === 'class_declaration' || nodeType === 'object_declaration') {
       // A class/object declaration always carries its name as a direct
-      // `type_identifier` child (grammar: alias(simple_identifier, type_identifier)).
-      const nameNode = this.findChild(node, 'type_identifier');
-      if (!nameNode) return;
+      // `type_identifier` child (grammar: alias(simple_identifier, type_identifier)), so the lookup cannot come back
+      // empty - measured against every malformed class the grammar accepts, each of which becomes an ERROR node
+      // rather than a nameless `class_declaration`. The `!` is that statement, and the guard it replaces was a branch
+      // no input takes.
+      const nameNode = this.findChild(node, 'type_identifier')!;
       // Check if this is an enum class (has enum_class_body child)
       let isEnum = false;
       for (let c = 0; c < node.namedChildCount; c++) {
@@ -59,6 +61,12 @@ export class KotlinProvider extends TreeSitterBaseProvider {
         : isInterface
           ? CAPTURE_TAGS.INTERFACE_DEF
           : CAPTURE_TAGS.CLASS_DEF;
+      // **Kotlin writes both a superclass and an interface after one colon**, so the syntax alone does not say
+      // which is which: `class Foo : Base(), Runnable` and `class Foo : Runnable` are the same shape. What does
+      // say it is the argument list - a Kotlin interface has no constructor, so a delegation specifier carrying a
+      // `constructor_invocation` names a class and one without names an interface. The first invokable specifier
+      // is therefore the base class, which is the only reading of this syntax the language allows.
+      const heritage = this.heritageOf(node);
       captures.push({
         tag,
         text: isEnum
@@ -69,13 +77,17 @@ export class KotlinProvider extends TreeSitterBaseProvider {
         startByte: nameNode.startIndex,
         endByte: nameNode.endIndex,
         name: nameNode.text,
-        properties: { filePath: this.filePath, ...(isObject ? { isObject: 'true' } : {}) },
+        properties: {
+          filePath: this.filePath,
+          ...heritage,
+          ...(isObject ? { isObject: 'true' } : {}),
+        },
       });
     } else if (nodeType === 'function_declaration') {
       // A function declaration always carries its name as a direct
-      // `simple_identifier` child.
-      const nameNode = this.findChild(node, 'simple_identifier');
-      if (!nameNode) return;
+      // `simple_identifier` child, for the same reason and by the same measurement: `fun () {}` is an
+      // `anonymous_function` and never reaches this branch.
+      const nameNode = this.findChild(node, 'simple_identifier')!;
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: nameNode.text,
@@ -422,6 +434,42 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   }
 
   // ---- Utility helpers ----
+
+  /**
+   * The superclass and the interfaces a Kotlin declaration names - the properties the resolver's class chain reads.
+   *
+   * **A Kotlin class has no `extends` keyword.** `class Foo : Base(), Runnable` puts both the superclass and the
+   * interfaces in one colon-separated list of `delegation_specifier` nodes, and the resolver needs the base class
+   * separately because only a class has a body to inherit: an interface declares signatures and no bodies, so an
+   * edge to one answers a call with a declaration that has nothing behind it.
+   *
+   * **The discriminator is the argument list, and it is decisive here.** A Kotlin interface cannot be constructed,
+   * so `Base()` can only name a class and a bare `Runnable` can only name an interface. The first invokable
+   * specifier is the base class; everything else is a conformed interface. A declaration whose specifiers are all
+   * bare names has no base class at all, which is what `class Foo : Runnable` is.
+   */
+  private heritageOf(node: TreeSitterSyntaxNode): {
+    baseClasses?: string;
+    interfaces?: string;
+  } {
+    const bases: string[] = [];
+    const interfaces: string[] = [];
+    for (const child of namedChildrenOf(node)) {
+      if (child.type !== 'delegation_specifier') continue;
+      // **The first type name is the specifier's own type**, and everything after it is an argument or a delegate:
+      // `Base<Item>()` names `Base`, so descending the whole subtree would record `Item` as a base class too.
+      const names: string[] = [];
+      this.collectIdentifiers(child, names);
+      const name = names[0];
+      if (name === undefined) continue;
+      if (this.findChild(child, 'constructor_invocation') === null) interfaces.push(name);
+      else if (bases.length === 0) bases.push(name);
+    }
+    const heritage: { baseClasses?: string; interfaces?: string } = {};
+    if (bases.length > 0) heritage.baseClasses = bases.join(',');
+    if (interfaces.length > 0) heritage.interfaces = interfaces.join(',');
+    return heritage;
+  }
 
   private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
     for (const child of namedChildrenOf(node)) {

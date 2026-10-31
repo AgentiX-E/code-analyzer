@@ -234,15 +234,11 @@ export class ParsePhase implements ExecutablePhase {
                 } else if (label === 'Class') {
                   currentClassNodeId = node.id;
                   builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-
-                  // EXTENDS edge for base classes
-                  const baseClasses = symbol.properties['baseClasses'] as string | undefined;
-                  if (baseClasses) {
-                    // Will be resolved in scopeResolution phase — store for now
-                    if (symbol.properties['interfaces']) {
-                      // Store implements info for later resolution
-                    }
-                  }
+                  // **`baseClasses` and `interfaces` are read where the edges are made**, which is the
+                  // `scopeResolution` phase: it is the only pass that can turn a name into a declaration, because a
+                  // base class is usually in another file. Two nested `if`s used to sit here with empty bodies and a
+                  // comment saying exactly that - a branch that decides nothing and is counted as a branch nobody
+                  // takes. They are gone; the properties are read from the symbol by the phase that can use them.
                 } else if (label === 'Interface') {
                   builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                 } else if (label === 'Function') {

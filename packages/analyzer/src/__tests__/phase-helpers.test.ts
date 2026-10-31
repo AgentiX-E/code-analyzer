@@ -28,6 +28,7 @@ import {
   simpleHash,
   resolveImportPath,
 } from '../pipeline/phase-helpers.js';
+import { buildPackageRoots } from '../resolution/package-roots.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -40,6 +41,31 @@ async function withTempDir<T>(fn: (dir: string) => T | Promise<T>): Promise<T> {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * The smallest PDF whose text a reader can recover: one page, one uncompressed content stream, one text object.
+ *
+ * **Written by hand rather than produced by a library**, because the point of the case is the reader's dispatch - a
+ * `.pdf` goes through the extractor instead of `readFile(…, 'utf-8')` - and a fixture that needed a generator would
+ * make the test about the generator.
+ */
+function minimalPdf(text: string): string {
+  const stream = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`;
+  return [
+    '%PDF-1.4',
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+    '3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj',
+    `4 0 obj << /Length ${stream.length} >>`,
+    'stream',
+    stream,
+    'endstream',
+    'endobj',
+    'trailer << /Root 1 0 R >>',
+    '%%EOF',
+    '',
+  ].join('\n');
 }
 
 function makeCapture(
@@ -169,6 +195,15 @@ describe('matchesGitignore', () => {
     expect(matchesGitignore('src/main/java/out', ['**/out/'])).toBe(true);
     expect(matchesGitignore('src/main/java/out', ['*/out/'])).toBe(false);
   });
+
+  // **A rule with nothing left in it names nothing**, and a `.gitignore` edited by hand collects them: a lone `!`
+  // left behind when a negation was deleted, and a lone `/` from the root marker being kept by mistake. Both must be
+  // skipped rather than matched, because `''` as a pattern matches every path there is.
+  it('ignores a rule that has no pattern left in it', () => {
+    expect(matchesGitignore('src/app.ts', ['!'])).toBe(false);
+    expect(matchesGitignore('src/app.ts', ['/'])).toBe(false);
+    expect(matchesGitignore('src/app.ts', ['', '!'])).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -235,6 +270,20 @@ describe('walkDirectory', () => {
       const names = results.map((f) => f.filePath.split('/').slice(-2).join('/')).sort();
       expect(names).toEqual(['src/app.ts', 'sub/nested.py']);
       expect(results.every((f) => f.hash === computeHash(f.content))).toBe(true);
+    });
+  });
+
+  // **A PDF is text, and the default reader decodes it rather than handing back bytes.** The dispatch is one line
+  // and it is the line every "what does `docs/spec.pdf` say" question depends on, so it is read through
+  // `walkDirectory` - the production path - with a real PDF on disk rather than by calling the reader directly.
+  it('reads a PDF as decoded text, not as bytes', async () => {
+    await withTempDir(async (dir) => {
+      writeFileSync(join(dir, 'spec.pdf'), minimalPdf('retries are capped at three'));
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000);
+      const found = results.find((f) => f.language === 'pdf');
+      expect(found).toBeDefined();
+      expect(found!.content).toContain('retries are capped at three');
     });
   });
 
@@ -817,6 +866,73 @@ describe('resolveImportPath — Python modules', () => {
       writeFileSync(join(dir, 'src', 'math.ts'), 'export const pi = 3;\n');
       const source = join(dir, 'src', 'index.ts');
       expect(resolveImportPath('./math.js', source, dir)).toBe(join(dir, 'src', 'math.ts'));
+    });
+  });
+
+  // **An absolute import in a program that is not the library.**
+  //
+  // A checkout holds the library and the examples that run it. `examples/tutorial/tests/test_db.py` writes
+  // `from flaskr.db import get_db`, and neither the importer's own package nor the repository root nor `src`/`lib`
+  // contains `flaskr` - `examples/tutorial` does, because that is the directory on `sys.path` when the example runs.
+  // Measured on `pallets/flask` 3.0.3, those imports resolved to **zero** files before the roots were read from the
+  // project's own layout, and they are most of the repository's test suite.
+  describe('the roots a project’s own layout declares', () => {
+    async function withExampleTree(run: (dir: string) => void): Promise<void> {
+      await withTempDir((dir) => {
+        mkdirSync(join(dir, 'examples', 'tutorial', 'flaskr'), { recursive: true });
+        mkdirSync(join(dir, 'examples', 'tutorial', 'tests'), { recursive: true });
+        writeFileSync(join(dir, 'examples', 'tutorial', 'flaskr', '__init__.py'), '');
+        writeFileSync(
+          join(dir, 'examples', 'tutorial', 'flaskr', 'db.py'),
+          'def get_db():\n  pass\n',
+        );
+        writeFileSync(
+          join(dir, 'examples', 'tutorial', 'tests', 'test_db.py'),
+          'from flaskr.db import get_db\n',
+        );
+        run(dir);
+      });
+    }
+
+    it('resolves an absolute import through the root that provides it', async () => {
+      await withExampleTree((dir) => {
+        const source = join(dir, 'examples', 'tutorial', 'tests', 'test_db.py');
+        const roots = buildPackageRoots(
+          [
+            join(dir, 'examples', 'tutorial', 'flaskr', '__init__.py'),
+            join(dir, 'examples', 'tutorial', 'flaskr', 'db.py'),
+            source,
+          ],
+          dir,
+        );
+        expect(resolveImportPath('flaskr.db', source, dir, roots)).toBe(
+          join(dir, 'examples', 'tutorial', 'flaskr', 'db.py'),
+        );
+      });
+    });
+
+    it('resolves nothing without them, which is what the arm exists for', async () => {
+      await withExampleTree((dir) => {
+        const source = join(dir, 'examples', 'tutorial', 'tests', 'test_db.py');
+        expect(resolveImportPath('flaskr.db', source, dir)).toBeNull();
+      });
+    });
+
+    it('still prefers the importer’s own package over a declared root', async () => {
+      // **Evidence in order**: the package the file already lives in is a statement, and a root list is an
+      // inference about the layout. A project that declares a root for a name its own package also answers must get
+      // the local one, which is what a sibling module imported from inside the package is.
+      await withExampleTree((dir) => {
+        writeFileSync(join(dir, 'examples', 'tutorial', 'flaskr', 'other.py'), '');
+        const source = join(dir, 'examples', 'tutorial', 'flaskr', 'db.py');
+        const roots = buildPackageRoots(
+          [join(dir, 'examples', 'tutorial', 'flaskr', 'other.py')],
+          dir,
+        );
+        expect(resolveImportPath('flaskr.other', source, dir, roots)).toBe(
+          join(dir, 'examples', 'tutorial', 'flaskr', 'other.py'),
+        );
+      });
     });
   });
 });

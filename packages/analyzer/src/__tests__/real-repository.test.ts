@@ -254,7 +254,7 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
     );
     expect(
       [...arms].filter(
-        (arm) => !['import', 'sameFile', 'globalUnique', 'receiverType'].includes(arm),
+        (arm) => !['import', 'sameFile', 'inherited', 'super', 'receiverType'].includes(arm),
       ),
     ).toEqual([]);
   });
@@ -276,9 +276,9 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
       // And the callee is a node, because an edge to nothing is not a resolution.
       expect(graph.nodes.get(edge.targetId)?.name).toBeTypeOf('string');
     }
-    // The rule did not become an excuse to resolve everything: the three name arms still carry the graph.
+    // The rule did not become an excuse to resolve everything: the name arms still carry the graph.
     const named = edgesOfType('CALLS').filter((edge) =>
-      ['import', 'sameFile', 'globalUnique'].includes(String(edge.properties?.['resolution'])),
+      ['import', 'sameFile'].includes(String(edge.properties?.['resolution'])),
     );
     expect(named.length).toBeGreaterThan(resolved.length * 10);
   });

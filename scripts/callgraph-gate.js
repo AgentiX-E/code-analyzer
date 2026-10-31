@@ -13,8 +13,10 @@
 // twice rather than picking one.
 //
 // **The arm floors are the reason this gate has a second dimension.** An aggregate hides a bad arm inside a good one:
-// `redis/ioredis` reads 92 % precision while the arm that resolves a name unique to the whole graph contributes
-// nothing correct at all, and only a per-arm floor can say so.
+// `redis/ioredis` once read 92 % precision while an arm that resolved a name unique to the whole graph contributed
+// nothing correct at all, and only a per-arm floor could say so. That arm is gone - it claimed 16 edges across the two
+// TypeScript checkouts of which **0** were right - and the floors below are what hold its replacement, the class chain,
+// to the same scrutiny.
 //
 // **An arm that stops firing is also a failure**, because a missing arm has no precision to compare and the gate
 // reports it as absent rather than skipping it. That is what holds the newest arm - `receiverType`, the one that reads
@@ -41,17 +43,28 @@ const PYTHON_FLOORS = {
   // the product's resolution of it could only be scored wrong; the oracle now derives an expected pair for those
   // sites - 4 more on flask and 28 more on werkzeug - and the product does not answer all of them. Precision did not
   // fall: it rose, on 7 new edges of which all 7 are correct.
+  //
+  // **The class chain is what raised these again.** `inherited` and `super` answer the calls a base class declares -
+  // `self._find_error_handler(...)` in `flask/app.py` reaching `App` in `sansio/app.py`, `super().__init__(...)` in
+  // werkzeug's middleware - and both read a statement the source makes rather than a name that happens to be unique:
+  // 9 of 9 right on flask and 3 of 3. The floors follow the measurement, not the other way round.
+  //
+  // **Recall rose ten points on flask when the project's own import roots were read from its files.** The arm had
+  // been there since the iteration before and resolved nothing, because it recorded a package's own directory as that
+  // package's root; `examples/tutorial/flaskr/__init__.py` therefore made the resolver look for
+  // `examples/tutorial/flaskr/flaskr/db.py`. A test asking where the root of `flaskr` is found the defect, and 51
+  // import edges - the whole example and test suite of the checkout - followed.
   'pallets/flask': {
-    precision: 0.945,
-    recall: 0.91,
-    claimed: 200,
-    arms: { receiverType: 0.99 },
+    precision: 0.955,
+    recall: 0.95,
+    claimed: 275,
+    arms: { import: 0.9, inherited: 0.99, receiverType: 0.99, sameFile: 0.96, super: 0.99 },
   },
   'pallets/werkzeug': {
-    precision: 0.955,
+    precision: 0.97,
     recall: 0.94,
-    claimed: 900,
-    arms: { receiverType: 0.99 },
+    claimed: 1140,
+    arms: { import: 0.97, receiverType: 0.99, sameFile: 0.95 },
   },
 };
 
@@ -61,19 +74,24 @@ const PYTHON_FLOORS = {
  * **`claimed` is the crash floor as well as a volume floor.** A corpus that produced no call graph at all - which is
  * what `redis/ioredis` did before the doc-comment pass stopped overflowing the stack - reports zero claimed edges,
  * and a floor on the count is the only figure that notices.
+ *
+ * **Recall on both is the honest gap, not a floor that was chosen.** `zod` writes most of its calls as generic
+ * `Type.ast` dispatch on union members, and ioredis routes through a command table it builds at runtime; neither is a
+ * name a resolver can walk to. The product answers 63.8 % and 67.5 % of what the checker expects and refuses the rest
+ * rather than guessing, which is why precision on the same corpora is 97.7 % and 97.8 %.
  */
 const TYPESCRIPT_FLOORS = {
   'colinhacks/zod': {
-    precision: 0.89,
-    recall: 0.45,
-    claimed: 64,
-    arms: { import: 0.95, sameFile: 0.99, receiverType: 0.99 },
+    precision: 0.96,
+    recall: 0.6,
+    claimed: 78,
+    arms: { import: 0.94, sameFile: 0.99, receiverType: 0.99 },
   },
   'redis/ioredis': {
-    precision: 0.92,
-    recall: 0.63,
-    claimed: 180,
-    arms: { import: 0.93, sameFile: 0.98, receiverType: 0.99 },
+    precision: 0.96,
+    recall: 0.64,
+    claimed: 175,
+    arms: { import: 0.93, inherited: 0.99, sameFile: 0.97, receiverType: 0.99 },
   },
 };
 

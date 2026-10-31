@@ -239,6 +239,40 @@ describe('TypeScriptProvider', () => {
     });
   });
 
+  // **`extends` and `implements` share one clause, and only one of them is a base class.** The resolver walks bases to
+  // find a member, so recording an interface as a base sends it looking for a body that does not exist - and recording
+  // none where the source names one leaves the call unresolvable. Both directions are stated here because the clause
+  // is written one way and means two things.
+  describe('the class a declaration extends', () => {
+    const heritageOf = (
+      source: string,
+    ): { baseClasses?: string; interfaces?: string } | undefined =>
+      provider.parse(source, 'test.ts').find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF)?.properties;
+
+    it('records the extended class and nothing else when both are named', () => {
+      const properties = heritageOf('class Child extends Base implements Thing {}');
+      expect(properties?.['baseClasses']).toBe('Base');
+      expect(properties?.['interfaces']).toBe('Thing');
+    });
+
+    it('takes the head of a generic base', () => {
+      expect(heritageOf('class Child extends Base<Item> {}')?.['baseClasses']).toBe('Base');
+    });
+
+    it('records no base class for a class that only implements', () => {
+      // **This is the arm the base provider had to keep**: a heritage clause with no `extends` in it is a class that
+      // conforms to interfaces and extends nothing, which is `class Repository implements Store {}`.
+      const properties = heritageOf('class Repository implements Store, Closeable {}');
+      expect(properties?.['baseClasses']).toBeUndefined();
+      expect(properties?.['interfaces']).toBe('Store,Closeable');
+    });
+
+    it('records no base class for a class that neither extends nor implements', () => {
+      const properties = heritageOf('class Plain {}');
+      expect(properties?.['baseClasses']).toBeUndefined();
+    });
+  });
+
   // **A field's declared type leaves the parse as one property on its class**, which is what the receiver's-type arm
   // reads. Every case below is a shape that either produces that property or must not: a field without an annotation,
   // a computed key, a name a class declares twice, and an interface, whose members are fields without bodies.

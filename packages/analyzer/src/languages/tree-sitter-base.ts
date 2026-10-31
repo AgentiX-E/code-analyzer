@@ -993,21 +993,42 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** Extract base class names from a class_declaration node */
   protected extractBaseClasses(node: TreeSitterSyntaxNode): string | undefined {
     for (const child of childrenOf(node)) {
-      // TypeScript/JavaScript: class_heritage → extends_clause → identifier
-      // Java/Kotlin: superclass → type_identifier
-      if (
-        child.type === 'class_heritage' ||
-        child.type === 'superclass' ||
-        child.type === 'extends_clause'
-      ) {
+      // **`class_heritage` is the only clause this method reads, and the two arms beside it were removed by
+      // measurement.** The `superclass` / `extends_clause` case was here for Java and Kotlin, and neither reaches it:
+      // `JavaProvider` and `GroovyProvider` read `superclass` in their own walk, `KotlinProvider` reads
+      // `delegation_specifier` (a colon-separated list where the argument list decides which entry is a class), and a
+      // class node with a bare `extends_clause` child - Scala's shape - never arrives here either, because
+      // `ScalaProvider` overrides the walk as well. Coverage read 0 executions of the arm across the whole suite, and
+      // dead arms are what `coverage-exclusions-gate` exists to refuse.
+      //
+      // **TypeScript, JavaScript and ArkTS put `extends` and `implements` in one node**, and collecting every
+      // identifier under `class_heritage` returned both: `class Child extends Base implements Thing` recorded
+      // `baseClasses: "Base,Thing"`. An implemented interface declares signatures and no bodies, so treating one as a
+      // base class answers a call with a declaration that has nothing behind it - and the resolver now walks bases to
+      // find a member, which is what made the defect visible. The extends clause alone is the base, and the base is
+      // its first type: `extends Base<T>` names `Base` and `T` is an argument.
+      if (child.type === 'class_heritage') {
+        const clause = this.firstChildOfType(child, 'extends_clause');
+        // `class Foo implements Bar` is a heritage clause with no extends in it, and conforming to an interface is
+        // not extending a class.
+        if (clause === null) continue;
         const parts: string[] = [];
-        this.collectIdentifiers(child, parts);
-        // A heritage clause always carries at least one identifier, so `parts`
-        // is never empty here.
-        return parts.join(',');
+        this.collectIdentifiers(clause, parts);
+        return parts[0];
       }
     }
     return undefined;
+  }
+
+  /** The first direct child of a node with a given type, or `null`. */
+  protected firstChildOfType(
+    node: TreeSitterSyntaxNode,
+    type: string,
+  ): TreeSitterSyntaxNode | null {
+    for (const child of childrenOf(node)) {
+      if (child.type === type) return child;
+    }
+    return null;
   }
 
   /** Extract implemented interfaces from a class node */

@@ -1,5 +1,8 @@
 // @code-analyzer/analyzer — Pipeline Phase: ScopeResolution
 
+import { existsSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
@@ -12,6 +15,7 @@ import {
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { buildCallSites } from '../../resolution/call-sites.js';
 import {
+  baseMemberOf,
   buildFileTypes,
   classMemberOf,
   containerOf,
@@ -182,6 +186,45 @@ function isOwnScopeCall(receiver: string | undefined): boolean {
 
 const OWN_SCOPE_RECEIVERS: ReadonlySet<string> = new Set(['self', 'this', 'cls', 'super', '$this']);
 
+/**
+ * Whether a receiver is the base class - `super` in TypeScript and Java, `super()` in Python.
+ *
+ * **`super()` is a call and `receiverOf` keeps it whole**, so the text arrives with its argument list; `super(Foo,
+ * self)` is the two-argument form and is the same keyword. A method named `superb` is not a `super` call, which is why
+ * the pattern ends where the identifier does.
+ */
+function isSuperReceiver(receiver: string): boolean {
+  return /^super(\(.*\))?$/.test(receiver);
+}
+
+/** The same question for a receiver that may be absent, which the same-file arm asks before it can look. */
+function isSuperCall(receiver: string | undefined): boolean {
+  return receiver !== undefined && isSuperReceiver(receiver);
+}
+
+/**
+ * The file a name bound by an import refers to, when that name is a module.
+ *
+ * **`import cli` binds `cli` to `cli.py`; `from . import cli` binds it to the submodule `cli` of the package the
+ * import names.** Both are read from the resolution the import already has, and neither is a guess: a file is either a
+ * module of that name, or a package that could contain one. A name bound to anything else - a class, a function, an
+ * instance - is not a namespace, and answering `undefined` is how this stays a rule instead of a lookup.
+ */
+function moduleFileOf(resolvedFile: string, name: string): string | undefined {
+  const base = basename(resolvedFile);
+  const stem = base.slice(0, base.lastIndexOf('.') === -1 ? base.length : base.lastIndexOf('.'));
+  if (stem === name) return resolvedFile;
+  if (stem !== '__init__') return undefined;
+  const packageDirectory = dirname(resolvedFile);
+  for (const candidate of [
+    join(packageDirectory, `${name}.py`),
+    join(packageDirectory, name, '__init__.py'),
+  ]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return undefined;
+}
+
 export class ScopeResolutionPhase implements ExecutablePhase {
   readonly id: PipelinePhaseId = 'scopeResolution';
   readonly dependencies: PipelinePhaseId[] = ['parse'];
@@ -219,8 +262,9 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       const callsByArm: Record<string, number> = {
         import: 0,
         sameFile: 0,
+        inherited: 0,
+        super: 0,
         receiverType: 0,
-        globalUnique: 0,
       };
 
       // Build a file-level import resolution map: sourceFile -> targetFile -> importedSymbols
@@ -251,14 +295,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       // file+name -> GraphNode for cross-file resolution
       const fileSymbolIndex = new Map<string, Map<string, { nodeId: number; label: NodeLabel }>>();
       /**
-       * Simple name → the declaration, or `ambiguous` when more than one declaration carries it.
+       * Simple name → the declaration, per file, which is the scope a call actually resolves in.
        *
-       * **Two indexes, because a call site writes a simple name and the graph stores qualified ones.** `fileScopes`
-       * is per file, which is the scope a call actually resolves in; `globalNames` is the fallback for a name nothing
-       * in the file declares, and it fires only when the whole graph has exactly one declaration of it.
+       * **The per-file index and not a global one**, because a simple name is only evidence inside the file that
+       * writes it; the cross-file question is answered by imports and by class chains, which are facts rather than
+       * coincidences.
        */
       const fileScopes = new Map<string, FileScope>();
-      const globalNames = new Map<string, Resolved | 'ambiguous'>();
 
       for (const [, node] of ctx.graph.nodes) {
         if (
@@ -272,11 +315,6 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         ) {
           // Store by qualified name (precise)
           qnameIndex.set(node.qualifiedName, { nodeId: node.id, label: node.label });
-
-          // **And by simple name**, which is the form a call site actually writes.
-          if (node.name) {
-            keepUnique(globalNames, node.name, { nodeId: node.id, label: node.label });
-          }
 
           // Store in per-file index for cross-file resolution
           if (node.properties?.filePath) {
@@ -361,7 +399,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           })),
         );
         typeFacts.set(parsedFile.filePath, facts);
-        mergeClassIndex(classIndex, facts);
+        mergeClassIndex(classIndex, facts, parsedFile.filePath);
       }
 
       for (const parsedFile of parseData.parsedFiles) {
@@ -370,6 +408,11 @@ export class ScopeResolutionPhase implements ExecutablePhase {
 
         // Resolve imports for this file
         const fileImports = importMap.get(parsedFile.filePath);
+        // **The files this one imports, which is the evidence a class name is resolved by.** `Flask` extends `App`,
+        // and a checkout that vendors an example declaring another `App` makes the simple name ambiguous - the import
+        // is what says which one the file means.
+        const importedFiles = new Set(fileImports?.keys() ?? []);
+        const origin = { file: parsedFile.filePath, imported: importedFiles };
 
         /**
          * The callables of this file, **narrowest first**.
@@ -396,7 +439,9 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         for (const ref of parsedFile.references) {
           if (ref.referenceKind === 'call') {
             let target: { nodeId: number; label: NodeLabel } | undefined;
-            let arm: 'import' | 'sameFile' | 'receiverType' | 'globalUnique' = 'import';
+            let arm:
+              'import' | 'sameFile' | 'inherited' | 'super' | 'receiverType' | 'globalUnique' =
+              'import';
 
             // First, try cross-file resolution via imports
             if (fileImports) {
@@ -434,6 +479,34 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               }
             }
 
+            // **Then a name that is bound to a module, because `alias.member()` is how both languages spell "the member
+            // lives in that module".** The import arm above asks whether the *called* name was imported; `from . import
+            // cli` imports `cli`, and the call `cli.load_dotenv()` names a member of the file the import bound `cli` to.
+            // Measured on `pallets/flask` 3.0.3, that shape is `cli.AppGroup()`, `cli.load_dotenv()` and
+            // `cli.show_server_banner(...)` in the framework's own entry points.
+            //
+            // **Two shapes, and both are read from the import rather than assumed.** `import cli` and `from x import
+            // cli` where `cli` is a module bind the name to a file whose module name *is* `cli`; `from . import cli`
+            // inside a package binds it to a **submodule of the package the import resolved to**, so the file is
+            // `<package>/cli.py`. A binding named `cli` that points at a file which is not a module called `cli` and is
+            // not a package is a variable, an instance or a class - and calling a member of that is the receiver's-type
+            // arm's question, not this one.
+            if (!target && ref.receiver !== undefined && fileImports) {
+              const namespace = /^[A-Za-z_$][\w$]*/.exec(ref.receiver)?.[0];
+              if (namespace !== undefined) {
+                for (const [resolvedFile, importedSymbols] of fileImports) {
+                  if (!importedSymbols.has(namespace)) continue;
+                  const moduleFile = moduleFileOf(resolvedFile, namespace);
+                  if (moduleFile === undefined) continue;
+                  const found = fileSymbolIndex.get(moduleFile)?.get(ref.targetName);
+                  if (found !== undefined) {
+                    target = found;
+                    break;
+                  }
+                }
+              }
+            }
+
             // **Then the file itself, which is where a lexical scope starts.** The pass used to skip every same-file
             // call on the grounds that it was "handled elsewhere", and nothing else produced a `CALLS` edge - so
             // `self.validate()` inside a class produced no edge to the `validate` declared forty lines above it, and
@@ -453,7 +526,11 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // werkzeug of which **0** were right (95.8 % -> 94.7 %). The calls those relaxations were meant to recover
             // are the `this.field.method()` shape, and recovering them needs the field's **type** - which is the arm
             // below, and not a change to this condition.
-            if (!target && isOwnScopeCall(ref.receiver)) {
+            //
+            // **A `super` receiver is not own-scope for this arm**, even though the keyword names the enclosing object:
+            // the declaration a `super` call reaches is the base's, and the arm below is the one that walks there. Left
+            // here it would answer with the override the keyword exists to skip.
+            if (!target && isOwnScopeCall(ref.receiver) && !isSuperCall(ref.receiver)) {
               const scope = fileScopes.get(parsedFile.filePath);
               // A receiver of `self`/`cls`/`this` reaches a member; a bare call reaches the module scope, and a member
               // only where the language gives it implicit `this`.
@@ -464,6 +541,49 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   ? module
                   : (member ?? module);
               if (target) arm = 'sameFile';
+            }
+
+            // **Then the class the call is written inside, and the bases it declares.**
+            //
+            // A member a class does not declare may still be a member of the class, because a base declares it:
+            // `Flask.__init__` calls `self.add_url_rule(...)` and `add_url_rule` is declared on `App` in
+            // `flask/sansio/app.py`. The same-file arm cannot see it - the declaration is in another file - and the
+            // global-name arm was the crude version of this rule, resolving a name declared once anywhere in the graph
+            // for any receiver that happened to be own-scope. This arm asks the only question that has an answer: does
+            // the class this call sits in, or a base it declares, declare this member?
+            //
+            // **Two shapes, and the difference is the keyword.** `self.m()` starts at the class and walks up, so an
+            // override is what runs and the nearest declaration wins. `super().m()` / `super.m()` starts at the base,
+            // because that is what the keyword means - starting at the class would point the edge at the override the
+            // call exists to skip.
+            //
+            // **A bare call is own-scope only where the language gives a method implicit `this`**, which is the same
+            // condition the same-file arm applies: `m()` inside a Java or Kotlin method is `this.m()`, and inside a
+            // Python method it is the module's `m`.
+            let inheritedFrom: string | undefined;
+            if (!target) {
+              const sup = ref.receiver !== undefined && isSuperReceiver(ref.receiver);
+              const ownScope =
+                ref.receiver === undefined
+                  ? hasImplicitThis(parsedFile.language)
+                  : isOwnScopeCall(ref.receiver);
+              if (sup || ownScope) {
+                const owner = callables.find(
+                  (symbol) =>
+                    symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
+                );
+                const ownerClass = owner === undefined ? undefined : containerOf(owner);
+                if (ownerClass !== undefined) {
+                  const member = sup
+                    ? baseMemberOf(classIndex, ownerClass, ref.targetName, origin)
+                    : classMemberOf(classIndex, ownerClass, ref.targetName, origin);
+                  if (member !== undefined) {
+                    target = member;
+                    arm = sup ? 'super' : 'inherited';
+                    inheritedFrom = ownerClass;
+                  }
+                }
+              }
             }
 
             // **Then the receiver's type, which is the only rule that can say what `this.index.buildIndex()` calls.**
@@ -494,7 +614,12 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                 owner === undefined ? undefined : ownerKeyOf(containerOf(owner), owner.name),
               );
               if (receiverType !== undefined) {
-                const member = classMemberOf(classIndex, receiverType.className, ref.targetName);
+                const member = classMemberOf(
+                  classIndex,
+                  receiverType.className,
+                  ref.targetName,
+                  origin,
+                );
                 if (member !== undefined) {
                   target = member;
                   arm = 'receiverType';
@@ -503,33 +628,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               }
             }
 
-            // **Then a name unique across the whole graph**, in another file. This replaces a lookup that could not
-            // fire: it asked the qualified-name index for a *simple* name, and a qualified name in this graph is
-            // `project:<id>:file:<path>:<name>`, so the answer was always `undefined`.
-            //
-            // **And it is only an inheritance arm, which is why it requires a receiver to be there at all.** Measured
-            // without the rule, this arm claimed 911 edges on `pallets/flask` and 6.5 % of them were right:
-            // `app.config.from_mapping(…)` resolved to `Config.from_mapping` because the name was declared once in the
-            // graph and the receiver was never looked at.
-            //
-            // **A bare name is refused here even when it looks unique**, because a bare name this file neither
-            // declares nor imports is a builtin, a language global, or a name the reader could not see - and in all
-            // three cases a same-named declaration elsewhere in the repository is a coincidence. Measured: `open(…)`
-            // in eight files resolved to the helper `open` in `flask/testing.py`, and `abort`, `extend`, `get` and
-            // `generator` did the same thing, 51 of the 79 remaining wrong edges. The case this arm exists for is
-            // `self.m()` where `m` is inherited from a class in another file, and that case has a receiver.
-            if (!target && ref.receiver !== undefined && isOwnScopeCall(ref.receiver)) {
-              const candidate = resolvable(globalNames.get(ref.targetName));
-              if (candidate) {
-                const targetFilePath = ctx.graph.nodes.get(candidate.nodeId)?.properties?.filePath;
-                // A same-file target is the arm above's business; reaching here means that arm declined.
-                if (targetFilePath !== parsedFile.filePath) {
-                  target = candidate;
-                  arm = 'globalUnique';
-                }
-              }
-            }
-
+            // **The global-name arm is gone, and its measurement is why.** It resolved an own-scope call to a name
+            // declared once in the whole graph, in another file, and it existed because nothing else could reach a
+            // method inherited from a base class - which is what the `inherited` arm above now does with evidence
+            // rather than by coincidence. What was left for it was a name declared once anywhere that no class chain
+            // reaches: measured across four corpora it claimed 4 edges on the two Python checkouts of which **1** was
+            // right, and 16 on the two TypeScript checkouts of which **0** were. An arm whose claims are wrong is a
+            // precision sink, and removing it is the cheapest precision ever bought.
             if (target) {
               // The innermost callable containing this reference, which is the first hit in narrowness order.
               const owner = callables.find(
@@ -565,6 +670,10 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                       // for the edge, and the difference between `this.index.buildIndex()` (a `Index`) and
                       // `request.args.get(key)` (nothing) is exactly what a review of this edge needs to see.
                       ...(receiverClass === undefined ? {} : { receiverClass }),
+                      // **The class whose inheritance chain answered**, when a base's member did. `inherited` and
+                      // `super` both reach a declaration the enclosing class does not make, and which class the walk
+                      // started from is the whole of the evidence.
+                      ...(inheritedFrom === undefined ? {} : { inheritedFrom }),
                     };
                     callsByArm[arm] = (callsByArm[arm] ?? 0) + 1;
                     referencesResolved++;

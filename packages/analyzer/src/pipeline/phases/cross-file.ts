@@ -9,6 +9,7 @@ import {
 } from '@code-analyzer/shared';
 
 import { GraphBuilder } from '../../graph/graph-builder.js';
+import { buildPackageRoots } from '../../resolution/package-roots.js';
 import { getOrLoadProvider, resolveImportPath } from '../phase-helpers.js';
 
 import type { ParsedImport } from '../../languages/provider.js';
@@ -53,6 +54,12 @@ export class CrossFilePhase implements ExecutablePhase {
           contentCache.set(file.filePath, file.content);
         }
       }
+
+      // **Built once, from the files the scan already listed.** A repository may hold more than one program - a library
+      // and the examples that run it - and an absolute import is written from the program's root, not the repository's.
+      // Indexing the roots from the file list costs one pass and turns `flaskr.db` in `examples/tutorial/tests/` into a
+      // file, which is a caller the graph could not name before.
+      const packageRoots = buildPackageRoots(contentCache.keys(), ctx.rootPath);
 
       for (const parsedFile of parseData.parsedFiles) {
         const fileContent = contentCache.get(parsedFile.filePath);
@@ -110,7 +117,12 @@ export class CrossFilePhase implements ExecutablePhase {
 
         // Resolve each import to a file path
         for (const imp of fileImports) {
-          const resolvedFile = resolveImportPath(imp.source, parsedFile.filePath, ctx.rootPath);
+          const resolvedFile = resolveImportPath(
+            imp.source,
+            parsedFile.filePath,
+            ctx.rootPath,
+            packageRoots,
+          );
 
           resolvedImports.push({
             sourceFile: parsedFile.filePath,

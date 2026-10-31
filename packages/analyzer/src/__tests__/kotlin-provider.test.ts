@@ -169,6 +169,82 @@ describe('KotlinProvider', () => {
       expect(enums.some((c) => c.name === 'Status')).toBe(true);
     });
 
+    // **A Kotlin class names its superclass and its interfaces in one colon-separated list**, and until this was read
+    // the graph recorded neither: `class Foo : Base()` produced a `Class` with no `baseClasses`, so every call a
+    // subclass makes to an inherited method was unresolvable and the resolver's class chain had nothing to walk.
+    describe('the class a declaration extends', () => {
+      const baseOf = (code: string, name: string): string | undefined =>
+        provider
+          .parse(code, 'Sample.kt')
+          .find((c) => c.name === name && c.tag === CAPTURE_TAGS.CLASS_DEF)?.properties?.[
+          'baseClasses'
+        ];
+
+      const interfacesOf = (code: string, name: string): string | undefined =>
+        provider
+          .parse(code, 'Sample.kt')
+          .find((c) => c.name === name && c.tag === CAPTURE_TAGS.CLASS_DEF)?.properties?.[
+          'interfaces'
+        ];
+
+      it('reads the invoked specifier as the base class', () => {
+        expect(baseOf('class Repository : BaseRepository() {}', 'Repository')).toBe(
+          'BaseRepository',
+        );
+      });
+
+      it('separates the interfaces that follow it', () => {
+        const code = 'class Repository : BaseRepository(), Closeable, Logging {}';
+        expect(baseOf(code, 'Repository')).toBe('BaseRepository');
+        expect(interfacesOf(code, 'Repository')).toBe('Closeable,Logging');
+      });
+
+      it('names no base class when every specifier is an interface', () => {
+        // **An interface cannot be constructed**, so a declaration with no argument list conforms to interfaces and
+        // extends nothing - and recording the first one as a base class would send the resolver into a body that
+        // does not exist.
+        const code = 'class Event : Closeable, Logging {}';
+        expect(baseOf(code, 'Event')).toBeUndefined();
+        expect(interfacesOf(code, 'Event')).toBe('Closeable,Logging');
+      });
+
+      it('takes the head of a generic base and not its type argument', () => {
+        expect(baseOf('class IntList : ArrayList<Int>() {}', 'IntList')).toBe('ArrayList');
+      });
+
+      it('reads the base of a class written across several lines', () => {
+        // A primary constructor puts the parameters between the name and the colon, so the heritage is three lines
+        // below the keyword - which is how most real Kotlin declares a class.
+        const code = [
+          'class Service(',
+          '  private val client: Client,',
+          ') : BaseService() {',
+          '}',
+        ].join('\n');
+        expect(baseOf(code, 'Service')).toBe('BaseService');
+      });
+
+      it('names no heritage for a declaration that has none', () => {
+        expect(baseOf('class Plain {}', 'Plain')).toBeUndefined();
+        expect(interfacesOf('class Plain {}', 'Plain')).toBeUndefined();
+      });
+
+      it('keeps the first invoked specifier when the source invokes two', () => {
+        // **Not valid Kotlin** - a class has one superclass - and exactly what error recovery produces halfway
+        // through an edit. The first invokable specifier is the base, and a later one must not overwrite it.
+        expect(baseOf('class Broken : First(), Second() {}', 'Broken')).toBe('First');
+      });
+
+      it('reads a delegated interface as an interface and not as a base class', () => {
+        // `class Repo : Store by memory` conforms to an interface by handing the work to another object. There is no
+        // constructor call, so there is no class to extend - and a base class recorded here would send the resolver
+        // into a body that does not exist.
+        const code = 'class Repo : Store by memory {}';
+        expect(baseOf(code, 'Repo')).toBeUndefined();
+        expect(interfacesOf(code, 'Repo')).toBe('Store');
+      });
+    });
+
     it('should extract functions', () => {
       const code = 'fun greet(name: String): String {\n  return "Hello"\n}';
       const captures = provider.parse(code, 'main.kt');

@@ -44,7 +44,9 @@ function makeNode(
     projectId: PROJ,
     label,
     name,
-    qualifiedName,
+    // **The spelling the pipeline produces**, which is what the phase looks a declaration up by. A bare name
+    // here made the symbol table empty and every new arm look broken.
+    qualifiedName: `project:${PROJ}:${qualifiedName}`,
     filePath,
     startLine: 1,
     endLine: 5,
@@ -65,8 +67,17 @@ function makeSymbol(
   name: string,
   qualifiedName: string,
   properties: Record<string, unknown> = {},
+  span: readonly [number, number] = [1, 10],
 ): SymbolDefinition {
-  return { name, kind, qualifiedName, startLine: 1, endLine: 10, isExported: true, properties };
+  return {
+    name,
+    kind,
+    qualifiedName,
+    startLine: span[0],
+    endLine: span[1],
+    isExported: true,
+    properties,
+  };
 }
 
 function makeReference(targetName: string, sourceLine: number, receiver?: string): ReferenceSite {
@@ -233,27 +244,75 @@ describe('ScopeResolutionPhase', () => {
     expect(store.edges.size).toBe(0);
   });
 
-  it('resolves a method inherited from another file, when the graph declares that name once', async () => {
-    // **The lookup this replaces asked the qualified-name index for a simple name**, and a qualified name here is
-    // `project:<id>:file:<path>:<name>` - so it could never match and the arm was dead. What it is for is the one
-    // case where "declared once elsewhere" is the answer: `self.m()` for an `m` a base class in another file
-    // declares. Measured against CPython's own parser, this arm is 8 of 9 right on `pallets/flask` and the only arm
-    // that resolves `self._find_error_handler(...)` in `flask/app.py` to `sansio/app.py`.
+  it('resolves a method a base class declares in another file', async () => {
+    // **The class chain is the evidence, and the name alone is not.** `self.helper()` inside `Child` reaches the
+    // `helper` that `Base` declares, and `Child` says it extends `Base` - that statement is what the arm reads.
+    // Measured against CPython's own parser this rule is 9 of 9 right on `pallets/flask`, where it resolves
+    // `self._find_error_handler(...)` in `flask/app.py` to the `App` in `sansio/app.py`.
     const store = seedGraph(
-      [makeNode(10, 'Function', 'helper', 'helper', FILE_B)],
-      { [`project:${PROJ}:caller`]: 20 },
+      [
+        makeNode(10, 'Method', 'helper', 'Base.helper', FILE_B),
+        makeNode(20, 'Method', 'caller', 'Child.caller', FILE_A),
+        makeNode(21, 'Class', 'Child', 'Child', FILE_A),
+        makeNode(22, 'Class', 'Base', 'Base', FILE_B),
+      ],
+      { [`project:${PROJ}:Child.caller`]: 20 },
       { [FILE_A]: 1, [FILE_B]: 2 },
     );
     const parsed = makeParsedFile(
       FILE_A,
-      [makeSymbol('Function', 'caller', 'caller')],
+      [
+        makeSymbol('Class', 'Child', 'Child', { baseClasses: 'Base' }),
+        makeSymbol('Method', 'caller', 'Child.caller', { enclosingClass: 'Child' }),
+      ],
       [makeReference('helper', 2, 'self')],
     );
-    const ctx = makeCtx(store, [parsed]);
+    const base = makeParsedFile(
+      FILE_B,
+      [
+        makeSymbol('Class', 'Base', 'Base'),
+        makeSymbol('Method', 'helper', 'Base.helper', { enclosingClass: 'Base' }),
+      ],
+      [],
+    );
+    const ctx = makeCtx(store, [parsed, base]);
 
     const result = await new ScopeResolutionPhase().execute(ctx);
     expect((result.output as { referencesResolved: number }).referencesResolved).toBe(1);
-    expect(Array.from(store.edges.values())[0]!.targetId).toBe(10);
+    const edge = Array.from(store.edges.values())[0]!;
+    expect(edge.targetId).toBe(10);
+    expect(edge.properties?.['resolution']).toBe('inherited');
+  });
+
+  it('refuses a name declared once elsewhere when no class in the chain declares it', async () => {
+    // **This is the arm that was removed, and this is the case it used to claim.** A module-level `helper` in another
+    // file is not a member of `Base`, so nothing in the class chain declares it and the call stays unresolved -
+    // measured, that arm claimed 4 edges across the two Python checkouts of which 1 was right, and 16 across the two
+    // TypeScript checkouts of which **0** were. A missing edge is recoverable; a wrong one is inherited downstream.
+    const store = seedGraph(
+      [
+        makeNode(10, 'Function', 'helper', 'helper', FILE_B),
+        makeNode(20, 'Method', 'caller', 'Child.caller', FILE_A),
+        makeNode(21, 'Class', 'Child', 'Child', FILE_A),
+        makeNode(22, 'Class', 'Base', 'Base', FILE_B),
+      ],
+      {},
+      { [FILE_A]: 1, [FILE_B]: 2 },
+    );
+    const parsed = makeParsedFile(
+      FILE_A,
+      [
+        makeSymbol('Class', 'Child', 'Child', { baseClasses: 'Base' }),
+        makeSymbol('Method', 'caller', 'Child.caller', { enclosingClass: 'Child' }),
+      ],
+      [makeReference('helper', 2, 'self')],
+    );
+    const base = makeParsedFile(FILE_B, [makeSymbol('Class', 'Base', 'Base')], []);
+    const ctx = makeCtx(store, [parsed, base]);
+
+    const result = await new ScopeResolutionPhase().execute(ctx);
+    expect((result.output as { referencesResolved: number }).referencesResolved).toBe(0);
+    expect(store.edges.size).toBe(0);
   });
 
   it('refuses a bare name the whole graph declares once, because a builtin is not a declaration', async () => {
@@ -466,20 +525,38 @@ describe('ScopeResolutionPhase', () => {
     expect((result.output as { referencesResolved: number }).referencesResolved).toBe(0);
   });
 
-  it('resolves a call through a receiver to a cross-file target the graph declares once', async () => {
+  it('resolves `super().m()` to a base class and not to the override that calls it', async () => {
+    // **`super` is a keyword with one meaning**, and the edge it produces must not be the method it is written in -
+    // that would make every override look recursive. Measured on `pallets/flask` this is 3 of 3 right, and on
+    // `pallets/werkzeug` it is the only rule that answers the `super().__init__(...)` calls in its middleware.
     const store = seedGraph(
-      [makeNode(10, 'Function', 'helper', 'helper', FILE_B)],
-      { [`project:${PROJ}:caller`]: 20 },
-      { [FILE_A]: 1, [FILE_B]: 2 },
+      [
+        makeNode(10, 'Method', 'helper', 'Base.helper', FILE_A),
+        makeNode(20, 'Method', 'helper', 'Child.helper', FILE_A),
+        makeNode(21, 'Class', 'Child', 'Child', FILE_A),
+        makeNode(22, 'Class', 'Base', 'Base', FILE_A),
+      ],
+      { [`project:${PROJ}:Child.helper`]: 20 },
+      { [FILE_A]: 1 },
     );
     const parsed = makeParsedFile(
       FILE_A,
-      [makeSymbol('Function', 'caller', 'caller')],
-      [makeReference('helper', 2, 'this')],
+      [
+        makeSymbol('Class', 'Base', 'Base'),
+        makeSymbol('Class', 'Child', 'Child', { baseClasses: 'Base' }),
+        // **Two `helper` methods, and the line decides which one the call is written in** - which is the whole point
+        // of the case: the edge must leave the override and land on the base.
+        makeSymbol('Method', 'helper', 'Base.helper', { enclosingClass: 'Base' }, [1, 5]),
+        makeSymbol('Method', 'helper', 'Child.helper', { enclosingClass: 'Child' }, [20, 30]),
+      ],
+      [makeReference('helper', 25, 'super()')],
     );
     const ctx = makeCtx(store, [parsed]);
     const result = await new ScopeResolutionPhase().execute(ctx);
     expect((result.output as { referencesResolved: number }).referencesResolved).toBe(1);
+    const edge = Array.from(store.edges.values())[0]!;
+    expect(edge.targetId).toBe(10);
+    expect(edge.properties?.['resolution']).toBe('super');
   });
 
   it('skips a call edge when the source symbol has no graph node', async () => {

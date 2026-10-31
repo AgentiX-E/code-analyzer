@@ -202,6 +202,7 @@ describe('the classes the graph knows, and what a name with two answers means', 
         declaration('Class', 'Index', undefined, {}, 1),
         declaration('Method', 'buildIndex', 'Index', {}, 2),
       ]),
+      'index.ts',
     );
     expect(classMemberOf(index, 'Index', 'buildIndex')).toEqual({ nodeId: 2, label: 'Method' });
     // A class that declares no such member is not a class this call belongs to.
@@ -213,7 +214,11 @@ describe('the classes the graph knows, and what a name with two answers means', 
   it('answers nothing for a class it has indexed no members for', () => {
     // A class whose every member was dropped - declared twice, or with no node - is a name with no answer.
     const index = createClassIndex();
-    mergeClassIndex(index, buildFileTypes([declaration('Class', 'Index', undefined, {}, 1)]));
+    mergeClassIndex(
+      index,
+      buildFileTypes([declaration('Class', 'Index', undefined, {}, 1)]),
+      'index.ts',
+    );
     expect(classMemberOf(index, 'Index', 'buildIndex')).toBeUndefined();
   });
 
@@ -225,6 +230,7 @@ describe('the classes the graph knows, and what a name with two answers means', 
         declaration('Class', 'Index', undefined, {}, 1),
         declaration('Method', 'buildIndex', 'Index', {}, 2),
       ]),
+      'src/index.ts',
     );
     mergeClassIndex(
       index,
@@ -232,6 +238,7 @@ describe('the classes the graph knows, and what a name with two answers means', 
         declaration('Class', 'Index', undefined, {}, 3),
         declaration('Method', 'buildIndex', 'Index', {}, 4),
       ]),
+      'src/legacy/index.ts',
     );
     // A simple name two classes carry has no answer, and neither does any member of it.
     expect(classMemberOf(index, 'Index', 'buildIndex')).toBeUndefined();
@@ -250,10 +257,16 @@ describe('the classes the graph knows, and what a name with two answers means', 
 // spans. The receiver's-type rule needs the class by *name*, so the provider records it where the graph does not:
 // a property, `enclosingClass`, which `containerOf` reads when `containerName` is absent.
 describe('the class a declaration belongs to, when the language files it elsewhere', () => {
-  it('prefers the container the graph already carries', () => {
-    expect(containerOf({ containerName: 'Holder', properties: { enclosingClass: 'Other' } })).toBe(
-      'Holder',
+  it('prefers the class a provider filed over the container the graph carries', () => {
+    // **The two answers are not the same question.** `containerName` is what encloses the declaration, and for a closure
+    // inside a method that is the method: `def handler()` in `Flask.handle_http_exception` once filed every call in the
+    // closure under a class called `handle_http_exception`, so `self._find_error_handler(...)` inside it resolved to
+    // nothing. A provider that files `enclosingClass` has answered "which class", which is the question being asked.
+    expect(containerOf({ containerName: 'handler', properties: { enclosingClass: 'Flask' } })).toBe(
+      'Flask',
     );
+    // With no class filed, the container is the answer - which is how TypeScript states it.
+    expect(containerOf({ containerName: 'Holder', properties: {} })).toBe('Holder');
   });
 
   it('reads the property a language files it in', () => {

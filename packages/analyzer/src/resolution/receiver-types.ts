@@ -32,6 +32,8 @@ export interface FileTypes {
   readonly classes: Map<string, Declared>;
   /** `Class` → its members by name. */
   readonly members: Map<string, Map<string, Declared>>;
+  /** `Class` → the simple names of the classes it extends, in declaration order. */
+  readonly bases: Map<string, readonly string[]>;
 }
 
 /**
@@ -72,11 +74,16 @@ export function containerOf(declaration: {
   readonly containerName?: string;
   readonly properties?: Record<string, unknown>;
 }): string | undefined {
+  // **`enclosingClass` wins when a provider filed one, because it answers a narrower question.** `containerName` is
+  // whatever encloses the declaration - for a closure inside a method that is the method - and a class is what the
+  // resolver needs to ask about a member. A provider that files `enclosingClass` has answered "which class" explicitly;
+  // one that does not (`TypeScriptProvider` puts the class in `containerName`) is read from `containerName`.
+  const filed = declaration.properties?.['enclosingClass'];
+  if (typeof filed === 'string' && filed.length > 0) return filed;
   if (typeof declaration.containerName === 'string' && declaration.containerName.length > 0) {
     return declaration.containerName;
   }
-  const filed = declaration.properties?.['enclosingClass'];
-  return typeof filed === 'string' && filed.length > 0 ? filed : undefined;
+  return undefined;
 }
 
 /** Types whose members are built into the language, and which are therefore never a class in the graph. */
@@ -155,6 +162,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const classOfFunction = new Map<string, string>();
   const classes = new Map<string, Declared>();
   const members = new Map<string, Map<string, Declared>>();
+  const bases = new Map<string, readonly string[]>();
 
   const declare = (className: string, name: string, declaration: TypedDeclaration): void => {
     if (declaration.nodeId === undefined) return;
@@ -193,6 +201,12 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
         const fieldType = simpleTypeName(annotation);
         if (fieldType !== undefined) fields.set(`${declaration.name}.${field}`, fieldType);
       }
+      // **A class's bases are how a member it does not declare still belongs to it.** `Flask.__init__` calls
+      // `self.add_url_rule(...)`, and `add_url_rule` is declared on `App` in `flask/sansio/app.py` - so a lookup that
+      // stops at the class the call is written in answers nothing for the largest single group of inherited calls in
+      // any object-oriented codebase. Only a class extends; an interface is a contract with no body to reach.
+      const inherited = baseNamesOf(declaration.properties['baseClasses']);
+      if (inherited.length > 0) bases.set(declaration.name, inherited);
       continue;
     }
 
@@ -219,7 +233,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (fieldType !== undefined) fields.set(`${container}.${declaration.name}`, fieldType);
   }
 
-  return { fields, parameters, classOfFunction, classes, members };
+  return { fields, parameters, classOfFunction, classes, members, bases };
 }
 
 /** The `field → annotation` pairs a class carries, whether the provider wrote them as one blob or one symbol each. */
@@ -237,6 +251,24 @@ function fieldTypesOf(blob: unknown): [string, string][] {
     (entry): entry is [string, string] => typeof entry[1] === 'string',
   );
 }
+
+/**
+ * The base classes a class names, as simple names.
+ *
+ * **A provider writes them as one comma-separated string, and a class may name none.** A generic argument is not a
+ * base (`class Child extends Base<T>` names `Base`), and neither is a name that is not an identifier - the provider has
+ * already dropped those, and what is left is read as written.
+ */
+function baseNamesOf(blob: unknown): string[] {
+  if (typeof blob !== 'string' || blob.length === 0) return [];
+  return blob
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => SIMPLE_NAME.test(name));
+}
+
+/** A name a class could be filed under: no dots, no generics, no punctuation. */
+const SIMPLE_NAME = /^[A-Za-z_$][\w$]*$/;
 
 /** A receiver's type, as far as the declarations can say. */
 export interface ReceiverType {
@@ -290,45 +322,177 @@ export function receiverTypeOf(
 }
 
 /**
- * Every class the graph knows, by simple name, with the members each one declares.
+ * Every class the graph knows, by simple name **and** by file.
  *
- * **Global, because a field's type is declared in the file that defines the type, not the one that uses it.**
- * `this.index.buildIndex()` in one file names a class declared in another, and a per-file index would answer nothing.
- * **A simple name that two classes carry is dropped**, on the same rule the rest of the resolver uses: a name with
- * two answers has none.
+ * **A simple name is not a class.** `flask/app.py` calls `self._find_error_handler(...)`, which `App` declares in
+ * `flask/sansio/app.py` - and the same checkout vendors an example that declares another `App`, so an index by simple
+ * name alone marks the name ambiguous and refuses every such call. The import is what decides it: the file says which
+ * `App` it means, and that statement is evidence in the same sense an import is evidence for a call.
+ *
+ * **So both answers are kept.** By file, because that is where a class is; by simple name, for the case where the
+ * lookup's own file says nothing and exactly one class in the graph carries it. The order is: the file's own classes,
+ * then the classes of the files it imports, then the unique global one - and a name two imports both provide is
+ * refused, because that is the case with no evidence in it.
  */
 export interface ClassIndex {
-  readonly classes: Map<string, Declared | 'ambiguous'>;
-  readonly members: Map<string, Map<string, Declared> | 'ambiguous'>;
+  /** Simple name → the class that declares it, or `ambiguous` when more than one file does. */
+  readonly classes: Map<string, LocatedClass | 'ambiguous'>;
+  /** Every file's own type facts, which is where members and bases are read from. */
+  readonly files: Map<string, FileTypes>;
+}
+
+/** A class, the file that declares it, and the name it is filed under there. */
+export interface LocatedClass {
+  readonly file: string;
+  readonly name: string;
+  readonly declared: Declared;
+}
+
+/** Where a lookup is written: the file, and the files it imports. */
+export interface LookupOrigin {
+  readonly file?: string;
+  readonly imported?: ReadonlySet<string>;
 }
 
 export function createClassIndex(): ClassIndex {
-  return { classes: new Map(), members: new Map() };
+  return { classes: new Map(), files: new Map() };
 }
 
-/** Fold one file's classes into the index, **dropping any name a second file also declares**. */
-export function mergeClassIndex(index: ClassIndex, types: FileTypes): void {
-  for (const [className, declaration] of types.classes) {
-    if (index.classes.has(className)) {
+/** Fold one file's classes into the index, **marking a name a second file also declares as ambiguous**. */
+export function mergeClassIndex(index: ClassIndex, types: FileTypes, filePath: string): void {
+  index.files.set(filePath, types);
+  for (const [className, declared] of types.classes) {
+    const known = index.classes.get(className);
+    if (known !== undefined && known !== 'ambiguous' && known.file !== filePath) {
       index.classes.set(className, 'ambiguous');
-      index.members.set(className, 'ambiguous');
       continue;
     }
-    index.classes.set(className, declaration);
-    const bucket = types.members.get(className);
-    if (bucket !== undefined) index.members.set(className, bucket);
+    index.classes.set(className, { file: filePath, name: className, declared });
   }
 }
 
-/** The member a class declares under a name, or `undefined` when it declares none, two, or is itself ambiguous. */
+/** The class a name means, from where the lookup is written - or `undefined` when the evidence does not decide. */
+function locateClass(
+  index: ClassIndex,
+  className: string,
+  origin: LookupOrigin | undefined,
+): LocatedClass | undefined {
+  const own = ownClassOf(index, origin?.file, className);
+  if (own !== undefined) return own;
+  const imported: LocatedClass[] = [];
+  for (const file of origin?.imported ?? []) {
+    const found = ownClassOf(index, file, className);
+    if (found !== undefined) imported.push(found);
+  }
+  if (imported.length === 1) return imported[0];
+  if (imported.length > 1) return undefined;
+  const global = index.classes.get(className);
+  return global === undefined || global === 'ambiguous' ? undefined : global;
+}
+
+/** The class a file itself declares under a name, or `undefined`. */
+function ownClassOf(
+  index: ClassIndex,
+  file: string | undefined,
+  className: string,
+): LocatedClass | undefined {
+  if (file === undefined) return undefined;
+  const declared = index.files.get(file)?.classes.get(className);
+  return declared === undefined ? undefined : { file, name: className, declared };
+}
+
+/** The member a class declares under a name, or `undefined` when it declares none, two, or is not found. */
 export function classMemberOf(
   index: ClassIndex,
   className: string,
   memberName: string,
+  origin?: LookupOrigin,
 ): Declared | undefined {
-  if (index.classes.get(className) === 'ambiguous') return undefined;
-  const bucket = index.members.get(className);
-  if (bucket === undefined || bucket === 'ambiguous') return undefined;
+  return lookupMember(index, className, memberName, origin, false);
+}
+
+/**
+ * The member one of a class's bases declares under a name - `super().m()` and `super.m()`.
+ *
+ * **A `super` call never runs the class's own override**, so starting the walk at the class itself would answer with
+ * the very declaration the keyword exists to skip: `def m(self): super().m()` inside `Child` would point at `Child.m`,
+ * and a recursive edge would stand where the base's method is what runs.
+ */
+export function baseMemberOf(
+  index: ClassIndex,
+  className: string,
+  memberName: string,
+  origin?: LookupOrigin,
+): Declared | undefined {
+  return lookupMember(index, className, memberName, origin, true);
+}
+
+/**
+ * The walk itself: the nearest declaration of a name among a class and its bases, breadth first.
+ *
+ * **The nearest, because a subclass that overrides a base's method is the method the call runs.** Two bases at one
+ * distance that both declare it answer nothing - a class with two parents that both declare `run` has no answer at
+ * this resolver's disposal, and picking one would be a coin toss written into the graph. The visited set is what makes
+ * a malformed cycle finite rather than a hang.
+ */
+function lookupMember(
+  index: ClassIndex,
+  className: string,
+  memberName: string,
+  origin: LookupOrigin | undefined,
+  skipOwnClass: boolean,
+): Declared | undefined {
+  const start = locateClass(index, className, origin);
+  if (start === undefined) return undefined;
+  const visited = new Set<string>();
+  /** Take the classes not yet walked, and mark them; a cycle ends here rather than in a hang. */
+  const fresh = (candidates: readonly LocatedClass[]): LocatedClass[] =>
+    candidates.filter((candidate) => {
+      const key = keyOf(candidate);
+      if (visited.has(key)) return false;
+      visited.add(key);
+      return true;
+    });
+  if (skipOwnClass) visited.add(keyOf(start));
+  let frontier = fresh(skipOwnClass ? basesOf(index, start) : [start]);
+  while (frontier.length > 0) {
+    const answers: Declared[] = [];
+    const next: LocatedClass[] = [];
+    for (const candidate of frontier) {
+      const own = ownMemberOf(index, candidate, memberName);
+      if (own !== undefined) answers.push(own);
+      next.push(...basesOf(index, candidate));
+    }
+    if (answers.length === 1) return answers[0];
+    if (answers.length > 1) return undefined;
+    frontier = fresh(next);
+  }
+  return undefined;
+}
+
+/** A class's identity in the walk, which is the file it lives in and the name it is filed under. */
+function keyOf(located: LocatedClass): string {
+  return `${located.file}\u0000${located.name}`;
+}
+
+/** A class's own declaration of a name, with no notion of inheritance. */
+function ownMemberOf(
+  index: ClassIndex,
+  located: LocatedClass,
+  memberName: string,
+): Declared | undefined {
+  const bucket = index.files.get(located.file)?.members.get(located.name);
+  if (bucket === undefined) return undefined;
   if (bucket.has(`${memberName}\u0000ambiguous`)) return undefined;
   return bucket.get(memberName);
+}
+
+/** A class's bases, as located classes, in declaration order. */
+function basesOf(index: ClassIndex, located: LocatedClass): LocatedClass[] {
+  const out: LocatedClass[] = [];
+  for (const base of index.files.get(located.file)?.bases.get(located.name) ?? []) {
+    const found = locateClass(index, base, { file: located.file });
+    if (found !== undefined) out.push(found);
+  }
+  return out;
 }

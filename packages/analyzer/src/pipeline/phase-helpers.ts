@@ -10,8 +10,10 @@ import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger } from '@code-analyz
 // **A document extractor, not a language provider.** A PDF has no grammar and no symbols; **what it has is text**,
 // and the scan phase is where text becomes indexable - so the extraction belongs here rather than in a parser.
 import { extractPdfText } from '../languages/pdf-text.js';
+import { rootsFor } from '../resolution/package-roots.js';
 
 import type { LanguageProvider } from '../languages/provider.js';
+import type { PackageRoots } from '../resolution/package-roots.js';
 import type {
   PipelinePhase,
   PipelinePhaseId,
@@ -693,6 +695,7 @@ function resolvePythonModule(
   specifier: string,
   sourceFile: string,
   projectRoot: string,
+  roots?: PackageRoots,
 ): string | null {
   const dots = /^\.+/.exec(specifier)?.[0].length ?? 0;
   const segments = specifier
@@ -721,21 +724,43 @@ function resolvePythonModule(
 
   const relative = segments.join(sep);
   for (const base of bases) {
-    const candidates =
-      relative.length === 0
-        ? [join(base, '__init__.py')]
-        : [join(base, `${relative}.py`), join(base, relative, '__init__.py')];
-    for (const candidate of candidates) {
+    for (const candidate of moduleCandidates(base, relative)) {
       if (existsSync(candidate)) return candidate;
     }
   }
+
+  // **Then the roots the project's own layout declares, which is what an absolute import means in a program that is
+  // not the library.** The bases above are the importer's package, the repository root, and the `src`/`lib`/`python`
+  // conventions - none of which is where `examples/tutorial/flaskr` lives. A relative import is already anchored at
+  // its own package, so this arm is only for an absolute one.
+  if (dots === 0) {
+    for (const root of rootsFor(roots, segments[0] ?? '')) {
+      for (const candidate of moduleCandidates(root, relative)) {
+        if (existsSync(candidate)) return candidate;
+      }
+    }
+  }
   return null;
+}
+
+/**
+ * The files a dotted module can be, under one root.
+ *
+ * **A module is a file or a package**, so both shapes are candidates: `flask.helpers` is `helpers.py`, and
+ * `flask.json` is `json/__init__.py`. Shared by the anchoring bases and the declared roots because the question is
+ * the same one asked of a different directory.
+ */
+function moduleCandidates(base: string, relative: string): string[] {
+  return relative.length === 0
+    ? [join(base, '__init__.py')]
+    : [join(base, `${relative}.py`), join(base, relative, '__init__.py')];
 }
 
 export function resolveImportPath(
   importPath: string,
   sourceFilePath: string,
   projectRoot: string,
+  roots?: PackageRoots,
 ): string | null {
   // **Python's module syntax, which the branches below cannot read.** `from .helpers import x` is a dotted *module*
   // name and not a path, so `resolve(sourceDir, '.helpers')` produced `.../flask/.helpers` and found nothing; and
@@ -744,7 +769,7 @@ export function resolveImportPath(
   // resolver was written for worked. **A language whose imports cannot be resolved is a language whose callers cannot
   // be found**, which is the whole of story 3.
   if (sourceFilePath.endsWith('.py') && PYTHON_MODULE_SPECIFIER.test(importPath)) {
-    const resolved = resolvePythonModule(importPath, sourceFilePath, projectRoot);
+    const resolved = resolvePythonModule(importPath, sourceFilePath, projectRoot, roots);
     if (resolved) return resolved;
   }
 

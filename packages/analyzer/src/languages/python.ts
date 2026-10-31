@@ -213,6 +213,24 @@ export class PythonProvider extends TreeSitterBaseProvider {
   }
 
   /**
+   * The class a function is declared inside, however many functions sit between it and the class.
+   *
+   * **The nearest ancestor that is a class, not the nearest ancestor.** `def handler(): ...` inside
+   * `Flask.handle_http_exception` has a container - the method - and reading that container's name filed every call in
+   * the nested function as belonging to a class called `handle_http_exception`, so `self._find_error_handler(...)`
+   * inside it resolved to nothing. A closure is still a method's closure, and the class the call is written on is the
+   * one an `self.` receiver means.
+   */
+  private enclosingClassOf(node: TreeSitterSyntaxNode): string | undefined {
+    let current = node.parent ?? null;
+    while (current !== null) {
+      if (current.type === 'class_definition') return this.nameOf(current);
+      current = current.parent ?? null;
+    }
+    return undefined;
+  }
+
+  /**
    * Whether a function declaration sits between this node and the class that encloses it.
    *
    * **`local: Index = None` inside a method annotates a local variable, and `index: Index` in a class body declares a
@@ -336,7 +354,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
 
     if (nodeType === 'function_definition') {
       const nameNode = this.findNamedChild(node, 'identifier');
-      const enclosingClass = this.nameOf(this.findContainerNode(node));
+      const enclosingClass = this.enclosingClassOf(node);
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
