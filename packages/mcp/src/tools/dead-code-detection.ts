@@ -18,13 +18,72 @@ import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphEdge, GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 
 /**
- * The store's contents in the shape the reachability pass reads.
+ * Where the project starts, recovered from the graph the store holds.
  *
- * **The store is the graph for every other tool**, and the pass wants four fields: nodes, edges and the two indices that
- * answer "which node is this file" and "which node is this qualified name". Building them here rather than teaching the
- * pass about the store keeps the analysis a pure function of a graph, which is what makes it testable with a graph
- * literal — the twenty-three cases beside it construct nothing else.
+ * **A store holds no root, and a graph assembled from one therefore cannot say where the repository starts** — which a
+ * layout rule needs: the same `zod` checkout reported 0 findings locally and **164** on a CI runner because the runner
+ * unpacked it under `.../benchmarks/corpora/zod-3.23.8/`, so every rule about a `benchmarks/` directory fired on the
+ * machine's path instead of the repository's.
+ *
+ * Two answers, in order:
+ *
+ *   1. **The shortest absolute `Folder` node**, when every file of the project sits under it. The pipeline writes one for
+ *      the analysis root, so on a real graph this *is* the root rather than an estimate of it.
+ *   2. Otherwise **the deepest directory that contains every file the project mentions**. Exact for a single checkout
+ *      and empty for a project whose files span two — where a wrong root would be worse than none, because stripping
+ *      the wrong prefix moves a package's own `__init__.py` out of the layout rule's reach.
+ *
+ * A graph whose paths are already relative needs neither: the pipeline produces those, and stripping a prefix from them
+ * would read a package directory as the root.
  */
+function isAbsolutePath(filePath: string): boolean {
+  return filePath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(filePath);
+}
+
+/** The directories of a path, with the file name removed. */
+function directoryOf(filePath: string): string[] {
+  const parts = filePath.split(/[\\/]/).filter((part) => part.length > 0);
+  parts.pop();
+  return parts;
+}
+
+/** Whether `root` is the directory `filePath` sits in, or above it. */
+function covers(root: string, filePath: string): boolean {
+  if (filePath === root) return true;
+  return ['/', '\\'].some((separator) => filePath.startsWith(`${root}${separator}`));
+}
+
+function projectRoot(nodes: readonly GraphNode[]): string {
+  const paths: string[] = [];
+  for (const node of nodes) if (node.filePath !== null) paths.push(node.filePath);
+  if (paths.length === 0) return '';
+  // **A relative graph is the pipeline's own output**, and its paths already start at the repository: stripping a
+  // prefix from them would read a package directory as the root.
+  if (!paths.every((filePath) => isAbsolutePath(filePath))) return '';
+
+  const head = paths[0] as string;
+  let shortest: string | null = null;
+  for (const node of nodes) {
+    const path = node.filePath;
+    if (node.label !== 'Folder' || path === null || !isAbsolutePath(path)) continue;
+    if (!paths.every((filePath) => covers(path, filePath))) continue;
+    if (shortest === null || path.length < shortest.length) shortest = path;
+  }
+  if (shortest !== null) return shortest;
+
+  let common = directoryOf(head);
+  for (const filePath of paths.slice(1)) {
+    const parts = directoryOf(filePath);
+    let keep = 0;
+    while (keep < common.length && keep < parts.length && common[keep] === parts[keep]) keep++;
+    common = common.slice(0, keep);
+    // **Two checkouts have no root**, and inventing one for them would hide a package's own entry module.
+    if (common.length === 0) return '';
+  }
+  // A POSIX root needs its leading separator back; `C:/repo` already carries its drive.
+  return /^[A-Za-z]:/.test(head) ? common.join('/') : `/${common.join('/')}`;
+}
+
 export function graphOf(store: InMemoryGraphStore, projectId: string): KnowledgeGraph {
   const nodes = new Map<number, GraphNode>();
   const edges = new Map<number, GraphEdge>();
@@ -36,7 +95,14 @@ export function graphOf(store: InMemoryGraphStore, projectId: string): Knowledge
     if (edge.projectId !== projectId) continue;
     edges.set(edge.id, edge);
   }
-  return { projectId, nodes, edges, qnameIndex: store.qnameIndex, fileIndex: store.fileIndex };
+  return {
+    projectId,
+    rootPath: projectRoot([...nodes.values()]),
+    nodes,
+    edges,
+    qnameIndex: store.qnameIndex,
+    fileIndex: store.fileIndex,
+  };
 }
 
 export interface DeadCodeArguments {

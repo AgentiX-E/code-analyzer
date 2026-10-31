@@ -74,6 +74,17 @@ export interface ReachabilityOptions {
   readonly ignoreNames?: readonly string[];
   /** Report symbols in test files too. A test helper nothing calls is dead like anything else, so this is on. */
   readonly includeTests?: boolean;
+  /**
+   * The directory the analysis was rooted at, when the paths in the graph are absolute. Defaults to
+   * `graph.rootPath`.
+   *
+   * **A rule about a repository's layout must not read the machine's.** Every rule below that matches a path —
+   * `benchmarks/`, `tests/`, `bin/`, `__tests__/` — is a statement about a directory **inside** the checkout, and an
+   * absolute path carries directories that have nothing to do with it. Measured: the same graph reported 0 findings on
+   * `colinhacks/zod` locally and **164** on a CI runner, because the runner unpacks the checkout under
+   * `.../benchmarks/corpora/zod-3.23.8/`, which made every package in it unpublished and every exported symbol dead.
+   */
+  readonly rootPath?: string;
 }
 
 export interface ReachabilityReport {
@@ -187,6 +198,40 @@ function segments(filePath: string): string[] {
 }
 
 /**
+ * A path as the repository sees it: the analysis root removed.
+ *
+ * **Every layout rule in this file is about a directory inside the checkout**, so the machine's directories have to go
+ * before any of them reads the path. A path that does not start with the root is returned unchanged, because a caller
+ * may well hand a graph whose paths are already relative — which is what the pipeline produces — and a rule that
+ * insisted on stripping something would then be wrong about every file.
+ */
+/**
+ * A path with `/` as its only separator.
+ *
+ * **The rules below are written against one separator** — an `index.ts` after a `/`, a `tests/` component — and a
+ * checkout on Windows spells the same path with a backslash. Normalising here is what makes the rule about the
+ * repository rather than about the platform, and it costs nothing: the normalised path is what the rule *reads*, and
+ * the path a reader is given stays exactly as the graph recorded it.
+ */
+function separatorless(filePath: string): string {
+  return filePath.split('\\').join('/');
+}
+
+function withoutRoot(root: string, filePath: string): string {
+  if (root.length === 0) return separatorless(filePath);
+  const prefix = /[\\/]$/.test(root) ? root : `${root}/`;
+  if (filePath.startsWith(prefix)) return separatorless(filePath.slice(prefix.length));
+  // A Windows root and a POSIX path, or the other way round: compare with both separators before giving up.
+  const alternate = prefix
+    .replace(/[\\/]$/, '')
+    .split('/')
+    .join('\\')
+    .concat('\\');
+  if (filePath.startsWith(alternate)) return separatorless(filePath.slice(alternate.length));
+  return separatorless(filePath);
+}
+
+/**
  * The directories this repository publishes as packages.
  *
  * **A package is a directory with an entry module**, and whether it is published is decided by what is *above* it, not
@@ -200,12 +245,14 @@ function segments(filePath: string): string[] {
  * or any directory above it is one of the places a repository keeps things that are not the package — `tests`,
  * `examples`, `docs`, `benchmarks`. `src/`, `lib/`, `app/` and `flask/` all pass; `tests/fixtures/` does not.
  */
-export function publishedRoots(graph: KnowledgeGraph): ReadonlySet<string> {
+export function publishedRoots(graph: KnowledgeGraph, rootPath = ''): ReadonlySet<string> {
   // **Every file the graph mentions, not only the `File` nodes.** A graph without them is an index built without the
   // structure phase, and reading "no `File` nodes" as "nothing is published" turns every public name in the repository
   // into a dead-code finding — the loudest possible way to be wrong.
   const files = new Set<string>();
-  for (const node of graph.nodes.values()) if (node.filePath !== null) files.add(node.filePath);
+  for (const node of graph.nodes.values()) {
+    if (node.filePath !== null) files.add(withoutRoot(rootPath, node.filePath));
+  }
   const published = new Set<string>();
   for (const file of files) {
     if (!PACKAGE_ENTRY_FILE.test(file)) continue;
@@ -395,7 +442,10 @@ function isAnonymousTestFile(filePath: string): boolean {
 /** A node the question is asked about, together with the path a reader would open to check the answer. */
 interface Subject {
   readonly node: GraphNode;
+  /** The path as the graph records it — what the report prints and what a reader opens. */
   readonly filePath: string;
+  /** The same path with the analysis root removed — what every layout rule below reads. */
+  readonly path: string;
 }
 
 /**
@@ -433,6 +483,10 @@ export function computeReachability(
     if (fileId !== undefined && fileId !== node.id) link(node.id, fileId);
   }
 
+  // **Where the repository starts, for the rules that read a path.** A graph built by the pipeline carries it; a caller
+  // that assembled one by hand can say so, and a caller that says nothing gets the paths it passed, read as they are.
+  const rootPath = options.rootPath ?? graph.rootPath ?? '';
+
   // **The symbols the question is asked about, paired with the path they can be opened at.** The pair is built once
   // here rather than recovered with `String(node.filePath ?? '')` in each of the four loops that read it: a node
   // without a file cannot be a finding a reader can open, so it is refused at the door and every loop below reads a
@@ -445,7 +499,7 @@ export function computeReachability(
     // **A heading in a README is not a symbol.** The markdown phase files code blocks and headings as nodes, and a
     // report that carries `src/flask/sansio/README.md: Sansio` as dead code is a report a reader stops trusting.
     if (!isCodeFile(filePath)) continue;
-    considered.push({ node, filePath });
+    considered.push({ node, filePath, path: withoutRoot(rootPath, filePath) });
   }
 
   // **The guard that makes the rest honest.** Without a single use edge every symbol is "unreachable" and the report
@@ -487,7 +541,7 @@ export function computeReachability(
     }
   }
 
-  const published = publishedRoots(graph);
+  const published = publishedRoots(graph, rootPath);
   const entryNames = new Set([...ENTRY_NAMES, ...(options.entryNames ?? [])]);
   const entryFiles = [...ENTRY_FILES, ...(options.entryFiles ?? [])];
   const declared = new Set(options.entryPoints ?? []);
@@ -497,8 +551,8 @@ export function computeReachability(
   const entrySeeds: number[] = [];
   const publishedSeeds: number[] = [];
 
-  for (const { node, filePath } of considered) {
-    const isTest = isTestFile(filePath);
+  for (const { node, path } of considered) {
+    const isTest = isTestFile(path);
     if (isTest && options.includeTests === false) continue;
 
     if (declared.has(node.qualifiedName) || declared.has(node.name)) {
@@ -515,12 +569,12 @@ export function computeReachability(
     // is the test**, and there is no symbol left to be silent about — see `isAnonymousTestFile`.
     if (
       isTest &&
-      (node.label === 'Test' || /^test/i.test(node.name) || isAnonymousTestFile(filePath))
+      (node.label === 'Test' || /^test/i.test(node.name) || isAnonymousTestFile(path))
     ) {
       roots.push({
         nodeId: node.id,
         kind: 'test',
-        because: isAnonymousTestFile(filePath)
+        because: isAnonymousTestFile(path)
           ? 'the runner collects this file, and its tests are anonymous callbacks'
           : 'a test runner collects it, so nothing calls it',
       });
@@ -556,11 +610,11 @@ export function computeReachability(
       entrySeeds.push(node.id);
       continue;
     }
-    if (entryFiles.some((pattern) => pattern.test(filePath))) {
+    if (entryFiles.some((pattern) => pattern.test(path))) {
       roots.push({
         nodeId: node.id,
         kind: 'entry',
-        because: `${filePath} is executed rather than imported`,
+        because: `${path} is executed rather than imported`,
       });
       entrySeeds.push(node.id);
       continue;
@@ -576,7 +630,7 @@ export function computeReachability(
     // `RefinementCtx` are what a consumer of `zod` writes in its own source, and reporting them as dead is reporting
     // the type system. They were 54 of the 80 findings on `colinhacks/zod@3.23.8`.
     if (
-      inPublishedTree(filePath, published) &&
+      inPublishedTree(path, published) &&
       declaresExport(node) &&
       (node.label === 'Class' || node.label === 'Interface' || isCallable(node.label)) &&
       !members.classOf.has(node.id)
@@ -611,7 +665,7 @@ export function computeReachability(
     // `inPublishedTree` because a caller can hand this pass a graph whose nodes were indexed before the structure
     // phase ran, and the answer for such a node is a decision, not a string coercion.
     if (node.filePath === null) continue;
-    if (!inPublishedTree(node.filePath, published)) continue;
+    if (!inPublishedTree(withoutRoot(rootPath, node.filePath), published)) continue;
     for (const memberId of members.byClass.get(node.id) ?? []) {
       const member = graph.nodes.get(memberId);
       if (member === undefined || !isPublicName(member.name)) continue;
@@ -636,7 +690,7 @@ export function computeReachability(
   const publishedOnly: DeadSymbol[] = [];
   let ignored = 0;
 
-  for (const { node, filePath } of considered) {
+  for (const { node, filePath, path } of considered) {
     if (fromEntry.has(node.id)) continue;
     if (ignoreNames.has(node.name)) {
       ignored++;
@@ -656,7 +710,7 @@ export function computeReachability(
         ...finding,
         because:
           rootOf.get(node.id) === undefined
-            ? inPublishedTree(filePath, published)
+            ? inPublishedTree(path, published)
               ? 'reachable from a published name, so only code outside this repository can call it'
               : 'reachable from a published name'
             : `kept alive because ${String(rootOf.get(node.id)?.because)}`,

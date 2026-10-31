@@ -72,7 +72,7 @@ export class PipelineOrchestrator {
     // and `crossFile`, `scopeResolution`, `routes`, `tools` and `di` on the map they could not read. The CLI needed
     // `as unknown as PipelineContext` to compile, which is the type system saying the same thing.
     if (!ctx.phaseData) ctx.phaseData = new Map();
-    if (!ctx.graph) ctx.graph = this.createEmptyGraph(ctx.projectId);
+    if (!ctx.graph) ctx.graph = this.createEmptyGraph(ctx.projectId, ctx.rootPath);
 
     // **And the two the phases read that a caller can get wrong without a type error.** `scan` reads `ctx.rootPath`
     // and `ctx.config.maxFiles`; the CLI built its context with `rootDir` and no `config` at all, behind an
@@ -93,7 +93,7 @@ export class PipelineOrchestrator {
       return {
         status: 'failed',
         phases: [],
-        graph: this.createEmptyGraph(ctx.projectId),
+        graph: this.createEmptyGraph(ctx.projectId, ctx.rootPath),
         duration: Date.now() - startTime,
         errors,
       };
@@ -106,7 +106,7 @@ export class PipelineOrchestrator {
       return {
         status: 'failed',
         phases: [],
-        graph: this.createEmptyGraph(ctx.projectId),
+        graph: this.createEmptyGraph(ctx.projectId, ctx.rootPath),
         duration: Date.now() - startTime,
         errors,
       };
@@ -181,7 +181,7 @@ export class PipelineOrchestrator {
     }
 
     // Build or get knowledge graph from context
-    const graph = ctx.graph ?? this.createEmptyGraph(ctx.projectId);
+    const graph = ctx.graph ?? this.createEmptyGraph(ctx.projectId, ctx.rootPath);
 
     let status: 'complete' | 'partial' | 'failed' = 'complete';
     if (hasFailure && completedPhases.size > 0) {
@@ -288,9 +288,11 @@ export class PipelineOrchestrator {
     return result;
   }
 
-  private createEmptyGraph(projectId: string): KnowledgeGraph {
+  private createEmptyGraph(projectId: string, rootPath: string): KnowledgeGraph {
     return {
       projectId,
+      // **Where the analysis was rooted**, for the rules that read a path as a statement about a repository.
+      rootPath,
       nodes: new Map(),
       edges: new Map(),
       qnameIndex: new Map(),

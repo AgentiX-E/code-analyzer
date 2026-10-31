@@ -88,6 +88,10 @@ export class GraphBuilder {
   build(ctx: PipelineContext): KnowledgeGraph {
     const graph: KnowledgeGraph = {
       projectId: ctx.projectId,
+      // **The graph records where it was rooted**, so a rule about a repository's layout can subtract the machine's
+      // directories before it reads one. `ctx.rootPath` is absolute in every real run, and no rule downstream can tell
+      // `/srv/build/benchmarks/corpora/zod/src` from `zod/src` without it.
+      rootPath: ctx.rootPath,
       nodes: new Map(),
       edges: new Map(),
       qnameIndex: new Map(),

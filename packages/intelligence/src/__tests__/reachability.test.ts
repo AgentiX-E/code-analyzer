@@ -957,6 +957,93 @@ describe('input shapes the pipeline does not produce but a caller can', () => {
     expect(names(report)).toEqual(['unplaced', 'alpha', 'omega']);
   });
 
+  it('reads a layout rule in the repository coordinates, not the machine ones', () => {
+    // **The bug this case exists for, measured on a CI runner.** The checkout was unpacked under
+    // `.../benchmarks/corpora/zod-3.23.8/`, so every path had `benchmarks` as an ancestor — a directory the published
+    // rule refuses — and the library's whole public API came back as dead code: 164 findings where the local run had 0.
+    const checkout = '/home/runner/work/benchmarks/corpora/zod-3.23.8';
+    const door = makeNode({
+      name: 'index.ts',
+      file: `${checkout}/src/index.ts`,
+      label: 'File',
+      language: 'typescript',
+    });
+    const api = makeNode({
+      name: 'ZodType',
+      file: `${checkout}/src/index.ts`,
+      label: 'Class',
+      language: 'typescript',
+      exported: true,
+    });
+    const graph = makeGraph([door, api], [{ from: api.id, to: api.id, type: 'CALLS' }]);
+    // Without a root the machine decides, and the answer is the wrong one.
+    expect(names(computeReachability(graph))).toEqual(['ZodType']);
+    // **With the root the rule reads `src/index.ts`**, which is the repository's own path, and the name is published.
+    const rooted = { ...graph, rootPath: checkout };
+    expect(names(computeReachability(rooted))).toEqual([]);
+    expect(computeReachability(rooted).published.map((symbol) => symbol.name)).toEqual(['ZodType']);
+    // A caller may say it instead of the graph, which is what a harness holding an absolute checkout does — with or
+    // without the trailing separator every build tool writes.
+    expect(names(computeReachability(graph, { rootPath: checkout }))).toEqual([]);
+    expect(names(computeReachability(graph, { rootPath: `${checkout}/` }))).toEqual([]);
+  });
+
+  it('strips a root whose separator the paths do not share', () => {
+    // **A normalised root and paths the shell spelled with backslashes** — the same checkout on the same machine, and a
+    // rule that only tried one separator would read the machine's directories as ancestors of every file.
+    const door = makeNode({
+      name: 'index.ts',
+      file: 'C:\\repo\\src\\index.ts',
+      label: 'File',
+      language: 'typescript',
+    });
+    const api = makeNode({
+      name: 'ZodType',
+      file: 'C:\\repo\\src\\index.ts',
+      label: 'Class',
+      language: 'typescript',
+      exported: true,
+    });
+    const report = computeReachability(
+      makeGraph([door, api], [{ from: api.id, to: api.id, type: 'CALLS' }]),
+      { rootPath: 'C:/repo' },
+    );
+    expect(report.published.map((symbol) => symbol.name)).toEqual(['ZodType']);
+    expect(report.dead).toEqual([]);
+  });
+
+  it('refuses a benchmarks directory the repository keeps for itself, with the root known', () => {
+    const checkout = '/srv/build/zod';
+    const door = makeNode({
+      name: 'index.ts',
+      file: `${checkout}/src/index.ts`,
+      label: 'File',
+      language: 'typescript',
+    });
+    const api = makeNode({
+      name: 'ZodType',
+      file: `${checkout}/src/index.ts`,
+      label: 'Class',
+      language: 'typescript',
+      exported: true,
+    });
+    const script = makeNode({
+      name: 'timing',
+      file: `${checkout}/benchmarks/timing.ts`,
+      language: 'typescript',
+      exported: true,
+    });
+    const report = computeReachability({
+      ...makeGraph([door, api, script], [{ from: api.id, to: api.id, type: 'CALLS' }]),
+      rootPath: checkout,
+    });
+    // **`benchmarks/` is still not a package** — removing the machine's directories does not remove the repository's,
+    // and the difference is exactly which side of the root the directory sits on. `timing.ts` is a program rather than a
+    // library, so it is an entry point and not a finding; it is simply not published.
+    expect(report.published.map((symbol) => symbol.name)).toEqual(['ZodType']);
+    expect(report.dead).toEqual([]);
+  });
+
   it('keeps the first reason a symbol is a root', () => {
     const door = makeFile('src/pkg/__init__.py');
     const owner = makeNode({

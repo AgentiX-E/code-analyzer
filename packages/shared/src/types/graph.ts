@@ -199,6 +199,16 @@ export interface GraphEdge {
 /** The complete knowledge graph for a project */
 export interface KnowledgeGraph {
   projectId: string;
+  /**
+   * The directory the analysis was rooted at, when the paths in this graph are absolute.
+   *
+   * **Every rule that reads a path is a rule about a repository**, and a repository does not know where it was unpacked.
+   * Without this field a rule that asks "does an ancestor of this file look like `benchmarks/`" answers about the
+   * machine: a checkout under `/home/runner/work/<repo>/benchmarks/corpora/zod-3.23.8/src/index.ts` publishes nothing,
+   * and the whole public API of the library is reported as dead code. Measured on the dead-code workflow's first run —
+   * 164 of 164 exported symbols on `zod` came back as findings, against 0 locally.
+   */
+  rootPath?: string;
   nodes: Map<number, GraphNode>;
   edges: Map<number, GraphEdge>;
   /** Qualified name → node ID index */

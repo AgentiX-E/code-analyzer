@@ -299,6 +299,117 @@ describe('the report as prose', () => {
     expect(text).not.toContain('unreachable');
   });
 
+  it('recovers the checkout root, so a machine directory named benchmarks owns no layout', () => {
+    // **The failure the workflow found.** On a runner the checkout is unpacked under `.../benchmarks/corpora/`, and a
+    // rule that reads an absolute path as a repository path then refuses to publish anything: the local run reported 0
+    // findings on this corpus and the runner reported 164. The store carries the root as a `Folder` node, and that is
+    // what `graphOf` hands to the pass.
+    const checkout = '/home/runner/work/benchmarks/corpora/zod-3.23.8';
+    const folder = node({ name: 'zod-3.23.8', file: checkout, label: 'Folder' });
+    const door = node({ name: 'index.ts', file: `${checkout}/src/index.ts`, label: 'File' });
+    const api = node({
+      name: 'ZodType',
+      file: `${checkout}/src/index.ts`,
+      label: 'Class',
+      exported: true,
+    });
+    const graph = graphOf(storeOf([folder, door, api], [edge(api, api, 'CALLS')]).store, PROJECT);
+    expect(graph.rootPath).toBe(checkout);
+    expect(computeReachability(graph).dead).toEqual([]);
+    // **Without the root the same graph answers wrongly**, which is the defect stated as an assertion rather than as a
+    // memory: the published surface is empty and the library's front door is a finding.
+    expect(
+      computeReachability({ ...graph, rootPath: '' }).dead.map((symbol) => symbol.name),
+    ).toEqual(['ZodType']);
+  });
+
+  it('recovers the root from the files when the store has no folder node for it', () => {
+    // **A store written by something other than the pipeline has no `Folder` node**, and the root is then the deepest
+    // directory that contains every file — exact for one checkout, which is what a store holds.
+    const checkout = '/opt/checkouts/shop';
+    const api = node({
+      name: 'Order',
+      file: `${checkout}/src/index.ts`,
+      label: 'Class',
+      exported: true,
+    });
+    const spec = node({ name: 'helper', file: `${checkout}/tests/test_order.py`, line: 4 });
+    const graph = graphOf(storeOf([api, spec], [edge(api, api, 'CALLS')]).store, PROJECT);
+    expect(graph.rootPath).toBe(checkout);
+    // **`tests/` is still the repository's own directory**, so the helper beside a test is not published.
+    expect(computeReachability(graph).dead.map((symbol) => symbol.name)).toEqual(['helper']);
+  });
+
+  it('recovers no root at all when the files span two checkouts', () => {
+    // **Inventing a root for a cross-repo graph would hide a package's own entry module**, so the answer is "none" and
+    // the rules read the paths as they are.
+    const api = node({ name: 'Order', file: '/one/src/index.ts', label: 'Class', exported: true });
+    const other = node({ name: 'helper', file: '/two/src/util.py', line: 9 });
+    const graph = graphOf(storeOf([api, other], [edge(api, api, 'CALLS')]).store, PROJECT);
+    expect(graph.rootPath).toBe('');
+  });
+
+  it('strips a root written with the other separator', () => {
+    // **The same rule on a machine that spells paths differently.** `C:\repo` is the root and `C:\repo\src\index.ts`
+    // is the entry module, so the name is published rather than reported.
+    const checkout = 'C:\\repo';
+    const folder = node({ name: 'repo', file: checkout, label: 'Folder' });
+    const api = node({
+      name: 'Order',
+      file: 'C:\\repo\\src\\index.ts',
+      label: 'Class',
+      exported: true,
+    });
+    const graph = graphOf(storeOf([folder, api], [edge(api, api, 'CALLS')]).store, PROJECT);
+    expect(graph.rootPath).toBe(checkout);
+    expect(computeReachability(graph).dead).toEqual([]);
+  });
+
+  it('recovers a drive-letter root from the files alone', () => {
+    // **No `Folder` node, and a root that carries its drive**: the recovered prefix must not grow a leading separator,
+    // because `C:/repo` is already absolute and `/C:/repo` is not a path any machine has.
+    const api = node({
+      name: 'Order',
+      file: 'C:\\repo\\src\\index.ts',
+      label: 'Class',
+      exported: true,
+    });
+    const spec = node({ name: 'helper', file: 'C:\\repo\\tests\\test_order.py', line: 4 });
+    const graph = graphOf(storeOf([api, spec], [edge(api, api, 'CALLS')]).store, PROJECT);
+    expect(graph.rootPath).toBe('C:/repo');
+    // The entry module is still found in `src`, so the class is published and only the test helper is a finding.
+    expect(computeReachability(graph).dead.map((symbol) => symbol.name)).toEqual(['helper']);
+  });
+
+  it('refuses to answer for a store whose nodes carry no path at all', async () => {
+    const { id: _dropped, ...floating } = node({ name: 'detached', file: 'src/shop/app.py' });
+    const store = new InMemoryGraphStore();
+    store.insertNode({ ...floating, filePath: null });
+    const graph = graphOf(store, PROJECT);
+    // **A project with no paths has no root**, and the report says the question cannot be answered rather than
+    // answering it about nothing.
+    expect(graph.rootPath).toBe('');
+    const result = await deadCodeDetectionTool.handler({ projectId: PROJECT }, store);
+    expect(String((result.content[0] as { text: string }).text)).toContain('No use edges');
+  });
+
+  it('takes the shortest folder node that holds every file, whatever order they arrive in', () => {
+    // **A store is not obliged to hand its folders in any order**, and both orders have to agree: the deepest folder that
+    // covers every file is the root, and a folder that covers only a subtree is not a candidate.
+    const files = [
+      node({ name: 'index.ts', file: 'C:/repo/src/index.ts', label: 'File' }),
+      node({ name: 'Order', file: 'C:/repo/src/index.ts', label: 'Class', exported: true }),
+    ];
+    const deepest = node({ name: 'src', file: 'C:/repo/src', label: 'Folder' });
+    const outer = node({ name: 'repo', file: 'C:/repo', label: 'Folder' });
+    const wrong = node({ name: 'tools', file: 'C:/repo/tools', label: 'Folder' });
+    const edges = [edge(files[1] as GraphNode, files[1] as GraphNode, 'CALLS')];
+    const deepestFirst = graphOf(storeOf([wrong, deepest, outer, ...files], edges).store, PROJECT);
+    const outerFirst = graphOf(storeOf([wrong, outer, deepest, ...files], edges).store, PROJECT);
+    expect(deepestFirst.rootPath).toBe('C:/repo');
+    expect(outerFirst.rootPath).toBe('C:/repo');
+  });
+
   it('ignores the nodes and the edges of another project in the same store', () => {
     const { nodes, edges } = repository();
     const { store } = storeOf(nodes, edges);
