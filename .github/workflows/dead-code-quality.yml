@@ -116,14 +116,21 @@ jobs:
             --repo "pallets/werkzeug=$werkzeug_dir@src/werkzeug" \
             --lang python \
             --out benchmarks/dead-code.json | tee -a "$GITHUB_STEP_SUMMARY"
+          mkdir -p artifact
+          cp benchmarks/dead-code.json artifact/dead-code.json
 
       - name: Upload the Python half
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dead-code-python
-          path: benchmarks/dead-code.json
-          if-no-files-found: warn
+          # **One file, staged under a name the gate job names explicitly.** `upload-artifact` archives a single matched
+          # path at the root of the artifact, dropping the directories above it, so the merge step cannot read
+          # `benchmarks/dead-code.json` out of the download on faith — it reads `py-half/dead-code.json`, which is what
+          # this directory becomes. Measured the hard way: the first run of this workflow failed with
+          # `ENOENT ts-half/benchmarks/dead-code.json` after the TypeScript job had measured successfully.
+          path: artifact/dead-code.json
+          if-no-files-found: error
           retention-days: 90
 
   typescript:
@@ -175,14 +182,17 @@ jobs:
             --repo "redis/ioredis=$ioredis_dir@lib" \
             --lang typescript \
             --out benchmarks/dead-code.json | tee -a "$GITHUB_STEP_SUMMARY"
+          mkdir -p artifact
+          cp benchmarks/dead-code.json artifact/dead-code.json
 
       - name: Upload the TypeScript half
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dead-code-typescript
-          path: benchmarks/dead-code.json
-          if-no-files-found: warn
+          # The same single-file layout the Python half uses — see the comment there.
+          path: artifact/dead-code.json
+          if-no-files-found: error
           retention-days: 90
 
   gate:
@@ -206,6 +216,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dead-code-python
+          # **The halves are staged beside the checkout, not over it.** Downloading the Python artifact to the default
+          # path would have written `benchmarks/dead-code.json` into the working tree before the merge ran, so the
+          # merged record could have been one half plus one half of the *committed* file and the run would have agreed
+          # with itself.
+          path: py-half
 
       - name: Download the TypeScript half
         uses: actions/download-artifact@v4
@@ -221,8 +236,18 @@ jobs:
           set -euo pipefail
           node - <<'NODE' | tee -a "$GITHUB_STEP_SUMMARY"
           const fs = require('node:fs');
-          const python = JSON.parse(fs.readFileSync('benchmarks/dead-code.json', 'utf8'));
-          const typescript = JSON.parse(fs.readFileSync('ts-half/benchmarks/dead-code.json', 'utf8'));
+          const read = (path) => {
+            if (!fs.existsSync(path)) {
+              // **A missing half is a red build, not a merge of what is left.** The gate below would report the
+              // absence as a floor failure somewhere else, and the message would name a corpus rather than the record
+              // that never arrived.
+              console.error(`missing measurement: ${path}`);
+              process.exit(1);
+            }
+            return JSON.parse(fs.readFileSync(path, 'utf8'));
+          };
+          const python = read('py-half/dead-code.json');
+          const typescript = read('ts-half/dead-code.json');
           const rows = [...python.rows, ...typescript.rows].sort((a, b) =>
             String(a.repo).localeCompare(String(b.repo)),
           );
@@ -240,6 +265,10 @@ jobs:
               Object.entries(python.byRepo ?? {}).concat(Object.entries(typescript.byRepo ?? {})),
             ),
           };
+          if (merged.corpora.length !== 4 || merged.languages.length !== 2) {
+            console.error(`merged record has ${merged.corpora.length} corpora and ${merged.languages.length} languages`);
+            process.exit(1);
+          }
           fs.writeFileSync('benchmarks/dead-code.json', JSON.stringify(merged, null, 2) + '\n');
           for (const row of rows) console.log(`${row.repo}: ${row.oursDead} findings`);
           NODE

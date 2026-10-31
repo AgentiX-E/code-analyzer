@@ -45,3 +45,8 @@ benchmarks/corpora/
 
 # Local working files from scripts/callgraph-quality.ts (the JSON record is committed, the dumps are not).
 .callgraph-quality/
+
+# **Where the dead-code workflow stages one half of its record before uploading it.** `upload-artifact` archives a single
+# matched file at the root of the artifact, so the job copies the record into a directory whose name the gate job then
+# names explicitly. Local runs may leave it behind; it is never the record, only a copy of one.
+artifact/
