@@ -250,7 +250,14 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       declaration.kind === 'Interface'
     ) {
       if (declaration.nodeId !== undefined) {
-        classes.set(declaration.name, { nodeId: declaration.nodeId, label: declaration.kind });
+        // **A type can be written twice, and the class is the half with bodies.** `redis/ioredis@5.4.2` declares
+        // `class Redis extends Commander` and, nine hundred lines later, `interface Redis extends Transaction {}` -
+        // declaration merging, in the language's own vocabulary. Whichever is written last used to win this map, and
+        // the interface always is; the entry a caller reaches should be the one that can hold a member.
+        const known = classes.get(declaration.name);
+        if (known === undefined || declaration.kind !== 'Interface') {
+          classes.set(declaration.name, { nodeId: declaration.nodeId, label: declaration.kind });
+        }
       }
       // **A field's type is filed on the class, not as a symbol of its own.** The provider records the annotations it
       // read during its walk and hands them back as one property, so a file of 200 fields adds no 200 nodes and no
@@ -263,8 +270,16 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       // `self.add_url_rule(...)`, and `add_url_rule` is declared on `App` in `flask/sansio/app.py` - so a lookup that
       // stops at the class the call is written in answers nothing for the largest single group of inherited calls in
       // any object-oriented codebase. Only a class extends; an interface is a contract with no body to reach.
+      //
+      // **And the two halves of a merged type contribute to one list, not to two.** The class names `Commander`, the
+      // interface names `Transaction`, and replacing the first with the second answered `this.defineCommand(…)` with
+      // nothing at all - the members of `Redis` were reachable only if a reader kept both.
       const inherited = baseNamesOf(declaration.properties['baseClasses']);
-      if (inherited.length > 0) bases.set(declaration.name, inherited);
+      if (inherited.length > 0) {
+        const known = bases.get(declaration.name) ?? [];
+        const merged = [...known, ...inherited.filter((base) => !known.includes(base))];
+        bases.set(declaration.name, merged);
+      }
       continue;
     }
 

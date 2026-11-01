@@ -104,16 +104,16 @@
         "graphRecursion": 1
       },
       "expectedPairs": 270,
-      "claimedPairs": 217,
+      "claimedPairs": 228,
       "precision": {
-        "correct": 217,
+        "correct": 228,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 217,
-        "missed": 53,
-        "value": 0.8037
+        "found": 228,
+        "missed": 42,
+        "value": 0.8444
       },
       "byArm": {
         "import": {
@@ -122,8 +122,8 @@
           "precision": 1
         },
         "inherited": {
-          "claimed": 97,
-          "correct": 97,
+          "claimed": 108,
+          "correct": 108,
           "precision": 1
         },
         "receiverType": {
@@ -139,7 +139,7 @@
       },
       "callers": {
         "oracle": 127,
-        "graph": 107,
+        "graph": 110,
         "graphOnly": 0,
         "ownersWithAnyCall": 169
       },
@@ -154,11 +154,11 @@
         "connectors/SentinelConnector/FailoverDetector.ts|subscribe|connectors/SentinelConnector/types.ts|subscribe",
         "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|next",
         "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|reset",
-        "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/index.ts|resolve",
         "connectors/SentinelConnector/index.ts|constructor|connectors/AbstractConnector.ts|AbstractConnector",
         "connectors/SentinelConnector/index.ts|disconnect|connectors/AbstractConnector.ts|disconnect",
         "connectors/SentinelConnector/index.ts|resolveMaster|connectors/SentinelConnector/types.ts|sentinel",
         "connectors/SentinelConnector/index.ts|resolveSlave|connectors/SentinelConnector/types.ts|sentinel",
+        "connectors/SentinelConnector/index.ts|resolve|connectors/SentinelConnector/types.ts|disconnect",
         "connectors/SentinelConnector/index.ts|resolve|connectors/SentinelConnector/types.ts|on",
         "connectors/SentinelConnector/index.ts|updateSentinels|connectors/SentinelConnector/types.ts|sentinel"
       ]

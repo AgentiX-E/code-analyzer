@@ -89,8 +89,8 @@ const PYTHON_FLOORS = {
  *
  * **Recall on both is the honest gap, not a floor that was chosen.** `zod` writes most of its calls as generic
  * `Type.ast` dispatch on union members, and ioredis routes through a command table it builds at runtime; neither is a
- * name a resolver can walk to. The product answers 78.7 % and 73.8 % of what the checker expects and refuses the rest
- * rather than guessing, which is why precision on the same corpora is 98.0 % on both.
+ * name a resolver can walk to. The product answers 79.1 % and 84.4 % of what the checker expects and refuses the rest
+ * rather than guessing, which is why precision on the same corpora is 100 % on both.
  *
  * **Ten points of that recall came from two spellings of a named function that were not declarations.** `const f =
  * function (args) {…}` was captured as a constant and `class C { static m = () => {…} }` as a field type, so neither
@@ -107,6 +107,13 @@ const TYPESCRIPT_FLOORS = {
   // **Precision did not pay for it, and that is the point of the arms below.** Every claim on both TypeScript corpora
   // is correct; `import` moved 96.4 % -> 100 % and `sameFile` 98.0 % -> 100 % because the two rules that used to
   // absorb a name coincidence no longer answer a question they were never evidence for.
+  //
+  // **And ioredis's recall then moved again, 80.4 % -> 84.4 %, from the fix that consequence forced.** Withdrawing the
+  // file-level index for own-scope receivers cost eleven correct edges inside `Cluster.connect`'s arrows - the index
+  // had been answering `this.setStatus(...)` inside `const readyHandler = () => {…}` by finding the one `setStatus` in
+  // the file. The question that rule was answering by accident is "which class does this `this` refer to", and the
+  // answer is the scope chain: the nearest enclosing declaration whose container is a class, walked across the
+  // declarations that keep the receiver and stopping at a `function` expression, which rebinds it.
   'colinhacks/zod': {
     precision: 0.99,
     recall: 0.78,
@@ -115,8 +122,8 @@ const TYPESCRIPT_FLOORS = {
   },
   'redis/ioredis': {
     precision: 0.99,
-    recall: 0.79,
-    claimed: 214,
+    recall: 0.84,
+    claimed: 228,
     arms: { import: 0.99, inherited: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
 };

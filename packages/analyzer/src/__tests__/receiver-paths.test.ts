@@ -164,3 +164,155 @@ describe('the receiver of a call, resolved through the declarations that spell i
     expect(callsFrom('Service.throughConstruction')).toEqual(['Index', 'Index.insert']);
   });
 });
+
+// **`this` is the instance across an arrow and nothing at all across a `function`**, and the scope chain is what says
+// which of the two a call site sits in — see `fixtures/receiver-paths/closures.ts`.
+describe('the class a `this` written inside a closure refers to', () => {
+  let graph: KnowledgeGraph;
+
+  beforeEach(async () => {
+    const empty = {
+      projectId: 'receiver-paths',
+      nodes: new Map(),
+      edges: new Map(),
+      qnameIndex: new Map(),
+      fileIndex: new Map(),
+    };
+    const ctx = {
+      projectId: 'receiver-paths',
+      rootPath: FIXTURES,
+      graph: empty,
+      config: {
+        projectId: 'receiver-paths',
+        rootPath: FIXTURES,
+        ignorePaths: [],
+        excludePatterns: [],
+        includePatterns: [],
+        maxFileSize: 10 * 1024 * 1024,
+        maxFiles: 1000,
+        parseWorkers: 1,
+        cacheDir: '.code-analyzer-test',
+      },
+      phaseData: new Map<string, unknown>(),
+    } as unknown as PipelineContext;
+    await new PipelineOrchestrator([
+      new ScanPhase(),
+      new StructurePhase(),
+      new ParsePhase(),
+      new CrossFilePhase(),
+      new ScopeResolutionPhase(),
+    ]).execute(ctx);
+    graph = ctx.graph as KnowledgeGraph;
+  });
+
+  /** Every call edge whose source declaration ends with `suffix`, as `target suffix → arm`. */
+  function callsUnder(suffix: string): Array<{ target: string; resolution: unknown }> {
+    const sources = [...graph.nodes.values()].filter(
+      (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
+    );
+    const out: Array<{ target: string; resolution: unknown }> = [];
+    for (const source of sources) {
+      for (const edge of graph.edges.values()) {
+        if (edge.type !== 'CALLS' || edge.sourceId !== source.id) continue;
+        const qualified = String(graph.nodes.get(edge.targetId)?.qualifiedName ?? '');
+        out.push({
+          target: qualified.slice(qualified.lastIndexOf(':') + 1),
+          resolution: edge.properties['resolution'],
+        });
+      }
+    }
+    return out;
+  }
+
+  it('finds the enclosing class through one arrow function', () => {
+    // `const onReady = () => { this.bump() }` inside `Counter.connect` - the arrow keeps the method's `this`.
+    expect(callsUnder('onReady')).toContainEqual({ target: 'Counter.bump', resolution: 'inherited' });
+  });
+
+  it('finds it through an arrow inside a promise executor', () => {
+    expect(callsUnder('onClose')).toContainEqual({ target: 'Counter.bump', resolution: 'inherited' });
+  });
+
+  it('stops at a function expression, whose `this` the enclosing class does not decide', () => {
+    // `const onSpawn = function () { this.bump() }` - answering `Plain.bump` here would be the same guess the deleted
+    // global-name arm made, one scope narrower.
+    expect(callsUnder('onSpawn')).not.toContainEqual(
+      expect.objectContaining({ target: 'Plain.bump' }),
+    );
+  });
+});
+
+// **A type has two spellings and one base list.** `class Redis extends Commander` and
+// `interface Redis extends Transaction {}` are the same `Redis`; see `fixtures/receiver-paths/merged.ts`.
+describe('the bases of a declaration that is written twice', () => {
+  let graph: KnowledgeGraph;
+
+  beforeEach(async () => {
+    const empty = {
+      projectId: 'receiver-paths',
+      nodes: new Map(),
+      edges: new Map(),
+      qnameIndex: new Map(),
+      fileIndex: new Map(),
+    };
+    const ctx = {
+      projectId: 'receiver-paths',
+      rootPath: FIXTURES,
+      graph: empty,
+      config: {
+        projectId: 'receiver-paths',
+        rootPath: FIXTURES,
+        ignorePaths: [],
+        excludePatterns: [],
+        includePatterns: [],
+        maxFileSize: 10 * 1024 * 1024,
+        maxFiles: 1000,
+        parseWorkers: 1,
+        cacheDir: '.code-analyzer-test',
+      },
+      phaseData: new Map<string, unknown>(),
+    } as unknown as PipelineContext;
+    await new PipelineOrchestrator([
+      new ScanPhase(),
+      new StructurePhase(),
+      new ParsePhase(),
+      new CrossFilePhase(),
+      new ScopeResolutionPhase(),
+    ]).execute(ctx);
+    graph = ctx.graph as KnowledgeGraph;
+  });
+
+  function callsFrom(suffix: string): Array<{ target: string; resolution: unknown }> {
+    const sources = [...graph.nodes.values()].filter(
+      (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
+    );
+    const out: Array<{ target: string; resolution: unknown }> = [];
+    for (const source of sources) {
+      for (const edge of graph.edges.values()) {
+        if (edge.type !== 'CALLS' || edge.sourceId !== source.id) continue;
+        const qualified = String(graph.nodes.get(edge.targetId)?.qualifiedName ?? '');
+        out.push({
+          target: qualified.slice(qualified.lastIndexOf(':') + 1),
+          resolution: edge.properties['resolution'],
+        });
+      }
+    }
+    return out;
+  }
+
+  it('keeps the base the class names when an interface adds another one', () => {
+    // The interface is written second, and replacing the base list with `Extra` is what made the call unanswerable.
+    expect(callsFrom('Holder.constructor')).toContainEqual({
+      target: 'Commander.defineCommand',
+      resolution: 'inherited',
+    });
+  });
+
+  it('keeps the base the interface adds', () => {
+    expect(callsFrom('Holder.callExtra')).toContainEqual({
+      target: 'Extra.extra',
+      resolution: 'inherited',
+    });
+  });
+});
+

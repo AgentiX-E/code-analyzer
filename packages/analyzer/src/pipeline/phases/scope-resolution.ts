@@ -243,6 +243,26 @@ function isOwnScopeCall(receiver: string | undefined): boolean {
 const OWN_SCOPE_RECEIVERS: ReadonlySet<string> = new Set(['self', 'this', 'cls', 'super', '$this']);
 
 /**
+ * Does a declaration nested inside another keep the enclosing receiver, or bind its own?
+ *
+ * **A `function` expression in JavaScript rebinds `this`**, so `const onSpawn = function () { this.bump() }` written
+ * inside `class Plain` is not a call on `Plain` — the caller decides, and the call site does not say. An arrow
+ * function is the opposite by definition, which is why the syntax exists. In every other language this product reads,
+ * the receiver is an ordinary name that a nested function closes over — Python's `self`, Kotlin's and Swift's implicit
+ * `this` in a lambda, Java's `this` in a lambda — so nothing stops the walk.
+ *
+ * A declaration whose syntax is unknown (no `arrow` property a provider recorded) is treated as rebinding, because
+ * continuing past it would be a claim the reader cannot check.
+ */
+function keepsItsThis(
+  language: string | undefined,
+  symbol: { readonly properties?: Record<string, unknown> },
+): boolean {
+  if (language !== 'typescript' && language !== 'javascript' && language !== 'arkts') return true;
+  return symbol.properties?.['arrow'] === 'true';
+}
+
+/**
  * Whether a receiver is the base class - `super` in TypeScript and Java, `super()` in Python.
  *
  * **`super()` is a call and `receiverOf` keeps it whole**, so the text arrives with its argument list; `super(Foo,
@@ -600,6 +620,33 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           .sort((a, b) => a.endLine - a.startLine - (b.endLine - b.startLine));
 
         /**
+         * The class a `this`/`self` written at `line` refers to, **walked out through the scopes that keep it**.
+         *
+         * A method body is the easy case and was the only one answered: the innermost containing declaration is the
+         * method itself and its container is the class. `redis/ioredis@5.4.2` writes the other case four times in one
+         * method - `const readyHandler = () => { this.setStatus("ready"); … }` inside `Cluster.connect` - and the
+         * innermost containing declaration there is the *arrow*, whose container is `connect`.
+         *
+         * That shape used to be answered by the file-level member index, which is why nothing noticed; that index is
+         * gone for own-scope receivers, because it also answered `this.begin()` with an unrelated class' `begin`. The
+         * question it was answering by accident is this one, and the answer is the scope chain: **the nearest
+         * enclosing class, reached only across the declarations that preserve the receiver.** An arrow function in a
+         * language where `this` is a keyword preserves it; a `function` expression rebinds it, so the walk stops there
+         * and answers nothing. In Python `self` is an ordinary closed-over name, so a nested `def` preserves it and the
+         * walk continues.
+         */
+        const enclosingClassOf = (line: number): string | undefined => {
+          for (const symbol of callables) {
+            if (symbol.startLine > line || symbol.endLine < line) continue;
+            const container = containerOf(symbol);
+            if (container === undefined) return undefined;
+            if (classIndex.classes.has(container)) return container;
+            if (!keepsItsThis(parsedFile.language, symbol)) return undefined;
+          }
+          return undefined;
+        };
+
+        /**
          * The node a declaration became, found by identity rather than by name.
          *
          * **The fallback stays**, because a declaration whose node was created by another phase — a tool, a route —
@@ -937,11 +984,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   ? hasImplicitThis(parsedFile.language)
                   : isOwnScopeCall(ref.receiver);
               if (sup || ownScope) {
-                const owner = callables.find(
-                  (symbol) =>
-                    symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
-                );
-                const ownerClass = owner === undefined ? undefined : containerOf(owner);
+                const ownerClass = enclosingClassOf(ref.sourceLine);
                 if (ownerClass !== undefined) {
                   // **`self.m()` searches the whole class chain, not only the class it is written in.** A mixin's
                   // method called from a subclass — `self._get_cache_value(...)` inside werkzeug's

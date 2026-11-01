@@ -1,6 +1,9 @@
 {
-  "measuredAt": "2026-11-01T06:21:10.384Z",
-  "languages": ["python", "typescript"],
+  "measuredAt": "2026-11-01T08:01:21.373Z",
+  "languages": [
+    "python",
+    "typescript"
+  ],
   "corpora": [
     {
       "repo": "colinhacks/zod",
@@ -29,7 +32,7 @@
       "repo": "colinhacks/zod",
       "package": "src",
       "language": "typescript",
-      "indexedMs": 34661,
+      "indexedMs": 4580,
       "nodes": 19195,
       "edges": 25691,
       "roots": 1008,
@@ -185,7 +188,7 @@
       "repo": "pallets/flask",
       "package": "src/flask",
       "language": "python",
-      "indexedMs": 2191,
+      "indexedMs": 2199,
       "nodes": 10747,
       "edges": 13390,
       "roots": 1357,
@@ -630,7 +633,7 @@
       "repo": "pallets/werkzeug",
       "package": "src/werkzeug",
       "language": "python",
-      "indexedMs": 4345,
+      "indexedMs": 4380,
       "nodes": 22798,
       "edges": 30207,
       "roots": 2347,
@@ -1901,9 +1904,9 @@
       "repo": "redis/ioredis",
       "package": "lib",
       "language": "typescript",
-      "indexedMs": 88533,
-      "nodes": 99017,
-      "edges": 452904,
+      "indexedMs": 88127,
+      "nodes": 99012,
+      "edges": 452908,
       "roots": 320,
       "rootsByKind": {
         "entry": 30,
@@ -1912,9 +1915,9 @@
         "route": 4
       },
       "considered": 2290,
-      "callEdges": 336,
+      "callEdges": 348,
       "oursDead": 0,
-      "publishedRescued": 1801,
+      "publishedRescued": 1800,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 42,
@@ -2269,7 +2272,7 @@
       "language": "typescript",
       "package": "lib",
       "findings": 0,
-      "published": 1801,
+      "published": 1800,
       "oracleUniverse": 69,
       "oracleDead": 1,
       "precision": null,
@@ -2285,5 +2288,5 @@
     "competitor": 271,
     "ratio": 0.01845018450184502
   },
-  "typescriptMeasuredAt": "2026-11-01T06:21:01.744Z"
+  "typescriptMeasuredAt": "2026-11-01T08:03:05.391Z"
 }
