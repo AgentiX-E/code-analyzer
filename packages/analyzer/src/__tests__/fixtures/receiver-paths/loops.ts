@@ -40,4 +40,13 @@ export class Pool {
       key.trim();
     }
   }
+
+  shadow(flag: boolean): void {
+    const pick: Leaf = this.leaves[0] as Leaf;
+    pick.disconnect();
+    if (flag) {
+      const pick: string = '';
+      pick.trim();
+    }
+  }
 }

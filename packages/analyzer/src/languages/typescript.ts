@@ -756,17 +756,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     const left = node.childForFieldName('left');
     const right = node.childForFieldName('right');
     if (left === null || left === undefined || right === null || right === undefined) return;
-    // `for (const leaf of …)` binds a bare `identifier`, with `const`/`let` left as anonymous tokens; a grammar that
-    // keeps a declaration node around the binding is read the same way rather than in a second arm.
-    const declarator =
-      left.type === 'variable_declarator' ? left : this.findDeepChild(left, 'variable_declarator');
-    const nameNode =
-      declarator === null || declarator === undefined
-        ? left.type === 'identifier'
-          ? left
-          : null
-        : this.findNamedChild(declarator, 'identifier');
-    if (nameNode === null) return;
+    // **The binding is a bare `identifier`**, with `const`/`let` left as anonymous tokens beside it — measured on this
+    // grammar rather than assumed: `for (const leaf of this.leaves)` parses to `left: (identifier)`, not to a
+    // `variable_declaration`. A destructuring binding is an `object_pattern` and is refused here, because the shape it
+    // names is not a type this module reads.
+    if (left.type !== 'identifier') return;
+    const nameNode = left;
     // A path and nothing else: `a`, `this.a`, `a.b`. Anything with a call, an index or a literal in it is an expression
     // the call site wrote, and the call site is not a declaration.
     if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(right.text)) return;

@@ -283,6 +283,12 @@ describe('the type of a binding a loop declares', () => {
     expect(targets(graph, 'Pool.refuseLiteral')).toEqual([]);
   });
 
+  it('is nothing at all when one name is bound twice with two types', () => {
+    // `const pick: Leaf` and `const pick: string` in one function: a name with two types has no type this module can
+    // defend, so neither call is answered - the same rule every other binding follows, applied to the loop's name too.
+    expect(targets(graph, 'Pool.shadow')).toEqual([]);
+  });
+
   it('is nothing at all when the loop walks keys', () => {
     // `for (const key in this.leaves)` iterates names, and a `string` declares no `trim` this graph can reach.
     expect(targets(graph, 'Pool.refuseKeys')).toEqual([]);
