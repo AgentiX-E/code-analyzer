@@ -221,13 +221,14 @@ describe('ScopeResolutionPhase', () => {
     expect(edges[0]!.targetId).toBe(10);
   });
 
-  it('refuses a name its own file declares twice, rather than picking the first', async () => {
-    // **Two declarations of one spelling have no static answer** - `get` in two classes, `value` in two branches - and
-    // an edge to the first is an edge nobody can defend. The index marks the name ambiguous on the second sighting.
+  it('answers a name its own file declares twice with the declaration that runs', async () => {
+    // **A call writes a name, and the last declaration of a name in a scope is the one that runs.** `flask/cli.py`
+    // writes `def locate_app(...)` three times - two `@t.overload` stubs and the implementation - and refusing the
+    // name left the two calls in `load_app` with no target at all.
     const store = seedGraph(
       [
-        makeNode(10, 'Method', 'get', 'A.get', FILE_A),
-        makeNode(11, 'Method', 'get', 'B.get', FILE_A),
+        makeNode(10, 'Function', 'helper', 'helper', FILE_A),
+        makeNode(11, 'Function', 'helper', 'helper', FILE_A),
       ],
       { [`project:${PROJ}:caller`]: 20 },
       { [FILE_A]: 1 },
@@ -235,7 +236,30 @@ describe('ScopeResolutionPhase', () => {
     const parsed = makeParsedFile(
       FILE_A,
       [makeSymbol('Function', 'caller', 'caller')],
-      [makeReference('get', 2)],
+      [makeReference('helper', 2)],
+    );
+    const ctx = makeCtx(store, [parsed]);
+
+    const result = await new ScopeResolutionPhase().execute(ctx);
+    expect((result.output as { referencesResolved: number }).referencesResolved).toBe(1);
+    expect(Array.from(store.edges.values())[0]!.targetId).toBe(11);
+  });
+
+  it('refuses a name two kinds of declaration claim, rather than picking one', async () => {
+    // **Two kinds under one name are two answers.** A class and a function of one spelling are different things to
+    // call, and an edge to either is an edge nobody can defend - so the name is dropped and no edge is made.
+    const store = seedGraph(
+      [
+        makeNode(10, 'Function', 'helper', 'helper', FILE_A),
+        makeNode(11, 'Class', 'helper', 'helper', FILE_A),
+      ],
+      { [`project:${PROJ}:caller`]: 20 },
+      { [FILE_A]: 1 },
+    );
+    const parsed = makeParsedFile(
+      FILE_A,
+      [makeSymbol('Function', 'caller', 'caller')],
+      [makeReference('helper', 2)],
     );
     const ctx = makeCtx(store, [parsed]);
 

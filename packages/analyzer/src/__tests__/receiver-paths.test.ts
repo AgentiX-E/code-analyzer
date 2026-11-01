@@ -161,6 +161,36 @@ describe('the bases of a declaration that is written twice', () => {
   });
 });
 
+// **An overload is one name with several shapes, and a call writes a name** — see
+// `fixtures/receiver-paths/overloaded.ts` and the contract it merges in.
+describe('a member written as an overload set', () => {
+  let graph: KnowledgeGraph;
+
+  beforeEach(async () => {
+    graph = await buildGraph('receiver-paths');
+  });
+
+  it('resolves the name to the declaration that runs, which is the last one', () => {
+    // **`info` is declared twice on `ContractTable`**, which is the shape a generated command table takes - one member
+    // per command, and a command with more than one arity written as an overload set. The call writes one name, so the
+    // answer is the declaration with a body: `info@5`, the second of the two, and not a refusal.
+    expect(callsFrom(graph, 'OverloadedClient.ask')).toContainEqual(
+      expect.objectContaining({ target: 'ContractTable.info@5', resolution: 'inherited' }),
+    );
+  });
+
+  it('reaches both halves of the merged type the call is written on', () => {
+    // `class ContractBase` declares `touch`, `interface ContractBase extends ContractTable {}` contributes the table,
+    // and `OverloadedClient extends ContractBase` inherits both - the same two-halves rule `merged.ts` states for a
+    // base list, read here through three declarations in two files.
+    expect(targets(graph, 'OverloadedClient.ask')).toEqual([
+      'ContractTable.ping',
+      'ContractTable.info@5',
+      'ContractBase.touch',
+    ]);
+  });
+});
+
 // **A loop variable is the element type of what it iterates** — see `fixtures/receiver-paths/loops.ts`.
 describe('the type of a binding a loop declares', () => {
   let graph: KnowledgeGraph;

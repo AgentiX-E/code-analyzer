@@ -12,6 +12,7 @@ import {
   classMemberOf,
   containerOf,
   createClassIndex,
+  ELEMENT_OF,
   mergeClassIndex,
   ownerKeyOf,
   receiverTypeOf,
@@ -140,13 +141,25 @@ describe('one file, read for the types its declarations carry', () => {
     expect(facts.classOfFunction.get('Holder.run')).toBe('Holder');
   });
 
-  it('refuses a class that declares one name twice', () => {
-    const ambiguous = buildFileTypes([
+  it('answers a class that declares one name twice with the declaration that runs', () => {
+    const overloaded = buildFileTypes([
       declaration('Class', 'Holder', undefined, {}, 1),
       declaration('Method', 'run', 'Holder', {}, 2),
       declaration('Method', 'run', 'Holder', {}, 3),
     ]);
-    // Two members with one name is a name this class cannot answer for, and both are dropped.
+    // Two signatures of one method are one method, and the last is the one with the body.
+    expect(overloaded.members.get('Holder')?.get('run')).toEqual({ nodeId: 3, label: 'Method' });
+  });
+
+  it('refuses one name a method and a nested function both claim', () => {
+    // **The one shape that really is two answers.** Python files a `def` nested inside a method under the *class* the
+    // method belongs to, so `def run(self): def run(): …` puts a `Function` and a `Method` on one name - two
+    // different things to call, and neither is picked.
+    const ambiguous = buildFileTypes([
+      declaration('Class', 'Holder', undefined, {}, 1),
+      declaration('Method', 'run', 'Holder', {}, 2),
+      declaration('Function', 'run', 'Holder', {}, 3),
+    ]);
     expect(ambiguous.members.get('Holder')?.get('run')).toBeUndefined();
   });
 
@@ -260,6 +273,112 @@ describe('the type of the object a call is written on', () => {
   });
 });
 
+/**
+ * **A loop variable holds no annotation, so the provider records the iterable and the reader resolves it.**
+ *
+ * `for (const leaf of this.leaves)` names the collection nowhere else: the syntax says what is iterated, and the element
+ * is what the binding holds. The provider writes the path down behind `ELEMENT_OF` — reducing it there would file the
+ * last segment of `this.leaves` as a class called `leaves` — and this module resolves it against the same declarations a
+ * receiver is resolved against, one hop earlier. The hop count is the rule: the loop site states one path and nothing
+ * about what that path's own fields are typed, so a second hop is refused rather than guessed.
+ */
+describe('a binding recorded as the element of a path', () => {
+  const FILE = '/leaves.ts';
+  const facts = buildFileTypes([
+    declaration(
+      'Class',
+      'Tree',
+      undefined,
+      { fieldTypes: '{"leaves":"Leaf[]","branches":"Branch[]"}' },
+      1,
+    ),
+    declaration('Method', 'prune', 'Tree', {}, 2),
+    declaration('Class', 'Leaf', undefined, {}, 3),
+    declaration('Method', 'disconnect', 'Leaf', {}, 4),
+    // Every path the rule has to answer or refuse: a field, a field one hop too deep, the object itself, an array
+    // nobody annotated, and no path at all.
+    declaration(
+      'Method',
+      'sweep',
+      'Tree',
+      {
+        localTypes: JSON.stringify({
+          leaf: `${ELEMENT_OF}this.leaves`,
+          deep: `${ELEMENT_OF}this.leaves.child`,
+          object: `${ELEMENT_OF}this`,
+          absent: `${ELEMENT_OF}this.unknown`,
+          empty: ELEMENT_OF,
+        }),
+      },
+      5,
+    ),
+    // A module-level function: the loop binds a parameter's element, and there is no class to read a field from.
+    declaration(
+      'Variable',
+      'items',
+      undefined,
+      { parameterOwner: 'drain', parameterType: 'Leaf[]' },
+      6,
+    ),
+    declaration(
+      'Function',
+      'drain',
+      undefined,
+      {
+        localTypes: JSON.stringify({
+          leaf: `${ELEMENT_OF}items`,
+          deep: `${ELEMENT_OF}items.child`,
+          orphan: `${ELEMENT_OF}this.leaves`,
+        }),
+      },
+      7,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('reads the element of a field of the enclosing object', () => {
+    expect(receiverTypeOf(at(['Tree.sweep']), 'leaf')).toEqual({
+      className: 'Leaf',
+      via: 'thisField',
+    });
+  });
+
+  it('reads the element of a parameter the function declares', () => {
+    // **A bare name is a local or a parameter, and both are filed under one owner key** — so the answer does not have
+    // to say which of the two it was: `for (const x of items)` iterates what `items` is.
+    expect(receiverTypeOf(at(['drain']), 'leaf')).toEqual({ className: 'Leaf', via: 'local' });
+  });
+
+  it('refuses a path deeper than the one hop the loop site states', () => {
+    expect(receiverTypeOf(at(['Tree.sweep']), 'deep')).toBeUndefined();
+    expect(receiverTypeOf(at(['drain']), 'deep')).toBeUndefined();
+  });
+
+  it('refuses an iterable that is not a field of one name, or that has no element', () => {
+    // `for (const x of this)` iterates the object itself, which is not a field.
+    expect(receiverTypeOf(at(['Tree.sweep']), 'object')).toBeUndefined();
+    // An array nobody annotated has no element, which is the same answer as no annotation at all.
+    expect(receiverTypeOf(at(['Tree.sweep']), 'absent')).toBeUndefined();
+    // **A module-level function has no enclosing class**, so `this.leaves` names no field of one.
+    expect(receiverTypeOf(at(['drain']), 'orphan')).toBeUndefined();
+    // A path with no base at all is not a path.
+    expect(receiverTypeOf(at(['Tree.sweep']), 'empty')).toBeUndefined();
+  });
+
+  it('answers a lookup that names no file, out of the index alone', () => {
+    // **A receiver read with no origin has no own file**, which is the state every hop after the first one is in: the
+    // class it landed on may live anywhere, and the index is the only thing that knows where.
+    expect(receiverTypeOf({ index, owners: ['Tree.sweep'] }, 'this.leaves')).toBeUndefined();
+    expect(receiverTypeOf({ index, owners: ['Tree.sweep'] }, 'leaf')).toBeUndefined();
+  });
+});
+
 describe('the classes the graph knows, and what a name with two answers means', () => {
   it('answers a member of a class one file declares', () => {
     const index = createClassIndex();
@@ -309,6 +428,266 @@ describe('the classes the graph knows, and what a name with two answers means', 
     );
     // A simple name two classes carry has no answer, and neither does any member of it.
     expect(classMemberOf(index, 'Index', 'buildIndex')).toBeUndefined();
+  });
+
+  it('reads a name from the one file the lookup imports, and refuses two', () => {
+    // **A name the file does not declare is decided by what the file imports**, and this is the arm that states it:
+    // one imported file that declares the name is evidence, two are the case with no evidence in it. The lookup's own
+    // file declares neither, so the answer can only come from the imports.
+    const index = createClassIndex();
+    mergeClassIndex(
+      index,
+      buildFileTypes([
+        declaration('Class', 'Index', undefined, {}, 1),
+        declaration('Method', 'build', 'Index', {}, 2),
+      ]),
+      'src/a/index.ts',
+    );
+    mergeClassIndex(
+      index,
+      buildFileTypes([
+        declaration('Class', 'Index', undefined, {}, 3),
+        declaration('Method', 'build', 'Index', {}, 4),
+      ]),
+      'src/b/index.ts',
+    );
+    expect(
+      classMemberOf(index, 'Index', 'build', {
+        file: 'caller.ts',
+        imported: new Set(['src/a/index.ts']),
+      }),
+    ).toEqual({ nodeId: 2, label: 'Method' });
+    // Two imports that both provide the name is a coin toss, and a coin toss is not a resolution.
+    expect(
+      classMemberOf(index, 'Index', 'build', {
+        file: 'caller.ts',
+        imported: new Set(['src/a/index.ts', 'src/b/index.ts']),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('refuses a member two bases declare at the same distance', () => {
+    // **A class with two parents that both declare `run` has no answer at this resolver's disposal**, and picking one
+    // would write the pick order into the graph. The nearest declaration wins only when there is one of them.
+    const index = createClassIndex();
+    mergeClassIndex(
+      index,
+      buildFileTypes([
+        declaration('Class', 'A', undefined, {}, 1),
+        declaration('Method', 'run', 'A', {}, 2),
+        declaration('Class', 'B', undefined, {}, 3),
+        declaration('Method', 'run', 'B', {}, 4),
+        declaration('Class', 'C', undefined, { baseClasses: 'A,B' }, 5),
+      ]),
+      'src/c.ts',
+    );
+    expect(classMemberOf(index, 'C', 'run')).toBeUndefined();
+  });
+
+  /**
+   * **A stub is a restatement, not a rival declaration.**
+   *
+   * `pallets/werkzeug@3.0.3` ships a `.pyi` beside almost every module, and both files declare `class Headers`. The
+   * index saw two files claiming one name and refused every member of it - so **33 class names in that one checkout**
+   * were unanswerable, and every `self.headers.get(...)` in `sansio/response.py` and `sansio/request.py` resolved to
+   * nothing while the annotation saying what `headers` is sat in the file being ignored. A stub has no bodies: the
+   * class is the half that does, which is the same rule `buildFileTypes` already applies to a class and an interface
+   * that merge under one name.
+   */
+  describe('a stub beside a module', () => {
+    it('answers from the module when the module was indexed first', () => {
+      const index = createClassIndex();
+      mergeClassIndex(
+        index,
+        buildFileTypes([
+          declaration('Class', 'Headers', undefined, {}, 1),
+          declaration('Method', 'get', 'Headers', {}, 2),
+        ]),
+        'src/werkzeug/datastructures/headers.py',
+      );
+      // The stub declares the same class and no body, so it answers nothing of its own.
+      mergeClassIndex(
+        index,
+        buildFileTypes([
+          declaration('Class', 'Headers', undefined, {}, 3),
+          declaration('Method', 'get', 'Headers', {}, 4),
+        ]),
+        'src/werkzeug/datastructures/headers.pyi',
+      );
+      expect(classMemberOf(index, 'Headers', 'get')).toEqual({ nodeId: 2, label: 'Method' });
+    });
+
+    it('answers from the module when the stub was indexed first', () => {
+      // **The order is the filesystem's, not the rule's**, and a rule that only worked when the module came first
+      // would answer a directory walk rather than a question about types.
+      const index = createClassIndex();
+      mergeClassIndex(
+        index,
+        buildFileTypes([
+          declaration('Class', 'Headers', undefined, {}, 3),
+          declaration('Method', 'get', 'Headers', {}, 4),
+        ]),
+        'src/werkzeug/datastructures/headers.pyi',
+      );
+      mergeClassIndex(
+        index,
+        buildFileTypes([
+          declaration('Class', 'Headers', undefined, {}, 1),
+          declaration('Method', 'get', 'Headers', {}, 2),
+        ]),
+        'src/werkzeug/datastructures/headers.py',
+      );
+      expect(classMemberOf(index, 'Headers', 'get')).toEqual({ nodeId: 2, label: 'Method' });
+    });
+
+    it('still refuses a stub of a different module, and two modules', () => {
+      // **The stub has to be *this module's***. A name in `vendor/headers.pyi` says nothing about `types/headers.py`,
+      // and reading them as one class would be the coincidence this module refuses everywhere else.
+      const index = createClassIndex();
+      mergeClassIndex(
+        index,
+        buildFileTypes([declaration('Class', 'Headers', undefined, {}, 1)]),
+        'src/types/headers.py',
+      );
+      mergeClassIndex(
+        index,
+        buildFileTypes([declaration('Class', 'Headers', undefined, {}, 2)]),
+        'vendor/headers.pyi',
+      );
+      expect(classMemberOf(index, 'Headers', 'get')).toBeUndefined();
+      // Two stubs are two stubs: neither is the half with bodies.
+      const stubs = createClassIndex();
+      mergeClassIndex(
+        stubs,
+        buildFileTypes([declaration('Class', 'Headers', undefined, {}, 1)]),
+        'src/a/headers.pyi',
+      );
+      mergeClassIndex(
+        stubs,
+        buildFileTypes([declaration('Class', 'Headers', undefined, {}, 2)]),
+        'src/b/headers.pyi',
+      );
+      expect(classMemberOf(stubs, 'Headers', 'get')).toBeUndefined();
+    });
+
+    it('answers from a stub whose module is not in the checkout', () => {
+      // **A library shipped as stubs alone is a class with no other half**, and the rule is about which of two
+      // declarations is the body, not about refusing every `.pyi`.
+      const index = createClassIndex();
+      mergeClassIndex(
+        index,
+        buildFileTypes([
+          declaration('Class', 'Headers', undefined, {}, 1),
+          declaration('Method', 'get', 'Headers', {}, 2),
+        ]),
+        'types/headers.pyi',
+      );
+      expect(classMemberOf(index, 'Headers', 'get')).toEqual({ nodeId: 2, label: 'Method' });
+    });
+
+    it('reads the same rule for TypeScript’s declaration files', () => {
+      // `.d.ts` is the same construct in the language the product is written in, and `.d.mts`/`.d.cts` are the two
+      // extensions the compiler introduced with the module system - all three restate a module rather than rival it.
+      const index = createClassIndex();
+      mergeClassIndex(
+        index,
+        buildFileTypes([declaration('Class', 'Index', undefined, {}, 1)]),
+        'src/index.d.ts',
+      );
+      mergeClassIndex(
+        index,
+        buildFileTypes([
+          declaration('Class', 'Index', undefined, {}, 2),
+          declaration('Method', 'build', 'Index', {}, 3),
+        ]),
+        'src/index.ts',
+      );
+      expect(classMemberOf(index, 'Index', 'build')).toEqual({ nodeId: 3, label: 'Method' });
+      const esm = createClassIndex();
+      mergeClassIndex(
+        esm,
+        buildFileTypes([
+          declaration('Class', 'Index', undefined, {}, 1),
+          declaration('Method', 'build', 'Index', {}, 2),
+        ]),
+        'src/index.mts',
+      );
+      mergeClassIndex(
+        esm,
+        buildFileTypes([declaration('Class', 'Index', undefined, {}, 3)]),
+        'src/index.d.mts',
+      );
+      expect(classMemberOf(esm, 'Index', 'build')).toEqual({ nodeId: 2, label: 'Method' });
+    });
+
+    it('matches a module and its stub at the root, and a name with no extension', () => {
+      // **The rule reads the file name, not the depth of the path, and not the shape of an extension.** A root-level
+      // `headers.pyi` is the stub of a root-level `headers.py` - a directory with no name is still one directory - and
+      // a module whose file carries no extension has a stem that is its whole name. Both answers come from the same
+      // two functions, and neither of them assumes a separator or a dot is there.
+      const flat = createClassIndex();
+      mergeClassIndex(
+        flat,
+        buildFileTypes([
+          declaration('Class', 'Headers', undefined, {}, 1),
+          declaration('Method', 'get', 'Headers', {}, 2),
+        ]),
+        'headers.pyi',
+      );
+      mergeClassIndex(
+        flat,
+        buildFileTypes([
+          declaration('Class', 'Headers', undefined, {}, 3),
+          declaration('Method', 'get', 'Headers', {}, 4),
+        ]),
+        'headers',
+      );
+      // The half with bodies is the answer, and it is here the one whose name carries no dot.
+      expect(classMemberOf(flat, 'Headers', 'get')).toEqual({ nodeId: 4, label: 'Method' });
+    });
+  });
+
+  /**
+   * **A member written twice is one name, because a call writes a name.**
+   *
+   * `redis/ioredis@5.4.2` declares `info` eleven times and `cluster` forty-two - overload signatures on the
+   * `RedisCommander` interface - and `colinhacks/zod` declares `ContractTable.info` twice the same way. Every one of
+   * those names was filed as `@ambiguous`, so `this.info(…)` and `this.cluster(…)` resolved to nothing. The last
+   * declaration of one kind is the one that runs, which is why an overload block ends with the body it describes.
+   */
+  it('files a member declared twice under one name as one member', () => {
+    const facts = buildFileTypes([
+      declaration('Class', 'Commander', undefined, {}, 1),
+      declaration('Method', 'info', 'Commander', {}, 2),
+      declaration('Method', 'info', 'Commander', {}, 3),
+      declaration('Method', 'get', 'Commander', {}, 4),
+    ]);
+    expect(facts.members.get('Commander')?.get('info')).toEqual({ nodeId: 3, label: 'Method' });
+    expect(facts.members.get('Commander')?.get('get')).toEqual({ nodeId: 4, label: 'Method' });
+  });
+
+  it('still refuses one name that two kinds of declaration claim', () => {
+    // A method and a function of the same name are two different things to call, and a call naming it has no answer.
+    const facts = buildFileTypes([
+      declaration('Class', 'Commander', undefined, {}, 1),
+      declaration('Method', 'info', 'Commander', {}, 2),
+      declaration('Function', 'info', 'Commander', {}, 3),
+    ]);
+    expect(facts.members.get('Commander')?.get('info')).toBeUndefined();
+    expect(facts.members.get('Commander')?.has('info\u0000ambiguous')).toBe(true);
+    // **And the refusal holds through the index**, which is where a call actually asks: the marker is what stops a
+    // refused name from being read back as a member with no node.
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, 'commander.ts');
+    expect(classMemberOf(index, 'Commander', 'info')).toBeUndefined();
+    // And a third declaration does not undo the refusal.
+    const later = buildFileTypes([
+      declaration('Class', 'Commander', undefined, {}, 1),
+      declaration('Method', 'info', 'Commander', {}, 2),
+      declaration('Function', 'info', 'Commander', {}, 3),
+      declaration('Method', 'info', 'Commander', {}, 4),
+    ]);
+    expect(later.members.get('Commander')?.get('info')).toBeUndefined();
   });
 
   it('spells a declaration the way the graph does', () => {

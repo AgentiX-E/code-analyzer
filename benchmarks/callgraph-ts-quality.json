@@ -109,16 +109,16 @@
         "graphRecursion": 1
       },
       "expectedPairs": 270,
-      "claimedPairs": 234,
+      "claimedPairs": 243,
       "precision": {
-        "correct": 234,
+        "correct": 243,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 234,
-        "missed": 36,
-        "value": 0.8667
+        "found": 243,
+        "missed": 27,
+        "value": 0.9
       },
       "byArm": {
         "import": {
@@ -127,8 +127,8 @@
           "precision": 1
         },
         "inherited": {
-          "claimed": 108,
-          "correct": 108,
+          "claimed": 110,
+          "correct": 110,
           "precision": 1
         },
         "namespace": {
@@ -137,8 +137,8 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 74,
-          "correct": 74,
+          "claimed": 82,
+          "correct": 82,
           "precision": 1
         },
         "sameFile": {
@@ -149,7 +149,7 @@
       },
       "callers": {
         "oracle": 127,
-        "graph": 112,
+        "graph": 114,
         "graphOnly": 0,
         "ownersWithAnyCall": 169
       },
@@ -159,17 +159,17 @@
         "DataHandler.ts|handleSubscriberReply|types.ts|resolve",
         "DataHandler.ts|returnReply|types.ts|resolve",
         "Script.ts|toWritable|Command.ts|toWritable",
-        "connectors/SentinelConnector/FailoverDetector.ts|subscribe|connectors/SentinelConnector/types.ts|on",
+        "cluster/ConnectionPool.ts|findOrCreate|utils/RedisCommander.ts|readonly",
+        "cluster/ConnectionPool.ts|reset|Redis.ts|disconnect",
+        "cluster/index.ts|closeListener|cluster/index.ts|invokeReadyDelayedCallbacks",
+        "cluster/index.ts|quit|utils/RedisCommander.ts|quit",
         "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|next",
         "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|reset",
         "connectors/SentinelConnector/index.ts|constructor|connectors/AbstractConnector.ts|AbstractConnector",
         "connectors/SentinelConnector/index.ts|disconnect|connectors/AbstractConnector.ts|disconnect",
         "connectors/SentinelConnector/index.ts|initFailoverDetector|connectors/SentinelConnector/types.ts|on",
-        "connectors/SentinelConnector/index.ts|resolveMaster|connectors/SentinelConnector/types.ts|sentinel",
-        "connectors/SentinelConnector/index.ts|resolveSlave|connectors/SentinelConnector/types.ts|sentinel",
         "connectors/SentinelConnector/index.ts|resolve|connectors/SentinelConnector/types.ts|disconnect",
         "connectors/SentinelConnector/index.ts|resolve|connectors/SentinelConnector/types.ts|on",
-        "connectors/SentinelConnector/index.ts|updateSentinels|connectors/SentinelConnector/types.ts|sentinel",
         "connectors/StandaloneConnector.ts|constructor|connectors/AbstractConnector.ts|AbstractConnector"
       ]
     }

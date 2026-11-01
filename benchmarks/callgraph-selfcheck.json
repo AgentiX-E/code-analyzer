@@ -12,46 +12,46 @@
     "packages/vscode/src",
     "packages/web/src"
   ],
-  "nodes": 119787,
+  "nodes": 120006,
   "byLabel": {
-    "Folder": 125,
-    "File": 1014,
-    "Variable": 53521,
-    "Function": 2587,
-    "Class": 565,
-    "Method": 2595,
+    "Folder": 129,
+    "File": 1026,
+    "Variable": 53596,
+    "Function": 2606,
+    "Class": 570,
+    "Method": 2605,
     "Constructor": 173,
-    "Interface": 1129,
+    "Interface": 1131,
     "TypeAlias": 136,
     "Route": 228,
     "Tool": 64,
-    "Community": 57643,
+    "Community": 57735,
     "Module": 3,
     "Enum": 4
   },
   "calls": {
-    "edges": 6425,
-    "distinctSites": 6366,
-    "repeatedEdges": 59,
-    "share": 0.0092
+    "edges": 6453,
+    "distinctSites": 6392,
+    "repeatedEdges": 61,
+    "share": 0.0095
   },
   "byLanguage": {
     "typescript": {
-      "edges": 6422,
-      "withReceiver": 3301
+      "edges": 6447,
+      "withReceiver": 3310
     },
     "python": {
-      "edges": 3,
-      "withReceiver": 0
+      "edges": 6,
+      "withReceiver": 2
     }
   },
   "byArm": {
-    "inherited": 2265,
-    "receiverType": 938,
-    "sameFile": 2221,
+    "inherited": 2269,
+    "receiverType": 943,
+    "sameFile": 2238,
     "import": 964,
     "namespace": 1,
-    "static": 35,
+    "static": 37,
     "super": 1
   },
   "untagged": 0

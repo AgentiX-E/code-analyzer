@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-11-01T11:00:27.224Z",
+  "measuredAt": "2026-11-01T13:05:36.876Z",
   "languages": ["python", "typescript"],
   "corpora": [
     {
@@ -29,9 +29,9 @@
       "repo": "colinhacks/zod",
       "package": "src",
       "language": "typescript",
-      "indexedMs": 4585,
-      "nodes": 19193,
-      "edges": 26503,
+      "indexedMs": 4503,
+      "nodes": 19192,
+      "edges": 26507,
       "roots": 1008,
       "rootsByKind": {
         "published": 792,
@@ -185,9 +185,9 @@
       "repo": "pallets/flask",
       "package": "src/flask",
       "language": "python",
-      "indexedMs": 2223,
-      "nodes": 10749,
-      "edges": 13388,
+      "indexedMs": 2233,
+      "nodes": 10748,
+      "edges": 13391,
       "roots": 1357,
       "rootsByKind": {
         "entry": 632,
@@ -196,9 +196,9 @@
         "route": 5
       },
       "considered": 1564,
-      "callEdges": 449,
+      "callEdges": 452,
       "oursDead": 3,
-      "publishedRescued": 90,
+      "publishedRescued": 89,
       "competitor": "vulture",
       "competitorVersion": "vulture 2.16",
       "competitorTotal": 64,
@@ -630,9 +630,9 @@
       "repo": "pallets/werkzeug",
       "package": "src/werkzeug",
       "language": "python",
-      "indexedMs": 4459,
-      "nodes": 22798,
-      "edges": 30207,
+      "indexedMs": 4477,
+      "nodes": 22778,
+      "edges": 30247,
       "roots": 2347,
       "rootsByKind": {
         "entry": 715,
@@ -641,9 +641,9 @@
         "route": 1
       },
       "considered": 2326,
-      "callEdges": 1882,
+      "callEdges": 1921,
       "oursDead": 2,
-      "publishedRescued": 230,
+      "publishedRescued": 225,
       "competitor": "vulture",
       "competitorVersion": "vulture 2.16",
       "competitorTotal": 207,
@@ -1901,9 +1901,9 @@
       "repo": "redis/ioredis",
       "package": "lib",
       "language": "typescript",
-      "indexedMs": 90454,
-      "nodes": 99006,
-      "edges": 452998,
+      "indexedMs": 91025,
+      "nodes": 99003,
+      "edges": 453024,
       "roots": 320,
       "rootsByKind": {
         "entry": 30,
@@ -1912,9 +1912,9 @@
         "route": 4
       },
       "considered": 2290,
-      "callEdges": 359,
+      "callEdges": 367,
       "oursDead": 0,
-      "publishedRescued": 1768,
+      "publishedRescued": 1763,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 42,
@@ -2227,7 +2227,7 @@
       "language": "python",
       "package": "src/flask",
       "findings": 3,
-      "published": 90,
+      "published": 89,
       "oracleUniverse": 37,
       "oracleDead": 1,
       "precision": 0.3333333333333333,
@@ -2241,7 +2241,7 @@
       "language": "python",
       "package": "src/werkzeug",
       "findings": 2,
-      "published": 230,
+      "published": 225,
       "oracleUniverse": 107,
       "oracleDead": 1,
       "precision": 0.5,
@@ -2269,7 +2269,7 @@
       "language": "typescript",
       "package": "lib",
       "findings": 0,
-      "published": 1768,
+      "published": 1763,
       "oracleUniverse": 69,
       "oracleDead": 1,
       "precision": null,
@@ -2285,5 +2285,5 @@
     "competitor": 271,
     "ratio": 0.01845018450184502
   },
-  "typescriptMeasuredAt": "2026-11-01T11:02:20.674Z"
+  "typescriptMeasuredAt": "2026-11-01T13:07:27.185Z"
 }

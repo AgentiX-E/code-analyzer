@@ -270,14 +270,26 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       bucket = new Map();
       members.set(className, bucket);
     }
-    // **Two members with one name is not an ambiguity to resolve here** - it is a name this class cannot answer for,
-    // and both declarations are dropped rather than one of them being picked.
-    if (bucket.has(name) || bucket.has(`${name}\u0000ambiguous`)) {
+    const entry = { nodeId: declaration.nodeId, label: declaration.kind };
+    // **A name already refused stays refused.** The third declaration of a name two kinds of declaration claim says
+    // nothing about the first two, and resurrecting it would make the answer depend on the order of the walk.
+    if (bucket.has(`${name}\u0000ambiguous`)) return;
+    const known = bucket.get(name);
+    // **Two declarations of one name are one name, and the last one is the one that runs.** `redis/ioredis@5.4.2`
+    // declares `info` eleven times on the `RedisCommander` interface and `cluster` forty-two - overload signatures,
+    // which are one member with several shapes. Refusing the name meant every `this.info(…)`, `this.cluster(…)`,
+    // `this.quit(…)` and `this.readonly(…)` in that checkout resolved to nothing, which is what an overload costs
+    // when a resolver treats a spelling as an identity.
+    //
+    // **Two kinds under one name are still two answers.** A method and a field that share a spelling are different
+    // things to read, so the name is dropped rather than one of them being picked - the same refusal, for the same
+    // reason, as before.
+    if (known !== undefined && known.label !== declaration.kind) {
       bucket.delete(name);
-      bucket.set(`${name}\u0000ambiguous`, { nodeId: declaration.nodeId, label: declaration.kind });
+      bucket.set(`${name}\u0000ambiguous`, entry);
       return;
     }
-    bucket.set(name, { nodeId: declaration.nodeId, label: declaration.kind });
+    bucket.set(name, entry);
   };
 
   for (const declaration of declarations) {
@@ -607,26 +619,112 @@ export interface LocatedClass {
   readonly declared: Declared;
 }
 
-/** Where a lookup is written: the file, and the files it imports. */
+/** Where a lookup is written: the file, the files it imports, and the names those imports publish. */
 export interface LookupOrigin {
   readonly file?: string;
   readonly imported?: ReadonlySet<string>;
+  /**
+   * A name this file imports → **the file that finally declares it**, with the import chain already walked.
+   *
+   * **Stronger evidence than `imported`, and it is the only evidence for a package.** A file that writes
+   * `from werkzeug.wrappers import Request` imports `wrappers/__init__.py`, which declares no `Request` at all - it
+   * publishes one it imported from `wrappers/request.py`. `imported` can only say "these files are related to this
+   * one", and in a checkout that also declares `Request` in `sansio/` that is not enough to pick either. The name is
+   * what the import binds, so the name is what the map is keyed by.
+   */
+  readonly published?: ReadonlyMap<string, string>;
 }
 
 export function createClassIndex(): ClassIndex {
   return { classes: new Map(), files: new Map() };
 }
 
-/** Fold one file's classes into the index, **marking a name a second file also declares as ambiguous**. */
+/**
+ * The extensions a **stub** is written with: a file that restates a module's types and declares no body.
+ *
+ * `.pyi` is Python's, and the three TypeScript ones are `.d.ts` plus the pair the compiler introduced with the module
+ * system. A stub is not a second module: `pallets/werkzeug@3.0.3` ships one beside almost every file, and both halves
+ * declare `class Headers`.
+ */
+const STUB_SUFFIX = /\.(pyi|d\.ts|d\.mts|d\.cts)$/;
+
+/** The file name, which is the only part of a path the stub rule reads. */
+function fileNameOf(filePath: string): string {
+  return filePath.slice(filePath.lastIndexOf('/') + 1);
+}
+
+/** Whether a file is a stub rather than the module it restates. */
+function isStubFile(filePath: string): boolean {
+  return STUB_SUFFIX.test(fileNameOf(filePath));
+}
+
+/**
+ * The name a module and its stub share: `headers.py` and `headers.pyi` are both `headers`, and so are `index.d.ts`
+ * and `index.mts`.
+ */
+function stemOf(filePath: string): string {
+  const name = fileNameOf(filePath);
+  const stub = STUB_SUFFIX.exec(name);
+  if (stub !== null) return name.slice(0, stub.index);
+  const dot = name.lastIndexOf('.');
+  return dot === -1 ? name : name.slice(0, dot);
+}
+
+/** The directory a file is in, or the empty string for a path with no separator. */
+function directoryOf(filePath: string): string {
+  const cut = filePath.lastIndexOf('/');
+  return cut === -1 ? '' : filePath.slice(0, cut);
+}
+
+/**
+ * Whether `stub` is `module`'s stub - **the same directory and the same stem, one a restatement of the other**.
+ *
+ * **The sibling requirement is the evidence.** A stub is by definition written beside the module it describes, so
+ * `src/werkzeug/datastructures/headers.pyi` says something about `…/headers.py` and `vendor/headers.pyi` says nothing
+ * about `src/types/headers.py`. Without it, this rule would be "the name in any `.pyi` is weaker than the name in any
+ * source file", which merges two unrelated classes and answers a call with a method that does not run.
+ */
+function isStubOfModule(stub: string, module: string): boolean {
+  return (
+    isStubFile(stub) &&
+    !isStubFile(module) &&
+    directoryOf(stub) === directoryOf(module) &&
+    stemOf(stub) === stemOf(module)
+  );
+}
+
+/**
+ * Fold one file's classes into the index, **marking a name a second file also declares as ambiguous**.
+ *
+ * **A stub is the exception, because it is not a second declaration.** `pallets/werkzeug@3.0.3` declares `class
+ * Headers` in `datastructures/headers.py` and again in `datastructures/headers.pyi`, and treating those as two classes
+ * made **33 class names in that one checkout** unanswerable - so `self.headers.get(...)` in `sansio/response.py` and
+ * `sansio/request.py`, whose annotation `headers: Headers` sits four lines above the class, resolved to nothing. The
+ * class is the half with bodies, which is the rule `buildFileTypes` already applies to the class-and-interface pair
+ * one file can merge under one name; the difference here is only which half is findable from the file name.
+ *
+ * **Order-independent on purpose.** A directory walk may reach either file first, and a rule that answered only when
+ * the module came first would be describing the filesystem rather than the types.
+ */
 export function mergeClassIndex(index: ClassIndex, types: FileTypes, filePath: string): void {
   index.files.set(filePath, types);
   for (const [className, declared] of types.classes) {
     const known = index.classes.get(className);
-    if (known !== undefined && known !== 'ambiguous' && known.file !== filePath) {
-      index.classes.set(className, 'ambiguous');
+    if (known === undefined) {
+      index.classes.set(className, { file: filePath, name: className, declared });
       continue;
     }
-    index.classes.set(className, { file: filePath, name: className, declared });
+    // **Two answers already, or the same one twice.** An ambiguous name stays ambiguous and a repeated file changes
+    // nothing: both are states this fold has already decided.
+    if (known === 'ambiguous' || known.file === filePath) continue;
+    // This file is the stub of the class already indexed, so it contributes no class.
+    if (isStubOfModule(filePath, known.file)) continue;
+    // The class already indexed was the stub, and this file is the module it restates: the body wins.
+    if (isStubOfModule(known.file, filePath)) {
+      index.classes.set(className, { file: filePath, name: className, declared });
+      continue;
+    }
+    index.classes.set(className, 'ambiguous');
   }
 }
 
@@ -638,6 +736,11 @@ function locateClass(
 ): LocatedClass | undefined {
   const own = ownClassOf(index, origin?.file, className);
   if (own !== undefined) return own;
+  // **The name the file imported, before any file the file imports.** A package publishes a name it does not
+  // declare, so the second loop below cannot see it; and the answer here is a statement about *this* name rather than
+  // about a neighbourhood, which is why it is asked first.
+  const published = ownClassOf(index, origin?.published?.get(className), className);
+  if (published !== undefined) return published;
   const imported: LocatedClass[] = [];
   for (const file of origin?.imported ?? []) {
     const found = ownClassOf(index, file, className);

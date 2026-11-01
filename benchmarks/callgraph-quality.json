@@ -21,16 +21,16 @@
         "excludedForDuplicateName": 38
       },
       "expectedPairs": 340,
-      "claimedPairs": 338,
+      "claimedPairs": 340,
       "precision": {
-        "correct": 332,
-        "wrong": 6,
-        "value": 0.9822
+        "correct": 333,
+        "wrong": 7,
+        "value": 0.9794
       },
       "recall": {
-        "found": 332,
-        "missed": 8,
-        "value": 0.9765
+        "found": 333,
+        "missed": 7,
+        "value": 0.9794
       },
       "byArm": {
         "import": {
@@ -49,14 +49,14 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 5,
+          "claimed": 6,
           "correct": 5,
-          "precision": 1
+          "precision": 0.8333
         },
         "sameFile": {
-          "claimed": 134,
-          "correct": 131,
-          "precision": 0.9776
+          "claimed": 136,
+          "correct": 133,
+          "precision": 0.9779
         },
         "static": {
           "claimed": 2,
@@ -72,7 +72,7 @@
       "callers": {
         "oracle": 264,
         "graph": 234,
-        "graphOnly": 1,
+        "graphOnly": 2,
         "ownersWithAnyCall": 522,
         "graphCallers": 211
       },
@@ -80,16 +80,21 @@
         "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/app.py|Flask",
         "[import] tests/test_cli.py|test_find_best_app -> src/flask/app.py|Flask",
         "[import] tests/test_cli.py|test_with_appcontext -> src/flask/app.py|Flask",
+        "[receiverType] examples/celery/src/task_app/__init__.py|__call__ -> src/flask/app.py|app_context",
         "[sameFile] src/flask/helpers.py|decorator -> src/flask/helpers.py|stream_with_context",
         "[sameFile] tests/test_reqctx.py|test_session_dynamic_cookie_name -> tests/test_reqctx.py|PathAwareSessionInterface",
         "[sameFile] tests/test_reqctx.py|test_session_error_pops_context -> tests/test_reqctx.py|FailingSessionInterface"
       ],
       "wrongCauses": {
-        "owner-makes-no-such-call": 6
+        "owner-makes-no-such-call": 6,
+        "silent-receiver": 1
       },
       "wrongByArm": {
         "import": {
           "owner-makes-no-such-call": 3
+        },
+        "receiverType": {
+          "silent-receiver": 1
         },
         "sameFile": {
           "owner-makes-no-such-call": 3
@@ -98,7 +103,6 @@
       "missedSamples": [
         "src/flask/app.py|test_cli_runner|src/flask/testing.py|cls",
         "src/flask/app.py|test_client|src/flask/testing.py|cls",
-        "src/flask/cli.py|load_app|src/flask/cli.py|locate_app",
         "src/flask/cli.py|run_command|src/flask/cli.py|CertParamType",
         "src/flask/cli.py|run_command|src/flask/cli.py|SeparatedPathType",
         "tests/test_json.py|object_hook|tests/test_json.py|X",
@@ -125,16 +129,16 @@
         "excludedForDuplicateName": 268
       },
       "expectedPairs": 1295,
-      "claimedPairs": 1247,
+      "claimedPairs": 1277,
       "precision": {
-        "correct": 1224,
-        "wrong": 23,
-        "value": 0.9816
+        "correct": 1252,
+        "wrong": 25,
+        "value": 0.9804
       },
       "recall": {
-        "found": 1224,
-        "missed": 71,
-        "value": 0.9452
+        "found": 1252,
+        "missed": 43,
+        "value": 0.9668
       },
       "byArm": {
         "import": {
@@ -143,9 +147,9 @@
           "precision": 0.9935
         },
         "inherited": {
-          "claimed": 225,
-          "correct": 224,
-          "precision": 0.9956
+          "claimed": 235,
+          "correct": 233,
+          "precision": 0.9915
         },
         "namespace": {
           "claimed": 247,
@@ -153,9 +157,9 @@
           "precision": 0.9636
         },
         "receiverType": {
-          "claimed": 7,
-          "correct": 7,
-          "precision": 1
+          "claimed": 27,
+          "correct": 26,
+          "precision": 0.963
         },
         "sameFile": {
           "claimed": 328,
@@ -163,17 +167,17 @@
           "precision": 0.9512
         },
         "static": {
-          "claimed": 32,
-          "correct": 32,
+          "claimed": 35,
+          "correct": 35,
           "precision": 1
         }
       },
       "callers": {
         "oracle": 925,
-        "graph": 786,
-        "graphOnly": 9,
+        "graph": 797,
+        "graphOnly": 10,
         "ownersWithAnyCall": 988,
-        "graphCallers": 658
+        "graphCallers": 664
       },
       "wrongSamples": [
         "[import] examples/manage-cupoftee.py|make_app -> examples/cupoftee/application.py|make_app",
@@ -181,9 +185,11 @@
         "[import] examples/manage-plnt.py|sync -> examples/plnt/sync.py|sync",
         "[import] src/werkzeug/wrappers/response.py|force_type -> src/werkzeug/sansio/response.py|Response",
         "[import] tests/test_wsgi.py|app -> src/werkzeug/wrappers/response.py|Response",
+        "[inherited] src/werkzeug/local.py|__get__ -> src/werkzeug/local.py|bind_f",
         "[inherited] src/werkzeug/middleware/shared_data.py|get_file_loader -> src/werkzeug/middleware/shared_data.py|_opener",
         "[namespace] tests/test_utils.py|test_cached_property -> src/werkzeug/utils.py|cached_property",
         "[namespace] tests/test_utils.py|test_environ_property -> src/werkzeug/utils.py|environ_property",
+        "[receiverType] src/werkzeug/formparser.py|start_file_streaming -> src/werkzeug/datastructures/headers.py|get",
         "[sameFile] examples/coolmagic/utils.py|f -> examples/coolmagic/utils.py|TemplateResponse",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|createIconForConsole",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|openShell",
@@ -203,17 +209,23 @@
       "wrongCauses": {
         "owner-makes-no-such-call": 17,
         "resolves-elsewhere": 5,
-        "variable": 1
+        "variable": 1,
+        "external": 1,
+        "unknown": 1
       },
       "wrongByArm": {
         "import": {
           "resolves-elsewhere": 5
         },
         "inherited": {
-          "owner-makes-no-such-call": 1
+          "owner-makes-no-such-call": 1,
+          "external": 1
         },
         "namespace": {
           "owner-makes-no-such-call": 2
+        },
+        "receiverType": {
+          "unknown": 1
         },
         "sameFile": {
           "owner-makes-no-such-call": 14,

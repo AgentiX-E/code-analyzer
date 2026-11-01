@@ -91,9 +91,15 @@ export interface Call {
  * `undefined` only for an empty array, and a `split` always produces at least one element - so the `?? ''` that used to
  * guard it was a branch no input could reach, which is a statement the coverage gate would have asked to be *tested*
  * rather than deleted. `slice` from the last separator has no such branch and answers the same thing.
+ *
+ * **And a property is not a string until one has been read as a string.** `String(x ?? '')` looks like the same
+ * expression, but the type of `unknown ?? ''` is `{}` - the null and undefined members are what `??` removed - so the
+ * call reads as a stringification of an object. Narrowing on `typeof` says what the property is, and the branch it
+ * adds is one a test can reach: a node whose path was never filed.
  */
 function fileNameOf(node: { readonly properties?: Record<string, unknown> } | undefined): string {
-  const path = String(node?.properties?.['filePath'] ?? '');
+  const filed = node?.properties?.['filePath'];
+  const path = typeof filed === 'string' ? filed : '';
   return path.slice(path.lastIndexOf('/') + 1);
 }
 

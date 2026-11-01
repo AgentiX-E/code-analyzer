@@ -53,6 +53,9 @@ interface Resolved {
  * The index keeps the first declaration and then replaces it with `ambiguous` on the second — a name declared twice
  * in one file (`get` in two classes, `value` in two branches) has no static answer, and picking the first is how a
  * call graph acquires edges nobody can defend.
+ *
+ * **A member index is where that reasoning holds**, because it mixes every class in the file: `get` declared on two
+ * unrelated classes is two answers, and the class chain - not this map - is what decides which one a `self.get()` runs.
  */
 function keepUnique(
   index: Map<string, Resolved | 'ambiguous'>,
@@ -60,6 +63,34 @@ function keepUnique(
   resolved: Resolved,
 ): void {
   if (index.has(name)) {
+    index.set(name, 'ambiguous');
+    return;
+  }
+  index.set(name, resolved);
+}
+
+/**
+ * Record a module-level declaration under a name, **and let the last one of one kind win**.
+ *
+ * **A call writes a name, not a signature.** `flask/cli.py` declares `def locate_app(...)` three times - two
+ * `@t.overload` stubs and the implementation - and the file's scope refused the name because it had three
+ * declarations, so the two calls in `load_app` resolved to nothing at all. Python and JavaScript agree on what such a
+ * name means: the last declaration in the scope is the one that runs, which is why an `@overload` block ends with the
+ * body it describes.
+ *
+ * **Two kinds under one name are still two answers.** A `class` and a `def` that share a spelling are different
+ * things to call, and a name that is both is a name this resolver has nothing to say about - the same refusal, for
+ * the same reason, that `keepUnique` applies to everything.
+ */
+function keepLast(
+  index: Map<string, Resolved | 'ambiguous'>,
+  name: string,
+  resolved: Resolved,
+): void {
+  const known = index.get(name);
+  // **An ambiguity already reached is not undone by a later declaration.** The third declaration of a name that is
+  // both a class and a function says nothing about the first two.
+  if (known === 'ambiguous' || (known !== undefined && known.label !== resolved.label)) {
     index.set(name, 'ambiguous');
     return;
   }
@@ -107,6 +138,16 @@ interface FileScope {
    * kept callable bindings could not see the shadow that makes the receiver a value.
    */
   readonly bound: Set<string>;
+  /**
+   * Every name the module itself binds to something a call cannot reach - `const debug = Debug("redis")`.
+   *
+   * **The same fact `bound` records for a function body, asked one scope out.** `redis/ioredis` writes
+   * `const debug = Debug("redis")` at the top of `Redis.ts` and `cluster/index.ts`, and both files' classes inherit a
+   * `debug` member from `RedisCommander`. A bare `debug(…)` inside a method is the module's binding, and the class
+   * chain was answering it with the inherited member - **thirteen wrong claims on that corpus**, every one of them an
+   * edge from a call to a declaration the call cannot reach.
+   */
+  readonly values: Set<string>;
 }
 
 /**
@@ -377,8 +418,24 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       const reexportMap = new Map<string, Array<{ target: string; names: Map<string, string> }>>();
       /** The module each namespace alias is bound to: `import * as z from "../index"` records `z -> src/index.ts`. */
       const namespaceModules = new Map<string, Map<string, string>>();
+      /**
+       * Every name a file imports, **whether or not the module it names was found**.
+       *
+       * **A binding is a binding even when the target is outside the checkout.** `Redis.sendCommand` writes
+       * `exists(command.name)`, and `exists` is imported from `@ioredis/commands` - a package that is not in the
+       * corpus, so no import edge exists and nothing can say where the call goes. What *can* be said is that the file
+       * bound the name, which is exactly what makes the bare call not a member of the enclosing class. Sixteen claims
+       * on that corpus were this shape: `debug` and `exists`, both imported, both answered by a class chain.
+       */
+      const importedNames = new Map<string, Set<string>>();
       if (crossFileData?.resolvedImports) {
         for (const imp of crossFileData.resolvedImports) {
+          let names = importedNames.get(imp.sourceFile);
+          if (names === undefined) {
+            names = new Set();
+            importedNames.set(imp.sourceFile, names);
+          }
+          for (const sym of imp.importedSymbols) names.add(sym);
           for (const resolvedFile of imp.resolvedFiles) {
             if (imp.reexport === true) {
               let entries = reexportMap.get(imp.sourceFile);
@@ -594,6 +651,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           local: new Map(),
           owner: new Map(),
           bound: new Set(),
+          values: new Set(),
         };
         fileScopes.set(filePath, scope);
         const holders = holdersOf(nodes);
@@ -635,7 +693,11 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           // question this answers - "is this receiver a value here?" - is asked about names a call cannot reach.
           if (!RESOLVABLE_KINDS.has(node.label)) {
             const enclosing = innermostContainerOf(node);
-            if (enclosing !== undefined) scope.bound.add(`${String(enclosing)}::${node.name}`);
+            // **A module-level value binding is a binding all the same.** `const debug = Debug("redis")` shadows the
+            // `debug` member an inherited class chain would otherwise answer, and it does so for every bare call in
+            // the file - which is the same statement `bound` makes about a function body, asked one scope out.
+            if (enclosing === undefined) scope.values.add(node.name);
+            else scope.bound.add(`${String(enclosing)}::${node.name}`);
             continue;
           }
           if (where === 'local') {
@@ -663,10 +725,12 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             }
             continue;
           }
-          keepUnique(where === 'member' ? scope.member : scope.module, node.name, {
-            nodeId: node.id,
-            label: node.label,
-          });
+          const entry = { nodeId: node.id, label: node.label };
+          if (where === 'member') {
+            keepUnique(scope.member, node.name, entry);
+          } else {
+            keepLast(scope.module, node.name, entry);
+          }
         }
       }
 
@@ -700,6 +764,70 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         mergeClassIndex(classIndex, facts, parsedFile.filePath);
       }
 
+      /**
+       * The file a name comes from when a module publishes a name it does not declare.
+       *
+       * **`from werkzeug.wrappers import Request` imports a package, and a package declares nothing.** The class is in
+       * `wrappers/request.py`, and the import says so only indirectly - `wrappers/__init__.py` re-exports it. Looked up
+       * globally, `Request` is declared twice in that checkout, once in `sansio/` and once in `wrappers/`, so the
+       * answer was "ambiguous" and **twelve** `Request.from_values(...)` calls in `tests/test_formparser.py` resolved
+       * to nothing.
+       *
+       * **Walked to the end, like every other published name in this resolver.** A barrel may re-export from another
+       * barrel; the walk stops at the file that declares the class, refuses a name two files both provide, and stops
+       * at a cycle - the same three exits the module's export chain has had since iteration 54.
+       */
+      const declaringFileMemo = new Map<string, string>();
+      const declaringFileOf = (
+        file: string,
+        name: string,
+        seen: Set<string>,
+      ): string | undefined => {
+        const key = `${file}\u0000${name}`;
+        const cached = declaringFileMemo.get(key);
+        if (cached !== undefined) return cached;
+        if (seen.has(key)) return undefined;
+        seen.add(key);
+        let answer: string | undefined;
+        if (classIndex.files.get(file)?.classes.has(name) === true) {
+          answer = file;
+        } else {
+          const candidates = new Set<string>();
+          for (const [target, names] of importMap.get(file) ?? []) {
+            if (!names.has(name)) continue;
+            const found = declaringFileOf(target, name, seen);
+            if (found !== undefined) candidates.add(found);
+          }
+          answer = candidates.size === 1 ? [...candidates][0] : undefined;
+        }
+        // **A miss is not memoised.** It is what a cycle looks like from inside, and caching it would make the answer
+        // depend on which file happened to be asked first.
+        if (answer !== undefined) declaringFileMemo.set(key, answer);
+        return answer;
+      };
+      const publishedMemo = new Map<string, ReadonlyMap<string, string>>();
+      const publishedNamesOf = (file: string): ReadonlyMap<string, string> => {
+        const known = publishedMemo.get(file);
+        if (known !== undefined) return known;
+        const published = new Map<string, string>();
+        const contested = new Set<string>();
+        for (const [target, names] of importMap.get(file) ?? []) {
+          for (const name of names) {
+            // **A wildcard import binds names this cannot enumerate**, and the two rules below still apply to it: the
+            // files it names are imported, and the class is unique or it is not answered.
+            if (name === '*') continue;
+            const declared = declaringFileOf(target, name, new Set());
+            if (declared === undefined) continue;
+            const previous = published.get(name);
+            if (previous !== undefined && previous !== declared) contested.add(name);
+            published.set(name, declared);
+          }
+        }
+        for (const name of contested) published.delete(name);
+        publishedMemo.set(file, published);
+        return published;
+      };
+
       for (const parsedFile of parseData.parsedFiles) {
         const fileNodeId = ctx.graph.fileIndex.get(parsedFile.filePath);
         if (!fileNodeId) continue;
@@ -710,7 +838,30 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         // and a checkout that vendors an example declaring another `App` makes the simple name ambiguous - the import
         // is what says which one the file means.
         const importedFiles = new Set(fileImports?.keys() ?? []);
-        const origin = { file: parsedFile.filePath, imported: importedFiles };
+        const origin = {
+          file: parsedFile.filePath,
+          imported: importedFiles,
+          published: publishedNamesOf(parsedFile.filePath),
+        };
+        /**
+         * The names this file binds to something imported, found or not.
+         *
+         * **A binding the resolver cannot follow still shadows what it cannot see.** `exists(command.name)` in
+         * `redis/ioredis`'s `Redis.sendCommand` names a function of `@ioredis/commands`, a package the corpus does not
+         * contain - so nothing resolves the call and the graph can only say it goes somewhere outside. What it must
+         * not say is that it calls `RedisCommander.exists`, which is a member of an interface on the same name.
+         */
+        const importedNamesHere = importedNames.get(parsedFile.filePath);
+        const fileScope = fileScopes.get(parsedFile.filePath);
+        /**
+         * Whether the file binds this name to something a call cannot reach - an import, or a module-level value.
+         *
+         * **A binding shadows a member, and the two are the same question.** A language with implicit `this` reads
+         * `m()` as `this.m()` only when nothing else binds `m`; the file's own imports and its own module-level values
+         * are what do bind it.
+         */
+        const bindsBareName = (name: string): boolean =>
+          importedNamesHere?.has(name) === true || fileScope?.values.has(name) === true;
 
         /**
          * The callables of this file, **narrowest first**.
@@ -1050,7 +1201,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               // that of exactly the class chain. What is left here is the module scope a bare call reaches, which is a
               // different question and belongs to this arm.
               const member =
-                ref.receiver === undefined
+                ref.receiver === undefined && !bindsBareName(ref.targetName)
                   ? resolvable(scope?.member.get(ref.targetName))
                   : undefined;
               const module = resolvable(scope?.module.get(ref.targetName));
@@ -1113,9 +1264,14 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             let inheritedFrom: string | undefined;
             if (!target) {
               const sup = ref.receiver !== undefined && isSuperReceiver(ref.receiver);
+              // **A bare call is own-scope only where the language gives a method implicit `this`, and only where
+              // nothing the file imports binds the name.** `exists(command.name)` in `redis/ioredis`'s
+              // `Redis.sendCommand` is a package's function; the file imports it, and the class-chain arm was answering
+              // it with `RedisCommander.exists` - a member of an interface, from a call that runs something else. An
+              // import is a binding, and a binding shadows the class's member exactly as a local does.
               const ownScope =
                 ref.receiver === undefined
-                  ? hasImplicitThis(parsedFile.language)
+                  ? hasImplicitThis(parsedFile.language) && !bindsBareName(ref.targetName)
                   : isOwnScopeCall(ref.receiver);
               if (sup || ownScope) {
                 const ownerClass = enclosingClassOf(ref.sourceLine);

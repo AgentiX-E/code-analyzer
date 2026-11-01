@@ -34,6 +34,7 @@ import ast
 import builtins
 import collections
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -921,6 +922,13 @@ def main() -> int:
     true_positive = len(claimed & expected)
     false_positive = len(claimed - expected)
     missed = expected - claimed
+    # **The stored report samples the misses; the diagnosis needs all of them.** Fifteen samples tell a reader what
+    # the shape looks like and say nothing about how many misses share a cause, so the full list is opt-in and stays
+    # out of the benchmark file. `scripts/callgraph-oracle-ts.mjs` prints the same line for the same reason, which is
+    # what lets one habit read both languages.
+    if os.environ.get("ORACLE_MISSED"):
+        for source, owner, target_file, callee in sorted(missed):
+            sys.stderr.write(f"MISSED {source}|{owner}|{target_file}|{callee}\n")
 
     def ratio(part: int, whole: int) -> float | None:
         return round(part / whole, 4) if whole else None
