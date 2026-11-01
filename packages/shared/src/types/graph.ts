@@ -391,6 +391,22 @@ export interface ResolvedImport {
   importedSymbols: string[];
   resolvedFiles: string[];
   semantics: ImportSemantics;
+  /**
+   * Whether the statement publishes another file's names rather than binding them here.
+   *
+   * **`export * from "./types"` binds nothing in the file that writes it.** A bare call in a barrel cannot reach the
+   * names of the module it re-exports, so an entry marked here must be kept out of the map the module's own calls
+   * resolve against - while a *consumer* of the barrel reaches exactly those names. One statement, two directions,
+   * and a flag is the only honest way to say which one a record describes.
+   */
+  reexport?: boolean;
+  /**
+   * The name the target declares, when the statement publishes it under a different one.
+   *
+   * `export { parse as go } from "./types"` is one name on each side of the arrow, and a consumer importing `go` is
+   * asking the target for `parse`. Absent when the two names are the same.
+   */
+  alias?: string;
 }
 
 // ---------------------------------------------------------------------------

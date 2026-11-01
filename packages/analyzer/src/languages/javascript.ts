@@ -395,6 +395,14 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       return;
     }
 
+    // `export * from "x"` and `export { a as b } from "x"`, which publish another module's names rather than binding
+    // them here. Read for the same reason the TypeScript provider reads it: a barrel is how a JavaScript library
+    // publishes its front door, and a name reached through one declares nothing in the file that re-exports it.
+    //
+    // **The subtree is still walked**, unlike the import arm's: an exported declaration can hold a `require("./x")`,
+    // and closing the walk over the statement to read its header would lose that import.
+    if (node.type === 'export_statement') this.extractReexport(node, imports);
+
     // require() calls
     if (node.type === 'call_expression') {
       for (let i = 0; i < node.childCount; i++) {
@@ -426,6 +434,56 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
 
     for (const child of childrenOf(node)) {
       this.walkForImports(child, imports);
+    }
+  }
+
+  /**
+   * The names an `export … from` publishes: `*` for the star form, and the exported name paired with the local one it
+   * renames.
+   *
+   * **A clause with no `from` is not a re-export**, and a `export * as ns from "x"` publishes one value - the module
+   * object - rather than the module's names, so neither is recorded here. The rules are the TypeScript provider's,
+   * stated once for both grammars because both are the same grammar's ESM subset.
+   */
+  private extractReexport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    let sourcePath = '';
+    let star = false;
+    const published: Array<{ readonly name: string; readonly local: string }> = [];
+
+    for (let index = 0; index < node.childCount; index++) {
+      const child = node.child(index);
+      if (child === null) continue;
+      if (child.type === 'string') {
+        sourcePath = child.text.slice(1, -1);
+        continue;
+      }
+      if (child.type === '*') {
+        star = true;
+        continue;
+      }
+      if (child.type !== 'export_clause') continue;
+      for (const specifier of childrenOf(child)) {
+        if (specifier.type !== 'export_specifier') continue;
+        const [local, alias] = namedChildrenOf(specifier);
+        if (local === undefined) continue;
+        published.push({ name: alias?.text ?? local.text, local: local.text });
+      }
+    }
+
+    if (sourcePath.length === 0) return;
+    const lineNumber = node.startPosition.row + 1;
+    if (star) {
+      imports.push({ source: sourcePath, names: ['*'], type: 'reexport', lineNumber });
+      return;
+    }
+    for (const entry of published) {
+      imports.push({
+        source: sourcePath,
+        names: [entry.name],
+        type: 'reexport',
+        alias: entry.local,
+        lineNumber,
+      });
     }
   }
 

@@ -545,6 +545,19 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         return;
       }
 
+      // **A barrel is not an import, and until it was read, every name behind one was unreachable.** `colinhacks/zod`
+      // publishes `parse` from `src/types.ts` through `src/external.ts` and then `src/index.ts`, so `z.parse(…)` in a
+      // test file names a file that declares no `parse` at all - and the twelve call pairs the checker expects there
+      // were answered by nothing. The statement to read is `export … from`, and its direction is the reverse of an
+      // import's, so it is captured as itself rather than as an import.
+      //
+      // **The subtree is not skipped**, unlike an import's: an exported declaration can hold a dynamic `import("./x")`,
+      // and closing the walk over the whole statement to read its header would lose that call.
+      if (type === 'export_statement') {
+        this.extractTypeScriptReexport(cursorNode<TreeSitterSyntaxNode>(cursor), imports);
+        return;
+      }
+
       // Dynamic imports: `import('x')` is a call whose callee is the `import` keyword.
       if (type === 'call_expression') {
         const node = cursorNode<TreeSitterSyntaxNode>(cursor);
@@ -629,6 +642,66 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
           });
         }
       }
+    }
+  }
+
+  /**
+   * The names a file publishes on another file's behalf: `export * from "x"` and `export { a as b } from "x"`.
+   *
+   * **The name recorded is the name a consumer writes, and the alias is the name the target declares.** `export
+   * { parse as go } from "./types"` publishes `go`; a consumer importing `go` from this file is asking the target for
+   * `parse`, so both halves have to be kept. The star form records `*`, which says "whatever the target exports".
+   *
+   * **Three things in the grammar are deliberately not re-exports.** `export { local }` with no `from` publishes a
+   * name this file already declares, and the file's own declaration index already answers it. `export * as ns` binds
+   * one value - the module object - rather than the module's names, so a consumer's `ns.member(…)` is a member of a
+   * *value* and belongs to the receiver-type rule, not here. And `export =` / `export default` publish a single
+   * unnamed thing, which no name-based lookup can ask for.
+   *
+   * **The anonymous `*` is read positionally**, because the grammar makes it a token rather than a named node:
+   * verified with a parser probe, not assumed - `export * from "x"` has a `*` child and no `export_clause`, while
+   * `export { a }` has an `export_clause` and no `*`.
+   */
+  private extractTypeScriptReexport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    let sourcePath = '';
+    let star = false;
+    const published: Array<{ readonly name: string; readonly local: string }> = [];
+
+    for (let index = 0; index < node.childCount; index++) {
+      const child = node.child(index);
+      if (child === null) continue;
+      if (child.type === 'string') {
+        sourcePath = child.text.slice(1, -1);
+        continue;
+      }
+      if (child.type === '*') {
+        star = true;
+        continue;
+      }
+      if (child.type !== 'export_clause') continue;
+      for (const specifier of childrenOf(child)) {
+        if (specifier.type !== 'export_specifier') continue;
+        const [local, alias] = namedChildrenOf(specifier);
+        if (local === undefined) continue;
+        published.push({ name: alias?.text ?? local.text, local: local.text });
+      }
+    }
+
+    // A clause with no source publishes names from this file, which the file's own index already holds.
+    if (sourcePath.length === 0) return;
+    const lineNumber = node.startPosition.row + 1;
+    if (star) {
+      imports.push({ source: sourcePath, names: ['*'], type: 'reexport', lineNumber });
+      return;
+    }
+    for (const entry of published) {
+      imports.push({
+        source: sourcePath,
+        names: [entry.name],
+        type: 'reexport',
+        alias: entry.local,
+        lineNumber,
+      });
     }
   }
 

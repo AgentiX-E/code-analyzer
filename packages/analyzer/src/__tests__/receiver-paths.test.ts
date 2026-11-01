@@ -13,101 +13,15 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { PipelineOrchestrator } from '../pipeline/orchestrator.js';
-import {
-  CrossFilePhase,
-  ParsePhase,
-  ScanPhase,
-  ScopeResolutionPhase,
-  StructurePhase,
-} from '../pipeline/phases/index.js';
+import { buildGraph, callsFrom, idOf, targets } from './support/pipeline-graph.js';
 
-import type { KnowledgeGraph, PipelineContext } from '@code-analyzer/shared';
-
-const FIXTURES = new URL('./fixtures/receiver-paths/', import.meta.url).pathname;
-
-/**
- * The graph of every fixture in `fixtures/receiver-paths/`, built once per test.
- *
- * Five phases and no more: scan, structure, parse, cross-file and scope resolution. Anything later would answer a
- * question these tests do not ask, and anything earlier would not have the edges they are about.
- */
-async function buildGraph(): Promise<KnowledgeGraph> {
-  const config = {
-    projectId: 'receiver-paths',
-    rootPath: FIXTURES,
-    ignorePaths: [],
-    excludePatterns: [],
-    includePatterns: [],
-    maxFileSize: 10 * 1024 * 1024,
-    maxFiles: 1000,
-    parseWorkers: 1,
-    cacheDir: '.code-analyzer-test',
-  };
-  const ctx = {
-    projectId: 'receiver-paths',
-    rootPath: FIXTURES,
-    graph: {
-      projectId: 'receiver-paths',
-      nodes: new Map(),
-      edges: new Map(),
-      qnameIndex: new Map(),
-      fileIndex: new Map(),
-    },
-    config,
-    phaseData: new Map<string, unknown>(),
-  } as unknown as PipelineContext;
-  await new PipelineOrchestrator([
-    new ScanPhase(),
-    new StructurePhase(),
-    new ParsePhase(),
-    new CrossFilePhase(),
-    new ScopeResolutionPhase(),
-  ]).execute(ctx);
-  return ctx.graph as KnowledgeGraph;
-}
-
-/** The id of the one node whose qualified name ends with `suffix`. */
-function idOf(graph: KnowledgeGraph, suffix: string): number {
-  const id = [...graph.nodes.values()].find(
-    (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
-  )?.id;
-  if (id === undefined) throw new Error(`no node named …${suffix}`);
-  return id;
-}
-
-/** Every call edge out of the declarations ending with `suffix`, as the target's last name and the arm that made it. */
-function callsFrom(
-  graph: KnowledgeGraph,
-  suffix: string,
-): Array<{ target: string; resolution: unknown }> {
-  const sources = [...graph.nodes.values()].filter(
-    (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
-  );
-  const out: Array<{ target: string; resolution: unknown }> = [];
-  for (const source of sources) {
-    for (const edge of graph.edges.values()) {
-      if (edge.type !== 'CALLS' || edge.sourceId !== source.id) continue;
-      const qualified = String(graph.nodes.get(edge.targetId)?.qualifiedName ?? '');
-      out.push({
-        target: qualified.slice(qualified.lastIndexOf(':') + 1),
-        resolution: edge.properties['resolution'],
-      });
-    }
-  }
-  return out;
-}
-
-/** The targets alone, for the tests that are about which calls exist rather than which rule answered. */
-function targets(graph: KnowledgeGraph, suffix: string): string[] {
-  return callsFrom(graph, suffix).map((call) => call.target);
-}
+import type { KnowledgeGraph } from '@code-analyzer/shared';
 
 describe('the receiver of a call, resolved through the declarations that spell it', () => {
   let graph: KnowledgeGraph;
 
   beforeEach(async () => {
-    graph = await buildGraph();
+    graph = await buildGraph('receiver-paths');
   });
 
   /** The call edge from one declaration to another, with the arm that produced it. */
@@ -199,22 +113,20 @@ describe('the class a `this` written inside a closure refers to', () => {
   let graph: KnowledgeGraph;
 
   beforeEach(async () => {
-    graph = await buildGraph();
+    graph = await buildGraph('receiver-paths');
   });
 
   it('finds the enclosing class through one arrow function', () => {
     // `const onReady = () => { this.bump() }` inside `Counter.connect` - the arrow keeps the method's `this`.
-    expect(callsFrom(graph, 'onReady')).toContainEqual({
-      target: 'Counter.bump',
-      resolution: 'inherited',
-    });
+    expect(callsFrom(graph, 'onReady')).toContainEqual(
+      expect.objectContaining({ target: 'Counter.bump', resolution: 'inherited' }),
+    );
   });
 
   it('finds it through an arrow inside a promise executor', () => {
-    expect(callsFrom(graph, 'onClose')).toContainEqual({
-      target: 'Counter.bump',
-      resolution: 'inherited',
-    });
+    expect(callsFrom(graph, 'onClose')).toContainEqual(
+      expect.objectContaining({ target: 'Counter.bump', resolution: 'inherited' }),
+    );
   });
 
   it('stops at a function expression, whose `this` the enclosing class does not decide', () => {
@@ -232,22 +144,20 @@ describe('the bases of a declaration that is written twice', () => {
   let graph: KnowledgeGraph;
 
   beforeEach(async () => {
-    graph = await buildGraph();
+    graph = await buildGraph('receiver-paths');
   });
 
   it('keeps the base the class names when an interface adds another one', () => {
     // The interface is written second, and replacing the base list with `Extra` is what made the call unanswerable.
-    expect(callsFrom(graph, 'Holder.constructor')).toContainEqual({
-      target: 'Commander.defineCommand',
-      resolution: 'inherited',
-    });
+    expect(callsFrom(graph, 'Holder.constructor')).toContainEqual(
+      expect.objectContaining({ target: 'Commander.defineCommand', resolution: 'inherited' }),
+    );
   });
 
   it('keeps the base the interface adds', () => {
-    expect(callsFrom(graph, 'Holder.callExtra')).toContainEqual({
-      target: 'Extra.extra',
-      resolution: 'inherited',
-    });
+    expect(callsFrom(graph, 'Holder.callExtra')).toContainEqual(
+      expect.objectContaining({ target: 'Extra.extra', resolution: 'inherited' }),
+    );
   });
 });
 
@@ -256,25 +166,23 @@ describe('the type of a binding a loop declares', () => {
   let graph: KnowledgeGraph;
 
   beforeEach(async () => {
-    graph = await buildGraph();
+    graph = await buildGraph('receiver-paths');
   });
 
   it('is the element type of a field the loop walks', () => {
     // `for (const leaf of this.leaves) leaf.disconnect()` where `leaves: Leaf[]` - ioredis's failover detector, and
     // the shape of every walk over a collection in the language.
-    expect(callsFrom(graph, 'Pool.resetField')).toContainEqual({
-      target: 'Leaf.disconnect',
-      resolution: 'receiverType',
-    });
+    expect(callsFrom(graph, 'Pool.resetField')).toContainEqual(
+      expect.objectContaining({ target: 'Leaf.disconnect', resolution: 'receiverType' }),
+    );
   });
 
   it('is the element type of an array written the other way round', () => {
     // `Array<Leaf>` is the same fact as `Leaf[]`, and a reader that only knew the first spelling would refuse half the
     // annotated arrays in any TypeScript codebase.
-    expect(callsFrom(graph, 'Pool.resetLocal')).toContainEqual({
-      target: 'Leaf.disconnect',
-      resolution: 'receiverType',
-    });
+    expect(callsFrom(graph, 'Pool.resetLocal')).toContainEqual(
+      expect.objectContaining({ target: 'Leaf.disconnect', resolution: 'receiverType' }),
+    );
   });
 
   it('is nothing at all when the loop walks an array literal', () => {

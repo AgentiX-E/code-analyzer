@@ -255,7 +255,19 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
     expect(
       [...arms].filter(
         (arm) =>
-          !['import', 'sameFile', 'static', 'inherited', 'super', 'receiverType'].includes(arm),
+          ![
+            'import',
+            'sameFile',
+            'static',
+            'inherited',
+            'super',
+            'receiverType',
+            // **A member of a module is not an imported name.** `cli.load_dotenv()` and `z.parse(…)` were recorded as
+            // `import` for as long as the arm existed, because that is the value the variable starts at; the arm is
+            // named now, which is what made its precision measurable - and measurable is how the four wrong edges on
+            // flask were found.
+            'namespace',
+          ].includes(arm),
       ),
     ).toEqual([]);
   });

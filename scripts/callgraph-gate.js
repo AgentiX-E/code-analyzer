@@ -59,13 +59,22 @@ const PYTHON_FLOORS = {
   // searching the class dict and then the MRO - but `callgraph-oracle.py` had no arm for a receiver that names a
   // class, so it answered `silent` and **7 correct edges on werkzeug were scored as 7 wrong claims**. The arm is in
   // the oracle now and the product answers 32 of the pairs it produces, all 32 correct.
+  //
+  // **The namespace arm has a floor now, because it has a name now.** `cli.load_dotenv()` and `z.parse(…)` were
+  // recorded as `import` for as long as the arm existed - the label was the variable's default rather than a statement
+  // about the rule - so the gate's `import` figure was an average of two rules and this one had nowhere to be measured.
+  // Separating them found the four edges that were wrong: `tests/test_cli.py` imports `cli` and then opens two tests
+  // with `def cli(): …` and `@cli.command()`, and the decorator names that local function. With the alias required to
+  // still be a module at the call site, flask's precision moved 97.1 % -> 98.2 % on 4 fewer claims and recall did not
+  // move at all.
   'pallets/flask': {
-    precision: 0.955,
+    precision: 0.98,
     recall: 0.965,
     claimed: 330,
     arms: {
       import: 0.9,
       inherited: 0.99,
+      namespace: 0.99,
       receiverType: 0.99,
       sameFile: 0.96,
       static: 0.99,
@@ -76,7 +85,14 @@ const PYTHON_FLOORS = {
     precision: 0.97,
     recall: 0.94,
     claimed: 1230,
-    arms: { import: 0.97, receiverType: 0.99, sameFile: 0.95, static: 0.99 },
+    arms: {
+      import: 0.97,
+      inherited: 0.99,
+      namespace: 0.96,
+      receiverType: 0.99,
+      sameFile: 0.95,
+      static: 0.99,
+    },
   },
 };
 
@@ -114,17 +130,22 @@ const TYPESCRIPT_FLOORS = {
   // the file. The question that rule was answering by accident is "which class does this `this` refer to", and the
   // answer is the scope chain: the nearest enclosing declaration whose container is a class, walked across the
   // declarations that keep the receiver and stopping at a `function` expression, which rebinds it.
+  // **Iteration 54 gave the resolver a module's export chain, and the arms below moved with it.** `z.parse(…)` in
+  // every test file of `colinhacks/zod` names `src/index.ts`, which re-exports `src/external.ts`, which re-exports
+  // `src/types.ts`; the resolver walked one hop and then answered nothing. A barrel is not one hop, so the chain is
+  // walked to its end, refusing a name two files publish and stopping at a cycle. Recall moved 79.1 % -> 80.6 % on zod
+  // and 85.2 % -> 86.7 % on ioredis with precision still 100 % on both.
   'colinhacks/zod': {
     precision: 0.99,
-    recall: 0.78,
+    recall: 0.8,
     claimed: 100,
-    arms: { import: 0.99, inherited: 0.99, sameFile: 0.99, receiverType: 0.99 },
+    arms: { import: 0.99, inherited: 0.99, namespace: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
   'redis/ioredis': {
     precision: 0.99,
-    recall: 0.85,
+    recall: 0.86,
     claimed: 230,
-    arms: { import: 0.99, inherited: 0.99, sameFile: 0.99, receiverType: 0.99 },
+    arms: { import: 0.99, inherited: 0.99, namespace: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
 };
 

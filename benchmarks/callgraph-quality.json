@@ -21,11 +21,11 @@
         "excludedForDuplicateName": 38
       },
       "expectedPairs": 340,
-      "claimedPairs": 342,
+      "claimedPairs": 338,
       "precision": {
         "correct": 332,
-        "wrong": 10,
-        "value": 0.9708
+        "wrong": 6,
+        "value": 0.9822
       },
       "recall": {
         "found": 332,
@@ -34,13 +34,18 @@
       },
       "byArm": {
         "import": {
-          "claimed": 180,
-          "correct": 167,
-          "precision": 0.9278
+          "claimed": 171,
+          "correct": 162,
+          "precision": 0.9474
         },
         "inherited": {
           "claimed": 93,
           "correct": 93,
+          "precision": 1
+        },
+        "namespace": {
+          "claimed": 5,
+          "correct": 5,
           "precision": 1
         },
         "receiverType": {
@@ -67,28 +72,24 @@
       "callers": {
         "oracle": 264,
         "graph": 234,
-        "graphOnly": 3,
+        "graphOnly": 1,
         "ownersWithAnyCall": 522,
-        "graphCallers": 213
+        "graphCallers": 211
       },
       "wrongSamples": [
         "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/app.py|Flask",
-        "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/cli.py|command",
-        "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/cli.py|group",
         "[import] tests/test_cli.py|test_find_best_app -> src/flask/app.py|Flask",
-        "[import] tests/test_cli.py|test_flaskgroup_app_context -> src/flask/cli.py|command",
-        "[import] tests/test_cli.py|test_flaskgroup_debug -> src/flask/cli.py|command",
         "[import] tests/test_cli.py|test_with_appcontext -> src/flask/app.py|Flask",
         "[sameFile] src/flask/helpers.py|decorator -> src/flask/helpers.py|stream_with_context",
         "[sameFile] tests/test_reqctx.py|test_session_dynamic_cookie_name -> tests/test_reqctx.py|PathAwareSessionInterface",
         "[sameFile] tests/test_reqctx.py|test_session_error_pops_context -> tests/test_reqctx.py|FailingSessionInterface"
       ],
       "wrongCauses": {
-        "owner-makes-no-such-call": 10
+        "owner-makes-no-such-call": 6
       },
       "wrongByArm": {
         "import": {
-          "owner-makes-no-such-call": 7
+          "owner-makes-no-such-call": 3
         },
         "sameFile": {
           "owner-makes-no-such-call": 3
@@ -137,14 +138,19 @@
       },
       "byArm": {
         "import": {
-          "claimed": 1014,
-          "correct": 1000,
-          "precision": 0.9862
+          "claimed": 767,
+          "correct": 762,
+          "precision": 0.9935
         },
         "inherited": {
           "claimed": 225,
           "correct": 224,
           "precision": 0.9956
+        },
+        "namespace": {
+          "claimed": 247,
+          "correct": 238,
+          "precision": 0.9636
         },
         "receiverType": {
           "claimed": 7,
@@ -174,10 +180,10 @@
         "[import] examples/manage-cupoftee.py|runserver -> examples/cupoftee/application.py|make_app",
         "[import] examples/manage-plnt.py|sync -> examples/plnt/sync.py|sync",
         "[import] src/werkzeug/wrappers/response.py|force_type -> src/werkzeug/sansio/response.py|Response",
-        "[import] tests/test_utils.py|test_cached_property -> src/werkzeug/utils.py|cached_property",
-        "[import] tests/test_utils.py|test_environ_property -> src/werkzeug/utils.py|environ_property",
         "[import] tests/test_wsgi.py|app -> src/werkzeug/wrappers/response.py|Response",
         "[inherited] src/werkzeug/middleware/shared_data.py|get_file_loader -> src/werkzeug/middleware/shared_data.py|_opener",
+        "[namespace] tests/test_utils.py|test_cached_property -> src/werkzeug/utils.py|cached_property",
+        "[namespace] tests/test_utils.py|test_environ_property -> src/werkzeug/utils.py|environ_property",
         "[sameFile] examples/coolmagic/utils.py|f -> examples/coolmagic/utils.py|TemplateResponse",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|createIconForConsole",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|openShell",
@@ -201,11 +207,13 @@
       },
       "wrongByArm": {
         "import": {
-          "resolves-elsewhere": 5,
-          "owner-makes-no-such-call": 2
+          "resolves-elsewhere": 5
         },
         "inherited": {
           "owner-makes-no-such-call": 1
+        },
+        "namespace": {
+          "owner-makes-no-such-call": 2
         },
         "sameFile": {
           "owner-makes-no-such-call": 14,

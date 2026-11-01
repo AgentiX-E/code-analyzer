@@ -8,7 +8,16 @@ import type { UnifiedCapture, ImportSemantics } from '@code-analyzer/shared';
 export interface ParsedImport {
   source: string;
   names: string[];
-  type: 'named' | 'default' | 'wildcard' | 'namespace';
+  /**
+   * `reexport` is the one member of this union that is not an import, and it is here because the resolver needs the
+   * same thing an import gives: **a file and a name, with the direction of the arrow reversed**.
+   *
+   * `export * from "./types"` binds nothing in the module that writes it - a bare call in that file cannot reach
+   * `types`' names - so it must not become a name the module's own calls resolve against. But a consumer that imports
+   * from the module does reach those names, and a chain of barrels is how a library publishes its front door. Reading
+   * the statement is therefore the only way to answer `z.parse(…)` where `z` is `import * as z from "../index"`.
+   */
+  type: 'named' | 'default' | 'wildcard' | 'namespace' | 'reexport';
   alias?: string;
   lineNumber: number;
 }

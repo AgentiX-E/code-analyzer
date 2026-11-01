@@ -265,6 +265,34 @@ describe('JavaScriptProvider', () => {
     });
   });
 
+  describe('re-exports', () => {
+    // The TypeScript provider's rules, read from the same grammar's ESM subset. A JavaScript library publishes its
+    // front door the same way, and a name reached through a barrel declares nothing in the barrel.
+    it('records a star re-export as a star', () => {
+      expect(provider.extractImports('export * from "./leaf";')).toEqual([
+        { source: './leaf', names: ['*'], type: 'reexport', lineNumber: 1 },
+      ]);
+    });
+
+    it('records a renaming clause as the published name and the local one', () => {
+      expect(provider.extractImports('export { parse as go } from "./types";')).toEqual([
+        { source: './types', names: ['go'], type: 'reexport', alias: 'parse', lineNumber: 1 },
+      ]);
+    });
+
+    it('ignores a clause with no source and a namespace re-export', () => {
+      expect(provider.extractImports('export { local };')).toEqual([]);
+      expect(provider.extractImports('export * as ns from "./leaf";')).toEqual([]);
+    });
+
+    it('still walks into an exported declaration', () => {
+      // **The statement is read, not skipped.** Closing the walk over an `export_statement` to read its header would
+      // lose a `require(…)` in the body of a declaration it exports - and CommonJS barrels are written that way.
+      const imports = provider.extractImports('export const mod = require("./dep");');
+      expect(imports.some((entry) => entry.source === './dep')).toBe(true);
+    });
+  });
+
   describe('isExported', () => {
     it('should detect export named', () => {
       expect(provider.isExported('export { foo, bar }', 'foo')).toBe(true);

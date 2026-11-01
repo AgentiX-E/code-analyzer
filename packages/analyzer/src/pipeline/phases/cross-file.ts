@@ -129,7 +129,19 @@ export class CrossFilePhase implements ExecutablePhase {
             importPath: imp.source,
             importedSymbols: imp.names,
             resolvedFiles: resolvedFile ? [resolvedFile] : [],
-            semantics: imp.type === 'namespace' || imp.type === 'wildcard' ? 'namespace' : 'named',
+            semantics:
+              imp.type === 'reexport'
+                ? imp.names.includes('*')
+                  ? 'wildcard-transitive'
+                  : 'named'
+                : imp.type === 'namespace' || imp.type === 'wildcard'
+                  ? 'namespace'
+                  : 'named',
+            // **Kept apart from the imports, because the two arrows point opposite ways.** A re-export is a fact a
+            // consumer of this file needs and a fact this file's own calls must not use.
+            ...(imp.type === 'reexport'
+              ? { reexport: true, ...(imp.alias === undefined ? {} : { alias: imp.alias }) }
+              : {}),
           });
 
           // Create IMPORTS edge if resolved

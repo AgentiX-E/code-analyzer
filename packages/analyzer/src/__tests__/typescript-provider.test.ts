@@ -430,6 +430,55 @@ describe('TypeScriptProvider', () => {
     });
   });
 
+  describe('re-exports', () => {
+    // **A barrel publishes names and binds none.** The resolver needs the published name and the name the target
+    // declares, and it needs them as a record of their own rather than as an import - see `export-chain.test.ts` for
+    // the four ways the chain can end.
+    it('records a star re-export as a star', () => {
+      const imports = provider.extractImports(`export * from './leaf';`);
+      expect(imports).toEqual([
+        { source: './leaf', names: ['*'], type: 'reexport', lineNumber: 1 },
+      ]);
+    });
+
+    it('records a renaming clause as the published name and the local one', () => {
+      const imports = provider.extractImports(`export { parse as go, keep } from './types';`);
+      expect(imports).toEqual([
+        {
+          source: './types',
+          names: ['go'],
+          type: 'reexport',
+          alias: 'parse',
+          lineNumber: 1,
+        },
+        {
+          source: './types',
+          names: ['keep'],
+          type: 'reexport',
+          alias: 'keep',
+          lineNumber: 1,
+        },
+      ]);
+    });
+
+    it('ignores a clause with no source, which publishes a local declaration', () => {
+      // `export { local }` names a declaration this file already makes; the file's own index answers it.
+      expect(provider.extractImports('export { local };')).toEqual([]);
+    });
+
+    it('ignores a namespace re-export, which publishes one value rather than the module names', () => {
+      // `export * as ns from './x'` exports the module object; `ns.member()` is a member of a value.
+      expect(provider.extractImports(`export * as ns from './leaf';`)).toEqual([]);
+    });
+
+    it('still finds a dynamic import inside an exported declaration', () => {
+      // **The statement is read, not skipped.** Closing the walk over an `export_statement` to read its header would
+      // lose `import()` in the body of a declaration it exports.
+      const imports = provider.extractImports(`export const load = async () => import('./lazy');`);
+      expect(imports.some((entry) => entry.source === './lazy')).toBe(true);
+    });
+  });
+
   describe('isExported', () => {
     it('should detect exported functions', () => {
       expect(provider.isExported('export function foo() {}', 'foo')).toBe(true);

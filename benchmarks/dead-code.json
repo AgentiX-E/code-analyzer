@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-11-01T09:07:00.869Z",
+  "measuredAt": "2026-11-01T11:00:27.224Z",
   "languages": ["python", "typescript"],
   "corpora": [
     {
@@ -29,9 +29,9 @@
       "repo": "colinhacks/zod",
       "package": "src",
       "language": "typescript",
-      "indexedMs": 4465,
-      "nodes": 19195,
-      "edges": 25691,
+      "indexedMs": 4585,
+      "nodes": 19193,
+      "edges": 26503,
       "roots": 1008,
       "rootsByKind": {
         "published": 792,
@@ -40,9 +40,9 @@
         "route": 2
       },
       "considered": 1064,
-      "callEdges": 914,
+      "callEdges": 917,
       "oursDead": 0,
-      "publishedRescued": 404,
+      "publishedRescued": 154,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 14,
@@ -185,9 +185,9 @@
       "repo": "pallets/flask",
       "package": "src/flask",
       "language": "python",
-      "indexedMs": 2212,
-      "nodes": 10747,
-      "edges": 13390,
+      "indexedMs": 2223,
+      "nodes": 10749,
+      "edges": 13388,
       "roots": 1357,
       "rootsByKind": {
         "entry": 632,
@@ -196,7 +196,7 @@
         "route": 5
       },
       "considered": 1564,
-      "callEdges": 451,
+      "callEdges": 449,
       "oursDead": 3,
       "publishedRescued": 90,
       "competitor": "vulture",
@@ -630,7 +630,7 @@
       "repo": "pallets/werkzeug",
       "package": "src/werkzeug",
       "language": "python",
-      "indexedMs": 4485,
+      "indexedMs": 4459,
       "nodes": 22798,
       "edges": 30207,
       "roots": 2347,
@@ -1901,9 +1901,9 @@
       "repo": "redis/ioredis",
       "package": "lib",
       "language": "typescript",
-      "indexedMs": 89397,
-      "nodes": 99010,
-      "edges": 452909,
+      "indexedMs": 90454,
+      "nodes": 99006,
+      "edges": 452998,
       "roots": 320,
       "rootsByKind": {
         "entry": 30,
@@ -1912,9 +1912,9 @@
         "route": 4
       },
       "considered": 2290,
-      "callEdges": 350,
+      "callEdges": 359,
       "oursDead": 0,
-      "publishedRescued": 1798,
+      "publishedRescued": 1768,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 42,
@@ -2255,7 +2255,7 @@
       "language": "typescript",
       "package": "src",
       "findings": 0,
-      "published": 404,
+      "published": 154,
       "oracleUniverse": 75,
       "oracleDead": 0,
       "precision": null,
@@ -2269,7 +2269,7 @@
       "language": "typescript",
       "package": "lib",
       "findings": 0,
-      "published": 1798,
+      "published": 1768,
       "oracleUniverse": 69,
       "oracleDead": 1,
       "precision": null,
@@ -2285,5 +2285,5 @@
     "competitor": 271,
     "ratio": 0.01845018450184502
   },
-  "typescriptMeasuredAt": "2026-11-01T09:08:45.720Z"
+  "typescriptMeasuredAt": "2026-11-01T11:02:20.674Z"
 }

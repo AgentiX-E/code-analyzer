@@ -21,26 +21,31 @@
         "graphRecursion": 0
       },
       "expectedPairs": 129,
-      "claimedPairs": 102,
+      "claimedPairs": 104,
       "precision": {
-        "correct": 102,
+        "correct": 104,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 102,
-        "missed": 27,
-        "value": 0.7907
+        "found": 104,
+        "missed": 25,
+        "value": 0.8062
       },
       "byArm": {
         "import": {
-          "claimed": 55,
-          "correct": 55,
+          "claimed": 26,
+          "correct": 26,
           "precision": 1
         },
         "inherited": {
           "claimed": 6,
           "correct": 6,
+          "precision": 1
+        },
+        "namespace": {
+          "claimed": 31,
+          "correct": 31,
           "precision": 1
         },
         "receiverType": {
@@ -61,17 +66,17 @@
       },
       "callers": {
         "oracle": 146,
-        "graph": 82,
+        "graph": 83,
         "graphOnly": 0,
         "ownersWithAnyCall": 185
       },
       "wrongCauses": {},
       "wrongSamples": [],
       "missedSamples": [
-        "__tests__/generics.test.ts|stripOuter|types.ts|parse",
-        "__tests__/generics.test.ts|stripOuter|types.ts|transform",
         "__tests__/nullable.test.ts|checkErrors|types.ts|nullable",
         "__tests__/nullable.test.ts|checkErrors|types.ts|parse",
+        "__tests__/object-augmentation.test.ts|bad|types.ts|parse",
+        "__tests__/optional.test.ts|checkErrors|types.ts|parse",
         "types.ts|args|types.ts|rest",
         "types.ts|finalizeSet|helpers/parseUtil.ts|dirty",
         "types.ts|getDiscriminator|types.ts|innerType",
@@ -104,26 +109,31 @@
         "graphRecursion": 1
       },
       "expectedPairs": 270,
-      "claimedPairs": 230,
+      "claimedPairs": 234,
       "precision": {
-        "correct": 230,
+        "correct": 234,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 230,
-        "missed": 40,
-        "value": 0.8519
+        "found": 234,
+        "missed": 36,
+        "value": 0.8667
       },
       "byArm": {
         "import": {
-          "claimed": 59,
-          "correct": 59,
+          "claimed": 52,
+          "correct": 52,
           "precision": 1
         },
         "inherited": {
           "claimed": 108,
           "correct": 108,
+          "precision": 1
+        },
+        "namespace": {
+          "claimed": 15,
+          "correct": 15,
           "precision": 1
         },
         "receiverType": {
@@ -139,7 +149,7 @@
       },
       "callers": {
         "oracle": 127,
-        "graph": 111,
+        "graph": 112,
         "graphOnly": 0,
         "ownersWithAnyCall": 169
       },

@@ -243,6 +243,19 @@ function isOwnScopeCall(receiver: string | undefined): boolean {
 const OWN_SCOPE_RECEIVERS: ReadonlySet<string> = new Set(['self', 'this', 'cls', 'super', '$this']);
 
 /**
+ * The identifier a receiver starts with: `cli` in `cli.command`, `app` in `app.cli.command`.
+ *
+ * **A receiver is a path, and only its first hop can name a module.** `a.b.m()` asks for a member of `b`, which is a
+ * member of `a` — so the name the import bound is the root and never the last segment. A receiver whose root is not an
+ * identifier (`get_app().run()`) names no module at all, and `undefined` says so rather than returning the segment
+ * after the parenthesis.
+ */
+function identifierRootOf(receiver: string): string | undefined {
+  const root = /^[A-Za-z_$][\w$]*/.exec(receiver)?.[0];
+  return root === undefined || root.length === 0 ? undefined : root;
+}
+
+/**
  * Does a declaration nested inside another keep the enclosing receiver, or bind its own?
  *
  * **A `function` expression in JavaScript rebinds `this`**, so `const onSpawn = function () { this.bump() }` written
@@ -352,9 +365,38 @@ export class ScopeResolutionPhase implements ExecutablePhase {
 
       // Build a file-level import resolution map: sourceFile -> targetFile -> importedSymbols
       const importMap = new Map<string, Map<string, Set<string>>>();
+      /**
+       * The names a file publishes on another file's behalf, per file: `export * from "./x"` records `* -> *`, and
+       * `export { parse as go } from "./x"` records `go -> parse`.
+       *
+       * **Kept out of `importMap` on purpose.** A barrel binds nothing: a bare call written in `index.ts` cannot reach
+       * a name that `index.ts` merely re-exports, so filing the re-export as an import would resolve that call to a
+       * declaration the file has no path to. Only a *consumer* of the barrel reaches those names, and it reaches them
+       * through this map.
+       */
+      const reexportMap = new Map<string, Array<{ target: string; names: Map<string, string> }>>();
+      /** The module each namespace alias is bound to: `import * as z from "../index"` records `z -> src/index.ts`. */
+      const namespaceModules = new Map<string, Map<string, string>>();
       if (crossFileData?.resolvedImports) {
         for (const imp of crossFileData.resolvedImports) {
           for (const resolvedFile of imp.resolvedFiles) {
+            if (imp.reexport === true) {
+              let entries = reexportMap.get(imp.sourceFile);
+              if (entries === undefined) {
+                entries = [];
+                reexportMap.set(imp.sourceFile, entries);
+              }
+              let entry = entries.find((candidate) => candidate.target === resolvedFile);
+              if (entry === undefined) {
+                entry = { target: resolvedFile, names: new Map<string, string>() };
+                entries.push(entry);
+              }
+              for (const sym of imp.importedSymbols) {
+                // The published name maps to the name the target declares; without an alias they are the same name.
+                entry.names.set(sym, sym === '*' ? '*' : (imp.alias ?? sym));
+              }
+              continue;
+            }
             let fileMap = importMap.get(imp.sourceFile);
             if (!fileMap) {
               fileMap = new Map();
@@ -367,6 +409,19 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             }
             for (const sym of imp.importedSymbols) {
               symbols.add(sym);
+            }
+            // **A namespace alias names the module it is bound to**, and only the import record knows which one:
+            // `import * as z from "../index"` stores `z`, not a list of the members `z` will be asked for.
+            if (imp.semantics === 'namespace' && imp.importedSymbols.length === 1) {
+              const alias = imp.importedSymbols[0];
+              if (alias !== undefined && alias !== '*') {
+                let aliases = namespaceModules.get(imp.sourceFile);
+                if (aliases === undefined) {
+                  aliases = new Map();
+                  namespaceModules.set(imp.sourceFile, aliases);
+                }
+                if (!aliases.has(alias)) aliases.set(alias, resolvedFile);
+              }
             }
           }
         }
@@ -446,6 +501,71 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           }
         }
       }
+
+      /**
+       * The declaration a module's published name names, **following the chain of re-exports rather than one hop**.
+       *
+       * **A barrel is how a library publishes its front door, and the front door is not where the name is written.**
+       * `colinhacks/zod` declares `parse` in `src/types.ts`, re-exports it from `src/external.ts`, and re-exports that
+       * from `src/index.ts`; every test in the checkout imports `* as z from "../index"` and calls `z.parse(…)`. The
+       * resolver walked one hop, found a file that declares nothing, and stopped - which on that corpus was twelve call
+       * pairs the checker expects and this graph never claimed. A hop count is not a fact about the program; the
+       * chain is, so the chain is walked to its end.
+       *
+       * **Three rules, and the first two are the same rule the rest of this file applies.** A file's own declaration
+       * wins over anything it re-exports, because a local name shadows a published one. A name two different files
+       * publish is refused, because a name with two answers has none. And a chain that revisits a file stops there,
+       * because two modules that re-export each other describe a cycle and not a declaration.
+       */
+      const exportedFrom = (
+        file: string,
+        name: string,
+        seen: ReadonlySet<string>,
+      ): { nodeId: number; label: NodeLabel } | undefined => {
+        if (seen.has(file)) return undefined;
+        const visited = new Set(seen).add(file);
+        const declared = fileSymbolIndex.get(file)?.get(name);
+        if (declared !== undefined) return declared;
+        let found: { nodeId: number; label: NodeLabel } | undefined;
+        for (const entry of reexportMap.get(file) ?? []) {
+          const published = entry.names.get(name) ?? entry.names.get('*');
+          if (published === undefined) continue;
+          const candidate = exportedFrom(
+            entry.target,
+            published === '*' ? name : published,
+            visited,
+          );
+          if (candidate === undefined) continue;
+          // **Two files publishing one name is not a preference to break**, it is a name the reader cannot resolve.
+          if (found !== undefined && found.nodeId !== candidate.nodeId) return undefined;
+          found = candidate;
+        }
+        return found;
+      };
+
+      /**
+       * The same question for a language that has no export statement, asked one hop deep.
+       *
+       * **A Python package publishes by importing.** `flask/__init__.py` names `redirect` by writing
+       * `from .helpers import redirect`, and nothing in that file says "export" - so the only evidence available is
+       * the import itself. **Kept out of `exportedFrom` deliberately**: an import is far weaker evidence than a
+       * re-export, because a file may import a name for its own use and publish nothing, and folding the two together
+       * made every module a lookup table for everything it imported. Measured: the namespace arm, which reads a
+       * receiver's module, claimed 294 edges on `pallets/flask` of which **5** were right, and precision fell to
+       * 60.9 % - the proxy belongs to the named-import arm, where the caller has already said the name came from that
+       * file under that name.
+       */
+      const importedOneHopFrom = (
+        file: string,
+        name: string,
+      ): { nodeId: number; label: NodeLabel } | undefined => {
+        for (const [sourceFile, names] of importMap.get(file) ?? []) {
+          if (!names.has(name)) continue;
+          const candidate = fileSymbolIndex.get(sourceFile)?.get(name);
+          if (candidate !== undefined) return candidate;
+        }
+        return undefined;
+      };
 
       /**
        * A file's own declarations, **split by the scope that holds them**.
@@ -743,19 +863,12 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           if (target === undefined && fileImports) {
             for (const [importedFile, importedSymbols] of fileImports) {
               if (!importedSymbols.has(resolved)) continue;
-              target = fileSymbolIndex.get(importedFile)?.get(resolved);
-              if (target === undefined) {
-                // **One re-export hop, for the same reason the call arm needs one**: `from flask import redirect`
-                // names a package file that imports the definition rather than making it.
-                const reExported = importMap.get(importedFile);
-                if (reExported) {
-                  for (const [sourceFile, names] of reExported) {
-                    if (!names.has(resolved)) continue;
-                    target = fileSymbolIndex.get(sourceFile)?.get(resolved);
-                    if (target !== undefined) break;
-                  }
-                }
-              }
+              // **The whole chain, not one hop**: `from flask import redirect` names a package file that imports the
+              // definition rather than making it, and a barrel may sit two or three files deep. The import proxy is
+              // the Python spelling of the same fact and stays one hop, for the reason stated on it.
+              target =
+                exportedFrom(importedFile, resolved, new Set<string>()) ??
+                importedOneHopFrom(importedFile, resolved);
               if (target !== undefined) break;
             }
           }
@@ -803,6 +916,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               | 'inherited'
               | 'super'
               | 'receiverType'
+              | 'namespace'
               | 'globalUnique' = 'import';
 
             // **First, try cross-file resolution via imports - and only for a call that writes no receiver.**
@@ -814,34 +928,24 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             if (fileImports && ref.receiver === undefined) {
               for (const [resolvedFile, importedSymbols] of fileImports) {
                 if (importedSymbols.has(ref.targetName)) {
-                  const fileSymbols = fileSymbolIndex.get(resolvedFile);
-                  if (fileSymbols) {
-                    target = fileSymbols.get(ref.targetName);
-                  }
-                  // **One re-export hop, because a package file is where a public name is declared.** `from flask
-                  // import redirect` names `flask/__init__.py`, which does not define `redirect` - it imports it from
-                  // `flask/helpers.py`. Stopping at the package file lost every public name of every package that
-                  // re-exports, which is how a library's front door is normally built: measured on `pallets/flask`,
-                  // `url_for` and `redirect` at ten call sites were all missed for this reason and nothing else.
-                  if (!target) {
-                    const reExported = importMap.get(resolvedFile);
-                    if (reExported) {
-                      for (const [sourceFile, names] of reExported) {
-                        if (!names.has(ref.targetName)) continue;
-                        target = fileSymbolIndex.get(sourceFile)?.get(ref.targetName);
-                        if (target) break;
-                      }
-                    }
-                  }
+                  // **The whole chain, because a package file is where a public name is declared and a barrel may be
+                  // several files long.** `from flask import redirect` names `flask/__init__.py`, which does not
+                  // define `redirect` - it imports it from `flask/helpers.py`; `z.parse(…)` in `colinhacks/zod`
+                  // names `src/index.ts`, which re-exports `src/external.ts`, which re-exports `src/types.ts` where
+                  // `parse` is written. Stopping at one hop lost every public name of every library that publishes a
+                  // front door: measured on `pallets/flask`, `url_for` and `redirect` at ten call sites, and on
+                  // `colinhacks/zod` twelve pairs behind `index.ts`.
+                  target =
+                    exportedFrom(resolvedFile, ref.targetName, new Set<string>()) ??
+                    importedOneHopFrom(resolvedFile, ref.targetName);
                   if (target) break;
                 }
                 // Also try wildcard matching (import * as X from 'y')
                 if (importedSymbols.has('*')) {
-                  const fileSymbols = fileSymbolIndex.get(resolvedFile);
-                  if (fileSymbols) {
-                    target = fileSymbols.get(ref.targetName);
-                    if (target) break;
-                  }
+                  target =
+                    exportedFrom(resolvedFile, ref.targetName, new Set<string>()) ??
+                    importedOneHopFrom(resolvedFile, ref.targetName);
+                  if (target) break;
                 }
               }
             }
@@ -858,20 +962,48 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // `<package>/cli.py`. A binding named `cli` that points at a file which is not a module called `cli` and is
             // not a package is a variable, an instance or a class - and calling a member of that is the receiver's-type
             // arm's question, not this one.
-            if (!target && ref.receiver !== undefined && fileImports) {
-              const namespace = /^[A-Za-z_$][\w$]*/.exec(ref.receiver)?.[0];
-              if (namespace !== undefined) {
-                for (const [resolvedFile, importedSymbols] of fileImports) {
-                  if (!importedSymbols.has(namespace)) continue;
-                  const moduleFile = moduleFileOf(resolvedFile, namespace);
-                  if (moduleFile === undefined) continue;
-                  const found = fileSymbolIndex.get(moduleFile)?.get(ref.targetName);
-                  if (found !== undefined) {
-                    target = found;
-                    break;
-                  }
-                }
+            //
+            // **And the alias has to still be the module where the call is written.** `tests/test_cli.py` imports
+            // `cli` and then opens two tests with `def cli(): …` and `@cli.command()`: the decorator names a local
+            // function, and answering it with `flask/cli.py`'s `command` is an edge from a call to a declaration that
+            // call cannot reach. Measured: 4 of the 9 edges this arm claimed on `pallets/flask` were exactly that,
+            // and the guard is the same question the static arm asks - is this name bound between here and the
+            // module - asked of a name bound to a *function*, which is why `shadowsLocally` alone did not catch it.
+            const namespace =
+              ref.receiver === undefined ? undefined : identifierRootOf(ref.receiver);
+            if (
+              !target &&
+              namespace !== undefined &&
+              fileImports &&
+              // **The alias has to still be the module where the call is written.** `tests/test_cli.py` imports
+              // `cli` and then opens two tests with `def cli(): …` and `@cli.command()`; the decorator names that
+              // local function, and answering it with `flask/cli.py`'s `command` is an edge from a call to a
+              // declaration the call cannot reach. Measured, 4 of the 9 edges this arm claimed on `pallets/flask`
+              // were exactly that - so the guard is asked here too, and asked of a *function* binding, which is why
+              // `shadowsLocally` alone did not catch them: a `def` is a callable, not a value.
+              localTargetsOf(namespace, ref.sourceLine).length === 0 &&
+              !shadowsLocally(namespace, ref.sourceLine)
+            ) {
+              // **The alias answers first, because the import is what says which module it names.** `import * as z
+              // from "../index"` binds `z` to a file, and `z.parse(…)` asks that file - or the chain of barrels it
+              // re-exports from - for `parse`. The module-name reading below is the other spelling of the same
+              // question and cannot answer for an alias that is not named after its module, which in TypeScript is
+              // every alias there is.
+              const bound = namespaceModules.get(parsedFile.filePath)?.get(namespace);
+              if (bound !== undefined) {
+                target = exportedFrom(bound, ref.targetName, new Set<string>());
               }
+              for (const [resolvedFile, importedSymbols] of fileImports) {
+                if (target !== undefined) break;
+                if (!importedSymbols.has(namespace)) continue;
+                const moduleFile = moduleFileOf(resolvedFile, namespace);
+                if (moduleFile === undefined) continue;
+                target = exportedFrom(moduleFile, ref.targetName, new Set<string>());
+              }
+              // **A member of a module is not an imported name, and the arm that made this edge says so.** The label
+              // was `import` only because that is the default the variable starts at - which meant the gate's
+              // `import` precision was an average of two rules, and the rule added here had nowhere to be measured.
+              if (target !== undefined) arm = 'namespace';
             }
 
             // **Then the file itself, which is where a lexical scope starts.** The pass used to skip every same-file
