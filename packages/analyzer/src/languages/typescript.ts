@@ -9,7 +9,7 @@ import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
 import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
-import { ownerKeyOf } from '../resolution/receiver-types.js';
+import { ELEMENT_OF, ownerKeyOf } from '../resolution/receiver-types.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -225,6 +225,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       'method_signature',
       'abstract_method_signature',
       'variable_declarator',
+      'for_in_statement',
     ]);
   }
 
@@ -285,6 +286,16 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // field with a type is not one.
     if (nodeType === 'variable_declarator') {
       this.captureLocalType(node);
+      return;
+    }
+
+    // **A loop variable's type is the element type of what the loop iterates.** `for (const sentinel of this.sentinels)`
+    // annotates nothing: the type belongs to `sentinels`, and `Sentinel[]` names `Sentinel` only to a reader that knows
+    // what `[]` means for a binding made by `of`. `redis/ioredis@5.4.2` writes its failover detector this way, and the
+    // three call pairs the checker expects there — `sentinel.client.disconnect(…)`, `.subscribe(…)`, `.on(…)` — were
+    // unanswerable for want of one reduction.
+    if (nodeType === 'for_in_statement') {
+      this.captureLoopBinding(node);
       return;
     }
 
@@ -716,6 +727,62 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       return;
     }
     bucket.set(nameNode.text, type);
+  }
+
+  /**
+   * A `for…of` binding, recorded as the *iterable* rather than a type.
+   *
+   * **The provider writes the path it saw and the reader resolves it**, because only the reader holds the file's
+   * declarations: `this.sentinels` is a field of a class whose annotation is two nodes away, and `items` is a parameter
+   * of a function declared above. Reducing the path here would file its last segment as a class name.
+   *
+   * Three shapes are refused, and each for its own reason: `for…in` iterates keys, and a key is a `string` in
+   * TypeScript; an iterable written as an expression (`[1, 2, 3]`, `this.build()`) declares no annotation anywhere; and
+   * a destructuring binding names a shape this module does not read.
+   */
+  private captureLoopBinding(node: TreeSitterSyntaxNode): void {
+    // **The keyword is an anonymous child, not a field.** tree-sitter-typescript parses both loops into
+    // `for_in_statement` and distinguishes them by a bare `of` or `in` token, which is the only place the difference is
+    // written — `node.childForFieldName('operator')` answers `null` on both.
+    let iteratesValues = false;
+    for (const child of childrenOf(node)) {
+      if (child.type === 'in') return;
+      if (child.type === 'of') {
+        iteratesValues = true;
+        break;
+      }
+    }
+    if (!iteratesValues) return;
+    const left = node.childForFieldName('left');
+    const right = node.childForFieldName('right');
+    if (left === null || left === undefined || right === null || right === undefined) return;
+    // `for (const leaf of …)` binds a bare `identifier`, with `const`/`let` left as anonymous tokens; a grammar that
+    // keeps a declaration node around the binding is read the same way rather than in a second arm.
+    const declarator =
+      left.type === 'variable_declarator' ? left : this.findDeepChild(left, 'variable_declarator');
+    const nameNode =
+      declarator === null || declarator === undefined
+        ? left.type === 'identifier'
+          ? left
+          : null
+        : this.findNamedChild(declarator, 'identifier');
+    if (nameNode === null) return;
+    // A path and nothing else: `a`, `this.a`, `a.b`. Anything with a call, an index or a literal in it is an expression
+    // the call site wrote, and the call site is not a declaration.
+    if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(right.text)) return;
+    const ownerKey = this.enclosingFunctionKeyOf(node);
+    if (ownerKey === undefined) return;
+    let bucket = this.localTypes.get(ownerKey);
+    if (bucket === undefined) {
+      bucket = new Map();
+      this.localTypes.set(ownerKey, bucket);
+    }
+    const recorded = `${ELEMENT_OF}${right.text}`;
+    if (bucket.has(nameNode.text) && bucket.get(nameNode.text) !== recorded) {
+      bucket.delete(nameNode.text);
+      return;
+    }
+    bucket.set(nameNode.text, recorded);
   }
 
   /** What one declarator says about the name it binds: its annotation, its `new`, or `this`. */

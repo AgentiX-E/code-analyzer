@@ -28,6 +28,14 @@ export interface FileTypes {
   readonly parameters: Map<string, string>;
   /** `Class.method/name` → the type a local binding was declared, constructed or aliased to. */
   readonly locals: Map<string, string>;
+  /**
+   * The same keys as `fields`/`parameters`/`locals`, for the declarations whose annotation is an **array**.
+   *
+   * **A collection is not its element, and the two are read at different places.** `leaves: Leaf[]` says nothing about
+   * `this.leaves.m()` — an array declares no `disconnect` — so the array is refused by `simpleTypeName` and kept
+   * separately, for the one construct that removes the container: `for (const leaf of this.leaves)`.
+   */
+  readonly elements: Map<string, string>;
   /** `Class.method` → the class that holds it, for the `this`/`self` receiver. */
   readonly classOfFunction: Map<string, string>;
   /** `Class` → the class's own declaration. */
@@ -37,6 +45,15 @@ export interface FileTypes {
   /** `Class` → the simple names of the classes it extends, in declaration order. */
   readonly bases: Map<string, readonly string[]>;
 }
+
+/**
+ * The prefix a provider writes in front of a loop variable's *iterable*, so the reader can tell a type from a path.
+ *
+ * `for (const leaf of this.leaves)` binds `leaf` to no type the syntax names; the type is `this.leaves`' element. The
+ * provider records the path it saw, and the reader resolves it against the declarations of the file — which is the same
+ * walk a receiver takes, asked one hop earlier.
+ */
+export const ELEMENT_OF = '@elementOf:';
 
 /**
  * The one declaration shape this module reads.
@@ -164,6 +181,22 @@ export function simpleTypeName(annotation: unknown): string | undefined {
   return last;
 }
 
+/**
+ * The element type of an annotation that names an array, or `undefined` — the one reduction `simpleTypeName` refuses.
+ *
+ * **`Leaf[]` and `Array<Leaf>` are the same fact in two spellings**, and both are refused as a *type*: `this.leaves` is
+ * a collection and a collection declares none of `Leaf`'s members. The element is what a `for…of` binding holds, so the
+ * reduction is kept beside the refusal rather than inside it — an array read as its element would answer
+ * `this.leaves.disconnect()`, which is the class of defect the receiver arm exists to avoid.
+ */
+export function elementTypeName(annotation: unknown): string | undefined {
+  if (typeof annotation !== 'string') return undefined;
+  const text = annotation.trim();
+  const braced = /^(?:Readonly<)?(?:Array|ReadonlyArray)<(.+)>$/.exec(text);
+  if (braced?.[1] !== undefined) return simpleTypeName(braced[1]);
+  return text.endsWith('[]') ? simpleTypeName(text.slice(0, -2)) : undefined;
+}
+
 /** The one member of a union that is a type rather than a value, or `undefined` when there is not exactly one. */
 function onlyMemberOf(text: string): string | undefined {
   if (text.length === 0) return undefined;
@@ -224,6 +257,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const fields = new Map<string, string>();
   const parameters = new Map<string, string>();
   const locals = new Map<string, string>();
+  const elements = new Map<string, string>();
   const classOfFunction = new Map<string, string>();
   const classes = new Map<string, Declared>();
   const members = new Map<string, Map<string, Declared>>();
@@ -272,6 +306,10 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       for (const [field, annotation] of stringEntriesOf(declaration.properties['fieldTypes'])) {
         const fieldType = simpleTypeName(annotation);
         if (fieldType !== undefined) fields.set(`${declaration.name}.${field}`, fieldType);
+        const elementType = elementTypeName(annotation);
+        if (elementType !== undefined) {
+          elements.set(`${declaration.name}.${field}`, elementType);
+        }
       }
       // **A class's bases are how a member it does not declare still belongs to it.** `Flask.__init__` calls
       // `self.add_url_rule(...)`, and `add_url_rule` is declared on `App` in `flask/sansio/app.py` - so a lookup that
@@ -296,6 +334,12 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (typeof parameterOwner === 'string' && parameterType !== undefined) {
       parameters.set(`${parameterOwner}\u0000${declaration.name}`, parameterType);
     }
+    if (typeof parameterOwner === 'string') {
+      const elementType = elementTypeName(declaration.properties['parameterType']);
+      if (elementType !== undefined) {
+        elements.set(`${parameterOwner}\u0000${declaration.name}`, elementType);
+      }
+    }
 
     const callable =
       declaration.kind === 'Method' ||
@@ -309,8 +353,16 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (callable) {
       const ownerKey = ownerKeyOf(container, declaration.name);
       for (const [name, type] of stringEntriesOf(declaration.properties['localTypes'])) {
+        // **A loop binding records the iterable, not a type**, and the path is kept verbatim for the reader to resolve:
+        // reducing it here would file the *last segment* of `this.leaves` as though it were a class.
+        if (type.startsWith(ELEMENT_OF)) {
+          locals.set(`${ownerKey}\u0000${name}`, type);
+          continue;
+        }
         const localType = simpleTypeName(type);
         if (localType !== undefined) locals.set(`${ownerKey}\u0000${name}`, localType);
+        const elementType = elementTypeName(type);
+        if (elementType !== undefined) elements.set(`${ownerKey}\u0000${name}`, elementType);
       }
     }
 
@@ -326,7 +378,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (fieldType !== undefined) fields.set(`${container}.${declaration.name}`, fieldType);
   }
 
-  return { fields, parameters, locals, classOfFunction, classes, members, bases };
+  return { fields, parameters, locals, elements, classOfFunction, classes, members, bases };
 }
 
 /**
@@ -452,9 +504,52 @@ function startOf(
     return parameter === undefined ? undefined : { className: parameter, via: 'parameter' };
   }
   const local = firstOf(lookup.owners, (owner) => own?.locals.get(key(owner, base)));
-  if (local !== undefined) return { className: local, via: 'local' };
+  if (local !== undefined) return valueOf(lookup, own, local, 'local');
   const parameter = firstOf(lookup.owners, (owner) => own?.parameters.get(key(owner, base)));
-  return parameter === undefined ? undefined : { className: parameter, via: 'parameter' };
+  return parameter === undefined ? undefined : valueOf(lookup, own, parameter, 'parameter');
+}
+
+/**
+ * What a recorded value means: a type, or a path whose *element* is the type.
+ *
+ * **A loop binding is the second shape.** `for (const leaf of this.leaves)` holds no annotation, so the provider wrote
+ * the iterable down and the reader resolves it here — `this.leaves` is a field of the enclosing class, `all` is a local
+ * or a parameter, and either way the answer is that declaration's element type. A path this rule cannot resolve leaves
+ * the variable untyped, which is the same answer a variable with no annotation has always had.
+ */
+function valueOf(
+  lookup: ReceiverLookup,
+  own: FileTypes | undefined,
+  recorded: string,
+  via: ReceiverType['via'],
+): ReceiverType | undefined {
+  if (!recorded.startsWith(ELEMENT_OF)) return { className: recorded, via };
+  return elementOfPath(lookup, own, recorded.slice(ELEMENT_OF.length));
+}
+
+/** The element type of the declaration a loop's iterable path names. */
+function elementOfPath(
+  lookup: ReceiverLookup,
+  own: FileTypes | undefined,
+  path: string,
+): ReceiverType | undefined {
+  const [base, ...hops] = path.split('.');
+  if (base === undefined || base.length === 0) return undefined;
+  if (OWN_SCOPE.has(base)) {
+    // `this.leaves` — one field of the enclosing class, and no deeper: a second hop would have to be typed itself, and
+    // the loop variable is written at a site that says nothing about it.
+    const field = hops.length === 1 ? hops[0] : undefined;
+    if (field === undefined) return undefined;
+    const enclosing = firstOf(lookup.owners, (owner) => own?.classOfFunction.get(owner));
+    const element =
+      enclosing === undefined ? undefined : own?.elements.get(`${enclosing}.${field}`);
+    return element === undefined ? undefined : { className: element, via: 'thisField' };
+  }
+  if (hops.length > 0) return undefined;
+  // A bare name is a local or a parameter, and both are filed under the same owner key - so this is one lookup, and
+  // the answer does not have to say which of the two it was: `for (const x of items)` iterates what `items` is.
+  const element = firstOf(lookup.owners, (owner) => own?.elements.get(key(owner, base)));
+  return element === undefined ? undefined : { className: element, via: 'local' };
 }
 
 /** The first owner key, innermost first, that answers with something other than nothing. */

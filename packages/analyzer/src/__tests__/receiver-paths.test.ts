@@ -26,59 +26,97 @@ import type { KnowledgeGraph, PipelineContext } from '@code-analyzer/shared';
 
 const FIXTURES = new URL('./fixtures/receiver-paths/', import.meta.url).pathname;
 
-describe('the receiver of a call, resolved through the declarations that spell it', () => {
-  let graph: KnowledgeGraph;
-
-  beforeEach(async () => {
-    const empty = {
+/**
+ * The graph of every fixture in `fixtures/receiver-paths/`, built once per test.
+ *
+ * Five phases and no more: scan, structure, parse, cross-file and scope resolution. Anything later would answer a
+ * question these tests do not ask, and anything earlier would not have the edges they are about.
+ */
+async function buildGraph(): Promise<KnowledgeGraph> {
+  const config = {
+    projectId: 'receiver-paths',
+    rootPath: FIXTURES,
+    ignorePaths: [],
+    excludePatterns: [],
+    includePatterns: [],
+    maxFileSize: 10 * 1024 * 1024,
+    maxFiles: 1000,
+    parseWorkers: 1,
+    cacheDir: '.code-analyzer-test',
+  };
+  const ctx = {
+    projectId: 'receiver-paths',
+    rootPath: FIXTURES,
+    graph: {
       projectId: 'receiver-paths',
       nodes: new Map(),
       edges: new Map(),
       qnameIndex: new Map(),
       fileIndex: new Map(),
-    };
-    const ctx = {
-      projectId: 'receiver-paths',
-      rootPath: FIXTURES,
-      graph: empty,
-      config: {
-        projectId: 'receiver-paths',
-        rootPath: FIXTURES,
-        ignorePaths: [],
-        excludePatterns: [],
-        includePatterns: [],
-        maxFileSize: 10 * 1024 * 1024,
-        maxFiles: 1000,
-        parseWorkers: 1,
-        cacheDir: '.code-analyzer-test',
-      },
-      phaseData: new Map<string, unknown>(),
-    } as unknown as PipelineContext;
-    await new PipelineOrchestrator([
-      new ScanPhase(),
-      new StructurePhase(),
-      new ParsePhase(),
-      new CrossFilePhase(),
-      new ScopeResolutionPhase(),
-    ]).execute(ctx);
-    graph = ctx.graph as KnowledgeGraph;
-  });
+    },
+    config,
+    phaseData: new Map<string, unknown>(),
+  } as unknown as PipelineContext;
+  await new PipelineOrchestrator([
+    new ScanPhase(),
+    new StructurePhase(),
+    new ParsePhase(),
+    new CrossFilePhase(),
+    new ScopeResolutionPhase(),
+  ]).execute(ctx);
+  return ctx.graph as KnowledgeGraph;
+}
 
-  function idOf(suffix: string): number {
-    const id = [...graph.nodes.values()].find(
-      (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
-    )?.id;
-    if (id === undefined) throw new Error(`no node named …${suffix}`);
-    return id;
+/** The id of the one node whose qualified name ends with `suffix`. */
+function idOf(graph: KnowledgeGraph, suffix: string): number {
+  const id = [...graph.nodes.values()].find(
+    (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
+  )?.id;
+  if (id === undefined) throw new Error(`no node named …${suffix}`);
+  return id;
+}
+
+/** Every call edge out of the declarations ending with `suffix`, as the target's last name and the arm that made it. */
+function callsFrom(
+  graph: KnowledgeGraph,
+  suffix: string,
+): Array<{ target: string; resolution: unknown }> {
+  const sources = [...graph.nodes.values()].filter(
+    (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
+  );
+  const out: Array<{ target: string; resolution: unknown }> = [];
+  for (const source of sources) {
+    for (const edge of graph.edges.values()) {
+      if (edge.type !== 'CALLS' || edge.sourceId !== source.id) continue;
+      const qualified = String(graph.nodes.get(edge.targetId)?.qualifiedName ?? '');
+      out.push({
+        target: qualified.slice(qualified.lastIndexOf(':') + 1),
+        resolution: edge.properties['resolution'],
+      });
+    }
   }
+  return out;
+}
+
+/** The targets alone, for the tests that are about which calls exist rather than which rule answered. */
+function targets(graph: KnowledgeGraph, suffix: string): string[] {
+  return callsFrom(graph, suffix).map((call) => call.target);
+}
+
+describe('the receiver of a call, resolved through the declarations that spell it', () => {
+  let graph: KnowledgeGraph;
+
+  beforeEach(async () => {
+    graph = await buildGraph();
+  });
 
   /** The call edge from one declaration to another, with the arm that produced it. */
   function edgeOf(
     sourceSuffix: string,
     targetSuffix: string,
   ): { readonly resolution: unknown } | undefined {
-    const source = idOf(sourceSuffix);
-    const target = idOf(targetSuffix);
+    const source = idOf(graph, sourceSuffix);
+    const target = idOf(graph, targetSuffix);
     const edge = [...graph.edges.values()].find(
       (candidate) =>
         candidate.type === 'CALLS' &&
@@ -86,16 +124,6 @@ describe('the receiver of a call, resolved through the declarations that spell i
         candidate.targetId === target,
     );
     return edge === undefined ? undefined : { resolution: edge.properties['resolution'] };
-  }
-
-  function callsFrom(suffix: string): string[] {
-    const source = idOf(suffix);
-    return [...graph.edges.values()]
-      .filter((edge) => edge.type === 'CALLS' && edge.sourceId === source)
-      .map((edge) => {
-        const qualified = String(graph.nodes.get(edge.targetId)?.qualifiedName ?? '');
-        return qualified.slice(qualified.lastIndexOf(':') + 1);
-      });
   }
 
   it('reaches the member of the class a parameter property is declared to be', () => {
@@ -145,23 +173,23 @@ describe('the receiver of a call, resolved through the declarations that spell i
   it('refuses a member no chain reaches, even when one declaration in the file carries the name', () => {
     // `this.begin()` in `Outsider` and `begin` in `Unrelated`: same name, same file, no relation. A rule that answered
     // this by name would be the global-name arm the measurement already deleted.
-    expect(callsFrom('Outsider.go')).not.toContain('Unrelated.begin');
+    expect(targets(graph, 'Outsider.go')).not.toContain('Unrelated.begin');
   });
 
   it('does not let a local bound to an object literal shadow a class of the same name into a resolution', () => {
     // `const Registry = { put: … }` is a value, and `Registry.put(...)` is a call on that value - not on the class
     // `Registry` that this file also declares and that carries the same member name.
-    expect(callsFrom('Caller.run')).not.toContain('Registry.put');
+    expect(targets(graph, 'Caller.run')).not.toContain('Registry.put');
   });
 
   it('attributes every call it claims to the declaration that holds it', () => {
     // **The whole set, not one edge.** A rule that resolves a path must not also emit the edges the path was built
     // from, and `new Index()` is a call on the class and stays one - constructing an object runs its constructor.
-    expect(callsFrom('Service.throughConstructor')).toEqual(['Index.insert']);
-    expect(callsFrom('Service.throughField')).toEqual(['Index.insert']);
+    expect(targets(graph, 'Service.throughConstructor')).toEqual(['Index.insert']);
+    expect(targets(graph, 'Service.throughField')).toEqual(['Index.insert']);
     // The initialiser is a call of its own - `this.pick()` - and the annotation is what types the name it returns.
-    expect(callsFrom('Service.throughAnnotation')).toEqual(['Service.pick', 'Index.insert']);
-    expect(callsFrom('Service.throughConstruction')).toEqual(['Index', 'Index.insert']);
+    expect(targets(graph, 'Service.throughAnnotation')).toEqual(['Service.pick', 'Index.insert']);
+    expect(targets(graph, 'Service.throughConstruction')).toEqual(['Index', 'Index.insert']);
   });
 });
 
@@ -171,69 +199,19 @@ describe('the class a `this` written inside a closure refers to', () => {
   let graph: KnowledgeGraph;
 
   beforeEach(async () => {
-    const empty = {
-      projectId: 'receiver-paths',
-      nodes: new Map(),
-      edges: new Map(),
-      qnameIndex: new Map(),
-      fileIndex: new Map(),
-    };
-    const ctx = {
-      projectId: 'receiver-paths',
-      rootPath: FIXTURES,
-      graph: empty,
-      config: {
-        projectId: 'receiver-paths',
-        rootPath: FIXTURES,
-        ignorePaths: [],
-        excludePatterns: [],
-        includePatterns: [],
-        maxFileSize: 10 * 1024 * 1024,
-        maxFiles: 1000,
-        parseWorkers: 1,
-        cacheDir: '.code-analyzer-test',
-      },
-      phaseData: new Map<string, unknown>(),
-    } as unknown as PipelineContext;
-    await new PipelineOrchestrator([
-      new ScanPhase(),
-      new StructurePhase(),
-      new ParsePhase(),
-      new CrossFilePhase(),
-      new ScopeResolutionPhase(),
-    ]).execute(ctx);
-    graph = ctx.graph as KnowledgeGraph;
+    graph = await buildGraph();
   });
-
-  /** Every call edge whose source declaration ends with `suffix`, as `target suffix → arm`. */
-  function callsUnder(suffix: string): Array<{ target: string; resolution: unknown }> {
-    const sources = [...graph.nodes.values()].filter(
-      (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
-    );
-    const out: Array<{ target: string; resolution: unknown }> = [];
-    for (const source of sources) {
-      for (const edge of graph.edges.values()) {
-        if (edge.type !== 'CALLS' || edge.sourceId !== source.id) continue;
-        const qualified = String(graph.nodes.get(edge.targetId)?.qualifiedName ?? '');
-        out.push({
-          target: qualified.slice(qualified.lastIndexOf(':') + 1),
-          resolution: edge.properties['resolution'],
-        });
-      }
-    }
-    return out;
-  }
 
   it('finds the enclosing class through one arrow function', () => {
     // `const onReady = () => { this.bump() }` inside `Counter.connect` - the arrow keeps the method's `this`.
-    expect(callsUnder('onReady')).toContainEqual({
+    expect(callsFrom(graph, 'onReady')).toContainEqual({
       target: 'Counter.bump',
       resolution: 'inherited',
     });
   });
 
   it('finds it through an arrow inside a promise executor', () => {
-    expect(callsUnder('onClose')).toContainEqual({
+    expect(callsFrom(graph, 'onClose')).toContainEqual({
       target: 'Counter.bump',
       resolution: 'inherited',
     });
@@ -242,7 +220,7 @@ describe('the class a `this` written inside a closure refers to', () => {
   it('stops at a function expression, whose `this` the enclosing class does not decide', () => {
     // `const onSpawn = function () { this.bump() }` - answering `Plain.bump` here would be the same guess the deleted
     // global-name arm made, one scope narrower.
-    expect(callsUnder('onSpawn')).not.toContainEqual(
+    expect(callsFrom(graph, 'onSpawn')).not.toContainEqual(
       expect.objectContaining({ target: 'Plain.bump' }),
     );
   });
@@ -254,70 +232,59 @@ describe('the bases of a declaration that is written twice', () => {
   let graph: KnowledgeGraph;
 
   beforeEach(async () => {
-    const empty = {
-      projectId: 'receiver-paths',
-      nodes: new Map(),
-      edges: new Map(),
-      qnameIndex: new Map(),
-      fileIndex: new Map(),
-    };
-    const ctx = {
-      projectId: 'receiver-paths',
-      rootPath: FIXTURES,
-      graph: empty,
-      config: {
-        projectId: 'receiver-paths',
-        rootPath: FIXTURES,
-        ignorePaths: [],
-        excludePatterns: [],
-        includePatterns: [],
-        maxFileSize: 10 * 1024 * 1024,
-        maxFiles: 1000,
-        parseWorkers: 1,
-        cacheDir: '.code-analyzer-test',
-      },
-      phaseData: new Map<string, unknown>(),
-    } as unknown as PipelineContext;
-    await new PipelineOrchestrator([
-      new ScanPhase(),
-      new StructurePhase(),
-      new ParsePhase(),
-      new CrossFilePhase(),
-      new ScopeResolutionPhase(),
-    ]).execute(ctx);
-    graph = ctx.graph as KnowledgeGraph;
+    graph = await buildGraph();
   });
-
-  function callsFrom(suffix: string): Array<{ target: string; resolution: unknown }> {
-    const sources = [...graph.nodes.values()].filter(
-      (node) => node.qualifiedName !== null && node.qualifiedName.endsWith(suffix),
-    );
-    const out: Array<{ target: string; resolution: unknown }> = [];
-    for (const source of sources) {
-      for (const edge of graph.edges.values()) {
-        if (edge.type !== 'CALLS' || edge.sourceId !== source.id) continue;
-        const qualified = String(graph.nodes.get(edge.targetId)?.qualifiedName ?? '');
-        out.push({
-          target: qualified.slice(qualified.lastIndexOf(':') + 1),
-          resolution: edge.properties['resolution'],
-        });
-      }
-    }
-    return out;
-  }
 
   it('keeps the base the class names when an interface adds another one', () => {
     // The interface is written second, and replacing the base list with `Extra` is what made the call unanswerable.
-    expect(callsFrom('Holder.constructor')).toContainEqual({
+    expect(callsFrom(graph, 'Holder.constructor')).toContainEqual({
       target: 'Commander.defineCommand',
       resolution: 'inherited',
     });
   });
 
   it('keeps the base the interface adds', () => {
-    expect(callsFrom('Holder.callExtra')).toContainEqual({
+    expect(callsFrom(graph, 'Holder.callExtra')).toContainEqual({
       target: 'Extra.extra',
       resolution: 'inherited',
     });
+  });
+});
+
+// **A loop variable is the element type of what it iterates** — see `fixtures/receiver-paths/loops.ts`.
+describe('the type of a binding a loop declares', () => {
+  let graph: KnowledgeGraph;
+
+  beforeEach(async () => {
+    graph = await buildGraph();
+  });
+
+  it('is the element type of a field the loop walks', () => {
+    // `for (const leaf of this.leaves) leaf.disconnect()` where `leaves: Leaf[]` - ioredis's failover detector, and
+    // the shape of every walk over a collection in the language.
+    expect(callsFrom(graph, 'Pool.resetField')).toContainEqual({
+      target: 'Leaf.disconnect',
+      resolution: 'receiverType',
+    });
+  });
+
+  it('is the element type of an array written the other way round', () => {
+    // `Array<Leaf>` is the same fact as `Leaf[]`, and a reader that only knew the first spelling would refuse half the
+    // annotated arrays in any TypeScript codebase.
+    expect(callsFrom(graph, 'Pool.resetLocal')).toContainEqual({
+      target: 'Leaf.disconnect',
+      resolution: 'receiverType',
+    });
+  });
+
+  it('is nothing at all when the loop walks an array literal', () => {
+    // `for (const value of [1, 2, 3])` says nothing about `value` that this resolver can name: the elements are
+    // written at the call site, not declared anywhere.
+    expect(targets(graph, 'Pool.refuseLiteral')).toEqual([]);
+  });
+
+  it('is nothing at all when the loop walks keys', () => {
+    // `for (const key in this.leaves)` iterates names, and a `string` declares no `trim` this graph can reach.
+    expect(targets(graph, 'Pool.refuseKeys')).toEqual([]);
   });
 });

@@ -89,7 +89,7 @@ const PYTHON_FLOORS = {
  *
  * **Recall on both is the honest gap, not a floor that was chosen.** `zod` writes most of its calls as generic
  * `Type.ast` dispatch on union members, and ioredis routes through a command table it builds at runtime; neither is a
- * name a resolver can walk to. The product answers 79.1 % and 84.4 % of what the checker expects and refuses the rest
+ * name a resolver can walk to. The product answers 79.1 % and 85.2 % of what the checker expects and refuses the rest
  * rather than guessing, which is why precision on the same corpora is 100 % on both.
  *
  * **Ten points of that recall came from two spellings of a named function that were not declarations.** `const f =
@@ -122,8 +122,8 @@ const TYPESCRIPT_FLOORS = {
   },
   'redis/ioredis': {
     precision: 0.99,
-    recall: 0.84,
-    claimed: 228,
+    recall: 0.85,
+    claimed: 230,
     arms: { import: 0.99, inherited: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
 };
