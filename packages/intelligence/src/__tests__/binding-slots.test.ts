@@ -82,6 +82,8 @@ function graph(nodes: GraphNode[], calls: Array<[number, number]>): KnowledgeGra
       targetId: to,
       type: 'CALLS',
       properties: {},
+      weight: 1,
+      createdAt: '2026-01-01T00:00:00.000Z',
     });
   }
   return {
