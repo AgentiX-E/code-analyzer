@@ -722,6 +722,18 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
                 if found:
                     return "internal", found
             return "unknown", None
+        # **`ClassName.m()` - the class's own namespace, and then its MRO.** CPython resolves an attribute on a class
+        # by searching the class dict and then the bases, so `Map.bind(self, …)` inside `Map.bind_to_environ` is a call
+        # to `Map.bind` and not something a reader has to guess. **This arm is why it exists**: without it the receiver
+        # fell through to the namespace arm below, which answered `silent`, and there were seven such calls in
+        # `pallets/werkzeug@3.0.3` - `MultiDict.add(self, key, value)`, `OrderedMultiDict.update(self, mapping)`,
+        # `ThreadedStream.push()`, `Cookie._from_response_header(…)`. A graph that resolved all seven was scored as
+        # making seven wrong claims, because the ruler could not see the shape rather than because it disagreed.
+        if receiver is not None and "." not in receiver:
+            declaring = corpus.class_file(unit, receiver, imports_local)
+            if declaring is not None:
+                found = corpus.find_method(declaring, receiver, callee, set())
+                return ("internal", found) if found else ("external", None)
         # `mod.f()` - only when the receiver is a module this file imported.
         if receiver is not None:
             namespace = corpus.resolve_namespace(unit, receiver, namespaces_local)

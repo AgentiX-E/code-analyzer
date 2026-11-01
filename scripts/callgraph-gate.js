@@ -54,17 +54,29 @@ const PYTHON_FLOORS = {
   // package's root; `examples/tutorial/flaskr/__init__.py` therefore made the resolver look for
   // `examples/tutorial/flaskr/flaskr/db.py`. A test asking where the root of `flaskr` is found the defect, and 51
   // import edges - the whole example and test suite of the checkout - followed.
+  // **And the class a call names, which the oracle could not see at all.** `MultiDict.add(self, key, value)` in
+  // `werkzeug/datastructures/structures.py` is a call to a method the class declares, and CPython resolves it by
+  // searching the class dict and then the MRO - but `callgraph-oracle.py` had no arm for a receiver that names a
+  // class, so it answered `silent` and **7 correct edges on werkzeug were scored as 7 wrong claims**. The arm is in
+  // the oracle now and the product answers 32 of the pairs it produces, all 32 correct.
   'pallets/flask': {
     precision: 0.955,
-    recall: 0.95,
-    claimed: 275,
-    arms: { import: 0.9, inherited: 0.99, receiverType: 0.99, sameFile: 0.96, super: 0.99 },
+    recall: 0.965,
+    claimed: 330,
+    arms: {
+      import: 0.9,
+      inherited: 0.99,
+      receiverType: 0.99,
+      sameFile: 0.96,
+      static: 0.99,
+      super: 0.99,
+    },
   },
   'pallets/werkzeug': {
     precision: 0.97,
     recall: 0.94,
-    claimed: 1140,
-    arms: { import: 0.97, receiverType: 0.99, sameFile: 0.95 },
+    claimed: 1230,
+    arms: { import: 0.97, receiverType: 0.99, sameFile: 0.95, static: 0.99 },
   },
 };
 
@@ -77,20 +89,26 @@ const PYTHON_FLOORS = {
  *
  * **Recall on both is the honest gap, not a floor that was chosen.** `zod` writes most of its calls as generic
  * `Type.ast` dispatch on union members, and ioredis routes through a command table it builds at runtime; neither is a
- * name a resolver can walk to. The product answers 63.8 % and 67.5 % of what the checker expects and refuses the rest
- * rather than guessing, which is why precision on the same corpora is 97.7 % and 97.8 %.
+ * name a resolver can walk to. The product answers 78.7 % and 73.8 % of what the checker expects and refuses the rest
+ * rather than guessing, which is why precision on the same corpora is 98.0 % on both.
+ *
+ * **Ten points of that recall came from two spellings of a named function that were not declarations.** `const f =
+ * function (args) {…}` was captured as a constant and `class C { static m = () => {…} }` as a field type, so neither
+ * body had a declaration to belong to: ioredis's fifteen argument and reply transformers and zod's thirty-five field
+ * arrows were invisible as callers. With them captured, zod's recall moved 66.9 % -> 78.7 % and ioredis's 71.9 % ->
+ * 73.8 %, on precision that did not fall.
  */
 const TYPESCRIPT_FLOORS = {
   'colinhacks/zod': {
     precision: 0.96,
-    recall: 0.6,
-    claimed: 78,
+    recall: 0.74,
+    claimed: 96,
     arms: { import: 0.94, sameFile: 0.99, receiverType: 0.99 },
   },
   'redis/ioredis': {
     precision: 0.96,
-    recall: 0.64,
-    claimed: 175,
+    recall: 0.7,
+    claimed: 190,
     arms: { import: 0.93, inherited: 0.99, sameFile: 0.97, receiverType: 0.99 },
   },
 };

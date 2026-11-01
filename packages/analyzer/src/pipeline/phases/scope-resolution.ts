@@ -99,6 +99,15 @@ interface FileScope {
    * already indexes.
    */
   readonly owner: Map<number, number>;
+  /**
+   * Every name a function binds inside itself, whatever kind the binding is, keyed `${enclosing declaration}::${name}`.
+   *
+   * **`local` holds the bindings a call can *reach*, and this holds the ones that decide what a *receiver* is.** A
+   * call on `Registry.put(…)` reaches the class `Registry`, and a `const Registry = { put: … }` four lines into a
+   * function is a value of the same name: the receiver's kind is what the resolution turns on, and a set that only
+   * kept callable bindings could not see the shadow that makes the receiver a value.
+   */
+  readonly bound: Set<string>;
 }
 
 /**
@@ -445,13 +454,51 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           member: new Map(),
           local: new Map(),
           owner: new Map(),
+          bound: new Set(),
         };
         fileScopes.set(filePath, scope);
         const holders = holdersOf(nodes);
+        /**
+         * The innermost container a declaration is written inside, for declarations that are not containers.
+         *
+         * **`holdersOf` answers for declarations that can hold one**, which a variable cannot: it would have no
+         * children and its span is a single line. But a variable inside a function is exactly the binding that decides
+         * whether `Registry.put(…)` names a class or an object, so its holder is the question that has to be answered
+         * - and the answer is the same containment the stack above uses, read from the outside in.
+         */
+        const containers: RangedDeclaration[] = [];
         for (const node of nodes) {
-          if (!RESOLVABLE_KINDS.has(node.label)) continue;
+          if (isContainer(node)) containers.push(node);
+        }
+        containers.sort(
+          (left, right) => left.startLine - right.startLine || right.endLine - left.endLine,
+        );
+        const innermostContainerOf = (declaration: ScopedDeclaration): number | undefined => {
+          if (declaration.startLine === null || declaration.endLine === null) return undefined;
+          let found: RangedDeclaration | undefined;
+          for (const candidate of containers) {
+            if (candidate.startLine > declaration.startLine) break;
+            if (candidate.endLine < declaration.endLine) continue;
+            if (
+              candidate.startLine < declaration.startLine ||
+              candidate.endLine > declaration.endLine
+            ) {
+              found = candidate;
+            }
+          }
+          return found?.id;
+        };
+        for (const node of nodes) {
           if (typeof node.name !== 'string' || node.name.length === 0) continue;
           const where = declarationScope(holders, node);
+          const holder = holders.get(node.id);
+          // **A binding that is not a callable still shadows one.** Recorded before the kind is tested, because the
+          // question this answers - "is this receiver a value here?" - is asked about names a call cannot reach.
+          if (!RESOLVABLE_KINDS.has(node.label)) {
+            const enclosing = innermostContainerOf(node);
+            if (enclosing !== undefined) scope.bound.add(`${String(enclosing)}::${node.name}`);
+            continue;
+          }
           if (where === 'local') {
             // **A declaration inside a function is that function's**, and the kinds that can be *reached by a name* are
             // the kinds a call can name: a nested `def`, a nested `class`, a nested `TypeAlias`. A local variable is
@@ -461,8 +508,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // `def test_custom_config_class(): class Flask(flask.Flask): …; app = Flask(__name__)` declares a subclass
             // inside a test and instantiates it — a call to a declaration two lines above it, which resolved to the
             // *imported* `Flask` in `flask/app.py` and made the local class look unused.
-            if (!RESOLVABLE_KINDS.has(node.label)) continue;
-            const owner = holders.get(node.id);
+            const owner = holder;
             if (owner !== undefined) {
               // **Every declaration of the name, not the first one.** `LocalProxy.__init__` defines
               // `_get_current_object` four times, once per branch, and `object.__setattr__(self, "…",
@@ -608,6 +654,25 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         };
 
         /**
+         * Whether a name written as a receiver is a *value* where the call is written, because a scope binds it.
+         *
+         * **The one question that keeps a class name from being read as a class.** `Registry.put(…)` reaches the static
+         * member of the class `Registry`; `const Registry = { put: … }; Registry.put(…)` inside a function reaches an
+         * object. Both are spelled the same, and only the bindings around the call say which one is on the line - which
+         * is why this walks outward through every holder rather than asking the file.
+         */
+        const shadowsLocally = (name: string, sourceLine: number): boolean => {
+          const scope = fileScopes.get(parsedFile.filePath);
+          if (scope === undefined) return false;
+          let current = enclosingCallableNodeOf(sourceLine);
+          while (current !== undefined) {
+            if (scope.bound.has(`${String(current)}::${name}`)) return true;
+            current = scope.owner.get(current);
+          }
+          return false;
+        };
+
+        /**
          * The symbol a bare mention of `name` refers to: the same file, then a file this one imports, then one
          * re-export hop.
          *
@@ -688,8 +753,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           if (ref.referenceKind === 'call') {
             let target: { nodeId: number; label: NodeLabel } | undefined;
             let arm:
-              'import' | 'sameFile' | 'inherited' | 'super' | 'receiverType' | 'globalUnique' =
-              'import';
+              | 'import'
+              | 'sameFile'
+              | 'static'
+              | 'inherited'
+              | 'super'
+              | 'receiverType'
+              | 'globalUnique' = 'import';
 
             // First, try cross-file resolution via imports
             if (fileImports) {
@@ -778,6 +848,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // **A `super` receiver is not own-scope for this arm**, even though the keyword names the enclosing object:
             // the declaration a `super` call reaches is the base's, and the arm below is the one that walks there. Left
             // here it would answer with the override the keyword exists to skip.
+            let receiverClass: string | undefined;
             if (!target && isOwnScopeCall(ref.receiver) && !isSuperCall(ref.receiver)) {
               const scope = fileScopes.get(parsedFile.filePath);
               // A receiver of `self`/`cls`/`this` reaches a member; a bare call reaches the module scope, and a member
@@ -802,6 +873,32 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                       ? module
                       : (member ?? module);
               if (target) arm = 'sameFile';
+            }
+
+            // **Then a receiver that names a class, which is a static call.**
+            //
+            // `ParseStatus.mergeObjectSync(…)` is how `colinhacks/zod` moves a parsed pair from the async half to the
+            // sync one, and the name `mergeObjectSync` is declared once in that file — the call was still unresolved,
+            // because the arm above accepts a receiver only when it *is* the enclosing object and a class name is not
+            // `this`. Two names sit next to each other in `lib/Command.ts` of `redis/ioredis` that make the same point:
+            // `utils.convertMapToArray(…)` is a namespace, `Command.setArgumentTransformer(…)` is an object.
+            //
+            // **The receiver has to *be* a class, and that is the whole evidence.** A rule keyed on the member name
+            // would answer `alias.put(…)` with `Registry.put` — the same name on a receiver that is a value — so the
+            // binding is read first: any scope between the call and the module that binds the receiver's name makes
+            // the receiver a value, and this arm answers nothing.
+            if (
+              !target &&
+              ref.receiver !== undefined &&
+              !isOwnScopeCall(ref.receiver) &&
+              !shadowsLocally(ref.receiver, ref.sourceLine)
+            ) {
+              const member = classMemberOf(classIndex, ref.receiver, ref.targetName, origin);
+              if (member !== undefined) {
+                target = member;
+                arm = 'static';
+                receiverClass = ref.receiver;
+              }
             }
 
             // **Then the class the call is written inside, and the bases it declares.**
@@ -868,7 +965,6 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // two above it**: an import says where a name comes from, a file scope says it is the only declaration
             // there, and a receiver's class says which class's member this is. When this arm answers, the arm recorded
             // on the edge is this one, so the precision of the rule is measured rather than averaged away.
-            let receiverClass: string | undefined;
             if (!target && ref.receiver !== undefined) {
               // **The facts are optional and the rule is what handles that**, rather than a guard here: a file the
               // parse phase reported but that contributed no declarations has no type facts, and a rule that is only

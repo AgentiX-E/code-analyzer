@@ -12,25 +12,25 @@
       },
       "sites": {
         "total": 3681,
-        "internal": 455,
+        "internal": 458,
         "internalRecursion": 8,
-        "external": 806,
+        "external": 824,
         "variable": 37,
         "unknown": 658,
-        "silent": 1725,
+        "silent": 1704,
         "excludedForDuplicateName": 38
       },
-      "expectedPairs": 338,
-      "claimedPairs": 343,
+      "expectedPairs": 340,
+      "claimedPairs": 345,
       "precision": {
-        "correct": 330,
+        "correct": 332,
         "wrong": 13,
-        "value": 0.9621
+        "value": 0.9623
       },
       "recall": {
-        "found": 330,
+        "found": 332,
         "missed": 8,
-        "value": 0.9763
+        "value": 0.9765
       },
       "byArm": {
         "import": {
@@ -53,6 +53,11 @@
           "correct": 215,
           "precision": 0.9729
         },
+        "static": {
+          "claimed": 2,
+          "correct": 2,
+          "precision": 1
+        },
         "super": {
           "claimed": 3,
           "correct": 3,
@@ -60,11 +65,11 @@
         }
       },
       "callers": {
-        "oracle": 263,
-        "graph": 233,
+        "oracle": 264,
+        "graph": 234,
         "graphOnly": 6,
-        "ownersWithAnyCall": 517,
-        "graphCallers": 215
+        "ownersWithAnyCall": 522,
+        "graphCallers": 216
       },
       "wrongSamples": [
         "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/app.py|Flask",
@@ -115,25 +120,25 @@
       },
       "sites": {
         "total": 7890,
-        "internal": 1895,
+        "internal": 1961,
         "internalRecursion": 33,
-        "external": 1855,
+        "external": 1861,
         "variable": 160,
         "unknown": 1379,
-        "silent": 2601,
-        "excludedForDuplicateName": 238
+        "silent": 2529,
+        "excludedForDuplicateName": 268
       },
-      "expectedPairs": 1266,
-      "claimedPairs": 1223,
+      "expectedPairs": 1295,
+      "claimedPairs": 1248,
       "precision": {
-        "correct": 1197,
+        "correct": 1222,
         "wrong": 26,
-        "value": 0.9787
+        "value": 0.9792
       },
       "recall": {
-        "found": 1197,
-        "missed": 69,
-        "value": 0.9455
+        "found": 1222,
+        "missed": 73,
+        "value": 0.9436
       },
       "byArm": {
         "import": {
@@ -150,14 +155,19 @@
           "claimed": 552,
           "correct": 534,
           "precision": 0.9674
+        },
+        "static": {
+          "claimed": 32,
+          "correct": 32,
+          "precision": 1
         }
       },
       "callers": {
-        "oracle": 899,
-        "graph": 772,
+        "oracle": 925,
+        "graph": 786,
         "graphOnly": 9,
-        "ownersWithAnyCall": 976,
-        "graphCallers": 645
+        "ownersWithAnyCall": 988,
+        "graphCallers": 658
       },
       "wrongSamples": [
         "[import] examples/manage-cupoftee.py|make_app -> examples/cupoftee/application.py|make_app",
@@ -190,8 +200,8 @@
       "wrongCauses": {
         "owner-makes-no-such-call": 17,
         "resolves-elsewhere": 7,
-        "external": 1,
-        "variable": 1
+        "variable": 1,
+        "external": 1
       },
       "wrongByArm": {
         "import": {
@@ -200,8 +210,8 @@
         },
         "sameFile": {
           "owner-makes-no-such-call": 15,
-          "external": 1,
-          "variable": 1
+          "variable": 1,
+          "external": 1
         }
       },
       "missedSamples": [

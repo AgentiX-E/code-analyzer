@@ -197,11 +197,18 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // is a sibling `type_annotation`, so a table of `nodeType → nameChildType` cannot carry the second half. Without
     // the type the resolver cannot answer `this.index.buildIndex()`, which is the shape that made two receiver
     // relaxations fail their own measurement in iteration 42.
+    //
+    // **The fourth is the other spelling of a named function.** `const convertMap = function (input) {…}` is a
+    // declaration of `convertMap`, and no row of the table can say so, because a `function_expression` has no name of
+    // its own and the name it takes comes from the `variable_declarator` above it. Without this the constant was the
+    // only capture, so the body had no declaration to belong to: `redis/ioredis@5.4.2` writes **15** of its argument
+    // and reply transformers this way, and none of them was a caller in the graph.
     return new Set([
       ...captureTypesFor(mappings, this.callNodeTypes()),
       'assignment_expression',
       'public_field_definition',
       'property_signature',
+      'function_expression',
     ]);
   }
 
@@ -240,8 +247,17 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       return;
     }
 
+    // **A function expression carries no name, and the declarator above it does.** `const f = function () {…}` is the
+    // same declaration `const f = () => {…}` is, and only the second one was captured — so the first was a `Constant`
+    // in the graph, which no call can be attributed to and no call can resolve to.
+    if (nodeType === 'function_expression') {
+      this.captureBoundFunction(node, captures);
+      return;
+    }
+
     if (nodeType === 'public_field_definition' || nodeType === 'property_signature') {
       this.captureFieldDeclaration(node, captures);
+      this.captureFieldFunction(node, captures);
       return;
     }
 
@@ -339,8 +355,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         const nameChild = child.namedChild(0);
         const valueChild = child.namedChild(1); // value expression
         if (nameChild.type === 'identifier') {
-          const isArrow = valueChild?.type === 'arrow_function';
-          if (!isArrow) {
+          // **A declarator whose value is a function declares a function**, whichever of the two spellings it uses, and
+          // the function arm above has already emitted that declaration. Capturing the binding a second time as a
+          // `const` would give the same name two kinds - and the kind is what decides whether its body is a caller.
+          const isFunction =
+            valueChild?.type === 'arrow_function' || valueChild?.type === 'function_expression';
+          if (!isFunction) {
             const isConst = node.text.startsWith('const');
             const tag = isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
             captures.push(this.buildCapture(node, tag, nameChild));
@@ -654,6 +674,71 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     if (fields.has(nameNode.text) && fields.get(nameNode.text) !== fieldType)
       fields.delete(nameNode.text);
     else fields.set(nameNode.text, fieldType);
+  }
+
+  /**
+   * The declaration a `function_expression` makes, which is the name of the variable it is bound to.
+   *
+   * `const transformer = function (args) {…}` and `const transformer = (args) => {…}` are one declaration written two
+   * ways, and only the second was in the graph. A callback passed straight into a call declares nothing - `items.map(
+   * function (x) {…})` has no name - so only a `variable_declarator` parent is read, which is the same condition the
+   * arrow arm applies.
+   */
+  private captureBoundFunction(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const parent = node.parent;
+    // **A callback declares nothing, and it is the same condition the arrow arm applies.** `items.map(function (x)
+    // {…})` binds the function to an argument rather than to a name.
+    if (parent?.type !== 'variable_declarator') return;
+    const nameNode = this.findNamedChild(parent, 'identifier');
+    if (nameNode === null) return;
+    const capture = this.buildCapture(node, CAPTURE_TAGS.FUNCTION_DEF, nameNode);
+    captures.push({
+      ...capture,
+      properties: {
+        ...capture.properties,
+        arrow: 'false',
+        async: String(node.text.trimStart().startsWith('async')),
+      },
+    });
+  }
+
+  /**
+   * A field whose value is a function is a member of the class, and it is the *only* spelling some classes use.
+   *
+   * `static lazycreate = <T extends ZodRawShape>(…) => new ZodObject(…)` and `handler = (event) => {…}` are methods in
+   * the program the compiler emits: the arrow is created once and its `this` is the instance. `colinhacks/zod@3.23.8`
+   * declares **35** of them, `ZodObject.lazycreate` and the `create`/`createWithPreprocess` family among them, and
+   * none of those bodies had a declaration to belong to - the field was a type fact and nothing else. So every call
+   * written inside one was attributed to whatever enclosed the class, or to nothing.
+   *
+   * **Filed as a member and not as a field.** The graph's `Property` label is what the search index reads and what the
+   * measurement in `captureFieldDeclaration` is about; a callable has to be reachable by name, by `this.` and by a
+   * class-typed receiver, and every one of those paths reads `Method`.
+   */
+  private captureFieldFunction(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nameNode = this.findNamedChild(node, 'property_identifier');
+    if (nameNode === null) return;
+    const body = namedChildrenOf(node).find(
+      (child) => child.type === 'arrow_function' || child.type === 'function_expression',
+    );
+    if (body === undefined) return;
+    const owner = this.containerNameOf(node);
+    if (owner === undefined) return;
+    captures.push({
+      tag: CAPTURE_TAGS.METHOD_DEF,
+      text: body.text,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: body.endIndex,
+      name: nameNode.text,
+      containerName: owner,
+      properties: {
+        filePath: this.filePath,
+        async: String(body.text.trimStart().startsWith('async')),
+        fieldFunction: 'true',
+      },
+    });
   }
 
   /**

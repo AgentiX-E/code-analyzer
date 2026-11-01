@@ -254,7 +254,8 @@ describe(`a real repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, () =
     );
     expect(
       [...arms].filter(
-        (arm) => !['import', 'sameFile', 'inherited', 'super', 'receiverType'].includes(arm),
+        (arm) =>
+          !['import', 'sameFile', 'static', 'inherited', 'super', 'receiverType'].includes(arm),
       ),
     ).toEqual([]);
   });

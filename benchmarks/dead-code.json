@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-11-01T01:08:06.888Z",
+  "measuredAt": "2026-11-01T03:39:34.092Z",
   "languages": ["python", "typescript"],
   "corpora": [
     {
@@ -29,20 +29,20 @@
       "repo": "colinhacks/zod",
       "package": "src",
       "language": "typescript",
-      "indexedMs": 4369,
-      "nodes": 19155,
-      "edges": 24133,
-      "roots": 904,
+      "indexedMs": 4380,
+      "nodes": 19139,
+      "edges": 25645,
+      "roots": 980,
       "rootsByKind": {
-        "published": 690,
-        "test": 204,
+        "published": 764,
+        "test": 206,
         "entry": 8,
         "route": 2
       },
-      "considered": 962,
-      "callEdges": 643,
+      "considered": 1036,
+      "callEdges": 881,
       "oursDead": 0,
-      "publishedRescued": 361,
+      "publishedRescued": 394,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 14,
@@ -185,9 +185,9 @@
       "repo": "pallets/flask",
       "package": "src/flask",
       "language": "python",
-      "indexedMs": 2128,
-      "nodes": 10797,
-      "edges": 13202,
+      "indexedMs": 2186,
+      "nodes": 10744,
+      "edges": 13390,
       "roots": 1357,
       "rootsByKind": {
         "entry": 632,
@@ -196,7 +196,7 @@
         "route": 5
       },
       "considered": 1564,
-      "callEdges": 383,
+      "callEdges": 454,
       "oursDead": 3,
       "publishedRescued": 90,
       "competitor": "vulture",
@@ -630,9 +630,9 @@
       "repo": "pallets/werkzeug",
       "package": "src/werkzeug",
       "language": "python",
-      "indexedMs": 4411,
-      "nodes": 22896,
-      "edges": 30094,
+      "indexedMs": 4385,
+      "nodes": 22798,
+      "edges": 30208,
       "roots": 2347,
       "rootsByKind": {
         "entry": 715,
@@ -641,9 +641,9 @@
         "route": 1
       },
       "considered": 2326,
-      "callEdges": 1710,
+      "callEdges": 1884,
       "oursDead": 2,
-      "publishedRescued": 233,
+      "publishedRescued": 230,
       "competitor": "vulture",
       "competitorVersion": "vulture 2.16",
       "competitorTotal": 207,
@@ -1901,20 +1901,20 @@
       "repo": "redis/ioredis",
       "package": "lib",
       "language": "typescript",
-      "indexedMs": 87669,
-      "nodes": 95545,
-      "edges": 449129,
-      "roots": 282,
+      "indexedMs": 89421,
+      "nodes": 95492,
+      "edges": 449342,
+      "roots": 284,
       "rootsByKind": {
         "entry": 22,
-        "published": 255,
+        "published": 257,
         "test": 1,
         "route": 4
       },
-      "considered": 503,
-      "callEdges": 230,
+      "considered": 529,
+      "callEdges": 351,
       "oursDead": 0,
-      "publishedRescued": 76,
+      "publishedRescued": 79,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 42,
@@ -2223,20 +2223,6 @@
     }
   ],
   "byRepo": {
-    "colinhacks/zod": {
-      "language": "typescript",
-      "package": "src",
-      "findings": 0,
-      "published": 361,
-      "oracleUniverse": 75,
-      "oracleDead": 0,
-      "precision": null,
-      "recall": null,
-      "competitor": "ts-prune",
-      "competitorFindings": 14,
-      "competitorPrecision": null,
-      "competitorRecall": null
-    },
     "pallets/flask": {
       "language": "python",
       "package": "src/flask",
@@ -2255,7 +2241,7 @@
       "language": "python",
       "package": "src/werkzeug",
       "findings": 2,
-      "published": 233,
+      "published": 230,
       "oracleUniverse": 107,
       "oracleDead": 1,
       "precision": 0.5,
@@ -2265,11 +2251,25 @@
       "competitorPrecision": 0.5,
       "competitorRecall": 1
     },
+    "colinhacks/zod": {
+      "language": "typescript",
+      "package": "src",
+      "findings": 0,
+      "published": 394,
+      "oracleUniverse": 75,
+      "oracleDead": 0,
+      "precision": null,
+      "recall": null,
+      "competitor": "ts-prune",
+      "competitorFindings": 14,
+      "competitorPrecision": null,
+      "competitorRecall": null
+    },
     "redis/ioredis": {
       "language": "typescript",
       "package": "lib",
       "findings": 0,
-      "published": 76,
+      "published": 79,
       "oracleUniverse": 69,
       "oracleDead": 1,
       "precision": null,
@@ -2282,7 +2282,8 @@
   },
   "assertionLoad": {
     "ours": 5,
-    "competitor": 327,
-    "ratio": 0.01529051987767584
-  }
+    "competitor": 271,
+    "ratio": 0.01845018450184502
+  },
+  "typescriptMeasuredAt": "2026-11-01T03:37:58.243Z"
 }

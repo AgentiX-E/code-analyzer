@@ -12,33 +12,33 @@
     "packages/vscode/src",
     "packages/web/src"
   ],
-  "nodes": 118765,
+  "nodes": 118879,
   "byLabel": {
-    "Folder": 120,
-    "File": 977,
-    "Variable": 53262,
-    "Function": 2528,
-    "Class": 543,
-    "Method": 2327,
-    "Constructor": 170,
+    "Folder": 121,
+    "File": 980,
+    "Variable": 53306,
+    "Function": 2540,
+    "Class": 546,
+    "Method": 2337,
+    "Constructor": 171,
     "Interface": 1118,
     "TypeAlias": 136,
     "Route": 228,
     "Tool": 64,
-    "Community": 57285,
+    "Community": 57325,
     "Module": 3,
     "Enum": 4
   },
   "calls": {
-    "edges": 5653,
-    "distinctSites": 5596,
+    "edges": 5708,
+    "distinctSites": 5651,
     "repeatedEdges": 57,
-    "share": 0.0101
+    "share": 0.01
   },
   "byLanguage": {
     "typescript": {
-      "edges": 5650,
-      "withReceiver": 2625
+      "edges": 5705,
+      "withReceiver": 2667
     },
     "python": {
       "edges": 3,
@@ -46,9 +46,10 @@
     }
   },
   "byArm": {
-    "sameFile": 4357,
+    "sameFile": 4372,
     "receiverType": 333,
-    "import": 931,
+    "import": 936,
+    "static": 35,
     "inherited": 31,
     "super": 1
   },
