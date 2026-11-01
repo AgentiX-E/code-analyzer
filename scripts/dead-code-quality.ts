@@ -335,6 +335,14 @@ async function measure(repo: RepoArgument, language: Lang): Promise<Record<strin
           : 'not-in-universe',
     });
   }
+  // **A count says a rule changed; it does not say where.** The stored report carries totals so a reader can compare
+  // revisions at a glance, and the names are what a revision is *about* - so they are printed on request rather than
+  // stored, the same way the call-graph oracle prints its misses.
+  if (process.env.DEAD_DEBUG) {
+    for (const finding of oursOnly) {
+      process.stderr.write(`OURSONLY ${key(finding)} (${finding.oracleSays})\n`);
+    }
+  }
   for (const [id, finding] of competitorByKey) {
     if (oursByKey.has(id)) continue;
     competitorOnly.push({

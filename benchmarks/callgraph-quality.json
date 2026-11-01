@@ -21,11 +21,11 @@
         "excludedForDuplicateName": 38
       },
       "expectedPairs": 340,
-      "claimedPairs": 345,
+      "claimedPairs": 342,
       "precision": {
         "correct": 332,
-        "wrong": 13,
-        "value": 0.9623
+        "wrong": 10,
+        "value": 0.9708
       },
       "recall": {
         "found": 332,
@@ -39,8 +39,8 @@
           "precision": 0.9278
         },
         "inherited": {
-          "claimed": 9,
-          "correct": 9,
+          "claimed": 93,
+          "correct": 93,
           "precision": 1
         },
         "receiverType": {
@@ -49,9 +49,9 @@
           "precision": 1
         },
         "sameFile": {
-          "claimed": 221,
-          "correct": 215,
-          "precision": 0.9729
+          "claimed": 134,
+          "correct": 131,
+          "precision": 0.9776
         },
         "static": {
           "claimed": 2,
@@ -67,9 +67,9 @@
       "callers": {
         "oracle": 264,
         "graph": 234,
-        "graphOnly": 6,
+        "graphOnly": 3,
         "ownersWithAnyCall": 522,
-        "graphCallers": 216
+        "graphCallers": 213
       },
       "wrongSamples": [
         "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/app.py|Flask",
@@ -80,22 +80,17 @@
         "[import] tests/test_cli.py|test_flaskgroup_debug -> src/flask/cli.py|command",
         "[import] tests/test_cli.py|test_with_appcontext -> src/flask/app.py|Flask",
         "[sameFile] src/flask/helpers.py|decorator -> src/flask/helpers.py|stream_with_context",
-        "[sameFile] src/flask/sansio/scaffold.py|wrapper_func -> src/flask/sansio/scaffold.py|_check_setup_finished",
-        "[sameFile] src/flask/sessions.py|permanent -> src/flask/sessions.py|get",
         "[sameFile] tests/test_reqctx.py|test_session_dynamic_cookie_name -> tests/test_reqctx.py|PathAwareSessionInterface",
-        "[sameFile] tests/test_reqctx.py|test_session_error_pops_context -> tests/test_reqctx.py|FailingSessionInterface",
-        "[sameFile] tests/test_user_error_handler.py|do_custom -> tests/test_user_error_handler.py|Custom"
+        "[sameFile] tests/test_reqctx.py|test_session_error_pops_context -> tests/test_reqctx.py|FailingSessionInterface"
       ],
       "wrongCauses": {
-        "owner-makes-no-such-call": 10,
-        "external": 3
+        "owner-makes-no-such-call": 10
       },
       "wrongByArm": {
         "import": {
           "owner-makes-no-such-call": 7
         },
         "sameFile": {
-          "external": 3,
           "owner-makes-no-such-call": 3
         }
       },
@@ -129,22 +124,27 @@
         "excludedForDuplicateName": 268
       },
       "expectedPairs": 1295,
-      "claimedPairs": 1248,
+      "claimedPairs": 1247,
       "precision": {
-        "correct": 1222,
-        "wrong": 26,
-        "value": 0.9792
+        "correct": 1224,
+        "wrong": 23,
+        "value": 0.9816
       },
       "recall": {
-        "found": 1222,
-        "missed": 73,
-        "value": 0.9436
+        "found": 1224,
+        "missed": 71,
+        "value": 0.9452
       },
       "byArm": {
         "import": {
-          "claimed": 1016,
+          "claimed": 1014,
           "correct": 1000,
-          "precision": 0.9843
+          "precision": 0.9862
+        },
+        "inherited": {
+          "claimed": 225,
+          "correct": 224,
+          "precision": 0.9956
         },
         "receiverType": {
           "claimed": 7,
@@ -152,9 +152,9 @@
           "precision": 1
         },
         "sameFile": {
-          "claimed": 552,
-          "correct": 534,
-          "precision": 0.9674
+          "claimed": 328,
+          "correct": 312,
+          "precision": 0.9512
         },
         "static": {
           "claimed": 32,
@@ -173,14 +173,12 @@
         "[import] examples/manage-cupoftee.py|make_app -> examples/cupoftee/application.py|make_app",
         "[import] examples/manage-cupoftee.py|runserver -> examples/cupoftee/application.py|make_app",
         "[import] examples/manage-plnt.py|sync -> examples/plnt/sync.py|sync",
-        "[import] src/werkzeug/routing/map.py|build -> src/werkzeug/wsgi.py|get_host",
-        "[import] src/werkzeug/routing/map.py|make_redirect_url -> src/werkzeug/wsgi.py|get_host",
         "[import] src/werkzeug/wrappers/response.py|force_type -> src/werkzeug/sansio/response.py|Response",
         "[import] tests/test_utils.py|test_cached_property -> src/werkzeug/utils.py|cached_property",
         "[import] tests/test_utils.py|test_environ_property -> src/werkzeug/utils.py|environ_property",
         "[import] tests/test_wsgi.py|app -> src/werkzeug/wrappers/response.py|Response",
+        "[inherited] src/werkzeug/middleware/shared_data.py|get_file_loader -> src/werkzeug/middleware/shared_data.py|_opener",
         "[sameFile] examples/coolmagic/utils.py|f -> examples/coolmagic/utils.py|TemplateResponse",
-        "[sameFile] src/werkzeug/debug/repr.py|proxy -> src/werkzeug/debug/repr.py|repr",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|createIconForConsole",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|openShell",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|createInteractiveConsole -> src/werkzeug/debug/shared/debugger.js|openShell",
@@ -194,24 +192,24 @@
         "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|promptForPin",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|openShell -> src/werkzeug/debug/shared/debugger.js|slideToggle",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|promptForPin -> src/werkzeug/debug/shared/debugger.js|fadeIn",
-        "[sameFile] src/werkzeug/middleware/shared_data.py|get_file_loader -> src/werkzeug/middleware/shared_data.py|_opener",
         "[sameFile] tests/conftest.py|standard_app -> tests/conftest.py|dev_server"
       ],
       "wrongCauses": {
         "owner-makes-no-such-call": 17,
-        "resolves-elsewhere": 7,
-        "variable": 1,
-        "external": 1
+        "resolves-elsewhere": 5,
+        "variable": 1
       },
       "wrongByArm": {
         "import": {
-          "resolves-elsewhere": 7,
+          "resolves-elsewhere": 5,
           "owner-makes-no-such-call": 2
         },
+        "inherited": {
+          "owner-makes-no-such-call": 1
+        },
         "sameFile": {
-          "owner-makes-no-such-call": 15,
-          "variable": 1,
-          "external": 1
+          "owner-makes-no-such-call": 14,
+          "variable": 1
         }
       },
       "missedSamples": [

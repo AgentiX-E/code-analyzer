@@ -335,9 +335,12 @@ describe('ScopeResolution — the receiver names a class, and the class names th
     ]);
   });
 
-  it("leaves the import arm's answer alone", async () => {
-    // A call an import already explains must keep `resolution: 'import'`: the evidence is stronger than any inference
-    // from a type, and moving it would make one rule's precision describe another's.
+  it('keeps the import arm for a call that writes no receiver', async () => {
+    // **An import explains a bare name and nothing else.** `buildIndex()` names the imported function; `self.buildIndex()`
+    // names a member of whatever `self` is, and that the file also imports something called `buildIndex` says nothing
+    // about this call - `new this.Command(…)` in `redis/ioredis`'s `Script.execute` was resolved to the imported base
+    // class for exactly that reason, when the property holds a subclass. So the import arm is asked first and answers
+    // only the bare form, which is why the same file is exercised twice below.
     const symbols = [
       declaration('Function', 'connect', 1, 10),
       declaration('Variable', 'self', 1, 1, {
@@ -349,7 +352,7 @@ describe('ScopeResolution — the receiver names a class, and the class names th
     const { graph } = built({ [FILE_A]: indexFile(), [FILE_B]: symbols });
     const ctx = ctxOf(graph, [
       parsedFile(FILE_A, indexFile(), []),
-      parsedFile(FILE_B, symbols, [reference(FILE_B, 'buildIndex', 4, 'self')]),
+      parsedFile(FILE_B, symbols, [reference(FILE_B, 'buildIndex', 4)]),
     ]);
     ctx.phaseData.set('crossFile', {
       resolvedImports: [

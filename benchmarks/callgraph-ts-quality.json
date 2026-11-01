@@ -11,31 +11,37 @@
       },
       "sites": {
         "total": 7550,
-        "internal": 749,
+        "internal": 754,
         "internalRecursion": 38,
         "external": 206,
         "variable": 3,
         "unknown": 6568,
-        "silent": 24,
-        "excludedForDuplicateName": 514
+        "silent": 19,
+        "excludedForDuplicateName": 517,
+        "graphRecursion": 0
       },
-      "expectedPairs": 127,
+      "expectedPairs": 129,
       "claimedPairs": 102,
       "precision": {
-        "correct": 100,
-        "wrong": 2,
-        "value": 0.9804
+        "correct": 102,
+        "wrong": 0,
+        "value": 1
       },
       "recall": {
-        "found": 100,
+        "found": 102,
         "missed": 27,
-        "value": 0.7874
+        "value": 0.7907
       },
       "byArm": {
         "import": {
           "claimed": 55,
-          "correct": 53,
-          "precision": 0.9636
+          "correct": 55,
+          "precision": 1
+        },
+        "inherited": {
+          "claimed": 6,
+          "correct": 6,
+          "precision": 1
         },
         "receiverType": {
           "claimed": 3,
@@ -43,8 +49,8 @@
           "precision": 1
         },
         "sameFile": {
-          "claimed": 51,
-          "correct": 51,
+          "claimed": 45,
+          "correct": 45,
           "precision": 1
         },
         "static": {
@@ -54,18 +60,13 @@
         }
       },
       "callers": {
-        "oracle": 147,
+        "oracle": 146,
         "graph": 82,
         "graphOnly": 0,
-        "ownersWithAnyCall": 186
+        "ownersWithAnyCall": 185
       },
-      "wrongCauses": {
-        "calleeNotCalledHere": 2
-      },
-      "wrongSamples": [
-        "[import] types.ts|_processInputParams -> helpers/parseUtil.ts|ParseStatus",
-        "[import] types.ts|handleResult -> ZodError.ts|ZodError"
-      ],
+      "wrongCauses": {},
+      "wrongSamples": [],
       "missedSamples": [
         "__tests__/generics.test.ts|stripOuter|types.ts|parse",
         "__tests__/generics.test.ts|stripOuter|types.ts|transform",
@@ -93,80 +94,73 @@
       },
       "sites": {
         "total": 1201,
-        "internal": 348,
-        "internalRecursion": 9,
-        "external": 238,
+        "internal": 353,
+        "internalRecursion": 10,
+        "external": 236,
         "variable": 0,
-        "unknown": 250,
-        "silent": 365,
-        "excludedForDuplicateName": 15
+        "unknown": 252,
+        "silent": 360,
+        "excludedForDuplicateName": 15,
+        "graphRecursion": 1
       },
-      "expectedPairs": 267,
-      "claimedPairs": 203,
+      "expectedPairs": 270,
+      "claimedPairs": 217,
       "precision": {
-        "correct": 199,
-        "wrong": 4,
-        "value": 0.9803
+        "correct": 217,
+        "wrong": 0,
+        "value": 1
       },
       "recall": {
-        "found": 199,
-        "missed": 68,
-        "value": 0.7453
+        "found": 217,
+        "missed": 53,
+        "value": 0.8037
       },
       "byArm": {
         "import": {
-          "claimed": 61,
-          "correct": 58,
-          "precision": 0.9508
+          "claimed": 59,
+          "correct": 59,
+          "precision": 1
         },
         "inherited": {
-          "claimed": 1,
-          "correct": 1,
+          "claimed": 97,
+          "correct": 97,
           "precision": 1
         },
         "receiverType": {
-          "claimed": 31,
-          "correct": 31,
+          "claimed": 72,
+          "correct": 72,
           "precision": 1
         },
         "sameFile": {
-          "claimed": 149,
-          "correct": 147,
-          "precision": 0.9866
+          "claimed": 41,
+          "correct": 41,
+          "precision": 1
         }
       },
       "callers": {
         "oracle": 127,
-        "graph": 108,
-        "graphOnly": 1,
-        "ownersWithAnyCall": 171
+        "graph": 107,
+        "graphOnly": 0,
+        "ownersWithAnyCall": 169
       },
-      "wrongCauses": {
-        "calleeNotCalledHere": 3,
-        "ownerHasNoCall": 1
-      },
-      "wrongSamples": [
-        "[import] DataHandler.ts|returnReply -> SubscriptionSet.ts|SubscriptionSet",
-        "[import] Script.ts|execute -> Command.ts|Command",
-        "[sameFile] Command.ts|toWritable -> Command.ts|MixedBuffers",
-        "[sameFile] cluster/index.ts|quit -> cluster/index.ts|handleCloseEvent"
-      ],
+      "wrongCauses": {},
+      "wrongSamples": [],
       "missedSamples": [
-        "Command.ts|toWritable|Command.ts|push",
-        "Command.ts|toWritable|Command.ts|toBuffer",
-        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|add",
-        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|del",
         "DataHandler.ts|handleSubscriberReply|types.ts|resolve",
-        "DataHandler.ts|returnError|DataHandler.ts|handleReconnection",
-        "DataHandler.ts|returnFatalError|DataHandler.ts|recoverFromFatalError",
-        "DataHandler.ts|returnReply|SubscriptionSet.ts|add",
         "DataHandler.ts|returnReply|types.ts|resolve",
         "Script.ts|toWritable|Command.ts|toWritable",
         "connectors/SentinelConnector/FailoverDetector.ts|cleanup|connectors/SentinelConnector/types.ts|disconnect",
+        "connectors/SentinelConnector/FailoverDetector.ts|subscribe|connectors/SentinelConnector/types.ts|on",
         "connectors/SentinelConnector/FailoverDetector.ts|subscribe|connectors/SentinelConnector/types.ts|subscribe",
-        "transaction.ts|execBuffer|utils/RedisCommander.ts|exec",
-        "transaction.ts|multi|Pipeline.ts|addBatch",
-        "transaction.ts|pipeline|Pipeline.ts|addBatch"
+        "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|next",
+        "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|reset",
+        "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/index.ts|resolve",
+        "connectors/SentinelConnector/index.ts|constructor|connectors/AbstractConnector.ts|AbstractConnector",
+        "connectors/SentinelConnector/index.ts|disconnect|connectors/AbstractConnector.ts|disconnect",
+        "connectors/SentinelConnector/index.ts|resolveMaster|connectors/SentinelConnector/types.ts|sentinel",
+        "connectors/SentinelConnector/index.ts|resolveSlave|connectors/SentinelConnector/types.ts|sentinel",
+        "connectors/SentinelConnector/index.ts|resolve|connectors/SentinelConnector/types.ts|on",
+        "connectors/SentinelConnector/index.ts|updateSentinels|connectors/SentinelConnector/types.ts|sentinel"
       ]
     }
   ]

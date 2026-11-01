@@ -99,17 +99,25 @@ const PYTHON_FLOORS = {
  * 73.8 %, on precision that did not fall.
  */
 const TYPESCRIPT_FLOORS = {
+  // **Recall 74 % -> 78 %, and precision to 100 %.** Iteration 52 gave a receiver a *path*: a parameter property, a
+  // local bound to `new`, a local bound to `this`, an annotation on a local, and a field of the class the previous hop
+  // landed on - plus a union whose only other members are values. It also stopped the import arm from answering a call
+  // that writes a receiver, which is the rule that had `new this.Command(…)` pointing at the imported base class.
+  //
+  // **Precision did not pay for it, and that is the point of the arms below.** Every claim on both TypeScript corpora
+  // is correct; `import` moved 96.4 % -> 100 % and `sameFile` 98.0 % -> 100 % because the two rules that used to
+  // absorb a name coincidence no longer answer a question they were never evidence for.
   'colinhacks/zod': {
-    precision: 0.96,
-    recall: 0.74,
-    claimed: 96,
-    arms: { import: 0.94, sameFile: 0.99, receiverType: 0.99 },
+    precision: 0.99,
+    recall: 0.78,
+    claimed: 100,
+    arms: { import: 0.99, inherited: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
   'redis/ioredis': {
-    precision: 0.96,
-    recall: 0.72,
-    claimed: 196,
-    arms: { import: 0.93, inherited: 0.99, sameFile: 0.97, receiverType: 0.99 },
+    precision: 0.99,
+    recall: 0.79,
+    claimed: 214,
+    arms: { import: 0.99, inherited: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
 };
 

@@ -26,7 +26,6 @@ import {
   receiverTypeOf,
 } from '../../resolution/receiver-types.js';
 
-import type { FileTypes } from '../../resolution/receiver-types.js';
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
@@ -547,7 +546,6 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       const nodeIdOf = (symbol: SymbolDefinition): number | undefined =>
         qnameIndex.get(`project:${ctx.projectId}:${symbol.qualifiedName}`)?.nodeId;
 
-      const typeFacts = new Map<string, FileTypes>();
       const classIndex = createClassIndex();
       for (const parsedFile of parseData.parsedFiles) {
         const facts = buildFileTypes(
@@ -559,7 +557,6 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             nodeId: nodeIdOf(symbol),
           })),
         );
-        typeFacts.set(parsedFile.filePath, facts);
         mergeClassIndex(classIndex, facts, parsedFile.filePath);
       }
 
@@ -761,8 +758,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               | 'receiverType'
               | 'globalUnique' = 'import';
 
-            // First, try cross-file resolution via imports
-            if (fileImports) {
+            // **First, try cross-file resolution via imports - and only for a call that writes no receiver.**
+            //
+            // `x.Command(…)` names a member of `x`; that `Command` is also imported somewhere in the file says nothing
+            // about this call. `redis/ioredis@5.4.2` writes `new this.Command(…)` in `Script.execute`, where
+            // `this.Command` is an instance property holding a subclass - and the import of the *base* class answered
+            // it, pointing the edge at a declaration the call never reaches.
+            if (fileImports && ref.receiver === undefined) {
               for (const [resolvedFile, importedSymbols] of fileImports) {
                 if (importedSymbols.has(ref.targetName)) {
                   const fileSymbols = fileSymbolIndex.get(resolvedFile);
@@ -860,7 +862,16 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               // the only caller an inner function has was invisible and the function read as dead.
               const local =
                 ref.receiver === undefined ? localTargetsOf(ref.targetName, ref.sourceLine) : [];
-              const member = resolvable(scope?.member.get(ref.targetName));
+              // **The file's member index is not consulted for a receiver that names the object itself.**
+              //
+              // It maps a name to every member declaration in the file, whoever declares it, so `this.begin()` inside
+              // `Outsider` answers `Unrelated.begin` - the same file, the same name, no relation. That is the
+              // coincidence the deleted global-name arm was made of, one file smaller. The question `this.m()` asks is
+              // "does the class this call sits in, or a base it declares, declare `m`", and the arm below asks exactly
+              // that of exactly the class chain. What is left here is the module scope a bare call reaches, which is a
+              // different question and belongs to this arm.
+              const member =
+                ref.receiver === undefined ? resolvable(scope?.member.get(ref.targetName)) : undefined;
               const module = resolvable(scope?.module.get(ref.targetName));
               target =
                 // A local name with more than one declaration is a set of candidates rather than an answer; the
@@ -969,13 +980,18 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               // **The facts are optional and the rule is what handles that**, rather than a guard here: a file the
               // parse phase reported but that contributed no declarations has no type facts, and a rule that is only
               // ever handed a value is a rule whose "no facts" path nobody ever exercises.
-              const owner = callables.find(
-                (symbol) => symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
-              );
+              //
+              // **The owners are a chain, and the chain is passed rather than a name.** A local is visible to the
+              // functions it is nested in - `const _this = this` in `connect`, used inside a callback in `connect` -
+              // so the question "what is this name here" is asked of every enclosing function, innermost first.
+              const owners = callables
+                .filter(
+                  (symbol) => symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
+                )
+                .map((symbol) => ownerKeyOf(containerOf(symbol), symbol.name));
               const receiverType = receiverTypeOf(
-                typeFacts.get(parsedFile.filePath),
+                { index: classIndex, origin, owners },
                 ref.receiver,
-                owner === undefined ? undefined : ownerKeyOf(containerOf(owner), owner.name),
               );
               if (receiverType !== undefined) {
                 const member = classMemberOf(

@@ -77,6 +77,20 @@ function relativePath(root, file) {
 function ownerNameOf(node) {
   let current = node.parent;
   while (current) {
+    // **A member of an object literal declares nothing.** `{ get error() { return new ZodError(…) } }` creates a
+    // property when the literal is evaluated; it has no name a reader can point at and no node the graph can store,
+    // and the product says so on purpose (`Object.defineProperty(exports, "Promise", { get() {…}, set() {…} })` in
+    // `redis/ioredis` was two module-scope symbols called `get` and `set`, reported as dead). The call inside such a
+    // body belongs to the function that wrote the literal, which is what the rule below returns.
+    if (
+      (ts.isMethodDeclaration(current) ||
+        ts.isGetAccessorDeclaration(current) ||
+        ts.isSetAccessorDeclaration(current)) &&
+      ts.isObjectLiteralExpression(current.parent)
+    ) {
+      current = current.parent;
+      continue;
+    }
     if (
       ts.isFunctionDeclaration(current) ||
       ts.isMethodDeclaration(current) ||
@@ -216,6 +230,96 @@ function main() {
     counts.set(name, (counts.get(name) ?? 0) + 1);
   };
 
+  /**
+   * The functions a class installs on its own prototype: `Pipeline.prototype.exec = function (…) {…}`.
+   *
+   * **`TypeScript.prototype.m = function` is a declaration of `m`, and it is the one that runs.** The checker answers
+   * `pipeline.exec(…)` with the *interface* signature the class inherits, because that is what the type says - and an
+   * interface signature has no body, so nothing runs there. `redis/ioredis` replaces `multi`, `exec`, `execBuffer` and
+   * every command on `Pipeline.prototype`, and this oracle scored each call to them against a declaration with nothing
+   * behind it.
+   *
+   * Reading the assignment is not a concession to the graph: it is the same rule the language has, stated where the
+   * checker does not state it. Nothing is recorded for a class this run does not analyse, and nothing is recorded when
+   * the right-hand side is not a function this file declares.
+   */
+  const prototypeMembers = new Map();
+  for (const sourceFile of program.getSourceFiles()) {
+    if (sourceFile.isDeclarationFile) continue;
+    if (!corpora.has(relativePath(root, sourceFile.fileName))) continue;
+    const visit = (node) => {
+      const target = prototypeAssignmentOf(node);
+      if (target !== undefined) prototypeMembers.set(target.key, target.member);
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+  }
+
+  function prototypeAssignmentOf(node) {
+    if (!ts.isBinaryExpression(node)) return undefined;
+    if (node.operatorToken.kind !== ts.SyntaxKind.EqualsToken) return undefined;
+    const left = node.left;
+    if (!ts.isPropertyAccessExpression(left)) return undefined;
+    const owner = left.expression;
+    if (!ts.isPropertyAccessExpression(owner) || owner.name.text !== 'prototype') return undefined;
+    if (!ts.isFunctionExpression(node.right) && !ts.isArrowFunction(node.right)) return undefined;
+    const constructed = classOf(owner.expression);
+    if (constructed === undefined) return undefined;
+    return {
+      key: `${relativePath(root, constructed.declaration.getSourceFile().fileName)}\u0000${constructed.name}\u0000${left.name.text}`,
+      member: { name: left.name.text, declaration: node.right },
+    };
+  }
+
+  /**
+   * The member a `this.` call reaches when the `this` is bound from outside: `function () { this.close() }.bind(this)`.
+   *
+   * **TypeScript types `this` inside a plain function expression as `any`**, so the checker has no answer for a call
+   * written there - and `.bind(this)` is the standard way of making that call correct. `redis/ioredis`'s
+   * `Cluster.quit` defers its own teardown through exactly this shape, and the site was scored `silent` while the
+   * graph's edge to `Cluster.handleCloseEvent` was scored a false claim. The rule is mechanical: the function is bound
+   * to the object that wrote it, so the member is the one its class declares.
+   */
+  function boundThisMemberOf(access) {
+    if (access.expression.kind !== ts.SyntaxKind.ThisKeyword) return undefined;
+    let owner = access.parent;
+    while (owner && !ts.isFunctionExpression(owner) && !ts.isArrowFunction(owner)) owner = owner.parent;
+    if (!owner) return undefined;
+    const bind = owner.parent;
+    if (!bind || !ts.isPropertyAccessExpression(bind) || bind.name.text !== 'bind') return undefined;
+    if (bind.expression !== owner) return undefined;
+    const call = bind.parent;
+    if (!ts.isCallExpression(call)) return undefined;
+    if (call.arguments.length === 0) return undefined;
+    if (call.arguments[0].kind !== ts.SyntaxKind.ThisKeyword) return undefined;
+    let host = call.parent;
+    while (host && !ts.isClassDeclaration(host) && !ts.isClassExpression(host)) host = host.parent;
+    if (!host) return undefined;
+    const member = (host.members ?? []).find(
+      (entry) => entry.name !== undefined && entry.name.text === access.name.text,
+    );
+    return member === undefined
+      ? undefined
+      : { name: access.name.text, declaration: member };
+  }
+
+  /** The prototype assignment a call's receiver type makes for the member being called, if there is one. */
+  function prototypeTargetOf(access) {
+    let symbol;
+    try {
+      symbol = checker.getTypeAtLocation(access.expression).getSymbol();
+    } catch {
+      symbol = undefined;
+    }
+    const declared = (symbol?.declarations ?? []).find(
+      (entry) => ts.isClassDeclaration(entry) || ts.isClassExpression(entry),
+    );
+    if (declared === undefined || declared.name === undefined) return undefined;
+    return prototypeMembers.get(
+      `${relativePath(root, declared.getSourceFile().fileName)}\u0000${declared.name.text}\u0000${access.name.text}`,
+    );
+  }
+
   const sites = [];
   for (const sourceFile of program.getSourceFiles()) {
     if (sourceFile.isDeclarationFile) continue;
@@ -272,13 +376,36 @@ function main() {
     } catch {
       signature = undefined;
     }
-    if (signature === undefined || signature.declaration === undefined) return site;
     /** The class a `new` expression constructs, which is not always the class the signature is declared on. */
     const constructed = ts.isNewExpression(node) ? classOf(node.expression) : undefined;
+    /** The function a class installs on its own prototype, which is the declaration that runs. */
+    const assigned = ts.isPropertyAccessExpression(node.expression)
+      ? prototypeTargetOf(node.expression)
+      : undefined;
+    /** The member a `this.` call reaches through a function the caller bound to itself. */
+    const boundThis = ts.isPropertyAccessExpression(node.expression)
+      ? boundThisMemberOf(node.expression)
+      : undefined;
+    // **`new X()` names `X` whether or not `X` writes a constructor.** An implicit constructor has no declaration to
+    // carry a signature, so this site was scored `silent` and the graph's edge to the class was scored a false claim -
+    // three times on `redis/ioredis`, where `new MixedBuffers()`, `new Command(...)` and `new SubscriptionSet()` are
+    // exactly as decidable as any other construction.
+    if (
+      constructed === undefined &&
+      assigned === undefined &&
+      boundThis === undefined &&
+      (signature === undefined || signature.declaration === undefined)
+    ) {
+      return site;
+    }
     const { name, declaration } =
-      constructed === undefined
-        ? calleeOf(signature.declaration)
-        : { name: constructed.name, declaration: constructed.declaration };
+      constructed !== undefined
+        ? { name: constructed.name, declaration: constructed.declaration }
+        : assigned !== undefined
+          ? assigned
+          : boundThis !== undefined
+            ? boundThis
+            : calleeOf(signature.declaration);
     if (name === undefined) {
       site.verdict = 'unknown';
       return site;
@@ -379,6 +506,8 @@ function main() {
   const dump = JSON.parse(readFileSync(args.graph, 'utf8'));
   const nodes = new Map(dump.nodes.map((node) => [node.id, node]));
   const claimed = new Set();
+  /** Edges that name one declaration twice: recursion, which neither side scores. */
+  let recursion = 0;
   const armOf = new Map();
   const perArm = new Map();
   for (const edge of dump.edges) {
@@ -386,6 +515,14 @@ function main() {
     const target = nodes.get(edge.t);
     if (!source?.file || !target?.file) continue;
     if (ambiguous(source.file, source.name) || ambiguous(target.file, target.name)) continue;
+    // **A pair that names one declaration twice is a recursive call, and the expected set drops it for the same
+    // reason** - `site.file === targetFile && owner === callee` is excluded above as `internalRecursion`. The key here
+    // is a (file, name) pair, so a local function and a class member that share a name collapse into one, and scoring
+    // the claim while refusing the expectation asks the graph to be wrong about being right.
+    if (source.file === target.file && source.name === target.name) {
+      recursion++;
+      continue;
+    }
     const key = `${source.file}\u0000${source.name}\u0000${target.file}\u0000${target.name}`;
     const arm = edge.properties?.resolution ?? 'unlabelled';
     claimed.add(key);
@@ -439,6 +576,22 @@ function main() {
   }
   const wrong = [...claimed].filter((key) => !expected.has(key));
   const missed = [...expected].filter((key) => !claimed.has(key));
+  // **The stored report samples the misses; the diagnosis needs all of them.** Fifteen samples tell a reader what
+  // the shape looks like, and they told this iteration nothing about how many misses shared a cause. The full list
+  // is opt-in so the benchmark file stays readable.
+  if (process.env.ORACLE_MISSED) {
+    for (const key of missed) process.stderr.write(`MISSED ${key.split('\u0000').join('|')}\n`);
+  }
+  // **A pair names a callee, not the line it was written on.** Diagnosing a class of miss needs the site, and the
+  // site is what `ORACLE_DEBUG` prints one owner at a time; this prints every resolved site at once, keyed by the
+  // pair, so a hundred misses can be classified by shape instead of read one at a time.
+  if (process.env.ORACLE_SITES) {
+    for (const site of sites) {
+      if (site.verdict !== 'internal') continue;
+      const key = `${site.file}\u0000${site.owner}\u0000${site.targetFile ?? ''}\u0000${site.callee ?? ''}`;
+      process.stderr.write(`SITE ${key.split('\u0000').join('|')}|${site.line}\n`);
+    }
+  }
   const ratio = (part, whole) => (whole === 0 ? null : Math.round((part / whole) * 10000) / 10000);
   const byArm = {};
   for (const [arm, value] of [...perArm].sort((a, b) => a[0].localeCompare(b[0]))) {
@@ -479,6 +632,7 @@ function main() {
         ),
       ),
       excludedForDuplicateName: excluded,
+      graphRecursion: recursion,
     },
     expectedPairs: expected.size,
     claimedPairs: claimed.size,

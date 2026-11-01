@@ -18,7 +18,7 @@ import {
   simpleTypeName,
 } from '../resolution/receiver-types.js';
 
-import type { TypedDeclaration } from '../resolution/receiver-types.js';
+import type { ReceiverLookup, TypedDeclaration } from '../resolution/receiver-types.js';
 
 /** A declaration with a node id, which is what makes it a member a call can point at. */
 function declaration(
@@ -40,11 +40,25 @@ describe('a type annotation reduced to a name', () => {
     expect(simpleTypeName('typing.Protocol')).toBe('Protocol');
   });
 
-  it('refuses the shapes where one name would be a guess', () => {
-    // A union is two answers, and picking one is the guess this module exists to avoid.
-    expect(simpleTypeName('Index | null')).toBeUndefined();
+  it('strips the members of a union that are values rather than types', () => {
+    // **`T | null` is how both TypeScript corpora spell "absent, or this"**, and the code that calls a member on such a
+    // field compiles only because a guard narrowed it first - so the annotation is the declaration and the call site is
+    // the proof. One survivor is the type; the members that are not values are not.
+    expect(simpleTypeName('Index | null')).toBe('Index');
+    expect(simpleTypeName('null | Index')).toBe('Index');
+    expect(simpleTypeName('false | Index')).toBe('Index');
+    expect(simpleTypeName('Index | undefined | null')).toBe('Index');
+    // Two types is still two answers, and picking one is the guess this module exists to avoid.
+    expect(simpleTypeName('Index | Registry')).toBeUndefined();
+    expect(simpleTypeName('string | Buffer')).toBeUndefined();
     expect(simpleTypeName('Readable & Writable')).toBeUndefined();
-    // A container's members are not this module's business, and its head names a builtin.
+  });
+
+  it('reduces a generic to its head, and refuses everything else that is not a name', () => {
+    // **A generic names its head.** `Deque<CommandItem>` is a `Deque`; the argument says what it holds.
+    expect(simpleTypeName('Deque<Index>')).toBe('Deque');
+    expect(simpleTypeName('Deque<Index<Item>>')).toBe('Deque');
+    // A builtin's head has no declaration to find a member in, however it is spelled.
     expect(simpleTypeName('Map<string, number>')).toBeUndefined();
     // An element type wearing brackets is not the type of the receiver.
     expect(simpleTypeName('Index[]')).toBeUndefined();
@@ -146,50 +160,101 @@ describe('one file, read for the types its declarations carry', () => {
 });
 
 describe('the type of the object a call is written on', () => {
+  /** The file the receivers below are written in, indexed so a hop can cross into it. */
+  const FILE = '/holder.ts';
   const facts = buildFileTypes([
     declaration('Class', 'Holder', undefined, {}, 1),
     declaration('Method', 'run', 'Holder', {}, 2),
-    declaration('Property', 'index', 'Holder', { fieldType: 'Index' }, 3),
+    declaration('Property', 'index', 'Holder', { fieldType: 'Index | null' }, 3),
+    declaration('Property', 'store', 'Holder', { fieldType: 'Archive' }, 4),
+    declaration('Class', 'Index', undefined, {}, 5),
+    declaration('Class', 'Archive', undefined, {}, 6),
+    declaration('Property', 'inner', 'Archive', { fieldType: 'Index' }, 7),
     declaration(
       'Variable',
       'self',
       undefined,
       { parameterOwner: 'connect', parameterType: 'Index' },
-      4,
+      8,
     ),
+    // A local, filed on the function that declares it: an annotation, a `new`, and an alias of `this`.
+    declaration(
+      'Function',
+      'connect',
+      undefined,
+      { localTypes: '{"chosen":"Index","constructed":"Index","_this":"Holder"}' },
+      9,
+    ),
+    declaration('Function', 'helper', 'Holder', {}, 10),
   ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
 
   it('reads a field of the enclosing object', () => {
-    expect(receiverTypeOf(facts, 'this.index', 'Holder.run')).toEqual({
+    expect(receiverTypeOf(at(['Holder.run']), 'this.index')).toEqual({
       className: 'Index',
       via: 'thisField',
     });
   });
 
   it('reads a parameter of the calling function', () => {
-    expect(receiverTypeOf(facts, 'self', 'connect')).toEqual({
+    // `self` in a function that belongs to no class: the annotation is the only evidence, and it is enough.
+    expect(receiverTypeOf(at(['connect']), 'self')).toEqual({
       className: 'Index',
       via: 'parameter',
     });
   });
 
+  it('walks a path, reading each hop out of the class the previous one named', () => {
+    // **Two hops, two declarations.** `this.store` is an `Archive`, and `Archive.inner` is an `Index`; nothing but the
+    // two annotations says so, and either one missing ends the walk.
+    expect(receiverTypeOf(at(['Holder.run']), 'this.store.inner')).toEqual({
+      className: 'Index',
+      via: 'thisField',
+    });
+    expect(receiverTypeOf(at(['Holder.run']), 'this.store.missing')).toBeUndefined();
+    expect(receiverTypeOf(at(['Holder.run']), 'this.index.inner')).toBeUndefined();
+  });
+
+  it('reads a local the function declared, innermost owner first', () => {
+    expect(receiverTypeOf(at(['connect']), 'chosen')).toEqual({ className: 'Index', via: 'local' });
+    expect(receiverTypeOf(at(['connect']), 'constructed')).toEqual({
+      className: 'Index',
+      via: 'local',
+    });
+    // `const _this = this` is filed as the enclosing class, so the alias answers with the class itself.
+    expect(receiverTypeOf(at(['connect']), '_this')).toEqual({ className: 'Holder', via: 'local' });
+    // **A nested owner is asked before the one that holds the binding**, and the binding is still visible from inside.
+    expect(receiverTypeOf(at(['Holder.helper', 'connect']), '_this')).toEqual({
+      className: 'Holder',
+      via: 'local',
+    });
+  });
+
   it('declines every shape whose type nobody wrote down', () => {
     // A receiver that is not the enclosing object and not a parameter is somebody else's object.
-    expect(receiverTypeOf(facts, 'request.args', 'Holder.run')).toBeUndefined();
-    // A chain two deep needs the type of `args`, not of `request`.
-    expect(receiverTypeOf(facts, 'this.index.store', 'Holder.run')).toBeUndefined();
+    expect(receiverTypeOf(at(['Holder.run']), 'request.args')).toBeUndefined();
+    // A hop with no annotation ends the walk rather than guessing.
+    expect(receiverTypeOf(at(['Holder.run']), 'this.unknown')).toBeUndefined();
     // `this.m()` is the same-file arm's case: the enclosing class is already the scope it looks in.
-    expect(receiverTypeOf(facts, 'this', 'Holder.run')).toBeUndefined();
-    // A receiver with no type on the field it names is not a guess this module makes.
-    expect(receiverTypeOf(facts, 'this.helper', 'Holder.run')).toBeUndefined();
+    expect(receiverTypeOf(at(['Holder.run']), 'this')).toBeUndefined();
     // An owner nobody declared has no enclosing class and no parameters.
-    expect(receiverTypeOf(facts, 'self', undefined)).toBeUndefined();
+    expect(receiverTypeOf(at(['connect']), 'nobody')).toBeUndefined();
     // A field read outside any function has no enclosing class to be a field of.
-    expect(receiverTypeOf(facts, 'this.index', undefined)).toBeUndefined();
+    expect(receiverTypeOf(at([]), 'this.index')).toBeUndefined();
     // The empty receiver is not a receiver.
-    expect(receiverTypeOf(facts, '', 'Holder.run')).toBeUndefined();
-    // A file that declared nothing declares no types, which is the same answer as no annotation.
-    expect(receiverTypeOf(undefined, 'this.index', 'Holder.run')).toBeUndefined();
+    expect(receiverTypeOf(at(['Holder.run']), '')).toBeUndefined();
+    // A file the index never saw declares no types, which is the same answer as no annotation.
+    expect(receiverTypeOf({ index, origin: { file: '/elsewhere.ts' }, owners: [] }, 'x')).toBeUndefined();
+  });
+
+  it('refuses `super`, because the base-chain arm is the one that starts at the base', () => {
+    expect(receiverTypeOf(at(['Holder.run']), 'super.index')).toBeUndefined();
   });
 });
 
@@ -292,13 +357,13 @@ describe('the class a declaration belongs to, when the language files it elsewhe
       declaration('Function', 'build', undefined, { enclosingClass: 'Index' }, 4),
     ]);
     expect(facts.classOfFunction.get('Holder.run')).toBe('Holder');
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, 'holder.py');
+    const at = { index, origin: { file: 'holder.py' }, owners: ['Holder.run'] };
     // **And the call it makes resolvable is the one this whole rule exists for.** `self.index.build()` in Python is
     // exactly `this.index.buildIndex()` in TypeScript: the field's type decides which `build` the call names.
-    expect(receiverTypeOf(facts, 'self.index', 'Holder.run')).toEqual({
-      className: 'Index',
-      via: 'thisField',
-    });
+    expect(receiverTypeOf(at, 'self.index')).toEqual({ className: 'Index', via: 'thisField' });
     // A field nobody annotated is still not a fact, whatever the class carries.
-    expect(receiverTypeOf(facts, 'self.store', 'Holder.run')).toBeUndefined();
+    expect(receiverTypeOf(at, 'self.store')).toBeUndefined();
   });
 });

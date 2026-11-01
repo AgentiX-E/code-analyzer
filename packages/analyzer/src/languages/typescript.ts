@@ -69,9 +69,22 @@ function declaredTypeOf(node: TreeSitterSyntaxNode): string | undefined {
   return undefined;
 }
 
+/**
+ * Whether a parameter also declares a field. TypeScript spells that with a modifier, and the modifiers are the only
+ * two the grammar allows on a parameter - an anonymous `readonly` token and a named `accessibility_modifier`.
+ */
+function writesField(parameter: TreeSitterSyntaxNode): boolean {
+  return childrenOf(parameter).some(
+    (child) => child.type === 'readonly' || child.type === 'accessibility_modifier',
+  );
+}
+
 export class TypeScriptProvider extends TreeSitterBaseProvider {
   /** The field types recorded during the current parse, by class name. **Cleared at the end of every parse.** */
   private readonly classFieldTypes = new Map<string, Map<string, string>>();
+
+  /** The local types recorded during the current parse, by the function that declares them. Cleared with the fields. */
+  private readonly localTypes = new Map<string, Map<string, string>>();
 
   readonly language: string = 'typescript';
   readonly displayName: string = 'TypeScript';
@@ -211,6 +224,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       'function_expression',
       'method_signature',
       'abstract_method_signature',
+      'variable_declarator',
     ]);
   }
 
@@ -260,6 +274,17 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     if (nodeType === 'public_field_definition' || nodeType === 'property_signature') {
       this.captureFieldDeclaration(node, captures);
       this.captureFieldFunction(node, captures);
+      return;
+    }
+
+    // **A local declares a type the same way a field does, and nothing recorded it.** `const _this = this`,
+    // `const buffers = new MixedBuffers()` and `const chosen: Index = …` are three spellings of one fact, and a call
+    // written on the name is uninformed without it: `redis/ioredis@5.4.2` writes `const _this = this` twice in
+    // `cluster/index.ts` and `Redis.ts`, and **eleven** of the call pairs the TypeScript checker expects are calls on
+    // such a name. The arm records the fact and emits no capture - a local is not a symbol, which is the same reason a
+    // field with a type is not one.
+    if (nodeType === 'variable_declarator') {
+      this.captureLocalType(node);
       return;
     }
 
@@ -414,6 +439,13 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
               parameterName,
             );
             const parameterType = declaredTypeOf(parameter);
+            // **A parameter with a modifier is also a field.** `constructor(private readonly redis: DataHandledable)`
+            // writes a member the constructor body never mentions, and `this.redis.condition.subscriber.add(...)` four
+            // methods later is a call three declarations deep that starts at it. Two of ioredis's constructor
+            // parameters carry the six fields those calls walk through.
+            if (parameterType !== undefined && writesField(parameter)) {
+              this.recordFieldType(parameter, parameterName.text, parameterType);
+            }
             captures.push({
               ...capture,
               properties: {
@@ -652,6 +684,86 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   // ---- Helpers ----
 
   /**
+   * The type a local binding declares, or `undefined` when it declares none this module can defend.
+   *
+   * **Three spellings, and each one is written rather than inferred.** An annotation says the type; a `new` expression
+   * says the class; `= this` says the enclosing object. Anything else - `const x = compute()` - is a return type this
+   * provider does not have, and a resolver that guessed it would be guessing.
+   *
+   * **`= this` is recorded as the enclosing class rather than as the word `this`**, because the two readings of a bare
+   * `self` are already this resolver's hardest case: inside a method it is the object, and inside a free function it is
+   * a parameter whose annotation is the only evidence. Resolving the alias where the class is known keeps that
+   * distinction in one place.
+   */
+  private captureLocalType(declarator: TreeSitterSyntaxNode): void {
+    // A destructuring declaration binds several names to the shape of one value, and the shape is not a declaration
+    // this module can read.
+    const nameNode = this.findNamedChild(declarator, 'identifier');
+    if (nameNode === null) return;
+    const ownerKey = this.enclosingFunctionKeyOf(declarator);
+    if (ownerKey === undefined) return;
+    const type = this.localTypeOf(declarator);
+    if (type === undefined) return;
+    let bucket = this.localTypes.get(ownerKey);
+    if (bucket === undefined) {
+      bucket = new Map();
+      this.localTypes.set(ownerKey, bucket);
+    }
+    // **The first declaration wins and a second one drops the name**, which is the rule every other name follows here:
+    // a name bound twice with two types has no type this module can defend.
+    if (bucket.has(nameNode.text) && bucket.get(nameNode.text) !== type) {
+      bucket.delete(nameNode.text);
+      return;
+    }
+    bucket.set(nameNode.text, type);
+  }
+
+  /** What one declarator says about the name it binds: its annotation, its `new`, or `this`. */
+  private localTypeOf(declarator: TreeSitterSyntaxNode): string | undefined {
+    const annotated = declaredTypeOf(declarator);
+    if (annotated !== undefined) return annotated;
+    for (const child of childrenOf(declarator)) {
+      if (child.type === 'this') return this.containerNameOf(declarator);
+      if (child.type !== 'new_expression') continue;
+      const callee = this.findNamedChild(child, 'identifier');
+      return callee === null ? undefined : callee.text;
+    }
+    return undefined;
+  }
+
+  /**
+   * The key the resolver files a function's own declarations under, which is `Class.method` or the bare name.
+   *
+   * **The climb skips every function that is not a declaration.** A callback handed to a call - `items.forEach(() => …)`
+   * - declares nothing, so its locals belong to the function that wrote it, which is also the owner the resolver names
+   * at the call site. A named function expression or an arrow bound to a `variable_declarator` *is* a declaration, and
+   * its key is the name it was bound to.
+   */
+  private enclosingFunctionKeyOf(node: TreeSitterSyntaxNode): string | undefined {
+    let current = node.parent;
+    while (current !== null && current !== undefined) {
+      const named =
+        current.type === 'function_declaration' ||
+        current.type === 'method_definition' ||
+        current.type === 'generator_function_declaration';
+      if (named) {
+        const name = this.extractNameFromNode(current);
+        return name === undefined ? undefined : ownerKeyOf(this.containerNameOf(current), name);
+      }
+      const anonymous = current.type === 'function_expression' || current.type === 'arrow_function';
+      const bound = anonymous ? current.parent : null;
+      if (bound !== null && bound !== undefined && bound.type === 'variable_declarator') {
+        const name = this.findNamedChild(bound, 'identifier');
+        return name === null
+          ? undefined
+          : ownerKeyOf(this.containerNameOf(bound), name.text);
+      }
+      current = current.parent;
+    }
+    return undefined;
+  }
+
+  /**
    * A field, with the type it was declared to have.
    *
    * **Only a field with an annotation is captured**, and the capture is marked `typeFact` so the parse phase files it
@@ -672,6 +784,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     if (nameNode === null) return;
     const fieldType = declaredTypeOf(node);
     if (fieldType === undefined) return;
+    this.recordFieldType(node, nameNode.text, fieldType);
+  }
+
+  /** File one field's type under the class the node sits in, dropping a name two declarations disagree about. */
+  private recordFieldType(node: TreeSitterSyntaxNode, field: string, fieldType: string): void {
     const className = this.containerNameOf(node);
     if (className === undefined) return;
     let fields = this.classFieldTypes.get(className);
@@ -681,9 +798,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
     // **The first declaration wins and a second one drops the name**, on the same rule the resolver applies to every
     // other name: a field declared twice with two types has no type this module can defend.
-    if (fields.has(nameNode.text) && fields.get(nameNode.text) !== fieldType)
-      fields.delete(nameNode.text);
-    else fields.set(nameNode.text, fieldType);
+    if (fields.has(field) && fields.get(field) !== fieldType) fields.delete(field);
+    else fields.set(field, fieldType);
   }
 
   /**
@@ -808,25 +924,55 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
    */
   protected override decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
     for (const capture of captures) {
-      if (this.classFieldTypes.size === 0) break;
-      if (
-        capture.tag !== CAPTURE_TAGS.CLASS_DEF &&
-        capture.tag !== CAPTURE_TAGS.INTERFACE_DEF &&
-        capture.tag !== CAPTURE_TAGS.STRUCT_DEF
-      ) {
-        continue;
-      }
-      const name = capture.name;
-      if (name === undefined) continue;
-      const fields = this.classFieldTypes.get(name);
-      if (fields === undefined || fields.size === 0) continue;
-      capture.properties = {
-        ...capture.properties,
-        fieldTypes: JSON.stringify(Object.fromEntries(fields)),
-      };
+      this.attachFieldTypes(capture);
+      this.attachLocalTypes(capture);
     }
     this.classFieldTypes.clear();
+    this.localTypes.clear();
     return captures;
+  }
+
+  /** The field types a class carries, filed on the class capture. */
+  private attachFieldTypes(capture: UnifiedCapture): void {
+    if (
+      capture.tag !== CAPTURE_TAGS.CLASS_DEF &&
+      capture.tag !== CAPTURE_TAGS.INTERFACE_DEF &&
+      capture.tag !== CAPTURE_TAGS.STRUCT_DEF
+    ) {
+      return;
+    }
+    const name = capture.name;
+    if (name === undefined) return;
+    const fields = this.classFieldTypes.get(name);
+    if (fields === undefined || fields.size === 0) return;
+    capture.properties = {
+      ...capture.properties,
+      fieldTypes: JSON.stringify(Object.fromEntries(fields)),
+    };
+  }
+
+  /**
+   * The local types a function declares, filed on the function capture.
+   *
+   * **Filed by the key the resolver will ask with**, which is the same `Class.method` a parameter is filed under - so a
+   * local and a parameter of one function are answered by one lookup with one owner chain in front of it.
+   */
+  private attachLocalTypes(capture: UnifiedCapture): void {
+    if (
+      capture.tag !== CAPTURE_TAGS.FUNCTION_DEF &&
+      capture.tag !== CAPTURE_TAGS.METHOD_DEF &&
+      capture.tag !== CAPTURE_TAGS.CONSTRUCTOR_DEF
+    ) {
+      return;
+    }
+    const name = capture.name;
+    if (name === undefined) return;
+    const locals = this.localTypes.get(ownerKeyOf(capture.containerName, name));
+    if (locals === undefined || locals.size === 0) return;
+    capture.properties = {
+      ...capture.properties,
+      localTypes: JSON.stringify(Object.fromEntries(locals)),
+    };
   }
 
   /**

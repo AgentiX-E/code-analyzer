@@ -26,6 +26,8 @@ export interface FileTypes {
   readonly fields: Map<string, string>;
   /** `Class.method/parameter` → the parameter's declared type. */
   readonly parameters: Map<string, string>;
+  /** `Class.method/name` → the type a local binding was declared, constructed or aliased to. */
+  readonly locals: Map<string, string>;
   /** `Class.method` → the class that holds it, for the `this`/`self` receiver. */
   readonly classOfFunction: Map<string, string>;
   /** `Class` → the class's own declaration. */
@@ -118,29 +120,34 @@ const PRIMITIVES = new Set([
   'Boolean',
 ]);
 
+/** Values that occupy a union without being the type of anything a call can be written on. */
+const NOTHING: ReadonlySet<string> = new Set(['null', 'undefined', 'void', 'never', 'false', 'true']);
+
 /**
  * A type annotation reduced to the one name the resolver can look up, or `undefined` when it is not a name.
  *
- * **A container type is not a name either.** `Map<string, number>` has members this module knows nothing about, and
- * `string[]` is an element type wearing brackets; both are dropped rather than reduced to their head, because a
- * lookup of `Map` would find nothing and a lookup of `string` would find the builtin.
+ * **A union of one is not a union.** `condition: Condition | null` and `subscriber: false | SubscriptionSet` are how
+ * both of this product's TypeScript corpora spell "absent, or this" - and the code that calls a member on such a field
+ * compiles only because a guard narrowed it first. The annotation is what a declaration says; the call site is proof
+ * that the narrowing happened, because a member was reached through it. So the members that are *values* rather than
+ * types are dropped, and a single survivor is the type. **Two survivors are still two answers** (`Readable | Writable`,
+ * `string | Buffer`) and are refused, because picking one is the guess this module exists to avoid.
+ *
+ * **A generic names its head.** `Deque<CommandItem>` is a `Deque`; the argument says what it holds, not what it is.
+ * Stripping the argument list and then consulting the primitive list answers both `Deque<CommandItem>` (a class) and
+ * `Map<string, number>` (a builtin that has no declaration to find a member in). An **array** is refused rather than
+ * reduced: `Index[]` is "many", and `items.push(…)` written on it is a call on the container, not on `Index`.
  */
 export function simpleTypeName(annotation: unknown): string | undefined {
   if (typeof annotation !== 'string') return undefined;
-  const text = annotation.trim();
-  if (text.length === 0) return undefined;
-  // **A union or an intersection is not one type**, and picking its first member is the guess this module exists to
-  // avoid. So is an array, an optional marker, and a generic.
-  if (
-    text.includes('|') ||
-    text.includes('&') ||
-    text.includes('[') ||
-    text.includes('<') ||
-    text.endsWith('?')
-  ) {
-    return undefined;
-  }
-  const last = text
+  const text = onlyMemberOf(annotation.trim());
+  if (text === undefined) return undefined;
+  // **An intersection is not one type** and an optional marker is a `?` that also spells an optional *property* in
+  // the same grammars, so one rule cannot serve both meanings.
+  if (text.includes('&') || text.endsWith('?')) return undefined;
+  const head = headOfGeneric(text);
+  if (head.includes('[')) return undefined;
+  const last = head
     .split(/[.\s:]+/)
     .filter(Boolean)
     .pop();
@@ -148,6 +155,56 @@ export function simpleTypeName(annotation: unknown): string | undefined {
   // A primitive has no declaration to find a member in.
   if (PRIMITIVES.has(last)) return undefined;
   return last;
+}
+
+/** The one member of a union that is a type rather than a value, or `undefined` when there is not exactly one. */
+function onlyMemberOf(text: string): string | undefined {
+  if (text.length === 0) return undefined;
+  const parts = splitTopLevel(text, '|').map((part) => part.trim());
+  if (parts.length === 1) return parts[0];
+  const types = parts.filter((part) => part.length > 0 && !NOTHING.has(part));
+  return types.length === 1 ? types[0] : undefined;
+}
+
+/** A type name with its generic argument list removed: `Deque<CommandItem>` is a `Deque`. */
+function headOfGeneric(text: string): string {
+  const open = topLevelIndex(text, '<');
+  return open === -1 ? text : text.slice(0, open).trim();
+}
+
+/** The index of a character outside every bracket group, or `-1`. */
+function topLevelIndex(text: string, wanted: string): number {
+  let depth = 0;
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index];
+    if (depth === 0 && character === wanted) return index;
+    if (character === '<' || character === '[' || character === '(') depth++;
+    else if (character === '>' || character === ']' || character === ')') depth--;
+  }
+  return -1;
+}
+
+/**
+ * The parts of a comma- or pipe-separated list, split where the separator is not inside a bracket group.
+ *
+ * **`Map<string, number>` is one part and not two**, and a base list `A<X, Y>, B` is two bases and not three. A
+ * separator inside an argument list is part of the argument list.
+ */
+function splitTopLevel(text: string, separator: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index];
+    if (character === '<' || character === '[' || character === '(') depth++;
+    else if (character === '>' || character === ']' || character === ')') depth--;
+    else if (character === separator && depth === 0) {
+      parts.push(text.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
 }
 
 /**
@@ -159,6 +216,7 @@ export function simpleTypeName(annotation: unknown): string | undefined {
 export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileTypes {
   const fields = new Map<string, string>();
   const parameters = new Map<string, string>();
+  const locals = new Map<string, string>();
   const classOfFunction = new Map<string, string>();
   const classes = new Map<string, Declared>();
   const members = new Map<string, Map<string, Declared>>();
@@ -197,7 +255,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       // **A field's type is filed on the class, not as a symbol of its own.** The provider records the annotations it
       // read during its walk and hands them back as one property, so a file of 200 fields adds no 200 nodes and no
       // 200 symbols competing with the functions of the file for a search query.
-      for (const [field, annotation] of fieldTypesOf(declaration.properties['fieldTypes'])) {
+      for (const [field, annotation] of stringEntriesOf(declaration.properties['fieldTypes'])) {
         const fieldType = simpleTypeName(annotation);
         if (fieldType !== undefined) fields.set(`${declaration.name}.${field}`, fieldType);
       }
@@ -217,13 +275,26 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       parameters.set(`${parameterOwner}\u0000${declaration.name}`, parameterType);
     }
 
-    if (container === undefined || container.length === 0) continue;
-
-    if (
+    const callable =
       declaration.kind === 'Method' ||
       declaration.kind === 'Constructor' ||
-      declaration.kind === 'Function'
-    ) {
+      declaration.kind === 'Function';
+
+    // **A local is filed under the function that declares it**, which is the same key a parameter is filed under - so
+    // the walk that answers `self.m()` and the walk that answers `_this.m()` ask one question of one place. Filed
+    // before the container is required, because a module-level function has no container and declares locals all the
+    // same: `connect()` at the top of a file is where ioredis keeps `_this`.
+    if (callable) {
+      const ownerKey = ownerKeyOf(container, declaration.name);
+      for (const [name, type] of stringEntriesOf(declaration.properties['localTypes'])) {
+        const localType = simpleTypeName(type);
+        if (localType !== undefined) locals.set(`${ownerKey}\u0000${name}`, localType);
+      }
+    }
+
+    if (container === undefined || container.length === 0) continue;
+
+    if (callable) {
       classOfFunction.set(ownerKeyOf(container, declaration.name), container);
       declare(container, declaration.name, declaration);
       continue;
@@ -233,11 +304,16 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (fieldType !== undefined) fields.set(`${container}.${declaration.name}`, fieldType);
   }
 
-  return { fields, parameters, classOfFunction, classes, members, bases };
+  return { fields, parameters, locals, classOfFunction, classes, members, bases };
 }
 
-/** The `field → annotation` pairs a class carries, whether the provider wrote them as one blob or one symbol each. */
-function fieldTypesOf(blob: unknown): [string, string][] {
+/**
+ * The `name → type` pairs a provider wrote as one JSON blob on a declaration.
+ *
+ * **One property rather than a symbol per field**, and the measurement behind that is in the provider: 13 891 `Property`
+ * nodes cost the search index 0.9894 -> 0.9748 MRR for facts the resolver could already read off the declarations.
+ */
+function stringEntriesOf(blob: unknown): [string, string][] {
   if (typeof blob !== 'string' || blob.length === 0) return [];
   let parsed: unknown;
   try {
@@ -255,15 +331,15 @@ function fieldTypesOf(blob: unknown): [string, string][] {
 /**
  * The base classes a class names, as simple names.
  *
- * **A provider writes them as one comma-separated string, and a class may name none.** A generic argument is not a
- * base (`class Child extends Base<T>` names `Base`), and neither is a name that is not an identifier - the provider has
- * already dropped those, and what is left is read as written.
+ * **A base may carry arguments, and the arguments are not part of the name.** `class Child extends Base<number>` names
+ * `Base`; a rule that tested the whole text against an identifier pattern found no such name and recorded **no base at
+ * all**, which silently removed the whole inheritance chain behind every generic base in a TypeScript codebase. The
+ * separators are read at the top level for the same reason: `extends Mapper<A, B>, Guard` is two bases, not three.
  */
 function baseNamesOf(blob: unknown): string[] {
   if (typeof blob !== 'string' || blob.length === 0) return [];
-  return blob
-    .split(',')
-    .map((name) => name.trim())
+  return splitTopLevel(blob, ',')
+    .map((name) => headOfGeneric(name.trim()))
     .filter((name) => SIMPLE_NAME.test(name));
 }
 
@@ -274,51 +350,119 @@ const SIMPLE_NAME = /^[A-Za-z_$][\w$]*$/;
 export interface ReceiverType {
   /** The class whose member the call names. */
   readonly className: string;
-  /** How it was reached, recorded on the edge so the shape can be scored separately. */
-  readonly via: 'thisField' | 'parameter';
+  /** Where the walk started, recorded so each shape can be scored on its own. */
+  readonly via: 'thisField' | 'parameter' | 'local';
 }
 
-const OWN_SCOPE: ReadonlySet<string> = new Set(['this', 'self', 'cls', '$this', 'super']);
+/** Receivers that name the object the call is written inside. `super` is deliberately absent - see below. */
+const OWN_SCOPE: ReadonlySet<string> = new Set(['this', 'self', 'cls', '$this']);
+
+/**
+ * Everything a receiver is read against: the file that writes it, and every class the graph knows.
+ *
+ * **Two sources, because two questions are asked.** The base of a receiver is a name written in this file - `this`, a
+ * parameter, a local - so its owner keys and its local types come from the file. Every hop after the base names a field
+ * of a class that may live anywhere, so a hop is a lookup in the index and the answer is read out of *that* class's
+ * file. Keeping the two apart is what lets `this.redis.condition.subscriber.add(...)` cross three files.
+ */
+export interface ReceiverLookup {
+  readonly index: ClassIndex;
+  readonly origin?: LookupOrigin;
+  /**
+   * The functions enclosing the call, **innermost first**.
+   *
+   * **A list and not a name, because a local is visible to the functions it is nested in.** `const _this = this` in
+   * `connect` and `_this.flushQueue(...)` inside a callback in `connect` are the same binding, and a nested *named*
+   * function would be a second owner key with the binding still in scope. Walking outward is what a scope does.
+   */
+  readonly owners: readonly string[];
+}
 
 /**
  * The type of the object a call is written on.
  *
- * **Two shapes, and each one is a declaration that was read.** `this.field.m()` needs the field's type; `param.m()`
- * needs the parameter's. Anything else - `a.b.c()`, `request.args.get()`, a receiver whose type nobody wrote -
- * returns nothing, and the call stays unresolved. The own-scope receiver with no field - `this.m()` - is not this
- * module's case: the enclosing class is already the scope the same-file arm resolves in.
+ * **A receiver is a base and a path, and every step of it is a declaration that was read.** The base is `this`, a
+ * parameter, or a local bound to `new`, to an annotation, or to `this` itself; each hop reads a field of the class the
+ * previous hop landed on. `this.redis.condition.subscriber.add(...)` is four declarations deep - a parameter property,
+ * a contract's field, a union, a field type - and it is a shape `redis/ioredis` writes eleven times.
+ *
+ * **A hop with no annotation ends the walk**, and that is the property that makes this a resolver rather than a guess:
+ * the arity of a path is the number of facts somebody wrote down.
+ *
+ * **`super` is refused here on purpose.** The base-chain arm starts its walk at the base because that is what the
+ * keyword means; answering `super.x` with the enclosing class would hand the caller the very override it skips.
  */
 export function receiverTypeOf(
-  types: FileTypes | undefined,
+  lookup: ReceiverLookup,
   receiver: string,
-  ownerKey: string | undefined,
 ): ReceiverType | undefined {
-  // A file with no declarations declares no types, which is the same answer as a receiver with no annotation.
-  if (types === undefined) return undefined;
-  const [base, ...rest] = receiver.split('.');
-  if (base === undefined || base.length === 0 || ownerKey === undefined) return undefined;
+  const [base, ...hops] = receiver.split('.');
+  if (base === undefined || base.length === 0) return undefined;
+  const own = lookup.origin?.file === undefined ? undefined : lookup.index.files.get(lookup.origin.file);
 
-  if (OWN_SCOPE.has(base)) {
-    if (rest.length > 1) return undefined;
-    const enclosing = types.classOfFunction.get(ownerKey);
-    if (rest.length === 1) {
-      if (enclosing === undefined) return undefined;
-      const fieldType = types.fields.get(`${enclosing}.${rest[0]}`);
-      return fieldType === undefined ? undefined : { className: fieldType, via: 'thisField' };
-    }
-    // **`this.m()` is the same-file arm's case and not this one**, and the enclosing class is how that arm already
-    // answers it. What is left is a bare `self` in a function that belongs to no class - which is how TypeScript code
-    // written in the callback style passes an object around: `function connectHandler(self: Redis)`. The parameter's
-    // annotation is the only thing that says what `self` is, and it scored **0 of 18 claims** for the global-name arm
-    // on `redis/ioredis` before this case existed.
-    if (enclosing !== undefined) return undefined;
-    const parameterType = types.parameters.get(`${ownerKey}\u0000${base}`);
-    return parameterType === undefined ? undefined : { className: parameterType, via: 'parameter' };
+  const start = startOf(lookup, own, base, hops.length === 0);
+  if (start === undefined) return undefined;
+  let current = start.className;
+  for (const hop of hops) {
+    const next = declaredFieldOf(lookup, current, hop);
+    if (next === undefined) return undefined;
+    current = next;
   }
+  return { className: current, via: start.via };
+}
 
-  if (rest.length !== 0) return undefined;
-  const parameterType = types.parameters.get(`${ownerKey}\u0000${base}`);
-  return parameterType === undefined ? undefined : { className: parameterType, via: 'parameter' };
+/** Where a walk starts: the receiver's base resolved against the declarations that spell it. */
+function startOf(
+  lookup: ReceiverLookup,
+  own: FileTypes | undefined,
+  base: string,
+  bare: boolean,
+): ReceiverType | undefined {
+  if (OWN_SCOPE.has(base)) {
+    const enclosing = firstOf(lookup.owners, (owner) => own?.classOfFunction.get(owner));
+    if (enclosing !== undefined) {
+      // **`this.m()` is the same-file arm's case and not this module's.** What a bare own-scope receiver names is a
+      // member of the enclosing class, which is the question that arm already asks of the class chain - with evidence.
+      return bare ? undefined : { className: enclosing, via: 'thisField' };
+    }
+    // **A `self` in a function that belongs to no class**, which is how TypeScript written in the callback style hands
+    // an object around: `function connectHandler(self: Redis)`. The parameter's annotation is the only thing that says
+    // what `self` is, and it scored 0 of 18 claims for the deleted global-name arm on `redis/ioredis`.
+    const parameter = firstOf(lookup.owners, (owner) => own?.parameters.get(key(owner, base)));
+    return parameter === undefined ? undefined : { className: parameter, via: 'parameter' };
+  }
+  const local = firstOf(lookup.owners, (owner) => own?.locals.get(key(owner, base)));
+  if (local !== undefined) return { className: local, via: 'local' };
+  const parameter = firstOf(lookup.owners, (owner) => own?.parameters.get(key(owner, base)));
+  return parameter === undefined ? undefined : { className: parameter, via: 'parameter' };
+}
+
+/** The first owner key, innermost first, that answers with something other than nothing. */
+function firstOf(
+  owners: readonly string[],
+  ask: (owner: string) => string | undefined,
+): string | undefined {
+  for (const owner of owners) {
+    const answer = ask(owner);
+    if (answer !== undefined) return answer;
+  }
+  return undefined;
+}
+
+/** How one `name → type` map is keyed: by the owner that declares it, then by the name. */
+function key(owner: string, name: string): string {
+  return `${owner}\u0000${name}`;
+}
+
+/** The type a class declares one of its fields to have, wherever that class lives. */
+function declaredFieldOf(
+  lookup: ReceiverLookup,
+  className: string,
+  field: string,
+): string | undefined {
+  const located = locateClass(lookup.index, className, lookup.origin);
+  if (located === undefined) return undefined;
+  return lookup.index.files.get(located.file)?.fields.get(`${located.name}.${field}`);
 }
 
 /**

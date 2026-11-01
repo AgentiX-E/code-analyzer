@@ -380,7 +380,11 @@ export function receiverOf(
   text: string | undefined,
   targetName: string,
 ): string | undefined {
-  if (tag !== CAPTURE_TAGS.METHOD_CALL) return undefined;
+  // **`new x.Y()` names `x` exactly as `x.Y()` does.** The tag carries the receiver, and a construction site is its own
+  // tag - so every `new` on a member was resolved by name alone, which is how `new this.Command(…)` in
+  // `redis/ioredis`'s `Script.execute` reached the *imported* base class instead of the property that holds the
+  // subclass the call actually runs.
+  if (tag !== CAPTURE_TAGS.METHOD_CALL && tag !== CAPTURE_TAGS.NEW_EXPRESSION) return undefined;
   if (typeof text !== 'string') return undefined;
   const cut = text.lastIndexOf('.');
   if (cut <= 0) return undefined;

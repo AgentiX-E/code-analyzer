@@ -729,6 +729,22 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       }
     }
 
+    // **A contract has bases too, and TypeScript merges them into a class.** `interface Commander<Context> extends
+    // RedisCommander<Context> {}` beside `class Commander` is how `redis/ioredis@5.4.2` builds its entire command
+    // table: the class declares the behaviour and the merged interface declares the four hundred names, so `this.info()`
+    // written inside the class has a declaration that no `extends` clause of the class mentions. Reading the clause
+    // here is what lets one base list serve both halves of a declaration - they are the same key, because they are the
+    // same name.
+    //
+    // **The arm is keyed on the node a TypeScript grammar produces** (`extends_type_clause`), so a language whose
+    // contracts are spelled otherwise - Java's `extends_interfaces` - is untouched by it.
+    if (node.type === 'interface_declaration') {
+      const bases = this.extractExtendsClause(node);
+      if (bases) {
+        properties['baseClasses'] = bases;
+      }
+    }
+
     const capture: UnifiedCapture = {
       tag: mapping.captureTag,
       text: node.text,
@@ -988,6 +1004,21 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** Extract the name from a container node */
   protected extractContainerName(node: TreeSitterSyntaxNode): string | undefined {
     return this.extractNameFromNode(node);
+  }
+
+  /**
+   * The names an `interface ... extends A<B>, C` clause carries, comma-joined and in declaration order.
+   *
+   * **Each name is written as the source wrote it**, generic arguments included, because the reader of this property
+   * already reduces a name to its head - and doing the reduction once, there, keeps one rule instead of two.
+   */
+  protected extractExtendsClause(node: TreeSitterSyntaxNode): string | undefined {
+    for (const child of childrenOf(node)) {
+      if (child.type !== 'extends_type_clause') continue;
+      const names = namedChildrenOf(child).map((entry) => entry.text.trim());
+      return names.length === 0 ? undefined : names.join(',');
+    }
+    return undefined;
   }
 
   /** Extract base class names from a class_declaration node */
