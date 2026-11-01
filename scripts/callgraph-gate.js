@@ -107,8 +107,8 @@ const TYPESCRIPT_FLOORS = {
   },
   'redis/ioredis': {
     precision: 0.96,
-    recall: 0.7,
-    claimed: 190,
+    recall: 0.72,
+    claimed: 196,
     arms: { import: 0.93, inherited: 0.99, sameFile: 0.97, receiverType: 0.99 },
   },
 };

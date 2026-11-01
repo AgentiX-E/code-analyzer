@@ -152,9 +152,13 @@ describe('containment names a declaration', () => {
     expect(named(symbols, 'handler')).toHaveLength(0);
     expect(named(symbols, 'routes')[0]?.kind).toBe('Variable');
     expect(named(symbols, 'store')[0]?.kind).toBe('Variable');
-    // The class member that shares the object's method name is still a declaration, and still `Repo`'s.
+    // **Two declarations carry the name `load`, and neither is the object literal's.** `Repo` declares a method and
+    // `Store` declares a contract member; the literal that satisfies `Store` declares nothing, which is the point of
+    // the test and the reason the contract had to become a declaration of its own — a call on a receiver typed
+    // `Store` reaches `Store.load`, and before iteration 51 there was nothing there to reach.
     expect(named(symbols, 'load').map((symbol) => symbol.qualifiedName)).toEqual([
       'file:shapes.ts:Repo.load',
+      'file:shapes.ts:Store.load',
     ]);
   });
 });

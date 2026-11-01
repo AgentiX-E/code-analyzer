@@ -102,16 +102,16 @@
         "excludedForDuplicateName": 15
       },
       "expectedPairs": 267,
-      "claimedPairs": 201,
+      "claimedPairs": 203,
       "precision": {
-        "correct": 197,
+        "correct": 199,
         "wrong": 4,
-        "value": 0.9801
+        "value": 0.9803
       },
       "recall": {
-        "found": 197,
-        "missed": 70,
-        "value": 0.7378
+        "found": 199,
+        "missed": 68,
+        "value": 0.7453
       },
       "byArm": {
         "import": {
@@ -125,8 +125,8 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 28,
-          "correct": 28,
+          "claimed": 31,
+          "correct": 31,
           "precision": 1
         },
         "sameFile": {
@@ -137,7 +137,7 @@
       },
       "callers": {
         "oracle": 127,
-        "graph": 106,
+        "graph": 108,
         "graphOnly": 1,
         "ownersWithAnyCall": 171
       },
@@ -154,8 +154,6 @@
       "missedSamples": [
         "Command.ts|toWritable|Command.ts|push",
         "Command.ts|toWritable|Command.ts|toBuffer",
-        "DataHandler.ts|fillSubCommand|types.ts|resolve",
-        "DataHandler.ts|fillUnsubCommand|types.ts|resolve",
         "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|add",
         "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|del",
         "DataHandler.ts|handleSubscriberReply|types.ts|resolve",
@@ -164,6 +162,8 @@
         "DataHandler.ts|returnReply|SubscriptionSet.ts|add",
         "DataHandler.ts|returnReply|types.ts|resolve",
         "Script.ts|toWritable|Command.ts|toWritable",
+        "connectors/SentinelConnector/FailoverDetector.ts|cleanup|connectors/SentinelConnector/types.ts|disconnect",
+        "connectors/SentinelConnector/FailoverDetector.ts|subscribe|connectors/SentinelConnector/types.ts|subscribe",
         "transaction.ts|execBuffer|utils/RedisCommander.ts|exec",
         "transaction.ts|multi|Pipeline.ts|addBatch",
         "transaction.ts|pipeline|Pipeline.ts|addBatch"

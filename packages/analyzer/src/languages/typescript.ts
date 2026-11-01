@@ -209,6 +209,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       'public_field_definition',
       'property_signature',
       'function_expression',
+      'method_signature',
+      'abstract_method_signature',
     ]);
   }
 
@@ -258,6 +260,14 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     if (nodeType === 'public_field_definition' || nodeType === 'property_signature') {
       this.captureFieldDeclaration(node, captures);
       this.captureFieldFunction(node, captures);
+      return;
+    }
+
+    // **A method a contract declares is a declaration.** `interface Respondable { resolve(result: any): void }` gives
+    // every implementation a name to answer to, and a call written on a receiver whose declared type is the contract
+    // reaches *this* declaration or none at all.
+    if (nodeType === 'method_signature' || nodeType === 'abstract_method_signature') {
+      this.captureContractMember(node, captures);
       return;
     }
 
@@ -699,6 +709,36 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         arrow: 'false',
         async: String(node.text.trimStart().startsWith('async')),
       },
+    });
+  }
+
+  /**
+   * A member a contract declares - `find(id: string): string;` in an `interface`, `abstract m(): void` in a class.
+   *
+   * **It has no body, so it is never the source of a call.** What it is, is what a call can *reach*: the graph could
+   * not answer `repository.find(id)` for a receiver declared as the interface, because the interface emitted one node
+   * for itself and none for its members. On `redis/ioredis@5.4.2` the checker resolves three call pairs to exactly
+   * this shape - `resolve` in `Respondable`, `handleReconnection` and `recoverFromFatalError` in `Condition` - and this
+   * graph had nothing at the other end of any of them.
+   *
+   * **Filed as `Method` and under the interface that declares it**, which is the same identity an implemented method
+   * has; the two stay apart because their names are qualified by different containers.
+   */
+  private captureContractMember(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nameNode = this.findNamedChild(node, 'property_identifier');
+    if (nameNode === null) return;
+    const owner = this.containerNameOf(node);
+    if (owner === undefined) return;
+    captures.push({
+      tag: CAPTURE_TAGS.METHOD_DEF,
+      text: node.text,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: nameNode.endIndex,
+      name: nameNode.text,
+      containerName: owner,
+      properties: { filePath: this.filePath, contract: 'true' },
     });
   }
 
