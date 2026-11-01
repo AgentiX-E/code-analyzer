@@ -1,9 +1,6 @@
 {
   "measuredAt": "2026-11-01T08:01:21.373Z",
-  "languages": [
-    "python",
-    "typescript"
-  ],
+  "languages": ["python", "typescript"],
   "corpora": [
     {
       "repo": "colinhacks/zod",

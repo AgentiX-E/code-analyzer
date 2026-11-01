@@ -226,11 +226,17 @@ describe('the class a `this` written inside a closure refers to', () => {
 
   it('finds the enclosing class through one arrow function', () => {
     // `const onReady = () => { this.bump() }` inside `Counter.connect` - the arrow keeps the method's `this`.
-    expect(callsUnder('onReady')).toContainEqual({ target: 'Counter.bump', resolution: 'inherited' });
+    expect(callsUnder('onReady')).toContainEqual({
+      target: 'Counter.bump',
+      resolution: 'inherited',
+    });
   });
 
   it('finds it through an arrow inside a promise executor', () => {
-    expect(callsUnder('onClose')).toContainEqual({ target: 'Counter.bump', resolution: 'inherited' });
+    expect(callsUnder('onClose')).toContainEqual({
+      target: 'Counter.bump',
+      resolution: 'inherited',
+    });
   });
 
   it('stops at a function expression, whose `this` the enclosing class does not decide', () => {
@@ -315,4 +321,3 @@ describe('the bases of a declaration that is written twice', () => {
     });
   });
 });
-

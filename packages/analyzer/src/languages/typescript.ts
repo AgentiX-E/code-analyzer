@@ -754,9 +754,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       const bound = anonymous ? current.parent : null;
       if (bound !== null && bound !== undefined && bound.type === 'variable_declarator') {
         const name = this.findNamedChild(bound, 'identifier');
-        return name === null
-          ? undefined
-          : ownerKeyOf(this.containerNameOf(bound), name.text);
+        return name === null ? undefined : ownerKeyOf(this.containerNameOf(bound), name.text);
       }
       current = current.parent;
     }

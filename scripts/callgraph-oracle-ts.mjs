@@ -283,10 +283,12 @@ function main() {
   function boundThisMemberOf(access) {
     if (access.expression.kind !== ts.SyntaxKind.ThisKeyword) return undefined;
     let owner = access.parent;
-    while (owner && !ts.isFunctionExpression(owner) && !ts.isArrowFunction(owner)) owner = owner.parent;
+    while (owner && !ts.isFunctionExpression(owner) && !ts.isArrowFunction(owner))
+      owner = owner.parent;
     if (!owner) return undefined;
     const bind = owner.parent;
-    if (!bind || !ts.isPropertyAccessExpression(bind) || bind.name.text !== 'bind') return undefined;
+    if (!bind || !ts.isPropertyAccessExpression(bind) || bind.name.text !== 'bind')
+      return undefined;
     if (bind.expression !== owner) return undefined;
     const call = bind.parent;
     if (!ts.isCallExpression(call)) return undefined;
@@ -298,9 +300,7 @@ function main() {
     const member = (host.members ?? []).find(
       (entry) => entry.name !== undefined && entry.name.text === access.name.text,
     );
-    return member === undefined
-      ? undefined
-      : { name: access.name.text, declaration: member };
+    return member === undefined ? undefined : { name: access.name.text, declaration: member };
   }
 
   /** The prototype assignment a call's receiver type makes for the member being called, if there is one. */

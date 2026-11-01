@@ -250,7 +250,9 @@ describe('the type of the object a call is written on', () => {
     // The empty receiver is not a receiver.
     expect(receiverTypeOf(at(['Holder.run']), '')).toBeUndefined();
     // A file the index never saw declares no types, which is the same answer as no annotation.
-    expect(receiverTypeOf({ index, origin: { file: '/elsewhere.ts' }, owners: [] }, 'x')).toBeUndefined();
+    expect(
+      receiverTypeOf({ index, origin: { file: '/elsewhere.ts' }, owners: [] }, 'x'),
+    ).toBeUndefined();
   });
 
   it('refuses `super`, because the base-chain arm is the one that starts at the base', () => {

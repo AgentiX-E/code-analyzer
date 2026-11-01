@@ -918,7 +918,9 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               // that of exactly the class chain. What is left here is the module scope a bare call reaches, which is a
               // different question and belongs to this arm.
               const member =
-                ref.receiver === undefined ? resolvable(scope?.member.get(ref.targetName)) : undefined;
+                ref.receiver === undefined
+                  ? resolvable(scope?.member.get(ref.targetName))
+                  : undefined;
               const module = resolvable(scope?.module.get(ref.targetName));
               target =
                 // A local name with more than one declaration is a set of candidates rather than an answer; the
@@ -1029,7 +1031,8 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               // so the question "what is this name here" is asked of every enclosing function, innermost first.
               const owners = callables
                 .filter(
-                  (symbol) => symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
+                  (symbol) =>
+                    symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
                 )
                 .map((symbol) => ownerKeyOf(containerOf(symbol), symbol.name));
               const receiverType = receiverTypeOf(

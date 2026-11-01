@@ -121,7 +121,14 @@ const PRIMITIVES = new Set([
 ]);
 
 /** Values that occupy a union without being the type of anything a call can be written on. */
-const NOTHING: ReadonlySet<string> = new Set(['null', 'undefined', 'void', 'never', 'false', 'true']);
+const NOTHING: ReadonlySet<string> = new Set([
+  'null',
+  'undefined',
+  'void',
+  'never',
+  'false',
+  'true',
+]);
 
 /**
  * A type annotation reduced to the one name the resolver can look up, or `undefined` when it is not a name.
@@ -407,13 +414,11 @@ export interface ReceiverLookup {
  * **`super` is refused here on purpose.** The base-chain arm starts its walk at the base because that is what the
  * keyword means; answering `super.x` with the enclosing class would hand the caller the very override it skips.
  */
-export function receiverTypeOf(
-  lookup: ReceiverLookup,
-  receiver: string,
-): ReceiverType | undefined {
+export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): ReceiverType | undefined {
   const [base, ...hops] = receiver.split('.');
   if (base === undefined || base.length === 0) return undefined;
-  const own = lookup.origin?.file === undefined ? undefined : lookup.index.files.get(lookup.origin.file);
+  const own =
+    lookup.origin?.file === undefined ? undefined : lookup.index.files.get(lookup.origin.file);
 
   const start = startOf(lookup, own, base, hops.length === 0);
   if (start === undefined) return undefined;
