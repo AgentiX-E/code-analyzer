@@ -150,7 +150,10 @@ export class ParsePhase implements ExecutablePhase {
           // `@Test` are all invocations with no call site, and reachability asks exactly that question.
           attachDecorators(captures);
 
-          const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
+          const { symbols, references, scopeTree, parents } = groupCaptures(
+            captures,
+            file.filePath,
+          );
 
           // Taint sources and sinks, from the provider that just parsed this file — the only code that sees its text.
           // They are stored per file rather than per function, because the extraction knows lines and the function
@@ -191,12 +194,14 @@ export class ParsePhase implements ExecutablePhase {
             const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
 
             if (fileNodeId) {
-              let currentClassNodeId: number | null = null;
               // **Split once per file, not once per symbol**: the body of every symbol in a thousand-line file would
               // otherwise cost a thousand splits of the same text.
               const fileLines = file.content.split('\n');
 
-              for (const symbol of symbols) {
+              /** The node each symbol became, so the edge pass can point at the declaration rather than at its name. */
+              const nodeIds = new Array<number>(symbols.length);
+
+              for (const [index, symbol] of symbols.entries()) {
                 const label = symbol.kind;
                 const qualifiedName = `project:${ctx.projectId}:${symbol.qualifiedName}`;
 
@@ -226,36 +231,37 @@ export class ParsePhase implements ExecutablePhase {
                   properties,
                   qualifiedName,
                 );
+                nodeIds[index] = node.id;
+              }
 
-                // Create appropriate edges
-                if (label === 'Method' || label === 'Constructor') {
-                  // Method within its parent class
-                  if (currentClassNodeId) {
-                    builder.addEdge(
-                      ctx.graph,
-                      currentClassNodeId,
-                      node.id,
-                      EDGE_HAS_METHOD,
-                      ctx.projectId,
-                    );
-                  } else {
-                    builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-                  }
-                } else if (label === 'Class') {
-                  currentClassNodeId = node.id;
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-                  // **`baseClasses` and `interfaces` are read where the edges are made**, which is the
-                  // `scopeResolution` phase: it is the only pass that can turn a name into a declaration, because a
-                  // base class is usually in another file. Two nested `if`s used to sit here with empty bodies and a
-                  // comment saying exactly that - a branch that decides nothing and is counted as a branch nobody
-                  // takes. They are gone; the properties are read from the symbol by the phase that can use them.
-                } else if (label === 'Interface') {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-                } else if (label === 'Function') {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-                } else {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-                }
+              // **The edges are a second pass, because a declaration's container may be declared after it.** The
+              // previous version kept a `currentClassNodeId` and attached every method to the last class it had seen,
+              // which is the same answer only when a file declares one class and nothing after it: `app.use = …` and a
+              // module-level object literal both inherited whichever class happened to come first. The container is
+              // the declaration whose span contains this one, and `groupCaptures` has already computed it.
+              //
+              // **A method is filed with `HAS_METHOD` and everything else with `DEFINES`**, which is the distinction the
+              // reachability pass reads: a class runs its members, a file does not run its functions.
+              for (const [index, symbol] of symbols.entries()) {
+                const owner = parents[index] as number;
+                const ownerId = owner >= 0 ? (nodeIds[owner] as number) : fileNodeId;
+                // **The holder decides the edge, not the held.** A method of a class is a member of it and runs when
+                // the class runs; a method whose holder is a *file* is a construct the parser could not place, and
+                // `HAS_METHOD` from a file says the file runs it — which is how two object-literal accessors became
+                // reachable and stopped being reported, for a reason no reader could have found.
+                const holder = ctx.graph.nodes.get(ownerId);
+                const heldByType =
+                  holder !== undefined &&
+                  (holder.label === 'Class' || holder.label === 'Interface');
+                builder.addEdge(
+                  ctx.graph,
+                  ownerId,
+                  nodeIds[index] as number,
+                  heldByType && (symbol.kind === 'Method' || symbol.kind === 'Constructor')
+                    ? EDGE_HAS_METHOD
+                    : EDGE_DEFINES,
+                  ctx.projectId,
+                );
               }
             }
           }

@@ -169,6 +169,12 @@ export default tseslint.config(
       '**/coverage/**',
       '**/*.tsbuildinfo',
       'pnpm-lock.yaml',
+      // **A fixture is the subject of the analysis, not code of this product.** These files are read by the parsers
+      // under test, they are written in the shapes this repository wants to measure - a prototype assignment, an
+      // object literal method, a class declared inside a test - and they are enrolled in no TypeScript project, so a
+      // typed lint rule cannot even parse them. Linting them would grade the ruler by the thing it measures.
+      'packages/*/src/__tests__/fixtures/**',
+      'packages/*/src/languages/__tests__/fixtures/**',
     ],
   },
 );

@@ -4,6 +4,91 @@
   "corpora": [
     {
       "generatedBy": "scripts/callgraph-oracle-ts.mjs",
+      "corpus": "redis/ioredis",
+      "files": 37,
+      "definitions": {
+        "simpleNameCollisionsPerFile": 3
+      },
+      "sites": {
+        "total": 1201,
+        "internal": 348,
+        "internalRecursion": 9,
+        "external": 238,
+        "variable": 0,
+        "unknown": 250,
+        "silent": 365,
+        "excludedForDuplicateName": 15
+      },
+      "expectedPairs": 267,
+      "claimedPairs": 196,
+      "precision": {
+        "correct": 192,
+        "wrong": 4,
+        "value": 0.9796
+      },
+      "recall": {
+        "found": 192,
+        "missed": 75,
+        "value": 0.7191
+      },
+      "byArm": {
+        "import": {
+          "claimed": 57,
+          "correct": 54,
+          "precision": 0.9474
+        },
+        "inherited": {
+          "claimed": 1,
+          "correct": 1,
+          "precision": 1
+        },
+        "receiverType": {
+          "claimed": 28,
+          "correct": 28,
+          "precision": 1
+        },
+        "sameFile": {
+          "claimed": 148,
+          "correct": 146,
+          "precision": 0.9865
+        }
+      },
+      "callers": {
+        "oracle": 127,
+        "graph": 103,
+        "graphOnly": 1,
+        "ownersWithAnyCall": 171
+      },
+      "wrongCauses": {
+        "calleeNotCalledHere": 3,
+        "ownerHasNoCall": 1
+      },
+      "wrongSamples": [
+        "[import] DataHandler.ts|returnReply -> SubscriptionSet.ts|SubscriptionSet",
+        "[import] Script.ts|execute -> Command.ts|Command",
+        "[sameFile] Command.ts|toWritable -> Command.ts|MixedBuffers",
+        "[sameFile] cluster/index.ts|quit -> cluster/index.ts|handleCloseEvent"
+      ],
+      "missedSamples": [
+        "Command.ts|hsetArgumentTransformer|utils/index.ts|convertMapToArray",
+        "Command.ts|hsetArgumentTransformer|utils/index.ts|convertObjectToArray",
+        "Command.ts|msetArgumentTransformer|utils/index.ts|convertMapToArray",
+        "Command.ts|msetArgumentTransformer|utils/index.ts|convertObjectToArray",
+        "Command.ts|toWritable|Command.ts|push",
+        "Command.ts|toWritable|Command.ts|toBuffer",
+        "DataHandler.ts|fillSubCommand|types.ts|resolve",
+        "DataHandler.ts|fillUnsubCommand|types.ts|resolve",
+        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|add",
+        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|del",
+        "DataHandler.ts|handleSubscriberReply|types.ts|resolve",
+        "DataHandler.ts|returnError|DataHandler.ts|handleReconnection",
+        "DataHandler.ts|returnFatalError|DataHandler.ts|recoverFromFatalError",
+        "DataHandler.ts|returnReply|SubscriptionSet.ts|add",
+        "DataHandler.ts|returnReply|types.ts|resolve"
+      ]
+    },
+    {
+      "generatedBy": "scripts/callgraph-oracle-ts.mjs",
       "corpus": "colinhacks/zod",
       "files": 82,
       "definitions": {
@@ -17,25 +102,25 @@
         "variable": 3,
         "unknown": 6568,
         "silent": 24,
-        "excludedForDuplicateName": 511
+        "excludedForDuplicateName": 514
       },
-      "expectedPairs": 130,
-      "claimedPairs": 85,
+      "expectedPairs": 127,
+      "claimedPairs": 87,
       "precision": {
-        "correct": 83,
+        "correct": 85,
         "wrong": 2,
-        "value": 0.9765
+        "value": 0.977
       },
       "recall": {
-        "found": 83,
-        "missed": 47,
-        "value": 0.6385
+        "found": 85,
+        "missed": 42,
+        "value": 0.6693
       },
       "byArm": {
         "import": {
-          "claimed": 54,
-          "correct": 52,
-          "precision": 0.963
+          "claimed": 55,
+          "correct": 53,
+          "precision": 0.9636
         },
         "receiverType": {
           "claimed": 3,
@@ -43,125 +128,40 @@
           "precision": 1
         },
         "sameFile": {
-          "claimed": 36,
-          "correct": 36,
+          "claimed": 37,
+          "correct": 37,
           "precision": 1
         }
       },
       "callers": {
-        "oracle": 149,
-        "graph": 69,
+        "oracle": 147,
+        "graph": 70,
         "graphOnly": 0,
-        "ownersWithAnyCall": 188
+        "ownersWithAnyCall": 186
       },
       "wrongCauses": {
         "calleeNotCalledHere": 2
       },
       "wrongSamples": [
         "[import] types.ts|_processInputParams -> helpers/parseUtil.ts|ParseStatus",
-        "[import] types.ts|strict -> helpers/errorUtil.ts|errToObj"
+        "[import] types.ts|handleResult -> ZodError.ts|ZodError"
       ],
       "missedSamples": [
         "helpers/parseUtil.ts|mergeObjectAsync|helpers/parseUtil.ts|mergeObjectSync",
-        "types.ts|addIssue|helpers/parseUtil.ts|abort",
-        "types.ts|addIssue|helpers/parseUtil.ts|addIssueToContext",
         "types.ts|args|types.ts|rest",
-        "types.ts|errorMap|helpers/errorUtil.ts|errToObj",
+        "types.ts|createWithPreprocess|types.ts|ZodEffects",
+        "types.ts|createWithPreprocess|types.ts|processCreateParams",
         "types.ts|finalizeSet|helpers/parseUtil.ts|dirty",
         "types.ts|getDiscriminator|types.ts|innerType",
+        "types.ts|handleAsync|helpers/parseUtil.ts|dirty",
+        "types.ts|handleAsync|types.ts|_parseAsync",
         "types.ts|handleParsed|helpers/parseUtil.ts|dirty",
         "types.ts|lazycreate|types.ts|ZodObject",
         "types.ts|lazycreate|types.ts|processCreateParams",
         "types.ts|nullish|types.ts|optional",
-        "types.ts|setError|types.ts|getIssueProperties",
         "types.ts|setKey|types.ts|extend",
         "types.ts|strictCreate|types.ts|ZodObject",
         "types.ts|strictCreate|types.ts|processCreateParams"
-      ]
-    },
-    {
-      "generatedBy": "scripts/callgraph-oracle-ts.mjs",
-      "corpus": "redis/ioredis",
-      "files": 37,
-      "definitions": {
-        "simpleNameCollisionsPerFile": 3
-      },
-      "sites": {
-        "total": 1201,
-        "internal": 348,
-        "internalRecursion": 12,
-        "external": 241,
-        "variable": 0,
-        "unknown": 247,
-        "silent": 365,
-        "excludedForDuplicateName": 15
-      },
-      "expectedPairs": 268,
-      "claimedPairs": 185,
-      "precision": {
-        "correct": 181,
-        "wrong": 4,
-        "value": 0.9784
-      },
-      "recall": {
-        "found": 181,
-        "missed": 87,
-        "value": 0.6754
-      },
-      "byArm": {
-        "import": {
-          "claimed": 53,
-          "correct": 50,
-          "precision": 0.9434
-        },
-        "inherited": {
-          "claimed": 11,
-          "correct": 11,
-          "precision": 1
-        },
-        "receiverType": {
-          "claimed": 30,
-          "correct": 30,
-          "precision": 1
-        },
-        "sameFile": {
-          "claimed": 124,
-          "correct": 122,
-          "precision": 0.9839
-        }
-      },
-      "callers": {
-        "oracle": 130,
-        "graph": 100,
-        "graphOnly": 1,
-        "ownersWithAnyCall": 179
-      },
-      "wrongCauses": {
-        "calleeNotCalledHere": 3,
-        "ownerHasNoCall": 1
-      },
-      "wrongSamples": [
-        "[import] DataHandler.ts|returnReply -> SubscriptionSet.ts|SubscriptionSet",
-        "[import] Script.ts|execute -> Command.ts|Command",
-        "[sameFile] Command.ts|toWritable -> Command.ts|MixedBuffers",
-        "[sameFile] cluster/index.ts|quit -> cluster/index.ts|handleCloseEvent"
-      ],
-      "missedSamples": [
-        "Command.ts|constructor|Command.ts|_iterateKeys",
-        "Command.ts|constructor|Command.ts|initPromise",
-        "Command.ts|hsetArgumentTransformer|utils/index.ts|convertMapToArray",
-        "Command.ts|hsetArgumentTransformer|utils/index.ts|convertObjectToArray",
-        "Command.ts|msetArgumentTransformer|utils/index.ts|convertMapToArray",
-        "Command.ts|msetArgumentTransformer|utils/index.ts|convertObjectToArray",
-        "Command.ts|toWritable|Command.ts|push",
-        "Command.ts|toWritable|Command.ts|toBuffer",
-        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|add",
-        "DataHandler.ts|handleSubscriberReply|SubscriptionSet.ts|del",
-        "DataHandler.ts|handleSubscriberReply|types.ts|resolve",
-        "DataHandler.ts|returnError|DataHandler.ts|handleReconnection",
-        "DataHandler.ts|returnFatalError|DataHandler.ts|recoverFromFatalError",
-        "DataHandler.ts|returnReply|SubscriptionSet.ts|add",
-        "DataHandler.ts|returnReply|types.ts|resolve"
       ]
     }
   ]

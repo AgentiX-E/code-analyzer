@@ -245,6 +245,23 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       return;
     }
 
+    // **A method of an object literal is not a declaration, and calling it one cost this product two wrong findings.**
+    // `Object.defineProperty(exports, "Promise", { get() {…}, set() {…} })` in `redis/ioredis@5.4.2` gave `lib/index.ts`
+    // two module-scope symbols called `get` and `set`, and the dead-code pass reported them — a report about a
+    // declaration nobody can name, because a symbol's identity here is its qualified name and an object literal's member
+    // has none: two literals in one file both declaring `get` would share one name and one node.
+    //
+    // **They are not lost work.** An object literal is created when its enclosing statement runs, so the calls inside
+    // these bodies still reach the graph as module-level calls from the file — which is the same liveness, stated as the
+    // fact that is true. `vulture` and `ts-prune` never see them either; this is the one place where agreeing with the
+    // competitors is agreement with the grammar.
+    if (
+      nodeType === 'method_definition' &&
+      (node.parent?.type === 'object' || node.parent?.type === 'object_pattern')
+    ) {
+      return;
+    }
+
     for (const mapping of mappings) {
       if (nodeType === mapping.nodeType) {
         // Special handling for method_definition: skip if name is 'constructor'
@@ -706,6 +723,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     if (right.type !== 'function_expression' && right.type !== 'arrow_function') return;
     const name = this.assignedName(left);
     if (!name) return;
+    const owner = this.prototypeOwnerOf(left);
     captures.push(
       this.attachDocComment({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -715,13 +733,35 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         startByte: left.startIndex,
         endByte: left.endIndex,
         name,
+        ...(owner === undefined ? {} : { containerName: owner }),
+        // **`X.prototype.m = function () {…}` is a method of `X`, and it is the only spelling this walk can prove.**
+        // ioredis replaces `Pipeline.prototype.multi` to deprecate it; the function arrived as a module-scope symbol
+        // called `multi`, so nothing connected it to the exported class and the dead-code pass reported it — advice a
+        // reader would follow by deleting a deprecation shim the package ships on purpose. `X.y = …` is not treated the
+        // same way, because `app.use = …` is express's whole public surface and `app` is a variable: only a constructor
+        // has a `prototype`, so only that spelling names a class without a symbol table.
         properties: {
           filePath: this.filePath,
           assignedTo: left.text,
           async: String(right.text.trimStart().startsWith('async')),
+          // **The property the reachability pass reads to answer "is this a member", and the name the graph files it
+          // under.** Both, because they are different readers: `membersOf` reads the property, the naming pass reads
+          // the container.
+          ...(owner === undefined ? {} : { enclosingClass: owner }),
         },
       }),
     );
+  }
+
+  /** The class whose prototype a member assignment extends — `Pipeline` in `Pipeline.prototype.multi = …`. */
+  private prototypeOwnerOf(left: TreeSitterSyntaxNode): string | undefined {
+    if (left.type !== 'member_expression') return undefined;
+    const target = left.namedChild(0);
+    if (target === undefined || target.type !== 'member_expression') return undefined;
+    const property = target.namedChild(1);
+    if (property === undefined || property.text !== 'prototype') return undefined;
+    const owner = target.namedChild(0);
+    return owner === undefined || owner.type !== 'identifier' ? undefined : owner.text;
   }
 
   /** The name a member assignment defines, or `null` when it defines one this walk cannot spell. */

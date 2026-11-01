@@ -12,31 +12,31 @@
       },
       "sites": {
         "total": 3681,
-        "internal": 384,
-        "internalRecursion": 7,
+        "internal": 455,
+        "internalRecursion": 8,
         "external": 806,
         "variable": 37,
-        "unknown": 729,
+        "unknown": 658,
         "silent": 1725,
         "excludedForDuplicateName": 38
       },
-      "expectedPairs": 288,
-      "claimedPairs": 289,
+      "expectedPairs": 338,
+      "claimedPairs": 343,
       "precision": {
-        "correct": 278,
-        "wrong": 11,
-        "value": 0.9619
+        "correct": 330,
+        "wrong": 13,
+        "value": 0.9621
       },
       "recall": {
-        "found": 278,
-        "missed": 10,
-        "value": 0.9653
+        "found": 330,
+        "missed": 8,
+        "value": 0.9763
       },
       "byArm": {
         "import": {
-          "claimed": 175,
-          "correct": 162,
-          "precision": 0.9257
+          "claimed": 180,
+          "correct": 167,
+          "precision": 0.9278
         },
         "inherited": {
           "claimed": 9,
@@ -49,9 +49,9 @@
           "precision": 1
         },
         "sameFile": {
-          "claimed": 152,
-          "correct": 148,
-          "precision": 0.9737
+          "claimed": 221,
+          "correct": 215,
+          "precision": 0.9729
         },
         "super": {
           "claimed": 3,
@@ -60,11 +60,11 @@
         }
       },
       "callers": {
-        "oracle": 223,
-        "graph": 193,
+        "oracle": 263,
+        "graph": 233,
         "graphOnly": 6,
-        "ownersWithAnyCall": 489,
-        "graphCallers": 177
+        "ownersWithAnyCall": 517,
+        "graphCallers": 215
       },
       "wrongSamples": [
         "[import] tests/test_cli.py|test_appgroup_app_context -> src/flask/app.py|Flask",
@@ -77,10 +77,12 @@
         "[sameFile] src/flask/helpers.py|decorator -> src/flask/helpers.py|stream_with_context",
         "[sameFile] src/flask/sansio/scaffold.py|wrapper_func -> src/flask/sansio/scaffold.py|_check_setup_finished",
         "[sameFile] src/flask/sessions.py|permanent -> src/flask/sessions.py|get",
+        "[sameFile] tests/test_reqctx.py|test_session_dynamic_cookie_name -> tests/test_reqctx.py|PathAwareSessionInterface",
+        "[sameFile] tests/test_reqctx.py|test_session_error_pops_context -> tests/test_reqctx.py|FailingSessionInterface",
         "[sameFile] tests/test_user_error_handler.py|do_custom -> tests/test_user_error_handler.py|Custom"
       ],
       "wrongCauses": {
-        "owner-makes-no-such-call": 8,
+        "owner-makes-no-such-call": 10,
         "external": 3
       },
       "wrongByArm": {
@@ -89,20 +91,18 @@
         },
         "sameFile": {
           "external": 3,
-          "owner-makes-no-such-call": 1
+          "owner-makes-no-such-call": 3
         }
       },
       "missedSamples": [
-        "src/flask/app.py|run|src/flask/cli.py|load_dotenv",
         "src/flask/app.py|test_cli_runner|src/flask/testing.py|cls",
         "src/flask/app.py|test_client|src/flask/testing.py|cls",
-        "src/flask/cli.py|_env_file_callback|src/flask/cli.py|load_dotenv",
-        "src/flask/cli.py|make_context|src/flask/cli.py|load_dotenv",
+        "src/flask/cli.py|load_app|src/flask/cli.py|locate_app",
         "src/flask/cli.py|run_command|src/flask/cli.py|CertParamType",
         "src/flask/cli.py|run_command|src/flask/cli.py|SeparatedPathType",
-        "tests/test_cli.py|test_dotenv_optional|src/flask/cli.py|load_dotenv",
-        "tests/test_cli.py|test_dotenv_path|src/flask/cli.py|load_dotenv",
-        "tests/test_cli.py|test_load_dotenv|src/flask/cli.py|load_dotenv"
+        "tests/test_json.py|object_hook|tests/test_json.py|X",
+        "tests/test_json_tag.py|to_python|tests/test_json_tag.py|Foo",
+        "tests/test_reqctx.py|open_session|tests/test_reqctx.py|SessionError"
       ]
     },
     {
@@ -115,31 +115,31 @@
       },
       "sites": {
         "total": 7890,
-        "internal": 1774,
-        "internalRecursion": 28,
+        "internal": 1895,
+        "internalRecursion": 33,
         "external": 1855,
-        "variable": 168,
-        "unknown": 1492,
+        "variable": 160,
+        "unknown": 1379,
         "silent": 2601,
-        "excludedForDuplicateName": 235
+        "excludedForDuplicateName": 238
       },
-      "expectedPairs": 1194,
-      "claimedPairs": 1159,
+      "expectedPairs": 1266,
+      "claimedPairs": 1223,
       "precision": {
-        "correct": 1134,
-        "wrong": 25,
-        "value": 0.9784
+        "correct": 1197,
+        "wrong": 26,
+        "value": 0.9787
       },
       "recall": {
-        "found": 1134,
-        "missed": 60,
-        "value": 0.9497
+        "found": 1197,
+        "missed": 69,
+        "value": 0.9455
       },
       "byArm": {
         "import": {
           "claimed": 1016,
-          "correct": 1001,
-          "precision": 0.9852
+          "correct": 1000,
+          "precision": 0.9843
         },
         "receiverType": {
           "claimed": 7,
@@ -147,17 +147,17 @@
           "precision": 1
         },
         "sameFile": {
-          "claimed": 447,
-          "correct": 429,
-          "precision": 0.9597
+          "claimed": 552,
+          "correct": 534,
+          "precision": 0.9674
         }
       },
       "callers": {
-        "oracle": 866,
-        "graph": 749,
-        "graphOnly": 11,
-        "ownersWithAnyCall": 960,
-        "graphCallers": 625
+        "oracle": 899,
+        "graph": 772,
+        "graphOnly": 9,
+        "ownersWithAnyCall": 976,
+        "graphCallers": 645
       },
       "wrongSamples": [
         "[import] examples/manage-cupoftee.py|make_app -> examples/cupoftee/application.py|make_app",
@@ -168,6 +168,7 @@
         "[import] src/werkzeug/wrappers/response.py|force_type -> src/werkzeug/sansio/response.py|Response",
         "[import] tests/test_utils.py|test_cached_property -> src/werkzeug/utils.py|cached_property",
         "[import] tests/test_utils.py|test_environ_property -> src/werkzeug/utils.py|environ_property",
+        "[import] tests/test_wsgi.py|app -> src/werkzeug/wrappers/response.py|Response",
         "[sameFile] examples/coolmagic/utils.py|f -> examples/coolmagic/utils.py|TemplateResponse",
         "[sameFile] src/werkzeug/debug/repr.py|proxy -> src/werkzeug/debug/repr.py|repr",
         "[sameFile] src/werkzeug/debug/shared/debugger.js|addConsoleIconToFrames -> src/werkzeug/debug/shared/debugger.js|createIconForConsole",
@@ -188,13 +189,13 @@
       ],
       "wrongCauses": {
         "owner-makes-no-such-call": 17,
-        "resolves-elsewhere": 6,
+        "resolves-elsewhere": 7,
         "external": 1,
         "variable": 1
       },
       "wrongByArm": {
         "import": {
-          "resolves-elsewhere": 6,
+          "resolves-elsewhere": 7,
           "owner-makes-no-such-call": 2
         },
         "sameFile": {

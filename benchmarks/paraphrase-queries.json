@@ -18,175 +18,175 @@
   "queries": [
     {
       "file": "arkts.ts",
-      "qualifiedName": "project:paraphrase-search:ArkTSProvider.walkAndCapture",
+      "qualifiedName": "project:paraphrase-search:file:arkts.ts:ArkTSProvider.walkAndCapture",
       "name": "walkAndCapture",
       "query": "How do I find the name of a component declared with a decorator in ArkUI code?"
     },
     {
       "file": "bash.ts",
-      "qualifiedName": "project:paraphrase-search:BashProvider.getCommandName",
+      "qualifiedName": "project:paraphrase-search:file:bash.ts:BashProvider.getCommandName",
       "name": "getCommandName",
       "query": "How do I get the name of a command node, including quoted or dynamic names?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.captureAccesses",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.captureAccesses",
       "name": "captureAccesses",
       "query": "How do I log each name found beneath a given element?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.emitParameterDefs",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.emitParameterDefs",
       "name": "emitParameterDefs",
       "query": "How do I record a definition for each function parameter so arguments can be matched to bindings?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.extractFunctionNameNode",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.extractFunctionNameNode",
       "name": "extractFunctionNameNode",
       "query": "How do I get the name from a function declarator node?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.extractIncludePath",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.extractIncludePath",
       "name": "extractIncludePath",
       "query": "How do I get the actual file path from an include directive?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.extractTypeNameNode",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.extractTypeNameNode",
       "name": "extractTypeNameNode",
       "query": "How do I get the name of a class, struct, or enum from its declaration?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.functionDeclarators",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.functionDeclarators",
       "name": "functionDeclarators",
       "query": "How do I get the function declarator from a definition through pointer or reference wrappers?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.isInAnonymousNamespace",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.isInAnonymousNamespace",
       "name": "isInAnonymousNamespace",
       "query": "Is this node inside an unnamed scope?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.memberName",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.memberName",
       "name": "memberName",
       "query": "How do I get the name of the field being accessed?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.nameIn",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.nameIn",
       "name": "nameIn",
       "query": "How do I get the name declared inside a declarator?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.namesUnder",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.namesUnder",
       "name": "namesUnder",
       "query": "How do I list all identifiers under a node in document order without revisiting?"
     },
     {
       "file": "cpp.ts",
-      "qualifiedName": "project:paraphrase-search:CppProvider.trailingName",
+      "qualifiedName": "project:paraphrase-search:file:cpp.ts:CppProvider.trailingName",
       "name": "trailingName",
       "query": "How do I get the final part of a fully qualified name?"
     },
     {
       "file": "c.ts",
-      "qualifiedName": "project:paraphrase-search:CProvider.captureAccesses",
+      "qualifiedName": "project:paraphrase-search:file:c.ts:CProvider.captureAccesses",
       "name": "captureAccesses",
       "query": "How do I log each name found beneath a given element?"
     },
     {
       "file": "c.ts",
-      "qualifiedName": "project:paraphrase-search:CProvider.emitParameterDefs",
+      "qualifiedName": "project:paraphrase-search:file:c.ts:CProvider.emitParameterDefs",
       "name": "emitParameterDefs",
       "query": "How do I record a definition for each function parameter so arguments can be matched to them?"
     },
     {
       "file": "c.ts",
-      "qualifiedName": "project:paraphrase-search:CProvider.extractFunctionNameNode",
+      "qualifiedName": "project:paraphrase-search:file:c.ts:CProvider.extractFunctionNameNode",
       "name": "extractFunctionNameNode",
       "query": "How do I get the name of a function from its declarator?"
     },
     {
       "file": "c.ts",
-      "qualifiedName": "project:paraphrase-search:CProvider.extractIncludePath",
+      "qualifiedName": "project:paraphrase-search:file:c.ts:CProvider.extractIncludePath",
       "name": "extractIncludePath",
       "query": "How do I remove surrounding punctuation from an included file path?"
     },
     {
       "file": "c.ts",
-      "qualifiedName": "project:paraphrase-search:CProvider.nameIn",
+      "qualifiedName": "project:paraphrase-search:file:c.ts:CProvider.nameIn",
       "name": "nameIn",
       "query": "How do I get the name declared inside a complex declaration?"
     },
     {
       "file": "c.ts",
-      "qualifiedName": "project:paraphrase-search:CProvider.namesUnder",
+      "qualifiedName": "project:paraphrase-search:file:c.ts:CProvider.namesUnder",
       "name": "namesUnder",
       "query": "How do I list all identifiers under a node in document order without revisiting?"
     },
     {
       "file": "csharp.ts",
-      "qualifiedName": "project:paraphrase-search:CSharpProvider.captureAccesses",
+      "qualifiedName": "project:paraphrase-search:file:csharp.ts:CSharpProvider.captureAccesses",
       "name": "captureAccesses",
       "query": "How do I log each name found beneath a given element?"
     },
     {
       "file": "csharp.ts",
-      "qualifiedName": "project:paraphrase-search:CSharpProvider.emitParameterDefs",
+      "qualifiedName": "project:paraphrase-search:file:csharp.ts:CSharpProvider.emitParameterDefs",
       "name": "emitParameterDefs",
       "query": "How do I record each function parameter so its arguments can be matched to sinks?"
     },
     {
       "file": "csharp.ts",
-      "qualifiedName": "project:paraphrase-search:CSharpProvider.extractImportPath",
+      "qualifiedName": "project:paraphrase-search:file:csharp.ts:CSharpProvider.extractImportPath",
       "name": "extractImportPath",
       "query": "How do I get the thing a using directive points to?"
     },
     {
       "file": "csharp.ts",
-      "qualifiedName": "project:paraphrase-search:CSharpProvider.extractNameNode",
+      "qualifiedName": "project:paraphrase-search:file:csharp.ts:CSharpProvider.extractNameNode",
       "name": "extractNameNode",
       "query": "How do I get the name of a class, method, or property declaration?"
     },
     {
       "file": "csharp.ts",
-      "qualifiedName": "project:paraphrase-search:CSharpProvider.namesUnder",
+      "qualifiedName": "project:paraphrase-search:file:csharp.ts:CSharpProvider.namesUnder",
       "name": "namesUnder",
       "query": "How do I list all identifiers under a node in document order without revisiting?"
     },
     {
       "file": "css.ts",
-      "qualifiedName": "project:paraphrase-search:CssProvider.extractTaintSinks",
+      "qualifiedName": "project:paraphrase-search:file:css.ts:CssProvider.extractTaintSinks",
       "name": "extractTaintSinks",
       "query": "How do I mark expressions that inject CSS as unsafe sinks?"
     },
     {
       "file": "css.ts",
-      "qualifiedName": "project:paraphrase-search:CssProvider.extractTaintSources",
+      "qualifiedName": "project:paraphrase-search:file:css.ts:CssProvider.extractTaintSources",
       "name": "extractTaintSources",
       "query": "How do I mark outside web addresses in styles as untrusted input?"
     },
     {
       "file": "elixir.ts",
-      "qualifiedName": "project:paraphrase-search:ElixirProvider.extractModuleName",
+      "qualifiedName": "project:paraphrase-search:file:elixir.ts:ElixirProvider.extractModuleName",
       "name": "extractModuleName",
       "query": "How do I get the module path from an arguments node?"
     },
     {
       "file": "elixir.ts",
-      "qualifiedName": "project:paraphrase-search:ElixirProvider.findFunctionName",
+      "qualifiedName": "project:paraphrase-search:file:elixir.ts:ElixirProvider.findFunctionName",
       "name": "findFunctionName",
       "query": "How do I find the name of a function being defined in Elixir source code?"
     },
     {
       "file": "elixir.ts",
-      "qualifiedName": "project:paraphrase-search:ElixirProvider.isWhenClause",
+      "qualifiedName": "project:paraphrase-search:file:elixir.ts:ElixirProvider.isWhenClause",
       "name": "isWhenClause",
       "query": "How can I tell if a conditional branch node is a guard clause?"
     },
@@ -558,7 +558,7 @@
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:DECLARATIONS",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:attachDocCommentsInOrder.DECLARATIONS",
       "name": "DECLARATIONS",
       "query": "What kinds of comments can be attached to documentation?"
     },

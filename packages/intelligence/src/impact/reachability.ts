@@ -36,6 +36,7 @@ import {
   EDGE_INSTANTIATES,
   EDGE_METHOD_IMPLEMENTS,
   EDGE_METHOD_OVERRIDES,
+  isDeclarationLabel,
 } from '@code-analyzer/shared';
 
 import type { GraphNode, KnowledgeGraph, NodeLabel } from '@code-analyzer/shared';
@@ -404,6 +405,32 @@ function virtualSlots(graph: KnowledgeGraph, members: Members): number[][] {
   return [...buckets.values()].filter((group) => group.length > 1);
 }
 
+/**
+ * Declarations that spend one name in one container, joined as one binding.
+ *
+ * **A declaration can be written more than once under one name, and the source means one name by it.**
+ * `werkzeug/_internal.py` declares `_dt_as_utc` three times — two `@t.overload` stubs and the implementation — and a
+ * `@status.setter` shares its name with the getter above it. Each is a separate node, because a store, an index and an
+ * "open this symbol" link identify a node by one string and two declarations cannot share one; **but they are one
+ * binding**, so a name that reaches any of them reaches all of them.
+ *
+ * **The join is by the name a declaration had before the graph made it unique.** A repeated declaration carries the
+ * line it starts at, spelled `…@157`, and stripping it recovers the name the source actually wrote. Two declarations of
+ * one name in *different* containers do not join: their qualified names differ before the suffix, which is the whole
+ * reason the container is part of the name.
+ */
+function bindingSlots(graph: KnowledgeGraph): number[][] {
+  const buckets = new Map<string, number[]>();
+  for (const node of graph.nodes.values()) {
+    if (!isDeclarationLabel(node.label)) continue;
+    const base = node.qualifiedName.replace(/@\d+$/, '');
+    const known = buckets.get(base);
+    if (known === undefined) buckets.set(base, [node.id]);
+    else known.push(node.id);
+  }
+  return [...buckets.values()].filter((group) => group.length > 1);
+}
+
 /** A file whose contents are code. A `Function` node inside a `README.md` is a code block, not a symbol. */
 const CODE_FILE =
   /\.(py|pyi|[cm]?[jt]sx?|java|kt|kts|groovy|swift|scala|sc|go|rs|rb|php|c|h|cc|cpp|hpp|cs|dart|lua|sh|bash|zsh|sql|vue|svelte|ex|exs|erl|clj|fs|fsx|vb|m|mm|r|jl|pl|pm|tcl|vhd|v|sv)$/i;
@@ -536,6 +563,14 @@ export function computeReachability(
   // **Only within a connected hierarchy.** Two unrelated classes that both declare `get` are two slots, and joining
   // them would be the "everything with this name is alive" rule that destroys recall.
   for (const group of virtualSlots(graph, members)) {
+    for (const memberId of group) {
+      for (const otherId of group) if (otherId !== memberId) link(memberId, otherId);
+    }
+  }
+
+  // **One name, one binding.** See `bindingSlots`: an overload set and a property's getter and setter are written as
+  // several declarations and mean one callable, so a name that reaches one reaches the others.
+  for (const group of bindingSlots(graph)) {
     for (const memberId of group) {
       for (const otherId of group) if (otherId !== memberId) link(memberId, otherId);
     }

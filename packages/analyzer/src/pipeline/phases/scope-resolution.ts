@@ -3,10 +3,10 @@
 import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   PhaseLogger,
   createNoopPhaseLogger,
+  isDeclarationLabel,
   EDGE_ACCESSES,
   EDGE_CALLS,
   EDGE_EXTENDS,
@@ -78,6 +78,27 @@ interface FileScope {
   readonly module: Map<string, Resolved | 'ambiguous'>;
   /** methods, constructors and nested types - what `self.`/`this.` may reach */
   readonly member: Map<string, Resolved | 'ambiguous'>;
+  /**
+   * Names a *function* declares inside itself, keyed `${enclosing declaration}::${name}`.
+   *
+   * **A nested function used to have no scope of its own to be found in.** Its name was the file's, so a mention of
+   * it — `object.__setattr__(self, "_get_current_object", _get_current_object)` — resolved against the module, which
+   * was right by accident. Once a declaration is filed under the declaration that contains it, a nested function
+   * belongs to the function and to nothing else, and a resolver with only two scopes answers "not found" for a name
+   * that is one line above the mention. Measured on `pallets/werkzeug@3.0.3`: `LocalProxy._get_current_object` and
+   * `_dt_as_utc` came back as dead code the moment the names stopped colliding.
+   */
+  readonly local: Map<string, Resolved[]>;
+  /**
+   * Which declaration holds which, as `child → parent`.
+   *
+   * **A name is visible to the closures written inside the function that declares it, not only to its own body.**
+   * `const readyHandler = () => {…}` inside a method is called from an arrow function three lines further in, and a
+   * lookup that asks only the innermost scope finds nothing — the innermost scope is the arrow's. Walking out one
+   * holder at a time is what a reader does, and it is the whole of Python's LEGB rule minus the two scopes this phase
+   * already indexes.
+   */
+  readonly owner: Map<number, number>;
 }
 
 /**
@@ -95,48 +116,74 @@ interface FileScope {
  * graph had filed every one of them as module scope.
  */
 function declarationScope(
-  peers: readonly ScopedDeclaration[],
+  holders: ReadonlyMap<number, ScopedDeclaration>,
   declaration: ScopedDeclaration,
 ): 'module' | 'member' | 'local' {
-  const isType = (kind: NodeLabel): boolean =>
-    kind === 'Class' || kind === 'Interface' || kind === 'Enum';
-  // A node with no span is a declaration a provider could not place; it is module scope by default because that is
-  // the widest claim and the one a lookup is allowed to fall back to.
-  if (declaration.startLine === null || declaration.endLine === null) return 'module';
-  const span = declaration.endLine - declaration.startLine;
-  let local = false;
-  let member = false;
-  let narrowest = Number.POSITIVE_INFINITY;
-  for (const candidate of peers) {
-    if (candidate === declaration) continue;
-    // **Only a declaration can hold a declaration.** The file node spans every line of the file and carries a
-    // `filePath`, so counting it as a container makes every symbol in the file local - which is what the first
-    // version of this function did, and the reason its own test found nothing at all.
-    if (!CONTAINER_KINDS.has(candidate.label)) continue;
-    if (candidate.startLine === null || candidate.endLine === null) continue;
-    if (candidate.startLine > declaration.startLine || candidate.endLine < declaration.endLine)
-      continue;
-    // **Strictly wider, because a file's symbols are not disjoint.** A one-line arrow function and the function that
-    // holds it can share a line range, and reading "contains" as "contains or equals" makes every declaration look
-    // nested inside whichever one it was compared with - which filed whole files into the local scope.
-    const candidateSpan = candidate.endLine - candidate.startLine;
-    if (candidateSpan <= span) continue;
-    const holds = !isType(candidate.label);
-    if (!holds && !isType(candidate.label)) continue;
-    if (candidateSpan > narrowest) continue;
-    narrowest = candidateSpan;
-    local = holds;
-    member = !holds;
-  }
-  if (narrowest === Number.POSITIVE_INFINITY) return 'module';
-  return local ? 'local' : member ? 'member' : 'module';
+  const holder = holders.get(declaration.id);
+  if (holder === undefined) return 'module';
+  return isTypeLabel(holder.label) ? 'member' : 'local';
 }
 
-/** The two facts about nesting that a line range can answer. */
+/** Whether a declaration is a type, which is the difference between a member scope and a local one. */
+function isTypeLabel(kind: NodeLabel): boolean {
+  return kind === 'Class' || kind === 'Interface' || kind === 'Enum';
+}
+
+/**
+ * The narrowest declaration whose span strictly contains each node of one file, computed once for the file.
+ *
+ * **Once, because asking per node is quadratic and a file can hold a hundred thousand nodes.** The first version ran
+ * the containment test for every declaration against every other declaration: correct, and 87 seconds on
+ * `redis/ioredis@5.4.2` once every declaration had a node of its own. The file's declarations sorted by start line
+ * ascending — and by end line descending, so a container always precedes what it holds — turn the same question into a
+ * walk with a stack.
+ *
+ * **Strictly wider, because a file's symbols are not disjoint.** A one-line arrow function and the function that holds
+ * it can share a line range, and reading "contains" as "contains or equals" makes every declaration look nested inside
+ * whichever one it was compared with — which filed whole files into the local scope.
+ */
+function holdersOf(nodes: readonly ScopedDeclaration[]): Map<number, ScopedDeclaration> {
+  const holders = new Map<number, ScopedDeclaration>();
+  // **Only a declaration can hold a declaration.** The file node spans every line of the file and carries a
+  // `filePath`, so counting it as a container makes every symbol in the file local - which is what the first version of
+  // this question did, and the reason its own test found nothing at all.
+  const order = nodes
+    .filter(isContainer)
+    .sort((left, right) => left.startLine - right.startLine || right.endLine - left.endLine);
+  const stack: RangedDeclaration[] = [];
+  for (const node of order) {
+    while (stack.length > 0) {
+      const top = stack[stack.length - 1] as RangedDeclaration;
+      const contains =
+        top.startLine <= node.startLine &&
+        top.endLine >= node.endLine &&
+        (top.startLine < node.startLine || top.endLine > node.endLine);
+      if (contains) break;
+      stack.pop();
+    }
+    if (stack.length > 0) holders.set(node.id, stack[stack.length - 1] as RangedDeclaration);
+    stack.push(node);
+  }
+  return holders;
+}
+
+/** The facts about nesting that a line range can answer. */
 interface ScopedDeclaration {
+  readonly id: number;
   readonly label: NodeLabel;
   readonly startLine: number | null;
   readonly endLine: number | null;
+}
+
+/** A declaration that has a span, so containment compares two numbers instead of four nullable ones. */
+interface RangedDeclaration extends ScopedDeclaration {
+  readonly startLine: number;
+  readonly endLine: number;
+}
+
+/** Whether a declaration can lexically hold another, and has the span needed to say so. */
+function isContainer(node: ScopedDeclaration): node is RangedDeclaration {
+  return CONTAINER_KINDS.has(node.label) && node.startLine !== null && node.endLine !== null;
 }
 
 /** Symbol kinds that can lexically hold another declaration. */
@@ -255,7 +302,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       const crossFileData = ctx.phaseData.get('crossFile') as
         { resolvedImports: ResolvedImport[]; importEdgesCreated: number } | undefined;
 
-      const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
+      const builder = new GraphBuilder(null);
       let referencesResolved = 0;
       /** Call sites that resolved to nothing and were recorded as mentions instead, so the count is auditable. */
       let unresolvedMentions = 0;
@@ -303,6 +350,16 @@ export class ScopeResolutionPhase implements ExecutablePhase {
       // file+name -> GraphNode for cross-file resolution
       const fileSymbolIndex = new Map<string, Map<string, { nodeId: number; label: NodeLabel }>>();
       /**
+       * The node each declaration became, keyed by the one identity a name cannot give: `file::line::name::kind`.
+       *
+       * **A qualified name is a name, and a name is shared.** `Response.status` names a getter and a setter; a module
+       * that declares `locate_app` three times has three; and in werkzeug the setter's name was also the name of a
+       * *parameter* of `Response.__init__`, so `qnameIndex` — first-wins — resolved the caller of `self._clean_status(…)`
+       * to that parameter. The edge was written, it just left from a declaration that cannot call anything, and the
+       * callee was reported as dead code. **A caller is a declaration, so it is looked up as one.
+       */
+      const declarationNodes = new Map<string, number>();
+      /**
        * Simple name → the declaration, per file, which is the scope a call actually resolves in.
        *
        * **The per-file index and not a global one**, because a simple name is only evidence inside the file that
@@ -332,6 +389,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         ) {
           // Store by qualified name (precise)
           qnameIndex.set(node.qualifiedName, { nodeId: node.id, label: node.label });
+
+          if (isDeclarationLabel(node.label) && typeof node.properties?.filePath === 'string') {
+            declarationNodes.set(
+              `${String(node.properties.filePath)}::${String(node.startLine)}::${node.name}::${String(node.label)}`,
+              node.id,
+            );
+          }
 
           // Store in per-file index for cross-file resolution
           if (node.properties?.filePath) {
@@ -376,14 +440,44 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         else nodesByFile.set(String(filePath), [node]);
       }
       for (const [filePath, nodes] of nodesByFile) {
-        const scope: FileScope = { module: new Map(), member: new Map() };
+        const scope: FileScope = {
+          module: new Map(),
+          member: new Map(),
+          local: new Map(),
+          owner: new Map(),
+        };
         fileScopes.set(filePath, scope);
+        const holders = holdersOf(nodes);
         for (const node of nodes) {
           if (!RESOLVABLE_KINDS.has(node.label)) continue;
           if (typeof node.name !== 'string' || node.name.length === 0) continue;
-          const where = declarationScope(nodes, node);
-          // A declaration inside a function is nobody else's to call: skip it rather than file it anywhere.
-          if (where === 'local') continue;
+          const where = declarationScope(holders, node);
+          if (where === 'local') {
+            // **A declaration inside a function is that function's**, and the kinds that can be *reached by a name* are
+            // the kinds a call can name: a nested `def`, a nested `class`, a nested `TypeAlias`. A local variable is
+            // refused, because filing one here would let a mention in one function resolve to a variable in another.
+            //
+            // **The class case is the one that was missing, and a test suite is where it lives.**
+            // `def test_custom_config_class(): class Flask(flask.Flask): …; app = Flask(__name__)` declares a subclass
+            // inside a test and instantiates it — a call to a declaration two lines above it, which resolved to the
+            // *imported* `Flask` in `flask/app.py` and made the local class look unused.
+            if (!RESOLVABLE_KINDS.has(node.label)) continue;
+            const owner = holders.get(node.id);
+            if (owner !== undefined) {
+              // **Every declaration of the name, not the first one.** `LocalProxy.__init__` defines
+              // `_get_current_object` four times, once per branch, and `object.__setattr__(self, "…",
+              // _get_current_object)` names whichever branch ran — so the mention is evidence for all four and for
+              // none of them in particular. Keeping the first would have left three of them reported as dead code,
+              // which is exactly what the measurement said before this line existed.
+              const key = `${String(owner.id)}::${node.name}`;
+              const known = scope.local.get(key);
+              if (known === undefined)
+                scope.local.set(key, [{ nodeId: node.id, label: node.label }]);
+              else known.push({ nodeId: node.id, label: node.label });
+              scope.owner.set(node.id, owner.id);
+            }
+            continue;
+          }
           keepUnique(where === 'member' ? scope.member : scope.module, node.name, {
             nodeId: node.id,
             label: node.label,
@@ -450,13 +544,68 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         const callables = parsedFile.symbols
           .filter(
             (symbol) =>
-              (symbol.kind === 'Function' || symbol.kind === 'Method') &&
+              // **A constructor is a callable, and its body is where the object is wired together.** Leaving it out
+              // gave every call written in one no caller at all: `this.initPromise()` in ioredis's `Command` was
+              // resolved and then dropped for want of an owner, so `initPromise` looked unreachable while being called
+              // from the line above. Python spells it `def __init__`, which is a `Function` and was never affected.
+              (symbol.kind === 'Function' ||
+                symbol.kind === 'Method' ||
+                symbol.kind === 'Constructor') &&
               typeof symbol.qualifiedName === 'string' &&
               symbol.qualifiedName.length > 0,
           )
           .sort((a, b) => a.endLine - a.startLine - (b.endLine - b.startLine));
 
+        /**
+         * The node a declaration became, found by identity rather than by name.
+         *
+         * **The fallback stays**, because a declaration whose node was created by another phase — a tool, a route —
+         * has no line to key on, and a name is better than nothing for those.
+         */
+        const declarationNodeOf = (symbol: SymbolDefinition): number | undefined => {
+          const exact = declarationNodes.get(
+            `${parsedFile.filePath}::${String(symbol.startLine)}::${symbol.name}::${String(symbol.kind)}`,
+          );
+          if (exact !== undefined) return exact;
+          return ctx.graph?.qnameIndex.get(`project:${ctx.projectId}:${symbol.qualifiedName}`);
+        };
+
         type Reference = (typeof parsedFile.references)[number];
+
+        /**
+         * The node of the innermost function a line is written in — the scope a local name belongs to.
+         *
+         * **`callables` is narrowest first**, so the first containing symbol is the innermost one; taking the first in
+         * declaration order instead would answer with the outer function whenever functions nest.
+         */
+        const enclosingCallableNodeOf = (sourceLine: number): number | undefined => {
+          const writer = callables.find(
+            (symbol) => symbol.startLine <= sourceLine && symbol.endLine >= sourceLine,
+          );
+          return writer === undefined ? undefined : declarationNodeOf(writer);
+        };
+
+        /**
+         * Every local declaration of `name` the function around `sourceLine` holds.
+         *
+         * **More than one is not a resolution**, it is a set of candidates: `LocalProxy.__init__` declares
+         * `_get_current_object` four times, once per branch, and a call to it is evidence for all four and for none of
+         * them in particular. The call arm refuses the set and the mention path keeps all of it, which is the same
+         * split the ambiguous-name rule makes.
+         */
+        const localTargetsOf = (name: string, sourceLine: number): Resolved[] => {
+          const scope = fileScopes.get(parsedFile.filePath);
+          if (scope === undefined) return [];
+          // **Outward, one holder at a time.** The innermost function is where a name is looked for first, and a
+          // closure is exactly the construct that reads a binding from a function it is written inside.
+          let current = enclosingCallableNodeOf(sourceLine);
+          while (current !== undefined) {
+            const found = scope.local.get(`${String(current)}::${name}`);
+            if (found !== undefined && found.length > 0) return found;
+            current = scope.owner.get(current);
+          }
+          return [];
+        };
 
         /**
          * The symbol a bare mention of `name` refers to: the same file, then a file this one imports, then one
@@ -468,14 +617,19 @@ export class ScopeResolutionPhase implements ExecutablePhase {
          * three hops is a second answer to the same question, and the one written later is always the one that is
          * wrong.
          */
-        const mentionOf = (name: string): { nodeId: number; label: NodeLabel } | undefined => {
+        const mentionOf = (name: string, sourceLine: number): Resolved[] => {
           // **A mention written as `self._get_file_stream` names `_get_file_stream`.** The Python provider files an
           // attribute use with its full dotted text — `stream_factory=self._get_file_stream` arrived here as
           // `self._get_file_stream` — and an index keyed by declaration name can only answer for the last segment.
           // The call arm has always split the same way (`callee.text.split('.').pop()`); this is the access arm
           // catching up, and it was worth two of werkzeug's eight remaining findings.
           const resolved = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : name;
-          if (ambiguousNames.get(parsedFile.filePath)?.has(resolved) === true) return undefined;
+          // **The scope the mention is written in comes first**, and it is the one place where a repeated name is not
+          // an ambiguous name: four `def _get_current_object` in one function are four candidates of one local binding,
+          // and the mention reaches all of them.
+          const local = localTargetsOf(resolved, sourceLine);
+          if (local.length > 0) return local;
+          if (ambiguousNames.get(parsedFile.filePath)?.has(resolved) === true) return [];
           let target = fileSymbolIndex.get(parsedFile.filePath)?.get(resolved);
           if (target === undefined && fileImports) {
             for (const [importedFile, importedSymbols] of fileImports) {
@@ -496,7 +650,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               if (target !== undefined) break;
             }
           }
-          return target;
+          return target === undefined ? [] : [target];
         };
 
         /**
@@ -516,7 +670,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             (symbol) => symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
           );
           if (owner !== undefined) {
-            return graph.qnameIndex.get(`project:${ctx.projectId}:${owner.qualifiedName}`);
+            return declarationNodeOf(owner);
           }
           const enclosingClass = parsedFile.symbols.find(
             (symbol) =>
@@ -628,12 +782,25 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               const scope = fileScopes.get(parsedFile.filePath);
               // A receiver of `self`/`cls`/`this` reaches a member; a bare call reaches the module scope, and a member
               // only where the language gives it implicit `this`.
+              //
+              // **A name the enclosing function declares is reached before either**, because a local binding shadows
+              // everything outside it. `def view(): def decorator(): …; return decorator(…)` is the shape every Python
+              // decorator in the fixture set is written in, and without this the call resolved to nothing at all — so
+              // the only caller an inner function has was invisible and the function read as dead.
+              const local =
+                ref.receiver === undefined ? localTargetsOf(ref.targetName, ref.sourceLine) : [];
               const member = resolvable(scope?.member.get(ref.targetName));
               const module = resolvable(scope?.module.get(ref.targetName));
               target =
-                ref.receiver === undefined && !hasImplicitThis(parsedFile.language)
-                  ? module
-                  : (member ?? module);
+                // A local name with more than one declaration is a set of candidates rather than an answer; the
+                // mention path below keeps all of them as `ACCESSES` edges, which is the honest form of the fact.
+                local.length > 1
+                  ? undefined
+                  : local.length === 1
+                    ? (local[0] as Resolved)
+                    : ref.receiver === undefined && !hasImplicitThis(parsedFile.language)
+                      ? module
+                      : (member ?? module);
               if (target) arm = 'sameFile';
             }
 
@@ -742,9 +909,8 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                 (symbol) => symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
               );
               if (owner) {
-                const sourceQname = `project:${ctx.projectId}:${owner.qualifiedName}`;
-                const sourceNode = ctx.graph.qnameIndex.get(sourceQname);
-                if (sourceNode && sourceNode !== target.nodeId) {
+                const sourceNode = declarationNodeOf(owner);
+                if (sourceNode !== undefined && sourceNode !== target.nodeId) {
                   try {
                     const edge = builder.addEdge(
                       ctx.graph,
@@ -827,29 +993,21 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // typed. `resolution: 'unresolved-mention'` is on the edge, so a reader of the report sees why the symbol
             // is alive and can disagree with the rule rather than with the finding.
             if (!target) {
-              const mentioned = mentionOf(ref.targetName);
               const sourceNode = mentionSourceOf(ref);
-              if (
-                mentioned !== undefined &&
-                sourceNode !== undefined &&
-                mentioned.nodeId !== sourceNode
-              ) {
-                try {
-                  const edge = builder.addEdge(
+              if (sourceNode !== undefined) {
+                for (const mentioned of mentionOf(ref.targetName, ref.sourceLine)) {
+                  if (mentioned.nodeId === sourceNode) continue;
+                  builder.addEdge(
                     ctx.graph,
                     sourceNode,
                     mentioned.nodeId,
                     EDGE_ACCESSES,
                     ctx.projectId,
-                  );
-                  edge.properties = {
-                    ...edge.properties,
+                  ).properties = {
                     sourceLine: ref.sourceLine,
                     resolution: 'unresolved-mention',
                   };
                   unresolvedMentions++;
-                } catch {
-                  // Edge may already exist
                 }
               }
             }
@@ -866,25 +1024,19 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // recording one would inflate the call graph with sites the oracle would score as wrong. What it says is
             // exactly what the source says — this code depends on that symbol — and reachability is the reader that
             // asks for no more than that.
-            const target = mentionOf(ref.targetName);
-            if (target) {
+            const targets = mentionOf(ref.targetName, ref.sourceLine);
+            if (targets.length > 0) {
               const sourceNode = mentionSourceOf(ref);
-              if (sourceNode !== undefined && sourceNode !== target.nodeId) {
-                try {
-                  const edge = builder.addEdge(
+              if (sourceNode !== undefined) {
+                for (const target of targets) {
+                  if (target.nodeId === sourceNode) continue;
+                  builder.addEdge(
                     ctx.graph,
                     sourceNode,
                     target.nodeId,
                     EDGE_ACCESSES,
                     ctx.projectId,
-                  );
-                  edge.properties = {
-                    ...edge.properties,
-                    sourceLine: ref.sourceLine,
-                    resolution: 'mention',
-                  };
-                } catch {
-                  // Edge may already exist
+                  ).properties = { sourceLine: ref.sourceLine, resolution: 'mention' };
                 }
               }
             }

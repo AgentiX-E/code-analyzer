@@ -5,6 +5,30 @@ import { createWorkerPool } from '../workers/pool.js';
 import { CircuitBreaker } from '../workers/circuit-breaker.js';
 import type { WorkerPool } from '../workers/pool.js';
 
+/**
+ * A promise the test settles by hand, so a task can be held in flight for exactly as long as an assertion needs.
+ *
+ * **The alternative is a sleep, and a sleep is a bet on the machine.** These two counters were read 5 ms into a 50 ms
+ * and a 100 ms task; under the load of the full suite the timers slipped, the tasks finished, and the tests failed for
+ * the load rather than for the pool.
+ */
+function deferred(): { promise: Promise<string>; resolve: (value: string) => void } {
+  let resolve!: (value: string) => void;
+  const promise = new Promise<string>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
+/** Await a state the pool reaches on its own, bounded so a broken pool fails instead of hanging. */
+async function until(condition: () => boolean, what: string): Promise<void> {
+  for (let attempt = 0; attempt < 400; attempt++) {
+    if (condition()) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`timed out waiting for ${what}`);
+}
+
 describe('WorkerPool', () => {
   let pool: WorkerPool;
 
@@ -64,47 +88,42 @@ describe('WorkerPool', () => {
   it('tracks active count', async () => {
     pool = createWorkerPool(2);
 
-    // Start a long task
-    const taskPromise = pool.execute({
-      id: 'long',
-      execute: async () => {
-        await new Promise((r) => setTimeout(r, 50));
-        return 'done';
-      },
-    });
+    // **A task the test releases, not a task it waits out.** The first version slept 50 ms inside the task and measured
+    // the count 5 ms later - a window that holds only while the machine is idle, and both counters are read after
+    // `await` boundaries the test does not control.
+    const release = deferred();
+    const taskPromise = pool.execute({ id: 'long', execute: () => release.promise });
 
-    // Give it time to start
-    await new Promise((r) => setTimeout(r, 5));
+    await until(() => pool.activeCount === 1, 'the first task to take its slot');
     expect(pool.activeCount).toBe(1);
 
+    release.resolve('done');
     await taskPromise;
   });
 
   it('tracks queued count', async () => {
     pool = createWorkerPool(1);
 
-    // Start one task that blocks
-    const blocker = pool.execute({
-      id: 'blocker',
-      execute: async () => {
-        await new Promise((r) => setTimeout(r, 100));
-        return 'blocked';
-      },
-    });
+    // One slot, taken for as long as the test says. Queuing two more tasks past it is then a fact rather than a race:
+    // the first version slept 100 ms in the blocker and measured 5 ms later, and under the load of the full suite the
+    // 5 ms timer ran past the 100 ms one, the queued tasks started, and the count it read was 0.
+    const release = deferred();
+    const blocker = pool.execute({ id: 'blocker', execute: () => release.promise });
+    await until(() => pool.activeCount === 1, 'the blocking task to take the only slot');
 
-    await new Promise((r) => setTimeout(r, 5));
-
-    // Queue more tasks
     const queuedPromises = [
       pool.execute({ id: 'q1', execute: async () => 'a' }),
       pool.execute({ id: 'q2', execute: async () => 'b' }),
     ];
-
-    await new Promise((r) => setTimeout(r, 5));
+    await until(() => pool.queuedCount === 2, 'two tasks to queue behind it');
     expect(pool.queuedCount).toBe(2);
 
+    release.resolve('blocked');
     await blocker;
-    await Promise.all(queuedPromises);
+    expect(await Promise.all(queuedPromises)).toEqual(['a', 'b']);
+    // **The queue drains when the slot frees**, which is the other half of what the counter is for.
+    await until(() => pool.queuedCount === 0, 'the queue to drain');
+    expect(pool.activeCount).toBe(0);
   });
 
   it('handles task timeout', async () => {
@@ -270,17 +289,12 @@ describe('WorkerPool', () => {
   it('shuts down with queued pending tasks', async () => {
     pool = createWorkerPool(1);
 
-    // Start a long-running task to block the pool
-    const longTask = pool.execute({
-      id: 'long-blocker',
-      execute: async () => {
-        await new Promise((r) => setTimeout(r, 500));
-        return 'done';
-      },
-    });
-
-    // Let the long task start and occupy the slot
-    await new Promise((r) => setTimeout(r, 10));
+    // **The slot is held by the test, not by a timer.** A 500 ms sleep and a 10 ms wait is the same bet on the machine
+    // the two counter tests used to make, only with a wider margin: under load the wait outlasts the task and the
+    // tasks that were supposed to queue start instead.
+    const release = deferred();
+    const longTask = pool.execute({ id: 'long-blocker', execute: () => release.promise });
+    await until(() => pool.activeCount === 1, 'the blocking task to take the only slot');
 
     // Queue tasks that will go into pending (past the shutdown check)
     const queuedPromises = [
@@ -305,6 +319,7 @@ describe('WorkerPool', () => {
     // They resolve because they passed the shutdown check before being queued
 
     // Clean up the long task
+    release.resolve('done');
     try {
       await longTask;
     } catch {
@@ -454,19 +469,14 @@ describe('WorkerPool', () => {
 
   it('queuedCount returns to 0 after all tasks complete', async () => {
     pool = createWorkerPool(1);
-    const blocker = pool.execute({
-      id: 'b',
-      execute: async () => {
-        await new Promise((r) => setTimeout(r, 50));
-        return 'done';
-      },
-    });
-
-    await new Promise((r) => setTimeout(r, 10));
+    const release = deferred();
+    const blocker = pool.execute({ id: 'b', execute: () => release.promise });
+    await until(() => pool.activeCount === 1, 'the blocking task to take the only slot');
 
     const q = pool.execute({ id: 'q', execute: async () => 'queued' });
     expect(pool.queuedCount).toBeGreaterThanOrEqual(1);
 
+    release.resolve('done');
     await blocker;
     await q;
     expect(pool.queuedCount).toBe(0);

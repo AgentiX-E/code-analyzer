@@ -8,14 +8,19 @@ import { basename, dirname, join, relative } from 'node:path';
 
 import { InMemoryGraphStore, createFileDiscoverer } from '@code-analyzer/infra';
 import {
-  CAPTURE_TAGS,
   PhaseLogger,
   createNoopPhaseLogger,
   EDGE_DEFINES,
   EDGE_HAS_METHOD,
 } from '@code-analyzer/shared';
 
-import { toPhaseFailure } from './phase-helpers.js';
+import {
+  captureTagToNodeLabel,
+  captureTagToReferenceKind,
+  groupCaptures,
+  receiverOf,
+  toPhaseFailure,
+} from './phase-helpers.js';
 import { GraphBuilder } from '../graph/graph-builder.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';
@@ -25,12 +30,7 @@ import type {
   PipelineContext,
   DiscoveredFile,
   ParsedFile,
-  SymbolDefinition,
-  ReferenceSite,
-  NodeLabel,
   NodeProperties,
-  UnifiedCapture,
-  ScopeTree,
 } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -127,191 +127,15 @@ export async function getOrLoadProvider(language: string): Promise<LanguageProvi
 }
 
 // ---------------------------------------------------------------------------
-// Shared capture → symbol/reference conversion (mirrors sequential phases)
+// Shared capture → symbol/reference conversion — one implementation
 // ---------------------------------------------------------------------------
 
-export function captureTagToNodeLabel(tag: string): NodeLabel {
-  switch (tag) {
-    case CAPTURE_TAGS.FUNCTION_DEF:
-    case CAPTURE_TAGS.FUNCTION_CALL:
-      return 'Function';
-    case CAPTURE_TAGS.METHOD_DEF:
-    case CAPTURE_TAGS.METHOD_CALL:
-      return 'Method';
-    case CAPTURE_TAGS.CLASS_DEF:
-      return 'Class';
-    case CAPTURE_TAGS.INTERFACE_DEF:
-      return 'Interface';
-    case CAPTURE_TAGS.ENUM_DEF:
-      return 'Enum';
-    case CAPTURE_TAGS.TYPE_DEF:
-      return 'TypeAlias';
-    case CAPTURE_TAGS.VARIABLE_DEF:
-    case CAPTURE_TAGS.VARIABLE_ACCESS:
-      return 'Variable';
-    case CAPTURE_TAGS.CONSTANT_DEF:
-      return 'Variable';
-    case CAPTURE_TAGS.CONSTRUCTOR_DEF:
-      return 'Constructor';
-    case CAPTURE_TAGS.PROPERTY_DEF:
-      return 'Property';
-    case CAPTURE_TAGS.STRUCT_DEF:
-      return 'Struct';
-    case CAPTURE_TAGS.TRAIT_DEF:
-      return 'Trait';
-    case CAPTURE_TAGS.ROUTE_PATH:
-    case CAPTURE_TAGS.ROUTE_METHOD:
-      return 'Route';
-    case CAPTURE_TAGS.COMPONENT_PROPS:
-      return 'Component';
-    default:
-      return 'Variable';
-  }
-}
-
-/**
- * What stood before the last `.` in a method call — `self` in `self.get(key)`.
- *
- * **Only a method call has one, and only when the provider wrote the callee out.** A `FUNCTION_CALL` capture is a
- * bare name by definition, and a provider that stores just the name leaves this `undefined`, which the resolver reads
- * as "a bare call". Both are the case where a declaration in the caller's own scope is the right answer; the case
- * that is *not* is `request.args.get(key)`, and this is what tells it apart.
- */
-export function receiverOf(
-  tag: string,
-  text: string | undefined,
-  targetName: string,
-): string | undefined {
-  if (tag !== CAPTURE_TAGS.METHOD_CALL) return undefined;
-  if (typeof text !== 'string') return undefined;
-  const cut = text.lastIndexOf('.');
-  if (cut <= 0) return undefined;
-  // A provider that stored the callee as `name` alone has no receiver to report.
-  if (text.slice(cut + 1) !== targetName) return undefined;
-  return text.slice(0, cut);
-}
-
-export function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
-  switch (tag) {
-    case CAPTURE_TAGS.FUNCTION_CALL:
-    case CAPTURE_TAGS.METHOD_CALL:
-      return 'call';
-    case CAPTURE_TAGS.IMPORT:
-    case CAPTURE_TAGS.IMPORT_NAMED:
-    case CAPTURE_TAGS.IMPORT_DEFAULT:
-    case CAPTURE_TAGS.IMPORT_WILDCARD:
-      return 'import';
-    case CAPTURE_TAGS.TYPE_REFERENCE:
-      return 'type';
-    case CAPTURE_TAGS.VARIABLE_ACCESS:
-      return 'access';
-    default:
-      return 'call';
-  }
-}
-
-export function groupCaptures(
-  captures: UnifiedCapture[],
-  filePath: string,
-): {
-  symbols: SymbolDefinition[];
-  references: ReferenceSite[];
-  scopeTree: ScopeTree;
-} {
-  const symbols: SymbolDefinition[] = [];
-  const references: ReferenceSite[] = [];
-
-  for (const capture of captures) {
-    const tag = capture.tag;
-
-    // Definition captures
-    if (
-      tag === CAPTURE_TAGS.FUNCTION_DEF ||
-      tag === CAPTURE_TAGS.METHOD_DEF ||
-      tag === CAPTURE_TAGS.CLASS_DEF ||
-      tag === CAPTURE_TAGS.INTERFACE_DEF ||
-      tag === CAPTURE_TAGS.ENUM_DEF ||
-      tag === CAPTURE_TAGS.TYPE_DEF ||
-      tag === CAPTURE_TAGS.VARIABLE_DEF ||
-      tag === CAPTURE_TAGS.CONSTANT_DEF ||
-      tag === CAPTURE_TAGS.CONSTRUCTOR_DEF ||
-      tag === CAPTURE_TAGS.PROPERTY_DEF ||
-      tag === CAPTURE_TAGS.STRUCT_DEF ||
-      tag === CAPTURE_TAGS.TRAIT_DEF
-    ) {
-      const name = capture.name ?? capture.text;
-      const kind = captureTagToNodeLabel(tag);
-      const containerName = capture.containerName;
-      const qualifiedName = containerName ? `${containerName}.${name}` : `file:${filePath}:${name}`;
-      const props = capture.properties ?? {};
-      const sig = props['signature'];
-      const retType = props['returnType'];
-      const doc = props['docstring'];
-
-      symbols.push({
-        name,
-        kind,
-        qualifiedName,
-        startLine: capture.startLine,
-        endLine: capture.endLine,
-        signature: sig,
-        returnType: retType,
-        docstring: doc,
-        containerName,
-        // **The same bit `phase-helpers.groupCaptures` reads**, kept in step with it: this file is a second
-        // implementation of the same grouping that no phase calls, and two implementations that disagree about what
-        // `isExported` means is how the first one stayed wrong for eleven weeks.
-        isExported: props['exported'] === 'true',
-        visibility: 'public',
-        properties: props,
-      });
-    }
-
-    // Reference captures
-    if (
-      tag === CAPTURE_TAGS.FUNCTION_CALL ||
-      tag === CAPTURE_TAGS.METHOD_CALL ||
-      tag === CAPTURE_TAGS.IMPORT ||
-      tag === CAPTURE_TAGS.IMPORT_NAMED ||
-      tag === CAPTURE_TAGS.IMPORT_DEFAULT ||
-      tag === CAPTURE_TAGS.IMPORT_WILDCARD ||
-      tag === CAPTURE_TAGS.TYPE_REFERENCE ||
-      tag === CAPTURE_TAGS.VARIABLE_ACCESS ||
-      tag === CAPTURE_TAGS.NEW_EXPRESSION
-    ) {
-      const targetName = capture.name ?? capture.text;
-      const referenceKind = captureTagToReferenceKind(tag);
-      const receiver = receiverOf(tag, capture.text, targetName);
-
-      references.push({
-        sourceFile: filePath,
-        sourceLine: capture.startLine,
-        sourceColumn: 0,
-        targetName,
-        referenceKind,
-        ...(receiver === undefined ? {} : { receiver }),
-      });
-    }
-  }
-
-  const scopeTree: ScopeTree = {
-    name: basename(filePath),
-    kind: 'File',
-    startLine: 1,
-    endLine: captures.length > 0 ? captures.reduce((max, c) => Math.max(max, c.endLine), 0) : 1,
-    children: symbols.map((s) => ({
-      name: s.name,
-      kind: s.kind,
-      startLine: s.startLine,
-      endLine: s.endLine,
-      children: [] as ScopeTree[],
-      symbols: [s.qualifiedName],
-    })),
-    symbols: symbols.map((s) => s.qualifiedName),
-  };
-
-  return { symbols, references, scopeTree };
-}
+// **The copy is gone.** This module carried a second `groupCaptures` and a second `captureTagToNodeLabel`, kept "in
+// step" by a comment, and they had already drifted: the copy hardcoded `isExported` from a property this file never
+// wrote. A second implementation of the step that decides what a symbol *is* is a defect with a delay fuse — the
+// sequential pipeline and the parallel one would disagree about qualified names, and the disagreement would show up
+// as an answer that changes when concurrency changes. Both names are re-exported so this module's surface is intact.
+export { captureTagToNodeLabel, captureTagToReferenceKind, groupCaptures, receiverOf };
 
 // ---------------------------------------------------------------------------
 // Shared phase-failure result

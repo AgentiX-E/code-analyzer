@@ -231,6 +231,24 @@ export class PythonProvider extends TreeSitterBaseProvider {
   }
 
   /**
+   * The class a base-class expression names, with the type arguments stripped.
+   *
+   * **Python writes a base as anything it can evaluate.** `Base`, `pkg.Base`, `Base[T]` and `t.Generic[T]` are four
+   * spellings of two facts — a class and its arguments — and the only one that is a class is the head. A keyword
+   * argument (`metaclass=Meta`) names no base at all, so it is refused here rather than resolved into a class called
+   * `metaclass=Meta`.
+   */
+  private baseNameOf(arg: TreeSitterSyntaxNode): string | undefined {
+    if (arg.type === 'identifier' || arg.type === 'attribute') return arg.text;
+    // `Base[T]`, `Base[int, str]`: the value is the class and the subscript is the argument list.
+    if (arg.type === 'subscript') {
+      const value = arg.namedChild(0);
+      return value === undefined ? undefined : this.baseNameOf(value);
+    }
+    return undefined;
+  }
+
+  /**
    * Whether a function declaration sits between this node and the class that encloses it.
    *
    * **`local: Index = None` inside a method annotates a local variable, and `index: Index` in a class body declares a
@@ -384,7 +402,12 @@ export class PythonProvider extends TreeSitterBaseProvider {
             const bases: string[] = [];
             for (let j = 0; j < child.childCount; j++) {
               const arg = child.child(j);
-              if (arg.type === 'identifier') bases.push(arg.text);
+              // **A generic base is a base.** `class environ_property(_DictAccessorProperty[_TAccessorValue])` names one
+              // class and one type argument, and reading only bare identifiers recorded **no base at all** — measured on
+              // `pallets/werkzeug@3.0.3`, where the two classes that inherit `_DictAccessorProperty` produced no
+              // `EXTENDS` edge, so the base was reported as dead code while both subclasses were being exported.
+              const base = this.baseNameOf(arg);
+              if (base !== undefined) bases.push(base);
             }
             baseClasses = bases.join(',');
             break;

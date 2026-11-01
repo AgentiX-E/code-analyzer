@@ -519,3 +519,43 @@ COMPATIBLE_EDGES.set('PROVISIONS', [
   ['TerraformResource', 'K8sResource'],
   ['File', 'TerraformResource'],
 ]);
+
+// ---------------------------------------------------------------------------
+// DECLARATION_LABELS — the labels whose identity is a declaration, not a name
+// ---------------------------------------------------------------------------
+
+/**
+ * The labels that name a **declaration**, as opposed to a name that merely occurs.
+ *
+ * **The distinction is what the graph was missing, and it cost it two hundred declarations per checkout.** A node is
+ * created per symbol, and the builder used to collapse a second symbol into the first node whenever the two shared a
+ * qualified name. That is the right answer for a *name* — three YAML keys called `with` are one fact about the file —
+ * and the wrong answer for a *declaration*, because two declarations with one name are two things a reader can open
+ * and a call can reach. Measured on `pallets/flask@3.0.3`: **317 callable declarations were merged away**, including
+ * `locate_app` (three overloads), `__init__` of three classes in `cli.py`, and the getter and setter of
+ * `Response.status` in werkzeug — where the surviving node was a *parameter* of the same name, so every call written
+ * in the setter was recorded as a call made by the parameter.
+ */
+// Widened to `string` on purpose: callers hold labels from providers, symbol tables and stored graphs, where the type
+// is `string` or `NodeLabel` interchangeably, and a narrowing cast at every call site would be noise around a set
+// lookup.
+export const DECLARATION_LABELS: ReadonlySet<string> = new Set<string>([
+  'Class',
+  'Interface',
+  'Function',
+  'Method',
+  'Constructor',
+  'Enum',
+  'TypeAlias',
+  'Struct',
+  'Trait',
+  // **A field is a declaration too.** `ZodError` declares `formErrors` as a getter and a *local variable* of the same
+  // name inside another method; the local is a name and the getter is a declaration, and only one of them survives a
+  // merge by name.
+  'Property',
+]);
+
+/** Whether a label names a declaration, and therefore has an identity of its own. */
+export function isDeclarationLabel(label: string): boolean {
+  return DECLARATION_LABELS.has(label);
+}

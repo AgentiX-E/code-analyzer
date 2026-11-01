@@ -109,15 +109,22 @@ function nameOfDeclaration(declaration) {
 /**
  * The name of a function expression, which is the name of whatever it is bound to.
  *
- * `const f = () => {}` defines `f`, and so does `{ handler: function () {} }` define `handler`; a callback passed
+ * `const f = () => {}` defines `f`, and `class A { handler = () => {} }` defines a member `handler`; a callback passed
  * straight into a call defines nothing, and the graph emits no node for it.
+ *
+ * **`{ returnError: (err) => {…} }` defines nothing either, and this rule used to say it defined `returnError`.** That
+ * was written when the parser filed an object literal's methods as declarations; it does not any more, because a key in
+ * a literal is data and nothing in the source can call it by name. Naming the owner after the key made every call
+ * inside such a callback a call *by its own name* — a self-call, which the metric drops as recursion — and then scored
+ * the graph's answer, the enclosing constructor, as a claim about an owner that makes no call. The name of a key is not
+ * the name of a declaration, so the walk continues to the declaration that does hold the callback.
  */
 function nameOfBoundFunction(fn) {
   if (fn.name !== undefined) return fn.name.text;
   const parent = fn.parent;
   if (parent && ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name))
     return parent.name.text;
-  if (parent && ts.isPropertyAssignment(parent)) return nameOfDeclaration({ name: parent.name });
+  if (parent && ts.isPropertyAssignment(parent)) return undefined;
   if (parent && ts.isPropertyDeclaration(parent)) return nameOfDeclaration({ name: parent.name });
   // **`this.reject = (err) => { … }` defines `reject`**, and the graph files the arrow's body under that name. The
   // checker sees an arrow assigned to a property and gives it no name at all, so without this rule every call inside

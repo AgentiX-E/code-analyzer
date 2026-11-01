@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Knowledge Graph Builder
 
-import { EDGE_CONTAINS } from '@code-analyzer/shared';
+import { isDeclarationLabel, EDGE_CONTAINS } from '@code-analyzer/shared';
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type {
@@ -212,6 +212,19 @@ export class GraphBuilder {
    * Create a node and add it to the graph.
    * Safe across multiple GraphBuilder instances — resolves ID conflicts.
    * Returns the created GraphNode.
+   *
+   * **A name is one fact; a declaration is one node.** The first version of this method returned the existing node for
+   * *any* repeated qualified name, which is the right rule for a name that occurs twice — three YAML keys called `with`
+   * are one statement about the file — and the wrong rule for a declaration, because two declarations with one name are
+   * two things a reader can open, a call can reach and a report can delete. Measured on `pallets/flask@3.0.3`: **317
+   * callable declarations were silently merged into another**, `pallets/werkzeug@3.0.3` lost **372**, and the one that
+   * mattered was `Response.status`: the `@status.setter` method was merged into the *parameter* `status` of
+   * `Response.__init__`, so every call written in the setter was recorded as a call made by that parameter.
+   *
+   * **`(qualifiedName, startLine)` is the identity**, and it is enough: a declaration is added once per phase, and the
+   * only way the same declaration arrives twice is a second phase reading the same file — the case this method must
+   * still collapse. `qnameIndex` stays first-wins, so a name still answers with one node; what changed is that the
+   * others exist.
    */
   addNode(
     graph: KnowledgeGraph,
@@ -220,13 +233,13 @@ export class GraphBuilder {
     properties: NodeProperties,
     qualifiedName?: string,
   ): GraphNode {
-    // If qualified name already exists, return the existing node
-    if (qualifiedName && graph.qnameIndex.has(qualifiedName)) {
-      const existingId = graph.qnameIndex.get(qualifiedName)!;
-      const existingNode = graph.nodes.get(existingId);
-      if (existingNode) {
-        return existingNode;
-      }
+    const existingId =
+      qualifiedName === undefined ? undefined : graph.qnameIndex.get(qualifiedName);
+    const existingNode = existingId === undefined ? undefined : graph.nodes.get(existingId);
+    const sameName = existingNode !== undefined;
+    const sameDeclaration = sameName && existingNode.startLine === (properties.startLine ?? null);
+    if (sameName && (!isDeclarationLabel(label) || sameDeclaration)) {
+      return existingNode;
     }
 
     const node = this.createNode(label, name, properties);

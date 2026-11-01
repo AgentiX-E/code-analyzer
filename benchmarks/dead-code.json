@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-31T15:34:20.739Z",
+  "measuredAt": "2026-11-01T01:08:06.888Z",
   "languages": ["python", "typescript"],
   "corpora": [
     {
@@ -29,20 +29,20 @@
       "repo": "colinhacks/zod",
       "package": "src",
       "language": "typescript",
-      "indexedMs": 4275,
-      "nodes": 13700,
-      "edges": 20614,
-      "roots": 575,
+      "indexedMs": 4369,
+      "nodes": 19155,
+      "edges": 24133,
+      "roots": 904,
       "rootsByKind": {
-        "published": 501,
-        "test": 64,
+        "published": 690,
+        "test": 204,
         "entry": 8,
         "route": 2
       },
-      "considered": 598,
-      "callEdges": 671,
+      "considered": 962,
+      "callEdges": 643,
       "oursDead": 0,
-      "publishedRescued": 164,
+      "publishedRescued": 361,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 14,
@@ -185,20 +185,20 @@
       "repo": "pallets/flask",
       "package": "src/flask",
       "language": "python",
-      "indexedMs": 2080,
-      "nodes": 5859,
-      "edges": 10944,
-      "roots": 1105,
+      "indexedMs": 2128,
+      "nodes": 10797,
+      "edges": 13202,
+      "roots": 1357,
       "rootsByKind": {
-        "entry": 438,
-        "test": 403,
-        "published": 259,
+        "entry": 632,
+        "test": 406,
+        "published": 314,
         "route": 5
       },
-      "considered": 1247,
-      "callEdges": 378,
+      "considered": 1564,
+      "callEdges": 383,
       "oursDead": 3,
-      "publishedRescued": 80,
+      "publishedRescued": 90,
       "competitor": "vulture",
       "competitorVersion": "vulture 2.16",
       "competitorTotal": 64,
@@ -630,28 +630,28 @@
       "repo": "pallets/werkzeug",
       "package": "src/werkzeug",
       "language": "python",
-      "indexedMs": 4175,
-      "nodes": 11262,
-      "edges": 24430,
-      "roots": 1810,
+      "indexedMs": 4411,
+      "nodes": 22896,
+      "edges": 30094,
+      "roots": 2347,
       "rootsByKind": {
-        "entry": 497,
-        "published": 765,
-        "test": 547,
+        "entry": 715,
+        "published": 1074,
+        "test": 557,
         "route": 1
       },
-      "considered": 1954,
-      "callEdges": 1694,
-      "oursDead": 4,
-      "publishedRescued": 192,
+      "considered": 2326,
+      "callEdges": 1710,
+      "oursDead": 2,
+      "publishedRescued": 233,
       "competitor": "vulture",
       "competitorVersion": "vulture 2.16",
       "competitorTotal": 207,
       "comparison": {
         "agree": 2,
-        "oursOnly": 2,
+        "oursOnly": 0,
         "competitorOnly": 198,
-        "agreement": 0.5
+        "agreement": 1
       },
       "rows": {
         "agree": [
@@ -666,20 +666,7 @@
             "line": 588
           }
         ],
-        "oursOnly": [
-          {
-            "file": "src/werkzeug/_internal.py",
-            "name": "_DictAccessorProperty",
-            "line": 123,
-            "oracleSays": "not-in-universe"
-          },
-          {
-            "file": "src/werkzeug/sansio/response.py",
-            "name": "_clean_status",
-            "line": 160,
-            "oracleSays": "referenced"
-          }
-        ],
+        "oursOnly": [],
         "competitorOnly": [
           {
             "file": "src/werkzeug/__init__.py",
@@ -1045,13 +1032,13 @@
             "file": "src/werkzeug/datastructures/structures.py",
             "line": 746,
             "name": "listvalues",
-            "ourVerdict": "published: it is a public member of the published class `MultiDict`"
+            "ourVerdict": "published: it is a public member of the published class `CombinedMultiDict`"
           },
           {
             "file": "src/werkzeug/datastructures/structures.py",
             "line": 643,
             "name": "popitemlist",
-            "ourVerdict": "published: it is a public member of the published class `MultiDict`"
+            "ourVerdict": "published: it is a public member of the published class `OrderedMultiDict`"
           },
           {
             "file": "src/werkzeug/datastructures/structures.py",
@@ -1855,7 +1842,7 @@
             "file": "src/werkzeug/wsgi.py",
             "line": 18,
             "name": "responder",
-            "ourVerdict": "entry: /tmp/corpus/werkzeug-3.0.3/src/werkzeug/wsgi.py is executed rather than imported"
+            "ourVerdict": "entry: src/werkzeug/wsgi.py is executed rather than imported"
           },
           {
             "file": "src/werkzeug/wsgi.py",
@@ -1876,10 +1863,10 @@
         "oracleDead": 1,
         "ours": {
           "correct": 1,
-          "wrong": 2,
-          "outside": 1,
+          "wrong": 1,
+          "outside": 0,
           "missed": 0,
-          "precision": 0.3333333333333333,
+          "precision": 0.5,
           "recall": 1
         },
         "competitor": {
@@ -1894,10 +1881,10 @@
       "overall": {
         "ours": {
           "correct": 1,
-          "wrong": 2,
-          "outside": 1,
+          "wrong": 1,
+          "outside": 0,
           "missed": 0,
-          "precision": 0.3333333333333333,
+          "precision": 0.5,
           "recall": 1
         },
         "competitor": {
@@ -1914,45 +1901,32 @@
       "repo": "redis/ioredis",
       "package": "lib",
       "language": "typescript",
-      "indexedMs": 87424,
-      "nodes": 20451,
-      "edges": 411784,
-      "roots": 283,
+      "indexedMs": 87669,
+      "nodes": 95545,
+      "edges": 449129,
+      "roots": 282,
       "rootsByKind": {
-        "entry": 30,
-        "published": 248,
+        "entry": 22,
+        "published": 255,
         "test": 1,
         "route": 4
       },
-      "considered": 486,
-      "callEdges": 255,
-      "oursDead": 2,
-      "publishedRescued": 74,
+      "considered": 503,
+      "callEdges": 230,
+      "oursDead": 0,
+      "publishedRescued": 76,
       "competitor": "ts-prune",
       "competitorVersion": "0.10.3",
       "competitorTotal": 42,
       "comparison": {
         "agree": 0,
-        "oursOnly": 2,
+        "oursOnly": 0,
         "competitorOnly": 42,
-        "agreement": 0
+        "agreement": null
       },
       "rows": {
         "agree": [],
-        "oursOnly": [
-          {
-            "file": "lib/index.ts",
-            "name": "get",
-            "line": 77,
-            "oracleSays": "not-in-universe"
-          },
-          {
-            "file": "lib/index.ts",
-            "name": "set",
-            "line": 83,
-            "oracleSays": "not-in-universe"
-          }
-        ],
+        "oursOnly": [],
         "competitorOnly": [
           {
             "file": "lib/autoPipelining.ts",
@@ -2214,7 +2188,7 @@
         "ours": {
           "correct": 0,
           "wrong": 0,
-          "outside": 2,
+          "outside": 0,
           "missed": 1,
           "precision": null,
           "recall": 0
@@ -2232,7 +2206,7 @@
         "ours": {
           "correct": 0,
           "wrong": 0,
-          "outside": 2,
+          "outside": 0,
           "missed": 1,
           "precision": null,
           "recall": 0
@@ -2253,7 +2227,7 @@
       "language": "typescript",
       "package": "src",
       "findings": 0,
-      "published": 164,
+      "published": 361,
       "oracleUniverse": 75,
       "oracleDead": 0,
       "precision": null,
@@ -2267,7 +2241,7 @@
       "language": "python",
       "package": "src/flask",
       "findings": 3,
-      "published": 80,
+      "published": 90,
       "oracleUniverse": 37,
       "oracleDead": 1,
       "precision": 0.3333333333333333,
@@ -2280,11 +2254,11 @@
     "pallets/werkzeug": {
       "language": "python",
       "package": "src/werkzeug",
-      "findings": 4,
-      "published": 192,
+      "findings": 2,
+      "published": 233,
       "oracleUniverse": 107,
       "oracleDead": 1,
-      "precision": 0.3333333333333333,
+      "precision": 0.5,
       "recall": 1,
       "competitor": "vulture",
       "competitorFindings": 207,
@@ -2294,8 +2268,8 @@
     "redis/ioredis": {
       "language": "typescript",
       "package": "lib",
-      "findings": 2,
-      "published": 74,
+      "findings": 0,
+      "published": 76,
       "oracleUniverse": 69,
       "oracleDead": 1,
       "precision": null,
@@ -2307,8 +2281,8 @@
     }
   },
   "assertionLoad": {
-    "ours": 9,
+    "ours": 5,
     "competitor": 327,
-    "ratio": 0.027522935779816515
+    "ratio": 0.01529051987767584
   }
 }

@@ -5,7 +5,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { basename, dirname, relative, resolve, join, sep } from 'node:path';
 
-import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger } from '@code-analyzer/shared';
+import {
+  getLanguageFromFilename,
+  isDeclarationLabel,
+  CAPTURE_TAGS,
+  PhaseLogger,
+} from '@code-analyzer/shared';
 
 // **A document extractor, not a language provider.** A PDF has no grammar and no symbols; **what it has is text**,
 // and the scan phase is where text becomes indexable - so the extraction belongs here rather than in a parser.
@@ -411,6 +416,87 @@ export interface CaptureGroup {
   symbols: SymbolDefinition[];
   references: ReferenceSite[];
   scopeTree: ScopeTree;
+  /**
+   * For each symbol, the index of the declaration it is written inside, or `-1` for a top-level one.
+   *
+   * **This is the fact the graph never had.** A symbol's place in the tree was carried by the provider, when the
+   * provider happened to know it — `TypeScriptProvider` writes `containerName` for a class member and
+   * `PythonProvider` writes nothing — so a Python method had no container at all and its qualified name was
+   * `file:<path>:<name>`. Measured on `pallets/werkzeug@3.0.3`: **372 callable declarations were merged away**, and
+   * the survivor of `_clean_status`'s caller was not the `@status.setter` method but the *parameter* `status` of
+   * `Response.__init__`, which shares its name.
+   */
+  parents: number[];
+}
+
+/**
+ * The declaration each symbol is written inside, and the name that fact gives it.
+ *
+ * **Containment is read from the line spans the captures already carry**, not from a per-language parent pointer. Every
+ * provider records `startLine` and `endLine` because a reader needs them; a declaration that spans a range and sits
+ * inside another's range *is* nested in it, in every language this product parses. The alternative — asking each
+ * provider for its container syntax — is nineteen answers that can disagree, and the two that were asked (`TypeScript`,
+ * Java) disagreed with the two that were not (`Python`, Kotlin).
+ *
+ * **An equal span is not containment.** `class A { }` and the constructor it implicitly declares can share a line, and
+ * a symbol that contains itself would make its own name a prefix of its own name.
+ */
+function nameByContainment(symbols: SymbolDefinition[], filePath: string): number[] {
+  const parents = new Array<number>(symbols.length).fill(-1);
+  // Widest first: a parent always starts at or before its children and ends at or after them, so sorting by start
+  // ascending and — for a tie — by end descending puts every declaration before everything it contains.
+  const order = symbols
+    .map((_, index) => index)
+    .sort((left, right) => {
+      const a = symbols[left] as SymbolDefinition;
+      const b = symbols[right] as SymbolDefinition;
+      return a.startLine - b.startLine || b.endLine - a.endLine || left - right;
+    });
+  const chains = new Array<string>(symbols.length).fill('');
+  // **The container a provider declared for itself**, kept for the case the containment pass cannot find it: a capture
+  // list that holds a method without the class it belongs to is a provider that knows something the walk did not see.
+  const declaredContainers = symbols.map((symbol) => symbol.containerName);
+  const taken = new Set<string>();
+  const stack: number[] = [];
+
+  for (const index of order) {
+    const symbol = symbols[index] as SymbolDefinition;
+    while (stack.length > 0) {
+      const top = symbols[stack[stack.length - 1] as number] as SymbolDefinition;
+      const contains =
+        top.startLine <= symbol.startLine &&
+        top.endLine >= symbol.endLine &&
+        (top.startLine < symbol.startLine || top.endLine > symbol.endLine);
+      if (contains) break;
+      stack.pop();
+    }
+    const parent = stack.length > 0 ? (stack[stack.length - 1] as number) : -1;
+    parents[index] = parent;
+    const chain = parent === -1 ? symbol.name : `${chains[parent] as string}.${symbol.name}`;
+    chains[index] = chain;
+    // **A declaration is named by its file and the chain of declarations that holds it.** `file:src/flask/app.py:`
+    // then `Flask`, then `run` — so the name says where the node lives and a same-named top-level `run` in another file
+    // cannot collide with it. The one exception is a declaration whose container the provider named but this file does
+    // not declare: `Legacy.prototype.fetchAll = …` augments a class that lives somewhere else, and `Legacy.fetchAll`
+    // names the class that actually holds it, while a file prefix would name the file that merely writes to it.
+    const declared = parent === -1 ? declaredContainers[index] : undefined;
+    const base =
+      declared === undefined || declared.length === 0
+        ? `file:${filePath}:${chain}`
+        : `${declared}.${symbol.name}`;
+    // **A name a container already spends is spent, so the second declaration says where it is.** `Response` declares
+    // `status` twice - the getter and the setter of one property - and `flask/cli.py` declares `locate_app` three times
+    // for the type checker. A store, an index and every "open this symbol" link identify a node by one string, so the
+    // string has to name one node: the line is the only thing that does.
+    symbol.qualifiedName = taken.has(base) ? `${base}@${String(symbol.startLine)}` : base;
+    taken.add(symbol.qualifiedName);
+    symbol.containerName =
+      parent === -1 ? symbol.containerName : (symbols[parent] as SymbolDefinition).name;
+    // **Only a declaration can hold one.** A local variable's span contains nothing that is not also inside the
+    // function around it, and letting one into the stack would file a nested `def` under a stray `with` block.
+    if (isDeclarationLabel(String(symbol.kind))) stack.push(index);
+  }
+  return parents;
 }
 
 export function groupCaptures(captures: UnifiedCapture[], filePath: string): CaptureGroup {
@@ -513,7 +599,11 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
     symbols: symbols.map((s) => s.qualifiedName),
   };
 
-  return { symbols, references, scopeTree };
+  // **Naming happens once, after every symbol exists.** A parent's name is what a child is filed under, so the pass
+  // cannot run inside the loop above: the class a method belongs to may be emitted after the method (TypeScript) or
+  // before it (Python), and both orders are the same tree.
+  const parents = nameByContainment(symbols, filePath);
+  return { symbols, references, scopeTree, parents };
 }
 
 // ---------------------------------------------------------------------------

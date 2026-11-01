@@ -37,17 +37,27 @@ const DEFAULT_ARTIFACT = 'benchmarks/dead-code.json';
 /**
  * Floors per corpus. `findings` is a **ceiling**: the corpus may report fewer, never more.
  *
- * The numbers are the measured figures of the run that added the virtual-dispatch slots, the unresolved-mention edge and
- * the entry-aware published surface, so a change that makes the analysis noisier fails here rather than in a reader's
- * trust.
+ * The numbers are the measured figures of the run that gave every declaration an identity of its own, so a change that
+ * makes the analysis noisier fails here rather than in a reader's trust.
  */
 const FLOORS = {
   'pallets/flask': { findings: 3, recall: 1, confirmed: 2 },
-  'pallets/werkzeug': { findings: 4, recall: 1, confirmed: 2 },
+  // **Four became two in iteration 49**, and both of the two are claims the oracle also makes. `_clean_status` was
+  // reported because the setter that calls it shared its name with a *parameter* of `__init__`, so the edge left from a
+  // declaration that cannot call anything; `_DictAccessorProperty` was reported because a generic base
+  // (`class environ_property(_DictAccessorProperty[T])`) recorded no base at all.
+  'pallets/werkzeug': { findings: 2, recall: 1, confirmed: 2 },
   // **Nothing.** `zod` publishes every name it declares through `src/index.ts`, so a finding here is a finding about
   // this product's resolution rather than about zod.
   'colinhacks/zod': { findings: 0, recall: null, confirmed: 0 },
-  'redis/ioredis': { findings: 2, recall: null, confirmed: 0 },
+  // **Two became zero.** Both were `get` and `set`, the accessors of an object literal passed to
+  // `Object.defineProperty` — a member of a value nobody can name, which is not a declaration.
+  //
+  // **The floor under recall is zero, and that is a debt stated rather than hidden**: the oracle's one dead symbol in
+  // `lib/` is `genDebugFunction`, and this product still misses it because the published surface is the *directory* a
+  // package lives in rather than the names its entry module actually re-exports. Closing that is the next iteration's
+  // first item, and this number has to rise to 1 when it lands.
+  'redis/ioredis': { findings: 0, recall: 0, confirmed: 0 },
 };
 
 /**

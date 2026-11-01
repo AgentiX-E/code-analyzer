@@ -108,6 +108,31 @@ def own_scope_nodes(node: ast.AST):
         yield from own_scope_nodes(child)
 
 
+def local_definitions(fn: ast.AST) -> set[str]:
+    """Names this scope binds with a `def` or a `class` written inside it.
+
+    **A nested definition is a local binding, and this oracle did not know it.** `def test_missing_session(app): def
+    expect_exception(…): …; expect_exception(…)` is a call to a function this file declares inside another, and the
+    verdict for that site was `unknown` — so a resolver that got it right was scored as making a wrong claim, and
+    `pallets/flask` carried 19 of them. `bound_names` skips a nested `def` on purpose (its body is another scope); the
+    *name* it binds belongs to this one, which is the half it was missing.
+    """
+    names: set[str] = set()
+
+    def descend(node: ast.AST) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(child.name)
+                # The names inside that body belong to the inner scope, not to this one.
+                continue
+            if isinstance(child, ast.Lambda):
+                continue
+            descend(child)
+
+    descend(fn)
+    return names
+
+
 def bound_names(fn: ast.AST) -> tuple[set[str], set[str]]:
     """Names this scope binds, and names it declares `global`."""
     names: set[str] = set()
@@ -577,16 +602,22 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
     out: list[Site] = []
     enclosing = class_of(tree)
 
-    def visit(node: ast.AST) -> None:
+    def visit(node: ast.AST, outer: list[set[str]]) -> None:
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                collect(child, enclosing.get(id(child)))
-                visit(child)
+                collect(child, enclosing.get(id(child)), outer)
+                # **A closure reads the scopes it is written inside**, so the chain is carried down and consulted
+                # outward: `def test_x(): class MyException(…); @app.route def index(): raise MyException()` is a call
+                # this file resolves, and an oracle that asked only `index`'s own scope answered `unknown`.
+                visit(child, [*outer, local_definitions(child)])
             elif isinstance(child, ast.ClassDef):
-                visit(child)
+                visit(child, outer)
 
-    def collect(fn: ast.FunctionDef | ast.AsyncFunctionDef, cls: str | None) -> None:
+    def collect(
+        fn: ast.FunctionDef | ast.AsyncFunctionDef, cls: str | None, outer: list[set[str]]
+    ) -> None:
         local, _globals = bound_names(fn)
+        nested = local_definitions(fn)
         typed = parameter_types(fn)
         body = list(own_scope_nodes(fn))
         # **A function-scope import binds a name for that function, and Python code puts them there to break an
@@ -604,7 +635,16 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
             if callee is None:
                 continue
             verdict, target = classify(
-                unit, cls, callee, receiver, local, typed, imports_local, namespaces_local
+                unit,
+                cls,
+                callee,
+                receiver,
+                local,
+                typed,
+                imports_local,
+                namespaces_local,
+                nested,
+                outer,
             )
             out.append(
                 Site(
@@ -639,6 +679,8 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
         typed: dict[str, str],
         imports_local: dict[str, tuple[str | None, int, str]] | None = None,
         namespaces_local: dict[str, tuple[str | None, int]] | None = None,
+        nested: set[str] | None = None,
+        outer: list[set[str]] | None = None,
     ) -> tuple[str, str | None]:
         # **`self.field.m()` - the field's annotation names the class the member is looked up in.** A Python reader
         # that stops at one level cannot answer it: the field is a name the class declares and the callee is a name the
@@ -689,6 +731,15 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
                     return "internal", namespace
                 return "external", None
             return "silent", None
+        # **A `def` written in this scope is the callee, and it is the first answer.** It shadows a module name of the
+        # same spelling, and it is not a variable even though the name is local to the function.
+        if nested and callee in nested:
+            return "internal", unit.rel
+        # **The same statement for the functions this one is written inside**, innermost first: a closure reaches an
+        # outer function's binding before the module's, and before anything the file imports.
+        for scope_names in reversed(outer or []):
+            if callee in scope_names:
+                return "internal", unit.rel
         # A bare call: a variable first, because that is what a bound name is - **unless the binding is an import**,
         # which `bound_names` counts as a local because a function-scope import does bind a name there. Reading it as a
         # variable made every `from ..test import EnvironBuilder` inside a method invisible, and the calls that used it
@@ -708,7 +759,7 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
             return "external", None
         return "unknown", None
 
-    visit(tree)
+    visit(tree, [])
     return out
 
 
@@ -907,7 +958,7 @@ def main() -> int:
             "graph": len(graph_caller_keys & oracle_callers),
             "graphOnly": len(graph_caller_keys - oracle_callers),
             "ownersWithAnyCall": len(owners_with_calls),
-            "graphCallers": graph_callers and len(graph_callers),
+            "graphCallers": len(graph_callers),
         },
         "wrongSamples": sorted(
             f"[{arm_of.get((s, o, t, n), 'unlabelled')}] {s}|{o} -> {t}|{n}" for s, o, t, n in list(claimed - expected)
