@@ -1,4 +1,4 @@
-import { exists } from "@ioredis/commands";
+import { exists } from '@ioredis/commands';
 
 declare function makeLogger(): (message: string) => void;
 
@@ -21,7 +21,7 @@ export class Store {
 
   /** A bare call the module binds to a value: the member of the same name is not what runs. */
   report(): void {
-    logging("store");
+    logging('store');
   }
 
   /** A call on the object itself: this is the member, and it is the arm's whole purpose. */
