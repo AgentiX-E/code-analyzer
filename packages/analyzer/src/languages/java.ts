@@ -52,6 +52,28 @@ const TYPE_NODES: ReadonlySet<string> = new Set([
   'void_type',
 ]);
 
+/**
+ * The first bound a `type_parameter` declares, or `undefined` when it writes none.
+ *
+ * **The grammar already made the distinction this needs.** `S extends IOBaseStream<T, S, B>` parses as
+ * `type_parameter > (type_identifier, type_bound)`, and `T` alone has no `type_bound` at all - so the clause's presence
+ * is the fact and the text is read from it rather than searched for. `T extends Number & Comparable<T>` lists two
+ * named children, and the first is the class: a contract declares no body to reach, the same distinction the
+ * base-class rule draws.
+ *
+ * `T extends` - a bound caught mid-edit - yields an empty name, which reads as no bound because a type called nothing
+ * declares nothing a member could be looked up in.
+ */
+function firstBoundOf(parameter: TreeSitterSyntaxNode): string | undefined {
+  const clause = namedChildrenOf(parameter).find((child) => child.type === 'type_bound');
+  return clause === undefined
+    ? undefined
+    : namedChildrenOf(clause)
+        .slice(0, 1)
+        .map((child) => child.text)
+        .join('');
+}
+
 export class JavaProvider extends TreeSitterBaseProvider {
   readonly language = 'java';
   readonly displayName = 'Java';
@@ -385,7 +407,17 @@ export class JavaProvider extends TreeSitterBaseProvider {
    * applies to every other name: a field two declarations disagree about has no type this provider can defend.
    */
   private recordFieldType(node: TreeSitterSyntaxNode, field: string, fieldType: string): void {
-    const className = this.enclosingClassName(node);
+    this.fileFieldType(this.enclosingClassName(node), field, fieldType);
+  }
+
+  /**
+   * File one field's type under a class named by the caller, for the declarations that are not a `field_declaration`.
+   *
+   * **An `enum_constant` is a field the grammar does not call one.** `enum IOCase { SYSTEM("System") }` declares a
+   * constant of type `IOCase` and writes no type anywhere, so `IOCase.SYSTEM.checkEquals(…)` had a receiver whose
+   * class nobody had recorded — and the constant is the only reason `checkEquals` is reachable at all.
+   */
+  private fileFieldType(className: string, field: string, fieldType: string): void {
     let fields = this.classFieldTypes.get(className);
     if (fields === undefined) {
       fields = new Map();
@@ -393,6 +425,38 @@ export class JavaProvider extends TreeSitterBaseProvider {
     }
     if (fields.has(field) && fields.get(field) !== fieldType) fields.delete(field);
     else fields.set(field, fieldType);
+  }
+
+  /**
+   * The bound each of a type's parameters declares, as JSON — **empty and absent when none of them writes one.**
+   *
+   * **A type variable names no class, and its bound names the class it may be.** `UncheckedIOBaseStream<T, S extends
+   * IOBaseStream<T, S, B>, B>` declares a field `S delegate` and calls `delegate.close()` on it: the call runs on
+   * whatever `S` is, and the language guarantees it is an `IOBaseStream`. Without the bound the resolver asked for a
+   * class called `S`, which is 14 unanswered calls in one file of `commons-io`.
+   *
+   * **Only the first bound is kept**, because a later one is an interface - `T extends Number & Comparable<T>` - and a
+   * contract declares no body to reach, the same distinction the base-class rule draws. A parameter with no bound is
+   * absent rather than `Object`: the source does not write one, and a member looked up in `Object` is a claim this
+   * provider would be inventing.
+   */
+  private typeParameterBoundsOf(node: TreeSitterSyntaxNode): string {
+    const bounds: Record<string, string> = {};
+    for (const clause of namedChildrenOf(node).filter((c) => c.type === 'type_parameters')) {
+      for (const parameter of namedChildrenOf(clause).filter((c) => c.type === 'type_parameter')) {
+        // **The grammar gives every `type_parameter` a name**, and `findChild` is the declaration of that guarantee.
+        const name = this.findChild(parameter, 'type_identifier')!;
+        const bound = firstBoundOf(parameter);
+        if (bound !== undefined && bound.length > 0) bounds[name.text] = bound;
+      }
+    }
+    return Object.keys(bounds).length === 0 ? '' : JSON.stringify(bounds);
+  }
+
+  /** The same fact, as a property a capture carries only when the type declares one. */
+  private typeParametersPropertyOf(node: TreeSitterSyntaxNode): Record<string, string> {
+    const bounds = this.typeParameterBoundsOf(node);
+    return bounds.length === 0 ? {} : { typeParameters: bounds };
   }
 
   /** File one local's declared type under the method that declares it. */
@@ -496,6 +560,29 @@ export class JavaProvider extends TreeSitterBaseProvider {
     // **A duplicated branch is not merely dead code**: **it shadows the live one**, and **the tests that would have
     // caught the difference were asking the live one's questions.** **So the local case stays here and the field case
     // goes back to where the loop already is.**
+    if (nodeType === 'resource') {
+      // **A resource is a declaration, and it is not a `local_variable_declaration`.** `try (Closeable c = open(url))`
+      // parses as `resource_specification > resource > (type, name, value)`, so the local branch below never saw it and
+      // every call on `c` was unanswered: `commons-io` writes **35** of these headers, and `FileUtils.copyURLToFile`'s
+      // three calls on `urlConnection` are one of them. A header that reuses a variable - `try (existing)` - declares
+      // nothing and records nothing.
+      const written = namedChildrenOf(node).find((child) => TYPE_NODES.has(child.type));
+      const declared = namedChildrenOf(node).find((child) => child.type === 'identifier');
+      if (written !== undefined && declared !== undefined) {
+        this.recordLocalType(node, declared.text, written.text);
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: declared.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: declared.startIndex,
+          endByte: declared.endIndex,
+          name: declared.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    }
+
     if (nodeType === 'local_variable_declaration') {
       // **The same loop the field case uses**, because **a local declaration has the same shape**
       // (`local_variable_declaration > variable_declarator`) and **the local copy was the one that had drifted**:
@@ -540,7 +627,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         name: nameNode.text,
         properties: {
           filePath: this.filePath,
-          ...(methodArguments === undefined ? {} : { argumentCount: String(methodArguments) }),
+          ...this.arityProperty(methodArguments),
         },
       });
       this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
@@ -667,9 +754,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
           name: built,
           properties: {
             filePath: this.filePath,
-            ...(constructedArguments === undefined
-              ? {}
-              : { argumentCount: String(constructedArguments) }),
+            ...this.arityProperty(constructedArguments),
           },
         });
       }
@@ -699,9 +784,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
           name: delegated,
           properties: {
             filePath: this.filePath,
-            ...(delegatedArguments === undefined
-              ? {}
-              : { argumentCount: String(delegatedArguments) }),
+            ...this.arityProperty(delegatedArguments),
           },
         });
       }
@@ -745,6 +828,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
           baseClasses: this.superclassNameOf(node),
           interfaces,
           filePath: this.filePath,
+          ...this.typeParametersPropertyOf(node),
         },
       });
     } else if (nodeType === 'interface_declaration') {
@@ -763,10 +847,24 @@ export class JavaProvider extends TreeSitterBaseProvider {
         // interface with it, and **42 of the pairs javac expected on `apache/commons-io` and this graph claimed
         // nothing for are that shape**: `IOStream` extends `IOBaseStream<T, IOStream<T>, …>` and every one of its
         // methods calls the base's `unwrap()`.
-        properties: { filePath: this.filePath, baseClasses: this.extendedInterfacesOf(node) },
+        properties: {
+          filePath: this.filePath,
+          baseClasses: this.extendedInterfacesOf(node),
+          ...this.typeParametersPropertyOf(node),
+        },
       });
     } else if (nodeType === 'enum_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;
+      // **Every constant of an enum is a value of that enum, and the grammar writes no type for one.**
+      // `enum IOCase { SYSTEM("System") }` declares `SYSTEM`, and `IOCase.SYSTEM.checkEquals(…)` in `FilenameUtils`
+      // names a receiver through it - so the constant is filed as a field whose type is the enum itself.
+      const body = this.findChild(node, 'enum_body')!;
+      for (const constant of namedChildrenOf(body).filter((c) => c.type === 'enum_constant')) {
+        const constantName = namedChildrenOf(constant).find((c) => c.type === 'identifier');
+        if (constantName !== undefined) {
+          this.fileFieldType(nameNode.text, constantName.text, nameNode.text);
+        }
+      }
       captures.push({
         tag: CAPTURE_TAGS.ENUM_DEF,
         text: `enum ${nameNode.text}`,
@@ -775,7 +873,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
         startByte: nameNode.startIndex,
         endByte: nameNode.endIndex,
         name: nameNode.text,
-        properties: { filePath: this.filePath },
+        properties: {
+          filePath: this.filePath,
+          ...this.typeParametersPropertyOf(node),
+        },
       });
     } else if (nodeType === 'method_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;

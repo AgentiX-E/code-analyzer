@@ -455,8 +455,25 @@ export class ScopeResolutionPhase implements ExecutablePhase {
        * on that corpus were this shape: `debug` and `exists`, both imported, both answered by a class chain.
        */
       const importedNames = new Map<string, Set<string>>();
+      /**
+       * The module each imported name was bound to, found or not — **the statement of where the name comes from.**
+       *
+       * **A name is imported from somewhere, and that is evidence about the class it means.** `Tailer.java` writes
+       * `import java.io.ByteArrayOutputStream;`, and the checkout declares a different `ByteArrayOutputStream` two
+       * packages away; a lookup that fell back to the only class carrying the name answered with the wrong one. The
+       * resolver reads this to check that the class it found lives where the import says, and refuses it otherwise.
+       */
+      const importedFrom = new Map<string, Map<string, string>>();
       if (crossFileData?.resolvedImports) {
         for (const imp of crossFileData.resolvedImports) {
+          let from = importedFrom.get(imp.sourceFile);
+          if (from === undefined) {
+            from = new Map();
+            importedFrom.set(imp.sourceFile, from);
+          }
+          for (const sym of imp.importedSymbols) {
+            if (!from.has(sym)) from.set(sym, imp.importPath);
+          }
           let names = importedNames.get(imp.sourceFile);
           if (names === undefined) {
             names = new Set();
@@ -904,6 +921,9 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           file: parsedFile.filePath,
           imported: importedFiles,
           published: publishedNamesOf(parsedFile.filePath),
+          // **The names the file binds to an import, and where each one came from**, so a class name cannot be
+          // answered by a same-named class the file never imported.
+          bound: importedFrom.get(parsedFile.filePath) ?? new Map<string, string>(),
           // **The package, where the language has one.** `java`, `kotlin` and `groovy` resolve a simple type name
           // through the directory it is written in - before any file it does not name - and no other language this
           // product reads does. The flag travels with the lookup rather than being read in the resolver, because the

@@ -29,6 +29,11 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Parameter Arity**         |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Package-Qualified Names** |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Deferred Calls (`::`)**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Resource Bindings**       |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Enum Constants**          |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Type Parameter Bounds**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Outer Instance `this`**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Factory-Call Receiver**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Generics**                |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Async Detection**         |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
 | **Extension Functions**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
@@ -172,7 +177,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 | ---------- | :---------: | :---------------: | :----------------------------------------------------------------- |
 | TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis            |
 | Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug           |
-| Java       |    Fast     |       ~5MB        | **100.0 % / 97.1 %** commons-lang · **99.9 % / 95.8 %** commons-io |
+| Java       |    Fast     |       ~5MB        | **100.0 % / 97.9 %** commons-lang · **99.9 % / 97.9 %** commons-io |
 | JavaScript |    Fast     |       ~4MB        | not measured                                                       |
 | Go         |    Fast     |       ~3MB        | not measured                                                       |
 | Kotlin     |   Medium    |       ~4MB        | not measured                                                       |
@@ -193,10 +198,31 @@ behind it — they were read off a parse success rate and repeated. What replace
 produced by `scripts/callgraph-quality.ts` against an oracle that is not this codebase (`CPython ast`, the TypeScript
 checker, and `javac`'s own attribution), gated per arm by `scripts/callgraph-gate.js` and re-run on every push by
 `.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: `commons-io` read 60.9 % when the
-instrument was first pointed at it, 80.2 % after the receiver arm learned to read a declared type, and 95.8 % now — and
-that last number is a claim about the graph, not about Java. Its 71 unanswered pairs are named in
-`benchmarks/callgraph-java-quality.json` under `missedSamples`, which is the only reason the figure can be worked on
-rather than argued about.
+instrument was first pointed at it, 80.2 % after the receiver arm learned to read a declared type, 95.8 % after the
+interface `extends` clause became a base, and **97.9 % now** — and that last number is a claim about the graph, not about
+Java. Its 36 unanswered pairs are named in `benchmarks/callgraph-java-quality.json` under `missedSamples`, which is the
+only reason the figure can be worked on rather than argued about.
+
+**Four declarations Java writes and this product stepped past, and one shape a receiver may take.** Each was found by
+reading a missed pair rather than by reading the code, and each is worth the edges its ablation costs when it is removed:
+
+| rule                                                | what the language states                                                                                                                                                                                                                                                                          | edges, measured alone                           |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **A `resource` is a declaration**                   | `try (CloseableURLConnection urlConnection = open(url))` parses as `resource_specification > resource > (type, name, value)` and is not a `local_variable_declaration`, so the walk recognised nothing: `commons-io` writes **35** of these headers and every call on the resource was unanswered | **10** on `commons-io`                          |
+| **A constant of an enum is a value of it**          | `enum IOCase { SYSTEM("System") }` declares `SYSTEM` of type `IOCase` and writes no field anywhere. `IOCase.SYSTEM.checkEquals(…)` names a receiver through it, and the walk asked for a field called `SYSTEM` in the _calling_ class                                                             | **8** on `commons-io`                           |
+| **A type parameter's bound is the class it may be** | `UncheckedIOBaseStream<T, S extends IOBaseStream<T, S, B>>` declares `private final S delegate` and calls `delegate.close()`. Without the bound the resolver asked for a class named `S`, which no file declares                                                                                  | **13** on `commons-io`                          |
+| **`Outer.this` is the enclosing instance**          | an inner class writes the qualifier because its own `this` is a different object; reading `.this` as a member name asked `StrBuilder` for a field called `this`                                                                                                                                   | **7** on `commons-lang`                         |
+| **A receiver may be rooted at a call**              | `is(a).greaterThanOrEqualTo(b)` writes a factory where a name would go, and the member belongs to the class the factory's declaration says it returns                                                                                                                                             | **12** on `commons-lang`, **4** on `commons-io` |
+
+**And one rule that removed a claim rather than adding one.** `Tailer.java` writes
+`import java.io.ByteArrayOutputStream;` and `try (ByteArrayOutputStream lineBuf = new ByteArrayOutputStream(64))`; the
+checkout declares a _different_ `ByteArrayOutputStream` two packages away, and the whole-graph fallback answered the
+resource's type with it — **three wrong edges, and the first wrong edges this iteration produced.** A file that writes a
+single-type import has said which class the name means, so the lookup now checks that the class it found lives in the
+module the import names — **ablation: three more claims and none of them right.** The check is on the _module_ rather
+than a flag, because the same shape also binds a name the checkout _does_ declare:
+`org.apache.commons.io.file.Counters.PathCounters` names a class inside `Counters.java`, and treating every unresolved
+import as external cost **14 correct edges**.
 
 ## Adding a New Language
 

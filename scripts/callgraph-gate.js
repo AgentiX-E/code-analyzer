@@ -201,12 +201,19 @@ const TYPESCRIPT_FLOORS = {
  * floor is 1.0: a single wrong edge now trips it. `commons-io` reads 1600 of 1602 and the floor of 0.9985 admits
  * exactly those two - the pair `AbstractFileFilter.preVisitDirectory` calls `accept(dir, attrs)`, which `IOFileFilter`
  * declares and the inherited arm answers out of the wrong class chain. Fixing that moves the floor, not loosening it.
+ *
+ * **Iteration 61 read four declarations Java writes and this product stepped past** - a try-with-resources `resource`,
+ * an `enum_constant`, a type parameter's bound, and `Outer.this` - plus the factory call a receiver may be rooted at.
+ * Together they are **2213 of 2213** on `commons-lang` (recall 97.1 % -> **97.9 %**) and **1635 of 1637** on
+ * `commons-io` (95.8 % -> **97.9 %**), each rule measured alone: the bound is 13 edges, the resource 10, the constant
+ * 8, `Outer.this` 7 and the factory call 12 and 4. The two remaining wrong edges are the same pair as before, and the
+ * floor of 0.9985 still admits exactly them.
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
     precision: 1,
-    recall: 0.97,
-    claimed: 2190,
+    recall: 0.979,
+    claimed: 2213,
     arms: {
       import: 0.99,
       inherited: 0.995,
@@ -225,8 +232,8 @@ const JAVA_FLOORS = {
   },
   'apache/commons-io': {
     precision: 0.9985,
-    recall: 0.955,
-    claimed: 1595,
+    recall: 0.978,
+    claimed: 1635,
     arms: {
       import: 0.99,
       inherited: 0.99,

@@ -699,3 +699,78 @@ describe('JavaProvider — a declaration states its signature', () => {
     ).toHaveLength(0);
   });
 });
+
+// **Three declarations Java writes and this provider used to step past** — a resource, a constant, a bound. Each is a
+// fact the language states, and each one is what a call on the name it introduces is resolved through.
+describe('JavaProvider — the declarations a try, an enum body and a type parameter write', () => {
+  const provider = new JavaProvider();
+  const captureOf = (source: string, name: string, tag: string) =>
+    provider.parse(source, 'Fixture.java').find((c) => c.name === name && c.tag === tag);
+  const localTypesOf = (source: string) =>
+    JSON.parse(
+      String(captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['localTypes'] ?? '{}'),
+    ) as Record<string, string>;
+
+  it('types a resource the try-with-resources header declares', () => {
+    // **A `resource` is a declaration and is not a `local_variable_declaration`.** The grammar writes
+    // `resource_specification > resource > (type, name, …)`, so the walk recognised nothing: on `commons-io` that is
+    // 35 headers, and every call on the resource - `urlConnection.getInputStream()` among them - was unanswered.
+    const source =
+      'class Holder { void run() { try (CloseableURLConnection urlConnection = open(source)) { urlConnection.getInputStream(); } } }';
+    expect(localTypesOf(source)).toMatchObject({ urlConnection: 'CloseableURLConnection' });
+  });
+
+  it('records no type for a resource that reuses a variable', () => {
+    // `try (existing)` declares nothing, and a rule that read the existing name as a type would invent one.
+    const source = 'class Holder { void run() { try (existing) { } catch (Exception e) { } } }';
+    expect(localTypesOf(source)).not.toHaveProperty('existing');
+  });
+
+  it('files each constant of an enum as a value of that enum', () => {
+    // **`enum IOCase { SYSTEM(…) }` declares `SYSTEM` of type `IOCase` and writes no field.** Nothing else in the
+    // grammar says so, so `IOCase.SYSTEM.checkEquals(…)` had no receiver type at all.
+    const source =
+      'enum IOCase { SYSTEM("System"), INSENSITIVE("Insensitive"); IOCase(String name) { } }';
+    const declaration = captureOf(source, 'IOCase', CAPTURE_TAGS.ENUM_DEF);
+    expect(JSON.parse(String(declaration?.properties?.['fieldTypes']))).toMatchObject({
+      SYSTEM: 'IOCase',
+      INSENSITIVE: 'IOCase',
+    });
+  });
+
+  it('states the bound a type parameter declares', () => {
+    // **`S extends IOBaseStream<T, S, B>` is what lets `delegate.close()` be answered.** A type variable with no bound
+    // names a class nobody declared, and the bound is the only place the language writes what it may be.
+    const source =
+      'class Holder<T, S extends IOBaseStream<T, S, B>, B extends BaseStream<T, B>> { void run() { } }';
+    const cls = captureOf(source, 'Holder', CAPTURE_TAGS.CLASS_DEF);
+    expect(JSON.parse(String(cls?.properties?.['typeParameters']))).toEqual({
+      S: 'IOBaseStream<T, S, B>',
+      B: 'BaseStream<T, B>',
+    });
+  });
+
+  it('states nothing for a type parameter with no bound', () => {
+    // `T` alone bounds nothing this resolver can look a member up in, and `Object` is not written in the source.
+    const source = 'interface Reader<T> { T read(); }';
+    const declaration = captureOf(source, 'Reader', CAPTURE_TAGS.INTERFACE_DEF);
+    expect(declaration?.properties?.['typeParameters']).toBeUndefined();
+  });
+
+  it('records no bound for a clause caught mid-edit', () => {
+    // **`class Holder<T extends>` is valid enough to parse and states no bound.** The grammar still produces a
+    // `type_bound`, with an empty name inside it - so the rule reads the clause's content rather than its presence, and
+    // a type bound to nothing stays unbound instead of being filed as a class called `""`.
+    const source = 'class Holder<T extends> { void run() { } }';
+    const cls = captureOf(source, 'Holder', CAPTURE_TAGS.CLASS_DEF);
+    expect(cls?.properties?.['typeParameters']).toBeUndefined();
+  });
+
+  it('reads the first bound of a parameter that declares several', () => {
+    // `<T extends Number & Comparable<T>>` has one class bound and one interface bound; the class is what members are
+    // looked up in, and the interface declares no body to reach - the same distinction the base-class rule draws.
+    const source = 'class Holder<T extends Number & Comparable<T>> { void run() { } }';
+    const cls = captureOf(source, 'Holder', CAPTURE_TAGS.CLASS_DEF);
+    expect(JSON.parse(String(cls?.properties?.['typeParameters']))).toEqual({ T: 'Number' });
+  });
+});

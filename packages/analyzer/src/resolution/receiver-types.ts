@@ -84,6 +84,19 @@ export interface FileTypes {
    * declares `format(Object, StringBuffer, FieldPosition)` stops answering a one-argument `format(x)`.
    */
   readonly arity: Map<string, AritySet>;
+  /**
+   * `Class` → the bound each of its type parameters declares, for the ones that declare one.
+   *
+   * **A type variable names no class, and its bound names the class it may be.** `UncheckedIOBaseStream<T, S extends
+   * IOBaseStream<T, S, B>, B>` declares `private final S delegate` and calls `delegate.close()` — the call runs on
+   * whatever `S` is, and the one thing the language guarantees is that it is an `IOBaseStream`. Without this fact the
+   * resolver asked for a class named `S`: **14 unanswered calls in one file** of `apache/commons-io@2.16.1`, and the
+   * same shape in every class that hides a wrapper behind a parameter.
+   *
+   * **A parameter with no bound is absent** rather than `Object`. The source writes no bound, so there is no
+   * declaration for a member to be looked up in - the same refusal a field with no type gets.
+   */
+  readonly typeParameters: Map<string, ReadonlyMap<string, string>>;
 }
 
 /**
@@ -332,6 +345,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const members = new Map<string, Map<string, Declared>>();
   const bases = new Map<string, readonly string[]>();
   const arity = new Map<string, AritySet>();
+  const typeParameters = new Map<string, Map<string, string>>();
 
   const declare = (className: string, name: string, declaration: TypedDeclaration): void => {
     if (declaration.nodeId === undefined) return;
@@ -419,6 +433,17 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
         const merged = [...known, ...inherited.filter((base) => !known.includes(base))];
         bases.set(declaration.name, merged);
       }
+      // **A type parameter's bound is the class its name stands for.** `S extends IOBaseStream<T, S, B>` is read
+      // here as one fact about `UncheckedIOBaseStream`, and applied wherever a member of that class is typed `S` -
+      // the field, the parameter and the return alike, because all three write the same variable.
+      for (const [parameter, bound] of stringEntriesOf(declaration.properties['typeParameters'])) {
+        const declaredBound = simpleTypeName(bound);
+        if (declaredBound === undefined) continue;
+        const known = typeParameters.get(declaration.name);
+        if (known === undefined)
+          typeParameters.set(declaration.name, new Map([[parameter, declaredBound]]));
+        else known.set(parameter, declaredBound);
+      }
       continue;
     }
 
@@ -501,6 +526,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     members,
     bases,
     arity,
+    typeParameters,
   };
 }
 
@@ -662,12 +688,28 @@ const CONSTRUCTED_RECEIVER = /^new\s+((?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$][\w$]*)\s
 /** A name a class could be filed under: no dots, no generics, no punctuation. */
 const SIMPLE_NAME = /^[A-Za-z_$][\w$]*$/;
 
+/**
+ * A qualified `this` — `Outer.this` — with the class it qualifies.
+ *
+ * **A bare `this` is not a match and must not be one**: it names the object the call sits inside, which is a field of
+ * the enclosing class rather than a class, and it is answered by the branches above this rule.
+ */
+const OUTER_THIS = /^([A-Za-z_$][\w$.]*)\.this$/;
+
+/**
+ * How many bounds a type name is followed through before the walk gives up.
+ *
+ * **A bound may itself be a parameter** — `B extends BaseStream<T, B>` — and a cycle is a program the compiler would
+ * reject; the limit states that this reader stops rather than that such a program exists.
+ */
+const MAX_BOUND_STEPS = 4;
+
 /** A receiver's type, as far as the declarations can say. */
 export interface ReceiverType {
   /** The class whose member the call names. */
   readonly className: string;
   /** Where the walk started, recorded so each shape can be scored on its own. */
-  readonly via: 'thisField' | 'parameter' | 'local' | 'class';
+  readonly via: 'thisField' | 'parameter' | 'local' | 'class' | 'call';
   /**
    * The file the type's name was written in, when a hop left the file the call sits in.
    *
@@ -729,15 +771,23 @@ export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): Receiv
       ? undefined
       : { className, via: 'local' };
   }
+  // **A receiver may name an *outer* instance, and the qualifier is that instance's class.** `StrBuilder.this.size()`
+  // is how an inner class reaches the object it is nested in - its own `this` is a different object - and the qualifier
+  // is written precisely because the member does not belong to the inner class. Reading the `.this` as a member name
+  // asked `StrBuilder` for a field called `this`; on `apache/commons-lang@3.14.0` that is **8 calls** in `StrBuilder`'s
+  // own reader, every one of them a method the class declares two dozen lines above.
+  const outer = OUTER_THIS.exec(receiver);
   // **A receiver is split where the dots are not inside brackets.** `Archive.store.find(a.b)` writes one hop that
   // contains a dot, and a splitter that cut at every `.` saw three hops and ended the walk on the second -
   // `find(a` names nothing. The brackets are the grammar's own way of saying "this belongs together".
-  const [base, ...hops] = splitReceiver(receiver);
+  const [base, ...hops] = splitReceiver(outer?.[1] ?? receiver);
   if (base === undefined || base.length === 0) return undefined;
   const own =
     lookup.origin?.file === undefined ? undefined : lookup.index.files.get(lookup.origin.file);
 
-  const start = startOf(lookup, own, base, hops.length === 0);
+  // **A qualified `this` is an instance and not a bare class name**, so the class branch below is allowed to answer it
+  // even when the receiver has no hop after it - the distinction that keeps `Index.m()` for the `static` arm.
+  const start = startOf(lookup, own, base, hops.length === 0 && outer === null);
   if (start === undefined) return undefined;
   let current = start.className;
   // **The scope a name is read in changes as the walk crosses files.** The first hop is a member of the class the
@@ -756,7 +806,13 @@ export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): Receiv
     if (next === undefined) return undefined;
     const declared = locateClass(lookup.index, current, scope);
     if (declared !== undefined) scope = { ...lookup.origin, file: declared.file };
-    current = next;
+    // **The member was read out of `current`, so a bound written there is what its type means** - the same rule the
+    // base of the walk applies, asked one hop later.
+    current = concretise(
+      scope?.file === undefined ? undefined : lookup.index.files.get(scope.file),
+      current,
+      next,
+    );
   }
   return {
     className: current,
@@ -791,19 +847,37 @@ function startOf(
     return parameter === undefined ? undefined : { className: parameter, via: 'parameter' };
   }
   const local = declaredUnder(own?.locals, lookup.owners, base);
-  if (local !== undefined) return valueOf(lookup, own, local, 'local');
-  const parameter = declaredUnder(own?.parameters, lookup.owners, base);
-  if (parameter !== undefined) return valueOf(lookup, own, parameter, 'parameter');
-  // **A bare name may also be a field of the class the call is written in**, which is how Java uses a shared constant:
-  // `ESCAPE_CSV.translate(writer, input)` writes no `this` because a static member needs none. The lookup comes last
-  // because Java's own scoping puts a local and a parameter ahead of a field with the same name, and a rule that
-  // preferred the field would answer a call with a declaration the name does not mean.
   const enclosing = firstOf(
     lookup.owners,
     (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
   );
+  // **A type written as a parameter is a name whose declaration is a bound.** `S delegate` says `delegate` holds an
+  // `S`, and `S extends IOBaseStream` says what an `S` is - so every branch below answers with the bound rather than
+  // with a class named `S`, which no file declares and no member can be found in.
+  const bounded = (result: ReceiverType | undefined): ReceiverType | undefined =>
+    withBound(own, enclosing, result);
+  if (local !== undefined) return bounded(valueOf(lookup, own, local, 'local'));
+  const parameter = declaredUnder(own?.parameters, lookup.owners, base);
+  if (parameter !== undefined) return bounded(valueOf(lookup, own, parameter, 'parameter'));
+  // **A bare name may also be a field of the class the call is written in**, which is how Java uses a shared constant:
+  // `ESCAPE_CSV.translate(writer, input)` writes no `this` because a static member needs none. The lookup comes last
+  // because Java's own scoping puts a local and a parameter ahead of a field with the same name, and a rule that
+  // preferred the field would answer a call with a declaration the name does not mean.
   const field = enclosing === undefined ? undefined : own?.fields.get(`${enclosing}.${base}`);
-  if (field !== undefined) return valueOf(lookup, own, field, 'thisField');
+  if (field !== undefined) return bounded(valueOf(lookup, own, field, 'thisField'));
+  // **A base may be a call, and what the call returns is what the receiver is.** `is(a).greaterThanOrEqualTo(b)`
+  // writes a factory call where a name would go, and the member it calls belongs to `ComparableChecker` - the class
+  // `is` declares it returns. On `apache/commons-lang@3.14.0` that is the four predicates of `ComparableUtils`, each
+  // one line and each one unanswered, and on `commons-io` the five `visitFileTree(…).getPathCounters()` calls.
+  //
+  // **Only the class the call sits in answers it.** A method inherited from a base is the base's declaration, and a
+  // factory read off an unrelated class is a name this walk has no evidence about; both are the refusal this module
+  // gives everywhere else rather than a guess.
+  const called = calledNameOf(base);
+  if (called !== undefined && enclosing !== undefined) {
+    const returned = declaredReturnOf(lookup, enclosing, called);
+    if (returned !== undefined) return bounded({ className: returned, via: 'call' });
+  }
   // **A receiver may be rooted at a class, and then the walk starts at that class.** `QueueInputStream.builder()`
   // asks a class for a static factory; `JavaVersion.CURRENT` asks one for a constant. The lookup comes last because
   // every other reading of the name is narrower - a local, a parameter and a field all shadow a type in the languages
@@ -812,6 +886,39 @@ function startOf(
   if (bare) return undefined;
   const named = locateClass(lookup.index, base, lookup.origin);
   return named === undefined ? undefined : { className: named.name, via: 'class' };
+}
+
+/**
+ * The class a type name stands for once the bound it is declared with has been read.
+ *
+ * **A type parameter is not a class and its bound is the class it may be.** The loop follows a chain - `S extends
+ * IOBaseStream` where the bound is itself a plain name - and it stops at the first name the class does not declare as
+ * a parameter, which is what leaves a real class that happens to share a variable's spelling alone.
+ */
+function concretise(
+  file: FileTypes | undefined,
+  className: string | undefined,
+  typeName: string,
+): string {
+  if (className === undefined) return typeName;
+  let current = typeName;
+  for (let step = 0; step < MAX_BOUND_STEPS; step++) {
+    const bound = file?.typeParameters.get(className)?.get(current);
+    if (bound === undefined || bound === current) break;
+    current = bound;
+  }
+  return current;
+}
+
+/** The same substitution, on an answer the walk has already computed. */
+function withBound(
+  file: FileTypes | undefined,
+  className: string | undefined,
+  result: ReceiverType | undefined,
+): ReceiverType | undefined {
+  if (result === undefined) return undefined;
+  const concretised = concretise(file, className, result.className);
+  return concretised === result.className ? result : { ...result, className: concretised };
 }
 
 /**
@@ -1022,6 +1129,23 @@ export interface LookupOrigin {
    * TypeScript lookup must not inherit it.
    */
   readonly packageScope?: boolean;
+  /**
+   * A name this file binds to an import → **the module the import names, whether or not it resolved to a file.**
+   *
+   * **A binding the walk cannot follow still says where the name comes from.** `Tailer.java` writes
+   * `import java.io.ByteArrayOutputStream;` and `try (ByteArrayOutputStream lineBuf = new ByteArrayOutputStream(64))`;
+   * the checkout declares a *different* `ByteArrayOutputStream` in `org.apache.commons.io.output`, and the whole-graph
+   * fallback answered the resource's type with it - three calls claimed into a class this file never names. Java reads
+   * a single-type import before the package and before any global name, so a name the checkout cannot produce is a
+   * name that lives outside it.
+   *
+   * **The module rather than a flag, because the answer needs to be checked and not assumed.** The same file that
+   * imports a class from outside the checkout also imports one from inside it under a qualified name -
+   * `org.apache.commons.io.file.Counters.PathCounters` names a class `Counters.java` *declares*, and no path conversion
+   * finds it. A rule that treated every unresolved import as external would have cost **14 correct edges** there, so
+   * the resolver checks the class it found against the module the import names.
+   */
+  readonly bound?: ReadonlyMap<string, string>;
 }
 
 export function createClassIndex(): ClassIndex {
@@ -1172,17 +1296,46 @@ function locateSimpleClass(
   }
   if (imported.length === 1) return imported[0];
   if (imported.length > 1) return undefined;
+  // **A name the file imports is a name the file has already decided**, and the two steps below answer it from a
+  // neighbourhood instead of from that decision - so whatever they find has to live where the import says.
   // **The package, which the language reads before any file it does not name.** A Java simple name is resolved in the
   // enclosing type, then a single-type import, then the package the file is written in - and the product had the
   // first two and a whole-graph fallback that refuses a name two files declare, one of which is often the file's own
   // neighbour. Measured on `apache/commons-lang@3.14.0`: 54 construction sites and every `Functions.asPredicate(…)`
   // call were unanswered for want of this step alone.
-  if (origin?.packageScope === true) {
-    const ownPackage = classInPackageOf(index, origin.file, className);
-    if (ownPackage !== undefined) return ownPackage;
-  }
+  const found =
+    (origin?.packageScope === true ? classInPackageOf(index, origin.file, className) : undefined) ??
+    uniqueGlobalClass(index, className);
+  if (found === undefined) return undefined;
+  const from = origin?.bound?.get(className);
+  return from === undefined || declaredUnderModule(found.file, from) ? found : undefined;
+}
+
+/** The one class in the graph filed under a simple name, or nothing when two files declare it. */
+function uniqueGlobalClass(index: ClassIndex, className: string): LocatedClass | undefined {
   const global = index.classes.get(className);
   return global === undefined || global === 'ambiguous' ? undefined : global;
+}
+
+/**
+ * Whether a class lives in the module a qualified name names — **the longest prefix of the name that is a path.**
+ *
+ * **A qualified import may name a class a file declares rather than a class in a directory of its own.**
+ * `org.apache.commons.io.file.Counters.PathCounters` names the nested `PathCounters` of `Counters.java`, and no
+ * conversion of the whole name to a path finds that file. So every prefix is tried, longest first, down to two
+ * segments: `java.io.ByteArrayOutputStream` matches nothing in a checkout rooted at `org/apache`, and
+ * `…/file/Counters` matches `Counters.java`.
+ */
+function declaredUnderModule(file: string, qualified: string): boolean {
+  // **Only a dotted module names a package this can check.** `./parse`, `@scope/pkg` and `flask` are spellings whose
+  // meaning is the resolver's import pass, not a path - and a rule that read them as one would refuse every name they
+  // bind on the strength of a spelling it cannot interpret.
+  if (!/^[\w$]+(\.[\w$]+)+$/.test(qualified)) return true;
+  const segments = qualified.split('.');
+  for (let cut = segments.length; cut >= 2; cut--) {
+    if (declaredInPackage(file, segments.slice(0, cut).join('.'))) return true;
+  }
+  return false;
 }
 
 /**

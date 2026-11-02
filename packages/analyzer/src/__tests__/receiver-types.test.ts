@@ -1347,3 +1347,143 @@ describe('a parameter of an overloaded method', () => {
     expect(receiverTypeOf(at(['Failable.accept']), 'consumer')).toBeUndefined();
   });
 });
+
+describe('a receiver that roots at a class, and one that roots at a call', () => {
+  const ENUM_FILE = 'src/main/java/org/apache/commons/io/IOCase.java';
+  const CALLER_FILE = 'src/main/java/org/apache/commons/io/FilenameUtils.java';
+
+  // **A constant of an enum is of the enum's type, and the language says so without a field declaration.**
+  // `IOCase.SYSTEM.checkEquals(…)` names a receiver through a constant that `enum IOCase { SYSTEM(…) }` declares, and
+  // before this rule the walk asked `SYSTEM` for a field of `FilenameUtils` and found nothing.
+  const enumFacts = buildFileTypes([
+    declaration('Enum', 'IOCase', undefined, { fieldTypes: '{"SYSTEM":"IOCase"}' }, 1),
+    declaration('Method', 'checkEquals', 'IOCase', {}, 2),
+  ]);
+  const callerFacts = buildFileTypes([
+    declaration('Class', 'FilenameUtils', undefined, {}, 3),
+    declaration('Method', 'directoryContains', 'FilenameUtils', {}, 4),
+    // **A factory's return type is a nested class of the file that declares it**, which is what `is(a)` answers with.
+    declaration('Interface', 'ComparableChecker', undefined, {}, 5),
+    declaration('Method', 'greaterThanOrEqualTo', 'ComparableChecker', {}, 6),
+    declaration('Class', 'ComparableUtils', undefined, {}, 7),
+    declaration('Method', 'is', 'ComparableUtils', { returnType: 'ComparableChecker' }, 8),
+    declaration('Method', 'ge', 'ComparableUtils', {}, 9),
+    declaration('Method', 'size', 'ComparableUtils', {}, 10),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, enumFacts, ENUM_FILE);
+  mergeClassIndex(index, callerFacts, CALLER_FILE);
+  const at = (owners: readonly string[], file = CALLER_FILE): ReceiverLookup => ({
+    index,
+    origin: { file },
+    owners,
+  });
+
+  it('reads a constant of an enum as a value of the enum', () => {
+    // **The walk crosses into the enum's own file**, because that is where the constant's type is written - so the
+    // answer says both what the receiver is and where that declaration lives.
+    expect(receiverTypeOf(at(['FilenameUtils.directoryContains']), 'IOCase.SYSTEM')).toEqual({
+      className: 'IOCase',
+      via: 'class',
+      declaredIn: ENUM_FILE,
+    });
+  });
+
+  it('reads a factory call as the type it returns', () => {
+    // **`is(a).greaterThanOrEqualTo(b)` is one receiver and two declarations.** The base is a call, and what it hands
+    // back is what its declaration says - so the member is looked up in `ComparableChecker` and not in the class the
+    // call is written in.
+    expect(receiverTypeOf(at(['ComparableUtils.ge']), 'is(a)')).toEqual({
+      className: 'ComparableChecker',
+      via: 'call',
+    });
+  });
+
+  it('reads the outer instance a qualified this names', () => {
+    // **`Outer.this.m()` is the enclosing instance, and the qualifier is its class.** The nested class writes the
+    // qualifier precisely because its own `this` is not what the member belongs to.
+    expect(receiverTypeOf(at(['ComparableUtils.ge']), 'ComparableUtils.this')).toEqual({
+      className: 'ComparableUtils',
+      via: 'class',
+    });
+  });
+
+  it('answers nothing for a call whose return type nobody wrote', () => {
+    // **A factory that states no type hands back nothing this module can read**, and `size` is a method whose
+    // declaration writes no return type - so the walk ends rather than guessing the enclosing class.
+    expect(receiverTypeOf(at(['ComparableUtils.ge']), 'size()')).toBeUndefined();
+    // A qualified this whose qualifier is not a class the index can find is the same refusal.
+    expect(receiverTypeOf(at(['ComparableUtils.ge']), 'SomewhereElse.this')).toBeUndefined();
+  });
+});
+
+describe('a type parameter and the bound it declares', () => {
+  const FILE = 'src/main/java/org/apache/commons/io/function/UncheckedIOBaseStream.java';
+  const facts = buildFileTypes([
+    declaration(
+      'Class',
+      'UncheckedIOBaseStream',
+      undefined,
+      // **`S extends IOBaseStream<T, S, B>` says every `S` is an `IOBaseStream`**, which is the whole reason the
+      // class can call `delegate.close()` without knowing what it wraps.
+      { typeParameters: '{"S":"IOBaseStream<T, S, B>","B":"BaseStream<T, B>"}' },
+      1,
+    ),
+    declaration('Property', 'delegate', 'UncheckedIOBaseStream', { fieldType: 'S' }, 2),
+    declaration(
+      'Variable',
+      'wrapped',
+      undefined,
+      { parameterOwner: 'UncheckedIOBaseStream.close', parameterType: 'S' },
+      3,
+    ),
+    declaration('Method', 'close', 'UncheckedIOBaseStream', {}, 4),
+    // **`interface IOBaseStream<T, S extends IOBaseStream<T, S, B>, B>` writes the same bound in the base**, and a
+    // hop's type is read where *its* declaration is written - one class at a time, never the caller's.
+    declaration(
+      'Interface',
+      'IOBaseStream',
+      undefined,
+      { typeParameters: '{"S":"IOBaseStream<T, S, B>"}' },
+      5,
+    ),
+    declaration('Method', 'close', 'IOBaseStream', {}, 6),
+    // **`unwrap()` is declared `S unwrap()`**, so the hop's type is the same parameter the field holds.
+    declaration('Method', 'unwrap', 'IOBaseStream', { returnType: 'S' }, 7),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('reads a field whose type is a parameter as the type the parameter extends', () => {
+    expect(receiverTypeOf(at(['UncheckedIOBaseStream.close']), 'delegate')).toEqual({
+      className: 'IOBaseStream',
+      via: 'thisField',
+    });
+  });
+
+  it('reads a parameter whose type is a parameter the same way', () => {
+    expect(receiverTypeOf(at(['UncheckedIOBaseStream.close']), 'wrapped')).toEqual({
+      className: 'IOBaseStream',
+      via: 'parameter',
+    });
+  });
+
+  it('walks a hop whose type is a parameter', () => {
+    // **The bound is read where the type variable was written**, so a hop out of the same field answers with the
+    // bound's member rather than with a class named `S`.
+    expect(
+      receiverTypeOf(at(['UncheckedIOBaseStream.close']), 'delegate.unwrap()')?.className,
+    ).toBe('IOBaseStream');
+  });
+
+  it('leaves a name that is not a parameter of the declaring class alone', () => {
+    // A type parameter is scoped to the class that writes it: `S` outside that class is a class named `S`, and this
+    // module does not invent a bound for it.
+    expect(receiverTypeOf(at(['ComparableUtils.ge']), 'delegate')).toBeUndefined();
+  });
+});

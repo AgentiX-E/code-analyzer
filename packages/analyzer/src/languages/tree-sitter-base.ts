@@ -1357,9 +1357,22 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       properties: {
         filePath: this.filePath,
         callType: this.isMethodCall(node) ? 'method' : 'function',
-        ...(argumentCount === undefined ? {} : { argumentCount: String(argumentCount) }),
+        ...this.arityProperty(argumentCount),
       },
     });
+  }
+
+  /**
+   * The argument count as the property a capture carries — **absent when the grammar does not say how many.**
+   *
+   * **One place, because four call sites asked the same question and each wrote its own answer.** A Java construction,
+   * a Java `super(…)`, a Java call and every base-class call each spelled out `count === undefined ? {} : {…}`, so the
+   * three Java branches were arms no Java source can take - the production always writes an argument list - and they
+   * were the only reason `java.ts` sat under the per-file floor. The shape that *does* leave the count unknown is
+   * `f(*args)`, whose list length is a runtime fact, and that one is a splat in Python and TypeScript.
+   */
+  protected arityProperty(argumentCount: number | undefined): Record<string, string> {
+    return argumentCount === undefined ? {} : { argumentCount: String(argumentCount) };
   }
 
   /**
