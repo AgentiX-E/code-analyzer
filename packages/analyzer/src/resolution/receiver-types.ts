@@ -20,6 +20,28 @@ export interface Declared {
   readonly label: NodeLabel;
 }
 
+/**
+ * How many arguments a member admits, over every declaration of its name in one class.
+ *
+ * **Java decides an overload by arity before it looks at a type**, so the count is the part of a signature that needs
+ * no type system — and it is the part a name-only resolver is missing. `format(x)` in `CompositeFormat` names the base
+ * class's one-parameter method, while the class declares two three-parameter ones; `preVisitDirectory` passes two
+ * arguments to a class that declares a one-parameter `accept`. Both were answered by name, and both were wrong.
+ *
+ * **Three numbers rather than one, because a language can make an argument optional.** A parameter with a default, a
+ * TypeScript `?` and a rest parameter are three different statements: the first two lower `required`, the third removes
+ * the upper bound. A declaration the walk could not read is absent from the map, and an absent fact is not a refusal -
+ * the same rule every other optional fact in this module follows.
+ */
+export interface DeclaredArity {
+  /** How many arguments a call must pass. */
+  readonly required: number;
+  /** How many parameters the declaration writes. */
+  readonly parameters: number;
+  /** Whether a call may pass more than `parameters` — `String... parts`, `...rest`, `*args`. */
+  readonly variadic: boolean;
+}
+
 /** What one file says about the types its declarations have. */
 export interface FileTypes {
   /** `Class.field` → the field's declared type, simple name only. */
@@ -54,6 +76,14 @@ export interface FileTypes {
   readonly members: Map<string, Map<string, Declared>>;
   /** `Class` → the simple names of the classes it extends, in declaration order. */
   readonly bases: Map<string, readonly string[]>;
+  /**
+   * `Class\u0000member` → the arity of each declaration the class writes under that name.
+   *
+   * **A name a class overloads is one name and several signatures**, and the resolver above this one answers by name.
+   * This is the fact that lets it ask the second question - does *this* call fit any of them - so a class that
+   * declares `format(Object, StringBuffer, FieldPosition)` stops answering a one-argument `format(x)`.
+   */
+  readonly arity: Map<string, AritySet>;
 }
 
 /**
@@ -78,6 +108,15 @@ export interface TypedDeclaration {
   readonly properties: Record<string, unknown>;
   /** The graph node, or `undefined` when the declaration has none - a field is not always inserted as one. */
   readonly nodeId?: number;
+  /**
+   * The line the declaration starts on, which is the second half of its identity.
+   *
+   * **A name is not a declaration when a class overloads it.** `Failable` declares `accept` eleven times, each with a
+   * parameter called `consumer` and a different type for it; filed by name, the eleven answers disagree and the name
+   * is refused. The line tells them apart, and a call site inside one of them can name it because the span it sits in
+   * is the span of that declaration.
+   */
+  readonly startLine?: number;
 }
 
 /** How a declaration is spelled in the keys that need more than a class and a name. */
@@ -191,14 +230,23 @@ export function simpleTypeName(annotation: unknown): string | undefined {
   if (text.includes('&') || text.endsWith('?')) return undefined;
   const head = headOfGeneric(text);
   if (head.includes('[')) return undefined;
-  const last = head
-    .split(/[.\s:]+/)
-    .filter(Boolean)
-    .pop();
+  const segments = head.split(/[.\s:]+/).filter(Boolean);
+  const last = segments.pop();
   if (last === undefined || !/^[A-Za-z_$][\w$]*$/.test(last)) return undefined;
   // A primitive has no declaration to find a member in.
   if (PRIMITIVES.has(last)) return undefined;
-  return last;
+  // **A package-qualified name keeps its package, because the package is what decides which class it is.**
+  // `IOUtils.copy(final java.io.ByteArrayOutputStream outputStream)` writes the JDK's class out in full, and the
+  // checkout declares a *different* `ByteArrayOutputStream` in `org.apache.commons.io.output` — so reducing the name to
+  // its last segment answered `outputStream.writeTo(…)` with the checkout's class and claimed an edge that runs
+  // elsewhere. A qualifier is a package when every segment of it is lowercase, which is a convention rather than a
+  // law, and the one every language that writes a qualified name follows: `Map.Entry` and `Zod.ZodString` are nested
+  // names and keep the old reading, while `java.io.X` and `org.apache.X` name a package the lookup can check.
+  const qualifier = segments;
+  if (qualifier.length === 0) return last;
+  return qualifier.every((segment) => /^[a-z_][\w$]*$/.test(segment))
+    ? `${qualifier.join('.')}.${last}`
+    : last;
 }
 
 /**
@@ -283,6 +331,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const classes = new Map<string, Declared>();
   const members = new Map<string, Map<string, Declared>>();
   const bases = new Map<string, readonly string[]>();
+  const arity = new Map<string, AritySet>();
 
   const declare = (className: string, name: string, declaration: TypedDeclaration): void => {
     if (declaration.nodeId === undefined) return;
@@ -404,11 +453,16 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     // before the container is required, because a module-level function has no container and declares locals all the
     // same: `connect()` at the top of a file is where ioredis keeps `_this`.
     if (callable) {
-      const ownerKey = ownerKeyOf(container, declaration.name);
+      const ownerKey = declarationKeyOf(
+        ownerKeyOf(container, declaration.name),
+        declaration.startLine,
+      );
       // **What the declaration says it returns, in the same key space a call site can build.** `void` and an
       // unannotated declaration state no type a member can be looked up in, and `simpleTypeName` refuses both.
       const declaredReturn = simpleTypeName(declaration.properties['returnType']);
-      if (declaredReturn !== undefined) returns.set(ownerKey, declaredReturn);
+      if (declaredReturn !== undefined) {
+        returns.set(ownerKeyOf(container, declaration.name), declaredReturn);
+      }
       for (const [name, type] of stringEntriesOf(declaration.properties['localTypes'])) {
         // **A loop binding records the iterable, not a type**, and the path is kept verbatim for the reader to resolve:
         // reducing it here would file the *last segment* of `this.leaves` as though it were a class.
@@ -428,6 +482,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (callable) {
       classOfFunction.set(ownerKeyOf(container, declaration.name), container);
       declare(container, declaration.name, declaration);
+      recordArity(arity, container, declaration);
       continue;
     }
 
@@ -445,7 +500,124 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     classes,
     members,
     bases,
+    arity,
   };
+}
+
+/**
+ * A declaration's identity: its name, and the line it starts on when the caller knows it.
+ *
+ * **A name alone is an identity only where a class does not overload it.** `Failable.accept` is eleven declarations
+ * that all take a parameter called `consumer`, and `ObjectUtils.identityToString` is two that take a `builder` of two
+ * different types - so a map keyed by name has to choose between answering with one declaration's fact and refusing
+ * both, and iteration 58 chose refusal. The line is what a call site can compare against, because the call sits inside
+ * exactly one of them.
+ */
+function declarationKeyOf(ownerKey: string, startLine: number | undefined): string {
+  return startLine === undefined ? ownerKey : `${ownerKey}\u0000${startLine}`;
+}
+
+/** The name half of a declaration key, which is what a caller who only knows the name can build. */
+function nameKeyOf(declarationKey: string): string {
+  const cut = declarationKey.indexOf('\u0000');
+  return cut === -1 ? declarationKey : declarationKey.slice(0, cut);
+}
+
+/**
+ * File one declaration's arity, **merged with every other declaration of the same name in the same class**.
+ *
+ * **An overload set admits a call if any of its members does.** `f()` and `f(a, b)` together admit zero, one and two
+ * arguments only if a two-parameter declaration exists; the set is what the call is checked against, not whichever
+ * declaration the walk happened to read last.
+ */
+function recordArity(
+  arity: Map<string, AritySet>,
+  container: string,
+  declaration: TypedDeclaration,
+): void {
+  mergeArity(arity, `${container}\u0000${declaration.name}`, declaration);
+}
+
+/** Add one declaration's arity to the set filed under a key. */
+function mergeArity(
+  arity: Map<string, AritySet>,
+  key: string,
+  declaration: TypedDeclaration,
+): void {
+  const written = countOf(declaration.properties['parameterCount']);
+  if (written === undefined) return;
+  // **A declaration that counts its parameters and not its required ones requires all of them.** The two are written
+  // together by every provider that writes either; a fact that states one alone is stating the stricter reading.
+  const required = countOf(declaration.properties['requiredParameters']) ?? written;
+  arity.set(key, [
+    ...(arity.get(key) ?? []),
+    {
+      parameters: written,
+      required,
+      variadic: declaration.properties['variadic'] === 'true',
+    },
+  ]);
+}
+
+/**
+ * What one file's declarations of a name admit, **whoever in the file declares them**.
+ *
+ * **The name-based arms ask the file, so the answer has to be the file's.** A same-file arm resolves `format` to a
+ * declaration the file holds without asking which class holds it, and the arity of that answer is the only thing that
+ * can say whether the call fits: `CompositeFormat.reformat` writes `format(parseObject(input))`, the file declares
+ * `format` with three parameters, and the call that runs is the base class's one-parameter method.
+ *
+ * **Merged across the file rather than per class, because the arm being checked is file-scoped.** The merge can only
+ * make the set admit more than one class would, which is the conservative direction: it refuses a claim only when
+ * nothing in the file could be running.
+ */
+export function fileArityOf(declarations: readonly TypedDeclaration[]): Map<string, AritySet> {
+  const arity = new Map<string, AritySet>();
+  for (const declaration of declarations) {
+    if (
+      declaration.kind !== 'Method' &&
+      declaration.kind !== 'Function' &&
+      declaration.kind !== 'Constructor'
+    ) {
+      continue;
+    }
+    mergeArity(arity, declaration.name, declaration);
+  }
+  return arity;
+}
+
+/**
+ * Everything one class - or one file - declares under a name, as a list of arities.
+ *
+ * **A set of ranges, and not one range.** `f()` and `f(a, b)` admit zero arguments and two, and *not* one: merging the
+ * two into the range `0..2` would admit a call neither declaration takes, which is the shape of an overload set read
+ * wrongly. Each declaration is checked on its own and the call is admitted if any of them takes it.
+ */
+export type AritySet = readonly DeclaredArity[];
+
+/**
+ * Whether a declaration set admits a call that passes this many arguments.
+ *
+ * **An absent fact is not a refusal**, which is the rule every optional fact in this module follows: a name this file
+ * declares no countable declaration of - a variable, a class, a function whose grammar states no parameter list -
+ * answers exactly as it did before this rule existed.
+ */
+export function admitsArguments(
+  declared: AritySet | undefined,
+  argumentCount: number | undefined,
+): boolean {
+  if (declared === undefined || declared.length === 0 || argumentCount === undefined) return true;
+  return declared.some(
+    (arity) =>
+      argumentCount >= arity.required && (arity.variadic || argumentCount <= arity.parameters),
+  );
+}
+
+/** A property a provider wrote as a count, or `undefined` when it wrote none. */
+function countOf(written: unknown): number | undefined {
+  if (typeof written !== 'string') return undefined;
+  const parsed = Number.parseInt(written, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 /**
@@ -603,7 +775,10 @@ function startOf(
   bare: boolean,
 ): ReceiverType | undefined {
   if (OWN_SCOPE.has(base)) {
-    const enclosing = firstOf(lookup.owners, (owner) => own?.classOfFunction.get(owner));
+    const enclosing = firstOf(
+      lookup.owners,
+      (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
+    );
     if (enclosing !== undefined) {
       // **`this.m()` is the same-file arm's case and not this module's.** What a bare own-scope receiver names is a
       // member of the enclosing class, which is the question that arm already asks of the class chain - with evidence.
@@ -612,18 +787,21 @@ function startOf(
     // **A `self` in a function that belongs to no class**, which is how TypeScript written in the callback style hands
     // an object around: `function connectHandler(self: Redis)`. The parameter's annotation is the only thing that says
     // what `self` is, and it scored 0 of 18 claims for the deleted global-name arm on `redis/ioredis`.
-    const parameter = firstOf(lookup.owners, (owner) => own?.parameters.get(key(owner, base)));
+    const parameter = declaredUnder(own?.parameters, lookup.owners, base);
     return parameter === undefined ? undefined : { className: parameter, via: 'parameter' };
   }
-  const local = firstOf(lookup.owners, (owner) => own?.locals.get(key(owner, base)));
+  const local = declaredUnder(own?.locals, lookup.owners, base);
   if (local !== undefined) return valueOf(lookup, own, local, 'local');
-  const parameter = firstOf(lookup.owners, (owner) => own?.parameters.get(key(owner, base)));
+  const parameter = declaredUnder(own?.parameters, lookup.owners, base);
   if (parameter !== undefined) return valueOf(lookup, own, parameter, 'parameter');
   // **A bare name may also be a field of the class the call is written in**, which is how Java uses a shared constant:
   // `ESCAPE_CSV.translate(writer, input)` writes no `this` because a static member needs none. The lookup comes last
   // because Java's own scoping puts a local and a parameter ahead of a field with the same name, and a rule that
   // preferred the field would answer a call with a declaration the name does not mean.
-  const enclosing = firstOf(lookup.owners, (owner) => own?.classOfFunction.get(owner));
+  const enclosing = firstOf(
+    lookup.owners,
+    (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
+  );
   const field = enclosing === undefined ? undefined : own?.fields.get(`${enclosing}.${base}`);
   if (field !== undefined) return valueOf(lookup, own, field, 'thisField');
   // **A receiver may be rooted at a class, and then the walk starts at that class.** `QueueInputStream.builder()`
@@ -708,7 +886,10 @@ function elementOfPath(
     // the loop variable is written at a site that says nothing about it.
     const field = hops.length === 1 ? hops[0] : undefined;
     if (field === undefined) return undefined;
-    const enclosing = firstOf(lookup.owners, (owner) => own?.classOfFunction.get(owner));
+    const enclosing = firstOf(
+      lookup.owners,
+      (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
+    );
     const element =
       enclosing === undefined ? undefined : own?.elements.get(`${enclosing}.${field}`);
     return element === undefined ? undefined : { className: element, via: 'thisField' };
@@ -716,7 +897,7 @@ function elementOfPath(
   if (hops.length > 0) return undefined;
   // A bare name is a local or a parameter, and both are filed under the same owner key - so this is one lookup, and
   // the answer does not have to say which of the two it was: `for (const x of items)` iterates what `items` is.
-  const element = firstOf(lookup.owners, (owner) => own?.elements.get(key(owner, base)));
+  const element = declaredUnder(own?.elements, lookup.owners, base);
   return element === undefined ? undefined : { className: element, via: 'local' };
 }
 
@@ -735,6 +916,30 @@ function firstOf(
 /** How one `name → type` map is keyed: by the owner that declares it, then by the name. */
 function key(owner: string, name: string): string {
   return `${owner}\u0000${name}`;
+}
+
+/**
+ * The first declaration in the chain that states a type for a name — **the innermost one that does.**
+ *
+ * **Two keys are tried per owner, and the order between them is the whole rule.** An owner that carries a line is a
+ * declaration, and the map a provider filed it in is keyed by that declaration: `Failable.accept\u000012` states a
+ * `consumer` of one type and `Failable.accept\u000040` another, and the call site sits inside exactly one of them. The
+ * name-keyed entry is the fallback for a provider that files no line - every Python and TypeScript parameter is one -
+ * and for a declaration whose fact was written before this key existed.
+ */
+function declaredUnder(
+  map: Map<string, string> | undefined,
+  owners: readonly string[],
+  name: string,
+): string | undefined {
+  if (map === undefined) return undefined;
+  for (const owner of owners) {
+    const exact = map.get(key(owner, name));
+    if (exact !== undefined) return exact;
+    const bare = map.get(key(nameKeyOf(owner), name));
+    if (bare !== undefined) return bare;
+  }
+  return undefined;
 }
 
 /**
@@ -912,8 +1117,43 @@ export function mergeClassIndex(index: ClassIndex, types: FileTypes, filePath: s
   }
 }
 
-/** The class a name means, from where the lookup is written - or `undefined` when the evidence does not decide. */
+/**
+ * The class a name means, from where the lookup is written - or `undefined` when the evidence does not decide.
+ *
+ * **A qualified name is answered only by the class that lives in the package it names.** `java.io.ByteArrayOutputStream`
+ * and `org.apache.commons.io.output.ByteArrayOutputStream` are two classes with one simple name, and the checkout holds
+ * the second: read as a simple name, the JDK type in `IOUtils.copy`'s signature answered a call that runs elsewhere.
+ * The package is checked against the file path, which is where a package is a directory in every language this parses.
+ */
 function locateClass(
+  index: ClassIndex,
+  className: string,
+  origin: LookupOrigin | undefined,
+): LocatedClass | undefined {
+  const cut = className.lastIndexOf('.');
+  if (cut === -1) return locateSimpleClass(index, className, origin);
+  const simple = className.slice(cut + 1);
+  const found = locateSimpleClass(index, simple, origin);
+  return found !== undefined && declaredInPackage(found.file, className) ? found : undefined;
+}
+
+/**
+ * Whether a file is the class a package-qualified name states.
+ *
+ * **The comparison is on the path's tail**, because a checkout's source root is not something this module knows: the
+ * file `…/src/main/java/org/apache/commons/io/output/ByteArrayOutputStream.java` is
+ * `org.apache.commons.io.output.ByteArrayOutputStream` for any root, and a class that lives elsewhere shares nothing
+ * with that name but its last segment.
+ */
+function declaredInPackage(file: string, qualified: string): boolean {
+  const normalized = file.replace(/\\/g, '/');
+  const dot = normalized.lastIndexOf('.');
+  const stem = dot > normalized.lastIndexOf('/') ? normalized.slice(0, dot) : normalized;
+  return stem.endsWith(`/${qualified.split('.').join('/')}`);
+}
+
+/** The class a name means when the name is simple — the walk that has always answered this question. */
+function locateSimpleClass(
   index: ClassIndex,
   className: string,
   origin: LookupOrigin | undefined,
@@ -1000,14 +1240,21 @@ export function classNamed(
   return locateClass(index, className, origin);
 }
 
-/** The member a class declares under a name, or `undefined` when it declares none, two, or is not found. */
+/**
+ * The member a class declares under a name, or `undefined` when it declares none, two, or is not found.
+ *
+ * **`argumentCount` is the call's, and it is what turns a name into a signature.** Omitted, the question is the one
+ * this function has always asked - "does the class declare this name" - and a caller that cannot count arguments (a
+ * deferred `Type::method`, a splat) gets exactly the old answer.
+ */
 export function classMemberOf(
   index: ClassIndex,
   className: string,
   memberName: string,
   origin?: LookupOrigin,
+  argumentCount?: number,
 ): Declared | undefined {
-  return lookupMember(index, className, memberName, origin, false);
+  return lookupMember(index, className, memberName, origin, false, argumentCount);
 }
 
 /**
@@ -1022,8 +1269,9 @@ export function baseMemberOf(
   className: string,
   memberName: string,
   origin?: LookupOrigin,
+  argumentCount?: number,
 ): Declared | undefined {
-  return lookupMember(index, className, memberName, origin, true);
+  return lookupMember(index, className, memberName, origin, true, argumentCount);
 }
 
 /**
@@ -1040,6 +1288,7 @@ function lookupMember(
   memberName: string,
   origin: LookupOrigin | undefined,
   skipOwnClass: boolean,
+  argumentCount?: number,
 ): Declared | undefined {
   const start = locateClass(index, className, origin);
   if (start === undefined) return undefined;
@@ -1058,7 +1307,7 @@ function lookupMember(
     const answers: Declared[] = [];
     const next: LocatedClass[] = [];
     for (const candidate of frontier) {
-      const own = ownMemberOf(index, candidate, memberName);
+      const own = ownMemberOf(index, candidate, memberName, argumentCount);
       if (own !== undefined) answers.push(own);
       next.push(...basesOf(index, candidate));
     }
@@ -1068,6 +1317,15 @@ function lookupMember(
   }
   return undefined;
 }
+
+/**
+ * Whether a class's declarations of a name admit a call of this arity.
+ *
+ * **A class that declares the name but none of its signatures does not answer the call, and the walk keeps going.**
+ * That is what an overload set means in Java: `Sub` declaring `f(int)` says nothing about `f(1, 2)`, and a `Base` that
+ * declares `f(int, int)` is where that call runs. Answering nothing at all would be the other defensible reading, and
+ * it is wrong for the same reason the arm above reads bases at all.
+ */
 
 /** A class's identity in the walk, which is the file it lives in and the name it is filed under. */
 function keyOf(located: LocatedClass): string {
@@ -1079,9 +1337,16 @@ function ownMemberOf(
   index: ClassIndex,
   located: LocatedClass,
   memberName: string,
+  argumentCount?: number,
 ): Declared | undefined {
-  const bucket = index.files.get(located.file)?.members.get(located.name);
+  const file = index.files.get(located.file);
+  const bucket = file?.members.get(located.name);
   if (bucket === undefined) return undefined;
+  // **The signature is checked before the name is answered**, because a class that declares `format(Object,
+  // StringBuffer, FieldPosition)` is not the class a one-argument `format(x)` runs.
+  if (!admitsArguments(file?.arity.get(`${located.name}\u0000${memberName}`), argumentCount)) {
+    return undefined;
+  }
   if (bucket.has(`${memberName}\u0000ambiguous`)) return undefined;
   return bucket.get(memberName);
 }

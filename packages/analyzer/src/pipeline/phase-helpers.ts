@@ -393,6 +393,20 @@ export function receiverOf(
   return text.slice(0, cut);
 }
 
+/**
+ * The number of arguments a call capture passes, when its provider counted them.
+ *
+ * **A provider writes the count and this reads it**, rather than the resolver counting from the callee's text: the
+ * callee text is `self.store` and the arguments were never in it. A property that is not a non-negative integer is a
+ * property no provider writes, and it answers `undefined` — the same "unknown" a splat argument list produces.
+ */
+export function argumentCountOf(capture: UnifiedCapture): number | undefined {
+  const written = capture.properties?.['argumentCount'];
+  if (written === undefined) return undefined;
+  const parsed = Number.parseInt(written, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
 export function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
   switch (tag) {
     case CAPTURE_TAGS.FUNCTION_CALL:
@@ -574,6 +588,7 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
       const targetName = capture.name ?? capture.text;
       const referenceKind = captureTagToReferenceKind(tag);
       const receiver = receiverOf(tag, capture.text, targetName);
+      const argumentCount = argumentCountOf(capture);
 
       references.push({
         sourceFile: filePath,
@@ -582,6 +597,7 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
         targetName,
         referenceKind,
         ...(receiver === undefined ? {} : { receiver }),
+        ...(argumentCount === undefined ? {} : { argumentCount }),
       });
     }
   }

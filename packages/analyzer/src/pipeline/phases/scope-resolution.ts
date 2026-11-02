@@ -16,6 +16,7 @@ import {
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { buildCallSites } from '../../resolution/call-sites.js';
 import {
+  admitsArguments,
   baseMemberOf,
   buildFileTypes,
   classInPackageOf,
@@ -23,11 +24,13 @@ import {
   classNamed,
   containerOf,
   createClassIndex,
+  fileArityOf,
   mergeClassIndex,
   ownerKeyOf,
   receiverTypeOf,
 } from '../../resolution/receiver-types.js';
 
+import type { AritySet } from '../../resolution/receiver-types.js';
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import type {
   PipelinePhaseId,
@@ -795,9 +798,32 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             containerName: symbol.containerName,
             properties: symbol.properties ?? {},
             nodeId: nodeIdOf(symbol),
+            startLine: symbol.startLine,
           })),
         );
         mergeClassIndex(classIndex, facts, parsedFile.filePath);
+      }
+
+      /**
+       * What each file's declarations of a name admit, for the arms that ask the file rather than a class.
+       *
+       * **The same-file arm resolves a name without asking which class declares it**, so the arity it has to check is
+       * the file's: `CompositeFormat.reformat` writes `format(parseObject(input))` and the file declares `format` with
+       * three parameters, so neither of the two calls can be running that declaration - and both were claimed by it.
+       * Merged per file, the check can only refuse a claim nothing in the file could be running.
+       */
+      const arityByFile = new Map<string, Map<string, AritySet>>();
+      for (const parsedFile of parseData.parsedFiles) {
+        arityByFile.set(
+          parsedFile.filePath,
+          fileArityOf(
+            parsedFile.symbols.map((symbol) => ({
+              name: symbol.name,
+              kind: symbol.kind,
+              properties: symbol.properties ?? {},
+            })),
+          ),
+        );
       }
 
       /**
@@ -1267,6 +1293,19 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                     : ref.receiver === undefined && !hasImplicitThis(parsedFile.language)
                       ? module
                       : (member ?? module);
+              // **A name the file declares is not a signature, and the file's declarations decide whether it fits.**
+              // `format(x)` in `CompositeFormat` names the base class's one-parameter method while the file declares
+              // two three-parameter ones; `parseObject(input)` names a one-parameter `java.text.Format` method while the
+              // file declares a two-parameter one. Both were claimed, and both run elsewhere.
+              if (
+                target !== undefined &&
+                !admitsArguments(
+                  arityByFile.get(parsedFile.filePath)?.get(ref.targetName),
+                  ref.argumentCount,
+                )
+              ) {
+                target = undefined;
+              }
               if (target) arm = 'sameFile';
             }
 
@@ -1289,13 +1328,19 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               !shadowsLocally(ref.receiver, ref.sourceLine)
             ) {
               const member =
-                classMemberOf(classIndex, ref.receiver, ref.targetName, origin) ??
+                classMemberOf(
+                  classIndex,
+                  ref.receiver,
+                  ref.targetName,
+                  origin,
+                  ref.argumentCount,
+                ) ??
                 // **A class name inherits what its base declares, and this arm stopped at the class itself.** Java
                 // inherits a static member like any other, and a class-name receiver is the one shape where the name
                 // is unambiguous - so "does the class declare it" and "does a base" are one question asked once.
                 // Found by measuring member references: `MultiBackgroundInitializer::getTaskCount` runs
                 // `BackgroundInitializer.getTaskCount`, and the static arm answered nothing for it.
-                baseMemberOf(classIndex, ref.receiver, ref.targetName, origin);
+                baseMemberOf(classIndex, ref.receiver, ref.targetName, origin, ref.argumentCount);
               if (member !== undefined) {
                 target = member;
                 arm = 'static';
@@ -1342,9 +1387,27 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   // statement `super()` makes, one link further up, so it is the same walk: the base chain is the
                   // receiver's scope whenever the receiver *is* the enclosing object.
                   const member = sup
-                    ? baseMemberOf(classIndex, ownerClass, ref.targetName, origin)
-                    : (classMemberOf(classIndex, ownerClass, ref.targetName, origin) ??
-                      baseMemberOf(classIndex, ownerClass, ref.targetName, origin));
+                    ? baseMemberOf(
+                        classIndex,
+                        ownerClass,
+                        ref.targetName,
+                        origin,
+                        ref.argumentCount,
+                      )
+                    : (classMemberOf(
+                        classIndex,
+                        ownerClass,
+                        ref.targetName,
+                        origin,
+                        ref.argumentCount,
+                      ) ??
+                      baseMemberOf(
+                        classIndex,
+                        ownerClass,
+                        ref.targetName,
+                        origin,
+                        ref.argumentCount,
+                      ));
                   if (member !== undefined) {
                     target = member;
                     arm = sup ? 'super' : 'inherited';
@@ -1376,12 +1439,20 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               // **The owners are a chain, and the chain is passed rather than a name.** A local is visible to the
               // functions it is nested in - `const _this = this` in `connect`, used inside a callback in `connect` -
               // so the question "what is this name here" is asked of every enclosing function, innermost first.
+              //
+              // **And each entry names a declaration rather than a spelling.** A class that overloads a method declares
+              // it several times, and the parameters of one are not the parameters of another: `Failable.accept` takes
+              // a `consumer` of ten different types across eleven declarations. The line is what a call site inside one
+              // of them can state, and the walk reads it before it falls back to the name.
               const owners = callables
                 .filter(
                   (symbol) =>
                     symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
                 )
-                .map((symbol) => ownerKeyOf(containerOf(symbol), symbol.name));
+                .map(
+                  (symbol) =>
+                    `${ownerKeyOf(containerOf(symbol), symbol.name)}\u0000${symbol.startLine}`,
+                );
               const receiverType = receiverTypeOf(
                 { index: classIndex, origin, owners },
                 ref.receiver,
@@ -1399,6 +1470,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   receiverType.className,
                   ref.targetName,
                   memberScope,
+                  ref.argumentCount,
                 );
                 if (member !== undefined) {
                   target = member;

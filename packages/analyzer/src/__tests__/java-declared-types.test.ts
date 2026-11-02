@@ -82,10 +82,12 @@ describe('a Java class declares the type of each of its fields', () => {
 describe('a Java method declares the type of each of its parameters', () => {
   it('files a parameter under the class and the method that declare it', () => {
     const parameter = definitionOf('widget', CAPTURE_TAGS.VARIABLE_DEF);
+    const run = definitionOf('run', CAPTURE_TAGS.METHOD_DEF);
     expect(parameter?.properties?.['parameterType']).toBe('Widget');
-    // **The key is `Class.method`, because a call site knows the class and not the file** - the same key the class
-    // index uses, so one lookup answers both halves of the question.
-    expect(parameter?.properties?.['parameterOwner']).toBe('Holder.run');
+    // **The key is `Class.method` and the line the declaration starts on**, because a call site knows the class and
+    // not the file - the same key the class index uses, so one lookup answers both halves of the question - and because
+    // a class can declare `run` twice with a `widget` of two different types.
+    expect(parameter?.properties?.['parameterOwner']).toBe(`Holder.run\u0000${run?.startLine}`);
   });
 
   it('reads the type of a spread parameter, whose name lives in a declarator', () => {
@@ -172,12 +174,14 @@ describe('a local is found from wherever it is written', () => {
 
   it("files a constructor's parameters and locals under the constructor", () => {
     // A constructor is a method with a key and no return type, and the key is `Class.Class` - the same shape a
-    // `this(…)` chain would ask for.
+    // `this(…)` chain would ask for - **followed by the line its declaration starts on**, because a class overloads a
+    // constructor as it overloads anything else.
     const constructor = `package demo;\nclass Ctor { Ctor(Widget w) { Foo f = new Foo(); } }\n`;
+    const declared = definitionOf('Ctor', CAPTURE_TAGS.CONSTRUCTOR_DEF, constructor);
     expect(
       definitionOf('w', CAPTURE_TAGS.VARIABLE_DEF, constructor)?.properties?.['parameterOwner'],
-    ).toBe('Ctor.Ctor');
-    expect(blobOf(definitionOf('Ctor', CAPTURE_TAGS.CONSTRUCTOR_DEF, constructor))).toEqual({
+    ).toBe(`Ctor.Ctor\u0000${declared?.startLine}`);
+    expect(blobOf(declared)).toEqual({
       f: 'Foo',
     });
   });
@@ -192,14 +196,20 @@ describe('the facts reach the resolver in the coordinates it reads', () => {
         containerName: capture.containerName,
         properties: capture.properties ?? {},
         nodeId: 1,
+        startLine: capture.startLine,
       })),
     );
+    const run = definitionOf('run', CAPTURE_TAGS.METHOD_DEF);
+    // **A parameter and a local are filed under a declaration, not under a name.** `Holder.run` is a name that a
+    // class can declare twice - an overload - and two overloads may take a `widget` of two different types; the line
+    // is the half of the identity that tells a call site which of them it sits inside.
+    const declared = `Holder.run\u0000${run?.startLine}`;
 
     expect(types.fields.get('Holder.characterSet')).toBe('CharSet');
-    expect(types.parameters.get('Holder.run\u0000widget')).toBe('Widget');
-    expect(types.locals.get('Holder.run\u0000built')).toBe('Foo');
+    expect(types.parameters.get(`${declared}\u0000widget`)).toBe('Widget');
+    expect(types.locals.get(`${declared}\u0000built`)).toBe('Foo');
     // **A primitive is not a class**, and the refusal happens in the resolver rather than in the provider.
-    expect(types.locals.get('Holder.run\u0000one')).toBeUndefined();
+    expect(types.locals.get(`${declared}\u0000one`)).toBeUndefined();
   });
 });
 

@@ -780,3 +780,120 @@ describe('ScopeResolution — a class name inherits what its base declares', () 
     expect(callEdges(graph).map((edge) => edge.targetId)).toEqual([3]);
   });
 });
+
+// **A name the file declares is not a declaration the call runs.** `CompositeFormat.reformat` writes
+// `format(parseObject(input))`: the file declares `format` with three parameters and `parseObject` with two, and both
+// calls pass one - so both run methods of `java.text.Format`, which the checkout does not hold. Answering by name
+// claimed two edges that run elsewhere.
+describe('ScopeResolution — a name is answered by its signature', () => {
+  const JAVA = '/proj/CompositeFormat.java';
+
+  /** The file, with each method stating how many arguments it takes. */
+  const filesOf = (): ParsedFile[] => [
+    parsedFile(
+      JAVA,
+      [
+        symbol('Class', 'CompositeFormat', 1, 10, JAVA),
+        {
+          ...symbol('Method', 'format', 3, 5, JAVA),
+          containerName: 'CompositeFormat',
+          properties: { parameterCount: '3', requiredParameters: '3' },
+        },
+        {
+          ...symbol('Method', 'parseObject', 6, 9, JAVA),
+          containerName: 'CompositeFormat',
+          properties: { parameterCount: '2', requiredParameters: '2' },
+        },
+      ],
+      [reference('format', 12, undefined, JAVA)],
+      'java',
+    ),
+  ];
+
+  it('refuses a call whose argument count no declaration in the file takes', async () => {
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'CompositeFormat', JAVA, 1, 10),
+        node(2, 'Method', 'format', JAVA, 3, 5),
+        node(3, 'Method', 'parseObject', JAVA, 6, 9),
+        node(4, 'Method', 'reformat', JAVA, 11, 14),
+      ],
+      [JAVA],
+    );
+    const files = filesOf();
+    files[0]!.references[0] = { ...reference('format', 12, undefined, JAVA), argumentCount: 1 };
+    files[0]!.symbols.push({
+      ...symbol('Method', 'reformat', 11, 14, JAVA),
+      containerName: 'CompositeFormat',
+    });
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+    expect(callEdges(graph)).toEqual([]);
+  });
+
+  it('answers the same name when the call passes the arguments it declares', async () => {
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'CompositeFormat', JAVA, 1, 10),
+        node(2, 'Method', 'format', JAVA, 3, 5),
+        node(3, 'Method', 'parseObject', JAVA, 6, 9),
+        node(4, 'Method', 'reformat', JAVA, 11, 14),
+      ],
+      [JAVA],
+    );
+    const files = filesOf();
+    files[0]!.references[0] = { ...reference('format', 12, undefined, JAVA), argumentCount: 3 };
+    files[0]!.symbols.push({
+      ...symbol('Method', 'reformat', 11, 14, JAVA),
+      containerName: 'CompositeFormat',
+    });
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+    expect(callEdges(graph)).toEqual([{ sourceId: 4, targetId: 2, resolution: 'sameFile' }]);
+  });
+});
+
+// **`interface A extends B` makes every member of `B` a member of `A`.** `IOStream` extends
+// `IOBaseStream<T, IOStream<T>, …>` and every one of its methods calls the base's `unwrap()`; the walk read `extends`
+// on classes only, so 42 of the pairs javac expected on `apache/commons-io` were unanswered.
+describe('ScopeResolution — an interface inherits what it extends', () => {
+  const BASE = '/proj/IOBaseStream.java';
+  const STREAM = '/proj/IOStream.java';
+
+  it('answers a bare call with the declaration the extended interface holds', async () => {
+    // **Two files, because one file would let the same-file arm answer the name.** The declaration lives in the
+    // interface this one extends, which is a base rather than a neighbour.
+    const graph = graphOf(
+      [
+        node(1, 'Interface', 'IOBaseStream', BASE, 1, 5),
+        node(2, 'Method', 'unwrap', BASE, 2, 4),
+        node(3, 'Interface', 'IOStream', STREAM, 6, 12),
+        node(4, 'Method', 'run', STREAM, 7, 11),
+      ],
+      [BASE, STREAM],
+    );
+    const files = [
+      parsedFile(
+        BASE,
+        [
+          { ...symbol('Interface', 'IOBaseStream', 1, 5, BASE), properties: {} },
+          { ...symbol('Method', 'unwrap', 2, 4, BASE), containerName: 'IOBaseStream' },
+        ],
+        [],
+        'java',
+      ),
+      parsedFile(
+        STREAM,
+        [
+          {
+            ...symbol('Interface', 'IOStream', 6, 12, STREAM),
+            properties: { baseClasses: 'IOBaseStream' },
+          },
+          { ...symbol('Method', 'run', 7, 11, STREAM), containerName: 'IOStream' },
+        ],
+        [{ ...reference('unwrap', 9, undefined, STREAM), argumentCount: 0 }],
+        'java',
+      ),
+    ];
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+    expect(callEdges(graph)).toEqual([{ sourceId: 4, targetId: 2, resolution: 'inherited' }]);
+  });
+});

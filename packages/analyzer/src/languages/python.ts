@@ -360,7 +360,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
       };
     });
     this.classFieldTypes.clear();
-    return decorated;
+    return this.attachDeclaredFacts(decorated);
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
@@ -391,6 +391,15 @@ export class PythonProvider extends TreeSitterBaseProvider {
             ...docstringProperty(node),
           },
         });
+        // **What the declaration says it returns, and how many arguments it takes.** Neither was recorded for Python
+        // until iteration 60: the shared walk hook that reads them is not reached from this provider's own walk, so
+        // the language the product resolves best had no return types at all. `-> Request` and `def wrap(self, f)` are
+        // written on the declaration, which is the only place a caller can read them from.
+        this.recordDeclaredReturn(node, 'return_type', nameNode.text);
+        // **A method's receiver is written in the declaration and not at the call site.** `def wrap(self, f)` is called
+        // as `wrap(f)`, so the count a caller passes is one less than the count the source states - and only inside a
+        // class, because a free function that happens to name a parameter `self` passes it like any other.
+        this.recordDeclaredArity(node, nameNode.text, enclosingClass !== undefined);
       }
     } else if (nodeType === 'class_definition') {
       const nameNode = this.findNamedChild(node, 'identifier');

@@ -193,12 +193,20 @@ const TYPESCRIPT_FLOORS = {
  * oracle sees and the graph does not, and the largest groups are a constructor of a nested class and an overload call
  * whose caller and callee share a name - the second of which the graph refuses by policy in one arm and emits in three
  * others. Making that policy uniform is the next measurement, not this one.
+ *
+ * **Iteration 60 answered a call by the signature it writes**, and the floor on precision moved to where no wrong edge
+ * remains. A declaration states how many arguments it takes and a call site states how many it passes; a name that
+ * several declarations answer is now resolved by those two numbers rather than by refusing the name outright, which
+ * added 66 edges on `commons-lang` and 40 on `commons-io`. Precision on `commons-lang` is **2194 of 2194**, so the
+ * floor is 1.0: a single wrong edge now trips it. `commons-io` reads 1600 of 1602 and the floor of 0.9985 admits
+ * exactly those two - the pair `AbstractFileFilter.preVisitDirectory` calls `accept(dir, attrs)`, which `IOFileFilter`
+ * declares and the inherited arm answers out of the wrong class chain. Fixing that moves the floor, not loosening it.
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
-    precision: 0.999,
-    recall: 0.96,
-    claimed: 2170,
+    precision: 1,
+    recall: 0.97,
+    claimed: 2190,
     arms: {
       import: 0.99,
       inherited: 0.995,
@@ -216,9 +224,9 @@ const JAVA_FLOORS = {
     },
   },
   'apache/commons-io': {
-    precision: 0.998,
-    recall: 0.925,
-    claimed: 1550,
+    precision: 0.9985,
+    recall: 0.955,
+    claimed: 1595,
     arms: {
       import: 0.99,
       inherited: 0.99,

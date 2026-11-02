@@ -264,7 +264,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // belongs to the declaration should not have to be repeated in each of them.
     if (nodeType === 'method_definition' || nodeType === 'function_declaration') {
       const declaredName = this.extractNameFromNode(node);
-      if (declaredName !== undefined) this.recordDeclaredReturn(node, 'return_type', declaredName);
+      if (declaredName !== undefined) {
+        this.recordDeclaredReturn(node, 'return_type', declaredName);
+        // **And how many arguments it takes**, which is the overload's deciding fact in a language whose optional
+        // parameters make the range a range rather than a number.
+        this.recordDeclaredArity(node, declaredName);
+      }
     }
 
     if (nodeType === 'assignment_expression') {
@@ -1070,7 +1075,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
     this.classFieldTypes.clear();
     this.localTypes.clear();
-    return captures;
+    // **The returns and arities this walk read are attached here, and until iteration 60 they were not attached at
+    // all.** `recordDeclaredReturn` was called for every TypeScript method and `decorateCaptures` never read the map
+    // back, so **the declared return type was recorded for every TypeScript file and reached no capture** - the fact
+    // existed, the feature did not, and the doc that claimed it was wrong. The map also grew for the whole run, since
+    // the only place that cleared it was the attach that never ran. One call, two defects.
+    return this.attachDeclaredFacts(captures);
   }
 
   /** The field types a class carries, filed on the class capture. */

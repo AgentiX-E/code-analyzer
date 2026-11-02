@@ -31,6 +31,9 @@ const JAVA_TAINT_NODES = {
   argumentContainer: ['argument_list'],
 };
 
+/** The node types a Java grammar reports a comment as. */
+const COMMENT_TYPES: ReadonlySet<string> = new Set(['comment', 'line_comment', 'block_comment']);
+
 /** The two declarations a local belongs to, and the only two a parameter is ever filed under. */
 const METHOD_CONTAINERS: ReadonlySet<string> = new Set([
   'method_declaration',
@@ -160,19 +163,30 @@ export class JavaProvider extends TreeSitterBaseProvider {
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters')!;
-    const parameters = namedChildrenOf(list).map((parameter) => {
-      const own = parameter.childForFieldName('name');
-      const name =
-        own ??
-        this.variableNameNode(
-          namedChildrenOf(parameter).find((c) => c.type === 'variable_declarator')!,
-        );
-      return { name, type: this.parameterTypeOf(parameter) };
-    });
+    // **A comment between two parameters is a named child and is not a parameter.** `void run(Widget widget /* the
+    // widget */, Other other)` parse-crashes without this filter: the comment reaches `variableNameNode`, which asks a
+    // node with no children for its declarator. Valid Java, and a hard failure rather than a wrong answer.
+    //
+    // **A receiver parameter is in the list and is not a parameter a call passes.** `void run(Inner this, int size)`
+    // names the enclosing instance of an inner class; it has no declarator of its own, so reaching for one threw
+    // `Cannot read properties of undefined (reading 'namedChildren')` on valid Java - and counting it would have put
+    // every call one argument short of the declaration it calls.
+    const parameters = namedChildrenOf(list)
+      .filter((parameter) => !COMMENT_TYPES.has(parameter.type))
+      .filter((parameter) => parameter.type !== 'receiver_parameter')
+      .map((parameter) => {
+        const own = parameter.childForFieldName('name');
+        const name =
+          own ??
+          this.variableNameNode(
+            namedChildrenOf(parameter).find((c) => c.type === 'variable_declarator')!,
+          );
+        return { name, type: this.parameterTypeOf(parameter) };
+      });
     // **A parameter's type is filed under the method that declares it**, which is the key a call site can build: the
     // call knows the class and the method, and nothing about the file the declaration lives in. Read off the node
     // itself, because this method is reached only for a method or a constructor - so the owner exists.
-    const owner = this.ownerKeyOfMethod(node);
+    const owner = this.declarationKeyOf(node);
     for (const [parameterIndex, { name, type }] of parameters.entries()) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
@@ -189,11 +203,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
           filePath: this.filePath,
           parameterIndex: String(parameterIndex),
           parameterOwner: owner,
-          // **A parameter with no type is the shape a file being edited parses into**, and it is the one arm here that
-          // no complete Java source can take - `void run(Widget)` is not a method the grammar produces, and the walk
-          // does not even reach this loop for it. Kept, because the alternative is a resolver handed the string
-          // `"undefined"` as a class name; the same contract the docstring guard in `tree-sitter-base.ts` states.
-          ...(type === undefined ? {} : { parameterType: type }),
+          parameterType: type,
         },
       });
     }
@@ -206,11 +216,14 @@ export class JavaProvider extends TreeSitterBaseProvider {
    * named child and the name lives inside a declarator. Reading only the field left every variadic parameter untyped,
    * which is the shape `StringUtils.join(…)` is most often called with.
    */
-  private parameterTypeOf(parameter: TreeSitterSyntaxNode): string | undefined {
+  private parameterTypeOf(parameter: TreeSitterSyntaxNode): string {
     const field = parameter.childForFieldName('type');
     if (field !== null) return field.text;
-    const first = namedChildrenOf(parameter).find((child) => TYPE_NODES.has(child.type));
-    return first?.text;
+    // **The shapes without the field are the two the grammar wraps, and both carry their type as a child**: a spread
+    // parameter (`String... parts`) is `type ... declarator`, and a receiver parameter (`Inner this`) is `type this`.
+    // A `formal_parameter` always has the field, so there is no third shape and nothing here to answer `undefined`
+    // for - which is what let the capture below stop guarding a case the production cannot write.
+    return namedChildrenOf(parameter).find((child) => TYPE_NODES.has(child.type))!.text;
   }
 
   /**
@@ -317,7 +330,22 @@ export class JavaProvider extends TreeSitterBaseProvider {
     // of the walk, and a `local_variable_declaration` is never itself the method that owns it.
     let method: TreeSitterSyntaxNode | null = node.parent;
     while (method !== null && !METHOD_CONTAINERS.has(method.type)) method = method.parent;
-    return method === null ? undefined : this.ownerKeyOfMethod(method);
+    return method === null ? undefined : this.declarationKeyOf(method);
+  }
+
+  /**
+   * `Class.method` plus the line the declaration starts on — **a declaration, not a name.**
+   *
+   * **An overload is one name and several declarations, and each may declare a parameter of the same name with a
+   * different type.** `apache/commons-lang`'s `Failable` declares `accept` eleven times, and ten of them take a
+   * parameter called `consumer` — `FailableConsumer`, `FailableBiConsumer`, `FailableIntConsumer` and so on. Filed by
+   * name alone, the ten answers disagree, the name is dropped, and **every `consumer.accept(…)` in the class becomes
+   * unanswerable** — which is 24 of the pairs javac expected and this graph claimed nothing for. A call site sits
+   * inside exactly one of those declarations and the walk knows which, so the key carries the line and the answer is
+   * the one the enclosing declaration states.
+   */
+  private declarationKeyOf(method: TreeSitterSyntaxNode): string {
+    return `${this.ownerKeyOfMethod(method)}\u0000${method.startPosition.row + 1}`;
   }
 
   /**
@@ -429,7 +457,9 @@ export class JavaProvider extends TreeSitterBaseProvider {
         (capture.tag === CAPTURE_TAGS.METHOD_DEF || capture.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF) &&
         capture.containerName !== undefined
       ) {
-        const locals = this.localTypes.get(ownerKeyOf(capture.containerName, String(capture.name)));
+        const locals = this.localTypes.get(
+          `${ownerKeyOf(capture.containerName, String(capture.name))}\u0000${capture.startLine}`,
+        );
         if (locals !== undefined && locals.size > 0) {
           capture.properties = {
             ...capture.properties,
@@ -440,7 +470,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
     }
     this.classFieldTypes.clear();
     this.localTypes.clear();
-    return this.attachReturnTypes(captures);
+    return this.attachDeclaredFacts(captures);
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
@@ -499,6 +529,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
       // when the call takes nothing**.
       const nameNode = node.childForFieldName('name')!;
       const receiver = node.childForFieldName('object');
+      const methodArguments = this.argumentCountOf(node);
       captures.push({
         tag: receiver ? CAPTURE_TAGS.METHOD_CALL : CAPTURE_TAGS.FUNCTION_CALL,
         text: receiver ? `${receiver.text}.${nameNode.text}` : nameNode.text,
@@ -507,7 +538,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
         startByte: nameNode.startIndex,
         endByte: nameNode.endIndex,
         name: nameNode.text,
-        properties: { filePath: this.filePath },
+        properties: {
+          filePath: this.filePath,
+          ...(methodArguments === undefined ? {} : { argumentCount: String(methodArguments) }),
+        },
       });
       this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
     } else if (nodeType === 'enhanced_for_statement') {
@@ -520,6 +554,21 @@ export class JavaProvider extends TreeSitterBaseProvider {
       // is about to hold.
       const name = node.childForFieldName('name');
       if (name !== null) {
+        // **The loop variable states its own type, and the walk threw it away.** `for (final Pair<String, Object> pair :
+        // contextValues)` writes `Pair` on the declaration, and recording only the name left `pair.getKey()` untyped -
+        // which is nine of the pairs javac expected on `apache/commons-lang` and this graph claimed nothing for, in
+        // `DefaultExceptionContext`, `DiffBuilder` and `DiffResult` alone. The iterable's element is the fallback for a
+        // binding that writes no type (TypeScript's `for (const leaf of this.leaves)`), not a replacement for one that
+        // does.
+        //
+        // **`var` is a token where the type would be and is not a type.** `for (var name : names)` parsed it as the
+        // declared type of `name`, so every call on the binding was resolved against a class called `var` - the same
+        // string `declaredTypeOf` already refuses for a local, refused here for the same reason: an inferred type is
+        // not a stated one.
+        const written = node.childForFieldName('type');
+        if (written !== null && written.text !== 'var') {
+          this.recordLocalType(node, name.text, written.text);
+        }
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: name.text,
@@ -606,6 +655,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
       // `DiffBuilder` claimed `Diff.Diff` between them, and the resolver's own construction rule refuses the same
       // shape for the same reason. The arguments are still read below, because they are still used.
       const anonymous = namedChildrenOf(node).some((child) => child.type === 'class_body');
+      const constructedArguments = this.argumentCountOf(node);
       if (!anonymous) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_CALL,
@@ -615,7 +665,12 @@ export class JavaProvider extends TreeSitterBaseProvider {
           startByte: node.startIndex,
           endByte: node.endIndex,
           name: built,
-          properties: { filePath: this.filePath },
+          properties: {
+            filePath: this.filePath,
+            ...(constructedArguments === undefined
+              ? {}
+              : { argumentCount: String(constructedArguments) }),
+          },
         });
       }
       // `new Foo()` always carries an `argument_list`, empty when the call passes nothing — the grammar requires it.
@@ -632,6 +687,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
       // two things the keywords can mean. The arguments are read like any other call's, which is what carries a
       // request into a base constructor that stores it.
       const delegated = this.delegatedConstructorName(node);
+      const delegatedArguments = this.argumentCountOf(node);
       if (delegated !== undefined) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_CALL,
@@ -641,7 +697,12 @@ export class JavaProvider extends TreeSitterBaseProvider {
           startByte: node.startIndex,
           endByte: node.endIndex,
           name: delegated,
-          properties: { filePath: this.filePath },
+          properties: {
+            filePath: this.filePath,
+            ...(delegatedArguments === undefined
+              ? {}
+              : { argumentCount: String(delegatedArguments) }),
+          },
         });
       }
       this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
@@ -696,7 +757,13 @@ export class JavaProvider extends TreeSitterBaseProvider {
         startByte: nameNode.startIndex,
         endByte: nameNode.endIndex,
         name: nameNode.text,
-        properties: { filePath: this.filePath },
+        // **`interface A extends B` makes every member of `B` a member of `A`**, which is a different clause from the
+        // `implements` that a class writes. Reading the two as one was measured and refused - a `implements` clause
+        // declares no body, so a call that lands on one lands nowhere - but the refusal took the `extends` of an
+        // interface with it, and **42 of the pairs javac expected on `apache/commons-io` and this graph claimed
+        // nothing for are that shape**: `IOStream` extends `IOBaseStream<T, IOStream<T>, …>` and every one of its
+        // methods calls the base's `unwrap()`.
+        properties: { filePath: this.filePath, baseClasses: this.extendedInterfacesOf(node) },
       });
     } else if (nodeType === 'enum_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;
@@ -716,6 +783,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
       // the `return_type:` a TypeScript or Python grammar uses. `void` is recorded too and refused later, because the
       // parser's job is to report the source and the resolver's is to decide what a call can be written on.
       this.recordDeclaredReturn(node, 'type', nameNode.text);
+      // **And how many arguments it takes**, which is the only part of a Java signature that decides an overload
+      // without a type system. `format(x)` in `CompositeFormat` names the base class's one-parameter method and not
+      // either of the two the class declares.
+      this.recordDeclaredArity(node, nameNode.text);
       // A method_declaration is always a method, never a constructor — Java
       // constructors are parsed as constructor_declaration (no return type).
       const container = this.findContainerNode(node)!;
@@ -780,6 +851,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
         containerName: cn.text,
         properties: { filePath: this.filePath },
       });
+      // **A construction is an overload too.** `new X()` and `new X(a, b)` are two declarations of one name, and the
+      // count is filed after the capture for the same reason the method's is filed after its own: the record is keyed
+      // by the declaration's line and name, and both are known once the capture exists.
+      this.recordDeclaredArity(node, nameNode.text);
     } else if (nodeType === 'field_declaration') {
       // A field_declaration can declare multiple variables (e.g. `int a, b;`),
       // each emitted as its own VARIABLE_DEF capture.
@@ -1073,6 +1148,21 @@ export class JavaProvider extends TreeSitterBaseProvider {
       names.push(this.typeBaseName(child));
     }
     return names.join(',');
+  }
+
+  /**
+   * The interfaces an interface extends, as a comma-separated list of simple names.
+   *
+   * **`extends_interfaces` is `extends A, B` with the types as direct children**, unlike `super_interfaces`, which
+   * wraps them in a `type_list`. The two clauses say different things too: a class `implements` a contract that
+   * declares no body, while an interface `extends` another interface whose members are its members. Only the second
+   * is a base.
+   */
+  private extendedInterfacesOf(node: TreeSitterSyntaxNode): string {
+    const clause = this.findChild(node, 'extends_interfaces');
+    // **The clause wraps its types in a `type_list`**, exactly as `super_interfaces` does, so the names are read by
+    // the same helper that reads a class's contracts.
+    return clause === null ? '' : this.interfaceNames(clause);
   }
 
   /** Whether a declaration carries a `public` visibility modifier. */

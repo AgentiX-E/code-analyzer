@@ -36,9 +36,12 @@ describe('a type annotation reduced to a name', () => {
   it('keeps a name and refuses everything that is not one', () => {
     expect(simpleTypeName('Index')).toBe('Index');
     expect(simpleTypeName('  Index ')).toBe('Index');
-    expect(simpleTypeName('pkg.Index')).toBe('Index');
-    // A protocol or module-qualified name keeps its last segment, which is the name the graph stores.
-    expect(simpleTypeName('typing.Protocol')).toBe('Protocol');
+    // **A qualified name keeps the qualifier when the qualifier is a package**, because the package is what decides
+    // which class the name means: `java.io.ByteArrayOutputStream` is not the checkout's `ByteArrayOutputStream`.
+    expect(simpleTypeName('pkg.Index')).toBe('pkg.Index');
+    expect(simpleTypeName('typing.Protocol')).toBe('typing.Protocol');
+    // A qualifier that is not a package - a nested type, a module written in camel case - keeps the old reading.
+    expect(simpleTypeName('Outer.Inner')).toBe('Inner');
   });
 
   it('strips the members of a union that are values rather than types', () => {
@@ -1155,5 +1158,192 @@ describe('a name answered by the package it sits in', () => {
     expect(
       classMemberOf(index, 'Twice', 'anything', { file: here, packageScope: true }),
     ).toBeUndefined();
+  });
+});
+
+// **A name is not a signature.** `format(x)` written in a class that declares `format(Object, StringBuffer,
+// FieldPosition)` names the base class's method, and `notExists(path)` names a declaration that writes two parameters
+// and lets a call pass one. Both are statements about a *declaration*, and neither can be read off a spelling.
+describe('a class answers a call by its signature', () => {
+  const FILE = '/src/demo/Composite.java';
+  const facts = buildFileTypes([
+    declaration('Class', 'Composite', undefined, {}, 1),
+    declaration(
+      'Method',
+      'format',
+      'Composite',
+      { parameterCount: '3', requiredParameters: '3' },
+      2,
+    ),
+    declaration(
+      'Method',
+      'parseObject',
+      'Composite',
+      { parameterCount: '2', requiredParameters: '2' },
+      3,
+    ),
+    declaration(
+      'Method',
+      'notExists',
+      'Composite',
+      { parameterCount: '2', requiredParameters: '1', variadic: 'true' },
+      4,
+    ),
+    declaration('Method', 'reset', 'Composite', { parameterCount: '0' }, 5),
+    declaration(
+      'Method',
+      'reset',
+      'Composite',
+      { parameterCount: '2', requiredParameters: '2' },
+      6,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const origin = { file: FILE };
+
+  it('refuses a declaration no call of that arity can reach', () => {
+    // `format(parseObject(input))` passes one argument and the class declares three; the call runs the *base* class's
+    // method, which the checkout does not hold.
+    expect(classMemberOf(index, 'Composite', 'format', origin, 1)).toBeUndefined();
+    expect(classMemberOf(index, 'Composite', 'format', origin, 3)).toEqual({
+      nodeId: 2,
+      label: 'Method',
+    });
+  });
+
+  it('answers the old question when the caller cannot count arguments', () => {
+    // A deferred `Type::method` and a call being edited state no arity, and an unknown fact is not a refusal.
+    expect(classMemberOf(index, 'Composite', 'format', origin)).toEqual({
+      nodeId: 2,
+      label: 'Method',
+    });
+  });
+
+  it('lets a variadic declaration admit fewer arguments than it writes', () => {
+    // `notExists(Path, LinkOption...)` is called as `notExists(path)` throughout `apache/commons-io`.
+    expect(classMemberOf(index, 'Composite', 'notExists', origin, 1)).toEqual({
+      nodeId: 4,
+      label: 'Method',
+    });
+    expect(classMemberOf(index, 'Composite', 'notExists', origin, 2)).toBeDefined();
+    expect(classMemberOf(index, 'Composite', 'notExists', origin, 3)).toBeDefined();
+  });
+
+  it('admits a call any declaration of the overload set admits', () => {
+    // **An overload set is checked as a set.** `reset()` and `reset(a, b)` together admit zero and two, and one
+    // argument is a call neither of them takes.
+    expect(classMemberOf(index, 'Composite', 'reset', origin, 0)).toBeDefined();
+    expect(classMemberOf(index, 'Composite', 'reset', origin, 2)).toBeDefined();
+    expect(classMemberOf(index, 'Composite', 'reset', origin, 1)).toBeUndefined();
+  });
+
+  it('refuses nothing it knows nothing about', () => {
+    // A class that declares the name with no counted declaration answers exactly as it did before this rule existed.
+    const unknown = buildFileTypes([
+      declaration('Class', 'Bare', undefined, {}, 1),
+      declaration('Method', 'run', 'Bare', {}, 2),
+    ]);
+    const bare = createClassIndex();
+    mergeClassIndex(bare, unknown, '/src/demo/Bare.java');
+    expect(classMemberOf(bare, 'Bare', 'run', { file: '/src/demo/Bare.java' }, 7)).toEqual({
+      nodeId: 2,
+      label: 'Method',
+    });
+  });
+});
+
+// **A package is what a qualified name means.** `java.io.ByteArrayOutputStream` and
+// `org.apache.commons.io.output.ByteArrayOutputStream` share a simple name and nothing else, and the checkout holds one
+// of them - so a call written on the JDK's type was answered by the checkout's class.
+describe('a package-qualified name', () => {
+  const OUTPUT = '/src/main/java/org/apache/commons/io/output/ByteArrayOutputStream.java';
+  const facts = buildFileTypes([
+    declaration('Class', 'ByteArrayOutputStream', undefined, {}, 1),
+    declaration('Method', 'writeTo', 'ByteArrayOutputStream', { parameterCount: '1' }, 2),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, OUTPUT);
+  const origin = { file: '/src/main/java/org/apache/commons/io/IOUtils.java' };
+
+  it('keeps its package when it is read as a type', () => {
+    // **A lowercase qualifier is a package**, which is the convention every language that writes a qualified name
+    // follows; `Map.Entry` and `Zod.ZodString` are nested names and keep their last segment.
+    expect(simpleTypeName('java.io.ByteArrayOutputStream')).toBe('java.io.ByteArrayOutputStream');
+    expect(simpleTypeName('org.apache.commons.io.output.ByteArrayOutputStream')).toBe(
+      'org.apache.commons.io.output.ByteArrayOutputStream',
+    );
+    expect(simpleTypeName('Map.Entry')).toBe('Entry');
+    expect(simpleTypeName('Zod.ZodString')).toBe('ZodString');
+  });
+
+  it('is answered only by the class that lives in that package', () => {
+    expect(
+      classMemberOf(index, 'java.io.ByteArrayOutputStream', 'writeTo', origin, 1),
+    ).toBeUndefined();
+    expect(
+      classMemberOf(
+        index,
+        'org.apache.commons.io.output.ByteArrayOutputStream',
+        'writeTo',
+        origin,
+        1,
+      ),
+    ).toEqual({ nodeId: 2, label: 'Method' });
+  });
+
+  it('is answered by a simple name in the same way it always was', () => {
+    expect(classMemberOf(index, 'ByteArrayOutputStream', 'writeTo', origin, 1)).toEqual({
+      nodeId: 2,
+      label: 'Method',
+    });
+  });
+});
+
+// **An overload is one name and several declarations, and each declares its own parameters.** `Failable.accept` takes a
+// `consumer` of ten different types across eleven declarations; filed by name, the ten answers disagree and the name is
+// dropped, which is what made every `consumer.accept(…)` in that class unanswerable.
+describe('a parameter of an overloaded method', () => {
+  const FILE = '/src/demo/Failable.java';
+  const facts = buildFileTypes([
+    declaration('Class', 'Failable', undefined, {}, 1),
+    { ...declaration('Method', 'accept', 'Failable', {}, 2), startLine: 10 },
+    { ...declaration('Method', 'accept', 'Failable', {}, 3), startLine: 40 },
+    declaration(
+      'Variable',
+      'consumer',
+      undefined,
+      { parameterOwner: 'Failable.accept\u000010', parameterType: 'FailableConsumer' },
+      4,
+    ),
+    declaration(
+      'Variable',
+      'consumer',
+      undefined,
+      { parameterOwner: 'Failable.accept\u000040', parameterType: 'FailableBiConsumer' },
+      5,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('is read from the declaration the call sits inside', () => {
+    expect(receiverTypeOf(at(['Failable.accept\u000010']), 'consumer')?.className).toBe(
+      'FailableConsumer',
+    );
+    expect(receiverTypeOf(at(['Failable.accept\u000040']), 'consumer')?.className).toBe(
+      'FailableBiConsumer',
+    );
+  });
+
+  it('answers nothing for a caller that names no declaration', () => {
+    // **A name two declarations disagree about is still two answers.** The line is what tells them apart, and a caller
+    // that does not state one gets the refusal this module has always given rather than whichever came last.
+    expect(receiverTypeOf(at(['Failable.accept']), 'consumer')).toBeUndefined();
   });
 });

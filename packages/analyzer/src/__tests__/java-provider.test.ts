@@ -578,3 +578,124 @@ describe('JavaProvider', () => {
     });
   });
 });
+
+// **A name is not a signature** — the two facts a call site needs to tell one declaration from another, read from the
+// source that states them. See `receiver-types.ts` for what the resolver does with them.
+describe('JavaProvider — a declaration states its signature', () => {
+  const provider = new JavaProvider();
+
+  /** The one capture with this name and tag, from a source. */
+  const captureOf = (source: string, name: string, tag: string) =>
+    provider.parse(source, 'Fixture.java').find((c) => c.name === name && c.tag === tag);
+
+  it('counts the parameters a method writes and the ones a call must pass', () => {
+    const source = 'class Holder { void run(Widget widget, Other other) { } }';
+    const run = captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF);
+    expect(run?.properties?.['parameterCount']).toBe('2');
+    expect(run?.properties?.['requiredParameters']).toBe('2');
+    expect(run?.properties?.['variadic']).toBeUndefined();
+  });
+
+  it('admits one argument fewer when the last parameter is a spread', () => {
+    // **`String... parts` may receive nothing at all**, which is why `notExists(path)` is a legal call to
+    // `notExists(Path, LinkOption...)` and why counting the spread as required refused 17 calls in one file.
+    const source = 'class Holder { void run(Widget widget, String... parts) { } }';
+    const run = captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF);
+    expect(run?.properties?.['parameterCount']).toBe('2');
+    expect(run?.properties?.['requiredParameters']).toBe('1');
+    expect(run?.properties?.['variadic']).toBe('true');
+  });
+
+  it('counts a comment in a parameter list as nothing', () => {
+    const source = 'class Holder { void run(Widget widget /* the widget */, Other other) { } }';
+    expect(captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['parameterCount']).toBe(
+      '2',
+    );
+  });
+
+  it('counts a constructor, which is an overload like any other', () => {
+    const source = 'class Holder { Holder(Widget widget) { } }';
+    const ctor = captureOf(source, 'Holder', CAPTURE_TAGS.CONSTRUCTOR_DEF);
+    expect(ctor?.properties?.['parameterCount']).toBe('1');
+  });
+
+  it('counts the arguments a call passes, and not the comment among them', () => {
+    // `addSub(fraction, true /* add */)` passes two arguments; the grammar reports three named children.
+    const source = 'class Holder { void run() { addSub(fraction, true /* add */); } }';
+    expect(
+      captureOf(source, 'addSub', CAPTURE_TAGS.FUNCTION_CALL)?.properties?.['argumentCount'],
+    ).toBe('2');
+  });
+
+  it('counts a construction, whose argument list is what the class overloads', () => {
+    const source = 'class Holder { Object run() { return new Thing(a, b); } }';
+    expect(
+      captureOf(source, 'Thing', CAPTURE_TAGS.FUNCTION_CALL)?.properties?.['argumentCount'],
+    ).toBe('2');
+  });
+
+  it('reads the interfaces an interface extends', () => {
+    // **`interface A extends B` is the clause that makes B's members A's**, and it is not the `implements` clause a
+    // class writes - which declares no body and is refused as a base on purpose.
+    const source = 'interface Reader extends Source<Item>, Sink { Item read(); }';
+    expect(
+      captureOf(source, 'Reader', CAPTURE_TAGS.INTERFACE_DEF)?.properties?.['baseClasses'],
+    ).toBe('Source,Sink');
+  });
+
+  it('types a loop variable with the type it declares', () => {
+    // **`for (final Pair<String, Object> entry : this.entries)` writes the type on the declaration**, and a walk that
+    // recorded only the name left every call on `entry` unanswerable.
+    const source =
+      'class Holder { void run() { for (final Pair<String, Object> entry : this.entries) { entry.getKey(); } } }';
+    const run = captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF);
+    expect(JSON.parse(String(run?.properties?.['localTypes']))).toMatchObject({
+      entry: 'Pair<String, Object>',
+    });
+  });
+
+  it('does not count a receiver parameter as an argument', () => {
+    // **`void run(Inner this, int size)` is Java's receiver parameter**, which names the enclosing instance and which
+    // no caller passes. It crashed the parse outright - the walk went looking for a declarator a receiver does not
+    // have - and counting it would have made every call look one argument short as well.
+    const source = 'class Outer { class Inner { void run(Inner this, int size) { } } }';
+    const parameters = provider
+      .parse(source, 'Outer.java')
+      .filter(
+        (c) =>
+          c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.['parameterOwner'] !== undefined,
+      );
+    expect(parameters.map((c) => c.name)).toEqual(['size']);
+    expect(parameters[0]?.properties?.['parameterIndex']).toBe('0');
+    expect(captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['parameterCount']).toBe(
+      '1',
+    );
+  });
+
+  it('reads no type from a loop binding that writes `var`', () => {
+    // `var` is a token where the type would be, and filing it as the type of `name` made the resolver look for a class
+    // called `var` - the same string `declaredTypeOf` already refuses for a local.
+    const source = 'class Holder { void run(List<String> names) { for (var name : names) { } } }';
+    expect(
+      captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['localTypes'],
+    ).toBeUndefined();
+  });
+
+  it('reads no type from a `var` whose initialiser is not a construction', () => {
+    // `var total = compute()` states no type the source writes, and inferring one is not this pass's job: the
+    // declaration is a fact and an inference is a guess, which is the difference the whole resolver is built on.
+    const source = 'class Holder { void run() { var total = compute(); } }';
+    expect(
+      captureOf(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['localTypes'],
+    ).toBeUndefined();
+  });
+
+  it('records no call for a reference whose tail is a type argument list', () => {
+    // `Foo::<String>` is a reference caught mid-edit: the name never arrives, and the last named child is the type
+    // argument list. Reading _it_ as the method would name a method `<String>` that nothing declares.
+    const source = 'class Holder { void run() { Function<String, Foo> s = Foo::<String>; } }';
+    expect(
+      provider.parse(source, 'Fixture.java').filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL),
+    ).toHaveLength(0);
+  });
+});

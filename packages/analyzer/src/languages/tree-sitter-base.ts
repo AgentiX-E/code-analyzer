@@ -490,7 +490,10 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const mappings = this.getNodeMappings();
     const nodeType = node.type;
 
-    if (RETURN_TYPE_NODES.has(nodeType)) this.recordDeclaredReturn(node);
+    if (DECLARATION_FACT_NODES.has(nodeType)) {
+      this.recordDeclaredReturn(node);
+      this.recordDeclaredArity(node);
+    }
 
     for (const mapping of mappings) {
       if (nodeType === mapping.nodeType) {
@@ -659,7 +662,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * carries it out of `parse`.
    */
   protected decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
-    return this.attachReturnTypes(captures);
+    return this.attachDeclaredFacts(captures);
   }
 
   /**
@@ -693,14 +696,87 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   }
 
   /**
-   * Attach each collected return type to the declaration it belongs to.
+   * How many arguments each callable takes, keyed the same way a return type is.
+   *
+   * **A name is not a signature.** `format(x)` written in a class that declares `format(Object, StringBuffer,
+   * FieldPosition)` names the base class's one-parameter method, and a resolver that answers by name alone hands back
+   * the three-parameter declaration — which is what `apache/commons-lang`'s `CompositeFormat.reformat` does, and what
+   * `apache/commons-io`'s `AbstractFileFilter.preVisitDirectory` does with a two-argument `accept`. Java decides an
+   * overload by arity before it looks at a type, so the count is the one part of a signature that needs no type
+   * system, and it is a fact of the declaration exactly as the return type is.
+   *
+   * **Three numbers, because a language can make an argument optional.** `parameters` is how many are written,
+   * `required` how many a call must pass, and `variadic` whether a call may pass more. A parameter with a default, a
+   * TypeScript `?`, and a rest parameter are three different statements and none of them is "unknown".
+   */
+  protected recordDeclaredArity(
+    node: TreeSitterSyntaxNode,
+    name = this.extractNameFromNode(node),
+    receiverIsImplicit = false,
+  ): void {
+    if (name === undefined) return;
+    const list = node.childForFieldName('parameters');
+    if (list === null) return;
+    const declared = namedChildrenOf(list)
+      .filter((parameter) => !SEPARATOR_PARAMETERS.has(parameter.type))
+      // **A comment in a parameter list is not a parameter**, the same fact the argument count reads one screen up.
+      .filter((parameter) => !COMMENT_NODES.has(parameter.type))
+      // **And a parameter that names the receiver is not one a call passes.** Java's `void run(Inner this)` writes the
+      // enclosing instance in the parameter list, where it takes a position no caller fills - the same fact Python's
+      // `self` states below, in a grammar that spells it as a parameter node rather than a name.
+      .filter((parameter) => !NON_ARGUMENT_PARAMETERS.has(parameter.type));
+    // **A method's receiver is written in the declaration and not at the call site.** Python states it as a first
+    // parameter named `self` or `cls`, and counting it would make every method call look one argument short. The
+    // provider says whether the declaration is a method; the name says whether the receiver is in the list, because a
+    // free function may take a parameter called `self` and pass it explicitly.
+    const first = declared[0];
+    const offset =
+      receiverIsImplicit &&
+      first !== undefined &&
+      RECEIVER_PARAMETER_NAMES.has(this.parameterNameOf(first) ?? '')
+        ? 1
+        : 0;
+    const written = declared.slice(offset);
+    const variadic = written.some((parameter) => VARIADIC_PARAMETERS.has(parameter.type));
+    const required =
+      written.filter(
+        (parameter) =>
+          !OPTIONAL_PARAMETERS.has(parameter.type) && parameter.childForFieldName('value') === null,
+      ).length -
+      // **A variadic parameter may receive nothing at all.** `notExists(final Path path, final LinkOption... options)`
+      // is called as `notExists(path)` throughout `apache/commons-io`, and counting the spread as required refused
+      // **17 calls the file itself declares** - every one of them a bare call to a method three lines above it.
+      (variadic ? 1 : 0);
+    this.declaredArities.set(`${node.startPosition.row + 1}\u0000${name}`, {
+      parameters: written.length,
+      required,
+      variadic,
+    });
+  }
+
+  /** A parameter's name, from the field the grammar writes it in. */
+  private parameterNameOf(parameter: TreeSitterSyntaxNode): string | undefined {
+    return (
+      parameter.childForFieldName('name')?.text ??
+      namedChildrenOf(parameter).find((child) => IDENTIFIER_NODES.has(child.type))?.text
+    );
+  }
+
+  /** The arities this walk read, keyed by `line` and name - the key a capture is matched by. */
+  protected readonly declaredArities = new Map<
+    string,
+    { parameters: number; required: number; variadic: boolean }
+  >();
+
+  /**
+   * Attach each collected fact to the declaration it belongs to.
    *
    * **A property rather than a symbol**, for the reason a field's type is one: the fact is about a declaration the
    * graph already holds, and a second node for it would compete with the function for a search query and give the
    * resolver nothing new to point at.
    */
-  protected attachReturnTypes(captures: UnifiedCapture[]): UnifiedCapture[] {
-    if (this.declaredReturns.size === 0) return captures;
+  protected attachDeclaredFacts(captures: UnifiedCapture[]): UnifiedCapture[] {
+    if (this.declaredReturns.size === 0 && this.declaredArities.size === 0) return captures;
     for (const capture of captures) {
       if (
         capture.tag !== CAPTURE_TAGS.FUNCTION_DEF &&
@@ -709,13 +785,23 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       ) {
         continue;
       }
-      const declared = this.declaredReturns.get(
-        `${capture.startLine}\u0000${String(capture.name)}`,
-      );
-      if (declared === undefined) continue;
-      capture.properties = { ...capture.properties, returnType: declared };
+      const key = `${capture.startLine}\u0000${String(capture.name)}`;
+      const declared = this.declaredReturns.get(key);
+      if (declared !== undefined) {
+        capture.properties = { ...capture.properties, returnType: declared };
+      }
+      const arity = this.declaredArities.get(key);
+      if (arity !== undefined) {
+        capture.properties = {
+          ...capture.properties,
+          parameterCount: String(arity.parameters),
+          requiredParameters: String(arity.required),
+          ...(arity.variadic ? { variadic: 'true' } : {}),
+        };
+      }
     }
     this.declaredReturns.clear();
+    this.declaredArities.clear();
     return captures;
   }
 
@@ -1252,6 +1338,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     }
 
     const tag = this.getCallTagForNodeType(node);
+    const argumentCount = this.argumentCountOf(node);
 
     captures.push({
       tag,
@@ -1265,8 +1352,28 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       properties: {
         filePath: this.filePath,
         callType: this.isMethodCall(node) ? 'method' : 'function',
+        ...(argumentCount === undefined ? {} : { argumentCount: String(argumentCount) }),
       },
     });
+  }
+
+  /**
+   * How many arguments this call node passes, or `undefined` when the grammar does not say.
+   *
+   * **The count is the argument list's own, read from the field every grammar writes it in** — `arguments:` in
+   * TypeScript, JavaScript, Python, Java, Go and Kotlin alike. A splat stands for a list whose length is a runtime
+   * fact, so a call that passes one has no count rather than a count that is wrong; the same is true of a node whose
+   * argument list is missing because the file is being edited.
+   */
+  protected argumentCountOf(node: TreeSitterSyntaxNode): number | undefined {
+    const list = node.childForFieldName('arguments');
+    if (list === null) return undefined;
+    // **A comment is a named node and is not an argument.** `addSub(fraction, true /* add */)` passes two arguments
+    // and the grammar reports three, which is the difference between a call the declaration admits and one it does not.
+    const passed = namedChildrenOf(list).filter((argument) => !COMMENT_NODES.has(argument.type));
+    return passed.some((argument) => SPLAT_ARGUMENTS.has(argument.type))
+      ? undefined
+      : passed.length;
   }
 
   /**
@@ -1541,11 +1648,64 @@ export function claimsTaintExtraction(provider: unknown): boolean {
  * does. The field name is the grammars' own - TypeScript's `method_definition`, Python's `function_definition` - and
  * a grammar that spells it differently (`java.ts` writes `type:`) records it in its own walk.
  */
-const RETURN_TYPE_NODES: ReadonlySet<string> = new Set([
+const DECLARATION_FACT_NODES: ReadonlySet<string> = new Set([
   'function_declaration',
   'method_definition',
   'function_definition',
 ]);
+
+/** The node types a parameter list is written as, in the grammars whose declaration states one. */
+const SEPARATOR_PARAMETERS: ReadonlySet<string> = new Set([
+  'positional_separator',
+  'keyword_separator',
+]);
+
+/** The names a language gives its receiver, which a call site never passes. */
+const RECEIVER_PARAMETER_NAMES: ReadonlySet<string> = new Set(['self', 'cls']);
+
+/**
+ * Parameter nodes that name the receiver rather than an argument.
+ *
+ * **Java writes its receiver in the parameter list.** `void run(Inner this, int size)` is an inner class's method
+ * naming the enclosing instance, and the grammar files it as a `receiver_parameter` beside the real one: a call passes
+ * one argument, and counting the receiver declared two.
+ */
+const NON_ARGUMENT_PARAMETERS: ReadonlySet<string> = new Set(['receiver_parameter']);
+
+/** Parameters a call may pass more of than are written: `String... parts`, `...rest`, `*args`, `**kwargs`. */
+const VARIADIC_PARAMETERS: ReadonlySet<string> = new Set([
+  'spread_parameter',
+  'rest_pattern',
+  'rest_parameter',
+  'list_splat_pattern',
+  'dictionary_splat_pattern',
+  'variadic_parameter',
+]);
+
+/** Parameters a call may leave out: a default value, or TypeScript's `?`. */
+const OPTIONAL_PARAMETERS: ReadonlySet<string> = new Set([
+  'default_parameter',
+  'typed_default_parameter',
+  'optional_parameter',
+]);
+
+/** Argument or parameter nodes whose text is a name, when a grammar writes the name outside a field. */
+const IDENTIFIER_NODES: ReadonlySet<string> = new Set([
+  'identifier',
+  'type_identifier',
+  'variable_name',
+]);
+
+/** Argument nodes that stand for a list whose length is only known at runtime — `f(*args)`. */
+const SPLAT_ARGUMENTS: ReadonlySet<string> = new Set([
+  'spread_element',
+  'list_splat',
+  'dictionary_splat',
+  'spread_parameter',
+]);
+
+/** The node types a grammar reports as named content, and that state nothing about a signature. */
+const COMMENT_NODES: ReadonlySet<string> = new Set(['comment', 'line_comment', 'block_comment']);
 
 const CONTAINER_NODE_TYPES: ReadonlySet<string> = new Set([
   'class_declaration',

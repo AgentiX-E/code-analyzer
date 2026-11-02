@@ -7,34 +7,36 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 
 ## Feature Matrix
 
-| Feature                    | TypeScript | JavaScript | Python | Go  | Java | Kotlin | C#  | Rust | PHP | Ruby | C/C++ | Swift | Dart | Lua | Scala | Zig | Elixir |
-| -------------------------- | :--------: | :--------: | :----: | :-: | :--: | :----: | :-: | :--: | :-: | :--: | :---: | :---: | :--: | :-: | :---: | :-: | :----: |
-| **Function Definitions**   |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
-| **Method Definitions**     |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | ✅  |  N/A   |
-| **Class Definitions**      |     ✅     |     ✅     |   ✅   | N/A |  ✅  |   ✅   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |
-| **Interface Definitions**  |     ✅     |    N/A     |  N/A   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Enum Definitions**       |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | ✅  |  N/A   |
-| **Type Definitions**       |     ✅     |    N/A     |   ✅   | N/A | N/A  |  N/A   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Variable Definitions**   |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
-| **Constant Definitions**   |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
-| **Import Statements**      |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
-| **Export Detection**       |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |
-| **Decorators/Annotations** |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  N/A  |  ✅  | N/A |  N/A  | N/A |  N/A   |
-| **Route Detection**        |     ✅     |    N/A     |   ✅   | N/A | N/A  |  N/A   | ✅  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Constructor Detection**  |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |
-| **Docstrings/JSDoc**       |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
-| **Function Calls**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
-| **Declared Type Facts**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
-| **Declared Return Types**  |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
-| **Deferred Calls (`::`)**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
-| **Generics**               |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Async Detection**        |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
-| **Extension Functions**    |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Struct Detection**       |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Record Detection**       |    N/A     |    N/A     |  N/A   | N/A |  ✅  |  N/A   | ✅  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Trait Detection**        |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Impl Block Detection**   |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
-| **Object Detection**       |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+| Feature                     | TypeScript | JavaScript | Python | Go  | Java | Kotlin | C#  | Rust | PHP | Ruby | C/C++ | Swift | Dart | Lua | Scala | Zig | Elixir |
+| --------------------------- | :--------: | :--------: | :----: | :-: | :--: | :----: | :-: | :--: | :-: | :--: | :---: | :---: | :--: | :-: | :---: | :-: | :----: |
+| **Function Definitions**    |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
+| **Method Definitions**      |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | ✅  |  N/A   |
+| **Class Definitions**       |     ✅     |     ✅     |   ✅   | N/A |  ✅  |   ✅   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |
+| **Interface Definitions**   |     ✅     |    N/A     |  N/A   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Enum Definitions**        |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | ✅  |  N/A   |
+| **Type Definitions**        |     ✅     |    N/A     |   ✅   | N/A | N/A  |  N/A   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Variable Definitions**    |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
+| **Constant Definitions**    |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
+| **Import Statements**       |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
+| **Export Detection**        |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |
+| **Decorators/Annotations**  |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  N/A  |  ✅  | N/A |  N/A  | N/A |  N/A   |
+| **Route Detection**         |     ✅     |    N/A     |   ✅   | N/A | N/A  |  N/A   | ✅  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Constructor Detection**   |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |
+| **Docstrings/JSDoc**        |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
+| **Function Calls**          |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
+| **Declared Type Facts**     |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Declared Return Types**   |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Parameter Arity**         |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Package-Qualified Names** |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Deferred Calls (`::`)**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Generics**                |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Async Detection**         |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
+| **Extension Functions**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Struct Detection**        |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Record Detection**        |    N/A     |    N/A     |  N/A   | N/A |  ✅  |  N/A   | ✅  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Trait Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Impl Block Detection**    |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+| **Object Detection**        |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
 
 **Only three providers read a declared type**, and that row is the reason the call graph can resolve a receiver at
 all: `fieldTypes`, `localTypes` and `parameterOwner`/`parameterType` are emitted by **TypeScript**, **Python** and
@@ -45,6 +47,31 @@ matrix rows above record and resolve no receiver, so `this.builder.append(…)` 
 unclaimed edge — **stated here rather than claimed as support.** Java spent four iterations "supported" at **50 `CALLS`
 edges** on a Spring application because nobody had asked whether the arm that reads a type had anything to read
 (iteration 56; the same checkout now yields 285, of which 235 come from that arm).
+
+**A declaration states a signature, and the call graph reads it as a fact rather than as a hint.** `parameterCount`,
+`requiredParameters` and `variadic` are what a declaration writes; `argumentCount` is what a call site passes. A name
+declared once is answered without either; a name declared several times — the case every resolution arm used to refuse
+— is answered by the declaration whose signature admits the call. **The counts are per declaration rather than per
+name**, because folding a class's arities into a range answers `reset()` with the declaration that takes two arguments:
+`reset()` and `reset(byte[], int)` are two declarations under one key, and neither admits a call passing one argument.
+Measured alone, with everything else this iteration changed held still, the rule takes `apache/commons-lang` from
+**2174 correct edges to 2194** (claimed 2176 → 2194, precision 99.91 % → **100.0 %**) and `commons-io` from **1550 to
+1571** (recall 92.8 % → 94.0 %). Two of the twenty edges it gained on `commons-lang` were edges the graph had been
+claiming against the wrong overload, which is why the correct count rises by more than the claimed one.
+
+**A package-qualified type name is read as the package it names.** `java.io.ByteArrayOutputStream` and this
+repository's `org.apache.commons.io.output.ByteArrayOutputStream` are different classes with the same last segment, and
+the resolver used to strip the qualifier and answer whichever one the checkout declared — so `outputStream.writeTo(…)`
+in `IOUtils.copy` claimed an edge into a class the JDK owns. It now keeps a lowercase qualifier (`java.io.X`) and
+matches it against the file's directory path, while `Map.Entry` and `Zod.ZodString` keep the old reading because a
+nested name is not a package. **Ablated, this rule adds no correct edge and removes one wrong one** (1603 claimed with 3
+wrong, against 1602 with 2), which is what a precision rule is supposed to look like.
+
+**An `interface I extends J` is a base type, and the seam it closes is worth a whole file of edges.** `IOFileFilter
+extends FileFilter, FilenameFilter`: a lambda handed to `listFiles` calls the `accept(File, String)` that
+`FilenameFilter` declares and `IOFileFilter` never repeats, and the class chain followed `extends` on classes only.
+Reading `extends_interfaces` as a base is **29 edges on `commons-io`, all 29 correct** — recall 94.0 % → 95.8 % — and
+nothing on `commons-lang`, where no interface in the corpus inherits a member it calls.
 
 **A call in the middle of a receiver is a hop, and the hop's type is what the callee declares it returns.** Reading
 only what a _name_ holds left every fluent chain ending at its first call — `QueueInputStream.builder().get()`,
@@ -141,33 +168,35 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 
 ## Performance Characteristics
 
-| Language   | Parse Speed | Memory per 1K LOC | Call-graph precision / recall (measured)                          |
-| ---------- | :---------: | :---------------: | :---------------------------------------------------------------- |
-| TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis           |
-| Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug          |
-| Java       |    Fast     |       ~5MB        | **99.9 % / 96.2 %** commons-lang · **99.9 % / 92.8 %** commons-io |
-| JavaScript |    Fast     |       ~4MB        | not measured                                                      |
-| Go         |    Fast     |       ~3MB        | not measured                                                      |
-| Kotlin     |   Medium    |       ~4MB        | not measured                                                      |
-| C#         |    Fast     |       ~5MB        | not measured                                                      |
-| Rust       |   Medium    |       ~4MB        | not measured                                                      |
-| PHP        |    Fast     |       ~4MB        | not measured                                                      |
-| Ruby       |   Medium    |       ~4MB        | not measured                                                      |
-| C/C++      |    Fast     |       ~3MB        | not measured                                                      |
-| Swift      |   Medium    |       ~4MB        | not measured                                                      |
-| Dart       |    Fast     |       ~4MB        | not measured                                                      |
-| Lua        |    Fast     |       ~2MB        | not measured                                                      |
-| Scala      |   Medium    |       ~5MB        | not measured                                                      |
-| Zig        |   Medium    |       ~3MB        | not measured                                                      |
-| Elixir     |   Medium    |       ~3MB        | not measured                                                      |
+| Language   | Parse Speed | Memory per 1K LOC | Call-graph precision / recall (measured)                           |
+| ---------- | :---------: | :---------------: | :----------------------------------------------------------------- |
+| TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis            |
+| Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug           |
+| Java       |    Fast     |       ~5MB        | **100.0 % / 97.1 %** commons-lang · **99.9 % / 95.8 %** commons-io |
+| JavaScript |    Fast     |       ~4MB        | not measured                                                       |
+| Go         |    Fast     |       ~3MB        | not measured                                                       |
+| Kotlin     |   Medium    |       ~4MB        | not measured                                                       |
+| C#         |    Fast     |       ~5MB        | not measured                                                       |
+| Rust       |   Medium    |       ~4MB        | not measured                                                       |
+| PHP        |    Fast     |       ~4MB        | not measured                                                       |
+| Ruby       |   Medium    |       ~4MB        | not measured                                                       |
+| C/C++      |    Fast     |       ~3MB        | not measured                                                       |
+| Swift      |   Medium    |       ~4MB        | not measured                                                       |
+| Dart       |    Fast     |       ~4MB        | not measured                                                       |
+| Lua        |    Fast     |       ~2MB        | not measured                                                       |
+| Scala      |   Medium    |       ~5MB        | not measured                                                       |
+| Zig        |   Medium    |       ~3MB        | not measured                                                       |
+| Elixir     |   Medium    |       ~3MB        | not measured                                                       |
 
 **This column used to read `99%+`, `97%+`, `95%+` for every language**, and none of those numbers had an instrument
 behind it — they were read off a parse success rate and repeated. What replaced them is a call-graph figure per corpus,
 produced by `scripts/callgraph-quality.ts` against an oracle that is not this codebase (`CPython ast`, the TypeScript
 checker, and `javac`'s own attribution), gated per arm by `scripts/callgraph-gate.js` and re-run on every push by
-`.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: Java's 80.2 % on `commons-io` is
-what "97%+" was hiding, and the two figures to the left of it started at 96.5 % precision and 60.9 % recall when the
-instrument was first pointed at that checkout.
+`.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: `commons-io` read 60.9 % when the
+instrument was first pointed at it, 80.2 % after the receiver arm learned to read a declared type, and 95.8 % now — and
+that last number is a claim about the graph, not about Java. Its 71 unanswered pairs are named in
+`benchmarks/callgraph-java-quality.json` under `missedSamples`, which is the only reason the figure can be worked on
+rather than argued about.
 
 ## Adding a New Language
 

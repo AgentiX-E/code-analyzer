@@ -342,6 +342,19 @@ export interface ReferenceSite {
    * is the right answer.
    */
   receiver?: string;
+  /**
+   * How many arguments the call site passes, when the grammar states it.
+   *
+   * **A name is not a signature, and a class that overloads a name declares several signatures under one.** `format(x)`
+   * written in a class that declares `format(Object, StringBuffer, FieldPosition)` names a method of the *base* class,
+   * and a resolver that answers by name alone hands back the three-parameter declaration that is not what runs. The
+   * count is the one fact that decides overloads without a type system, and it is recorded rather than inferred from
+   * the callee's text because the argument list is a node of its own.
+   *
+   * Absent when the grammar does not state it — a call being edited, or one splatting an argument list whose length is
+   * only known at runtime (`f(*args)`), which is the same "unknown" a declaration with no parameters is not.
+   */
+  argumentCount?: number;
 }
 
 /** A hierarchical scope tree for a parsed file */
