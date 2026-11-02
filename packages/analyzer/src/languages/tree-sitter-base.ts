@@ -751,6 +751,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       parameters: written.length,
       required,
       variadic,
+      types: written.map((parameter) => this.parameterTypeOf(parameter)),
     });
   }
 
@@ -767,10 +768,28 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     );
   }
 
+  /**
+   * The type a parameter declares, from the field the grammar writes it in.
+   *
+   * **A count decides how many arguments a call passes and nothing about what they are.** `accept(File, String)` and
+   * `accept(Path, BasicFileAttributes)` are two parameters each, and a call that passes two arguments is answered by
+   * whichever one the walk reaches first unless the types are read. The field is the whole rule for every grammar this
+   * base serves: TypeScript writes `param: Type`, and Python writes no type at all, which is the empty string rather
+   * than an invented one.
+   */
+  protected parameterTypeOf(parameter: TreeSitterSyntaxNode): string {
+    return parameter.childForFieldName('type')?.text ?? '';
+  }
+
   /** The arities this walk read, keyed by `line` and name - the key a capture is matched by. */
   protected readonly declaredArities = new Map<
     string,
-    { parameters: number; required: number; variadic: boolean }
+    {
+      parameters: number;
+      required: number;
+      variadic: boolean;
+      types: readonly string[];
+    }
   >();
 
   /**
@@ -797,11 +816,15 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       }
       const arity = this.declaredArities.get(key);
       if (arity !== undefined) {
+        // **A declaration that writes no type writes no list at all.** `run()` states nothing about its arguments, and
+        // an empty array would read as "stated, and matched nothing" - the one reading a resolver must not make.
+        const stated = arity.types.some((type) => type.length > 0);
         capture.properties = {
           ...capture.properties,
           parameterCount: String(arity.parameters),
           requiredParameters: String(arity.required),
           ...(arity.variadic ? { variadic: 'true' } : {}),
+          ...(stated ? { parameterTypes: JSON.stringify(arity.types) } : {}),
         };
       }
     }
@@ -859,6 +882,21 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const properties: Record<string, string> = {
       filePath: this.filePath,
     };
+
+    // **A declaration either writes a body or it does not, and the difference is what runs.** An interface's `void
+    // run();` is a signature a call is checked against, while the class that implements it holds the code; reading the
+    // signature as the callee answered `this.reject(err)` with the contract's abstract declaration on
+    // `redis/ioredis@5.4.2` where a field of the class holds the function - measured at **seven wrong edges** when
+    // contracts were first added to the chain. The property is written only where a body exists, so an absent fact and
+    // an unimplemented declaration are the same fact.
+    if (
+      (mapping.captureTag === CAPTURE_TAGS.METHOD_DEF ||
+        mapping.captureTag === CAPTURE_TAGS.FUNCTION_DEF ||
+        mapping.captureTag === CAPTURE_TAGS.CONSTRUCTOR_DEF) &&
+      node.childForFieldName('body') !== null
+    ) {
+      properties['hasBody'] = 'true';
+    }
 
     // Find container (parent class/interface/etc.)
     let containerName: string | undefined;
@@ -1373,6 +1411,23 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    */
   protected arityProperty(argumentCount: number | undefined): Record<string, string> {
     return argumentCount === undefined ? {} : { argumentCount: String(argumentCount) };
+  }
+
+  /**
+   * The names a call passes, in the order it passes them — **the one fact a count cannot carry.**
+   *
+   * `accept(dir, attributes)` and `accept(file, name)` are both two arguments, and the declaration each one runs is
+   * decided by what the names hold rather than by how many there are. The resolver reads a name's type off the
+   * declarations of the file the call sits in, so the name is the handle; an argument that is an expression, a
+   * literal or a construction is written as an empty string, because there is no name to look up and inventing one is
+   * the guess this product does not make. A call that passes no name at all writes no property.
+   */
+  protected argumentNamesProperty(list: TreeSitterSyntaxNode | null): Record<string, string> {
+    if (list === null) return {};
+    const names = namedChildrenOf(list).map((argument) =>
+      IDENTIFIER_NODES.has(argument.type) ? argument.text : '',
+    );
+    return names.some((name) => name.length > 0) ? { argumentNames: JSON.stringify(names) } : {};
   }
 
   /**

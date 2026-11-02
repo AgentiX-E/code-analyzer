@@ -12,7 +12,7 @@ import {
 } from './java-taint.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
-import { ownerKeyOf } from '../resolution/receiver-types.js';
+import { ELEMENT_OF, ownerKeyOf } from '../resolution/receiver-types.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -41,6 +41,32 @@ const METHOD_CONTAINERS: ReadonlySet<string> = new Set([
 ]);
 
 /** The node types a Java declaration's type is written as. */
+/**
+ * The calls whose single functional parameter receives the receiver's element.
+ *
+ * **The list is short because the claim is strong.** Each name is a method of `Iterable` or `Stream` whose parameter is
+ * declared `Consumer<? super T>`, `Function<? super T, …>` or `Predicate<? super T>` - the element, and nothing else -
+ * so a one-parameter lambda written there binds it. `reduce` and `sorted` are deliberately absent: a two-parameter
+ * lambda is an accumulator or a comparator and its first parameter is not the element.
+ */
+const LAMBDA_ELEMENT_CALLS: ReadonlySet<string> = new Set([
+  'forEach',
+  'forEachOrdered',
+  'map',
+  'mapToInt',
+  'mapToLong',
+  'mapToDouble',
+  'flatMap',
+  'filter',
+  'peek',
+  'removeIf',
+  'anyMatch',
+  'allMatch',
+  'noneMatch',
+  'takeWhile',
+  'dropWhile',
+]);
+
 const TYPE_NODES: ReadonlySet<string> = new Set([
   'type_identifier',
   'scoped_type_identifier',
@@ -238,7 +264,57 @@ export class JavaProvider extends TreeSitterBaseProvider {
    * named child and the name lives inside a declarator. Reading only the field left every variadic parameter untyped,
    * which is the shape `StringUtils.join(…)` is most often called with.
    */
-  private parameterTypeOf(parameter: TreeSitterSyntaxNode): string {
+  /**
+   * `hasBody` when the declaration writes one, and nothing when it states a signature alone.
+   *
+   * **An interface method without `default` is written and not implemented**, and the resolver reads a body as the
+   * proof that a declaration is code. `IOFileFilter.accept(Path, BasicFileAttributes)` *is* code - it is the method
+   * `AbstractFileFilter.preVisitDirectory` runs - while `accept(File)` beside it is a signature the class must fill.
+   */
+  /**
+   * Record the one parameter of a lambda passed to an element-passing call, **as the element of the receiver.**
+   *
+   * Every name in `LAMBDA_ELEMENT_CALLS` is a method whose single functional parameter receives the container's element
+   * and nothing else - `forEach`, `filter`, `map` and their siblings - so a one-parameter lambda written there binds
+   * that element. A lambda with two parameters is a fold or a comparator and gets nothing: its first parameter is not
+   * the element, and answering it would be the guess this provider does not make.
+   */
+  private recordLambdaElement(node: TreeSitterSyntaxNode): void {
+    const list = node.childForFieldName('arguments');
+    const receiver = node.childForFieldName('object');
+    if (list === null || receiver === null) return;
+    const argumentsOfCall = namedChildrenOf(list);
+    if (argumentsOfCall.length !== 1) return;
+    const lambda = argumentsOfCall[0]!;
+    if (lambda.type !== 'lambda_expression') return;
+    const name = this.lambdaParameterNameOf(lambda);
+    if (name === undefined) return;
+    // **A path and nothing else**, the same rule the call's receiver follows: `this.listeners` is a declaration,
+    // `getListeners()` is a call site that states no type.
+    if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(receiver.text)) return;
+    this.recordLocalType(node, name, `${ELEMENT_OF}${receiver.text}`);
+  }
+
+  /** The single parameter a lambda declares, or `undefined` when it declares none or several. */
+  private lambdaParameterNameOf(lambda: TreeSitterSyntaxNode): string | undefined {
+    const first = namedChildrenOf(lambda)[0];
+    // **A bare parameter is an `identifier` and a typed one is `inferred_parameters`**, and both are the first named
+    // child of the lambda - the body comes after them.
+    const parameters =
+      first?.type === 'inferred_parameters'
+        ? namedChildrenOf(first)
+        : first === undefined
+          ? []
+          : [first];
+    const only = parameters.length === 1 ? parameters[0] : undefined;
+    return only?.type === 'identifier' ? only.text : undefined;
+  }
+
+  private bodyProperty(node: TreeSitterSyntaxNode): Record<string, string> {
+    return node.childForFieldName('body') === null ? {} : { hasBody: 'true' };
+  }
+
+  protected override parameterTypeOf(parameter: TreeSitterSyntaxNode): string {
     const field = parameter.childForFieldName('type');
     if (field !== null) return field.text;
     // **The shapes without the field are the two the grammar wraps, and both carry their type as a child**: a spread
@@ -628,8 +704,17 @@ export class JavaProvider extends TreeSitterBaseProvider {
         properties: {
           filePath: this.filePath,
           ...this.arityProperty(methodArguments),
+          // **The call's own two-argument shape, with the names it passes.** `accept(dir, attributes)` and
+          // `accept(file, name)` are the same count and different declarations, so the names travel with the count.
+          ...this.argumentNamesProperty(node.childForFieldName('arguments')),
         },
       });
+      // **A lambda's parameter states no type, and the collection it is passed to states one.** `listeners.forEach(listener
+      // -> listener.onStart(…))` is how `commons-io` notifies its eight listeners, and the only place the language says
+      // what `listener` is happens to be the field the call is written on - `List<FileAlterationListener>`. The binding
+      // is recorded as "the element of that path", which is the same fact a for-each header records and the same one
+      // the resolver already knows how to read.
+      if (LAMBDA_ELEMENT_CALLS.has(nameNode.text)) this.recordLambdaElement(node);
       this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
     } else if (nodeType === 'enhanced_for_statement') {
       // **`for (Cookie theCookie : theCookies)` binds a name that every iteration writes**, and nothing recorded it.
@@ -901,7 +986,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         endByte: nameNode.endIndex,
         name: nameNode.text,
         containerName: cn.text,
-        properties: { filePath: this.filePath },
+        properties: { filePath: this.filePath, ...this.bodyProperty(node) },
       });
     } else if (nodeType === 'constructor_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;

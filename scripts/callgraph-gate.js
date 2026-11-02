@@ -212,12 +212,34 @@ const TYPESCRIPT_FLOORS = {
  * `StrBuilder`) and **12** from the factory call. 35 + 19 is the whole gain, which is how a per-rule claim is meant to
  * be checkable: if one of them were wrong the arithmetic would not close. The two remaining wrong edges are the same
  * pair as before, and the floor of 0.9985 still admits exactly them.
+ *
+ * **Iteration 62 read the type a call passes and the type a cast states**, and both floors moved to 1.0 because no
+ * wrong edge remains anywhere: **2222 of 2222** on `commons-lang` (recall 97.9 % -> **98.3 %**) and **1649 of 1649** on
+ * `commons-io` (97.9 % -> **98.7 %**). The 23 new correct edges were ablated one rule at a time, and the three groups
+ * close the sum exactly:
+ *
+ * | rule disabled alone | `commons-lang` | `commons-io` |
+ * | --- | --- | --- |
+ * | a cast names the class it casts to | 2217 (-5) | 1646 (-3) |
+ * | a call is answered by the types it passes | 2222 (0) | 1646 correct, **2 wrong** (-3, +2) |
+ * | a container's one type argument is its element | 2218 (-4) | 1641 (-8) |
+ * | a lambda parameter is bound to that element | 2218 (-4) | 1641 (-8) |
+ *
+ * 5 + 4 is `commons-lang`'s nine and 3 + 3 + 8 is `commons-io`'s fourteen. **The last two rows are one rule read from
+ * two ends**: the lambda rule records `ELEMENT_OF` against the receiver, and the element rule is what resolves that
+ * record, so disabling either half loses the same twelve edges and neither half is sufficient on its own - which is
+ * exactly why they are reported as two rows rather than as one gain claimed twice.
+ *
+ * The signature pass claims nothing new on `commons-lang` and everything it claims on `commons-io` is a repair rather
+ * than an addition: without it, the inherited arm answers `AbstractFileFilter.preVisitDirectory`'s `accept(dir, attrs)`
+ * out of `FileFilter.accept(File)` and the graph writes two wrong edges. That is the pair iteration 60 could not fix
+ * and iteration 61 named; it is gone, and the floor of 1.0 is what keeps it gone.
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
     precision: 1,
-    recall: 0.979,
-    claimed: 2213,
+    recall: 0.983,
+    claimed: 2222,
     arms: {
       import: 0.99,
       inherited: 0.995,
@@ -235,12 +257,12 @@ const JAVA_FLOORS = {
     },
   },
   'apache/commons-io': {
-    precision: 0.9985,
-    recall: 0.978,
-    claimed: 1635,
+    precision: 1,
+    recall: 0.986,
+    claimed: 1649,
     arms: {
       import: 0.99,
-      inherited: 0.99,
+      inherited: 0.995,
       package: 0.99,
       receiverType: 0.999,
       sameFile: 0.995,

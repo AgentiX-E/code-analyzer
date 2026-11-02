@@ -34,6 +34,10 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Type Parameter Bounds**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Outer Instance `this`**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Factory-Call Receiver**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Cast Receiver**           |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Argument-Type Dispatch**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Collection Elements**     |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Lambda Parameter Types**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Generics**                |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Async Detection**         |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
 | **Extension Functions**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
@@ -173,25 +177,25 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 
 ## Performance Characteristics
 
-| Language   | Parse Speed | Memory per 1K LOC | Call-graph precision / recall (measured)                           |
-| ---------- | :---------: | :---------------: | :----------------------------------------------------------------- |
-| TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis            |
-| Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug           |
-| Java       |    Fast     |       ~5MB        | **100.0 % / 97.9 %** commons-lang · **99.9 % / 97.9 %** commons-io |
-| JavaScript |    Fast     |       ~4MB        | not measured                                                       |
-| Go         |    Fast     |       ~3MB        | not measured                                                       |
-| Kotlin     |   Medium    |       ~4MB        | not measured                                                       |
-| C#         |    Fast     |       ~5MB        | not measured                                                       |
-| Rust       |   Medium    |       ~4MB        | not measured                                                       |
-| PHP        |    Fast     |       ~4MB        | not measured                                                       |
-| Ruby       |   Medium    |       ~4MB        | not measured                                                       |
-| C/C++      |    Fast     |       ~3MB        | not measured                                                       |
-| Swift      |   Medium    |       ~4MB        | not measured                                                       |
-| Dart       |    Fast     |       ~4MB        | not measured                                                       |
-| Lua        |    Fast     |       ~2MB        | not measured                                                       |
-| Scala      |   Medium    |       ~5MB        | not measured                                                       |
-| Zig        |   Medium    |       ~3MB        | not measured                                                       |
-| Elixir     |   Medium    |       ~3MB        | not measured                                                       |
+| Language   | Parse Speed | Memory per 1K LOC | Call-graph precision / recall (measured)                            |
+| ---------- | :---------: | :---------------: | :------------------------------------------------------------------ |
+| TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis             |
+| Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug            |
+| Java       |    Fast     |       ~5MB        | **100.0 % / 98.3 %** commons-lang · **100.0 % / 98.7 %** commons-io |
+| JavaScript |    Fast     |       ~4MB        | not measured                                                        |
+| Go         |    Fast     |       ~3MB        | not measured                                                        |
+| Kotlin     |   Medium    |       ~4MB        | not measured                                                        |
+| C#         |    Fast     |       ~5MB        | not measured                                                        |
+| Rust       |   Medium    |       ~4MB        | not measured                                                        |
+| PHP        |    Fast     |       ~4MB        | not measured                                                        |
+| Ruby       |   Medium    |       ~4MB        | not measured                                                        |
+| C/C++      |    Fast     |       ~3MB        | not measured                                                        |
+| Swift      |   Medium    |       ~4MB        | not measured                                                        |
+| Dart       |    Fast     |       ~4MB        | not measured                                                        |
+| Lua        |    Fast     |       ~2MB        | not measured                                                        |
+| Scala      |   Medium    |       ~5MB        | not measured                                                        |
+| Zig        |   Medium    |       ~3MB        | not measured                                                        |
+| Elixir     |   Medium    |       ~3MB        | not measured                                                        |
 
 **This column used to read `99%+`, `97%+`, `95%+` for every language**, and none of those numbers had an instrument
 behind it — they were read off a parse success rate and repeated. What replaced them is a call-graph figure per corpus,
@@ -199,8 +203,9 @@ produced by `scripts/callgraph-quality.ts` against an oracle that is not this co
 checker, and `javac`'s own attribution), gated per arm by `scripts/callgraph-gate.js` and re-run on every push by
 `.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: `commons-io` read 60.9 % when the
 instrument was first pointed at it, 80.2 % after the receiver arm learned to read a declared type, 95.8 % after the
-interface `extends` clause became a base, and **97.9 % now** — and that last number is a claim about the graph, not about
-Java. Its 36 unanswered pairs are named in `benchmarks/callgraph-java-quality.json` under `missedSamples`, which is the
+interface `extends` clause became a base, 97.9 % after four declarations the provider stepped past were read, and
+**98.7 % now** — and that number is a claim about the graph, not about Java. Its 22 unanswered pairs are named in
+`benchmarks/callgraph-java-quality.json` under `missedSamples`, which is the
 only reason the figure can be worked on rather than argued about.
 
 **Four declarations Java writes and this product stepped past, and one shape a receiver may take.** Each was found by
@@ -223,6 +228,33 @@ module the import names — **ablation: three more claims and none of them right
 than a flag, because the same shape also binds a name the checkout _does_ declare:
 `org.apache.commons.io.file.Counters.PathCounters` names a class inside `Counters.java`, and treating every unresolved
 import as external cost **14 correct edges**.
+
+**The type a call passes is a fact, and it decides which declaration answers it.** A declaration states
+`parameterTypes` and a call site states the names it passes, each resolved in the file it was written in; where several
+declarations answer one name, the one whose parameters the call can fill is the one the call runs. Four rules were added
+together and ablated one at a time, and the two corpora decompose exactly — **23 new correct edges, and the wrong edges
+go to zero on both**:
+
+| rule disabled alone                                | what the language states                                                                                                                                                                                                                                                                                                                     | `commons-lang` | `commons-io`         |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------- |
+| **A cast names the class it casts to**             | `((DefaultCodec) decoder).read(…)` writes the type in parentheses; read as an expression, the receiver's first token was a bracket and the walk answered nothing                                                                                                                                                                             | **-5**         | **-3**               |
+| **A call is answered by the types it passes**      | `accept(dir, attrs)` fits `IOFileFilter.accept(Path, BasicFileAttributes)` and not `FileFilter.accept(File)`; the inherited arm was answering the wrong one                                                                                                                                                                                  | **0**          | **-3, and +2 wrong** |
+| **A container's one type argument is its element** | `List<FileAlterationListener> listeners` states an element, which is what iteration hands out; `Map<K, V>` states none, because nothing iterates a map as its values                                                                                                                                                                         | **-4**         | **-8**               |
+| **A lambda parameter is bound to that element**    | `listeners.forEach(listener -> listener.onStart(file))` binds `listener` to the element of the receiver. **The last two rows are one rule read from two ends** — the lambda rule records the element expression and the element rule resolves it — so disabling either half loses the same twelve edges and neither half is sufficient alone | **-4**         | **-8**               |
+
+5 + 4 is `commons-lang`'s nine and 3 + 3 + 8 is `commons-io`'s fourteen, which is how a per-rule claim is meant to be
+checkable. **The signature pass adds nothing on `commons-lang` and repairs `commons-io`**: without it the graph still
+claims 1648 edges, two of which are wrong — the same `AbstractFileFilter.preVisitDirectory` pair iteration 60 could not
+fix and iteration 61 named. That repair is what moves both precision floors to **100.0 %**, where a single wrong edge
+trips the gate.
+
+**A tie between two declarations the arguments both fit is read as an absence of evidence, not as a coin toss.** The
+typed pass runs first over the chain a class _is_ — its bases and the contracts it implements — and answers only a
+declaration with a body whose parameter types the call fills; a tie, or no answer at all, falls through to the arity pass
+that ran before types existed. The order is the whole of the design: **the typed pass can add an answer and can never
+withdraw one.** Reporting a tie as "ambiguous" instead cost **46 edges** on the first measurement — `ToStringStyle` and
+every subclass that repeats its `appendDetail` — which is what an abstention looks like when the previous rule was the
+one answering.
 
 ## Adding a New Language
 

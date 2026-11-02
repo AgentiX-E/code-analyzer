@@ -407,6 +407,29 @@ export function argumentCountOf(capture: UnifiedCapture): number | undefined {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+/**
+ * The names a call passes, when its provider recorded which arguments are names.
+ *
+ * **A blob this module did not write is a blob it does not read**, the same rule the declaration facts follow: an entry
+ * that is not a string is dropped rather than coerced, and half a list is worse than none - a position that shifts makes
+ * every type after it belong to the wrong parameter.
+ */
+export function argumentNamesOf(capture: UnifiedCapture): readonly string[] | undefined {
+  const written = capture.properties?.['argumentNames'];
+  if (typeof written !== 'string') return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(written);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const names = parsed.filter((entry): entry is string => typeof entry === 'string');
+  return names.length === parsed.length && names.some((name) => name.length > 0)
+    ? names
+    : undefined;
+}
+
 export function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
   switch (tag) {
     case CAPTURE_TAGS.FUNCTION_CALL:
@@ -589,6 +612,7 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
       const referenceKind = captureTagToReferenceKind(tag);
       const receiver = receiverOf(tag, capture.text, targetName);
       const argumentCount = argumentCountOf(capture);
+      const argumentNames = argumentNamesOf(capture);
 
       references.push({
         sourceFile: filePath,
@@ -598,6 +622,7 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
         referenceKind,
         ...(receiver === undefined ? {} : { receiver }),
         ...(argumentCount === undefined ? {} : { argumentCount }),
+        ...(argumentNames === undefined ? {} : { argumentNames }),
       });
     }
   }

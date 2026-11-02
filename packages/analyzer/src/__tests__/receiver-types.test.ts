@@ -13,6 +13,7 @@ import {
   containerOf,
   createClassIndex,
   ELEMENT_OF,
+  elementTypeName,
   mergeClassIndex,
   ownerKeyOf,
   receiverTypeOf,
@@ -1485,5 +1486,278 @@ describe('a type parameter and the bound it declares', () => {
     // A type parameter is scoped to the class that writes it: `S` outside that class is a class named `S`, and this
     // module does not invent a bound for it.
     expect(receiverTypeOf(at(['ComparableUtils.ge']), 'delegate')).toBeUndefined();
+  });
+});
+
+// **A cast writes the type where the receiver is, and nothing else does.** `((MutableBoolean) obj).booleanValue()` is
+// how `equals` reaches the value of an object it has just tested, and the cast is the only statement of what `obj` is:
+// a receiver read as a name finds no binding at all, so five `equals` methods on `apache/commons-lang@3.14.0` answered
+// nothing while the type was written two characters to the left of the call.
+describe('a receiver written as a cast', () => {
+  const FILE = 'src/main/java/org/apache/commons/lang3/mutable/MutableBoolean.java';
+  const facts = buildFileTypes([
+    declaration('Class', 'MutableBoolean', undefined, {}, 1),
+    declaration('Method', 'booleanValue', 'MutableBoolean', {}, 2),
+    declaration('Method', 'equals', 'MutableBoolean', { parameterType: 'Object' }, 3),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at: ReceiverLookup = { index, origin: { file: FILE }, owners: ['MutableBoolean.equals'] };
+
+  it('reads the type the cast names', () => {
+    expect(receiverTypeOf(at, '((MutableBoolean) obj)')).toEqual({
+      className: 'MutableBoolean',
+      via: 'cast',
+    });
+  });
+
+  it('reads a cast with one pair of brackets, and a qualified cast', () => {
+    expect(receiverTypeOf(at, '(MutableBoolean) value')).toEqual({
+      className: 'MutableBoolean',
+      via: 'cast',
+    });
+    // A primitive cast names no class, and a class nobody declared is not one either.
+    expect(receiverTypeOf(at, '((long) value)')).toBeUndefined();
+    expect(receiverTypeOf(at, '((Absent) value)')).toBeUndefined();
+  });
+
+  it('refuses a bracketed expression, which states no type at all', () => {
+    // **`(a + b).m()` is arithmetic, not a cast**, and reading the first token as a class name would answer every
+    // parenthesised receiver with whatever the graph happens to declare under that spelling.
+    expect(receiverTypeOf(at, '((a + b))')).toBeUndefined();
+    expect(receiverTypeOf(at, '(value)')).toBeUndefined();
+  });
+});
+
+// **A call states its own types, and a chain that states them is read in that order.** `AbstractFileFilter` owns
+// `accept(File)` and `accept(File, String)`; `IOFileFilter` declares `accept(Path, BasicFileAttributes)` as a default
+// method. `preVisitDirectory(Path, BasicFileAttributes)` calls `accept(dir, attributes)`, and an arity-only walk answers
+// the class's own two-argument method - an edge javac does not have. The types pick the contract's declaration, and when
+// no declaration in the chain states a matching signature the arity answers exactly as it did before, so the rule can
+// only add an answer and never withdraw one.
+describe('a call is answered by the types it passes', () => {
+  const ABSTRACT = 'src/main/java/org/apache/commons/io/filefilter/AbstractFileFilter.java';
+  const CONTRACT = 'src/main/java/org/apache/commons/io/filefilter/IOFileFilter.java';
+  const abstractFacts = buildFileTypes([
+    declaration('Class', 'AbstractFileFilter', undefined, { interfaces: 'IOFileFilter' }, 1),
+    declaration(
+      'Method',
+      'accept',
+      'AbstractFileFilter',
+      { parameterCount: '1', requiredParameters: '1', parameterTypes: '["File"]' },
+      2,
+    ),
+    declaration(
+      'Method',
+      'accept',
+      'AbstractFileFilter',
+      { parameterCount: '2', requiredParameters: '2', parameterTypes: '["File","String"]' },
+      3,
+    ),
+    declaration('Method', 'preVisitDirectory', 'AbstractFileFilter', { parameterCount: '2' }, 4),
+  ]);
+  const contractFacts = buildFileTypes([
+    declaration('Interface', 'IOFileFilter', undefined, {}, 5),
+    // **A contract's method is written and not implemented**, and the one that is implemented here is the default.
+    declaration(
+      'Method',
+      'accept',
+      'IOFileFilter',
+      {
+        parameterCount: '2',
+        requiredParameters: '2',
+        parameterTypes: '["Path","BasicFileAttributes"]',
+        hasBody: 'true',
+      },
+      6,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, abstractFacts, ABSTRACT);
+  mergeClassIndex(index, contractFacts, CONTRACT);
+  const origin = { file: ABSTRACT };
+
+  it('answers the declaration whose parameter types the call passes', () => {
+    expect(
+      classMemberOf(index, 'AbstractFileFilter', 'accept', origin, 2, [
+        'Path',
+        'BasicFileAttributes',
+      ]),
+    ).toEqual({ nodeId: 6, label: 'Method' });
+  });
+
+  it('keeps the arity answer when the call states no types', () => {
+    // **The old question, asked exactly as before.** A call being edited and a deferred `Type::method` state no types,
+    // and an unknown fact is not a refusal.
+    expect(classMemberOf(index, 'AbstractFileFilter', 'accept', origin, 2)).toEqual({
+      nodeId: 3,
+      label: 'Method',
+    });
+  });
+
+  it('answers the class’s own declaration when that is the one the types fit', () => {
+    // The same chain, the same arity, and a different pair of types: the answer is the nearer declaration, because the
+    // rule orders the walk and does not prefer a contract.
+    expect(
+      classMemberOf(index, 'AbstractFileFilter', 'accept', origin, 2, ['File', 'String']),
+    ).toEqual({
+      nodeId: 3,
+      label: 'Method',
+    });
+  });
+
+  it('withdraws nothing when no declaration in the chain states a matching signature', () => {
+    // **A type this reader cannot place is not a refusal of the call.** `Widget` is a name no declaration in the chain
+    // writes, so the typed walk finds nothing and the arity answers - which is the answer the graph gave before this
+    // rule existed. That is how the rule stays additive.
+    expect(
+      classMemberOf(index, 'AbstractFileFilter', 'accept', origin, 2, ['Path', 'Widget']),
+    ).toEqual({
+      nodeId: 3,
+      label: 'Method',
+    });
+  });
+
+  it('reads a parameter of type Object as accepting anything, and prefers the declaration that names the type', () => {
+    const facts = buildFileTypes([
+      declaration('Class', 'Printer', undefined, {}, 1),
+      declaration(
+        'Method',
+        'print',
+        'Printer',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Object"]' },
+        2,
+      ),
+      declaration(
+        'Method',
+        'print',
+        'Printer',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["File"]' },
+        3,
+      ),
+    ]);
+    const only = createClassIndex();
+    mergeClassIndex(only, facts, '/src/demo/Printer.java');
+    // A `String` argument fits the `Object` declaration alone, and that one answer is the one the call runs.
+    expect(
+      classMemberOf(only, 'Printer', 'print', { file: '/src/demo/Printer.java' }, 1, ['String']),
+    ).toEqual({ nodeId: 2, label: 'Method' });
+    // **Both fit a `File` and only one of them is what runs.** `Object` accepts anything; the declaration that names
+    // the argument's own type is the more specific one, and specificity is how the language orders two that both fit.
+    expect(
+      classMemberOf(only, 'Printer', 'print', { file: '/src/demo/Printer.java' }, 1, ['File']),
+    ).toEqual({ nodeId: 3, label: 'Method' });
+  });
+
+  it('refuses two declarations that fit equally well', () => {
+    // **A subclass of two bases that both declare the name is the case specificity cannot order.** Both matches widen,
+    // neither names the argument, and picking one would be the coin toss this module refuses.
+    const facts = buildFileTypes([
+      declaration('Class', 'Widget', undefined, {}, 1),
+      declaration('Class', 'File', undefined, {}, 2),
+      declaration('Class', 'Both', undefined, { baseClasses: 'Widget,File' }, 3),
+      declaration(
+        'Method',
+        'accept',
+        'Widget',
+        { parameterCount: '1', parameterTypes: '["Widget"]' },
+        4,
+      ),
+      declaration(
+        'Method',
+        'accept',
+        'File',
+        { parameterCount: '1', parameterTypes: '["File"]' },
+        5,
+      ),
+    ]);
+    const only = createClassIndex();
+    mergeClassIndex(only, facts, '/src/demo/Both.java');
+    expect(
+      classMemberOf(only, 'Both', 'accept', { file: '/src/demo/Both.java' }, 1, ['Both']),
+    ).toBeUndefined();
+  });
+
+  it('reads a parameter of a type variable as a parameter of its bound', () => {
+    // **`<T> void add(T item)` states no class**, and a call that passes a `Widget` is not refused by that: the
+    // declaration cannot say what it does not write.
+    const facts = buildFileTypes([
+      declaration('Class', 'Bag', undefined, {}, 1),
+      declaration(
+        'Method',
+        'add',
+        'Bag',
+        {
+          parameterCount: '1',
+          requiredParameters: '1',
+          parameterTypes: '["T"]',
+          typeParameters: '',
+        },
+        2,
+      ),
+    ]);
+    const only = createClassIndex();
+    mergeClassIndex(only, facts, '/src/demo/Bag.java');
+    expect(
+      classMemberOf(only, 'Bag', 'add', { file: '/src/demo/Bag.java' }, 1, ['Widget']),
+    ).toEqual({
+      nodeId: 2,
+      label: 'Method',
+    });
+  });
+});
+
+// **A collection's type argument is the element it hands out, and `forEach` is where it hands it.**
+// `List<FileAlterationListener> listeners` beside `listeners.forEach(listener -> …)` is how `commons-io` notifies eight
+// listeners, and the lambda's parameter states no type at all - the container does. The two halves of the rule are the
+// same fact read from two places: `List<X>` has an element, and a binding written as the element of a path takes it.
+describe('the element of a collection, which is the type argument it writes', () => {
+  it('reads the one type argument of a container as its element', () => {
+    // **The head names the container and the argument names what it holds.** An array is the same fact in another
+    // spelling, and `Map<K, V>` is not: two arguments are two elements, and neither of them is what iteration hands out.
+    expect(elementTypeName('List<Leaf>')).toBe('Leaf');
+    expect(elementTypeName('Iterable<Leaf>')).toBe('Leaf');
+    expect(elementTypeName('Collection<Leaf>')).toBe('Leaf');
+    expect(elementTypeName('Set<Leaf>')).toBe('Leaf');
+    expect(elementTypeName('Deque<Leaf>')).toBe('Leaf');
+    expect(elementTypeName('Stream<Leaf>')).toBe('Leaf');
+    expect(elementTypeName('Optional<Leaf>')).toBe('Leaf');
+    expect(elementTypeName('Leaf[]')).toBe('Leaf');
+    expect(elementTypeName('Array<Leaf>')).toBe('Leaf');
+    // Two type arguments are a pair, and a container that holds nothing a call can be written on holds no element.
+    expect(elementTypeName('Map<String, Leaf>')).toBeUndefined();
+    expect(elementTypeName('List<String>')).toBeUndefined();
+    expect(elementTypeName('List')).toBeUndefined();
+  });
+
+  it('answers a lambda parameter with the element of the collection it is passed to', () => {
+    const facts = buildFileTypes([
+      declaration(
+        'Class',
+        'Observer',
+        undefined,
+        { fieldTypes: '{"listeners":"List<Listener>"}' },
+        1,
+      ),
+      declaration(
+        'Method',
+        'fire',
+        'Observer',
+        { localTypes: '{"listener":"@elementOf:listeners"}' },
+        2,
+      ),
+      declaration('Interface', 'Listener', undefined, {}, 3),
+      declaration('Method', 'onStart', 'Listener', {}, 4),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Observer.java');
+    // **The binding is the lambda's and the type is the field's**, so the walk reports `thisField`: what it answered
+    // with is a declaration of the class, reached through the collection the lambda was passed to.
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Observer.java' }, owners: ['Observer.fire'] },
+        'listener',
+      ),
+    ).toEqual({ className: 'Listener', via: 'thisField' });
   });
 });

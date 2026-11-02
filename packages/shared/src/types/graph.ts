@@ -355,6 +355,18 @@ export interface ReferenceSite {
    * only known at runtime (`f(*args)`), which is the same "unknown" a declaration with no parameters is not.
    */
   argumentCount?: number;
+  /**
+   * The names the call passes, in order, with an empty string where the argument is not a name.
+   *
+   * **A count chooses between two declarations of different arity and nothing else.** `accept(dir, attributes)` and
+   * `accept(file, name)` are both two arguments, and they are different methods in different classes; what separates
+   * them is the type each name holds, and the name is the only handle a resolver has on that - the declarations of the
+   * calling file state what `dir` and `file` are, and the call states which of them it passes.
+   *
+   * Absent when the call passes no name at all: a literal, an expression and a construction state no binding, and an
+   * empty entry marks the position rather than guessing a type for it.
+   */
+  argumentNames?: readonly string[];
 }
 
 /** A hierarchical scope tree for a parsed file */

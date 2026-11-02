@@ -31,6 +31,8 @@ const SOURCE = join(ROOT, 'src', 'main', 'java', 'demo');
 interface Call {
   readonly caller: string;
   readonly callee: string;
+  /** The file the callee is declared in, because two declarations of one name are the whole point of the cases below. */
+  readonly calleeFile: string;
   readonly arm: string;
 }
 
@@ -103,6 +105,55 @@ public class Outer {
 `,
   );
   write(
+    'Filter.java',
+    `package demo;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+
+public interface Filter {
+    boolean accept(File file);
+
+    boolean accept(File file, String name);
+
+    default boolean accept(Path path, BasicFileAttributes attributes) {
+        return accept(path.toFile());
+    }
+}
+`,
+  );
+  write(
+    'AbstractFilter.java',
+    `package demo;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+
+public abstract class AbstractFilter implements Filter {
+    public boolean accept(final File file) { return true; }
+
+    public boolean accept(final File file, final String name) { return true; }
+
+    public void preVisit(final Path dir, final BasicFileAttributes attributes) {
+        accept(dir, attributes);
+    }
+}
+`,
+  );
+  write(
+    'Reader.java',
+    `package demo;
+
+public class Reader {
+    public boolean measure(final Object other) {
+        return ((Case) other).checkEquals("a", "b");
+    }
+}
+`,
+  );
+  write(
     'Caller.java',
     `package demo;
 
@@ -149,6 +200,7 @@ function calls(): Call[] {
         {
           caller: String(source.name),
           callee: String(target.name),
+          calleeFile: (target.filePath ?? '').split(/[\\/]/).pop() ?? '',
           arm: typeof arm === 'string' ? arm : '',
         },
       ];
@@ -184,6 +236,23 @@ describe('a Java checkout answers what its own declarations say', () => {
   it('answers a call an inner class writes on its outer instance', () => {
     // **`Outer.this.size()` names the enclosing object**, because the inner class's own `this` is a different one.
     expect(callsFrom('read', 'size')).toBeDefined();
+  });
+
+  it('answers a call on a cast, because the cast writes the type the name does not', () => {
+    // **`((Case) other).checkEquals(…)` states its type in the brackets.** `equals` in every mutable type of
+    // `commons-lang` reaches its own value this way, and a receiver read as a name finds no binding for the expression.
+    expect(callsFrom('measure', 'checkEquals')).toMatchObject({ arm: 'receiverType' });
+  });
+
+  it('answers a call by the types it passes, and lands on the declaration that fits them', () => {
+    // **Two arguments, two declarations, two files.** `AbstractFilter` declares `accept(File)` and `accept(File, String)`;
+    // `Filter` declares `accept(Path, BasicFileAttributes)` as a default method. `preVisit` passes a `Path` and a
+    // `BasicFileAttributes`, and an arity-only walk answers the class's own two-argument method - an edge javac does not
+    // have. The types are what pick the contract's declaration, and the file the edge lands in is the proof.
+    const answered = calls().filter(
+      (call) => call.caller === 'preVisit' && call.callee === 'accept',
+    );
+    expect(answered).toEqual([expect.objectContaining({ calleeFile: 'Filter.java' })]);
   });
 
   it('claims no call the checkout does not contain', () => {

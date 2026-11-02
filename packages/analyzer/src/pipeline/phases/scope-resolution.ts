@@ -21,6 +21,7 @@ import {
   buildFileTypes,
   classInPackageOf,
   classMemberOf,
+  declaredTypeNameOf,
   classNamed,
   containerOf,
   createClassIndex,
@@ -1144,8 +1145,44 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         };
 
         // Process references — try to resolve CALLS edges
+        /**
+         * The declarations enclosing a call at `line`, **innermost first, as the owner keys a type lookup uses.**
+         *
+         * `callables` is sorted narrowest first, so the order this produces is the order a scope is read in: a local
+         * of the method before a field of its class, and a lambda's binding before either if one ever files it.
+         */
+        const ownersOf = (line: number): string[] =>
+          callables
+            .filter((symbol) => symbol.startLine <= line && symbol.endLine >= line)
+            .map(
+              (symbol) =>
+                `${ownerKeyOf(containerOf(symbol), symbol.name)}\u0000${String(symbol.startLine)}`,
+            );
+
+        /**
+         * The types a call's arguments hold, or `undefined` when it passes no name or a name whose type nobody states.
+         *
+         * **The call states which names it passes and the declarations state what they hold.** `accept(dir, attributes)`
+         * is a call whose two arguments are both written parameters of the method around it, so both types are facts
+         * already in the graph - and the pair of them is what separates `accept(File, String)` from
+         * `accept(Path, BasicFileAttributes)`. A position that is not a name, or a name with no annotation, is
+         * `undefined` and is compared by nothing, which is the same "unknown is not a refusal" the count follows.
+         */
+        const argumentTypesOf = (ref: Reference): (string | undefined)[] | undefined => {
+          if (ref.argumentNames === undefined) return undefined;
+          const lookup = {
+            index: classIndex,
+            origin,
+            owners: ownersOf(ref.sourceLine),
+          };
+          return ref.argumentNames.map((name) =>
+            name.length === 0 ? undefined : declaredTypeNameOf(lookup, name),
+          );
+        };
+
         for (const ref of parsedFile.references) {
           if (ref.referenceKind === 'call') {
+            const argumentTypes = argumentTypesOf(ref);
             let target: { nodeId: number; label: NodeLabel } | undefined;
             let arm:
               | 'import'
@@ -1360,7 +1397,14 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                 // is unambiguous - so "does the class declare it" and "does a base" are one question asked once.
                 // Found by measuring member references: `MultiBackgroundInitializer::getTaskCount` runs
                 // `BackgroundInitializer.getTaskCount`, and the static arm answered nothing for it.
-                baseMemberOf(classIndex, ref.receiver, ref.targetName, origin, ref.argumentCount);
+                baseMemberOf(
+                  classIndex,
+                  ref.receiver,
+                  ref.targetName,
+                  origin,
+                  ref.argumentCount,
+                  argumentTypes,
+                );
               if (member !== undefined) {
                 target = member;
                 arm = 'static';
@@ -1413,6 +1457,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                         ref.targetName,
                         origin,
                         ref.argumentCount,
+                        argumentTypes,
                       )
                     : (classMemberOf(
                         classIndex,
@@ -1420,6 +1465,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                         ref.targetName,
                         origin,
                         ref.argumentCount,
+                        argumentTypes,
                       ) ??
                       baseMemberOf(
                         classIndex,
@@ -1427,6 +1473,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                         ref.targetName,
                         origin,
                         ref.argumentCount,
+                        argumentTypes,
                       ));
                   if (member !== undefined) {
                     target = member;
@@ -1464,15 +1511,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               // it several times, and the parameters of one are not the parameters of another: `Failable.accept` takes
               // a `consumer` of ten different types across eleven declarations. The line is what a call site inside one
               // of them can state, and the walk reads it before it falls back to the name.
-              const owners = callables
-                .filter(
-                  (symbol) =>
-                    symbol.startLine <= ref.sourceLine && symbol.endLine >= ref.sourceLine,
-                )
-                .map(
-                  (symbol) =>
-                    `${ownerKeyOf(containerOf(symbol), symbol.name)}\u0000${symbol.startLine}`,
-                );
+              const owners = ownersOf(ref.sourceLine);
               const receiverType = receiverTypeOf(
                 { index: classIndex, origin, owners },
                 ref.receiver,
@@ -1491,6 +1530,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   ref.targetName,
                   memberScope,
                   ref.argumentCount,
+                  argumentTypes,
                 );
                 if (member !== undefined) {
                   target = member;

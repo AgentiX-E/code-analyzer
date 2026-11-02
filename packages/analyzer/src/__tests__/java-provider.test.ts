@@ -774,3 +774,137 @@ describe('JavaProvider — the declarations a try, an enum body and a type param
     expect(JSON.parse(String(cls?.properties?.['typeParameters']))).toEqual({ T: 'Number' });
   });
 });
+
+// **A declaration writes its parameter types and a call writes its argument names, and both are facts about the
+// source.** Iteration 60 made a call choose between overloads by counting arguments; the count cannot tell
+// `accept(File, String)` from `accept(Path, BasicFileAttributes)`, and those two live in different classes. The two
+// properties below are what a resolver needs to decide by type what the count could only narrow.
+describe('the signature a declaration writes, and the names a call passes', () => {
+  const provider = new JavaProvider();
+
+  /** The first capture of a tag whose name is `name`. */
+  const found = (source: string, name: string, tag: string) =>
+    provider.parse(source, 'Holder.java').find((c) => c.tag === tag && c.name === name);
+
+  it('writes each parameter type in the order the declaration writes it', () => {
+    const source = 'class Holder { void run(Widget widget, String name) { } }';
+    expect(found(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['parameterTypes']).toBe(
+      '["Widget","String"]',
+    );
+  });
+
+  it('writes a spread parameter as the type it spreads', () => {
+    // **`String... parts` is a `spread_parameter` and the grammar gives it no `type` field**, so a reader that asked
+    // for the field wrote an empty string and a call passing four strings looked like a call passing none.
+    const source = 'class Holder { void run(Widget widget, String... parts) { } }';
+    expect(found(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['parameterTypes']).toBe(
+      '["Widget","String"]',
+    );
+  });
+
+  it('writes no parameter types for a declaration that writes none', () => {
+    // **An absent fact is not an empty list.** A method with no parameters declares no types, and writing `[]` would
+    // make "nothing to check" look like "checked and matched nothing".
+    const source = 'class Holder { void run() { } }';
+    expect(
+      found(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['parameterTypes'],
+    ).toBeUndefined();
+  });
+
+  it('says which declarations write a body', () => {
+    // **A contract's method is written and not implemented**, and a resolver that reads it as the code that runs
+    // answers an interface's signature where a field of the class holds the function.
+    const source = [
+      'interface Contract {',
+      '  void run();',
+      '  default void stop() { }',
+      '}',
+      'class Holder implements Contract {',
+      '  public void run() { }',
+      '}',
+    ].join('\n');
+    expect(found(source, 'run', CAPTURE_TAGS.METHOD_DEF)?.properties?.['hasBody']).toBeUndefined();
+    expect(found(source, 'stop', CAPTURE_TAGS.METHOD_DEF)?.properties?.['hasBody']).toBe('true');
+    expect(
+      provider
+        .parse(source, 'Holder.java')
+        .filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF && c.name === 'run')
+        .map((c) => c.properties?.['hasBody']),
+    ).toEqual([undefined, 'true']);
+  });
+
+  it('writes the names a call passes, and a placeholder for what is not a name', () => {
+    // **The resolver can only type a name it can look up.** `accept(dir, new File(name))` passes one binding and one
+    // expression, and an empty entry says which is which without inventing a type for the other.
+    const source = 'class Holder { void run(Widget widget) { accept(widget, new File(name)); } }';
+    expect(found(source, 'accept', CAPTURE_TAGS.FUNCTION_CALL)?.properties?.['argumentNames']).toBe(
+      '["widget",""]',
+    );
+  });
+
+  it('writes no argument names for a call that passes no name', () => {
+    const source = 'class Holder { void run() { accept(1, "two"); } }';
+    expect(
+      found(source, 'accept', CAPTURE_TAGS.FUNCTION_CALL)?.properties?.['argumentNames'],
+    ).toBeUndefined();
+  });
+});
+
+// **A lambda's parameter is bound where the container is declared, and nowhere else.** `listeners.forEach(listener -> …)`
+// states no type for `listener`; `List<FileAlterationListener> listeners` states it, and the call is what joins the two.
+describe('a lambda parameter and the collection it is passed to', () => {
+  const provider = new JavaProvider();
+
+  /** The `localTypes` a named method wrote, as the JSON blob it is. */
+  const localsOf = (source: string, name: string): Record<string, string> =>
+    JSON.parse(
+      String(
+        provider.parse(source, 'Holder.java').find((c) => c.name === name)?.properties?.[
+          'localTypes'
+        ] ?? '{}',
+      ),
+    ) as Record<string, string>;
+
+  it('binds the one parameter of a forEach lambda to the receiver’s element', () => {
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire() { listeners.forEach(listener -> listener.onStart(this)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({ listener: '@elementOf:listeners' });
+  });
+
+  it('binds a parameter the lambda writes its type on, and one written with brackets', () => {
+    // **`(listener) -> …` is the same lambda with brackets**, and the grammar files the parameter in a different node.
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire() { listeners.forEach((listener) -> listener.onStart(this)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({ listener: '@elementOf:listeners' });
+  });
+
+  it('binds nothing for a lambda that takes two parameters', () => {
+    // **`reduce`'s lambda takes the accumulator and the element**, and the first of them is not the receiver's element.
+    // Neither is a comparator's, which is why two names are refused rather than answered by position.
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire() { listeners.sort((a, b) -> a.compareTo(b)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds nothing for a call whose receiver is an expression', () => {
+    // `getListeners().forEach(…)` states no declaration to take an element from, and a call site is not a declaration.
+    const source = [
+      'class Holder {',
+      '  void fire() { getListeners().forEach(listener -> listener.onStart(this)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+});

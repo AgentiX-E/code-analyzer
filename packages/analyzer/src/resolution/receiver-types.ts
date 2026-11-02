@@ -40,6 +40,28 @@ export interface DeclaredArity {
   readonly parameters: number;
   /** Whether a call may pass more than `parameters` — `String... parts`, `...rest`, `*args`. */
   readonly variadic: boolean;
+  /**
+   * The type each parameter writes, in order — `''` where the declaration writes none.
+   *
+   * **The count narrows an overload set and the types finish it.** `accept(File, String)` and
+   * `accept(Path, BasicFileAttributes)` are two parameters each, and both classes answer the name; only the types say
+   * which of them `accept(dir, attributes)` runs. Absent when the declaration writes no type at all, so a grammar with
+   * no type system (Python) and a declaration with no parameters reach the arity rule exactly as before.
+   */
+  readonly types?: readonly string[];
+  /** The node this declaration is, so a walk that selects by signature can answer with it. */
+  readonly nodeId?: number;
+  /** What kind of declaration it is, which a selected answer has to report. */
+  readonly label?: NodeLabel;
+  /**
+   * Whether the declaration writes a body.
+   *
+   * **A signature is checked against a call; it is not the code that runs.** `redis/ioredis@5.4.2` declares
+   * `reject` on the `Respondable` contract and holds the function in a *field* of the class that implements it, so a
+   * walk that read the contract's unimplemented declaration as the callee claimed **seven wrong edges**. Only a
+   * declaration with a body can be the answer when the walk reaches it through inheritance.
+   */
+  readonly hasBody: boolean;
 }
 
 /** What one file says about the types its declarations have. */
@@ -76,6 +98,15 @@ export interface FileTypes {
   readonly members: Map<string, Map<string, Declared>>;
   /** `Class` → the simple names of the classes it extends, in declaration order. */
   readonly bases: Map<string, readonly string[]>;
+  /**
+   * `Class` → the simple names of the contracts it implements, in declaration order.
+   *
+   * **A contract is not a base and it is not nothing.** It declares no field and its methods usually hold no code, so
+   * reading it as a base claimed seven wrong edges on `redis/ioredis@5.4.2` and earned none; but a contract's
+   * **default** method is code, and `IOFileFilter.accept(Path, BasicFileAttributes)` is the method
+   * `AbstractFileFilter.preVisitDirectory` runs. The two clauses are kept apart so each walk reads the one it means.
+   */
+  readonly contracts: Map<string, readonly string[]>;
   /**
    * `Class\u0000member` → the arity of each declaration the class writes under that name.
    *
@@ -276,8 +307,49 @@ export function elementTypeName(annotation: unknown): string | undefined {
   const text = annotation.trim();
   const braced = /^(?:Readonly<)?(?:Array|ReadonlyArray)<(.+)>$/.exec(text);
   if (braced?.[1] !== undefined) return simpleTypeName(braced[1]);
-  return text.endsWith('[]') ? simpleTypeName(text.slice(0, -2)) : undefined;
+  if (text.endsWith('[]')) return simpleTypeName(text.slice(0, -2));
+  // **A collection is a container too, and its one type argument is what iteration hands out.** `List<FileAlterationListener>`
+  // is a `List` - which is why `simpleTypeName` answers the head - and the element is the argument, which is the fact
+  // `listeners.forEach(listener -> …)` needs. Two arguments are a pair and not an element: nothing iterates a `Map`
+  // as its values, so `Map<String, Leaf>` states no element this reader may answer with.
+  const generic = /^([A-Za-z_$][\w$]*)\s*<(.+)>$/.exec(text);
+  if (generic?.[1] === undefined || generic[2] === undefined) return undefined;
+  if (!SINGLE_ARGUMENT_CONTAINERS.has(generic[1])) return undefined;
+  return splitTopLevel(generic[2], ',').length === 1 ? simpleTypeName(generic[2]) : undefined;
 }
+
+/**
+ * The containers that hold one kind of thing, **which is the whole of what "element" means here.**
+ *
+ * The JDK's own interfaces and the implementations in daily use, plus the two TypeScript spellings the array branch
+ * above already answers. A container whose name is not in this list states no element, and a rule that read any
+ * `Head<X>` as `X` would answer `Optional<Foo>` - which is not wrong - and `Supplier<Foo>` - which is.
+ */
+const SINGLE_ARGUMENT_CONTAINERS: ReadonlySet<string> = new Set([
+  'Array',
+  'ReadonlyArray',
+  'Iterable',
+  'Iterator',
+  'Collection',
+  'List',
+  'ArrayList',
+  'LinkedList',
+  'CopyOnWriteArrayList',
+  'Set',
+  'HashSet',
+  'LinkedHashSet',
+  'TreeSet',
+  'SortedSet',
+  'CopyOnWriteArraySet',
+  'Deque',
+  'ArrayDeque',
+  'Queue',
+  'PriorityQueue',
+  'Stream',
+  'BaseStream',
+  'Optional',
+  'Sequence',
+]);
 
 /** The one member of a union that is a type rather than a value, or `undefined` when there is not exactly one. */
 function onlyMemberOf(text: string): string | undefined {
@@ -345,6 +417,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const classes = new Map<string, Declared>();
   const members = new Map<string, Map<string, Declared>>();
   const bases = new Map<string, readonly string[]>();
+  const contracts = new Map<string, readonly string[]>();
   const arity = new Map<string, AritySet>();
   const typeParameters = new Map<string, Map<string, string>>();
 
@@ -433,6 +506,17 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
         const known = bases.get(declaration.name) ?? [];
         const merged = [...known, ...inherited.filter((base) => !known.includes(base))];
         bases.set(declaration.name, merged);
+      }
+      // **`implements` is filed where it is read and not where it is walked.** The clause names the contracts a class
+      // promises to satisfy; only the typed walk opens them, because only a signature match can say that a contract's
+      // declaration is the code a call runs.
+      const implemented = baseNamesOf(declaration.properties['interfaces']);
+      if (implemented.length > 0) {
+        const known = contracts.get(declaration.name) ?? [];
+        contracts.set(declaration.name, [
+          ...known,
+          ...implemented.filter((contract) => !known.includes(contract)),
+        ]);
       }
       // **A type parameter's bound is the class its name stands for.** `S extends IOBaseStream<T, S, B>` is read
       // here as one fact about `UncheckedIOBaseStream`, and applied wherever a member of that class is typed `S` -
@@ -526,6 +610,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     classes,
     members,
     bases,
+    contracts,
     arity,
     typeParameters,
   };
@@ -576,14 +661,39 @@ function mergeArity(
   // **A declaration that counts its parameters and not its required ones requires all of them.** The two are written
   // together by every provider that writes either; a fact that states one alone is stating the stricter reading.
   const required = countOf(declaration.properties['requiredParameters']) ?? written;
+  const types = parameterTypesOf(declaration.properties['parameterTypes']);
   arity.set(key, [
     ...(arity.get(key) ?? []),
     {
       parameters: written,
       required,
       variadic: declaration.properties['variadic'] === 'true',
+      ...(types === undefined ? {} : { types }),
+      ...(declaration.nodeId === undefined ? {} : { nodeId: declaration.nodeId }),
+      label: declaration.kind,
+      hasBody: declaration.properties['hasBody'] === 'true',
     },
   ]);
+}
+
+/**
+ * The parameter types a provider wrote as one JSON array, or `undefined` when it wrote none.
+ *
+ * **Absent and empty are different facts**, which is why this returns `undefined` for anything that is not an array of
+ * strings: a declaration that writes `run()` states no type, and an array of the wrong shape is a blob this reader did
+ * not write rather than a list it should trust positionally.
+ */
+function parameterTypesOf(blob: unknown): readonly string[] | undefined {
+  if (typeof blob !== 'string' || blob.length === 0) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(blob);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const types = parsed.filter((entry): entry is string => typeof entry === 'string');
+  return types.length === parsed.length ? types : undefined;
 }
 
 /**
@@ -698,6 +808,17 @@ const SIMPLE_NAME = /^[A-Za-z_$][\w$]*$/;
 const OUTER_THIS = /^([A-Za-z_$][\w$.]*)\.this$/;
 
 /**
+ * A receiver written as a cast — `((MutableBoolean) obj)`, `(java.io.File) value`.
+ *
+ * **The cast is the only statement of what the value is**, and it sits where the receiver is: `equals` in
+ * `apache/commons-lang@3.14.0` reaches `((MutableBoolean) obj).booleanValue()` five times, once per mutable type, and a
+ * walk that reads the base as a *name* asks the file for a binding called `((MutableBoolean) obj)` and finds none. The
+ * trailing token is what separates a cast from a bracketed expression - `(a + b)` closes and ends - and the expression
+ * after it is not read, because the type is all this rule needs.
+ */
+const CAST_RECEIVER = /^\(+\s*([A-Za-z_$][\w$.]*)\s*(?:<[^<>]*>)?\s*\)+\s*\S/;
+
+/**
  * How many bounds a type name is followed through before the walk gives up.
  *
  * **A bound may itself be a parameter** — `B extends BaseStream<T, B>` — and a cycle is a program the compiler would
@@ -710,7 +831,7 @@ export interface ReceiverType {
   /** The class whose member the call names. */
   readonly className: string;
   /** Where the walk started, recorded so each shape can be scored on its own. */
-  readonly via: 'thisField' | 'parameter' | 'local' | 'class' | 'call';
+  readonly via: 'thisField' | 'parameter' | 'local' | 'class' | 'call' | 'cast';
   /**
    * The file the type's name was written in, when a hop left the file the call sits in.
    *
@@ -832,6 +953,14 @@ function startOf(
   base: string,
   bare: boolean,
 ): ReceiverType | undefined {
+  // **A cast names a class, and a class the graph does not hold names nothing.** The lookup comes first so that a
+  // bracketed expression whose first token happens to spell a class is still read as the expression it is: `(x)` and
+  // `(a + b)` fail the pattern, and `((Absent) x)` passes it and finds no class.
+  const cast = CAST_RECEIVER.exec(base);
+  if (cast?.[1] !== undefined) {
+    const named = locateClass(lookup.index, cast[1], lookup.origin);
+    if (named !== undefined) return { className: named.name, via: 'cast' };
+  }
   if (OWN_SCOPE.has(base)) {
     const enclosing = firstOf(
       lookup.owners,
@@ -890,6 +1019,29 @@ function startOf(
   if (bare) return undefined;
   const named = locateClass(lookup.index, base, lookup.origin);
   return named === undefined ? undefined : { className: named.name, via: 'class' };
+}
+
+/**
+ * What type a name holds at this call site - **the fact a call's argument types are built from.**
+ *
+ * `accept(dir, attributes)` passes two names whose types the calling declaration states, and the walk that decides
+ * which `accept` runs needs those types to compare against the parameter types of each candidate. The order is the
+ * language's own: a local shadows a parameter, and both shadow a field. A name that states no type answers `undefined`,
+ * which is what keeps an untyped call on the arity rule rather than on a guess.
+ */
+export function declaredTypeNameOf(lookup: ReceiverLookup, name: string): string | undefined {
+  const own =
+    lookup.origin?.file === undefined ? undefined : lookup.index.files.get(lookup.origin.file);
+  const local = declaredUnder(own?.locals, lookup.owners, name);
+  if (local !== undefined) return valueOf(lookup, own, local, 'local')?.className;
+  const parameter = declaredUnder(own?.parameters, lookup.owners, name);
+  if (parameter !== undefined) return valueOf(lookup, own, parameter, 'parameter')?.className;
+  const enclosing = firstOf(
+    lookup.owners,
+    (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
+  );
+  const field = enclosing === undefined ? undefined : own?.fields.get(`${enclosing}.${name}`);
+  return field === undefined ? undefined : valueOf(lookup, own, field, 'thisField')?.className;
 }
 
 /**
@@ -1009,7 +1161,17 @@ function elementOfPath(
   // A bare name is a local or a parameter, and both are filed under the same owner key - so this is one lookup, and
   // the answer does not have to say which of the two it was: `for (const x of items)` iterates what `items` is.
   const element = declaredUnder(own?.elements, lookup.owners, base);
-  return element === undefined ? undefined : { className: element, via: 'local' };
+  if (element !== undefined) return { className: element, via: 'local' };
+  // **A field needs no `this`, and Java writes it without one.** `listeners.forEach(listener -> …)` names a field of the
+  // enclosing class, which is filed under the class rather than under the method - so the lookup above, keyed by owner,
+  // cannot see it. The fallback is the same one the receiver walk makes: a bare name may be a field of the class the
+  // call is written in.
+  const enclosing = firstOf(
+    lookup.owners,
+    (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
+  );
+  const field = enclosing === undefined ? undefined : own?.elements.get(`${enclosing}.${base}`);
+  return field === undefined ? undefined : { className: field, via: 'thisField' };
 }
 
 /** The first owner key, innermost first, that answers with something other than nothing. */
@@ -1410,8 +1572,9 @@ export function classMemberOf(
   memberName: string,
   origin?: LookupOrigin,
   argumentCount?: number,
+  argumentTypes?: readonly (string | undefined)[],
 ): Declared | undefined {
-  return lookupMember(index, className, memberName, origin, false, argumentCount);
+  return lookupMember(index, className, memberName, origin, false, argumentCount, argumentTypes);
 }
 
 /**
@@ -1427,8 +1590,9 @@ export function baseMemberOf(
   memberName: string,
   origin?: LookupOrigin,
   argumentCount?: number,
+  argumentTypes?: readonly (string | undefined)[],
 ): Declared | undefined {
-  return lookupMember(index, className, memberName, origin, true, argumentCount);
+  return lookupMember(index, className, memberName, origin, true, argumentCount, argumentTypes);
 }
 
 /**
@@ -1438,6 +1602,14 @@ export function baseMemberOf(
  * distance that both declare it answer nothing - a class with two parents that both declare `run` has no answer at
  * this resolver's disposal, and picking one would be a coin toss written into the graph. The visited set is what makes
  * a malformed cycle finite rather than a hang.
+ *
+ * **And the walk is taken twice when the call states its types.** The first pass reads the chain a class *is* - its
+ * bases and the contracts it implements - and answers only a declaration whose parameter types the call can fill; the
+ * second reads the chain a class *extends* and answers by arity, exactly as it did before types existed. The order is
+ * what makes the rule additive: a signature the chain cannot state falls back to the count, so the typed pass can add an
+ * answer and can never withdraw one. `AbstractFileFilter.preVisitDirectory` passes `(Path, BasicFileAttributes)` to
+ * `accept`, the class declares `accept(File, String)` and `IOFileFilter` declares `accept(Path, BasicFileAttributes)` -
+ * one answer with the types, one wrong one without them.
  */
 function lookupMember(
   index: ClassIndex,
@@ -1446,9 +1618,45 @@ function lookupMember(
   origin: LookupOrigin | undefined,
   skipOwnClass: boolean,
   argumentCount?: number,
+  argumentTypes?: readonly (string | undefined)[],
 ): Declared | undefined {
   const start = locateClass(index, className, origin);
   if (start === undefined) return undefined;
+  if (argumentTypes !== undefined && argumentTypes.length > 0) {
+    const typed = walk(index, start, memberName, skipOwnClass, { argumentTypes });
+    // **A tie between two declarations the arguments both fit is a gap in this reader's evidence, not a property of
+    // the program** - Java would refuse to compile such a call, so a tie here means the types it could read did not
+    // separate them. The count answers, exactly as it did before types existed, and the typed pass keeps its promise:
+    // it adds an answer and never withdraws one. The walk stops at the tie rather than reading a base the nearer
+    // distance has already ruled on.
+    if (typed.answer !== undefined) return typed.answer;
+  }
+  return walk(index, start, memberName, skipOwnClass, { argumentCount }).answer;
+}
+
+/** What one pass found: an answer, or the fact that two declarations at one distance both fit. */
+interface WalkResult {
+  readonly answer?: Declared;
+  readonly ambiguous: boolean;
+}
+
+/** A class's identity in the walk, which is the file it lives in and the name it is filed under. */
+function keyOf(located: LocatedClass): string {
+  return `${located.file}\u0000${located.name}`;
+}
+
+/** One breadth-first pass over the chain, answering at the nearest distance that holds exactly one declaration. */
+function walk(
+  index: ClassIndex,
+  start: LocatedClass,
+  memberName: string,
+  skipOwnClass: boolean,
+  ask: {
+    readonly argumentCount?: number;
+    readonly argumentTypes?: readonly (string | undefined)[];
+  },
+): WalkResult {
+  const typed = ask.argumentTypes !== undefined;
   const visited = new Set<string>();
   /** Take the classes not yet walked, and mark them; a cycle ends here rather than in a hang. */
   const fresh = (candidates: readonly LocatedClass[]): LocatedClass[] =>
@@ -1459,20 +1667,22 @@ function lookupMember(
       return true;
     });
   if (skipOwnClass) visited.add(keyOf(start));
-  let frontier = fresh(skipOwnClass ? basesOf(index, start) : [start]);
+  let frontier = fresh(skipOwnClass ? basesOf(index, start, typed) : [start]);
   while (frontier.length > 0) {
     const answers: Declared[] = [];
     const next: LocatedClass[] = [];
     for (const candidate of frontier) {
-      const own = ownMemberOf(index, candidate, memberName, argumentCount);
-      if (own !== undefined) answers.push(own);
-      next.push(...basesOf(index, candidate));
+      const own = ownMemberOf(index, candidate, memberName, ask, typed && candidate !== start);
+      // **A class whose own declarations both fit is ambiguous on its own**, and no distance further up can settle it.
+      if (own.ambiguous) return { ambiguous: true };
+      if (own.answer !== undefined) answers.push(own.answer);
+      next.push(...basesOf(index, candidate, typed));
     }
-    if (answers.length === 1) return answers[0];
-    if (answers.length > 1) return undefined;
+    if (answers.length === 1) return { answer: answers[0]!, ambiguous: false };
+    if (answers.length > 1) return { ambiguous: true };
     frontier = fresh(next);
   }
-  return undefined;
+  return { ambiguous: false };
 }
 
 /**
@@ -1484,34 +1694,186 @@ function lookupMember(
  * it is wrong for the same reason the arm above reads bases at all.
  */
 
-/** A class's identity in the walk, which is the file it lives in and the name it is filed under. */
-function keyOf(located: LocatedClass): string {
-  return `${located.file}\u0000${located.name}`;
-}
-
 /** A class's own declaration of a name, with no notion of inheritance. */
 function ownMemberOf(
   index: ClassIndex,
   located: LocatedClass,
   memberName: string,
-  argumentCount?: number,
-): Declared | undefined {
+  ask: {
+    readonly argumentCount?: number;
+    readonly argumentTypes?: readonly (string | undefined)[];
+  },
+  inherited: boolean,
+): WalkResult {
   const file = index.files.get(located.file);
   const bucket = file?.members.get(located.name);
-  if (bucket === undefined) return undefined;
+  if (bucket === undefined) return { ambiguous: false };
+  const set = file?.arity.get(`${located.name}\u0000${memberName}`);
+  // **A typed call is answered by the declaration whose parameters it can fill**, and by nothing else. Two matches are
+  // two answers - `print(Object)` and `print(File)` both take a `File` - and this module refuses a name it cannot
+  // decide, the same way the arity rule refuses one whose count no declaration admits.
+  if (ask.argumentTypes !== undefined) {
+    return bySignature(index, located, file, set, ask.argumentTypes, inherited);
+  }
   // **The signature is checked before the name is answered**, because a class that declares `format(Object,
   // StringBuffer, FieldPosition)` is not the class a one-argument `format(x)` runs.
-  if (!admitsArguments(file?.arity.get(`${located.name}\u0000${memberName}`), argumentCount)) {
-    return undefined;
-  }
-  if (bucket.has(`${memberName}\u0000ambiguous`)) return undefined;
-  return bucket.get(memberName);
+  if (!admitsArguments(set, ask.argumentCount)) return { ambiguous: false };
+  if (bucket.has(`${memberName}\u0000ambiguous`)) return { ambiguous: false };
+  const known = bucket.get(memberName);
+  return known === undefined ? { ambiguous: false } : { answer: known, ambiguous: false };
 }
 
-/** A class's bases, as located classes, in declaration order. */
-function basesOf(index: ClassIndex, located: LocatedClass): LocatedClass[] {
+/**
+ * The one declaration in a class whose parameter types a call can fill, or `undefined` when there is none or several.
+ *
+ * **A declaration reached through inheritance has to write a body to be the answer.** A contract states a signature and
+ * the code lives in the class that implements it; reading `Respondable.reject` as the callee answered a call that runs
+ * the class's own field, which is the seven wrong edges that sent contracts out of the chain in the first place. The
+ * class the call is written in is exempt, because a call dispatched on a contract really does reach the contract's
+ * declaration - that is what the receiver's type means.
+ */
+function bySignature(
+  index: ClassIndex,
+  located: LocatedClass,
+  file: FileTypes | undefined,
+  set: AritySet | undefined,
+  argumentTypes: readonly (string | undefined)[],
+  inherited: boolean,
+): WalkResult {
+  const variables = file?.typeParameters.get(located.name);
+  const answers = (set ?? []).filter(
+    (declaration) =>
+      declaration.nodeId !== undefined &&
+      declaration.label !== undefined &&
+      declaration.types !== undefined &&
+      (!inherited || declaration.hasBody) &&
+      fitsSignature(index, declaration, argumentTypes, variables),
+  );
+  if (answers.length === 0) return { ambiguous: false };
+  // **The most specific of them, which is the one Java picks.** `print(Object)` and `print(File)` both accept a `File`
+  // and only one of them is what runs: the declaration whose parameter names the argument's own type, position by
+  // position. Counting the exact positions is the whole of specificity for this reader - a widening declared in the
+  // source is the only way a parameter accepts an argument it does not name, and a tie between two declarations is a
+  // call this reader still refuses.
+  const scored = answers.map((declaration) => ({
+    declaration,
+    exact: exactPositions(declaration, argumentTypes),
+  }));
+  const best = Math.max(...scored.map((entry) => entry.exact));
+  const winners = scored.filter((entry) => entry.exact === best);
+  if (winners.length !== 1) return { ambiguous: true };
+  const only = winners[0]!.declaration;
+  return { answer: { nodeId: only.nodeId!, label: only.label! }, ambiguous: false };
+}
+
+/** How many positions a declaration names the argument's own type at, which is how Java orders two that both fit. */
+function exactPositions(
+  declaration: DeclaredArity,
+  argumentTypes: readonly (string | undefined)[],
+): number {
+  const parameters = declaration.types ?? [];
+  let exact = 0;
+  for (let position = 0; position < parameters.length; position++) {
+    const parameter = signatureName(parameters[position]);
+    const argument = signatureName(argumentTypes[position]);
+    if (parameter !== undefined && parameter === argument) exact++;
+  }
+  return exact;
+}
+
+/**
+ * Whether a call's argument types fill a declaration's parameter types, **as far as either side states them.**
+ *
+ * **Only a position both sides write is compared**, and a comparison that finds no relation refuses the declaration.
+ * The three shapes that accept anything are the three that name no class: `Object`, a type variable the declaring class
+ * writes, and a parameter of one capital letter - the convention every Java codebase follows and the only way a generic
+ * container's `add(T)` states that it takes what it is given. A pair this reader can compare and finds unrelated
+ * refuses the declaration, which is what turns a walk of three `accept` overloads into one answer.
+ *
+ * **The comparison is on the written name, not on `simpleTypeName`.** That function answers "can a member be looked up
+ * in this type", and it refuses `String`, `int` and `Object` because no declaration of theirs is in the graph - while a
+ * signature comparison needs exactly those three: `accept(File, String)` is the declaration a call passing a `String`
+ * runs, and refusing to compare the position would leave it out of the answer set.
+ */
+function fitsSignature(
+  index: ClassIndex,
+  declaration: DeclaredArity,
+  argumentTypes: readonly (string | undefined)[],
+  variables: ReadonlyMap<string, string> | undefined,
+): boolean {
+  const parameters = declaration.types ?? [];
+  if (parameters.length !== argumentTypes.length && !declaration.variadic) return false;
+  let compared = 0;
+  for (let position = 0; position < parameters.length; position++) {
+    const parameter = signatureName(parameters[position]);
+    const argument = signatureName(argumentTypes[position]);
+    if (parameter === undefined || argument === undefined) continue;
+    // **A type variable is not a class and cannot refuse a call.** `<T> void add(T item)` states that it takes what it
+    // is given; a single capital letter is how every Java codebase spells that variable.
+    if (parameter === 'Object' || variables?.has(parameter) === true || /^[A-Z]$/.test(parameter)) {
+      compared++;
+      continue;
+    }
+    if (parameter === argument) {
+      compared++;
+      continue;
+    }
+    if (!isBaseOf(index, argument, parameter)) return false;
+    compared++;
+  }
+  return compared > 0;
+}
+
+/**
+ * A type as a signature writes it: the head of a generic, the last segment of a qualified name, and no spread marker.
+ *
+ * **`File...` is a `File` and `java.io.File` is the same `File`**, and a comparison that read either literally would
+ * refuse every varargs call and every fully qualified declaration.
+ */
+function signatureName(written: string | undefined): string | undefined {
+  if (typeof written !== 'string') return undefined;
+  const trimmed = written.trim().replace(/\.\.\.$/, '');
+  if (trimmed.length === 0) return undefined;
+  const head = trimmed.split('<')[0]!.trim();
+  const segments = head.split(/[.\s]+/).filter(Boolean);
+  const last = segments.pop();
+  return last === undefined || !/^[A-Za-z_$][\w$]*$/.test(last) ? undefined : last;
+}
+
+/** Whether one class extends another, as far as the graph declares it — the relation a parameter type may widen over. */
+function isBaseOf(index: ClassIndex, derived: string, base: string): boolean {
+  const start = locateClass(index, derived, undefined);
+  if (start === undefined) return false;
+  const seen = new Set<string>();
+  let frontier: LocatedClass[] = [start];
+  while (frontier.length > 0) {
+    const next: LocatedClass[] = [];
+    for (const candidate of frontier) {
+      if (candidate.name === base) return true;
+      if (seen.has(keyOf(candidate))) continue;
+      seen.add(keyOf(candidate));
+      next.push(...basesOf(index, candidate, true));
+    }
+    frontier = next;
+  }
+  return false;
+}
+
+/**
+ * A class's bases, as located classes, in declaration order.
+ *
+ * **`withContracts` is the difference between the chain a class extends and the chain a class is.** A contract's
+ * declaration states a signature and holds no code, so the arity pass reads `extends` alone — that is the measurement
+ * that removed `implements` from the walk. The typed pass reads both, because a call whose arguments fit a contract's
+ * signature and no class's signature runs the contract's default method, and a default method holds code. The two
+ * lists stay in one order: the superclass first, then the contracts in the order they are named.
+ */
+function basesOf(index: ClassIndex, located: LocatedClass, withContracts = false): LocatedClass[] {
+  const file = index.files.get(located.file);
+  const named = file?.bases.get(located.name) ?? [];
+  const contracts = withContracts ? (file?.contracts.get(located.name) ?? []) : [];
   const out: LocatedClass[] = [];
-  for (const base of index.files.get(located.file)?.bases.get(located.name) ?? []) {
+  for (const base of [...named, ...contracts]) {
     const found = locateClass(index, base, { file: located.file });
     if (found !== undefined) out.push(found);
   }
