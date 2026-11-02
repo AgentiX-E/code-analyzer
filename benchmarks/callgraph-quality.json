@@ -209,17 +209,17 @@
       "wrongCauses": {
         "owner-makes-no-such-call": 17,
         "resolves-elsewhere": 5,
-        "variable": 1,
+        "unknown": 1,
         "external": 1,
-        "unknown": 1
+        "variable": 1
       },
       "wrongByArm": {
         "import": {
           "resolves-elsewhere": 5
         },
         "inherited": {
-          "owner-makes-no-such-call": 1,
-          "external": 1
+          "external": 1,
+          "owner-makes-no-such-call": 1
         },
         "namespace": {
           "owner-makes-no-such-call": 2

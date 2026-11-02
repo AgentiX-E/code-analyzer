@@ -175,10 +175,62 @@ const TYPESCRIPT_FLOORS = {
   },
 };
 
+/**
+ * Floors for the Java corpora, measured on `apache/commons-lang@3.14.0` and `apache/commons-io@2.16.1`.
+ *
+ * **The first reading of Java was 82.5 % precision, and 100 % of it was the instrument.** The `import` arm claimed 33
+ * edges and scored 0, all 33 of them constructions - a site the oracle declined to judge, which a scoring rule counts
+ * as a wrong claim rather than as an abstention. Once a construction was scored, and once a name-level self-edge was
+ * told apart from a real overload call, precision was 94.7 % and every arm but one read above 95 %.
+ *
+ * **The graph then earned the rest.** Java emitted no declared types at all - no field type, no parameter type, no
+ * local type - so `receiverType` was not an arm that scored badly, it was an arm that could not fire: `set.contains(c)`
+ * had no evidence that `set` is a `CharSet`. With the provider emitting what the source states, the arm claimed 356
+ * edges of which **356 are right**, and recall moved 82.6 % -> 89.9 %. `implements` became a link in the same
+ * iteration, so a class that inherits a default method from a contract now has an edge to it.
+ *
+ * **Recall is the figure that is still short, and the reason is named**: 328 pairs on `commons-lang` are calls the
+ * oracle sees and the graph does not, and the largest groups are a constructor of a nested class and an overload call
+ * whose caller and callee share a name - the second of which the graph refuses by policy in one arm and emits in three
+ * others. Making that policy uniform is the next measurement, not this one.
+ */
+const JAVA_FLOORS = {
+  'apache/commons-lang': {
+    precision: 0.985,
+    recall: 0.855,
+    claimed: 2150,
+    arms: {
+      import: 0.99,
+      inherited: 0.99,
+      namespace: 0.94,
+      receiverType: 0.99,
+      sameFile: 0.995,
+      static: 0.995,
+      super: 0.99,
+    },
+  },
+  'apache/commons-io': {
+    precision: 0.99,
+    recall: 0.79,
+    claimed: 1430,
+    arms: {
+      import: 0.99,
+      inherited: 0.985,
+      namespace: 0.995,
+      receiverType: 0.99,
+      sameFile: 0.995,
+      static: 0.99,
+      super: 0.99,
+    },
+  },
+};
+
 function floorsFor(record) {
   // **`includes('ts')` matched `scripts`.** Every record names its oracle as `scripts/callgraph-oracle…`, so the
   // substring test selected the TypeScript floors for the Python record and the gate reported both Python corpora
   // absent from a record that contained them. The file name decides, not a substring of the path.
+  if (typeof record.oracle === 'string' && record.oracle.includes('oracle-java'))
+    return JAVA_FLOORS;
   return typeof record.oracle === 'string' && record.oracle.includes('oracle-ts')
     ? TYPESCRIPT_FLOORS
     : PYTHON_FLOORS;

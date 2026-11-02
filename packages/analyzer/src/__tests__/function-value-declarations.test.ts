@@ -189,7 +189,12 @@ describe('the graph the pipeline builds from those declarations', () => {
     // and the member name alone is not evidence: `Sink.put` is one class away.
     const targets = callsFrom('Registry.install').map(nameOf);
     expect(targets).toContain('Registry.put');
-    expect(targets).not.toContain('Sink.put');
+    // **And the second call in the same body reaches `Sink.put`, which is also right.** `new Sink().put(name)` writes a
+    // receiver that is not a name at all - a construction - and this test used to assert the absence of that edge
+    // because nothing resolved a receiver of that shape. The rule that reads it landed afterwards, so the assertion
+    // states the pair rather than forbidding it; what keeps the arm honest is the case below, where the receiver is a
+    // *value* carrying the same member name and nothing may be claimed.
+    expect(targets).toContain('Sink.put');
   });
 
   it('does not reach a class member through a receiver that names a value', () => {

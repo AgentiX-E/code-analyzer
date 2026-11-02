@@ -135,6 +135,16 @@ const PRIMITIVES = new Set([
   'String',
   'Number',
   'Boolean',
+  // **A Java declaration names seven primitives, and none of them is a class the graph holds.** They reach this list
+  // rather than being filtered by the provider, because "what the source says" and "what a call can be written on"
+  // are different questions and only the second one belongs to the resolver.
+  'byte',
+  'short',
+  'int',
+  'long',
+  'float',
+  'double',
+  'char',
 ]);
 
 /** Values that occupy a union without being the type of anything a call can be written on. */
@@ -331,6 +341,13 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       // **And the two halves of a merged type contribute to one list, not to two.** The class names `Commander`, the
       // interface names `Transaction`, and replacing the first with the second answered `this.defineCommand(…)` with
       // nothing at all - the members of `Redis` were reachable only if a reader kept both.
+      // **A contract is not a base, and `implements` is the clause that proves it.** The provider records the
+      // interfaces a class names - Java's `super_interfaces`, TypeScript's `implements_clause` - and reading them as
+      // bases looked like free recall: `class Command implements Respondable` would let a call find the contract's
+      // members. Measured on `redis/ioredis@5.4.2`, it cost **seven wrong edges and earned none**: `this.reject(err)`
+      // inside `Command` resolved to `types.ts|reject`, the abstract declaration, when the member that runs is the
+      // field on the class. An interface declares no body to reach, so a call that lands on one lands nowhere -
+      // the walk reads `extends` alone, which is the one clause that carries an implementation.
       const inherited = baseNamesOf(declaration.properties['baseClasses']);
       if (inherited.length > 0) {
         const known = bases.get(declaration.name) ?? [];
@@ -429,6 +446,9 @@ function baseNamesOf(blob: unknown): string[] {
     .filter((name) => SIMPLE_NAME.test(name));
 }
 
+/** A receiver written as a construction: `new Name(…)`, with the argument list the only thing after the name. */
+const CONSTRUCTED_RECEIVER = /^new\s+((?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$][\w$]*)\s*\([\s\S]*\)$/;
+
 /** A name a class could be filed under: no dots, no generics, no punctuation. */
 const SIMPLE_NAME = /^[A-Za-z_$][\w$]*$/;
 
@@ -479,6 +499,17 @@ export interface ReceiverLookup {
  * keyword means; answering `super.x` with the enclosing class would hand the caller the very override it skips.
  */
 export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): ReceiverType | undefined {
+  // **A receiver may be a construction, and then the type is the one it names.** `new HashCodeBuilder().append(v)` is
+  // how the builder idiom is written in every Java codebase, and `new X(…)` states the class twice - once as the thing
+  // built and once as what the call is written on. A construction with a body (`new X() { … }`) names an anonymous
+  // class with no declaration to point at, so it is refused, and so is the `new` of an incomplete edit.
+  const constructed = CONSTRUCTED_RECEIVER.exec(receiver);
+  if (constructed?.[1] !== undefined) {
+    const className = constructed[1].split('.').pop();
+    return className === undefined || !SIMPLE_NAME.test(className)
+      ? undefined
+      : { className, via: 'local' };
+  }
   const [base, ...hops] = receiver.split('.');
   if (base === undefined || base.length === 0) return undefined;
   const own =
@@ -518,7 +549,14 @@ function startOf(
   const local = firstOf(lookup.owners, (owner) => own?.locals.get(key(owner, base)));
   if (local !== undefined) return valueOf(lookup, own, local, 'local');
   const parameter = firstOf(lookup.owners, (owner) => own?.parameters.get(key(owner, base)));
-  return parameter === undefined ? undefined : valueOf(lookup, own, parameter, 'parameter');
+  if (parameter !== undefined) return valueOf(lookup, own, parameter, 'parameter');
+  // **A bare name may also be a field of the class the call is written in**, which is how Java uses a shared constant:
+  // `ESCAPE_CSV.translate(writer, input)` writes no `this` because a static member needs none. The lookup comes last
+  // because Java's own scoping puts a local and a parameter ahead of a field with the same name, and a rule that
+  // preferred the field would answer a call with a declaration the name does not mean.
+  const enclosing = firstOf(lookup.owners, (owner) => own?.classOfFunction.get(owner));
+  const field = enclosing === undefined ? undefined : own?.fields.get(`${enclosing}.${base}`);
+  return field === undefined ? undefined : valueOf(lookup, own, field, 'thisField');
 }
 
 /**

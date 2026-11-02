@@ -2,7 +2,7 @@
   "name": "code-analyzer",
   "private": true,
   "version": "0.1.0",
-  "description": "Code intelligence platform \u2014 knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
+  "description": "Code intelligence platform — knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
   "author": "Lambertyan",
   "license": "MIT",
   "keywords": [
@@ -74,6 +74,7 @@
     "matrix:update": "node scripts/competitor-matrix-gate.js --update --json benchmarks/competitor-matrix-report.json",
     "measure:callgraph": "tsx scripts/callgraph-quality.ts",
     "measure:callgraph:ts": "tsx scripts/callgraph-quality.ts --oracle ts --repo colinhacks/zod=benchmarks/corpora/zod-3.23.8/src --repo redis/ioredis=benchmarks/corpora/ioredis-5.4.2/lib --out benchmarks/callgraph-ts-quality.json",
+    "measure:callgraph:java": "tsx scripts/callgraph-quality.ts --oracle java --repo apache/commons-lang=benchmarks/corpora/commons-lang-rel-commons-lang-3.14.0/src/main/java --repo apache/commons-io=benchmarks/corpora/commons-io-rel-commons-io-2.16.1/src/main/java --out benchmarks/callgraph-java-quality.json",
     "measure:robustness": "tsx scripts/corpus-robustness.ts --repo redis/ioredis=benchmarks/corpora/ioredis-5.4.2 --repo colinhacks/zod=benchmarks/corpora/zod-3.23.8 --out benchmarks/corpus-robustness.json",
     "robustness": "node scripts/corpus-robustness-gate.js",
     "callgraph": "node scripts/callgraph-gate.js",

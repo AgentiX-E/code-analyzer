@@ -22,6 +22,13 @@ name: Call Graph Accuracy
 # a receiver whose type is not in the statement - it says so and the site is excluded from both figures rather than
 # counted as agreement.
 #
+# **And the same question in Java, read by javac.** `apache/commons-lang 3.14.0` and `apache/commons-io 2.16.1` are
+# attributed by `scripts/callgraph-oracle-java/CallGraphOracle.java`, which asks the compiler what each call resolves to
+# rather than re-deriving Java's scoping by hand. The first run of it corrected the instrument twice before it corrected
+# the product - a construction counted as a wrong claim, an overload counted as recursion - and then found the real
+# defect: **Java emitted no declared types at all**, so a call on a field, a parameter or a local had nothing to resolve
+# against.
+#
 # **The checkouts are downloaded, never committed** (`benchmarks/corpora/` is ignored), so the run measures the tag
 # this workflow names rather than a copy that drifted.
 
@@ -36,6 +43,10 @@ on:
       - 'packages/analyzer/src/__tests__/scope-resolution-call-graph.test.ts'
       - 'scripts/callgraph-quality.ts'
       - 'scripts/callgraph-oracle.py'
+      - 'scripts/callgraph-oracle-java/**'
+      - 'packages/analyzer/src/languages/java.ts'
+      - 'packages/analyzer/src/resolution/receiver-types.ts'
+      - 'packages/analyzer/src/__tests__/java-declared-types.test.ts'
       - 'scripts/callgraph-gate.js'
       - 'scripts/callgraph-selfcheck.ts'
       - 'scripts/callgraph-selfcheck-gate.js'
@@ -62,6 +73,11 @@ env:
   WERKZEUG_TAG: '3.0.3'
   ZOD_TAG: 'v3.23.8'
   IOREDIS_TAG: 'v5.4.2'
+  # **Both are self-contained: JDK only, no dependencies.** That is the property that makes javac able to attribute
+  # every call rather than the subset whose receiver's type happens to be in the classpath, and it is why the Java
+  # measurement is a measurement rather than a survey of what the checkout failed to resolve.
+  COMMONS_LANG_TAG: 'rel/commons-lang-3.14.0'
+  COMMONS_IO_TAG: 'rel/commons-io-2.16.1'
 
 jobs:
   selfcheck:
@@ -262,5 +278,82 @@ jobs:
           path: |
             benchmarks/callgraph-ts-quality.json
             benchmarks/corpus-robustness.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  java-accuracy:
+    name: Precision and recall against javac's attribution
+    runs-on: ubuntu-latest
+    # **Fifteen minutes**, which is mostly `pnpm install`: the attribution of 499 files takes four seconds, and the
+    # product's analysis of them twenty. A budget larger than that would be describing npm rather than the graph.
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      # **A JDK, because the oracle is a Java program.** It runs in the source-file mode the language has had since
+      # 11, so there is no build step and no jar to publish: the file the repository holds is the program that runs.
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Fetch the two Java checkouts
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora
+          cd benchmarks/corpora
+          curl -fsSL "https://codeload.github.com/apache/commons-lang/tar.gz/refs/tags/${COMMONS_LANG_TAG}" -o commons-lang.tgz
+          curl -fsSL "https://codeload.github.com/apache/commons-io/tar.gz/refs/tags/${COMMONS_IO_TAG}" -o commons-io.tgz
+          sha256sum commons-lang.tgz commons-io.tgz | tee -a "$GITHUB_STEP_SUMMARY"
+          tar xzf commons-lang.tgz
+          tar xzf commons-io.tgz
+          ls -d commons-lang-* commons-io-*
+
+      - name: Resolve every call site twice and compare
+        run: |
+          set -euo pipefail
+          lang_dir=$(ls -d benchmarks/corpora/commons-lang-*/src/main/java | head -1)
+          io_dir=$(ls -d benchmarks/corpora/commons-io-*/src/main/java | head -1)
+          npx tsx scripts/callgraph-quality.ts --oracle java \
+            --repo "apache/commons-lang=$lang_dir" \
+            --repo "apache/commons-io=$io_dir" \
+            --out benchmarks/callgraph-java-quality.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Hold precision, recall and each arm to their floors
+        run: node scripts/callgraph-gate.js --file benchmarks/callgraph-java-quality.json
+
+      # **The record is compared, not trusted.** A run that writes a different
+      # `benchmarks/callgraph-java-quality.json` than the one committed means the published figures describe a
+      # different graph.
+      - name: Show what the run wrote
+        if: always()
+        run: git --no-pager diff --stat -- benchmarks/callgraph-java-quality.json || true
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: callgraph-java-quality
+          path: benchmarks/callgraph-java-quality.json
           if-no-files-found: warn
           retention-days: 90

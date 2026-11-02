@@ -12,6 +12,7 @@ import {
 } from './java-taint.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { ownerKeyOf } from '../resolution/receiver-types.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -30,12 +31,41 @@ const JAVA_TAINT_NODES = {
   argumentContainer: ['argument_list'],
 };
 
+/** The two declarations a local belongs to, and the only two a parameter is ever filed under. */
+const METHOD_CONTAINERS: ReadonlySet<string> = new Set([
+  'method_declaration',
+  'constructor_declaration',
+]);
+
+/** The node types a Java declaration's type is written as. */
+const TYPE_NODES: ReadonlySet<string> = new Set([
+  'type_identifier',
+  'scoped_type_identifier',
+  'generic_type',
+  'array_type',
+  'integral_type',
+  'floating_point_type',
+  'boolean_type',
+  'void_type',
+]);
+
 export class JavaProvider extends TreeSitterBaseProvider {
   readonly language = 'java';
   readonly displayName = 'Java';
   readonly extensions = JAVA_EXTENSIONS;
   readonly globs = JAVA_GLOBS;
   readonly importSemantics = 'named' as const;
+
+  /**
+   * `Class` → the declared type of each field, and `Class.method` → the declared type of each local.
+   *
+   * **Collected during the walk and attached afterwards**, because a class capture is pushed before its body is
+   * visited: the fields of `class Holder` are only known once the walk has been through the body, and a capture is
+   * immutable by the time it is pushed. `decorateCaptures` is the one place that turns the two maps into the two
+   * properties the resolver reads.
+   */
+  private readonly classFieldTypes = new Map<string, Map<string, string>>();
+  private readonly localTypes = new Map<string, Map<string, string>>();
 
   protected override loadGrammar(): TreeSitterLanguage | null {
     // tree-sitter-java is a direct dependency of the analyzer, so this
@@ -130,15 +160,19 @@ export class JavaProvider extends TreeSitterBaseProvider {
    */
   private emitParameterDefs(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const list = namedChildrenOf(node).find((c) => c.type === 'formal_parameters')!;
-    const names = namedChildrenOf(list).flatMap((parameter) => {
+    const parameters = namedChildrenOf(list).map((parameter) => {
       const own = parameter.childForFieldName('name');
-      return own
-        ? [own]
-        : namedChildrenOf(parameter)
-            .filter((c) => c.type === 'variable_declarator')
-            .map((declarator) => this.variableNameNode(declarator));
+      const name =
+        own ??
+        this.variableNameNode(
+          namedChildrenOf(parameter).find((c) => c.type === 'variable_declarator')!,
+        );
+      return { name, type: this.parameterTypeOf(parameter) };
     });
-    for (const [parameterIndex, name] of names.entries()) {
+    // **A parameter's type is filed under the method that declares it**, which is the key a call site can build: the
+    // call knows the class and the method, and nothing about the file the declaration lives in.
+    const owner = this.methodKeyOf(node);
+    for (const [parameterIndex, { name, type }] of parameters.entries()) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
         text: name.text,
@@ -150,9 +184,140 @@ export class JavaProvider extends TreeSitterBaseProvider {
         // **The position, which is the only handle a call site has on a parameter.** A caller passes argument 1 and
         // the callee's argument 1 is whatever it declared second; without the ordinal the two cannot be matched, and
         // the whole "does this argument reach this return" question has no answer.
-        properties: { filePath: this.filePath, parameterIndex: String(parameterIndex) },
+        properties: {
+          filePath: this.filePath,
+          parameterIndex: String(parameterIndex),
+          ...(owner === undefined ? {} : { parameterOwner: owner }),
+          ...(type === undefined ? {} : { parameterType: type }),
+        },
       });
     }
+  }
+
+  /**
+   * The type a parameter declares.
+   *
+   * **`String... parts` is a `spread_parameter`, and the grammar gives it no `type` field**: the type is its first
+   * named child and the name lives inside a declarator. Reading only the field left every variadic parameter untyped,
+   * which is the shape `StringUtils.join(…)` is most often called with.
+   */
+  private parameterTypeOf(parameter: TreeSitterSyntaxNode): string | undefined {
+    const field = parameter.childForFieldName('type');
+    if (field !== null) return field.text;
+    const first = namedChildrenOf(parameter).find((child) => TYPE_NODES.has(child.type));
+    return first?.text;
+  }
+
+  /**
+   * `Class.method` for the declaration a node sits in, or `undefined` at file or class level.
+   *
+   * **The climb is the node's own parents and not `findContainerNode`**, because that function answers the nearest
+   * *class*: a parameter's container is its class, not its method, and the key a call site builds is both.
+   */
+  private methodKeyOf(node: TreeSitterSyntaxNode): string | undefined {
+    let method: TreeSitterSyntaxNode | null = METHOD_CONTAINERS.has(node.type)
+      ? node
+      : (node.parent ?? null);
+    while (method !== null && !METHOD_CONTAINERS.has(method.type)) method = method.parent ?? null;
+    if (method === null) return undefined;
+    const methodName = this.findChild(method, 'identifier')?.text;
+    const holder = this.findContainerNode(method);
+    const className = holder === null ? undefined : this.findChild(holder, 'identifier')?.text;
+    if (methodName === undefined || className === undefined) return undefined;
+    return ownerKeyOf(className, methodName);
+  }
+
+  /**
+   * File one field's declared type under the class that declares it.
+   *
+   * **The first declaration wins and a second one that disagrees drops the name**, which is the rule the resolver
+   * applies to every other name: a field two declarations disagree about has no type this provider can defend.
+   */
+  private recordFieldType(node: TreeSitterSyntaxNode, field: string, fieldType: string): void {
+    const holder = this.findContainerNode(node);
+    const className = holder === null ? undefined : this.findChild(holder, 'identifier')?.text;
+    if (className === undefined) return;
+    let fields = this.classFieldTypes.get(className);
+    if (fields === undefined) {
+      fields = new Map();
+      this.classFieldTypes.set(className, fields);
+    }
+    if (fields.has(field) && fields.get(field) !== fieldType) fields.delete(field);
+    else fields.set(field, fieldType);
+  }
+
+  /** File one local's declared type under the method that declares it. */
+  private recordLocalType(node: TreeSitterSyntaxNode, name: string, localType: string): void {
+    const owner = this.methodKeyOf(node);
+    if (owner === undefined) return;
+    let locals = this.localTypes.get(owner);
+    if (locals === undefined) {
+      locals = new Map();
+      this.localTypes.set(owner, locals);
+    }
+    if (locals.has(name) && locals.get(name) !== localType) locals.delete(name);
+    else locals.set(name, localType);
+  }
+
+  /**
+   * The type a declaration states, which is either the `type` it writes or the type of what it builds.
+   *
+   * **`var g = new Bar();` names no type and has one**, and it is the only case in Java where a declaration says
+   * nothing and still says everything: the initialiser is a constructor call, and the class it constructs is what the
+   * name holds. A `var` bound to anything else has no type here, because the alternative is inferring from a call
+   * whose return type is not written down.
+   */
+  private declaredTypeOf(
+    declaration: TreeSitterSyntaxNode,
+    declarator: TreeSitterSyntaxNode,
+  ): string | undefined {
+    const written = declaration.childForFieldName('type')?.text;
+    if (written !== undefined && written !== 'var') return written;
+    const built = namedChildrenOf(declarator).find(
+      (child) => child.type === 'object_creation_expression',
+    );
+    return built?.childForFieldName('type')?.text;
+  }
+
+  /**
+   * The field and local types this walk recorded, filed onto the declaration each one belongs to.
+   *
+   * **One property on the class rather than a symbol per field.** A `Property` node per field was measured on
+   * TypeScript in iteration 45: 13 891 of them cost the product's own docstring search 0.0145 MRR, for facts the
+   * resolver reads off the class anyway.
+   */
+  protected override decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
+    for (const capture of captures) {
+      const fields = this.classFieldTypes.get(String(capture.name ?? ''));
+      if (
+        (capture.tag === CAPTURE_TAGS.CLASS_DEF ||
+          capture.tag === CAPTURE_TAGS.INTERFACE_DEF ||
+          capture.tag === CAPTURE_TAGS.ENUM_DEF) &&
+        fields !== undefined &&
+        fields.size > 0
+      ) {
+        capture.properties = {
+          ...capture.properties,
+          fieldTypes: JSON.stringify(Object.fromEntries(fields)),
+        };
+        continue;
+      }
+      if (
+        (capture.tag === CAPTURE_TAGS.METHOD_DEF || capture.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF) &&
+        capture.containerName !== undefined
+      ) {
+        const locals = this.localTypes.get(ownerKeyOf(capture.containerName, String(capture.name)));
+        if (locals !== undefined && locals.size > 0) {
+          capture.properties = {
+            ...capture.properties,
+            localTypes: JSON.stringify(Object.fromEntries(locals)),
+          };
+        }
+      }
+    }
+    this.classFieldTypes.clear();
+    this.localTypes.clear();
+    return captures;
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
@@ -187,6 +352,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
         (c) => c.type === 'variable_declarator',
       )) {
         const nameNode = this.variableNameNode(declarator);
+        // **A local's type is what `local.contains(…)` needs**, and it is filed under the method rather than the file
+        // because a local is invisible outside it - the key is `Class.method`, which is the same key a parameter uses.
+        const declared = this.declaredTypeOf(node, declarator);
+        if (declared !== undefined) this.recordLocalType(node, nameNode.text, declared);
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: nameNode.text,
@@ -416,6 +585,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
       for (const declarator of namedChildrenOf(node)) {
         if (declarator.type !== 'variable_declarator') continue;
         const nameNode = this.variableNameNode(declarator);
+        // **`private final CharSet set = …` is the fact `set.contains(…)` is resolved by**, and Java emitted none of
+        // them: a call on a field could only ever be answered by the field's name.
+        const declared = this.declaredTypeOf(node, declarator);
+        if (declared !== undefined) this.recordFieldType(node, nameNode.text, declared);
         captures.push({
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: nameNode.text,

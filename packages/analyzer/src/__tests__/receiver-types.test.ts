@@ -748,3 +748,116 @@ describe('the class a declaration belongs to, when the language files it elsewhe
     expect(receiverTypeOf(at, 'self.store')).toBeUndefined();
   });
 });
+
+describe('a receiver Java writes without `this`', () => {
+  /** `Holder` declares a static field of a type it does not own, which is how Java writes a shared translator. */
+  const FILE = '/CharSetUtils.java';
+  const facts = buildFileTypes([
+    declaration(
+      'Class',
+      'CharSetUtils',
+      undefined,
+      { fieldTypes: '{"escapeCsv":"Translator"}' },
+      1,
+    ),
+    declaration('Method', 'apply', 'CharSetUtils', {}, 2),
+    declaration('Class', 'Translator', undefined, {}, 3),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at: ReceiverLookup = { index, origin: { file: FILE }, owners: ['CharSetUtils.apply'] };
+
+  it('reads a bare name as the field of the class the call is written in', () => {
+    // **`ESCAPE_CSV.translate(w, s)` is the shape a static field is used in, and a rule that only looked at locals and
+    // parameters answered nothing.** On `apache/commons-lang` that was 17 of 307 missed pairs, all of them written on
+    // a field the class declares three lines above the call.
+    // **The receiver is the field alone.** `ESCAPE_CSV.translate(w, s)` writes a receiver of one segment and a method
+    // name the call site already carries, so the bare form is the shape and not a degenerate one.
+    expect(receiverTypeOf(at, 'escapeCsv')).toEqual({ className: 'Translator', via: 'thisField' });
+  });
+
+  it('still answers nothing for a name nothing declares', () => {
+    expect(receiverTypeOf(at, 'unknown.method')).toBeUndefined();
+    // A field of the class is not a name the *file* declares at module level, so a call outside the class sees nothing.
+    expect(
+      receiverTypeOf({ index, origin: { file: FILE }, owners: ['free'] }, 'escapeCsv'),
+    ).toBeUndefined();
+  });
+});
+
+describe('a call written on what a construction returns', () => {
+  const FILE = '/builder.ts';
+  const facts = buildFileTypes([
+    declaration('Class', 'HashCodeBuilder', undefined, {}, 1),
+    declaration('Method', 'append', 'HashCodeBuilder', {}, 2),
+    declaration('Class', 'Reader', undefined, {}, 3),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at: ReceiverLookup = { index, origin: { file: FILE }, owners: ['Reader.hash'] };
+
+  it('reads the class the receiver is built from', () => {
+    // **`new HashCodeBuilder().append(v)` names its type twice and its receiver once.** Eleven of
+    // `apache/commons-lang`'s missed pairs are this shape, and the evidence is the construction the receiver writes.
+    expect(receiverTypeOf(at, 'new HashCodeBuilder()')).toEqual({
+      className: 'HashCodeBuilder',
+      via: 'local',
+    });
+    expect(receiverTypeOf(at, 'new HashCodeBuilder(17, 37)')).toEqual({
+      className: 'HashCodeBuilder',
+      via: 'local',
+    });
+  });
+
+  it('refuses a construction whose class is not a simple name', () => {
+    // An anonymous class body names no type this resolver can call a member on.
+    expect(receiverTypeOf(at, 'new HashCodeBuilder() { }')).toBeUndefined();
+    expect(receiverTypeOf(at, 'new')).toBeUndefined();
+  });
+});
+
+describe('a contract a class implements is not part of its chain', () => {
+  const CONTRACT = '/Contract.java';
+  const HANDLER = '/Handler.java';
+  const BASE = '/Base.java';
+  const contractFacts = buildFileTypes([
+    declaration('Interface', 'Contract', undefined, {}, 10),
+    declaration('Method', 'handle', 'Contract', {}, 11),
+  ]);
+  const baseFacts = buildFileTypes([
+    declaration('Class', 'Base', undefined, {}, 14),
+    declaration('Method', 'handle', 'Base', {}, 15),
+  ]);
+  const handlerFacts = buildFileTypes([
+    declaration('Class', 'Handler', undefined, { interfaces: 'Contract' }, 12),
+    declaration('Method', 'run', 'Handler', {}, 13),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, contractFacts, CONTRACT);
+  mergeClassIndex(index, baseFacts, BASE);
+  mergeClassIndex(index, handlerFacts, HANDLER);
+
+  it('refuses a member that only an implemented interface declares', () => {
+    // **A contract was tried as a base, and the measurement threw it out.** Reading the clause looked like free
+    // recall - `class Command implements Respondable` would let `this.reject(err)` find the contract's `reject` - and
+    // on `redis/ioredis@5.4.2` it cost **seven wrong edges and earned none**: every one of the seven pointed at
+    // `types.ts|reject` or `types.ts|resolve`, the abstract declaration in the contract, when the member that runs is
+    // a field on the class that no node exists for. An interface declares no body to reach, so the walk reads
+    // `extends` alone - the one clause that carries an implementation.
+    expect(classMemberOf(index, 'Handler', 'handle', { file: HANDLER })).toBeUndefined();
+  });
+
+  it('still answers with a member a superclass declares', () => {
+    // The distinction the test above rests on is the clause and not the mood: the same name, reached through
+    // `extends`, is a body the subclass inherits.
+    const extendsFacts = buildFileTypes([
+      declaration('Class', 'Sub', undefined, { baseClasses: 'Base' }, 16),
+      declaration('Method', 'run', 'Sub', {}, 17),
+    ]);
+    mergeClassIndex(index, extendsFacts, '/Sub.java');
+    expect(classMemberOf(index, 'Sub', 'handle', { file: '/Sub.java' })).toEqual({
+      nodeId: 15,
+      label: 'Method',
+    });
+  });
+});

@@ -8,3 +8,8 @@ pnpm-lock.yaml
 # measured against - the same reason the questions beside it are frozen. It passes `--check` today; the entry is here so
 # that a future change to the formatter's opinion cannot silently rewrite the input.
 benchmarks/retrieval-corpus/
+
+# **A Java program is not a TypeScript file, and Prettier has no parser for one.** The oracle is formatted by the
+# conventions of the language it is written in - which is the point of it being written in that language - so it is
+# excluded here rather than reformatted into something neither formatter is right about.
+scripts/callgraph-oracle-java/

@@ -24,6 +24,7 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Constructor Detection**  |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |
 | **Docstrings/JSDoc**       |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
 | **Function Calls**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
+| **Declared Type Facts**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Generics**               |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Async Detection**        |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
 | **Extension Functions**    |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
@@ -32,6 +33,16 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Trait Detection**        |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Impl Block Detection**   |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Object Detection**       |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
+
+**Only three providers read a declared type**, and that row is the reason the call graph can resolve a receiver at
+all: `fieldTypes`, `localTypes` and `parameterOwner`/`parameterType` are emitted by **TypeScript**, **Python** and
+**Java** — TypeScript and Java file fields, locals and parameters, Python files fields and parameters. Those are also
+exactly the three languages with an independent accuracy oracle, which is not a coincidence: a language whose
+declarations are not facts has nothing for an oracle to disagree with. The other fourteen parse every declaration the
+matrix rows above record and resolve no receiver, so `this.builder.append(…)` in Kotlin or `widget.draw(…)` in C# is an
+unclaimed edge — **stated here rather than claimed as support.** Java spent four iterations "supported" at **50 `CALLS`
+edges** on a Spring application because nobody had asked whether the arm that reads a type had anything to read
+(iteration 56; the same checkout now yields 285, of which 235 come from that arm).
 
 ## File Extensions
 
@@ -100,25 +111,32 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 
 ## Performance Characteristics
 
-| Language   | Parse Speed | Memory per 1K LOC | Accuracy |
-| ---------- | :---------: | :---------------: | :------: |
-| TypeScript |    Fast     |       ~5MB        |   99%+   |
-| JavaScript |    Fast     |       ~4MB        |   99%+   |
-| Python     |   Medium    |       ~3MB        |   97%+   |
-| Go         |    Fast     |       ~3MB        |   98%+   |
-| Java       |    Fast     |       ~5MB        |   97%+   |
-| Kotlin     |   Medium    |       ~4MB        |   95%+   |
-| C#         |    Fast     |       ~5MB        |   97%+   |
-| Rust       |   Medium    |       ~4MB        |   96%+   |
-| PHP        |    Fast     |       ~4MB        |   95%+   |
-| Ruby       |   Medium    |       ~4MB        |   95%+   |
-| C/C++      |    Fast     |       ~3MB        |   97%+   |
-| Swift      |   Medium    |       ~4MB        |   96%+   |
-| Dart       |    Fast     |       ~4MB        |   95%+   |
-| Lua        |    Fast     |       ~2MB        |   94%+   |
-| Scala      |   Medium    |       ~5MB        |   95%+   |
-| Zig        |   Medium    |       ~3MB        |   94%+   |
-| Elixir     |   Medium    |       ~3MB        |   94%+   |
+| Language   | Parse Speed | Memory per 1K LOC | Call-graph precision / recall (measured)                          |
+| ---------- | :---------: | :---------------: | :---------------------------------------------------------------- |
+| TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis           |
+| Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug          |
+| Java       |    Fast     |       ~5MB        | **99.1 % / 86.9 %** commons-lang · **99.9 % / 80.2 %** commons-io |
+| JavaScript |    Fast     |       ~4MB        | not measured                                                      |
+| Go         |    Fast     |       ~3MB        | not measured                                                      |
+| Kotlin     |   Medium    |       ~4MB        | not measured                                                      |
+| C#         |    Fast     |       ~5MB        | not measured                                                      |
+| Rust       |   Medium    |       ~4MB        | not measured                                                      |
+| PHP        |    Fast     |       ~4MB        | not measured                                                      |
+| Ruby       |   Medium    |       ~4MB        | not measured                                                      |
+| C/C++      |    Fast     |       ~3MB        | not measured                                                      |
+| Swift      |   Medium    |       ~4MB        | not measured                                                      |
+| Dart       |    Fast     |       ~4MB        | not measured                                                      |
+| Lua        |    Fast     |       ~2MB        | not measured                                                      |
+| Scala      |   Medium    |       ~5MB        | not measured                                                      |
+| Zig        |   Medium    |       ~3MB        | not measured                                                      |
+| Elixir     |   Medium    |       ~3MB        | not measured                                                      |
+
+**This column used to read `99%+`, `97%+`, `95%+` for every language**, and none of those numbers had an instrument
+behind it — they were read off a parse success rate and repeated. What replaced them is a call-graph figure per corpus,
+produced by `scripts/callgraph-quality.ts` against an oracle that is not this codebase (`CPython ast`, the TypeScript
+checker, and `javac`'s own attribution), gated per arm by `scripts/callgraph-gate.js` and re-run on every push by
+`.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: Java's 80.2 % on `commons-io` is
+what "97%+" was hiding.
 
 ## Adding a New Language
 

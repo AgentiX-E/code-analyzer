@@ -74,7 +74,7 @@ function repoPath(root: string, filePath: string): string {
 async function measure(
   repo: RepoArgument,
   dumpPath: string,
-  oracle: 'py' | 'ts',
+  oracle: 'py' | 'ts' | 'java',
 ): Promise<OracleReport> {
   const root = join(process.cwd(), repo.path);
   const ctx = {
@@ -100,6 +100,40 @@ async function measure(
   writeFileSync(dumpPath, JSON.stringify({ project: repo.name, nodes, edges }));
 
   const reportPath = dumpPath.replace(/\.graph\.json$/, '.oracle.json');
+  // **The Java oracle reads the edges as a table and not the dump as JSON**, because what it needs from the product is
+  // exactly the four fields the score is computed from - caller, file, callee, file - plus the arm that claimed the
+  // edge. Handing it the same node-and-edge JSON would put a JSON parser inside a program whose job is to ask javac
+  // what a call calls, and every line of that parser would be code the measurement does not need.
+  if (oracle === 'java') {
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const rows = edges.flatMap((edge) => {
+      const source = byId.get(edge.s);
+      const target = byId.get(edge.t);
+      if (!source?.file || !target?.file) return [];
+      const arm = String(
+        (edge.properties as Record<string, unknown>)['resolution'] ?? 'unlabelled',
+      );
+      return [[source.file, source.name, target.file, target.name, arm].join('\t')];
+    });
+    writeFileSync(dumpPath.replace(/\.graph\.json$/, '.edges.tsv'), `${rows.join('\n')}\n`);
+    const output = execFileSync(
+      'java',
+      [
+        'scripts/callgraph-oracle-java/CallGraphOracle.java',
+        '--root',
+        root,
+        '--edges',
+        dumpPath.replace(/\.graph\.json$/, '.edges.tsv'),
+        '--name',
+        repo.name,
+        '--out',
+        reportPath,
+      ],
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    );
+    return JSON.parse(output) as OracleReport;
+  }
+
   const [command, prefix] =
     oracle === 'ts'
       ? ['node', ['scripts/callgraph-oracle-ts.mjs']]
@@ -127,7 +161,9 @@ function line(label: string, report: OracleReport): string {
 async function main(): Promise<void> {
   const repos = args('repo').map(parsePair);
   const outPath = args('out')[0] ?? 'benchmarks/callgraph-quality.json';
-  const oracle = args('oracle')[0] === 'ts' ? 'ts' : 'py';
+  const requested = args('oracle')[0];
+  const oracle: 'py' | 'ts' | 'java' =
+    requested === 'ts' ? 'ts' : requested === 'java' ? 'java' : 'py';
   if (repos.length === 0) {
     console.error('usage: callgraph-quality --repo owner/name=<dir> [--repo …] --out <file.json>');
     process.exit(2);
@@ -152,7 +188,12 @@ async function main(): Promise<void> {
 
   const payload = {
     generatedBy: 'scripts/callgraph-quality.ts',
-    oracle: oracle === 'ts' ? 'scripts/callgraph-oracle-ts.mjs' : 'scripts/callgraph-oracle.py',
+    oracle:
+      oracle === 'java'
+        ? 'scripts/callgraph-oracle-java/CallGraphOracle.java'
+        : oracle === 'ts'
+          ? 'scripts/callgraph-oracle-ts.mjs'
+          : 'scripts/callgraph-oracle.py',
     corpora: reports,
   };
   writeFileSync(outPath, JSON.stringify(payload, null, 2) + '\n');
