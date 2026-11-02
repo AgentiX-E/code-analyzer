@@ -22,28 +22,28 @@
         "methodReference": 78,
         "excludedForDuplicateName": 0
       },
-      "expectedPairs": 2488,
-      "claimedPairs": 2180,
+      "expectedPairs": 2242,
+      "claimedPairs": 2058,
       "precision": {
-        "correct": 2161,
-        "wrong": 19,
+        "correct": 2040,
+        "wrong": 18,
         "value": 0.9913
       },
       "recall": {
-        "found": 2161,
-        "missed": 327,
-        "value": 0.8686
+        "found": 2040,
+        "missed": 202,
+        "value": 0.9099
       },
       "byArm": {
         "import": {
-          "claimed": 33,
-          "correct": 33,
+          "claimed": 35,
+          "correct": 35,
           "precision": 1
         },
         "inherited": {
-          "claimed": 1337,
-          "correct": 1331,
-          "precision": 0.9955
+          "claimed": 887,
+          "correct": 882,
+          "precision": 0.9944
         },
         "namespace": {
           "claimed": 301,
@@ -51,39 +51,38 @@
           "precision": 0.9568
         },
         "receiverType": {
-          "claimed": 356,
-          "correct": 356,
+          "claimed": 335,
+          "correct": 335,
           "precision": 1
         },
         "sameFile": {
-          "claimed": 1351,
-          "correct": 1349,
-          "precision": 0.9985
+          "claimed": 1413,
+          "correct": 1411,
+          "precision": 0.9986
         },
         "static": {
-          "claimed": 282,
-          "correct": 282,
+          "claimed": 275,
+          "correct": 275,
           "precision": 1
         },
         "super": {
-          "claimed": 72,
-          "correct": 72,
+          "claimed": 61,
+          "correct": 61,
           "precision": 1
         }
       },
       "callers": {
         "oracle": 1337,
-        "graph": 1212,
+        "graph": 1250,
         "graphOnly": 1,
         "ownersWithAnyCall": 1922,
-        "graphCallers": 1213
+        "graphCallers": 1251
       },
       "wrongSamples": [
         "[inherited] org/apache/commons/lang3/ClassUtils.java|getAbbreviatedName|org/apache/commons/lang3/ClassUtils.java|getName",
         "[inherited] org/apache/commons/lang3/ClassUtils.java|getPackageCanonicalName|org/apache/commons/lang3/ClassUtils.java|getName",
         "[inherited] org/apache/commons/lang3/ClassUtils.java|getPackageName|org/apache/commons/lang3/ClassUtils.java|getName",
         "[inherited] org/apache/commons/lang3/ClassUtils.java|getShortClassName|org/apache/commons/lang3/ClassUtils.java|getName",
-        "[inherited] org/apache/commons/lang3/builder/RecursiveToStringStyle.java|appendDetail|org/apache/commons/lang3/builder/RecursiveToStringStyle.java|appendDetail",
         "[inherited] org/apache/commons/lang3/reflect/TypeUtils.java|determineTypeArguments|org/apache/commons/lang3/reflect/TypeUtils.java|equals",
         "[namespace] org/apache/commons/lang3/ArchUtils.java|addProcessors|org/apache/commons/lang3/stream/Streams.java|forEach",
         "[namespace] org/apache/commons/lang3/ArrayUtils.java|containsAny|org/apache/commons/lang3/stream/Streams.java|anyMatch",
@@ -101,25 +100,25 @@
       ],
       "missedSamples": [
         "org/apache/commons/lang3/AnnotationUtils.java|appendDetail|org/apache/commons/lang3/builder/ToStringStyle.java|appendDetail",
-        "org/apache/commons/lang3/BooleanUtils.java|and|org/apache/commons/lang3/BooleanUtils.java|and",
-        "org/apache/commons/lang3/BooleanUtils.java|oneHot|org/apache/commons/lang3/BooleanUtils.java|oneHot",
-        "org/apache/commons/lang3/BooleanUtils.java|or|org/apache/commons/lang3/BooleanUtils.java|or",
-        "org/apache/commons/lang3/BooleanUtils.java|xor|org/apache/commons/lang3/BooleanUtils.java|xor",
-        "org/apache/commons/lang3/CharRange.java|iterator|org/apache/commons/lang3/CharRange.java|CharacterIterator",
         "org/apache/commons/lang3/CharSet.java|contains|org/apache/commons/lang3/CharRange.java|contains",
-        "org/apache/commons/lang3/CharUtils.java|toString|org/apache/commons/lang3/CharUtils.java|toString",
-        "org/apache/commons/lang3/CharUtils.java|unicodeEscaped|org/apache/commons/lang3/CharUtils.java|unicodeEscaped",
         "org/apache/commons/lang3/ClassUtils.java|hierarchy|org/apache/commons/lang3/mutable/MutableObject.java|MutableObject",
-        "org/apache/commons/lang3/DoubleRange.java|DoubleRange|org/apache/commons/lang3/NumberRange.java|NumberRange",
         "org/apache/commons/lang3/Functions.java|stream|org/apache/commons/lang3/Streams.java|FailableStream",
         "org/apache/commons/lang3/Functions.java|tryWithResources|org/apache/commons/lang3/Functions.java|run",
-        "org/apache/commons/lang3/Functions.java|tryWithResources|org/apache/commons/lang3/Functions.java|tryWithResources",
-        "org/apache/commons/lang3/IntegerRange.java|IntegerRange|org/apache/commons/lang3/NumberRange.java|NumberRange",
-        "org/apache/commons/lang3/LocaleUtils.java|availableLocaleList|org/apache/commons/lang3/LocaleUtils.java|availableLocaleList",
-        "org/apache/commons/lang3/LongRange.java|LongRange|org/apache/commons/lang3/NumberRange.java|NumberRange",
-        "org/apache/commons/lang3/NotImplementedException.java|NotImplementedException|org/apache/commons/lang3/NotImplementedException.java|NotImplementedException",
-        "org/apache/commons/lang3/NumberRange.java|NumberRange|org/apache/commons/lang3/Range.java|Range",
-        "org/apache/commons/lang3/ObjectUtils.java|identityToString|org/apache/commons/lang3/text/StrBuilder.java|append"
+        "org/apache/commons/lang3/ObjectUtils.java|identityToString|org/apache/commons/lang3/text/StrBuilder.java|append",
+        "org/apache/commons/lang3/ObjectUtils.java|identityToString|org/apache/commons/lang3/text/StrBuilder.java|ensureCapacity",
+        "org/apache/commons/lang3/ObjectUtils.java|identityToString|org/apache/commons/lang3/text/StrBuilder.java|length",
+        "org/apache/commons/lang3/ObjectUtils.java|mode|org/apache/commons/lang3/mutable/MutableInt.java|intValue",
+        "org/apache/commons/lang3/Range.java|between|org/apache/commons/lang3/Range.java|Range",
+        "org/apache/commons/lang3/Range.java|of|org/apache/commons/lang3/Range.java|Range",
+        "org/apache/commons/lang3/SerializationUtils.java|clone|org/apache/commons/lang3/SerializationException.java|SerializationException",
+        "org/apache/commons/lang3/SerializationUtils.java|deserialize|org/apache/commons/lang3/SerializationException.java|SerializationException",
+        "org/apache/commons/lang3/SerializationUtils.java|serialize|org/apache/commons/lang3/SerializationException.java|SerializationException",
+        "org/apache/commons/lang3/Streams.java|allMatch|org/apache/commons/lang3/Functions.java|asPredicate",
+        "org/apache/commons/lang3/Streams.java|anyMatch|org/apache/commons/lang3/Functions.java|asPredicate",
+        "org/apache/commons/lang3/Streams.java|filter|org/apache/commons/lang3/Functions.java|asPredicate",
+        "org/apache/commons/lang3/Streams.java|forEach|org/apache/commons/lang3/Functions.java|asConsumer",
+        "org/apache/commons/lang3/Streams.java|map|org/apache/commons/lang3/Functions.java|asFunction",
+        "org/apache/commons/lang3/Streams.java|map|org/apache/commons/lang3/Streams.java|FailableStream"
       ],
       "wrongCauses": {}
     },
@@ -143,17 +142,17 @@
         "methodReference": 176,
         "excludedForDuplicateName": 0
       },
-      "expectedPairs": 1799,
-      "claimedPairs": 1445,
+      "expectedPairs": 1641,
+      "claimedPairs": 1425,
       "precision": {
-        "correct": 1443,
+        "correct": 1423,
         "wrong": 2,
         "value": 0.9986
       },
       "recall": {
-        "found": 1443,
-        "missed": 356,
-        "value": 0.8021
+        "found": 1423,
+        "missed": 218,
+        "value": 0.8672
       },
       "byArm": {
         "import": {
@@ -162,9 +161,9 @@
           "precision": 1
         },
         "inherited": {
-          "claimed": 400,
-          "correct": 398,
-          "precision": 0.995
+          "claimed": 261,
+          "correct": 259,
+          "precision": 0.9923
         },
         "namespace": {
           "claimed": 305,
@@ -172,13 +171,13 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 189,
-          "correct": 189,
+          "claimed": 183,
+          "correct": 183,
           "precision": 1
         },
         "sameFile": {
-          "claimed": 836,
-          "correct": 836,
+          "claimed": 864,
+          "correct": 864,
           "precision": 1
         },
         "static": {
@@ -194,23 +193,16 @@
       },
       "callers": {
         "oracle": 1025,
-        "graph": 875,
+        "graph": 944,
         "graphOnly": 0,
         "ownersWithAnyCall": 1495,
-        "graphCallers": 875
+        "graphCallers": 944
       },
       "wrongSamples": [
         "[inherited] org/apache/commons/io/filefilter/AbstractFileFilter.java|preVisitDirectory|org/apache/commons/io/filefilter/AbstractFileFilter.java|accept",
         "[inherited] org/apache/commons/io/filefilter/AbstractFileFilter.java|visitFile|org/apache/commons/io/filefilter/AbstractFileFilter.java|accept"
       ],
       "missedSamples": [
-        "org/apache/commons/io/DirectoryWalker.java|CancelException|org/apache/commons/io/DirectoryWalker.java|CancelException",
-        "org/apache/commons/io/DirectoryWalker.java|DirectoryWalker|org/apache/commons/io/DirectoryWalker.java|DirectoryWalker",
-        "org/apache/commons/io/DirectoryWalker.java|checkIfCancelled|org/apache/commons/io/DirectoryWalker.java|CancelException",
-        "org/apache/commons/io/EndianUtils.java|readSwappedLong|org/apache/commons/io/EndianUtils.java|readSwappedLong",
-        "org/apache/commons/io/FileCleaningTracker.java|addTracker|org/apache/commons/io/FileCleaningTracker.java|Reaper",
-        "org/apache/commons/io/FileCleaningTracker.java|addTracker|org/apache/commons/io/FileCleaningTracker.java|Tracker",
-        "org/apache/commons/io/FileDeleteStrategy.java|ForceFileDeleteStrategy|org/apache/commons/io/FileDeleteStrategy.java|FileDeleteStrategy",
         "org/apache/commons/io/FileUtils.java|copyURLToFile|org/apache/commons/io/CloseableURLConnection.java|getInputStream",
         "org/apache/commons/io/FileUtils.java|copyURLToFile|org/apache/commons/io/CloseableURLConnection.java|setConnectTimeout",
         "org/apache/commons/io/FileUtils.java|copyURLToFile|org/apache/commons/io/CloseableURLConnection.java|setReadTimeout",
@@ -223,7 +215,14 @@
         "org/apache/commons/io/FilenameUtils.java|directoryContains|org/apache/commons/io/IOCase.java|checkStartsWith",
         "org/apache/commons/io/FilenameUtils.java|equals|org/apache/commons/io/IOCase.java|checkEquals",
         "org/apache/commons/io/FilenameUtils.java|equals|org/apache/commons/io/IOCase.java|value",
-        "org/apache/commons/io/FilenameUtils.java|getPrefixLength|org/apache/commons/io/FileSystem.java|getCurrent"
+        "org/apache/commons/io/FilenameUtils.java|getPrefixLength|org/apache/commons/io/FileSystem.java|getCurrent",
+        "org/apache/commons/io/FilenameUtils.java|getPrefixLength|org/apache/commons/io/FileSystem.java|supportsDriveLetter",
+        "org/apache/commons/io/FilenameUtils.java|separatorsToSystem|org/apache/commons/io/FileSystem.java|getCurrent",
+        "org/apache/commons/io/FilenameUtils.java|separatorsToSystem|org/apache/commons/io/FileSystem.java|normalizeSeparators",
+        "org/apache/commons/io/FilenameUtils.java|separatorsToUnix|org/apache/commons/io/FileSystem.java|normalizeSeparators",
+        "org/apache/commons/io/FilenameUtils.java|separatorsToWindows|org/apache/commons/io/FileSystem.java|normalizeSeparators",
+        "org/apache/commons/io/FilenameUtils.java|wildcardMatch|org/apache/commons/io/IOCase.java|checkIndexOf",
+        "org/apache/commons/io/FilenameUtils.java|wildcardMatch|org/apache/commons/io/IOCase.java|checkRegionMatches"
       ],
       "wrongCauses": {}
     }

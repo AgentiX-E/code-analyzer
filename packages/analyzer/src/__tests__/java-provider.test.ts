@@ -214,6 +214,54 @@ describe('JavaProvider', () => {
       expect(provider.parse('', 'Empty.java')).toEqual([]);
     });
 
+    describe('a constructor that delegates', () => {
+      /** Every call this provider records, as `name` in the order the walk produced them. */
+      const callsOf = (source: string): string[] =>
+        provider
+          .parse(source, 'Demo.java')
+          .filter((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_CALL)
+          .map((capture) => String(capture.name));
+
+      it('names `super(…)` after the class the enclosing type extends', () => {
+        // **`super(…)` was a call site nothing recorded**, because the production writes its target as a keyword
+        // (`explicit_constructor_invocation super: (argument_list)`) and every branch of the Java walk was keyed on a
+        // name. Measured on `apache/commons-lang@3.14.0` against `javac`'s own attribution, this shape is **72 of the
+        // 327 edges the oracle expected and the graph claimed nothing for** - and every one of them is the top of a
+        // hierarchy, which is the edge a class diagram is drawn from.
+        expect(callsOf('class Child extends Base { Child(int a) { super(a); } }')).toEqual([
+          'Base',
+        ]);
+      });
+
+      it('names `this(…)` after the class it is written in', () => {
+        // A delegating constructor is a call to another constructor of the same class, which is a fact the language
+        // states and the graph records under the class's own name.
+        expect(
+          callsOf('class Child extends Base { Child() { this(1); } Child(int a) { } }'),
+        ).toEqual(['Child']);
+      });
+
+      it('records no call for `super()` in a class that extends nothing', () => {
+        // **`super()` with no `extends` means `Object`, and `Object` is not in the graph.** Claiming the name would
+        // be an edge to a declaration the checkout does not contain, so the empty clause answers nothing - which is
+        // also the shape a file *being edited* parses into, since the clause may be the very thing being typed.
+        expect(callsOf('class Plain { Plain() { super(); } }')).toEqual([]);
+      });
+
+      it('reads the arguments as uses, so a request reaches a base constructor that stores it', () => {
+        // A delegation passes its arguments like any other call, and the taint that matters is the one that travels
+        // that way: `super(request)` in a framework base class is where a servlet request becomes a field.
+        const captures = provider.parse(
+          'class Child extends Base { Child(String p) { super(p); } }',
+          'Child.java',
+        );
+        const uses = captures
+          .filter((capture) => capture.tag === CAPTURE_TAGS.VARIABLE_ACCESS)
+          .map((capture) => String(capture.name));
+        expect(uses).toContain('p');
+      });
+    });
+
     it('should return captures sorted by line and byte', () => {
       const captures = provider.parse(
         'import java.util.List;\npublic class First { }\npublic enum Color { RED }',

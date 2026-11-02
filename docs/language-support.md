@@ -115,7 +115,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 | ---------- | :---------: | :---------------: | :---------------------------------------------------------------- |
 | TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis           |
 | Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug          |
-| Java       |    Fast     |       ~5MB        | **99.1 % / 86.9 %** commons-lang · **99.9 % / 80.2 %** commons-io |
+| Java       |    Fast     |       ~5MB        | **99.1 % / 91.0 %** commons-lang · **99.9 % / 86.7 %** commons-io |
 | JavaScript |    Fast     |       ~4MB        | not measured                                                      |
 | Go         |    Fast     |       ~3MB        | not measured                                                      |
 | Kotlin     |   Medium    |       ~4MB        | not measured                                                      |

@@ -196,9 +196,9 @@ const TYPESCRIPT_FLOORS = {
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
-    precision: 0.985,
-    recall: 0.855,
-    claimed: 2150,
+    precision: 0.99,
+    recall: 0.9,
+    claimed: 2040,
     arms: {
       import: 0.99,
       inherited: 0.99,
@@ -210,12 +210,12 @@ const JAVA_FLOORS = {
     },
   },
   'apache/commons-io': {
-    precision: 0.99,
-    recall: 0.79,
-    claimed: 1430,
+    precision: 0.995,
+    recall: 0.86,
+    claimed: 1420,
     arms: {
       import: 0.99,
-      inherited: 0.985,
+      inherited: 0.99,
       namespace: 0.995,
       receiverType: 0.99,
       sameFile: 0.995,

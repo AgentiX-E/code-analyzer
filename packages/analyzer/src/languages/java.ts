@@ -189,6 +189,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
           filePath: this.filePath,
           parameterIndex: String(parameterIndex),
           parameterOwner: owner,
+          // **A parameter with no type is the shape a file being edited parses into**, and it is the one arm here that
+          // no complete Java source can take - `void run(Widget)` is not a method the grammar produces, and the walk
+          // does not even reach this loop for it. Kept, because the alternative is a resolver handed the string
+          // `"undefined"` as a class name; the same contract the docstring guard in `tree-sitter-base.ts` states.
           ...(type === undefined ? {} : { parameterType: type }),
         },
       });
@@ -514,6 +518,31 @@ export class JavaProvider extends TreeSitterBaseProvider {
       });
       // `new Foo()` always carries an `argument_list`, empty when the call passes nothing — the grammar requires it.
       this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
+    } else if (nodeType === 'explicit_constructor_invocation') {
+      // **A constructor that delegates is a call, and only `new` was ever recorded.** `super(request)` and `this()`
+      // write their target as a keyword - the production is `explicit_constructor_invocation super: (argument_list)`
+      // with nothing nameable in it - so every branch above, each of them keyed on a name, stepped past them.
+      // Measured on `apache/commons-lang@3.14.0`, this shape is **72 of the 327 edges `javac`'s own attribution
+      // expects and this graph claimed nothing for**, and each one is the top of a hierarchy: `NumberRange`'s
+      // constructor calling `Range(…)`, `StringEscapeUtils.CsvEscaper` calling `CharSequenceTranslator()`.
+      //
+      // `super` names the class the enclosing type extends and `this` names the enclosing type, because those are the
+      // two things the keywords can mean. The arguments are read like any other call's, which is what carries a
+      // request into a base constructor that stores it.
+      const delegated = this.delegatedConstructorName(node);
+      if (delegated !== undefined) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_CALL,
+          text: delegated,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: delegated,
+          properties: { filePath: this.filePath },
+        });
+      }
+      this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
     } else if (nodeType === 'expression_statement') {
       // **A bare name used as a statement**, which Java only permits as an assignment, an increment or a call - but
       // **a file being edited parses into shapes the language would reject**, and `x.y;` is a `field_access` rather
@@ -533,12 +562,9 @@ export class JavaProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'class_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;
-      let baseClasses = '';
       let interfaces = '';
       for (const child of namedChildrenOf(node)) {
-        if (child.type === 'superclass') {
-          baseClasses = this.typeBaseName(child.namedChild(0));
-        } else if (child.type === 'super_interfaces') {
+        if (child.type === 'super_interfaces') {
           interfaces = this.interfaceNames(child);
         }
       }
@@ -550,7 +576,11 @@ export class JavaProvider extends TreeSitterBaseProvider {
         startByte: nameNode.startIndex,
         endByte: nameNode.endIndex,
         name: nameNode.text,
-        properties: { baseClasses, interfaces, filePath: this.filePath },
+        properties: {
+          baseClasses: this.superclassNameOf(node),
+          interfaces,
+          filePath: this.filePath,
+        },
       });
     } else if (nodeType === 'interface_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;
@@ -849,6 +879,49 @@ export class JavaProvider extends TreeSitterBaseProvider {
       }
     }
     return type.text;
+  }
+
+  /**
+   * The base name a class declaration's `extends` clause names, or the empty string when it has none.
+   *
+   * **The clause is the only place Java writes a base**, so both the class capture and a `super(…)` call read it
+   * here: a `super` written in `Child extends Base` means `Base`, and the two readers must not be able to disagree.
+   */
+  private superclassNameOf(typeNode: TreeSitterSyntaxNode): string {
+    const clause = this.findChild(typeNode, 'superclass');
+    // **The clause is `extends Type`, and the grammar states both halves**: a `superclass` node with no named child
+    // is not a shape this language produces, so the empty answer belongs to the missing clause and to nothing else.
+    return clause === null ? '' : this.typeBaseName(clause.namedChild(0));
+  }
+
+  /**
+   * Java's `super(…)` target, from the `superclass` clause of the type the call is written in.
+   *
+   * **A class that extends nothing can still write `super()`** - it means `Object`, whose constructor this graph has
+   * no declaration for - so an empty clause answers `undefined` rather than the name `Object`: an edge to a class the
+   * graph does not hold is a claim with nothing behind it.
+   *
+   * **This rule is Java's alone, and TypeScript's version of it was measured and refused.** A TypeScript constructor
+   * is *inherited*: `class A extends NoCtor { constructor() { super(); } }` runs `Object`'s constructor, so naming
+   * the call after `NoCtor` claims a declaration that does not exist. Written that way it added **2 claims and 0
+   * correct ones** on `redis/ioredis@5.4.2` (`Pipeline` and `cluster/index` delegating to a `Commander` that declares
+   * no constructor) — the TypeScript checker resolves a `super` call to the nearest ancestor that *declares* one, so
+   * the rule needs a constructor-chain walk the class index can answer and this provider cannot. Java has no such
+   * hole: a constructor is never inherited, so `super(args)` always names a constructor the direct base declares.
+   */
+  private superclassNameOfCall(node: TreeSitterSyntaxNode): string | undefined {
+    // **A delegation is written in a constructor, and a constructor is written in a type**, so the enclosing
+    // container exists by the shape of the grammar rather than by luck - the same reasoning the `!` on a method's own
+    // name uses one screen below.
+    const base = this.superclassNameOf(this.findContainerNode(node)!);
+    return base === '' ? undefined : base;
+  }
+
+  /** The class `super(…)` or `this(…)` delegates to, named the way a call site names a constructor. */
+  private delegatedConstructorName(node: TreeSitterSyntaxNode): string | undefined {
+    return node.namedChild(0).type === 'super'
+      ? this.superclassNameOfCall(node)
+      : this.enclosingClassName(node);
   }
 
   /** Join the comma-separated interface names of a super_interfaces clause. */

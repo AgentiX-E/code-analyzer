@@ -149,6 +149,17 @@ public final class CallGraphOracle {
         verdicts.merge("internalRecursion", 1, Integer::sum);
         continue;
       }
+      // **A call between two declarations of one name in one file is not a pair this graph can hold.** The graph
+      // keys an edge by `(file, name)` on both ends, so `BooleanUtils.and(a, b)` calling the eleven-argument overload
+      // of `and` in the same file is the pair `BooleanUtils|and -> BooleanUtils|and` - the same string a recursive
+      // call would produce, and the pipeline refuses a self-edge on purpose (recursion is recorded elsewhere).
+      // Scoring it as an expectation asks the graph for an edge it cannot name. **The TypeScript oracle has excluded
+      // this shape since it was written** (`source.file === target.file && source.name === target.name` is dropped
+      // from both sides), and the Java one counted **50 of its 537 misses** from the asymmetry.
+      if (site.file.equals(site.targetFile) && site.owner.equals(site.callee)) {
+        verdicts.merge("selfEdgeSameName", 1, Integer::sum);
+        continue;
+      }
       expected.add(site.pair());
     }
 
@@ -156,6 +167,14 @@ public final class CallGraphOracle {
     Map<String, int[]> perArm = new TreeMap<>();
     Map<String, String> armOf = new LinkedHashMap<>();
     for (Claim claim : claims) {
+      // **The same exclusion on the claim side, or the correction becomes a penalty.** A self-edge between two
+      // declarations of one name in one file is dropped from the expectation above for the reason stated there; a
+      // claim of that shape therefore has nothing to be right about, and counting it as wrong would score the
+      // exclusion twice.
+      if (claim.sourceFile.equals(claim.targetFile) && claim.owner.equals(claim.callee)) {
+        verdicts.merge("selfEdgeClaim", 1, Integer::sum);
+        continue;
+      }
       claimed.add(claim.pair());
       armOf.putIfAbsent(claim.pair(), claim.arm);
       int[] bucket = perArm.computeIfAbsent(claim.arm, (key) -> new int[2]);

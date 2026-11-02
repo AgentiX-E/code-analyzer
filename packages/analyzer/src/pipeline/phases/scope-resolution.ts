@@ -711,6 +711,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // *imported* `Flask` in `flask/app.py` and made the local class look unused.
             const owner = holder;
             if (owner !== undefined) {
+              scope.owner.set(node.id, owner.id);
+              // **A constructor is reached through its type, never through a name of its own**, and filing it here
+              // made the type and its body two candidate answers for one name - which `local.length > 1` reads as
+              // no answer at all. Java writes `class Inner { Inner(int a) {} }` in every class that has state, so
+              // this is the shape of the language rather than an edge case; the class entry below is what a call to
+              // `Inner(…)` names.
+              if (node.label === 'Constructor') continue;
               // **Every declaration of the name, not the first one.** `LocalProxy.__init__` defines
               // `_get_current_object` four times, once per branch, and `object.__setattr__(self, "…",
               // _get_current_object)` names whichever branch ran — so the mention is evidence for all four and for
@@ -721,10 +728,15 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               if (known === undefined)
                 scope.local.set(key, [{ nodeId: node.id, label: node.label }]);
               else known.push({ nodeId: node.id, label: node.label });
-              scope.owner.set(node.id, owner.id);
             }
             continue;
           }
+          // **The same rule one scope out: a constructor does not compete with its own class for the name.**
+          // `keepUnique` refuses a name two declarations claim, which is the right reading of a file that declares
+          // two functions called `run` and the wrong reading of `class Inner` beside `Inner(int a)`. Measured on
+          // `apache/commons-lang@3.14.0`: **163 of the 537 missed edges are a same-file construction of a class that
+          // declares a constructor**, every one of them resolving to nothing because the type answered `ambiguous`.
+          if (node.label === 'Constructor') continue;
           const entry = { nodeId: node.id, label: node.label };
           if (where === 'member') {
             keepUnique(scope.member, node.name, entry);
