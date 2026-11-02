@@ -18,6 +18,7 @@ import { buildCallSites } from '../../resolution/call-sites.js';
 import {
   baseMemberOf,
   buildFileTypes,
+  classInPackageOf,
   classMemberOf,
   containerOf,
   createClassIndex,
@@ -268,6 +269,15 @@ const RESOLVABLE_KINDS: ReadonlySet<NodeLabel> = new Set<NodeLabel>([
 function hasImplicitThis(language: string | undefined): boolean {
   return language !== 'python';
 }
+
+/**
+ * The languages whose simple names resolve through a package, which is a directory and nothing else.
+ *
+ * **Java's rule, and the JVM languages that inherited it.** `java.util.Foo` is `java/util/Foo`; Kotlin and Groovy
+ * compile to the same model. TypeScript, Python and the rest resolve a name through an import or a module path, and a
+ * sibling file there is reachable only if something names it - so this set is the whole of the evidence for the step.
+ */
+const PACKAGE_SCOPED: ReadonlySet<string> = new Set(['java', 'kotlin', 'groovy']);
 
 /**
  * Is this call's receiver the object the call is written in — or is there no receiver at all?
@@ -854,6 +864,11 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           file: parsedFile.filePath,
           imported: importedFiles,
           published: publishedNamesOf(parsedFile.filePath),
+          // **The package, where the language has one.** `java`, `kotlin` and `groovy` resolve a simple type name
+          // through the directory it is written in - before any file it does not name - and no other language this
+          // product reads does. The flag travels with the lookup rather than being read in the resolver, because the
+          // rule belongs to the language and a TypeScript lookup must not inherit it.
+          packageScope: PACKAGE_SCOPED.has(parsedFile.language),
         };
         /**
          * The names this file binds to something imported, found or not.
@@ -1080,6 +1095,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               | 'super'
               | 'receiverType'
               | 'namespace'
+              | 'package'
               | 'globalUnique' = 'import';
 
             // **First, try cross-file resolution via imports - and only for a call that writes no receiver.**
@@ -1223,7 +1239,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                 local.length > 1
                   ? undefined
                   : local.length === 1
-                    ? (local[0] as Resolved)
+                    ? local[0]!
                     : ref.receiver === undefined && !hasImplicitThis(parsedFile.language)
                       ? module
                       : (member ?? module);
@@ -1351,6 +1367,27 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                   arm = 'receiverType';
                   receiverClass = receiverType.className;
                 }
+              }
+            }
+
+            // **Then the package the call is written in, which is the language's own last step.**
+            //
+            // A Java simple type name is resolved in the enclosing type, then a single-type import, then the package
+            // the file belongs to - and a package is a directory. The arms above cover the first two and the last
+            // one only through a whole-graph fallback that *refuses* a name two files declare, which in a real
+            // checkout is exactly the case: `apache/commons-lang` declares `lang3.Functions` and
+            // `lang3.function.Functions`, and `Streams.java`'s five `Functions.asPredicate(…)` calls resolved to
+            // nothing. A construction is the same question with the name in the head position: `new
+            // SerializationException(…)` from `SerializationUtils` is a class three files away in its own package,
+            // and 54 such sites on that corpus were unanswered.
+            //
+            // **Asked only of a call that writes no receiver**, because that is the shape a construction has and the
+            // shape a class name cannot have: `Foo.bar()` is the static arm's question, and `foo()` is own scope.
+            if (!target && ref.receiver === undefined && PACKAGE_SCOPED.has(parsedFile.language)) {
+              const declared = classInPackageOf(classIndex, parsedFile.filePath, ref.targetName);
+              if (declared !== undefined) {
+                target = declared.declared;
+                arm = 'package';
               }
             }
 

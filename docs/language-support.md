@@ -25,6 +25,7 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Docstrings/JSDoc**       |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
 | **Function Calls**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
 | **Declared Type Facts**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Declared Return Types**  |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Generics**               |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Async Detection**        |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
 | **Extension Functions**    |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
@@ -43,6 +44,21 @@ matrix rows above record and resolve no receiver, so `this.builder.append(…)` 
 unclaimed edge — **stated here rather than claimed as support.** Java spent four iterations "supported" at **50 `CALLS`
 edges** on a Spring application because nobody had asked whether the arm that reads a type had anything to read
 (iteration 56; the same checkout now yields 285, of which 235 come from that arm).
+
+**A call in the middle of a receiver is a hop, and the hop's type is what the callee declares it returns.** Reading
+only what a _name_ holds left every fluent chain ending at its first call — `QueueInputStream.builder().get()`,
+`Archive.store.find(key).next()`, `DiffBuilder.append(…).build()` — and iteration 58 made the return type a fact of the
+declaration (`returnType`, read from `return_type:` in the TypeScript and Python grammars and from `type:` in Java's).
+On `apache/commons-lang@3.14.0` that took recall from **88.1 % to 96.1 %** together with the package rule described
+below; the arm that reads a receiver's type is now **351 claims, 100 % precise**.
+
+**A Java name is answered by its own package before any other file, and that is the language's rule rather than a
+heuristic.** A package is a directory: `Streams.java` calling `Functions.asPredicate(…)` reaches
+`lang3/Functions.java` even though the same checkout declares a second `Functions` in `lang3/function/`, and
+`new SerializationException(…)` reaches a class three files away in the same directory with no import between them.
+The edge is labelled `package`, so its precision is measured on its own — **69 of 69 on `commons-lang` and 83 of 83 on
+`commons-io`**. The rule is restricted to `java`, `kotlin` and `groovy`, the languages where a simple name resolves
+through a package; a TypeScript or Python file that names a sibling without importing it still reaches nothing.
 
 ## File Extensions
 
@@ -115,7 +131,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 | ---------- | :---------: | :---------------: | :---------------------------------------------------------------- |
 | TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis           |
 | Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug          |
-| Java       |    Fast     |       ~5MB        | **99.1 % / 91.0 %** commons-lang · **99.9 % / 86.7 %** commons-io |
+| Java       |    Fast     |       ~5MB        | **99.2 % / 96.1 %** commons-lang · **99.9 % / 92.9 %** commons-io |
 | JavaScript |    Fast     |       ~4MB        | not measured                                                      |
 | Go         |    Fast     |       ~3MB        | not measured                                                      |
 | Kotlin     |   Medium    |       ~4MB        | not measured                                                      |

@@ -196,13 +196,16 @@ const TYPESCRIPT_FLOORS = {
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
-    precision: 0.99,
-    recall: 0.9,
-    claimed: 2040,
+    precision: 0.991,
+    recall: 0.95,
+    claimed: 2150,
     arms: {
       import: 0.99,
       inherited: 0.99,
       namespace: 0.94,
+      // **The arm that answers a name out of the file's own directory.** Measured 69 of 69 on this corpus and 83 of
+      // 83 on `commons-io`; the floor is where a regression would have to lose more than one claim to trip.
+      package: 0.99,
       receiverType: 0.99,
       sameFile: 0.995,
       static: 0.995,
@@ -210,13 +213,14 @@ const JAVA_FLOORS = {
     },
   },
   'apache/commons-io': {
-    precision: 0.995,
-    recall: 0.86,
-    claimed: 1420,
+    precision: 0.997,
+    recall: 0.92,
+    claimed: 1500,
     arms: {
       import: 0.99,
       inherited: 0.99,
       namespace: 0.995,
+      package: 0.99,
       receiverType: 0.99,
       sameFile: 0.995,
       static: 0.99,

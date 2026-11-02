@@ -259,6 +259,14 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   ): void {
     this.captureExtra(node, nodeType, captures);
 
+    // **What this declaration says it returns, read before the branch that captures it.** The property is attached to
+    // the capture afterwards, by line, because the arms below build captures in six different places and a fact that
+    // belongs to the declaration should not have to be repeated in each of them.
+    if (nodeType === 'method_definition' || nodeType === 'function_declaration') {
+      const declaredName = this.extractNameFromNode(node);
+      if (declaredName !== undefined) this.recordDeclaredReturn(node, 'return_type', declaredName);
+    }
+
     if (nodeType === 'assignment_expression') {
       this.captureMemberAssignment(node, captures);
       return;

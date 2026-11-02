@@ -989,7 +989,11 @@ def main() -> int:
                     _cause(sites_by_owner.get((source, owner), []), callee)
                     for source, owner, _target, callee in claimed - expected
                 ).items(),
-                key=lambda kv: -kv[1],
+                # **The count decides the order and the cause breaks the tie**, because a count alone leaves the
+                # equal ones in set-iteration order - so a run that answered every call exactly as the last one did
+                # still wrote a different artifact, and the workflow's "what did this run write" step showed a diff
+                # that was not a change.
+                key=lambda kv: (-kv[1], kv[0]),
             )
         ),
         "wrongByArm": {

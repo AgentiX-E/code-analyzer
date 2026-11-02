@@ -490,6 +490,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const mappings = this.getNodeMappings();
     const nodeType = node.type;
 
+    if (RETURN_TYPE_NODES.has(nodeType)) this.recordDeclaredReturn(node);
+
     for (const mapping of mappings) {
       if (nodeType === mapping.nodeType) {
         this.emitCapture(node, mapping, captures);
@@ -657,6 +659,63 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * carries it out of `parse`.
    */
   protected decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
+    return this.attachReturnTypes(captures);
+  }
+
+  /**
+   * The type each callable declares it returns, keyed by `line` and name.
+   *
+   * **A line alone is not an identity.** `class Holder { Builder builder() {…} void run() {…} }` writes two
+   * declarations on one line, which is what a test fixture and a minified file both look like - and keyed by line the
+   * second one's type answered for the first. The name and the line together are the declaration, and no source can
+   * write two declarations of one name on one line.
+   */
+  protected readonly declaredReturns = new Map<string, string>();
+
+  /**
+   * Read what this declaration says it returns, from the field the grammar writes it in.
+   *
+   * **A grammar that spells the field differently records it itself** - `java.ts` writes the return type in `type:` -
+   * and shares the map, which is why this takes the field name rather than assuming one. The name comes from the
+   * caller for the same reason: every grammar spells a declaration's name differently.
+   */
+  protected recordDeclaredReturn(
+    node: TreeSitterSyntaxNode,
+    field = 'return_type',
+    name = this.extractNameFromNode(node),
+  ): void {
+    // **A declaration this walk cannot name is not recorded**, because the key a capture is matched by is the name
+    // and the line: a fact filed under `undefined` is a fact nothing can ever read.
+    if (name === undefined) return;
+    const written = node.childForFieldName(field)?.text;
+    if (typeof written !== 'string' || written.length === 0) return;
+    this.declaredReturns.set(`${node.startPosition.row + 1}\u0000${name}`, written);
+  }
+
+  /**
+   * Attach each collected return type to the declaration it belongs to.
+   *
+   * **A property rather than a symbol**, for the reason a field's type is one: the fact is about a declaration the
+   * graph already holds, and a second node for it would compete with the function for a search query and give the
+   * resolver nothing new to point at.
+   */
+  protected attachReturnTypes(captures: UnifiedCapture[]): UnifiedCapture[] {
+    if (this.declaredReturns.size === 0) return captures;
+    for (const capture of captures) {
+      if (
+        capture.tag !== CAPTURE_TAGS.FUNCTION_DEF &&
+        capture.tag !== CAPTURE_TAGS.METHOD_DEF &&
+        capture.tag !== CAPTURE_TAGS.CONSTRUCTOR_DEF
+      ) {
+        continue;
+      }
+      const declared = this.declaredReturns.get(
+        `${capture.startLine}\u0000${String(capture.name)}`,
+      );
+      if (declared === undefined) continue;
+      capture.properties = { ...capture.properties, returnType: declared };
+    }
+    this.declaredReturns.clear();
     return captures;
   }
 
@@ -1474,6 +1533,20 @@ export function claimsTaintExtraction(provider: unknown): boolean {
  * cost of the test matters as much as its answer. The list is exactly the one the climb used, unchanged: this change
  * is about how many times the question is asked, not about the answer.
  */
+/**
+ * The node types whose declaration states what it returns in a `return_type` field.
+ *
+ * **A return type is a fact about a declaration and nothing recorded it**, so `QueueInputStream.builder().get()`
+ * ended at the first call: the resolver knew what a field, a parameter and a local hold, and not what an expression
+ * does. The field name is the grammars' own - TypeScript's `method_definition`, Python's `function_definition` - and
+ * a grammar that spells it differently (`java.ts` writes `type:`) records it in its own walk.
+ */
+const RETURN_TYPE_NODES: ReadonlySet<string> = new Set([
+  'function_declaration',
+  'method_definition',
+  'function_definition',
+]);
+
 const CONTAINER_NODE_TYPES: ReadonlySet<string> = new Set([
   'class_declaration',
   'interface_declaration',

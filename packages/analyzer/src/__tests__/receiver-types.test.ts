@@ -137,6 +137,52 @@ describe('one file, read for the types its declarations carry', () => {
     expect(facts.parameters.get('connectHandler\u0000self')).toBe('Holder');
   });
 
+  it('drops a parameter two declarations of one method disagree about', () => {
+    // **An overload is one name and two signatures, and a call site names neither.** `ObjectUtils` declares
+    // `identityToString(StringBuilder, Object)` and `identityToString(StrBuilder, Object)`, so a parameter map keyed
+    // by `Class.method` had one `builder` and whichever declaration the walk reached last - and the call at the end
+    // was resolved against the other overload's type. Measured: the answer was `StringBuilder` for a receiver
+    // declared `StrBuilder`, on the strength of the declaration order alone. Two types are two answers, so the name
+    // is dropped, exactly as a field two declarations disagree about is dropped.
+    const overloaded = buildFileTypes([
+      declaration('Method', 'identityToString', 'ObjectUtils', {}, 30),
+      declaration(
+        'Variable',
+        'builder',
+        undefined,
+        { parameterOwner: 'ObjectUtils.identityToString', parameterType: 'StrBuilder' },
+        31,
+      ),
+      declaration(
+        'Variable',
+        'builder',
+        undefined,
+        { parameterOwner: 'ObjectUtils.identityToString', parameterType: 'StringBuilder' },
+        32,
+      ),
+    ]);
+    expect(overloaded.parameters.has('ObjectUtils.identityToString\u0000builder')).toBe(false);
+    // The same name with the same type twice is one fact, and overloads that agree stay answerable.
+    const agreeing = buildFileTypes([
+      declaration('Method', 'run', 'Holder', {}, 33),
+      declaration(
+        'Variable',
+        'widget',
+        undefined,
+        { parameterOwner: 'Holder.run', parameterType: 'Widget' },
+        34,
+      ),
+      declaration(
+        'Variable',
+        'widget',
+        undefined,
+        { parameterOwner: 'Holder.run', parameterType: 'Widget' },
+        35,
+      ),
+    ]);
+    expect(agreeing.parameters.get('Holder.run\u0000widget')).toBe('Widget');
+  });
+
   it('remembers which class holds a method, so `this` can be answered', () => {
     expect(facts.classOfFunction.get('Holder.run')).toBe('Holder');
   });
@@ -859,5 +905,192 @@ describe('a contract a class implements is not part of its chain', () => {
       nodeId: 15,
       label: 'Method',
     });
+  });
+});
+
+/**
+ * **A call in the middle of a receiver is a hop with a type, and the type is the one the callee declares.**
+ *
+ * `QueueInputStream.builder().setBlockingQueue(q).get()` is how a builder is written in every language that has one:
+ * the receiver names a *call*, not a field, and the only thing that says what the call holds is the declaration of
+ * what it calls. Iteration 58 measured the alternative first - refusing every receiver containing a call - and the
+ * measurement threw it out: it removed 8 wrong claims on `apache/commons-lang` and cost 9 true ones across three
+ * other checkouts, because a fluent chain genuinely ends at a member of the class the factory returns.
+ */
+describe('a hop that is a call, answered by the return type it declares', () => {
+  const FILE = '/builder.java';
+  const facts = buildFileTypes([
+    declaration('Class', 'QueueInputStream', undefined, {}, 1),
+    declaration('Method', 'builder', 'QueueInputStream', { returnType: 'Builder' }, 2),
+    declaration('Method', 'open', 'QueueInputStream', { returnType: 'void' }, 3),
+    declaration('Method', 'untold', 'QueueInputStream', {}, 4),
+    declaration('Class', 'Builder', undefined, {}, 5),
+    declaration('Method', 'setBlockingQueue', 'Builder', { returnType: 'Builder<T>' }, 6),
+    declaration('Method', 'get', 'Builder', {}, 7),
+    declaration('Class', 'Archive', undefined, {}, 8),
+    declaration('Method', 'find', 'Archive', { returnType: 'Index' }, 10),
+    declaration('Class', 'Index', undefined, {}, 11),
+    declaration('Method', 'next', 'Index', {}, 12),
+    declaration('Class', 'Holder', undefined, {}, 13),
+    declaration('Method', 'run', 'Holder', {}, 14),
+    declaration('Property', 'archive', 'Holder', { fieldType: 'Archive' }, 15),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[] = []): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('files what a declaration says it returns, and refuses the two shapes that state no type', () => {
+    expect(facts.returns.get('QueueInputStream.builder')).toBe('Builder');
+    // A generic return type names its head, exactly as a field's annotation does.
+    expect(facts.returns.get('Builder.setBlockingQueue')).toBe('Builder');
+    // `void` is a type no member can be called on, and a declaration that writes none states nothing.
+    expect(facts.returns.has('QueueInputStream.open')).toBe(false);
+    expect(facts.returns.has('QueueInputStream.untold')).toBe(false);
+  });
+
+  it('walks a fluent chain, one declared return type per hop', () => {
+    // **The class the factory is written on is where the walk starts**, and it is evidence rather than a guess: a
+    // receiver whose root names a class asks that class for the member.
+    expect(receiverTypeOf(at(), 'QueueInputStream.builder()')).toEqual({
+      className: 'Builder',
+      via: 'class',
+    });
+    expect(receiverTypeOf(at(), 'QueueInputStream.builder().setBlockingQueue(q)')).toEqual({
+      className: 'Builder',
+      via: 'class',
+    });
+  });
+
+  it('walks through a field and then through a call, which is the same walk one hop apart', () => {
+    // `this.archive.find(a.b)` is what makes the split of a receiver a question of its own: the argument
+    // contains no dot here, but `find(a.b)` would break a splitter that cut at every `.` it saw.
+    expect(receiverTypeOf(at(['Holder.run']), 'this.archive.find(a.b)')).toEqual({
+      className: 'Index',
+      via: 'thisField',
+    });
+  });
+
+  it('ends the walk at a call whose return type nobody declared', () => {
+    expect(receiverTypeOf(at(), 'QueueInputStream.untold()')).toBeUndefined();
+    expect(receiverTypeOf(at(), 'QueueInputStream.open()')).toBeUndefined();
+    // A member the class does not declare has no return type to read, and the walk does not guess one.
+    expect(receiverTypeOf(at(), 'QueueInputStream.missing()')).toBeUndefined();
+  });
+
+  it('keeps a construction and a class root apart, because only one of them is written with `new`', () => {
+    expect(receiverTypeOf(at(), 'new Builder()')).toEqual({ className: 'Builder', via: 'local' });
+    // A bare class name is not a receiver with a member on it; the class itself is the answer, not a call on it.
+    expect(receiverTypeOf(at(), 'Builder')).toBeUndefined();
+  });
+});
+
+/**
+ * **An enum is a type, and the product filed none of them.**
+ *
+ * `java.time.DayOfWeek` and `JavaVersion` declare methods and constants that every call on them reaches, and
+ * `buildFileTypes` read `Class`, `Struct` and `Interface` - so `JavaVersion` had no entry in the class index at all.
+ * Measured on `apache/commons-lang@3.14.0`: `SystemUtils.isJavaVersionAtLeast` and `isJavaVersionAtMost` both call
+ * `atLeast`/`atMost` on a field declared `JavaVersion`, and both pairs were unanswered for that reason alone.
+ */
+describe('an enum declares members like any other type', () => {
+  const FILE = '/JavaVersion.java';
+  const facts = buildFileTypes([
+    declaration('Enum', 'JavaVersion', undefined, {}, 21),
+    declaration('Method', 'atLeast', 'JavaVersion', {}, 22),
+    declaration('Class', 'SystemUtils', undefined, {}, 23),
+    declaration('Property', 'version', 'SystemUtils', { fieldType: 'JavaVersion' }, 24),
+    declaration('Method', 'check', 'SystemUtils', {}, 25),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+
+  it('files an enum where a class is filed, so a call on one can be answered', () => {
+    expect(facts.classes.get('JavaVersion')).toEqual({ nodeId: 21, label: 'Enum' });
+    expect(classMemberOf(index, 'JavaVersion', 'atLeast', { file: FILE })).toEqual({
+      nodeId: 22,
+      label: 'Method',
+    });
+  });
+
+  it('reads a field declared with the enum as a receiver of that type', () => {
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: FILE }, owners: ['SystemUtils.check'] },
+        'this.version',
+      ),
+    ).toEqual({ className: 'JavaVersion', via: 'thisField' });
+  });
+});
+
+/**
+ * **A Java name is answered by its own package before any other file, and the product had no such rule.**
+ *
+ * The language's own order is: the enclosing type, a single-type import, then the package. The graph had the first
+ * two and the whole-graph fallback, and the fallback refuses a name two files declare - so `Functions.asPredicate(…)`
+ * in `Streams.java` resolved to nothing because `apache/commons-lang` declares two classes called `Functions` in two
+ * different packages, one of which is the file's own.
+ */
+describe('a name answered by the package it sits in', () => {
+  const index = createClassIndex();
+  const here = '/proj/pkg/Streams.java';
+  const sibling = '/proj/pkg/Functions.java';
+  const elsewhere = '/proj/other/Functions.java';
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Functions', undefined, {}, 31),
+      declaration('Method', 'asPredicate', 'Functions', {}, 32),
+    ]),
+    sibling,
+  );
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Functions', undefined, {}, 33),
+      declaration('Method', 'asPredicate', 'Functions', {}, 34),
+    ]),
+    elsewhere,
+  );
+  mergeClassIndex(
+    index,
+    buildFileTypes([declaration('Class', 'Streams', undefined, {}, 35)]),
+    here,
+  );
+
+  it('answers a class the package declares, where the whole graph has two answers', () => {
+    expect(
+      classMemberOf(index, 'Functions', 'asPredicate', { file: here, packageScope: true }),
+    ).toEqual({ nodeId: 32, label: 'Method' });
+  });
+
+  it('refuses the same question without the package, because two files carry the name', () => {
+    // The evidence is the language's, not the resolver's: TypeScript has no such rule, so the origin says whether
+    // the question may be asked at all.
+    expect(classMemberOf(index, 'Functions', 'asPredicate', { file: here })).toBeUndefined();
+  });
+
+  it('refuses a name the package itself declares twice', () => {
+    // Two files in one directory that both declare the name is the same ambiguity one directory down, and picking
+    // one of them would make the answer depend on the order of the walk.
+    mergeClassIndex(
+      index,
+      buildFileTypes([
+        declaration('Class', 'Twice', undefined, {}, 36),
+        declaration('Method', 'anything', 'Twice', {}, 38),
+      ]),
+      '/proj/pkg/Twice.java',
+    );
+    mergeClassIndex(
+      index,
+      buildFileTypes([declaration('Class', 'Twice', undefined, {}, 37)]),
+      '/proj/pkg/AlsoTwice.java',
+    );
+    expect(
+      classMemberOf(index, 'Twice', 'anything', { file: here, packageScope: true }),
+    ).toBeUndefined();
   });
 });

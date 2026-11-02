@@ -80,11 +80,12 @@ function symbol(
   name: string,
   startLine: number,
   endLine: number,
+  file: string = FILE_A,
 ): SymbolDefinition {
   return {
     name,
     kind,
-    qualifiedName: `${FILE_A}:${name}`,
+    qualifiedName: `${file}:${name}`,
     startLine,
     endLine,
     isExported: true,
@@ -92,9 +93,14 @@ function symbol(
   };
 }
 
-function reference(targetName: string, sourceLine: number, receiver?: string): ReferenceSite {
+function reference(
+  targetName: string,
+  sourceLine: number,
+  receiver?: string,
+  sourceFile: string = FILE_A,
+): ReferenceSite {
   return {
-    sourceFile: FILE_A,
+    sourceFile,
     sourceLine,
     sourceColumn: 0,
     targetName,
@@ -459,5 +465,131 @@ describe('resolveImportPath — a checkout of a library holds the library', () =
     writeFileSync(importer, 'from . import helpers\n');
 
     expect(resolveImportPath('.helpers', importer, root)).toBe(join(root, 'pkg', 'helpers.py'));
+  });
+});
+
+/**
+ * **A Java name is answered by its own package, and the graph had no such rule.**
+ *
+ * The language's order is the enclosing type, then a single-type import, then the package it is written in. The
+ * product had the first two and a whole-graph fallback that refuses a name two files declare - and one of the two
+ * files is often the package's own. Measured on `apache/commons-lang@3.14.0`: `Streams.java` calls
+ * `Functions.asPredicate(…)`, the checkout declares `lang3.Functions` and `lang3.function.Functions`, and the call
+ * resolved to nothing at all; `SerializationUtils` raises `new SerializationException(…)` from its own package in the
+ * same way, three times.
+ */
+describe('ScopeResolution — a name the package declares', () => {
+  const PKG = '/proj/pkg';
+  const UTILS = `${PKG}/SerializationUtils.java`;
+  const EXCEPTION = `${PKG}/SerializationException.java`;
+  const STREAMS = `${PKG}/Streams.java`;
+  const FUNCTIONS = `${PKG}/Functions.java`;
+  const OTHER_FUNCTIONS = `/proj/other/Functions.java`;
+
+  it('answers a type the file`s own package declares, with no import between them', async () => {
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'SerializationUtils', UTILS, 1, 40),
+        node(2, 'Method', 'clone', UTILS, 3, 20),
+        node(3, 'Class', 'SerializationException', EXCEPTION, 1, 10),
+      ],
+      [UTILS, EXCEPTION],
+    );
+    const files = [
+      parsedFile(
+        UTILS,
+        [
+          symbol('Class', 'SerializationUtils', 1, 40, UTILS),
+          symbol('Method', 'clone', 3, 20, UTILS),
+        ],
+        [reference('SerializationException', 12, undefined, UTILS)],
+        'java',
+      ),
+      parsedFile(
+        EXCEPTION,
+        [symbol('Class', 'SerializationException', 1, 10, EXCEPTION)],
+        [],
+        'java',
+      ),
+    ];
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+
+    expect(callEdges(graph)).toEqual([{ sourceId: 2, targetId: 3, resolution: 'package' }]);
+  });
+
+  it('refuses the same shape in a language that has no packages', async () => {
+    // **The rule is Java's, and a TypeScript file that reaches a sibling module without importing it reaches
+    // nothing.** The same graph, the same two files, one language apart - and no edge.
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'SerializationUtils', UTILS, 1, 40),
+        node(2, 'Method', 'clone', UTILS, 3, 20),
+        node(3, 'Class', 'SerializationException', EXCEPTION, 1, 10),
+      ],
+      [UTILS, EXCEPTION],
+    );
+    const files = [
+      parsedFile(
+        UTILS,
+        [symbol('Class', 'SerializationUtils', 1, 40), symbol('Method', 'clone', 3, 20)],
+        [reference('SerializationException', 12, undefined, UTILS)],
+        'typescript',
+      ),
+      parsedFile(
+        EXCEPTION,
+        [symbol('Class', 'SerializationException', 1, 10, EXCEPTION)],
+        [],
+        'typescript',
+      ),
+    ];
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+
+    expect(callEdges(graph)).toEqual([]);
+  });
+
+  it('answers a member of a class the package declares, when the whole graph names two', async () => {
+    // `Functions.asPredicate(predicate)` inside `Streams`: the receiver is a class, and the class name alone is
+    // ambiguous in a checkout that declares two `Functions` in two packages. The file's own directory is the evidence
+    // that decides it, and it is the language's rule rather than a guess.
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'Streams', STREAMS, 1, 40),
+        node(2, 'Method', 'allMatch', STREAMS, 3, 20),
+        node(3, 'Class', 'Functions', FUNCTIONS, 1, 60),
+        node(4, 'Method', 'asPredicate', FUNCTIONS, 5, 9),
+        node(5, 'Class', 'Functions', OTHER_FUNCTIONS, 1, 60),
+        node(6, 'Method', 'asPredicate', OTHER_FUNCTIONS, 5, 9),
+      ],
+      [STREAMS, FUNCTIONS, OTHER_FUNCTIONS],
+    );
+    const files = [
+      parsedFile(
+        STREAMS,
+        [symbol('Class', 'Streams', 1, 40, STREAMS), symbol('Method', 'allMatch', 3, 20, STREAMS)],
+        [reference('asPredicate', 15, 'Functions', STREAMS)],
+        'java',
+      ),
+      parsedFile(
+        FUNCTIONS,
+        [
+          symbol('Class', 'Functions', 1, 60, FUNCTIONS),
+          { ...symbol('Method', 'asPredicate', 5, 9, FUNCTIONS), containerName: 'Functions' },
+        ],
+        [],
+        'java',
+      ),
+      parsedFile(
+        OTHER_FUNCTIONS,
+        [
+          symbol('Class', 'Functions', 1, 60, OTHER_FUNCTIONS),
+          { ...symbol('Method', 'asPredicate', 5, 9, OTHER_FUNCTIONS), containerName: 'Functions' },
+        ],
+        [],
+        'java',
+      ),
+    ];
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+
+    expect(callEdges(graph)).toEqual([{ sourceId: 2, targetId: 4, resolution: 'static' }]);
   });
 });

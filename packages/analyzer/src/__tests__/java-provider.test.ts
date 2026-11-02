@@ -235,10 +235,12 @@ describe('JavaProvider', () => {
 
       it('names `this(…)` after the class it is written in', () => {
         // A delegating constructor is a call to another constructor of the same class, which is a fact the language
-        // states and the graph records under the class's own name.
+        // states and the graph records under the class's own name. **The second constructor delegates to nothing, so
+        // it runs the base's** - which is the other half of the same sentence, and it is why the list has two names
+        // rather than one.
         expect(
           callsOf('class Child extends Base { Child() { this(1); } Child(int a) { } }'),
-        ).toEqual(['Child']);
+        ).toEqual(['Child', 'Base']);
       });
 
       it('records no call for `super()` in a class that extends nothing', () => {
@@ -246,6 +248,21 @@ describe('JavaProvider', () => {
         // be an edge to a declaration the checkout does not contain, so the empty clause answers nothing - which is
         // also the shape a file *being edited* parses into, since the clause may be the very thing being typed.
         expect(callsOf('class Plain { Plain() { super(); } }')).toEqual([]);
+      });
+
+      it('records the construction a constructor performs when it delegates to nothing', () => {
+        // **Every constructor runs a base constructor, and the source writes the call only sometimes.** `javac`'s
+        // own tree holds the implicit `super()` of `Child(int a) { this.a = a; }`, and its attribution names it
+        // `Base` - so a graph without it is missing a call every instance of the class makes. Measured on
+        // `apache/commons-lang@3.14.0`: **37 of the pairs javac expects and this graph claimed nothing for were
+        // exactly this shape**, `MutablePair`'s two constructors to `Pair` among them.
+        expect(callsOf('class Child extends Base { Child(int a) { this.a = a; } }')).toEqual([
+          'Base',
+        ]);
+        // A constructor that delegates says where it goes, and it goes there once.
+        expect(callsOf('class Child extends Base { Child() { super(1); } }')).toEqual(['Base']);
+        // `Object` is not in the graph, so a class that extends nothing has no base constructor to name.
+        expect(callsOf('class Plain { Plain() { } }')).toEqual([]);
       });
 
       it('reads the arguments as uses, so a request reaches a base constructor that stores it', () => {
@@ -259,6 +276,52 @@ describe('JavaProvider', () => {
           .filter((capture) => capture.tag === CAPTURE_TAGS.VARIABLE_ACCESS)
           .map((capture) => String(capture.name));
         expect(uses).toContain('p');
+      });
+    });
+
+    describe('a construction that names its type arguments', () => {
+      /** Every call this provider records, as `name` in the order the walk produced them. */
+      const callsOf = (source: string): string[] =>
+        provider
+          .parse(source, 'Demo.java')
+          .filter((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_CALL)
+          .map((capture) => String(capture.name));
+
+      it('names the class, not the type arguments it is given', () => {
+        // **`new ArrayList<>()` recorded the name `ArrayList<>`**, and a name that is not the class's name matches no
+        // declaration: `new FailableStream<>(…)` in `apache/commons-lang`'s `Functions.java` was 39 of the corpus's
+        // unanswered construction sites, every one of them calling a class the checkout declares.
+        expect(callsOf('class Holder { Object make() { return new ArrayList<>(); } }')).toEqual([
+          'ArrayList',
+        ]);
+        expect(callsOf('class Holder { Object make() { return new Box<Item>(x); } }')).toEqual([
+          'Box',
+        ]);
+      });
+
+      it('names the last segment of a qualified type', () => {
+        // `new java.util.ArrayList<>()` writes a package path before the class, and the graph files a class by its
+        // simple name - the same reduction every import of the form `import a.b.C` already performs.
+        expect(
+          callsOf('class Holder { Object make() { return new java.util.ArrayList<String>(); } }'),
+        ).toEqual(['ArrayList']);
+      });
+
+      it('keeps what a declaration says it returns, in the declaration`s own words', () => {
+        // **A return type is a fact about the declaration, and nothing read one.** `builder()` returning `Builder`
+        // is what makes `QueueInputStream.builder().get()` a call on a `Builder`; the property carries the source's
+        // spelling so the resolver - not the parser - decides what counts as a name.
+        const captures = provider.parse(
+          'class Holder { Builder builder() { return null; } void run() { } }',
+          'Holder.java',
+        );
+        const returns = captures
+          .filter((capture) => capture.tag === CAPTURE_TAGS.METHOD_DEF)
+          .map((capture) => [capture.name, capture.properties?.['returnType']]);
+        expect(returns).toEqual([
+          ['builder', 'Builder'],
+          ['run', 'void'],
+        ]);
       });
     });
 

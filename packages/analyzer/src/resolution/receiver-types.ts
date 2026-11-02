@@ -29,6 +29,16 @@ export interface FileTypes {
   /** `Class.method/name` → the type a local binding was declared, constructed or aliased to. */
   readonly locals: Map<string, string>;
   /**
+   * `Class.method` (or a bare function name) → the type its declaration says it returns.
+   *
+   * **A call in the middle of a receiver is a hop, and what it holds is written on the callee.** The declared types
+   * this module already read answer what a *name* holds; nothing answered what an *expression* holds, so
+   * `QueueInputStream.builder().get()` and `Archive.store.find(key).next()` ended at the first call. The type is the
+   * one the declaration states - not one inferred from the body - for the same reason a field with no annotation is
+   * not a fact: a missing edge is recoverable and a wrong one is inherited by everything downstream.
+   */
+  readonly returns: Map<string, string>;
+  /**
    * The same keys as `fields`/`parameters`/`locals`, for the declarations whose annotation is an **array**.
    *
    * **A collection is not its element, and the two are read at different places.** `leaves: Leaf[]` says nothing about
@@ -267,6 +277,7 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const fields = new Map<string, string>();
   const parameters = new Map<string, string>();
   const locals = new Map<string, string>();
+  const returns = new Map<string, string>();
   const elements = new Map<string, string>();
   const classOfFunction = new Map<string, string>();
   const classes = new Map<string, Declared>();
@@ -310,7 +321,12 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (
       declaration.kind === 'Class' ||
       declaration.kind === 'Struct' ||
-      declaration.kind === 'Interface'
+      declaration.kind === 'Interface' ||
+      // **An enum is a type, and it declares members.** `JavaVersion` in `apache/commons-lang` is an enum with
+      // `atLeast`/`atMost` on it, and `SystemUtils` calls both on a field declared with that type - so leaving enums
+      // out of this branch left the class index without a `JavaVersion` at all and the two calls unresolvable, for
+      // no reason the language states. A Kotlin or TypeScript enum is the same shape.
+      declaration.kind === 'Enum'
     ) {
       if (declaration.nodeId !== undefined) {
         // **A type can be written twice, and the class is the half with bodies.** `redis/ioredis@5.4.2` declares
@@ -361,7 +377,15 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     // the function is a method of a class or stands at module level, which is the only difference between the two
     // blocks below.
     if (typeof parameterOwner === 'string' && parameterType !== undefined) {
-      parameters.set(`${parameterOwner}\u0000${declaration.name}`, parameterType);
+      // **An overload is one name and two signatures, so two parameters of one name can be two types.** A call site
+      // names `Class.method` and nothing more, so a map keyed by it cannot say which overload's `builder` a receiver
+      // is - and letting the later declaration win answered with `StringBuilder` for a receiver declared
+      // `StrBuilder`, on the strength of the order of the walk. Two types are two answers, and the name is dropped;
+      // the two declarations agreeing is one fact and stays.
+      const parameterKey = `${parameterOwner}\u0000${declaration.name}`;
+      const knownParameter = parameters.get(parameterKey);
+      if (knownParameter === undefined) parameters.set(parameterKey, parameterType);
+      else if (knownParameter !== parameterType) parameters.delete(parameterKey);
     }
     if (typeof parameterOwner === 'string') {
       const elementType = elementTypeName(declaration.properties['parameterType']);
@@ -381,6 +405,10 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     // same: `connect()` at the top of a file is where ioredis keeps `_this`.
     if (callable) {
       const ownerKey = ownerKeyOf(container, declaration.name);
+      // **What the declaration says it returns, in the same key space a call site can build.** `void` and an
+      // unannotated declaration state no type a member can be looked up in, and `simpleTypeName` refuses both.
+      const declaredReturn = simpleTypeName(declaration.properties['returnType']);
+      if (declaredReturn !== undefined) returns.set(ownerKey, declaredReturn);
       for (const [name, type] of stringEntriesOf(declaration.properties['localTypes'])) {
         // **A loop binding records the iterable, not a type**, and the path is kept verbatim for the reader to resolve:
         // reducing it here would file the *last segment* of `this.leaves` as though it were a class.
@@ -407,7 +435,17 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     if (fieldType !== undefined) fields.set(`${container}.${declaration.name}`, fieldType);
   }
 
-  return { fields, parameters, locals, elements, classOfFunction, classes, members, bases };
+  return {
+    fields,
+    parameters,
+    locals,
+    elements,
+    returns,
+    classOfFunction,
+    classes,
+    members,
+    bases,
+  };
 }
 
 /**
@@ -457,7 +495,7 @@ export interface ReceiverType {
   /** The class whose member the call names. */
   readonly className: string;
   /** Where the walk started, recorded so each shape can be scored on its own. */
-  readonly via: 'thisField' | 'parameter' | 'local';
+  readonly via: 'thisField' | 'parameter' | 'local' | 'class';
 }
 
 /** Receivers that name the object the call is written inside. `super` is deliberately absent - see below. */
@@ -510,7 +548,10 @@ export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): Receiv
       ? undefined
       : { className, via: 'local' };
   }
-  const [base, ...hops] = receiver.split('.');
+  // **A receiver is split where the dots are not inside brackets.** `Archive.store.find(a.b)` writes one hop that
+  // contains a dot, and a splitter that cut at every `.` saw three hops and ended the walk on the second -
+  // `find(a` names nothing. The brackets are the grammar's own way of saying "this belongs together".
+  const [base, ...hops] = splitReceiver(receiver);
   if (base === undefined || base.length === 0) return undefined;
   const own =
     lookup.origin?.file === undefined ? undefined : lookup.index.files.get(lookup.origin.file);
@@ -519,7 +560,13 @@ export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): Receiv
   if (start === undefined) return undefined;
   let current = start.className;
   for (const hop of hops) {
-    const next = declaredFieldOf(lookup, current, hop);
+    // **A hop is a member name or a call on one, and the two are read from the same declarations.** `store` asks the
+    // class for a field; `builder()` asks it for a method and takes what that method declares it returns.
+    const called = calledNameOf(hop);
+    const next =
+      called === undefined
+        ? declaredFieldOf(lookup, current, hop)
+        : declaredReturnOf(lookup, current, called);
     if (next === undefined) return undefined;
     current = next;
   }
@@ -556,7 +603,56 @@ function startOf(
   // preferred the field would answer a call with a declaration the name does not mean.
   const enclosing = firstOf(lookup.owners, (owner) => own?.classOfFunction.get(owner));
   const field = enclosing === undefined ? undefined : own?.fields.get(`${enclosing}.${base}`);
-  return field === undefined ? undefined : valueOf(lookup, own, field, 'thisField');
+  if (field !== undefined) return valueOf(lookup, own, field, 'thisField');
+  // **A receiver may be rooted at a class, and then the walk starts at that class.** `QueueInputStream.builder()`
+  // asks a class for a static factory; `JavaVersion.CURRENT` asks one for a constant. The lookup comes last because
+  // every other reading of the name is narrower - a local, a parameter and a field all shadow a type in the languages
+  // this resolves - and it answers nothing for a receiver that is only the class's name, which is a call the arms
+  // above have already had their turn at.
+  if (bare) return undefined;
+  const named = locateClass(lookup.index, base, lookup.origin);
+  return named === undefined ? undefined : { className: named.name, via: 'class' };
+}
+
+/**
+ * The receiver split at the dots that are not inside a bracket group.
+ *
+ * **`QueueInputStream.builder().setBlockingQueue(q).get()` has one hop and not four.** A splitter that cut at every
+ * dot divided `setBlockingQueue(q).get` into `setBlockingQueue(q)`, and the walk ended on a name that is not a member
+ * of anything. Every bracket a call, an index or a generic can open is a group the separator cannot cross.
+ */
+function splitReceiver(receiver: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index < receiver.length; index++) {
+    const character = receiver[index];
+    if (character === '(' || character === '[' || character === '{' || character === '<') depth++;
+    else if (character === ')' || character === ']' || character === '}' || character === '>')
+      depth--;
+    else if (character === '.' && depth === 0) {
+      parts.push(receiver.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parts.push(receiver.slice(start));
+  return parts;
+}
+
+/**
+ * The member a hop calls, or `undefined` when the hop names one rather than calling it.
+ *
+ * **`builder()` is a call and `builder` is a field**, and the difference decides which declaration answers. A hop
+ * whose parentheses do not close at the end is not a call this resolver can attribute - the receiver of a call being
+ * edited - so it answers nothing rather than the segment before the bracket.
+ */
+function calledNameOf(hop: string): string | undefined {
+  const trimmed = hop.trim();
+  if (!trimmed.endsWith(')')) return undefined;
+  const open = trimmed.indexOf('(');
+  if (open <= 0) return undefined;
+  const name = trimmed.slice(0, open);
+  return SIMPLE_NAME.test(name) ? name : undefined;
 }
 
 /**
@@ -619,6 +715,24 @@ function key(owner: string, name: string): string {
   return `${owner}\u0000${name}`;
 }
 
+/**
+ * The type a class declares one of its methods to return, wherever that class lives.
+ *
+ * **Only the class's own declarations are read, and not its bases'.** A method inherited from a base is the base's
+ * declaration, and a walk that followed it would answer with a type the base states for a call the subclass makes -
+ * the same distinction the `inherited` arm draws at the call site. A return type nobody wrote is not a fact, which is
+ * why an unannotated method ends the walk instead of continuing with a guess.
+ */
+function declaredReturnOf(
+  lookup: ReceiverLookup,
+  className: string,
+  method: string,
+): string | undefined {
+  const located = locateClass(lookup.index, className, lookup.origin);
+  if (located === undefined) return undefined;
+  return lookup.index.files.get(located.file)?.returns.get(`${located.name}.${method}`);
+}
+
 /** The type a class declares one of its fields to have, wherever that class lives. */
 function declaredFieldOf(
   lookup: ReceiverLookup,
@@ -671,6 +785,16 @@ export interface LookupOrigin {
    * what the import binds, so the name is what the map is keyed by.
    */
   readonly published?: ReadonlyMap<string, string>;
+  /**
+   * Whether an unqualified name may be answered by the file's **own directory**, which is Java's package rule.
+   *
+   * **A package is a directory and nothing else**, and the language resolves a simple type name through it before any
+   * other file: `Streams.java` calling `Functions.asPredicate(…)` reaches `lang3/Functions.java` although the checkout
+   * declares a second `Functions` in `lang3/function/`. The flag is on the origin rather than read from the language
+   * here because this module is handed declarations, not files - and because the rule is a *language's*, so a
+   * TypeScript lookup must not inherit it.
+   */
+  readonly packageScope?: boolean;
 }
 
 export function createClassIndex(): ClassIndex {
@@ -786,8 +910,43 @@ function locateClass(
   }
   if (imported.length === 1) return imported[0];
   if (imported.length > 1) return undefined;
+  // **The package, which the language reads before any file it does not name.** A Java simple name is resolved in the
+  // enclosing type, then a single-type import, then the package the file is written in - and the product had the
+  // first two and a whole-graph fallback that refuses a name two files declare, one of which is often the file's own
+  // neighbour. Measured on `apache/commons-lang@3.14.0`: 54 construction sites and every `Functions.asPredicate(…)`
+  // call were unanswered for want of this step alone.
+  if (origin?.packageScope === true) {
+    const ownPackage = classInPackageOf(index, origin.file, className);
+    if (ownPackage !== undefined) return ownPackage;
+  }
   const global = index.classes.get(className);
   return global === undefined || global === 'ambiguous' ? undefined : global;
+}
+
+/**
+ * The class a name means **inside the directory the calling file sits in**, or `undefined`.
+ *
+ * **Two files in one directory that both declare the name is the same ambiguity one level down**, and the answer is
+ * the same: no answer. A stub is not a second declaration - a `.pyi` beside its module is that module restated - but
+ * that rule belongs to the file-name walk in `mergeClassIndex` and this lookup reads a package's classes as they were
+ * filed, so a Java package (which has no stubs) is the only caller.
+ */
+export function classInPackageOf(
+  index: ClassIndex,
+  file: string | undefined,
+  className: string,
+): LocatedClass | undefined {
+  if (file === undefined) return undefined;
+  const directory = directoryOf(file);
+  let found: LocatedClass | undefined;
+  for (const [path, types] of index.files) {
+    if (path === file || directoryOf(path) !== directory) continue;
+    const declared = types.classes.get(className);
+    if (declared === undefined) continue;
+    if (found !== undefined) return undefined;
+    found = { file: path, name: className, declared };
+  }
+  return found;
 }
 
 /** The class a file itself declares under a name, or `undefined`. */
