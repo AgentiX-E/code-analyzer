@@ -888,11 +888,46 @@ describe('a lambda parameter and the collection it is passed to', () => {
 
   it('binds nothing for a lambda that takes two parameters', () => {
     // **`reduce`'s lambda takes the accumulator and the element**, and the first of them is not the receiver's element.
-    // Neither is a comparator's, which is why two names are refused rather than answered by position.
+    // Neither is a comparator's, which is why two names are refused rather than answered by position. The call is a
+    // `forEach` on purpose: a name outside `LAMBDA_ELEMENT_CALLS` would pass this test without the rule being asked.
     const source = [
       'class Holder {',
       '  private final List<Listener> listeners;',
-      '  void fire() { listeners.sort((a, b) -> a.compareTo(b)); }',
+      '  void fire() { listeners.forEach((a, b) -> a.compareTo(b)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds nothing for a lambda that declares no parameter', () => {
+    // `() -> cleanup()` hands the element to nobody, so there is no name to bind.
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire() { listeners.forEach(() -> cleanup()); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('reads the parameter list, not the first name the lambda writes', () => {
+    // **`() -> listener` has one named child and it is the body.** Read by position, the body's identifier became the
+    // lambda's parameter and was bound to the receiver's element - a wrong type on a name that means something else.
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire() { listeners.forEach(() -> listener); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds nothing for a parameter the lambda writes its type on', () => {
+    // A typed parameter states its own type, and this rule is for the one that states none.
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire() { listeners.forEach((Listener l) -> l.onStart(this)); }',
       '}',
     ].join('\n');
     expect(localsOf(source, 'fire')).toEqual({});
@@ -903,6 +938,38 @@ describe('a lambda parameter and the collection it is passed to', () => {
     const source = [
       'class Holder {',
       '  void fire() { getListeners().forEach(listener -> listener.onStart(this)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds nothing for a call written without a receiver', () => {
+    // **`forEach(…)` inside a class that *is* a list** has no `object` field at all: the receiver is `this`, which
+    // names the container the class already is rather than a declaration this rule can read.
+    const source = [
+      'class Holder extends ArrayList<Listener> {',
+      '  void fire() { forEach(listener -> listener.onStart(this)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds nothing for a call that passes no lambda', () => {
+    // The functional parameter is a value written elsewhere, and its type is the parameter's declaration.
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire(Listener handler) { listeners.forEach(handler); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds nothing for an element-passing call that passes nothing', () => {
+    const source = [
+      'class Holder {',
+      '  private final List<Listener> listeners;',
+      '  void fire() { listeners.forEach(); }',
       '}',
     ].join('\n');
     expect(localsOf(source, 'fire')).toEqual({});

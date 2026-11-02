@@ -297,15 +297,20 @@ export class JavaProvider extends TreeSitterBaseProvider {
 
   /** The single parameter a lambda declares, or `undefined` when it declares none or several. */
   private lambdaParameterNameOf(lambda: TreeSitterSyntaxNode): string | undefined {
-    const first = namedChildrenOf(lambda)[0];
-    // **A bare parameter is an `identifier` and a typed one is `inferred_parameters`**, and both are the first named
-    // child of the lambda - the body comes after them.
+    // **The parameter list is a field, and reading the first named child instead read the body of a lambda that
+    // declares no parameter.** `() -> name` has one named child and it is `name` - the expression the lambda returns -
+    // so the first version bound the body's identifier to the receiver's element. A test with `() -> cleanup()` passed
+    // anyway, because a call is not an identifier; the shape that fails is a body written as a bare name.
+    //
+    // **The field is always there, and the empty list is written as an empty `inferred_parameters`.** Four malformed
+    // lambdas (`-> y`, `-> -> y`, `y ->`, `->`) were parsed to check it: the grammar produces no `lambda_expression`
+    // for any of them, so a guard here would be an arm nothing can reach - which is a coverage gate's way of saying the
+    // guard is not a safety net but dead code.
+    const declared = lambda.childForFieldName('parameters')!;
+    // **A bare parameter is an `identifier` and brackets make it `inferred_parameters`**; a typed parameter is
+    // `formal_parameters`, which states its own type and is left to the declaration that writes it.
     const parameters =
-      first?.type === 'inferred_parameters'
-        ? namedChildrenOf(first)
-        : first === undefined
-          ? []
-          : [first];
+      declared.type === 'inferred_parameters' ? namedChildrenOf(declared) : [declared];
     const only = parameters.length === 1 ? parameters[0] : undefined;
     return only?.type === 'identifier' ? only.text : undefined;
   }
