@@ -170,8 +170,9 @@ export class JavaProvider extends TreeSitterBaseProvider {
       return { name, type: this.parameterTypeOf(parameter) };
     });
     // **A parameter's type is filed under the method that declares it**, which is the key a call site can build: the
-    // call knows the class and the method, and nothing about the file the declaration lives in.
-    const owner = this.methodKeyOf(node);
+    // call knows the class and the method, and nothing about the file the declaration lives in. Read off the node
+    // itself, because this method is reached only for a method or a constructor - so the owner exists.
+    const owner = this.ownerKeyOfMethod(node);
     for (const [parameterIndex, { name, type }] of parameters.entries()) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
@@ -187,7 +188,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         properties: {
           filePath: this.filePath,
           parameterIndex: String(parameterIndex),
-          ...(owner === undefined ? {} : { parameterOwner: owner }),
+          parameterOwner: owner,
           ...(type === undefined ? {} : { parameterType: type }),
         },
       });
@@ -213,18 +214,47 @@ export class JavaProvider extends TreeSitterBaseProvider {
    *
    * **The climb is the node's own parents and not `findContainerNode`**, because that function answers the nearest
    * *class*: a parameter's container is its class, not its method, and the key a call site builds is both.
+   *
+   * **`undefined` is the answer for a local in an initializer block**, which is a binding that belongs to a class and
+   * to no method: `static { int y = 2; }` declares `y` where no call can name it, and a key invented for it would be a
+   * key no call site ever builds.
    */
   private methodKeyOf(node: TreeSitterSyntaxNode): string | undefined {
-    let method: TreeSitterSyntaxNode | null = METHOD_CONTAINERS.has(node.type)
-      ? node
-      : (node.parent ?? null);
-    while (method !== null && !METHOD_CONTAINERS.has(method.type)) method = method.parent ?? null;
-    if (method === null) return undefined;
-    const methodName = this.findChild(method, 'identifier')?.text;
-    const holder = this.findContainerNode(method);
-    const className = holder === null ? undefined : this.findChild(holder, 'identifier')?.text;
-    if (methodName === undefined || className === undefined) return undefined;
-    return ownerKeyOf(className, methodName);
+    // **Asked only about a local declaration, so the climb starts at its parent** - the one caller is the local case
+    // of the walk, and a `local_variable_declaration` is never itself the method that owns it.
+    let method: TreeSitterSyntaxNode | null = node.parent;
+    while (method !== null && !METHOD_CONTAINERS.has(method.type)) method = method.parent;
+    return method === null ? undefined : this.ownerKeyOfMethod(method);
+  }
+
+  /**
+   * `Class.method` for a method or constructor declaration, which always names the method.
+   *
+   * **The `!` on the method's own name states an invariant rather than suppressing a doubt**: `method_declaration` and
+   * `constructor_declaration` are productions with a required `name:` field, so a method with no name is not a shape
+   * this grammar has. The alternative was a branch no Java source can take, and a branch nobody can reach is a branch
+   * no test can ask a question about.
+   */
+  private ownerKeyOfMethod(method: TreeSitterSyntaxNode): string {
+    return ownerKeyOf(this.enclosingClassName(method), this.findChild(method, 'identifier')!.text);
+  }
+
+  /**
+   * The class a declaration is written in, by name.
+   *
+   * **`findContainerNode` answers a container for every declaration this provider files**, because Java has no
+   * declaration outside a type: a field, a method, a local and a parameter are all written inside a `class_body`,
+   * `interface_body` or `enum_body` that a named type owns. The name is read from the container's own `identifier`,
+   * and **`null` is a real answer there** - an anonymous class body and an enum constant body own members and name
+   * nobody, which is why a field of one is recorded and filed under no class at all.
+   */
+  private enclosingClassName(node: TreeSitterSyntaxNode): string {
+    const holder = this.findContainerNode(node)!;
+    // **A container this package files a member under is a named type**, and every named type in the grammar -
+    // `class_declaration`, `interface_declaration`, `enum_declaration` - carries its `name:` field, so the `!` is the
+    // grammar's guarantee and not a hope. An anonymous body is not reached here because it is not a container: the
+    // climb passes it and answers the type that owns it.
+    return this.findChild(holder, 'identifier')!.text;
   }
 
   /**
@@ -234,9 +264,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
    * applies to every other name: a field two declarations disagree about has no type this provider can defend.
    */
   private recordFieldType(node: TreeSitterSyntaxNode, field: string, fieldType: string): void {
-    const holder = this.findContainerNode(node);
-    const className = holder === null ? undefined : this.findChild(holder, 'identifier')?.text;
-    if (className === undefined) return;
+    const className = this.enclosingClassName(node);
     let fields = this.classFieldTypes.get(className);
     if (fields === undefined) {
       fields = new Map();
@@ -288,7 +316,9 @@ export class JavaProvider extends TreeSitterBaseProvider {
    */
   protected override decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
     for (const capture of captures) {
-      const fields = this.classFieldTypes.get(String(capture.name ?? ''));
+      // **A type capture always names itself**, so the `!` states the production rather than a hope - and a capture
+      // that did not name a type would be asking the map for a key no class in the file can have.
+      const fields = this.classFieldTypes.get(capture.name!);
       if (
         (capture.tag === CAPTURE_TAGS.CLASS_DEF ||
           capture.tag === CAPTURE_TAGS.INTERFACE_DEF ||

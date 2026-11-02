@@ -109,6 +109,80 @@ describe('a Java method declares the type of each of its locals', () => {
   });
 });
 
+describe('a declaration the language forbids from having a key gets none', () => {
+  it('files no local from an initializer block, which belongs to no method', () => {
+    // **`static { int y = 2; }` declares a binding no call can name.** It is inside a class and inside no method, so
+    // the key a call site builds - `Class.method` - has no second half to build, and inventing one would file `y`
+    // where a lookup for some method's local would find it.
+    const initializer = `package demo;\nclass Blk { { int a = 1; } static { Foo b = new Foo(); } }\n`;
+    const block = definitionOf('Blk', CAPTURE_TAGS.CLASS_DEF, initializer);
+    // The class still carries its fields' types and none of the block's locals, because a class has no local section.
+    expect(block?.properties?.['fieldTypes']).toBeUndefined();
+  });
+
+  it('files a member of an anonymous body under the type that owns the body', () => {
+    // **A body nobody named cannot be asked for, so the climb answers the nearest type that has a name** - and for
+    // `new Object() { int inner = 1; }` inside `Outer` that is `Outer`. The fact is a name no call site can write:
+    // `Outer.inner` does not exist, so no compilable source reaches this entry and the resolver never reads it. It is
+    // recorded here as the limitation it is, with the alternative that was refused: a second climb to the nearest body
+    // would cost a branch no Java source can reach, to buy a name nothing can spell.
+    const anonymous = `package demo;\nclass Outer { Object o = new Object() { int inner = 1; }; }\n`;
+    const outer = definitionOf('Outer', CAPTURE_TAGS.CLASS_DEF, anonymous);
+    expect(blobOf(outer)).toEqual({ o: 'Object', inner: 'int' });
+  });
+});
+
+describe('two declarations of one name, and the type they disagree about', () => {
+  it('drops a field two declarations give different types', () => {
+    // **A name with two answers has none.** `int x; String x;` does not compile, and the file being edited is exactly
+    // when a reader meets it - so the provider keeps the first declaration and drops the name rather than letting the
+    // order of the walk decide what `x` is.
+    const disagreeing = `package demo;\nclass Two { int x; String x; }\n`;
+    expect(blobOf(definitionOf('Two', CAPTURE_TAGS.CLASS_DEF, disagreeing))).toEqual({});
+  });
+
+  it('keeps a field two declarations agree about', () => {
+    // The other half of the same rule, and the half that must not be lost with it: a redeclaration that says the
+    // same thing is the same fact written twice.
+    const agreeing = `package demo;\nclass Twice { int x; int x; }\n`;
+    expect(blobOf(definitionOf('Twice', CAPTURE_TAGS.CLASS_DEF, agreeing))).toEqual({ x: 'int' });
+  });
+
+  it('drops a local two declarations in one method give different types', () => {
+    const disagreeing = `package demo;\nclass Loc { void run() { int a = 1; String a = "s"; } }\n`;
+    expect(blobOf(definitionOf('run', CAPTURE_TAGS.METHOD_DEF, disagreeing))).toEqual({});
+  });
+
+  it('keeps a local two declarations in one method agree about', () => {
+    const agreeing = `package demo;\nclass Loc2 { void run() { int a = 1; int a = 2; } }\n`;
+    expect(blobOf(definitionOf('run', CAPTURE_TAGS.METHOD_DEF, agreeing))).toEqual({ a: 'int' });
+  });
+});
+
+describe('a local is found from wherever it is written', () => {
+  it('climbs from a nested block to the method that owns it', () => {
+    // **A local is not always a child of the method body**: `if (x) { Foo f = new Foo(); }` puts a block between the
+    // declaration and the method, and a resolver that read the parent once would file `f` under no method at all.
+    const nested = `package demo;\nclass Nest { void run() { if (true) { for (int i = 0; i < 2; i++) { Foo f = new Foo(); } } } }\n`;
+    expect(blobOf(definitionOf('run', CAPTURE_TAGS.METHOD_DEF, nested))).toEqual({
+      f: 'Foo',
+      i: 'int',
+    });
+  });
+
+  it("files a constructor's parameters and locals under the constructor", () => {
+    // A constructor is a method with a key and no return type, and the key is `Class.Class` - the same shape a
+    // `this(…)` chain would ask for.
+    const constructor = `package demo;\nclass Ctor { Ctor(Widget w) { Foo f = new Foo(); } }\n`;
+    expect(
+      definitionOf('w', CAPTURE_TAGS.VARIABLE_DEF, constructor)?.properties?.['parameterOwner'],
+    ).toBe('Ctor.Ctor');
+    expect(blobOf(definitionOf('Ctor', CAPTURE_TAGS.CONSTRUCTOR_DEF, constructor))).toEqual({
+      f: 'Foo',
+    });
+  });
+});
+
 describe('the facts reach the resolver in the coordinates it reads', () => {
   it('builds a file whose classes, fields, parameters and locals are all typed', () => {
     const types = buildFileTypes(
