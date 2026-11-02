@@ -90,8 +90,9 @@ export interface FileTypes {
    * **A type variable names no class, and its bound names the class it may be.** `UncheckedIOBaseStream<T, S extends
    * IOBaseStream<T, S, B>, B>` declares `private final S delegate` and calls `delegate.close()` — the call runs on
    * whatever `S` is, and the one thing the language guarantees is that it is an `IOBaseStream`. Without this fact the
-   * resolver asked for a class named `S`: **14 unanswered calls in one file** of `apache/commons-io@2.16.1`, and the
-   * same shape in every class that hides a wrapper behind a parameter.
+   * resolver asked for a class named `S`: **13 edges in one file** of `apache/commons-io@2.16.1` - every one of them in
+   * `UncheckedIOBaseStream`, and none of them on `commons-lang` - and the same shape in every class that hides a
+   * wrapper behind a parameter. Measured with the substitution taken back out: `commons-io` reads 1 624 instead of 1 637.
    *
    * **A parameter with no bound is absent** rather than `Object`. The source writes no bound, so there is no
    * declaration for a member to be looked up in - the same refusal a field with no type gets.
@@ -774,8 +775,9 @@ export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): Receiv
   // **A receiver may name an *outer* instance, and the qualifier is that instance's class.** `StrBuilder.this.size()`
   // is how an inner class reaches the object it is nested in - its own `this` is a different object - and the qualifier
   // is written precisely because the member does not belong to the inner class. Reading the `.this` as a member name
-  // asked `StrBuilder` for a field called `this`; on `apache/commons-lang@3.14.0` that is **8 calls** in `StrBuilder`'s
-  // own reader, every one of them a method the class declares two dozen lines above.
+  // asked `StrBuilder` for a field called `this`; on `apache/commons-lang@3.14.0` that is **14 call sites over 7 edges**
+  // in `StrBuilder`'s own reader, every one of them a method the class declares two dozen lines above. Taken back out,
+  // `commons-lang` reads 2 206 instead of 2 213 and the `receiverType` arm 416 instead of 430.
   const outer = OUTER_THIS.exec(receiver);
   // **A receiver is split where the dots are not inside brackets.** `Archive.store.find(a.b)` writes one hop that
   // contains a dot, and a splitter that cut at every `.` saw three hops and ended the walk on the second -
@@ -867,8 +869,10 @@ function startOf(
   if (field !== undefined) return bounded(valueOf(lookup, own, field, 'thisField'));
   // **A base may be a call, and what the call returns is what the receiver is.** `is(a).greaterThanOrEqualTo(b)`
   // writes a factory call where a name would go, and the member it calls belongs to `ComparableChecker` - the class
-  // `is` declares it returns. On `apache/commons-lang@3.14.0` that is the four predicates of `ComparableUtils`, each
-  // one line and each one unanswered, and on `commons-io` the five `visitFileTree(…).getPathCounters()` calls.
+  // `is` declares it returns. On `apache/commons-lang@3.14.0` that is **12 edges**: six in `ComparableUtils` (`ge`,
+  // `gt`, `le`, `lt`, `between`, `betweenExclusive`), three in `TypeUtils.unrollVariables`, two in
+  // `EventCountCircuitBreaker`, two in `StrTokenizer` and one in `StrBuilder.appendln` - the last of them eighteen call
+  // sites on one chain. On `commons-io` it is **4**, all of them `PathUtils.sizeOfDirectory*` reading `Counters`.
   //
   // **Only the class the call sits in answers it.** A method inherited from a base is the base's declaration, and a
   // factory read off an unrelated class is a name this walk has no evidence about; both are the refusal this module

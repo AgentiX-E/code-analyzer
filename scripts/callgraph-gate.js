@@ -205,9 +205,13 @@ const TYPESCRIPT_FLOORS = {
  * **Iteration 61 read four declarations Java writes and this product stepped past** - a try-with-resources `resource`,
  * an `enum_constant`, a type parameter's bound, and `Outer.this` - plus the factory call a receiver may be rooted at.
  * Together they are **2213 of 2213** on `commons-lang` (recall 97.1 % -> **97.9 %**) and **1635 of 1637** on
- * `commons-io` (95.8 % -> **97.9 %**), each rule measured alone: the bound is 13 edges, the resource 10, the constant
- * 8, `Outer.this` 7 and the factory call 12 and 4. The two remaining wrong edges are the same pair as before, and the
- * floor of 0.9985 still admits exactly them.
+ * `commons-io` (95.8 % -> **97.9 %**). Each rule was ablated alone, and the two corpora decompose exactly:
+ * `commons-io`'s 35 edges are **13** from the bound (every one of them in `UncheckedIOBaseStream`), **10** from the
+ * resource, **8** from the enum constant (four enums: `IOCase`, `FileSystem`, `RandomAccessFileMode`,
+ * `StandardLineSeparator`) and **4** from the factory call; `commons-lang`'s 19 are **7** from `Outer.this` (all in
+ * `StrBuilder`) and **12** from the factory call. 35 + 19 is the whole gain, which is how a per-rule claim is meant to
+ * be checkable: if one of them were wrong the arithmetic would not close. The two remaining wrong edges are the same
+ * pair as before, and the floor of 0.9985 still admits exactly them.
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
