@@ -58,6 +58,9 @@ class ClassInfo:
     #: (`list[Item]`), a union (`A | None`) and a string annotation say nothing this oracle can look a member up in,
     #: and recording one would make every guess it supports look like an expectation.
     fields: dict[str, str] = field(default_factory=dict)
+    #: method name -> the class its return annotation names, for `Builder.build().m()`. Recorded for the same reason
+    #: `fields` is: a call in the middle of a receiver says what the next hop holds, and only the annotation joins them.
+    method_returns: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -76,6 +79,8 @@ class Unit:
     #: qualified call legitimately carries
     namespaces: dict[str, tuple[str | None, int]] = field(default_factory=dict)
     classes: dict[str, ClassInfo] = field(default_factory=dict)
+    #: module-level function name -> the class its return annotation names, for `build().m()`.
+    returns: dict[str, str] = field(default_factory=dict)
 
 
 #: Directories that hold packages rather than being one, so the module path stops below them.
@@ -199,8 +204,12 @@ def dotted(node: ast.AST) -> str | None:
     if isinstance(node, ast.Attribute):
         inner = dotted(node.value)
         return None if inner is None else f"{inner}.{node.attr}"
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-        return f"{node.func.id}()" if node.func.id == "super" else None
+    if isinstance(node, ast.Call):
+        # **A call in the middle of a receiver is a hop, and a hop is written down rather than guessed.** The callee
+        # path followed by a parenthesis is the receiver's spelling, and `classify` reads the annotation it declares -
+        # the same reading `self.field.m()` gets from a field's annotation. `super()` keeps the spelling it had.
+        inner = dotted(node.func)
+        return None if inner is None else f"{inner}()"
     return None
 
 
@@ -294,6 +303,13 @@ def register_class(unit: Unit, node: ast.ClassDef) -> None:
             record_field(info.fields, item, in_class_body=True)
         elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
             info.methods[item.name] = item.lineno
+            #: **A method's return annotation says what the next hop holds.** `EnvironBuilder.from_environ(arg)` is a
+            #: classmethod annotated `-> EnvironBuilder`, so `….get_request()` is a call on that class - and an oracle
+            #: that stopped at one level called the site unresolvable, which scored a resolver that reads the
+            #: annotation as making a wrong claim.
+            returned = annotation_name(item.returns)
+            if returned is not None:
+                info.method_returns.setdefault(item.name, returned)
             # **`self.cache: Cache = Cache()` in `__init__` is where a Python class declares most of its fields**, so
             # the annotations inside a method are read as well as the ones in the class body. A plain `local: Cache`
             # inside a method is a local variable and is refused by the same function.
@@ -316,6 +332,9 @@ def read_unit(path: Path, root: Path) -> tuple[Unit, ast.Module]:
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             unit.defs.setdefault(node.name, []).append(node.lineno)
+            returned = annotation_name(node.returns)
+            if returned is not None:
+                unit.returns.setdefault(node.name, returned)
         elif isinstance(node, ast.ClassDef):
             unit.defs.setdefault(node.name, []).append(node.lineno)
 
@@ -388,6 +407,45 @@ class Corpus:
                 return file
         files = self.files_declaring(class_name)
         return files[0] if files else None
+
+    def returned_class(
+        self,
+        unit: Unit,
+        path: str,
+        local_imports: dict[str, tuple[str | None, int, str]] | None = None,
+        local_namespaces: dict[str, tuple[str | None, int]] | None = None,
+    ) -> str | None:
+        """The class a call's return annotation names, for a receiver that is a call.
+
+        **`EnvironBuilder.from_environ(arg).get_request()` is one hop, and the hop's type is written down.** The
+        annotation on `from_environ` is `-> EnvironBuilder`, so the member the second call reaches is looked up in that
+        class - and an oracle that stopped at the paren called the whole site unresolvable, which scored a resolver
+        that reads the annotation as making a wrong claim.
+
+        The three shapes are a classmethod (`Class.method(…)`), a module function (`mod.func(…)`) and a bare call
+        (`func(…)`); anything else - an attribute of an instance, a nested call - is a guess this refuses.
+        """
+        owner, _, name = path.rpartition(".")
+        if not owner:
+            returned = unit.returns.get(path)
+            if returned is not None:
+                return returned
+            resolved = self.resolve_import(unit, path, local_imports)
+            if resolved is None:
+                return None
+            file, original = resolved
+            target = self.units.get(file)
+            return None if target is None else target.returns.get(original)
+        declaring = self.class_file(unit, owner, local_imports)
+        if declaring is not None:
+            info = self.units[declaring].classes.get(owner)
+            if info is not None:
+                return info.method_returns.get(name)
+        namespace = self.resolve_namespace(unit, owner, local_namespaces)
+        if namespace is None:
+            return None
+        target = self.units.get(namespace)
+        return None if target is None else target.returns.get(name)
 
     def field_type(self, file: str, class_name: str, field_name: str) -> str | None:
         """The class a class's field was annotated with, read through the bases when the class does not say."""
@@ -683,6 +741,24 @@ def sites_of(corpus: Corpus, unit: Unit, tree: ast.Module) -> list[Site]:
         nested: set[str] | None = None,
         outer: list[set[str]] | None = None,
     ) -> tuple[str, str | None]:
+        # **`Builder.build().m()` - a receiver that is a call, whose callee declares what it returns.** One level, and
+        # the annotation is the evidence: `EnvironBuilder.from_environ(arg)` says `-> EnvironBuilder`, so the member is
+        # looked up there and nowhere else. A hop with no annotation is `unknown`, never a guess.
+        if (
+            receiver is not None
+            and receiver.endswith("()")
+            and not SUPER_RECEIVER.match(receiver)
+        ):
+            returned = corpus.returned_class(
+                unit, receiver[:-2], imports_local, namespaces_local
+            )
+            if returned is None:
+                return "unknown", None
+            declaring = corpus.class_file(unit, returned, imports_local)
+            if declaring is None:
+                return "unknown", None
+            found = corpus.find_method(declaring, returned, callee, set())
+            return ("internal", found) if found else ("unknown", None)
         # **`self.field.m()` - the field's annotation names the class the member is looked up in.** A Python reader
         # that stops at one level cannot answer it: the field is a name the class declares and the callee is a name the
         # *field's type* declares, and only the annotation joins them. Two segments, and the annotation must name one

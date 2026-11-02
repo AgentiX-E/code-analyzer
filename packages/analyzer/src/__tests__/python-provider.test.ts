@@ -331,6 +331,39 @@ describe('PythonProvider', () => {
     });
   });
 
+  describe('what a declaration states about its own signature', () => {
+    const captureOf = (source: string, name: string) =>
+      provider
+        .parse(source, '/p/a.py')
+        .find((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF && capture.name === name);
+
+    it('keeps what a function declares it returns', () => {
+      // **A return type is what the next hop of a chain holds.** `EnvironBuilder.from_environ(arg).get_request()`
+      // is one hop, and the only thing that says where `get_request` lives is the annotation on `from_environ`.
+      // Python recorded no return type at all until iteration 60, so every fluent chain in Python ended at its
+      // first call.
+      const source = 'def build(size: int) -> Builder:\n    return Builder(size)\n';
+      expect(captureOf(source, 'build')?.properties?.['returnType']).toBe('Builder');
+    });
+
+    it('counts the parameters a call must pass, and not the receiver the method declares', () => {
+      // `def run(self, other)` is called as `holder.run(other)`: `self` is written in the declaration and never at the
+      // call site, which is the same fact Java states with a receiver parameter and Python with a name.
+      const source = 'class Holder:\n    def run(self, other, flag=True, *rest):\n        pass\n';
+      const run = captureOf(source, 'run');
+      expect(run?.properties?.['parameterCount']).toBe('3');
+      expect(run?.properties?.['requiredParameters']).toBe('1');
+      expect(run?.properties?.['variadic']).toBe('true');
+    });
+
+    it('counts a free function with a parameter called `self`, which is a parameter like any other', () => {
+      // The name is not the fact: `def free(self)` at module level takes one argument, and the receiver is written at
+      // the call site. Refusing it by name would make the arity of a function depend on a spelling.
+      const source = 'def free(self):\n    pass\n';
+      expect(captureOf(source, 'free')?.properties?.['parameterCount']).toBe('1');
+    });
+  });
+
   describe('extractImports', () => {
     it('should parse simple imports', () => {
       const source = `import os\nimport sys`;

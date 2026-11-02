@@ -756,6 +756,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** A parameter's name, from the field the grammar writes it in. */
   private parameterNameOf(parameter: TreeSitterSyntaxNode): string | undefined {
+    // **A plain parameter is a name and nothing else.** `def run(self, other)` writes `self` as an `identifier` node
+    // with no children of its own, so a search for a *child* identifier found nothing - and the receiver it names was
+    // then counted as an argument the caller passes, which made every Python method look one argument longer than it
+    // is. `def run(self)` states no argument at all, and a `holder.run()` call is the shape that said so.
+    if (IDENTIFIER_NODES.has(parameter.type)) return parameter.text;
     return (
       parameter.childForFieldName('name')?.text ??
       namedChildrenOf(parameter).find((child) => IDENTIFIER_NODES.has(child.type))?.text

@@ -69,6 +69,16 @@ export interface ServerInstance {
 }
 
 /**
+ * How long a shutdown waits for the requests already running, and how often it asks.
+ *
+ * **Two numbers rather than one timer with a fallback**: a request that finishes is noticed within a poll interval,
+ * and a request that never finishes is given up on at the deadline. Both ends are the same loop, so neither can leave
+ * a timer behind.
+ */
+const SHUTDOWN_GRACE_MS = 5_000;
+const SHUTDOWN_POLL_MS = 100;
+
+/**
  * Create and configure an HTTP + SSE server wrapping the MCP ToolRegistry.
  *
  * Integrates production-grade features:
@@ -185,21 +195,14 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
     priority: 100,
     timeout: 10_000,
     shutdown: async () => {
-      // Give in-flight requests time to complete
-      if (activeConnections > 0) {
-        await new Promise<void>((resolve) => {
-          const check = setInterval(() => {
-            if (activeConnections <= 0) {
-              clearInterval(check);
-              resolve();
-            }
-          }, 100);
-          // Force resolve after 5s
-          setTimeout(() => {
-            clearInterval(check);
-            resolve();
-          }, 5_000);
-        });
+      // **A request that is already running gets five seconds to finish, and the wait ends whichever way it ends.**
+      // The first version raced two timers - an interval that resolved when the count reached zero and a timeout
+      // that resolved anyway - and the timeout was never cleared, so a clean drain left a five-second handle on the
+      // event loop and the arm that fires when a request *doesn't* finish was a callback nothing could reach. One
+      // deadline states both facts: the loop exits when the connections drain, and it exits when the time is up.
+      const deadline = Date.now() + SHUTDOWN_GRACE_MS;
+      while (activeConnections > 0 && Date.now() < deadline) {
+        await new Promise<void>((resolve) => setTimeout(resolve, SHUTDOWN_POLL_MS));
       }
       await app.close();
     },

@@ -14,9 +14,9 @@
         "total": 3681,
         "internal": 458,
         "internalRecursion": 8,
-        "external": 824,
+        "external": 819,
         "variable": 37,
-        "unknown": 658,
+        "unknown": 663,
         "silent": 1704,
         "excludedForDuplicateName": 38
       },
@@ -120,25 +120,25 @@
       },
       "sites": {
         "total": 7890,
-        "internal": 1961,
+        "internal": 1964,
         "internalRecursion": 33,
-        "external": 1861,
-        "variable": 160,
-        "unknown": 1379,
+        "external": 1854,
+        "variable": 159,
+        "unknown": 1384,
         "silent": 2529,
-        "excludedForDuplicateName": 268
+        "excludedForDuplicateName": 269
       },
-      "expectedPairs": 1295,
-      "claimedPairs": 1277,
+      "expectedPairs": 1297,
+      "claimedPairs": 1278,
       "precision": {
-        "correct": 1252,
+        "correct": 1253,
         "wrong": 25,
         "value": 0.9804
       },
       "recall": {
-        "found": 1252,
-        "missed": 43,
-        "value": 0.9668
+        "found": 1253,
+        "missed": 44,
+        "value": 0.9661
       },
       "byArm": {
         "import": {
@@ -157,9 +157,9 @@
           "precision": 0.9636
         },
         "receiverType": {
-          "claimed": 27,
-          "correct": 26,
-          "precision": 0.963
+          "claimed": 28,
+          "correct": 27,
+          "precision": 0.9643
         },
         "sameFile": {
           "claimed": 328,
@@ -176,7 +176,7 @@
         "oracle": 925,
         "graph": 797,
         "graphOnly": 10,
-        "ownersWithAnyCall": 988,
+        "ownersWithAnyCall": 987,
         "graphCallers": 664
       },
       "wrongSamples": [
@@ -218,8 +218,8 @@
           "resolves-elsewhere": 5
         },
         "inherited": {
-          "owner-makes-no-such-call": 1,
-          "external": 1
+          "external": 1,
+          "owner-makes-no-such-call": 1
         },
         "namespace": {
           "owner-makes-no-such-call": 2
