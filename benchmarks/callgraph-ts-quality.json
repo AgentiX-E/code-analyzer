@@ -132,8 +132,8 @@
           "precision": 1
         },
         "namespace": {
-          "claimed": 15,
-          "correct": 15,
+          "claimed": 8,
+          "correct": 8,
           "precision": 1
         },
         "receiverType": {
@@ -144,6 +144,11 @@
         "sameFile": {
           "claimed": 41,
           "correct": 41,
+          "precision": 1
+        },
+        "static": {
+          "claimed": 7,
+          "correct": 7,
           "precision": 1
         }
       },

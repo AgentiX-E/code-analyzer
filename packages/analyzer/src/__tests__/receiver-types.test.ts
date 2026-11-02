@@ -996,6 +996,69 @@ describe('a hop that is a call, answered by the return type it declares', () => 
  * Measured on `apache/commons-lang@3.14.0`: `SystemUtils.isJavaVersionAtLeast` and `isJavaVersionAtMost` both call
  * `atLeast`/`atMost` on a field declared `JavaVersion`, and both pairs were unanswered for that reason alone.
  */
+/**
+ * **A name is written inside a class, and a class is a file.**
+ *
+ * `UnsynchronizedByteArrayInputStream.builder()` declares its return type as `Builder`, and the `Builder` that name
+ * means is the nested class of the file that declares `builder` — not whichever `Builder` the checkout is ambiguous
+ * about, which on `apache/commons-io` is every `Builder` there is. Resolving the name where the call sits answered
+ * nothing, and **five calls that follow the factory were unanswered for it**: `setByteArray`, `setOffset`, `setLength`
+ * and the `get()` that ends the chain, twice over.
+ */
+describe('a type name read where it was written, not where the call sits', () => {
+  const CALLER = '/output/Writer.java';
+  const PROVIDER = '/input/Reader.java';
+  const ELSEWHERE = '/other/Builder.java';
+  const index = createClassIndex();
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Reader', undefined, {}, 1),
+      declaration('Method', 'builder', 'Reader', { returnType: 'Builder' }, 2),
+      declaration('Class', 'Builder', undefined, {}, 3),
+      declaration('Method', 'setByteArray', 'Builder', { returnType: 'Builder' }, 4),
+      declaration('Method', 'get', 'Builder', { returnType: 'InputStream' }, 5),
+    ]),
+    PROVIDER,
+  );
+  // A second `Builder` in a third file, which is what makes the simple name ambiguous everywhere else.
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Builder', undefined, {}, 6),
+      declaration('Method', 'setByteArray', 'Builder', { returnType: 'Builder' }, 7),
+    ]),
+    ELSEWHERE,
+  );
+  // **The call site imports nothing**, which is the shape that makes the simple name ambiguous: `Reader` is still
+  // findable because exactly one class in the checkout carries it, and `Builder` is not, because two do.
+  const at = (): ReceiverLookup => ({ index, origin: { file: CALLER }, owners: [] });
+
+  it('reads the return type in the file that declares the factory', () => {
+    expect(receiverTypeOf(at(), 'Reader.builder()')).toEqual({
+      className: 'Builder',
+      via: 'class',
+      declaredIn: PROVIDER,
+    });
+    // The hop after it is answered by that `Builder`, because the name means the one the factory wrote.
+    expect(receiverTypeOf(at(), 'Reader.builder().setByteArray(buffer)')).toEqual({
+      className: 'Builder',
+      via: 'class',
+      declaredIn: PROVIDER,
+    });
+  });
+
+  it('answers the member where the name was read, and nowhere else', () => {
+    // The scope is the fact the arm needs: at the call site the name has two answers, and the resolver is right to
+    // refuse; in the file the name is a fact.
+    expect(classMemberOf(index, 'Builder', 'setByteArray', at().origin)).toBeUndefined();
+    expect(classMemberOf(index, 'Builder', 'setByteArray', { file: PROVIDER })).toEqual({
+      nodeId: 4,
+      label: 'Method',
+    });
+  });
+});
+
 describe('an enum declares members like any other type', () => {
   const FILE = '/JavaVersion.java';
   const facts = buildFileTypes([

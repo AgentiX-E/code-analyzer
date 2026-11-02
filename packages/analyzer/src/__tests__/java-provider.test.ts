@@ -325,6 +325,78 @@ describe('JavaProvider', () => {
       });
     });
 
+    describe('a call written as a reference', () => {
+      /** Every call this provider records, as `tag name <- text`, in the order the walk produced them. */
+      const callsOf = (source: string): string[] =>
+        provider
+          .parse(source, 'Demo.java')
+          .filter(
+            (capture) =>
+              capture.tag === CAPTURE_TAGS.FUNCTION_CALL ||
+              capture.tag === CAPTURE_TAGS.METHOD_CALL,
+          )
+          .map(
+            (capture) =>
+              `${String(capture.tag)} ${String(capture.name)} <- ${String(capture.text)}`,
+          );
+
+      it('reads `Type::method` as a call on the type', () => {
+        // **`Strings::isEmpty` is a call, and it happens later.** The deferred call is the shape a stream pipeline
+        // is written in, and nothing in the walk recorded it: the production is a `method_reference`, not a
+        // `method_invocation` with a receiver, so every branch keyed on `method_invocation` stepped past all 254 of
+        // them in the two Java corpora. The receiver is the type, exactly as `Strings.isEmpty(…)` would spell it, so
+        // the resolver's own static arm is the rule that answers it.
+        expect(
+          callsOf('class A { void run() { Function<String, Boolean> f = Strings::isEmpty; } }'),
+        ).toEqual([`${String(CAPTURE_TAGS.METHOD_CALL)} isEmpty <- Strings.isEmpty`]);
+      });
+
+      it('reads the two keywords as the receivers they are', () => {
+        // `this::helper` runs the enclosing class's method and `super::helper` skips it for the base's - the same
+        // two answers `this.helper()` and `super.helper()` get, which is why the keyword is carried as the receiver
+        // rather than resolved here.
+        expect(
+          callsOf(
+            'class A { void run() { Runnable r = this::helper; Runnable s = super::helper; } }',
+          ),
+        ).toEqual([
+          `${String(CAPTURE_TAGS.METHOD_CALL)} helper <- this.helper`,
+          `${String(CAPTURE_TAGS.METHOD_CALL)} helper <- super.helper`,
+        ]);
+      });
+
+      it('names the class a `::new` constructs, not the type arguments it is given', () => {
+        // **`Box<Item>::new` writes no name at all** - the production's second half is the `new` keyword - so the
+        // class is the only thing there is to call, and the graph files a constructor under the class's name.
+        expect(callsOf('class A { void run() { Supplier<B> s = Box<Item>::new; } }')).toEqual([
+          `${String(CAPTURE_TAGS.FUNCTION_CALL)} Box <- Box<Item>`,
+        ]);
+        // A qualified type is its last segment, the same reduction `import a.b.C` performs.
+        expect(
+          callsOf('class A { void run() { Supplier<B> s = java.util.ArrayList::new; } }'),
+        ).toEqual([`${String(CAPTURE_TAGS.FUNCTION_CALL)} ArrayList <- java.util.ArrayList`]);
+      });
+
+      it('records no call for a reference that constructs an array', () => {
+        // **`String[]::new` constructs an array, and the graph holds no node for one.** A name invented here would
+        // be an edge to a declaration that does not exist, which is worse than the missing edge it pretends to fix.
+        expect(
+          callsOf('class A { void run() { IntFunction<String[]> f = String[]::new; } }'),
+        ).toEqual([]);
+      });
+
+      it('keeps the line of the reference, so two references are two sites', () => {
+        const lines = provider
+          .parse(
+            'class A { void run() {\n  Runnable r = this::helper;\n  Runnable s = this::helper;\n} }',
+            'Demo.java',
+          )
+          .filter((capture) => capture.tag === CAPTURE_TAGS.METHOD_CALL)
+          .map((capture) => capture.startLine);
+        expect(lines).toEqual([2, 3]);
+      });
+    });
+
     it('should return captures sorted by line and byte', () => {
       const captures = provider.parse(
         'import java.util.List;\npublic class First { }\npublic enum Color { RED }',

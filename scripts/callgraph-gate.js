@@ -196,34 +196,36 @@ const TYPESCRIPT_FLOORS = {
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
-    precision: 0.991,
-    recall: 0.95,
-    claimed: 2150,
+    precision: 0.999,
+    recall: 0.96,
+    claimed: 2170,
     arms: {
       import: 0.99,
-      inherited: 0.99,
-      namespace: 0.94,
+      inherited: 0.995,
       // **The arm that answers a name out of the file's own directory.** Measured 69 of 69 on this corpus and 83 of
       // 83 on `commons-io`; the floor is where a regression would have to lose more than one claim to trip.
       package: 0.99,
-      receiverType: 0.99,
+      receiverType: 0.999,
       sameFile: 0.995,
-      static: 0.995,
+      // **`static` carries what `namespace` used to claim on this corpus, and it is the right arm for it.** A Java
+      // import binds a name, and when the name is a class the call on it is the class's member - so the guard that
+      // refuses a class name in the module arm moved 291 claims here, where 581 of 581 are right. `namespace` is
+      // measured where it exists, which is Python and TypeScript, where an alias really does name a module.
+      static: 0.999,
       super: 0.99,
     },
   },
   'apache/commons-io': {
-    precision: 0.997,
-    recall: 0.92,
-    claimed: 1500,
+    precision: 0.998,
+    recall: 0.925,
+    claimed: 1550,
     arms: {
       import: 0.99,
       inherited: 0.99,
-      namespace: 0.995,
       package: 0.99,
-      receiverType: 0.99,
+      receiverType: 0.999,
       sameFile: 0.995,
-      static: 0.99,
+      static: 0.999,
       super: 0.99,
     },
   },

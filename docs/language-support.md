@@ -26,6 +26,7 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Function Calls**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
 | **Declared Type Facts**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Declared Return Types**  |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Deferred Calls (`::`)**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Generics**               |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Async Detection**        |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
 | **Extension Functions**    |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
@@ -49,8 +50,21 @@ edges** on a Spring application because nobody had asked whether the arm that re
 only what a _name_ holds left every fluent chain ending at its first call — `QueueInputStream.builder().get()`,
 `Archive.store.find(key).next()`, `DiffBuilder.append(…).build()` — and iteration 58 made the return type a fact of the
 declaration (`returnType`, read from `return_type:` in the TypeScript and Python grammars and from `type:` in Java's).
-On `apache/commons-lang@3.14.0` that took recall from **88.1 % to 96.1 %** together with the package rule described
-below; the arm that reads a receiver's type is now **351 claims, 100 % precise**.
+On `apache/commons-lang@3.14.0` that took recall from **88.1 % to 96.2 %** together with the package rule described
+below; the arm that reads a receiver's type is now **357 claims, 100 % precise**.
+
+**A type name is read in the file it was written in, not the file the call sits in.** `Reader.builder()` declares its
+return type as `Builder`, and that name means the `Builder` of the file that declares `builder` — the nested class —
+rather than whichever `Builder` the checkout is ambiguous about. Resolving it at the call site answers nothing, and
+**five calls that follow the factory on `apache/commons-io` were unanswered for it** (`setByteArray`, `setOffset`,
+`setLength` and the `get()` that ends the chain).
+
+**`Foo::bar` is a call that happens later, and Java writes them by the hundred.** The production is a
+`method_reference`, not a `method_invocation` with a receiver, so every branch of the walk stepped past it: measured
+against `javac`'s own attribution, the two Java corpora hold **254 member references**, of which **63 reach a
+declaration the checkout holds** — `this::helper`, `super::helper`, `Type::method` and `Type::new`. The keyword or the
+type is carried as the receiver and the resolver's existing arms answer it, so a deferred call is scored by the same
+rules as an immediate one and `Type::new` is filed as the construction it is.
 
 **A Java name is answered by its own package before any other file, and that is the language's rule rather than a
 heuristic.** A package is a directory: `Streams.java` calling `Functions.asPredicate(…)` reaches
@@ -131,7 +145,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 | ---------- | :---------: | :---------------: | :---------------------------------------------------------------- |
 | TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis           |
 | Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug          |
-| Java       |    Fast     |       ~5MB        | **99.2 % / 96.1 %** commons-lang · **99.9 % / 92.9 %** commons-io |
+| Java       |    Fast     |       ~5MB        | **99.9 % / 96.2 %** commons-lang · **99.9 % / 92.8 %** commons-io |
 | JavaScript |    Fast     |       ~4MB        | not measured                                                      |
 | Go         |    Fast     |       ~3MB        | not measured                                                      |
 | Kotlin     |   Medium    |       ~4MB        | not measured                                                      |
@@ -152,7 +166,8 @@ behind it — they were read off a parse success rate and repeated. What replace
 produced by `scripts/callgraph-quality.ts` against an oracle that is not this codebase (`CPython ast`, the TypeScript
 checker, and `javac`'s own attribution), gated per arm by `scripts/callgraph-gate.js` and re-run on every push by
 `.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: Java's 80.2 % on `commons-io` is
-what "97%+" was hiding.
+what "97%+" was hiding, and the two figures to the left of it started at 96.5 % precision and 60.9 % recall when the
+instrument was first pointed at that checkout.
 
 ## Adding a New Language
 

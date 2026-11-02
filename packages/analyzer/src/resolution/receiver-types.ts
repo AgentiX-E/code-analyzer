@@ -496,6 +496,15 @@ export interface ReceiverType {
   readonly className: string;
   /** Where the walk started, recorded so each shape can be scored on its own. */
   readonly via: 'thisField' | 'parameter' | 'local' | 'class';
+  /**
+   * The file the type's name was written in, when a hop left the file the call sits in.
+   *
+   * **A name is written inside a class, and a class is a file.** `UnsynchronizedByteArrayInputStream.builder()`
+   * declares its return type as `Builder`, and that is the nested `Builder` of the file that declares `builder` - not
+   * whichever `Builder` the whole checkout is ambiguous about. Resolving the name where the call sits answers nothing,
+   * and the five calls that follow the factory on `apache/commons-io` were unanswered for it.
+   */
+  readonly declaredIn?: string;
 }
 
 /** Receivers that name the object the call is written inside. `super` is deliberately absent - see below. */
@@ -559,18 +568,31 @@ export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): Receiv
   const start = startOf(lookup, own, base, hops.length === 0);
   if (start === undefined) return undefined;
   let current = start.className;
+  // **The scope a name is read in changes as the walk crosses files.** The first hop is a member of the class the
+  // call sits in, so the call site's own file decides; every hop after that reads a member of a class declared
+  // elsewhere, so the *declaring* file is the scope the name it returns was written in.
+  let scope = lookup.origin;
   for (const hop of hops) {
     // **A hop is a member name or a call on one, and the two are read from the same declarations.** `store` asks the
     // class for a field; `builder()` asks it for a method and takes what that method declares it returns.
+    const here: ReceiverLookup = { index: lookup.index, origin: scope, owners: lookup.owners };
     const called = calledNameOf(hop);
     const next =
       called === undefined
-        ? declaredFieldOf(lookup, current, hop)
-        : declaredReturnOf(lookup, current, called);
+        ? declaredFieldOf(here, current, hop)
+        : declaredReturnOf(here, current, called);
     if (next === undefined) return undefined;
+    const declared = locateClass(lookup.index, current, scope);
+    if (declared !== undefined) scope = { ...lookup.origin, file: declared.file };
     current = next;
   }
-  return { className: current, via: start.via };
+  return {
+    className: current,
+    via: start.via,
+    ...(scope?.file === lookup.origin?.file || scope?.file === undefined
+      ? {}
+      : { declaredIn: scope.file }),
+  };
 }
 
 /** Where a walk starts: the receiver's base resolved against the declarations that spell it. */
@@ -958,6 +980,24 @@ function ownClassOf(
   if (file === undefined) return undefined;
   const declared = index.files.get(file)?.classes.get(className);
   return declared === undefined ? undefined : { file, name: className, declared };
+}
+
+/**
+ * The class a name denotes from where the lookup is written, or `undefined` when no class carries that name.
+ *
+ * **A name an import binds may be a type, and a type is not a module.** `apache/commons-lang`'s `ObjectUtils` imports
+ * `lang3.stream.Streams` and writes `Streams.of(values).filter(…)`; read as a member of the *module* the import bound,
+ * `filter` answered from that class's own file - `Streams.forEach`, `Streams.map`, `Streams.collect` and six more, none
+ * of which is what runs, because the receiver is the `Stream` that `of` returned. The question "is this name a class"
+ * is the one that separates `Streams` from `z` in `colinhacks/zod`, where `import * as z` binds a module and `z.parse`
+ * really is that module's export.
+ */
+export function classNamed(
+  index: ClassIndex,
+  className: string,
+  origin?: LookupOrigin,
+): LocatedClass | undefined {
+  return locateClass(index, className, origin);
 }
 
 /** The member a class declares under a name, or `undefined` when it declares none, two, or is not found. */

@@ -20,6 +20,7 @@ import {
   buildFileTypes,
   classInPackageOf,
   classMemberOf,
+  classNamed,
   containerOf,
   createClassIndex,
   mergeClassIndex,
@@ -285,13 +286,26 @@ const PACKAGE_SCOPED: ReadonlySet<string> = new Set(['java', 'kotlin', 'groovy']
  * **`self`, `this`, `cls` and `super` are the four spellings a language gives the enclosing object**, and a call on
  * one of them resolves in the enclosing scope. Any other receiver is another object whose type is not in the
  * statement, so its method is not this file's to claim.
+ *
+ * **The vocabulary belongs to the language, and one word of it does not travel.** `cls` is Python's spelling of the
+ * class a `@classmethod` runs on; in Java it is an ordinary parameter name, and `ClassUtils.getAbbreviatedName` writes
+ * `cls.getName()` where `cls` is a `Class<?>`. Read as the enclosing object, that call answered `ClassUtils.getName`
+ * - the class's own helper, which is not what runs - and **four calls on `apache/commons-lang` were claimed wrongly
+ * for it**. A word is own-scope only in the language that gives it that meaning.
  */
-function isOwnScopeCall(receiver: string | undefined): boolean {
+function isOwnScopeCall(receiver: string | undefined, language: string): boolean {
   if (receiver === undefined) return true;
-  return OWN_SCOPE_RECEIVERS.has(receiver);
+  if (!OWN_SCOPE_RECEIVERS.has(receiver)) return false;
+  const languages = OWN_SCOPE_RECEIVER_LANGUAGES.get(receiver);
+  return languages === undefined || languages.has(language);
 }
 
 const OWN_SCOPE_RECEIVERS: ReadonlySet<string> = new Set(['self', 'this', 'cls', 'super', '$this']);
+
+/** The languages that give a receiver word its meaning, for the words that are not universal. */
+const OWN_SCOPE_RECEIVER_LANGUAGES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['cls', new Set(['python'])],
+]);
 
 /**
  * The identifier a receiver starts with: `cli` in `cli.command`, `app` in `app.cli.command`.
@@ -1154,6 +1168,12 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               !target &&
               namespace !== undefined &&
               fileImports &&
+              // **And the name has to be a module, not a class.** An import binds a name and the name may be a type:
+              // `Streams.of(values).filter(…)` is a call on what `of` returned, and `Streams` in `apache/commons-lang`
+              // is a class the file imports - so answering `filter` out of that class's file claimed `Streams.forEach`,
+              // `Streams.map` and seven more, **none of which is what runs**. A namespace alias stands for a module and
+              // names no class, which is the other half of the same test.
+              classNamed(classIndex, namespace, origin) === undefined &&
               // **The alias has to still be the module where the call is written.** `tests/test_cli.py` imports
               // `cli` and then opens two tests with `def cli(): …` and `@cli.command()`; the decorator names that
               // local function, and answering it with `flask/cli.py`'s `command` is an edge from a call to a
@@ -1209,7 +1229,11 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // the declaration a `super` call reaches is the base's, and the arm below is the one that walks there. Left
             // here it would answer with the override the keyword exists to skip.
             let receiverClass: string | undefined;
-            if (!target && isOwnScopeCall(ref.receiver) && !isSuperCall(ref.receiver)) {
+            if (
+              !target &&
+              isOwnScopeCall(ref.receiver, parsedFile.language) &&
+              !isSuperCall(ref.receiver)
+            ) {
               const scope = fileScopes.get(parsedFile.filePath);
               // A receiver of `self`/`cls`/`this` reaches a member; a bare call reaches the module scope, and a member
               // only where the language gives it implicit `this`.
@@ -1261,10 +1285,17 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             if (
               !target &&
               ref.receiver !== undefined &&
-              !isOwnScopeCall(ref.receiver) &&
+              !isOwnScopeCall(ref.receiver, parsedFile.language) &&
               !shadowsLocally(ref.receiver, ref.sourceLine)
             ) {
-              const member = classMemberOf(classIndex, ref.receiver, ref.targetName, origin);
+              const member =
+                classMemberOf(classIndex, ref.receiver, ref.targetName, origin) ??
+                // **A class name inherits what its base declares, and this arm stopped at the class itself.** Java
+                // inherits a static member like any other, and a class-name receiver is the one shape where the name
+                // is unambiguous - so "does the class declare it" and "does a base" are one question asked once.
+                // Found by measuring member references: `MultiBackgroundInitializer::getTaskCount` runs
+                // `BackgroundInitializer.getTaskCount`, and the static arm answered nothing for it.
+                baseMemberOf(classIndex, ref.receiver, ref.targetName, origin);
               if (member !== undefined) {
                 target = member;
                 arm = 'static';
@@ -1300,7 +1331,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               const ownScope =
                 ref.receiver === undefined
                   ? hasImplicitThis(parsedFile.language) && !bindsBareName(ref.targetName)
-                  : isOwnScopeCall(ref.receiver);
+                  : isOwnScopeCall(ref.receiver, parsedFile.language);
               if (sup || ownScope) {
                 const ownerClass = enclosingClassOf(ref.sourceLine);
                 if (ownerClass !== undefined) {
@@ -1356,11 +1387,18 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                 ref.receiver,
               );
               if (receiverType !== undefined) {
+                // **A type name is read where it was written.** When the walk crossed into another file, the name it
+                // ended on belongs to that file's scope - `builder()` declares `Builder`, and the nested `Builder` of
+                // the class that declares `builder` is the answer, not the one the whole checkout is ambiguous about.
+                const memberScope =
+                  receiverType.declaredIn === undefined || receiverType.declaredIn === origin.file
+                    ? origin
+                    : { ...origin, file: receiverType.declaredIn };
                 const member = classMemberOf(
                   classIndex,
                   receiverType.className,
                   ref.targetName,
-                  origin,
+                  memberScope,
                 );
                 if (member !== undefined) {
                   target = member;

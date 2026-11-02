@@ -233,6 +233,76 @@ export class JavaProvider extends TreeSitterBaseProvider {
   }
 
   /**
+   * `Strings::isEmpty` is a call that happens later, and the graph had no record of one.
+   *
+   * **The production is `method_reference`, not `method_invocation` with a receiver**, so every branch of this walk -
+   * each of them keyed on a call - stepped past it, and a stream pipeline is written almost entirely of this shape.
+   * Measured against `javac`'s own attribution, the two Java corpora hold **254 member references**, of which 254 were
+   * counted separately by the oracle and **nothing at all** was claimed by the graph. The 63 that reach a declaration
+   * in the checkout are a deferred call by any reading: `this::helper` runs the enclosing class's method,
+   * `super::helper` the base's, and `Type::method` the method the type declares.
+   *
+   * **The keyword and the type are carried as the receiver rather than resolved here**, because the resolver already
+   * holds the three rules that answer them - own scope, the base chain, and a class name - and a second reading of
+   * the same three hops in the parser is a second answer to the same question.
+   */
+  private captureMethodReference(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const parts = namedChildrenOf(node);
+    // The grammar requires a qualifier - `Type::m`, `expr::m`, `this::m`, `super::m` - so a reference without one is
+    // not a shape Java source produces.
+    const qualifier = parts[0];
+    if (qualifier === undefined) return;
+    const startLine = node.startPosition.row + 1;
+    const endLine = node.endPosition.row + 1;
+    // **`X::new` writes no name at all.** Its second half is the `new` keyword, so the only named child is the type,
+    // and the call is a construction filed under the class's name exactly as `new X()` is.
+    if (parts.length === 1) {
+      const built = this.referenceClassNameOf(qualifier);
+      if (built === undefined) return;
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_CALL,
+        text: qualifier.text,
+        startLine,
+        endLine,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: built,
+        properties: { filePath: this.filePath },
+      });
+      return;
+    }
+    // **The last named child, because the explicit type arguments sit between the two names**:
+    // `Foo::<String>bar` is `(identifier) (type_arguments) (identifier)`, and the method is still the last one.
+    const written = parts[parts.length - 1]!;
+    if (written.type !== 'identifier') return;
+    captures.push({
+      tag: CAPTURE_TAGS.METHOD_CALL,
+      text: `${qualifier.text}.${written.text}`,
+      startLine,
+      endLine,
+      startByte: written.startIndex,
+      endByte: written.endIndex,
+      name: written.text,
+      properties: { filePath: this.filePath },
+    });
+  }
+
+  /**
+   * The class a reference's qualifier names, or `undefined` when it names something the graph has no node for.
+   *
+   * **An array is the case that must answer nothing.** `String[]::new` constructs an array, and the graph files
+   * classes and constructors - a name invented for the array would be an edge to a declaration that does not exist.
+   * A qualified type is its last segment and its type arguments are dropped, the same two reductions `new X<>()` and
+   * `import a.b.C` already perform.
+   */
+  private referenceClassNameOf(type: TreeSitterSyntaxNode): string | undefined {
+    if (type.type === 'array_type') return undefined;
+    const plain = type.text.replace(/<[^>]*>/g, '');
+    const simple = plain.slice(plain.lastIndexOf('.') + 1).trim();
+    return simple === '' ? undefined : simple;
+  }
+
+  /**
    * `Class.method` for the declaration a node sits in, or `undefined` at file or class level.
    *
    * **The climb is the node's own parents and not `findContainerNode`**, because that function answers the nearest
@@ -575,6 +645,8 @@ export class JavaProvider extends TreeSitterBaseProvider {
         });
       }
       this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
+    } else if (nodeType === 'method_reference') {
+      this.captureMethodReference(node, captures);
     } else if (nodeType === 'expression_statement') {
       // **A bare name used as a statement**, which Java only permits as an assignment, an increment or a call - but
       // **a file being edited parses into shapes the language would reject**, and `x.y;` is a `field_access` rather

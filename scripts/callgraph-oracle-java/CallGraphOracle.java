@@ -239,7 +239,9 @@ public final class CallGraphOracle {
     report.append("},\n");
     report.append("  \"sites\": {");
     report.append("\"total\": ").append(sites.size());
-    for (String verdict : List.of("internal", "internalRecursion", "external", "unknown", "silent", "outsideMethod", "methodReference")) {
+    report.append(", ");
+    appendRaw(report, "memberReference", attribution.memberReferences);
+    for (String verdict : List.of("internal", "internalRecursion", "external", "unknown", "silent", "outsideMethod")) {
       report.append(", ");
       appendRaw(report, verdict, verdicts.getOrDefault(verdict, 0));
     }
@@ -304,6 +306,8 @@ public final class CallGraphOracle {
     final List<Site> sites = new ArrayList<>();
     final Map<String, Integer> declarationsPerName = new TreeMap<>();
     int declarationCount;
+    /** How many `Foo::bar` sites javac attributed - scored as calls, and published so the count stays visible. */
+    int memberReferences;
   }
 
   private static Attribution attribute(Path root, List<Path> sources) throws IOException {
@@ -454,11 +458,32 @@ public final class CallGraphOracle {
       return simple.isEmpty() ? null : simple;
     }
 
+    /**
+     * `Foo::bar` is a call that happens later, and it is a call.
+     *
+     * **The first version of this reader counted these and refused to judge them**, on the grounds that the product
+     * did not resolve them yet - and a site an instrument declines to judge is not a site it abstains from. The two
+     * corpora hold **254 member references**, of which **63 reach a declaration the checkout holds**; the other 181
+     * name a method of the JDK or of a library, which no graph edge can point at either. The four shapes are
+     * `Type::method`, `expr::method`, `this::m` / `super::m`, and `Type::new` - and each of them is a call the
+     * language makes, one statement later.
+     */
     @Override
     public Void visitMemberReference(MemberReferenceTree node, Void unused) {
-      // `Foo::bar` is a call site the product does not resolve yet. Counted, not scored - the same honesty the
-      // `constructor` count applies.
-      merge("methodReference");
+      attribution.memberReferences++;
+      TreePath path = getCurrentPath();
+      String file = fileOf(path);
+      String owner = enclosingMethodName(path);
+      Element target = trees.getElement(path);
+      // **`X::new` writes the keyword where a method's name would be**, and the graph files a constructor under its
+      // class's name - the same name `new X()` carries, for the same reason.
+      String callee =
+          node.getName().contentEquals("<init>") ? constructedName(target) : node.getName().toString();
+      if (file == null || owner == null || callee == null) {
+        merge("outsideMethod");
+        return super.visitMemberReference(node, unused);
+      }
+      attribution.sites.add(judge(path, file, owner, callee));
       return super.visitMemberReference(node, unused);
     }
 

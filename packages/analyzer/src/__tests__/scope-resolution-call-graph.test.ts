@@ -593,3 +593,190 @@ describe('ScopeResolution — a name the package declares', () => {
     expect(callEdges(graph)).toEqual([{ sourceId: 2, targetId: 4, resolution: 'static' }]);
   });
 });
+
+describe('ScopeResolution — a name imported as a class is not a module', () => {
+  const USER = '/proj/lang/ObjectUtils.java';
+  const STREAMS = '/proj/lang/stream/Streams.java';
+
+  it('does not answer a call on what a class-name factory returned out of that class`s file', async () => {
+    // **`Streams.of(values).filter(p)` is a call on the `Stream` that `of` returned.** The receiver is rooted at a name
+    // the file imports, and the module arm answered `filter` from that name's file - where `apache/commons-lang`'s
+    // `lang3.stream.Streams` really does declare `forEach`, `map`, `filter` and `collect`. Measured: **nine wrong
+    // claims on that corpus**, every one of them a method of the JDK's `Stream`.
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'ObjectUtils', USER, 1, 40),
+        node(2, 'Method', 'firstNonNull', USER, 3, 20),
+        node(3, 'Class', 'Streams', STREAMS, 1, 30),
+        node(4, 'Method', 'forEach', STREAMS, 5, 9),
+      ],
+      [USER, STREAMS],
+    );
+    const files = [
+      parsedFile(
+        USER,
+        [
+          symbol('Class', 'ObjectUtils', 1, 40, USER),
+          symbol('Method', 'firstNonNull', 3, 20, USER),
+        ],
+        [reference('forEach', 12, 'Streams.of(values)', USER)],
+        'java',
+      ),
+      parsedFile(
+        STREAMS,
+        [
+          symbol('Class', 'Streams', 1, 30, STREAMS),
+          { ...symbol('Method', 'forEach', 5, 9, STREAMS), containerName: 'Streams' },
+        ],
+        [],
+        'java',
+      ),
+    ];
+    const imports: ResolvedImport[] = [
+      {
+        sourceFile: USER,
+        importPath: 'pkg.Streams',
+        importedSymbols: ['Streams'],
+        resolvedFiles: [STREAMS],
+        semantics: 'named',
+      },
+    ];
+    await new ScopeResolutionPhase().execute(
+      ctxOf(new InMemoryGraphStore(), graph, files, imports),
+    );
+
+    expect(callEdges(graph)).toEqual([]);
+  });
+
+  it('still answers a call on the class itself', async () => {
+    // The same file, the same name, one receiver apart: `Streams.forEach(…)` names a member of the class, which is
+    // what the `static` arm is for - and the guard changes which arm answers, not whether the edge exists.
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'ObjectUtils', USER, 1, 40),
+        node(2, 'Method', 'firstNonNull', USER, 3, 20),
+        node(3, 'Class', 'Streams', STREAMS, 1, 30),
+        node(4, 'Method', 'forEach', STREAMS, 5, 9),
+      ],
+      [USER, STREAMS],
+    );
+    const files = [
+      parsedFile(
+        USER,
+        [
+          symbol('Class', 'ObjectUtils', 1, 40, USER),
+          symbol('Method', 'firstNonNull', 3, 20, USER),
+        ],
+        [reference('forEach', 12, 'Streams', USER)],
+        'java',
+      ),
+      parsedFile(
+        STREAMS,
+        [
+          symbol('Class', 'Streams', 1, 30, STREAMS),
+          { ...symbol('Method', 'forEach', 5, 9, STREAMS), containerName: 'Streams' },
+        ],
+        [],
+        'java',
+      ),
+    ];
+    const imports: ResolvedImport[] = [
+      {
+        sourceFile: USER,
+        importPath: 'pkg.Streams',
+        importedSymbols: ['Streams'],
+        resolvedFiles: [STREAMS],
+        semantics: 'named',
+      },
+    ];
+    await new ScopeResolutionPhase().execute(
+      ctxOf(new InMemoryGraphStore(), graph, files, imports),
+    );
+
+    expect(callEdges(graph)).toEqual([{ sourceId: 2, targetId: 4, resolution: 'static' }]);
+  });
+});
+
+describe('ScopeResolution — a class name inherits what its base declares', () => {
+  const BASE = '/proj/pkg/Base.java';
+  const SUB = '/proj/pkg/Sub.java';
+
+  it('answers a member the named class only inherits', async () => {
+    // **`Sub.inherited()` runs `Base.inherited`, and the static arm stopped at the class the name resolves to.**
+    // Java inherits a static member like any other, and a class-name receiver is the one shape where the name is
+    // unambiguous - so the class's own declaration and its base chain are one question, asked once. Found by the
+    // member-reference measurement: `MultiBackgroundInitializer::getTaskCount` and `::isInitialized` are two of the
+    // 37 member references `javac` attributes to `BackgroundInitializer` and nothing claimed.
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'Sub', SUB, 1, 20),
+        node(2, 'Method', 'run', SUB, 3, 20),
+        node(3, 'Class', 'Base', BASE, 1, 30),
+        node(4, 'Method', 'inherited', BASE, 5, 9),
+      ],
+      [SUB, BASE],
+    );
+    const files = [
+      parsedFile(
+        SUB,
+        [
+          { ...symbol('Class', 'Sub', 1, 20, SUB), properties: { baseClasses: 'Base' } },
+          symbol('Method', 'run', 3, 20, SUB),
+        ],
+        [reference('inherited', 10, 'Sub', SUB)],
+        'java',
+      ),
+      parsedFile(
+        BASE,
+        [
+          symbol('Class', 'Base', 1, 30, BASE),
+          { ...symbol('Method', 'inherited', 5, 9, BASE), containerName: 'Base' },
+        ],
+        [],
+        'java',
+      ),
+    ];
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+
+    expect(callEdges(graph)).toEqual([{ sourceId: 2, targetId: 4, resolution: 'static' }]);
+  });
+
+  it('prefers the class`s own declaration to its base`s', async () => {
+    // The override is what runs, which is the same sentence the `inherited` arm states - read here because the walk
+    // is breadth first and the class is the first thing on it.
+    const graph = graphOf(
+      [
+        node(1, 'Class', 'Sub', SUB, 1, 20),
+        node(2, 'Method', 'run', SUB, 3, 20),
+        node(3, 'Method', 'inherited', SUB, 5, 9),
+        node(4, 'Class', 'Base', BASE, 1, 30),
+        node(5, 'Method', 'inherited', BASE, 5, 9),
+      ],
+      [SUB, BASE],
+    );
+    const files = [
+      parsedFile(
+        SUB,
+        [
+          { ...symbol('Class', 'Sub', 1, 20, SUB), properties: { baseClasses: 'Base' } },
+          symbol('Method', 'run', 3, 20, SUB),
+          { ...symbol('Method', 'inherited', 5, 9, SUB), containerName: 'Sub' },
+        ],
+        [reference('inherited', 10, 'Sub', SUB)],
+        'java',
+      ),
+      parsedFile(
+        BASE,
+        [
+          symbol('Class', 'Base', 1, 30, BASE),
+          { ...symbol('Method', 'inherited', 5, 9, BASE), containerName: 'Base' },
+        ],
+        [],
+        'java',
+      ),
+    ];
+    await new ScopeResolutionPhase().execute(ctxOf(new InMemoryGraphStore(), graph, files));
+
+    expect(callEdges(graph).map((edge) => edge.targetId)).toEqual([3]);
+  });
+});

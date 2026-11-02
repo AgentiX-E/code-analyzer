@@ -13,26 +13,26 @@
       },
       "sites": {
         "total": 9884,
-        "internal": 4234,
+        "memberReference": 78,
+        "internal": 4260,
         "internalRecursion": 33,
-        "external": 5001,
+        "external": 5047,
         "unknown": 0,
         "silent": 0,
-        "outsideMethod": 571,
-        "methodReference": 78,
+        "outsideMethod": 577,
         "excludedForDuplicateName": 0
       },
-      "expectedPairs": 2242,
-      "claimedPairs": 2173,
+      "expectedPairs": 2260,
+      "claimedPairs": 2176,
       "precision": {
-        "correct": 2155,
-        "wrong": 18,
-        "value": 0.9917
+        "correct": 2174,
+        "wrong": 2,
+        "value": 0.9991
       },
       "recall": {
-        "found": 2155,
-        "missed": 87,
-        "value": 0.9612
+        "found": 2174,
+        "missed": 86,
+        "value": 0.9619
       },
       "byArm": {
         "import": {
@@ -42,13 +42,8 @@
         },
         "inherited": {
           "claimed": 899,
-          "correct": 894,
-          "precision": 0.9944
-        },
-        "namespace": {
-          "claimed": 301,
-          "correct": 288,
-          "precision": 0.9568
+          "correct": 899,
+          "precision": 1
         },
         "package": {
           "claimed": 69,
@@ -56,8 +51,8 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 351,
-          "correct": 351,
+          "claimed": 357,
+          "correct": 357,
           "precision": 1
         },
         "sameFile": {
@@ -66,8 +61,8 @@
           "precision": 0.9986
         },
         "static": {
-          "claimed": 280,
-          "correct": 280,
+          "claimed": 581,
+          "correct": 581,
           "precision": 1
         },
         "super": {
@@ -77,36 +72,19 @@
         }
       },
       "callers": {
-        "oracle": 1337,
-        "graph": 1300,
+        "oracle": 1341,
+        "graph": 1304,
         "graphOnly": 1,
-        "ownersWithAnyCall": 1922,
-        "graphCallers": 1301
+        "ownersWithAnyCall": 1926,
+        "graphCallers": 1305
       },
       "wrongSamples": [
-        "[inherited] org/apache/commons/lang3/ClassUtils.java|getAbbreviatedName|org/apache/commons/lang3/ClassUtils.java|getName",
-        "[inherited] org/apache/commons/lang3/ClassUtils.java|getPackageCanonicalName|org/apache/commons/lang3/ClassUtils.java|getName",
-        "[inherited] org/apache/commons/lang3/ClassUtils.java|getPackageName|org/apache/commons/lang3/ClassUtils.java|getName",
-        "[inherited] org/apache/commons/lang3/ClassUtils.java|getShortClassName|org/apache/commons/lang3/ClassUtils.java|getName",
-        "[inherited] org/apache/commons/lang3/reflect/TypeUtils.java|determineTypeArguments|org/apache/commons/lang3/reflect/TypeUtils.java|equals",
-        "[namespace] org/apache/commons/lang3/ArchUtils.java|addProcessors|org/apache/commons/lang3/stream/Streams.java|forEach",
-        "[namespace] org/apache/commons/lang3/ArrayUtils.java|containsAny|org/apache/commons/lang3/stream/Streams.java|anyMatch",
-        "[namespace] org/apache/commons/lang3/CharSetUtils.java|deepEmpty|org/apache/commons/lang3/stream/Streams.java|allMatch",
-        "[namespace] org/apache/commons/lang3/ObjectUtils.java|firstNonNull|org/apache/commons/lang3/stream/Streams.java|filter",
-        "[namespace] org/apache/commons/lang3/ObjectUtils.java|getFirstNonNull|org/apache/commons/lang3/stream/Streams.java|filter",
-        "[namespace] org/apache/commons/lang3/ObjectUtils.java|getFirstNonNull|org/apache/commons/lang3/stream/Streams.java|map",
-        "[namespace] org/apache/commons/lang3/StringUtils.java|join|org/apache/commons/lang3/stream/Streams.java|collect",
-        "[namespace] org/apache/commons/lang3/builder/ReflectionToStringBuilder.java|toNoNullStringArray|org/apache/commons/lang3/stream/Streams.java|map",
-        "[namespace] org/apache/commons/lang3/builder/ReflectionToStringBuilder.java|toNoNullStringArray|org/apache/commons/lang3/stream/Streams.java|toArray",
-        "[namespace] org/apache/commons/lang3/function/Failable.java|tryWithResources|org/apache/commons/lang3/stream/Streams.java|forEach",
-        "[namespace] org/apache/commons/lang3/reflect/MethodUtils.java|getMatchingAccessibleMethod|org/apache/commons/lang3/ClassUtils.java|getName",
         "[sameFile] org/apache/commons/lang3/text/CompositeFormat.java|reformat|org/apache/commons/lang3/text/CompositeFormat.java|format",
         "[sameFile] org/apache/commons/lang3/text/CompositeFormat.java|reformat|org/apache/commons/lang3/text/CompositeFormat.java|parseObject"
       ],
       "missedSamples": [
         "org/apache/commons/lang3/AnnotationUtils.java|appendDetail|org/apache/commons/lang3/builder/ToStringStyle.java|appendDetail",
         "org/apache/commons/lang3/CharSet.java|contains|org/apache/commons/lang3/CharRange.java|contains",
-        "org/apache/commons/lang3/Functions.java|tryWithResources|org/apache/commons/lang3/Functions.java|run",
         "org/apache/commons/lang3/ObjectUtils.java|identityToString|org/apache/commons/lang3/text/StrBuilder.java|append",
         "org/apache/commons/lang3/ObjectUtils.java|identityToString|org/apache/commons/lang3/text/StrBuilder.java|ensureCapacity",
         "org/apache/commons/lang3/ObjectUtils.java|identityToString|org/apache/commons/lang3/text/StrBuilder.java|length",
@@ -123,7 +101,8 @@
         "org/apache/commons/lang3/builder/ReflectionToStringBuilder.java|reflectionAppendArray|org/apache/commons/lang3/builder/ToStringStyle.java|reflectionAppendArrayDetail",
         "org/apache/commons/lang3/builder/ReflectionToStringBuilder.java|toString|org/apache/commons/lang3/builder/ToStringStyle.java|getNullText",
         "org/apache/commons/lang3/compare/ComparableUtils.java|ge|org/apache/commons/lang3/compare/ComparableUtils.java|greaterThanOrEqualTo",
-        "org/apache/commons/lang3/compare/ComparableUtils.java|gt|org/apache/commons/lang3/compare/ComparableUtils.java|greaterThan"
+        "org/apache/commons/lang3/compare/ComparableUtils.java|gt|org/apache/commons/lang3/compare/ComparableUtils.java|greaterThan",
+        "org/apache/commons/lang3/compare/ComparableUtils.java|le|org/apache/commons/lang3/compare/ComparableUtils.java|lessThanOrEqualTo"
       ],
       "wrongCauses": {}
     },
@@ -138,51 +117,46 @@
       },
       "sites": {
         "total": 5993,
-        "internal": 2558,
-        "internalRecursion": 7,
-        "external": 2871,
+        "memberReference": 176,
+        "internal": 2595,
+        "internalRecursion": 8,
+        "external": 3006,
         "unknown": 0,
         "silent": 148,
-        "outsideMethod": 240,
-        "methodReference": 176,
+        "outsideMethod": 244,
         "excludedForDuplicateName": 0
       },
-      "expectedPairs": 1641,
-      "claimedPairs": 1527,
+      "expectedPairs": 1671,
+      "claimedPairs": 1552,
       "precision": {
-        "correct": 1525,
+        "correct": 1550,
         "wrong": 2,
         "value": 0.9987
       },
       "recall": {
-        "found": 1525,
-        "missed": 116,
-        "value": 0.9293
+        "found": 1550,
+        "missed": 121,
+        "value": 0.9276
       },
       "byArm": {
         "import": {
-          "claimed": 16,
-          "correct": 16,
+          "claimed": 18,
+          "correct": 18,
           "precision": 1
         },
         "inherited": {
-          "claimed": 298,
-          "correct": 296,
-          "precision": 0.9933
-        },
-        "namespace": {
           "claimed": 305,
-          "correct": 305,
-          "precision": 1
+          "correct": 303,
+          "precision": 0.9934
         },
         "package": {
-          "claimed": 83,
-          "correct": 83,
+          "claimed": 85,
+          "correct": 85,
           "precision": 1
         },
         "receiverType": {
-          "claimed": 201,
-          "correct": 201,
+          "claimed": 215,
+          "correct": 215,
           "precision": 1
         },
         "sameFile": {
@@ -191,8 +165,8 @@
           "precision": 1
         },
         "static": {
-          "claimed": 188,
-          "correct": 188,
+          "claimed": 491,
+          "correct": 491,
           "precision": 1
         },
         "super": {
@@ -202,11 +176,11 @@
         }
       },
       "callers": {
-        "oracle": 1025,
-        "graph": 996,
+        "oracle": 1030,
+        "graph": 999,
         "graphOnly": 0,
         "ownersWithAnyCall": 1495,
-        "graphCallers": 996
+        "graphCallers": 999
       },
       "wrongSamples": [
         "[inherited] org/apache/commons/io/filefilter/AbstractFileFilter.java|preVisitDirectory|org/apache/commons/io/filefilter/AbstractFileFilter.java|accept",
