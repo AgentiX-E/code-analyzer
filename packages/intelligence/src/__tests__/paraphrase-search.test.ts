@@ -275,7 +275,30 @@ function writeQuerySet(path: string, queries: FrozenQuery[], dropped: number): v
  * **The same call the measurement makes**, and two seconds of work: small enough that the integrity check below runs on
  * every machine, credentials or not, rather than only where the semantic half can run.
  */
-async function analyseCorpus(): Promise<{
+let analysed: Promise<{
+  corpusRoot: string;
+  pipeline: Awaited<ReturnType<PipelineOrchestrator['execute']>>;
+}> | null = null;
+
+/**
+ * **One analysis per file, because two analyses of one pinned corpus are two chances to disagree.**
+ *
+ * Three tests read the graph this builds: the integrity check, the measurement, and the rewrite. Each used to build its
+ * own, which is three passes over the same fifty-two files - and in a workflow running the whole suite with coverage
+ * instrumentation, the first of them starved: the integrity check spent its whole two minutes waiting for a worker
+ * while the measurement that needed the same graph had not started. **A memoised promise is not an optimisation here,
+ * it is the statement that the three tests are looking at one graph**, which is also what makes the integrity check
+ * evidence about the measurement rather than about a second run of the same code.
+ */
+function analyseCorpus(): Promise<{
+  corpusRoot: string;
+  pipeline: Awaited<ReturnType<PipelineOrchestrator['execute']>>;
+}> {
+  analysed ??= analyseCorpusOnce();
+  return analysed;
+}
+
+async function analyseCorpusOnce(): Promise<{
   corpusRoot: string;
   pipeline: Awaited<ReturnType<PipelineOrchestrator['execute']>>;
 }> {
@@ -706,7 +729,9 @@ describe('the frozen questions and the frozen corpus', () => {
       unknown.map((candidate) => `${candidate.file}::${candidate.qualifiedName}`),
       `${QUERY_SET} asks about symbols ${CORPUS} no longer contains`,
     ).toEqual([]);
-  }, 120_000);
+    // **Ten minutes and not two**, because this is one pass over fifty-two files on a runner that is executing the rest
+    // of the suite beside it: the figure has to survive a loaded machine or it is a figure about the machine.
+  }, 600_000);
 });
 
 describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
