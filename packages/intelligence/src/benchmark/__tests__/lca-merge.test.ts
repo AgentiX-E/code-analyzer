@@ -96,6 +96,15 @@ describe('armScore', () => {
     expect(score.precision).toBe(1);
   });
 
+  it('leaves a cut the row did not report out of that cut’s average', () => {
+    // A skipped row carries no metrics at all, and a row measured before a cut existed carries fewer than the rest:
+    // both are absences rather than zeros, and the arm at a cut nobody reported is a mean over none.
+    const partial = row(1, 1, 1, [1]);
+    const score = armScore([partial], (r) => r.retrieval['at10'] ?? null);
+    expect(score.rows).toBe(0);
+    expect(armScore([partial], (r) => r.retrieval['at1'] ?? null).recall).toBe(1);
+  });
+
   it('is a mean over none rather than NaN when nothing produced a figure', () => {
     const score = armScore([skipped(1, 'too large')], (r) => r.retrieval['at10']!);
     expect(score.rows).toBe(0);
@@ -114,6 +123,16 @@ describe('summarisePart', () => {
     expect(Object.keys(summary.retrieval)).toEqual(['at1', 'at3', 'at5', 'at10']);
     expect(summary.retrieval['at1']!.recall).toBe(1);
     expect(summary.answer?.f1).toBe(1);
+  });
+
+  it('reports a cut as a mean over none when no row carried it', () => {
+    // The same absence as above, reached through the aggregation the log line and the artifact read.
+    const summary = summarisePart(part('py', [row(1, 1, 1, [1])]), [1, 3]);
+    expect(summary.retrieval['at1']!.rows).toBe(1);
+    expect(summary.retrieval['at3']!.rows).toBe(0);
+    expect(
+      combineParts([part('py', [row(1, 1, 1, [1])])], [1, 3]).overall.retrieval['at3']!.rows,
+    ).toBe(0);
   });
 
   it('says the answer arm did not run instead of reporting a zero for it', () => {

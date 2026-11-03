@@ -412,6 +412,39 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
 
       const scores: LcaRowScore[] = [];
 
+      const partOf = (): LanguagePart => ({
+        config,
+        measuredAt: new Date().toISOString(),
+        rowLimit: ROW_LIMIT,
+        answerArm: provider !== null,
+        bounds: {
+          capFiles: FILE_CAP,
+          memoryFiles: memoryFilesAtStart,
+          mbPerFile: MEASURED_MB_PER_FILE,
+          reserveMb: RUNNER_RESERVE_MB,
+          budgetMs: BUDGET_MS,
+        },
+        space: {
+          semantic: false,
+          reason:
+            'the indexing pipeline was run without an embedding backend in this job, so the fused list is the lexical list',
+        },
+        configuration: configurationOf(provider),
+        rows: [...scores],
+      });
+
+      // **Written after every instance rather than at the end, because the end is what a killed process does not reach.**
+      // A part that only exists once the loop finishes is a part that eleven runs of this job never wrote; a part that
+      // exists after each row survives a worker that exhausts its heap, and the rows the loop never reached are simply
+      // absent from `rows` rather than the whole measurement being absent from the artifact.
+      const writePart = (): void => {
+        const recorded = recordArtifact(`benchmarks/lca-parts/${config}.json`, partOf());
+        if (!recorded.written) {
+          // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
+          console.log(`LCA-PART ${config} artifact ${recorded.because}`);
+        }
+      };
+
       for (const row of rows) {
         const checkout = ensureCheckout(cacheRoot, row);
         if (checkout === null || !existsSync(join(checkout, '.git'))) {
@@ -463,43 +496,29 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           continue;
         }
 
-        const measuredAt = Date.now();
-        scores.push(await measureOne(row, checkout, allFiles, provider));
-        // eslint-disable-next-line no-console -- per-instance cost, so a slow instance is visible before it kills the job.
-        console.log(
-          `LCA-INSTANCE ${config} id=${String(row.id)} analysed in ${String(Date.now() - measuredAt)}ms ` +
-            `rss=${String(residentMb())}MB`,
-        );
+        const startedMeasuring = Date.now();
+        try {
+          scores.push(await measureOne(row, checkout, allFiles, provider));
+          // eslint-disable-next-line no-console -- per-instance cost, so a slow instance is visible before it kills the job.
+          console.log(
+            `LCA-INSTANCE ${config} id=${String(row.id)} analysed in ${String(Date.now() - startedMeasuring)}ms ` +
+              `rss=${String(residentMb())}MB`,
+          );
+        } catch (error) {
+          // **An analysis that throws is a skipped row, not a lost part.** The pipeline reads and parses every file in
+          // the checkout, and a file it cannot handle is a fact about that repository; the row records the first line
+          // of what it said, which is the line that names the defect.
+          const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
+          scores.push(skippedRow(row, allFiles.length, `the analysis failed: ${String(reason)}`));
+          // eslint-disable-next-line no-console -- a failure that is not printed is a failure that is retried blindly.
+          console.log(
+            `LCA-INSTANCE ${config} id=${String(row.id)} analysis failed: ${String(reason)}`,
+          );
+        }
+        writePart();
       }
 
-      const part: LanguagePart = {
-        config,
-        measuredAt: new Date().toISOString(),
-        rowLimit: ROW_LIMIT,
-        answerArm: provider !== null,
-        bounds: {
-          capFiles: FILE_CAP,
-          memoryFiles: memoryFilesAtStart,
-          mbPerFile: MEASURED_MB_PER_FILE,
-          reserveMb: RUNNER_RESERVE_MB,
-          budgetMs: BUDGET_MS,
-        },
-        space: {
-          semantic: false,
-          reason:
-            'the indexing pipeline was run without an embedding backend in this job, so the fused list is the lexical list',
-        },
-        configuration: configurationOf(provider),
-        rows: scores,
-      };
-
-      const recorded = recordArtifact(`benchmarks/lca-parts/${config}.json`, part);
-      if (!recorded.written) {
-        // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
-        console.log(`LCA-PART ${config} artifact ${recorded.because}`);
-      }
-
-      const summary = summarisePart(part, CUTS);
+      const summary = summarisePart(partOf(), CUTS);
       const at10 = summary.retrieval['at10']!;
       // The summary line **is** the interface: the workflow greps it into the job summary.
       // eslint-disable-next-line no-console
