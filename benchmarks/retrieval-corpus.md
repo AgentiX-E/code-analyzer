@@ -184,6 +184,26 @@ difference inside it is not a finding. It is written down here because iteration
 it were one, and the honest reading — visible only once the same code had been measured twice — is that the arm did not
 move at all.
 
+### Which lever could reach the thirty-eight
+
+The floor is candidate generation, so the next change has to put vocabulary into the index that a declaration does not
+already carry in its name, path, signature or documentation. Two candidates were sized before either was built, by
+asking **how many of the thirty-eight share at least one token with the text the field would add**. A shared token is
+necessary and not sufficient — matching is not ranking — so the numbers are upper bounds:
+
+| field that would be added          | of the 38 reachable | what the shared tokens look like                   |
+| ---------------------------------- | ------------------- | -------------------------------------------------- |
+| the names of a symbol's neighbours | **7**               | `qualified`, `code`, `lines`, `node`               |
+| the vocabulary of its own body     | **17**              | `decorators`, `state`, `argument`, `class`, `read` |
+
+**The graph is the weaker lever and the code itself is the stronger one**, which is not the answer the phrase
+_"code intelligence"_ suggests: a symbol's callees are mostly named after the same generic words its callers use, while a
+declaration's body is where an unusual word actually lives. **Eleven of the thirty-eight are constants whose vocabulary
+is their initialiser** — `C_LIKE_SANITIZERS` is an array of `escape`, `HtmlEncode`, `htmlspecialchars` and `urlencode` —
+and no question about _"what cleans dangerous input"_ can reach any of them from a name. The field would hold the
+**distinct** tokens of a body rather than all of them (five to sixty per declaration on this corpus), so its cost is an
+index build and not a corpus of prose.
+
 ## The third input, which nobody wrote
 
 **Pinning the corpus pins its text, not the names derived from it.** A question in `paraphrase-queries.json` does not
