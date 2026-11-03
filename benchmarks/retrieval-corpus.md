@@ -80,7 +80,8 @@ BM25 summed the two, for no reason a reader could see. Three changes, each measu
 configurations and writes `paraphrase-field-sweep.json`; the choice is `dev` recall at 20 (then `dev` MRR) and the figure
 reported is always `test`. Re-derived on that half, the rule selects `name: 1, path: 0.5, signature: 1, b_name: 0` —
 **`b = 0` on the name field, because a long identifier is not a worse identifier** — with `dev` 0.3191 against `test`
-**0.2885** on the other forty-seven and fifty-two questions.
+**0.2885** on the other forty-seven and fifty-two questions. **The fifth field is chosen by a stricter rule, described
+below**, because a rule that maximises one slice can buy it with another.
 
 **And the column is now a gate rather than a note.** It fell by 0.06 across four iterations without a red run, because
 the only assertion on it lived inside a block that is skipped when no API key is present — even though the lexical column
@@ -203,6 +204,56 @@ is their initialiser** — `C_LIKE_SANITIZERS` is an array of `escape`, `HtmlEnc
 and no question about _"what cleans dangerous input"_ can reach any of them from a name. The field would hold the
 **distinct** tokens of a body rather than all of them (five to sixty per declaration on this corpus), so its cost is an
 index build and not a corpus of prose.
+
+### The hidden files, and the two defects the field found
+
+**The field was built as described and it worked — and the first test written for it failed, which is the only reason
+this section exists.** A declaration's body is indexed as the **distinct** tokens it is written in: term frequency is
+presence, the length normalisation is zero, and the field carries a quarter of the name's weight. On the same pinned
+corpus and the same frozen questions:
+
+| column                     | four fields | **+ `vocabulary`** | **+ a word boundary** |
+| -------------------------- | ----------- | ------------------ | --------------------- |
+| recall at 5                | 0.1515      | 0.2323             | **0.3131**            |
+| recall at 20               | 0.3030      | 0.3838             | **0.4646**            |
+| mean reciprocal rank       | 0.0980      | 0.1651             | **0.2034**            |
+| clean half, at 20          | 0 of 47     | 7 of 47            | **8 of 47**           |
+| leaking half, at 20        | 0.5769      | 0.5962             | **0.7308**            |
+| reachable at any rank      | 0.6162      | 0.8586             | **0.8889**            |
+| median rank of a found one | —           | 38                 | **20**                |
+
+**The test that failed was the field's whole purpose, on one document.** `C_LIKE_SANITIZERS` is declared as an array of
+`'escape'`, `'HtmlEncode'` and `'htmlspecialchars'` — so a question about _cleaning dangerous input_ should reach it
+through the array's contents — and it returned **nothing**, at the weight the product ships. The tokenizer cut on
+whitespace and on `_`, `-`, `.`, `:`, `/`. **That list is complete for an identifier, where punctuation cannot occur by
+construction, and it is nothing like complete for text**: a declaration's body is source, where the words that matter are
+quoted, and a question is prose, where the last word ends in a question mark. `['escape',` and `input?` were single
+unmatchable tokens. **The two halves of the vocabulary could not meet, and the field was being measured without them.**
+
+**A word boundary is not whitespace**, so the rule is now *any character that is not a letter or a digit*
+(`[^\p{L}\p{N}]+` — a letter is a letter in any script, and a class of `a-z0-9` would delete a Chinese identifier rather
+than keep it as one word). Measured on the same code with the old rule put back, the boundary alone is worth
+**+8 answers at twenty, +7 of them in the leaking half, +1 clean, and a ceiling that reaches 0.8889** — and it moves the
+median found answer from rank 38 to **rank 20**, which is the difference between "the list can find it" and "a reader
+sees it".
+
+**The second defect was in the engine that holds the index, and the boundary exposed it.** `initialize()` called
+`buildIndex` without clearing, so a second call listed every posting twice and doubled every field length while
+`documentCount` — a map size — stayed correct. **A document frequency larger than the number of documents makes IDF
+negative, and a negative score is not a result**: on the four-document fixture that caught it, the second `initialize()`
+made the engine answer **nothing at all for any question**, silently. `rebuildIndex()` already had the right body, so
+`initialize()` now delegates to it; two tests hold the pair — the same question answered identically after one and after
+two calls, and a node inserted after the first call still visible after the second.
+
+**And the weighting was re-derived, which is where the last defect was.** The sweep's first rule maximised clean answers
+above the fifth field's *zero* row, which will trade a whole-set answer for a clean one at any rate: on the corrected
+tokenizer it selected `vocabulary 2, b 0.3` — **nine whole-set answers and thirty points of the leaking half gone, for
+one clean question** — and the only reason it was caught is that the trade fell below the lexical floor. **A rule can be
+wrong in a way that produces a number that looks like a decision.** The bar is now the configuration that ships: a
+challenger is eligible only if it answers at least as many questions on **every** column this file reports, and if
+nothing clears it the sweep returns what it started with. **On the twenty-one-cell grid over the fifth field, nothing
+does**: `chosen` equals `incumbent`, `eligible` is one row, and the shipped weighting is therefore not a local accident
+of one grid.
 
 ## The third input, which nobody wrote
 

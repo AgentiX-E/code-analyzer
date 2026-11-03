@@ -270,7 +270,32 @@ describe('askCodebase', () => {
   });
 
   it('counts what the graph added', async () => {
-    const { store, search } = buildFixture();
+    const { store, search, ids } = buildFixture();
+    // **The graph can only add what the retrieval could not find**, so the neighbour here is deliberately invisible to
+    // it: its name and signature say `verify`, its body is empty, and the question is about `parse_token`. The call
+    // site in `login` is *not* a candidate for this role any more - the vocabulary field reads its body, so the
+    // retrieval reaches it directly and the graph has nothing left to add.
+    const verify = store.insertNode({
+      projectId: 'qa',
+      label: 'Function',
+      name: 'verify_signature',
+      qualifiedName: 'app.auth.verify_signature',
+      filePath: 'app/verify.py',
+      startLine: 40,
+      endLine: 46,
+      language: 'python',
+      properties: {},
+      signature: 'def verify_signature(token):',
+      complexity: null,
+      isExported: true,
+    } as never);
+    store.insertEdge({
+      projectId: 'qa',
+      sourceId: verify,
+      targetId: ids['parse']!,
+      type: EDGE_CALLS,
+    });
+
     const result = await askCodebase({
       question: 'parse_token',
       store,
@@ -280,6 +305,7 @@ describe('askCodebase', () => {
     expect(result.stats.fromGraph).toBeGreaterThan(0);
     expect(result.stats.retrieved).toBeGreaterThan(0);
     expect(result.stats.contextChars).toBeGreaterThan(0);
+    expect(result.context.some((block) => block.filePath === 'app/verify.py')).toBe(true);
   });
 
   it('puts the answer prompt in front of the model, with the blocks numbered', async () => {

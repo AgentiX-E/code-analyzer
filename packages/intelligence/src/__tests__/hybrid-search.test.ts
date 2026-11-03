@@ -85,6 +85,32 @@ describe('tokenize', () => {
     expect(tokenize('ClassName')).toEqual(['class', 'name']);
   });
 
+  it('cuts a word at punctuation, because a body is source text and a question is prose', () => {
+    // **A word boundary is not only whitespace.** This function was written for identifiers, where punctuation cannot
+    // occur by construction: a name is letters, digits and separators. The moment a declaration's body and a
+    // developer's question reach the index, punctuation is everywhere and *between* words - so `['escape',` kept its
+    // brackets and quote, `input?` kept its question mark, and neither word could be matched by anything.
+    expect(tokenize("['escape', 'HtmlEncode', 'htmlspecialchars'];")).toEqual([
+      'escape',
+      'html',
+      'encode',
+      'htmlspecialchars',
+    ]);
+    expect(tokenize('what cleans dangerous input?')).toEqual([
+      'what',
+      'cleans',
+      'dangerous',
+      'input',
+    ]);
+    // **A contraction is cut as well**, because an apostrophe is a boundary like any other and telling it apart from
+    // the quote that opens a string literal is not a question this function can answer. Normalising `doesn't` to
+    // `does not` is stemming, which is a different layer.
+    expect(tokenize("doesn't")).toEqual(['doesn', 't']);
+    // **A non-Latin word survives**, because a letter is a letter: cutting on `[^a-z]` would delete a Chinese
+    // identifier rather than keep it as one word.
+    expect(tokenize('解析器 处理')).toEqual(['解析器', '处理']);
+  });
+
   it('should handle single words', () => {
     expect(tokenize('value')).toEqual(['value']);
   });
@@ -431,6 +457,47 @@ describe('HybridSearchEngine index management', () => {
     engine.rebuildIndex();
 
     expect(engine.documentCount).toBe(10);
+  });
+
+  it('answers exactly what it answered once when it is initialized twice', () => {
+    // **`initialize` means "make the store visible", and the store is the truth** - so a second call has to leave the
+    // index holding the store's nodes and nothing else. It appended instead: every posting listed twice, every field
+    // twice as long as itself, and every document frequency counted twice while the document count stayed at ten.
+    // **A frequency larger than the number of documents makes IDF negative, and a negative score is not a result**,
+    // so a second `initialize()` made the engine return nothing at all for every question - silently, because
+    // `documentCount` is a map size and could not see it.
+    const store = createStore();
+    const once = new HybridSearchEngine(store);
+    once.initialize();
+    const twice = new HybridSearchEngine(store);
+    twice.initialize();
+    twice.initialize();
+
+    expect(twice.documentCount).toBe(once.documentCount);
+    const ranked = (engine: HybridSearchEngine): [number, number][] =>
+      engine.bm25Search('function_7').map((hit) => [hit.node.id, hit.score]);
+    expect(ranked(twice)).toEqual(ranked(once));
+    expect(ranked(once).length).toBeGreaterThan(0);
+  });
+
+  it('sees a node inserted after it was initialized, once it is initialized again', () => {
+    // **The other half of the same statement**: rebuilding has to *include* what arrived while the index was built,
+    // which is why "skip when already initialized" would be the wrong repair for the defect above.
+    const store = createStore();
+    const engine = new HybridSearchEngine(store);
+    engine.initialize();
+    const late = createNode(42, {
+      name: 'late_arrival',
+      qualifiedName: 'pkg.late_arrival',
+      signature: 'function late_arrival(): void',
+    });
+    // **The store assigns the id**, so the assertion is on the id it returned rather than on the one the node asked for.
+    const lateId = store.insertNode(late);
+    expect(engine.bm25Search('late_arrival')).toEqual([]);
+
+    engine.initialize();
+    expect(engine.bm25Search('late_arrival').map((hit) => hit.node.id)).toEqual([lateId]);
+    expect(engine.documentCount).toBe(11);
   });
 
   it('should handle removeNode for non-existent node', () => {
@@ -1310,15 +1377,27 @@ describe('the fields a document is indexed under', () => {
       engine.bm25Search('beam').find((hit) => hit.node.name === name)?.score ?? 0;
 
     const byName = corpora([declared, lived], {
-      weight: { name: 2, path: 1, signature: 1, docstring: 1 },
-      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+      weight: { name: 2, path: 1, signature: 1, docstring: 1, vocabulary: 0 },
+      lengthNormalisation: {
+        name: 0.75,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0.75,
+      },
     });
     expect(scoreOf(byName, 'beamWidth')).toBeGreaterThan(scoreOf(byName, 'wind'));
 
     // **The same two documents and the opposite order**, which is the statement that the weight is read per field.
     const byPath = corpora([declared, lived], {
-      weight: { name: 0.25, path: 1, signature: 1, docstring: 1 },
-      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+      weight: { name: 0.25, path: 1, signature: 1, docstring: 1, vocabulary: 0 },
+      lengthNormalisation: {
+        name: 0.75,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0.75,
+      },
     });
     expect(scoreOf(byPath, 'wind')).toBeGreaterThan(scoreOf(byPath, 'beamWidth'));
   });
@@ -1328,11 +1407,39 @@ describe('the fields a document is indexed under', () => {
     const verbose = node(2, 'file:/w/b.ts:Widget.resize', {
       signature: `resize(${Array.from({ length: 40 }, (_, i) => `option${i}: string`).join(', ')}): void`,
     });
-    // **Identical name fields and different signature lengths**, so a single bag would score the shorter document higher
-    // for a reason that has nothing to do with the query.
-    const results = corpora([clipped, verbose]).bm25Search('resize');
-    expect(results).toHaveLength(2);
-    expect(results[0]!.score).toBeCloseTo(results[1]!.score, 12);
+    const scoreOf = (engine: HybridSearchEngine, id: number): number =>
+      engine.bm25Search('resize').find((hit) => hit.node.id === id)?.score ?? 0;
+    const nameOnly: FieldWeighting = {
+      weight: { name: 1, path: 0, signature: 0, docstring: 0, vocabulary: 0 },
+      lengthNormalisation: {
+        name: 0.75,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0.75,
+      },
+    };
+
+    // **Identical name fields, and the query is that field's only word**: the two documents must score the same, or
+    // the name is being diluted by something that is not the name.
+    const byName = corpora([clipped, verbose], nameOnly);
+    expect(scoreOf(byName, 1)).toBeCloseTo(scoreOf(byName, 2), 12);
+
+    // **The same two documents with the signature field on, and the query matches the signature too** - `resize():`
+    // is one word in one of them and forty in the other. The shorter field wins, and that gap is normalisation
+    // applied to the field that is *long* rather than to the field that matched: with a single bag of all four, the
+    // forty-option document would have been penalised on its name as well.
+    const both = corpora([clipped, verbose]);
+    expect(scoreOf(both, 1)).toBeGreaterThan(scoreOf(both, 2));
+
+    // **A long field the query does not match costs nothing.** The document carries a page of unrelated prose and
+    // the same one-word name; under one bag it would have been the longer document for a term it does match.
+    const talkative = node(3, 'file:/w/c.ts:Widget.resize', {
+      docstring: Array.from({ length: 300 }, () => 'unrelated').join(' '),
+    });
+    const quiet = node(4, 'file:/w/d.ts:Widget.resize');
+    const mixed = corpora([quiet, talkative]);
+    expect(scoreOf(mixed, 3)).toBeCloseTo(scoreOf(mixed, 4), 12);
   });
 
   it('files the sentence a documentation provider calls a name where a doc comment goes', () => {
@@ -1359,8 +1466,14 @@ describe('the fields a document is indexed under', () => {
     // **And an index that does not read doc comments does not read documentation at all**, which is the sharper
     // statement: a paraphrase measurement strips every doc comment, so a README has nothing left to match on.
     const withoutDocs = corpora([declared, documented], {
-      weight: { name: 1, path: 0.5, signature: 1, docstring: 0 },
-      lengthNormalisation: { name: 0, path: 0.75, signature: 0.75, docstring: 0.75 },
+      weight: { name: 1, path: 0.5, signature: 1, docstring: 0, vocabulary: 0 },
+      lengthNormalisation: {
+        name: 0,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0.75,
+      },
     }).bm25Search('owner controller');
     expect(withoutDocs.map((hit) => hit.node.name)).toEqual(['owner']);
   });
@@ -1390,8 +1503,14 @@ describe('the fields a document is indexed under', () => {
       store.insertNode(node(index + 1, `file:/w/f${index}.ts:Box.${name}`, { name }));
     });
     const engine = new HybridSearchEngine(store, {
-      weight: { name: 1, path: 0, signature: 0, docstring: 0 },
-      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+      weight: { name: 1, path: 0, signature: 0, docstring: 0, vocabulary: 0 },
+      lengthNormalisation: {
+        name: 0.75,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0.75,
+      },
     });
     engine.initialize();
 
@@ -1410,8 +1529,14 @@ describe('the fields a document is indexed under', () => {
   it('scores nothing from a field whose weight is zero, so a match there cannot surface at all', () => {
     const onlyInThePath = node(1, 'file:/w/telemetry.ts:Box.run');
     const results = corpora([onlyInThePath], {
-      weight: { name: 1, path: 0, signature: 1, docstring: 1 },
-      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+      weight: { name: 1, path: 0, signature: 1, docstring: 1, vocabulary: 0 },
+      lengthNormalisation: {
+        name: 0.75,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0.75,
+      },
     }).bm25Search('telemetry');
     expect(results).toEqual([]);
   });
@@ -1430,5 +1555,94 @@ describe('the fields a document is indexed under', () => {
     const engine = new HybridSearchEngine(store);
     engine.initialize();
     expect(engine.bm25Search('resize')[0]!.node.name).toBe('resize');
+  });
+
+  it('does not let a zero-weight field change a score, because a document frequency is evidence too', () => {
+    // **The defect this pins, and the way it was found.** A postings list is a union over fields, and `df` was read from
+    // its length - so a document that carried a term **only** in a field worth nothing still made that term look common,
+    // and lowering every other document's IDF. **`weight: 0` meant "this field is not evidence, and also a quieter word
+    // for everybody else"**. Measured on the pinned corpus when a fifth field was added at zero in order to be measured
+    // later: the four-field grid it was supposed to leave untouched moved from `dev` 0.3191 to 0.3617, **without the
+    // fifth field ever contributing a point of score.** That is how it was found.
+    const weighting: FieldWeighting = {
+      weight: { name: 1, path: 0, signature: 0, docstring: 0, vocabulary: 0 },
+      lengthNormalisation: {
+        name: 0,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0.75,
+      },
+    };
+    // **Both indexes hold both documents**, because the collection size is a legitimate part of an IDF and holding it
+    // fixed is what leaves the frequency as the only thing that can differ. The only change is whether the second
+    // document carries the term in a field that scores nothing.
+    const silent = corpora(
+      [node(1, 'file:/w/a.ts:Box.parse'), node(2, 'file:/w/b.ts:Box.walk')],
+      weighting,
+    );
+    const saysItInABody = corpora(
+      [
+        node(1, 'file:/w/a.ts:Box.parse'),
+        node(2, 'file:/w/b.ts:Box.walk', { properties: { body: 'parse parse parse' } }),
+      ],
+      weighting,
+    );
+
+    const scoreOf = (engine: HybridSearchEngine): number =>
+      engine.bm25Search('parse').find((hit) => hit.node.name === 'parse')!.score;
+    // **The same number to twelve decimals**: the second document carries the term in a field that scores nothing, so it
+    // is not a document the term is about - and the score of the one it *is* about cannot depend on it.
+    expect(scoreOf(saysItInABody)).toBeCloseTo(scoreOf(silent), 12);
+    // **And the query still finds only the declaration**, which is the other half of the same statement.
+    expect(saysItInABody.bm25Search('parse').map((hit) => hit.node.name)).toEqual(['parse']);
+  });
+
+  it('holds the distinct words of a body, once each, so a repeated word is not a stronger one', () => {
+    const weighting: FieldWeighting = {
+      weight: { name: 1, path: 0, signature: 0, docstring: 0, vocabulary: 1 },
+      lengthNormalisation: {
+        name: 0,
+        path: 0.75,
+        signature: 0.75,
+        docstring: 0.75,
+        vocabulary: 0,
+      },
+    };
+    const engine = corpora(
+      [
+        node(1, 'file:/w/a.ts:Box.one', { properties: { body: 'sanitize' } }),
+        node(2, 'file:/w/a.ts:Box.two', { properties: { body: 'sanitize sanitize sanitize' } }),
+      ],
+      weighting,
+    );
+    const scored = new Map(engine.bm25Search('sanitize').map((hit) => [hit.node.name, hit.score]));
+    expect(scored.size).toBe(2);
+    // **Equal, because a body that says it three times has not said three different things.** The field is a vocabulary
+    // and not a text: `distinctTokensOf` is what makes its term frequency presence.
+    expect(scored.get('one')).toBeCloseTo(scored.get('two')!, 12);
+  });
+
+  it('finds a word that is only in a body once the field is worth something', () => {
+    // **The field's whole purpose, on one document**: `C_LIKE_SANITIZERS` is an array of `escape`, `HtmlEncode` and
+    // `htmlspecialchars`, and its name says none of them. At weight zero the query finds nothing; at the weight the
+    // product ships it finds the declaration. **The body is the declaration's own source**, which is what `parse`
+    // stores — not a summary of it.
+    const declaration = (): GraphNode =>
+      node(1, 'project:demo:file:/w/base-c-like.ts:C_LIKE_SANITIZERS', {
+        properties: {
+          body: "const C_LIKE_SANITIZERS = ['escape', 'HtmlEncode', 'htmlspecialchars'];",
+        },
+      });
+    const off: FieldWeighting = {
+      weight: { name: 1, path: 0.5, signature: 1, docstring: 1, vocabulary: 0 },
+      lengthNormalisation: { name: 0, path: 0.75, signature: 0.75, docstring: 0.75, vocabulary: 0 },
+    };
+    expect(corpora([declaration()], off).bm25Search('html encode')).toEqual([]);
+    const on = corpora([declaration()], {
+      ...off,
+      weight: { ...off.weight, vocabulary: 0.25 },
+    });
+    expect(on.bm25Search('html encode')[0]!.node.name).toBe('C_LIKE_SANITIZERS');
   });
 });

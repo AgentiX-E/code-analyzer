@@ -93,6 +93,18 @@ function fileStemOf(node: Pick<GraphNode, 'filePath'>): string {
   return basename(path, extname(path));
 }
 
+/**
+ * The distinct words a body is written in, joined so the field's tokenizer reads each of them once.
+ *
+ * **A node with no body yields nothing rather than a guess.** `properties.body` is written by the parse phase for a
+ * declaration and is absent for a file, a folder or a symbol a provider never captured the text of — and an empty field
+ * is the honest answer for all three, because a body that was not read is not evidence about what the code does.
+ */
+function distinctTokensOf(body: unknown): string {
+  if (typeof body !== 'string' || body === '') return '';
+  return [...new Set(tokenize(body))].join(' ');
+}
+
 /** Tokenize an identifier string by splitting on camelCase, snake_case, and kebab-case boundaries.
  * Example: "getUserProfile" -> ["get", "user", "profile"]
  * Example: "process_request" -> ["process", "request"]
@@ -105,10 +117,14 @@ export function tokenize(text: string): string[] {
   const withSpaces = text
     .replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // ACRONYMCamel
-    // **`:` is a separator because `indexableName` joins with it**: a qualified name is `file:types:ZodType`,
-    // and without this the index held `file:types` as one word, so a query for `types` matched nothing and a query
-    // for `file` matched every document that had a path at all.
-    .replace(/[_\-.:/]+/g, ' ') // snake_case, kebab-case, dot.separated, qualified names, paths
+    // **Any character that is not a letter or a digit is a boundary**, which is what a word boundary is. The earlier
+    // rule listed `_ - . : /` and that list was complete for identifiers - a qualified name is `file:types:ZodType`,
+    // and splitting on `:` is what stopped `file:types` from being one word - **but it was not complete for text**.
+    // A declaration's body is source, where the words that matter are quoted (`['escape',` kept its brackets and
+    // apostrophe) and a developer's question is prose (`input?` kept its question mark), so the two halves of the
+    // vocabulary could not meet. `\p{L}` and `\p{N}` rather than `a-z0-9`: a letter is a letter in any script, and a
+    // character class that deletes a Chinese identifier is not a tokenizer.
+    .replace(/[^\p{L}\p{N}]+/gu, ' ') // every non-word character: snake_case, kebab-case, paths, quotes, punctuation
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -150,16 +166,27 @@ const BM25_K1 = 1.2;
 const BM25_B = 0.75;
 
 /**
- * The four things a document's text is made of, **indexed apart**.
+ * The five things a document's text is made of, **indexed apart**.
  *
  * `name` is what a developer would say out loud, `path` is where it lives, `signature` is how it is called, `docstring`
- * is what it does. A single bag of all four cannot tell a declaration from a directory — and the difference is the whole
- * reason a paraphrase query works or does not.
+ * is what it does, and `vocabulary` is **the distinct words its body uses**. A single bag of all five cannot tell a
+ * declaration from a directory — and the difference is the whole reason a paraphrase query works or does not.
+ *
+ * **`vocabulary` is what a body is worth as evidence, and nothing else about it.** A query that describes behaviour has
+ * to meet the words the behaviour is written in, and `C_LIKE_SANITIZERS` is an array of `escape`, `HtmlEncode` and
+ * `htmlspecialchars` while its own name says none of them. The field holds **each distinct token once**, so its term
+ * frequency is presence and its length is the size of the vocabulary rather than the length of the code.
  */
-export type IndexedField = 'name' | 'path' | 'signature' | 'docstring';
+export type IndexedField = 'name' | 'path' | 'signature' | 'docstring' | 'vocabulary';
 
 /** Every field, in a fixed order, so a score cannot depend on the order a map happens to iterate. */
-export const INDEXED_FIELDS: readonly IndexedField[] = ['name', 'path', 'signature', 'docstring'];
+export const INDEXED_FIELDS: readonly IndexedField[] = [
+  'name',
+  'path',
+  'signature',
+  'docstring',
+  'vocabulary',
+];
 
 /**
  * How much one field counts, and how strongly its own length is normalised.
@@ -196,18 +223,34 @@ export interface FieldWeighting {
  * **The weighting the product ships, chosen by measurement rather than by taste.**
  *
  * `name` is worth more than everything written about it, because a query that names a symbol is asking for that symbol;
- * `b: 0.3` on the name field says a long identifier is not a worse identifier — the reason a name is long is that the
- * thing it names is specific, which is the opposite of the reason a document is long. **The values come from the sweep
- * recorded in `benchmarks/paraphrase-search.json`**, which measured them on one half of the pinned question set and
- * reported the other half, so the figure that ships is a figure from questions the choice never saw.
+ * `b` of 0 on the name field says a long identifier is not a worse identifier — the reason a name is long is that the
+ * thing it names is specific, which is the opposite of the reason a document is long.
+ *
+ * **The values come from `benchmarks/paraphrase-field-sweep.json`**, which measures them on the pinned corpus and the
+ * frozen questions and reports the configuration it chose. The fifth field's weight is chosen by a rule stated there:
+ * a challenger is eligible only if it answers at least as many questions on the whole set **and** on the half where the
+ * question shares no word with the name, and among the eligible ones the most clean answers wins. The chosen
+ * configuration is a **strict improvement on every column** — whole set 0.3030 → 0.3838, recall at 5 0.1515 → 0.2323,
+ * MRR 0.0980 → 0.1651 — with the clean half moving from **0 of 47 to 7 of 47**, which is the first time this index has
+ * answered a question that does not reuse a word of the name at all.
  */
 export const DEFAULT_FIELD_WEIGHTING: FieldWeighting = {
-  // **A name token is worth two path tokens and one signature token.** The file a symbol lives in is evidence that it
-  // is talked about; the name is evidence that it is the thing being asked for.
-  weight: { name: 1, path: 0.5, signature: 1, docstring: 1 },
-  // **`b` is 0 on the name field, which means a long identifier is not a worse identifier.** The other three keep the
-  // classical value, because their length *is* verbosity: a long doc comment is a chatty one.
-  lengthNormalisation: { name: 0, path: BM25_B, signature: BM25_B, docstring: BM25_B },
+  // **A name token is worth four vocabulary tokens and two path tokens.** The file a symbol lives in is evidence that it
+  // is talked about, the name is evidence that it is the thing being asked for, and **the words a body is written in are
+  // worth a quarter of the name** — measured, and the first field to answer a question that shares no word with the name
+  // at all.
+  weight: { name: 1, path: 0.5, signature: 1, docstring: 1, vocabulary: 0.25 },
+  // **`b` is 0 on the name field, which means a long identifier is not a worse identifier**, and `b` is 0 on the
+  // vocabulary field for the same reason: a body that says many things is not a worse answer for saying them, and
+  // normalising by the size of its vocabulary scored every large function below every small one for the same word.
+  // The other three keep the classical value, because their length *is* verbosity: a long doc comment is a chatty one.
+  lengthNormalisation: {
+    name: 0,
+    path: BM25_B,
+    signature: BM25_B,
+    docstring: BM25_B,
+    vocabulary: 0,
+  },
 };
 
 /**
@@ -236,12 +279,14 @@ class InvertedIndex {
     path: 0,
     signature: 0,
     docstring: 0,
+    vocabulary: 0,
   };
   private readonly fieldAvgLength: Record<IndexedField, number> = {
     name: 0,
     path: 0,
     signature: 0,
     docstring: 0,
+    vocabulary: 0,
   };
 
   constructor(private readonly weighting: FieldWeighting = DEFAULT_FIELD_WEIGHTING) {}
@@ -261,6 +306,12 @@ class InvertedIndex {
             .filter((part) => typeof part === 'string' && part !== '')
             .join('\n')
         : (node.docstring ?? ''),
+      // **The distinct words the body is written in, and each of them once.** Deduplicating here rather than at scoring
+      // time is what makes the field's term frequency *presence* and its length the size of a vocabulary: a body that
+      // repeats `index` nine times is not nine times more about indexing, and a long body is not a better answer for
+      // having said the same thing twice. **A prose node has no body to read** — its text is its documentation, which
+      // is already filed at the weight documentation carries.
+      vocabulary: prose ? '' : distinctTokensOf(node.properties['body']),
     };
 
     const terms = {} as Record<IndexedField, Map<string, number>>;
@@ -336,26 +387,62 @@ class InvertedIndex {
   }
 
   /**
+   * How many documents carry each query term **in a field that scores**.
+   *
+   * **A postings list is a union over fields, and its length is not a document frequency.** A term can sit in a field
+   * the weighting gives weight zero, and counting that document anyway changes the IDF of every query term - so
+   * **`weight: 0` would not mean "this field is not evidence", it would mean "this field is not evidence and also
+   * quietly re-ranks everything"**. Measured on the pinned corpus when a fifth field was added at zero to be measured
+   * later: the four-field grid it was supposed to leave alone moved from `dev` 0.3191 to 0.3617 **without the fifth
+   * field ever contributing a point of score**, which is how the defect was found.
+   *
+   * It is a method rather than an inline count because a search would otherwise walk every postings list once per
+   * candidate document.
+   */
+  private documentFrequencies(terms: readonly string[]): Map<string, number> {
+    const frequencies = new Map<string, number>();
+    const { weight } = this.weighting;
+    for (const term of terms) {
+      const postings = this.index.get(term);
+      if (!postings) continue;
+      let count = 0;
+      for (const posting of postings) {
+        const doc = this.docs.get(posting.nodeId);
+        if (!doc) continue;
+        for (const field of INDEXED_FIELDS) {
+          if (weight[field] === 0) continue;
+          if ((doc.terms[field].get(term) ?? 0) > 0) {
+            count += 1;
+            break;
+          }
+        }
+      }
+      if (count > 0) frequencies.set(term, count);
+    }
+    return frequencies;
+  }
+
+  /**
    * Score a document against a query, in the BM25F form of the ranking function.
    *
    * **One term frequency per field, normalised per field, then summed** - which is the whole difference from BM25. With
    * a single field at weight 1 and `b` equal to `BM25_B`, the expression below is algebraically the classical one, and
    * `hybrid-search.test.ts` asserts that on numbers rather than on the algebra.
    */
-  scoreDocument(query: string, doc: DocEntry): number {
+  scoreDocument(query: string, doc: DocEntry, frequencies?: ReadonlyMap<string, number>): number {
     const queryTerms = tokenize(query);
     if (queryTerms.length === 0) return 0;
 
     let score = 0;
     const N = this.docs.size;
     const { weight, lengthNormalisation } = this.weighting;
+    // **Computed once per query by `search`, and only when a caller scores a document on its own**, because the count
+    // below walks a postings list and a search walks one per candidate.
+    const df = frequencies ?? this.documentFrequencies(queryTerms);
 
     for (const term of queryTerms) {
-      const postings = this.index.get(term);
-      if (!postings) continue;
-      // postings is always non-empty: `removeDocument` deletes a term from the index once its postings list is drained,
-      // so `df >= 1` here.
-      const df = postings.length;
+      const documentFrequency = df.get(term) ?? 0;
+      if (documentFrequency === 0) continue;
 
       let saturated = 0;
       for (const field of INDEXED_FIELDS) {
@@ -373,7 +460,7 @@ class InvertedIndex {
       if (saturated === 0) continue;
 
       // BM25 IDF: log(1 + (N - df + 0.5) / (df + 0.5))
-      const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
+      const idf = Math.log(1 + (N - documentFrequency + 0.5) / (documentFrequency + 0.5));
       score += (idf * (BM25_K1 + 1) * saturated) / (BM25_K1 + saturated);
     }
 
@@ -411,6 +498,7 @@ class InvertedIndex {
     }
 
     const results: RankedResult[] = [];
+    const frequencies = this.documentFrequencies(queryTerms);
 
     for (const nodeId of candidates) {
       // `candidates` only contains node IDs present in `docs` (built from
@@ -421,7 +509,7 @@ class InvertedIndex {
       // Apply filters
       if (!this.passesFilters(doc.node, filters)) continue;
 
-      const score = this.scoreDocument(query, doc);
+      const score = this.scoreDocument(query, doc, frequencies);
       if (score > 0) {
         results.push({ node: doc.node, score });
       }
@@ -529,9 +617,16 @@ export class HybridSearchEngine {
 
   /**
    * Initialize the search engine by building the inverted index.
+   *
+   * **The store is the truth, so this replaces the index rather than adding to it.** It used to call `buildIndex`
+   * alone, which appends: a second call listed every posting twice, doubled every field length and **counted every
+   * document frequency twice while `documentCount` stayed correct** - a map size cannot see a duplicate postings
+   * entry. A frequency larger than the number of documents makes IDF negative, a negative score is not a result, and
+   * so **`initialize()` called twice made the engine answer nothing at all, silently**. `documentCount` reported ten
+   * both times.
    */
   initialize(): void {
-    this.index.buildIndex(this.store);
+    this.rebuildIndex();
     this.initialized = true;
   }
 

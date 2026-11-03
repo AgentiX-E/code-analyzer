@@ -35,10 +35,11 @@ import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { DeepSeekProvider } from '../review/llm/provider.js';
-import { HybridSearchEngine } from '../search/hybrid-search.js';
+import { DEFAULT_FIELD_WEIGHTING, HybridSearchEngine } from '../search/hybrid-search.js';
 import { expandToVector } from '../search/query-expansion.js';
 import { rerankCandidates } from '../search/rerank.js';
 
+import type { FieldWeighting } from '../search/hybrid-search.js';
 import type { GraphNode, PipelineContext } from '@code-analyzer/shared';
 
 /**
@@ -354,19 +355,41 @@ function strippedStore(pipeline: { graph: { nodes: Map<number, GraphNode> } }): 
  * grew from 3 600 to 5 735 nodes and a single bag of name-plus-path-plus-signature scored a longer document lower for
  * no reason a reader could see. The figures below are what the field-weighted ranking answers on the pinned corpus and
  * the frozen questions, rounded down, so a change that costs a question has to be argued for.
+ *
+ * **Iteration 68 raised them by eight questions, and the cause was a word boundary.** `tokenize` cut on whitespace and
+ * on `_ - . : /`, which is a complete list for an identifier and nothing like a complete list for text: a declaration's
+ * body is source, where the words that matter are quoted, and a question is prose, where the last word ends in a
+ * question mark. `['escape',` and `input?` were single unmatchable tokens, so **the body's vocabulary could not meet the
+ * question that asked for it** - measured on the same code with the old rule put back, the column returns
+ * **0.3838 / 0.2323 / 0.1651** against **0.4646 / 0.3131 / 0.2034**.
  */
-const LEXICAL_FLOOR = { recallAt5: 0.14, recallAt20: 0.3, mrr: 0.09 } as const;
+const LEXICAL_FLOOR = { recallAt5: 0.3, recallAt20: 0.45, mrr: 0.19 } as const;
+
+/**
+ * **And the floor that says the questions were answered rather than the words matched.**
+ *
+ * `withAWordFromTheName` is reported for a reason: **fifty-two of the ninety-nine questions reuse a word of four letters
+ * or more from the name they ask for**, and on those a name match is nearly the whole answer. Measured with the
+ * weighted-field index before the body's vocabulary was added, **every single answer the lexical ranking found belonged
+ * to that half - 0 of the other forty-seven** - so a recall of 0.3030 described the overlap and not the retriever.
+ *
+ * The clean half is therefore a floor of its own, and the only column a claim about *finding a symbol from a question*
+ * can be made on. **Eight of forty-seven**, which is small and is stated as small: it is the honest size of what a
+ * lexical index can do when the question shares no vocabulary with the answer, and the number the semantic arms are
+ * compared against in that register.
+ */
+const LEAK_FREE_FLOOR = { recallAt20: 0.15 } as const;
 
 /**
  * **The depth the lexical list reaches, and the ceiling no pool can exceed.**
  *
- * Measured on the pinned corpus with the field weighting above: recall@20 **0.3030**, recall@100 **0.5051**, and
- * **0.6162** of the ninety-nine answers appear somewhere in the list at all. The last figure is the one no retrieval
- * arm can pass without a better query or a better index, and the gap between it and recall@20 - **thirty-one questions the
- * list holds and the head does not, 0.3131** - is what a reranker with a deeper pool is offered. **Rounded down,
- * like the floor above it**: a change that costs a question has to be argued for.
+ * Measured on the pinned corpus with the weighting above — the fifth field included: recall@20 **0.4646**, recall@100
+ * **0.5758**, and **0.8889** of the ninety-nine answers appear somewhere in the list at all. **The fifth field moved
+ * the ceiling from 0.6162 to 0.8586**, and the boundary fix finished the climb to 0.8889: the gap between the ceiling
+ * and recall@20, **0.4243, is what a reranker with a deeper pool is offered.** **Rounded down, like the floor above
+ * it**: a change that costs a question has to be argued for.
  */
-const DEPTH_FLOOR = { at20: 0.3, at100: 0.5, reachable: 0.6 } as const;
+const DEPTH_FLOOR = { at20: 0.45, at100: 0.57, reachable: 0.88 } as const;
 
 /**
  * **Which half of the questions chose the weighting, and which half reports it.**
@@ -416,6 +439,8 @@ interface VariantColumn extends Partial<Column> {
   poolRecallAt20?: number;
   /** How many candidates that pool held. **The arm's ceiling is a function of this number**, so it travels with it. */
   poolDepth?: number;
+  /** The same column on the two halves of the question set. **A recall figure without it is two measurements added.** */
+  slices?: ReturnType<typeof sliceOf>;
   /** Why this arm did not run. **An absent row reads like a passing one**, so an unmeasured variant says so. */
   reason?: string;
 }
@@ -504,6 +529,27 @@ function summarise(cases: QueryCase[]): Column {
         cases.length,
     ),
     found,
+  };
+}
+
+/**
+ * The same column, reported on the two halves the question set actually has.
+ *
+ * **A recall of 0.3838 is two measurements added together.** Fifty-two of the ninety-nine questions reuse a word of the
+ * name they ask for, and on those a name match is nearly the answer; the other forty-seven share nothing of four
+ * letters or more, and **before the body's vocabulary was indexed the lexical ranking found none of them at all**. A
+ * column that does not say which half it was earned on cannot be compared with a competitor's, because the
+ * competitor's question set has its own overlap and nobody reports it.
+ */
+function sliceOf(cases: QueryCase[]): {
+  leakFree: Column & { size: number };
+  withLeak: Column & { size: number };
+} {
+  const leakFree = cases.filter((candidate) => sharedTokens(candidate.query, candidate.name) === 0);
+  const withLeak = cases.filter((candidate) => sharedTokens(candidate.query, candidate.name) > 0);
+  return {
+    leakFree: { size: leakFree.length, ...summarise(leakFree) },
+    withLeak: { size: withLeak.length, ...summarise(withLeak) },
   };
 }
 
@@ -936,6 +982,25 @@ describe('the frozen questions and the frozen corpus', () => {
       `LEXICAL-COLUMN queries=${frozen.length} nodes=${engine.documentCount} ` +
         `@5=${column.recallAt5} @20=${column.recallAt20} mrr=${column.mrr} found=${column.found}`,
     );
+    // **The half where the question shares no word with the name**, measured first because it is the one a claim about
+    // retrieval can be made on: see `LEAK_FREE_FLOOR`.
+    const leakFree = cases.filter(
+      (candidate) => sharedTokens(candidate.query, candidate.name) === 0,
+    );
+    const leakFreeColumn = summarise(leakFree);
+    const withLeak = cases.filter((candidate) => sharedTokens(candidate.query, candidate.name) > 0);
+
+    // eslint-disable-next-line no-console -- the workflow greps this line into the job summary, and it needs no key.
+    console.log(
+      `LEXICAL-SLICES leakFree=${leakFreeColumn.recallAt20}(${leakFreeColumn.found}/${leakFree.length}) ` +
+        `withLeak=${summarise(withLeak).recallAt20}(${summarise(withLeak).found}/${withLeak.length}) ` +
+        `leakFree@5=${leakFreeColumn.recallAt5} leakFreeMrr=${leakFreeColumn.mrr}`,
+    );
+    expect(
+      leakFreeColumn.recallAt20,
+      'recall at 20 on the questions that share no name word',
+    ).toBeGreaterThanOrEqual(LEAK_FREE_FLOOR.recallAt20);
+
     expect(column.recallAt5, 'recall at 5').toBeGreaterThanOrEqual(LEXICAL_FLOOR.recallAt5);
     expect(column.recallAt20, 'recall at 20').toBeGreaterThanOrEqual(LEXICAL_FLOOR.recallAt20);
     expect(column.mrr, 'mean reciprocal rank').toBeGreaterThanOrEqual(LEXICAL_FLOOR.mrr);
@@ -994,6 +1059,23 @@ describe('the frozen questions and the frozen corpus', () => {
     ).toBe(true);
   }, 600_000);
 
+  /**
+   * One weighting, measured on every slice of the question set that a decision could be made on.
+   *
+   * **Not only `dev` and `test`**: the set carries a second, more consequential split - whether a question reuses a word
+   * of the name it asks for - and a weighting that leans on the name field can win one slice by being asked an easier
+   * question. Both are reported so that a choice can be argued with.
+   */
+  interface Slices {
+    dev: Column & { size: number };
+    test: Column & { size: number };
+    all: Column;
+    withLeak: Column & { size: number };
+    leakFree: Column & { size: number };
+    leakFreeDev: Column & { size: number };
+    leakFreeTest: Column & { size: number };
+  }
+
   it.skipIf(process.env['PARAPHRASE_SWEEP'] !== '1')(
     're-derives the field weighting on one half of the questions, and reports the other half',
     async () => {
@@ -1001,25 +1083,9 @@ describe('the frozen questions and the frozen corpus', () => {
       const frozen = readQuerySet(QUERY_SET)?.queries ?? [];
       const store = strippedStore(pipeline);
 
-      const grid: Array<{ name: number; path: number; signature: number; b: number }> = [];
-      for (const name of [1, 2, 3]) {
-        for (const path of [0, 0.5, 1]) {
-          for (const signature of [0, 0.5, 1]) {
-            for (const b of [0, 0.3, 0.75]) grid.push({ name, path, signature, b });
-          }
-        }
-      }
-
-      const rows = grid.map((config) => {
-        const engine = new HybridSearchEngine(store, {
-          weight: {
-            name: config.name,
-            path: config.path,
-            signature: config.signature,
-            docstring: 1,
-          },
-          lengthNormalisation: { name: config.b, path: 0.75, signature: 0.75, docstring: 0.75 },
-        });
+      /** One weighting, measured on the same three slices - so everything below is one arithmetic, not two. */
+      const measure = (weighting: FieldWeighting): Slices => {
+        const engine = new HybridSearchEngine(store, weighting);
         engine.initialize();
         const cases: QueryCase[] = frozen.map((candidate) => {
           const want = `${candidate.file}::${candidate.qualifiedName}`;
@@ -1030,23 +1096,158 @@ describe('the frozen questions and the frozen corpus', () => {
         });
         const dev = cases.filter((candidate) => foldOf(candidate) === 0);
         const test = cases.filter((candidate) => foldOf(candidate) === 1);
+        // **The split that matters more than dev and test here.** A question that reuses a word of the name it asks for
+        // can be answered by matching that word, and **fifty-two of the ninety-nine do** - so a weighting that leans on
+        // the name field wins on this set partly by being asked an easier question. `leakFree` is the other forty-seven,
+        // where the question shares no word of four letters or more with the name, and **a choice that gains on
+        // `withLeak` and loses on `leakFree` has bought itself a column rather than a better search.**
+        const leakFree = cases.filter(
+          (candidate) => sharedTokens(candidate.query, candidate.name) === 0,
+        );
+        const withLeak = cases.filter(
+          (candidate) => sharedTokens(candidate.query, candidate.name) > 0,
+        );
         return {
-          weighting: config,
           dev: { size: dev.length, ...summarise(dev) },
           test: { size: test.length, ...summarise(test) },
           all: summarise(cases),
+          withLeak: { size: withLeak.length, ...summarise(withLeak) },
+          leakFree: { size: leakFree.length, ...summarise(leakFree) },
+          // **The honest slice, split the same way**: the choice is made on `leakFreeDev` and reported on
+          // `leakFreeTest`, so a window into the clean half cannot be mistaken for a measurement of it.
+          leakFreeDev: {
+            size: leakFree.filter((candidate) => foldOf(candidate) === 0).length,
+            ...summarise(leakFree.filter((candidate) => foldOf(candidate) === 0)),
+          },
+          leakFreeTest: {
+            size: leakFree.filter((candidate) => foldOf(candidate) === 1).length,
+            ...summarise(leakFree.filter((candidate) => foldOf(candidate) === 1)),
+          },
         };
-      });
+      };
 
       // **The choice is made on `dev` and stated as a rule, not as a maximum of everything measured.** Recall at 20
       // first, because that is the column the competitor matrix compares; mean reciprocal rank second, because a
       // question answered at rank 3 rather than rank 19 is the same hit and a better search box.
-      const best = rows.reduce((a, b) =>
-        b.dev.recallAt20 > a.dev.recallAt20 ||
-        (b.dev.recallAt20 === a.dev.recallAt20 && b.dev.mrr > a.dev.mrr)
-          ? b
-          : a,
+      const chosenBy = <T>(rows: T[], slice: (row: T) => Column): T =>
+        rows.reduce((a, b) =>
+          slice(b).recallAt20 > slice(a).recallAt20 ||
+          (slice(b).recallAt20 === slice(a).recallAt20 && slice(b).mrr > slice(a).mrr)
+            ? b
+            : a,
+        );
+
+      // **Stage one is the four fields that describe a declaration, and it is the grid iteration 66 measured.** The
+      // fifth field is held at zero so that a field that did not exist cannot change the choice of the four that did.
+      const fourField: Array<{ name: number; path: number; signature: number; b: number }> = [];
+      for (const name of [1, 2, 3]) {
+        for (const path of [0, 0.5, 1]) {
+          for (const signature of [0, 0.5, 1]) {
+            for (const b of [0, 0.3, 0.75]) fourField.push({ name, path, signature, b });
+          }
+        }
+      }
+      const weightingOf = (config: {
+        name: number;
+        path: number;
+        signature: number;
+        b: number;
+        vocabulary?: number;
+        bVocabulary?: number;
+      }): FieldWeighting => ({
+        weight: {
+          name: config.name,
+          path: config.path,
+          signature: config.signature,
+          docstring: 1,
+          vocabulary: config.vocabulary ?? 0,
+        },
+        lengthNormalisation: {
+          name: config.b,
+          path: 0.75,
+          signature: 0.75,
+          docstring: 0.75,
+          vocabulary: config.bVocabulary ?? 0.75,
+        },
+      });
+
+      const rows = fourField.map((config) => ({
+        weighting: config,
+        ...measure(weightingOf(config)),
+      }));
+      const best = chosenBy(rows, (row) => row.dev);
+
+      // **The four-field part is not re-chosen here, and the artifact says why.** It was chosen in iteration 66 on `dev`
+      // and it is the baseline this grid extends; re-choosing it on the slice the fifth field is judged on would mean
+      // choosing two things at once on twenty-two questions. What the eighty-one rows above are for is the record: any
+      // reader can see what the grid says today, including that it prefers the name field alone - and that preference
+      // is bought on the fifty-two questions that reuse a word of the name, where every configuration is the same.
+      const published = { name: 1, path: 0.5, signature: 1, b: 0 } as const;
+
+      // **Stage two asks only what the fifth field is worth, at the weights stage one chose.** A staged choice rather
+      // than an eighty-one-by-fifteen cross, because the extra cells are interactions between a field that was not
+      // there and four that were - and the question is not whether a body's vocabulary interacts with the signature
+      // field. It is whether it is worth anything at all, and at what weight.
+      //
+      // **The grid is wider than the interval that will be reported**, which is the only way a maximum can be known to
+      // be inside it rather than at its edge.
+      const vocabularyRows = [0, 0.25, 0.5, 1, 1.5, 2, 3]
+        .flatMap((vocabulary) =>
+          [0, 0.3, 0.75].map((bVocabulary) => ({
+            ...published,
+            vocabulary,
+            bVocabulary,
+          })),
+        )
+        .map((config) => ({ weighting: config, ...measure(weightingOf(config)) }));
+      // **The fifth field is chosen on the questions the file exists for, and only among configurations that lose
+      // nothing anywhere else.** A field that holds the words a *body* is written in can only help a question that
+      // shares no word with the name: when the question does share one, matching that word is enough and the body's
+      // vocabulary is noise. So the honest slice is the objective - **and the whole-set column is the constraint**,
+      // because a configuration that answers more clean questions by breaking the leaking ones has not improved the
+      // product, it has moved the cost to a question a developer will also ask.
+      //
+      // **The constraint is the configuration that ships, and the first version of this rule got that wrong in a way
+      // that produced a number rather than a decision.** It used the *fifth field's zero row* as the bar and maximised
+      // clean answers above it, which is a rule that will trade a whole-set answer for a clean one at any rate: on the
+      // corrected tokenizer it selected `vocabulary 2, b 0.3` - **nine whole-set answers and thirty points of the
+      // leaking half gone, for one clean question** - and the only reason it was caught is that the trade fell below
+      // the lexical floor. **A challenger now has to answer at least as many questions as what ships on every column
+      // this file reports**, and nothing here is noisy enough to excuse a single question: the lexical columns are
+      // deterministic, so two runs of the same code return the same numbers to the last digit.
+      //
+      // **And if nothing clears the bar, the sweep returns what it started with.** That is a result and not a failure:
+      // it says an independent eighty-one-plus-twenty-one cell grid over `dev` could not beat the choice the product
+      // makes, which is a stronger statement about the weighting than any single row of the grid.
+      const incumbentRow = vocabularyRows.find(
+        (row) =>
+          row.weighting.vocabulary === DEFAULT_FIELD_WEIGHTING.weight.vocabulary &&
+          row.weighting.bVocabulary === DEFAULT_FIELD_WEIGHTING.lengthNormalisation.vocabulary,
       );
+      if (!incumbentRow) {
+        throw new Error(
+          'the shipped weighting is not a row of the grid: a rule that defends the incumbent cannot check one it did not measure',
+        );
+      }
+      const eligible = vocabularyRows.filter(
+        (row) =>
+          row.all.recallAt20 >= incumbentRow.all.recallAt20 &&
+          row.all.recallAt5 >= incumbentRow.all.recallAt5 &&
+          row.all.mrr >= incumbentRow.all.mrr &&
+          row.leakFree.recallAt20 >= incumbentRow.leakFree.recallAt20 &&
+          row.leakFree.mrr >= incumbentRow.leakFree.mrr &&
+          row.withLeak.recallAt20 >= incumbentRow.withLeak.recallAt20,
+      );
+      const bestVocabulary = eligible.reduce((a, b) => {
+        const keys: Array<[number, number]> = [
+          [b.leakFreeDev.recallAt20, a.leakFreeDev.recallAt20],
+          [b.leakFreeDev.mrr, a.leakFreeDev.mrr],
+          [b.all.recallAt20, a.all.recallAt20],
+          [b.all.mrr, a.all.mrr],
+        ];
+        const decision = keys.find(([x, y]) => x !== y);
+        return decision === undefined ? a : decision[0] > decision[1] ? b : a;
+      }, incumbentRow);
 
       writeFileSync(
         'benchmarks/paraphrase-field-sweep.json',
@@ -1059,13 +1260,32 @@ describe('the frozen questions and the frozen corpus', () => {
               '',
               '`dev` and `test` are a stable hash split of the ninety-nine questions, so the same questions are in the',
               'same half on every machine. The rule is recall at 20 on `dev`, then mean reciprocal rank.',
+              '',
+              '**The choice is staged.** `rows` is the eighty-one-configuration grid over the four fields that describe',
+              'a declaration, with `vocabulary` held at zero; `vocabularyRows` is the grid over the fifth field alone,',
+              'at the weights `rows` chose. `chosen` is what both stages together select - a configuration the second',
+              'stage measured, not a combination of two maxima.',
+              '',
+              '**The second stage defends the configuration that ships.** A challenger is eligible only if it answers at',
+              'least as many questions on every column this measurement reports - whole set at 5, at 20 and in mean',
+              'reciprocal rank, the clean half at 20 and in mean reciprocal rank, and the leaking half at 20 - and the',
+              'clean half is the objective among the eligible. `chosen` equal to `incumbent` therefore means the grid',
+              'found nothing better, which is a result: it is the strongest available statement that the shipped',
+              'weighting is not a local accident.',
             ],
             measuredAt: new Date().toISOString().slice(0, 10),
             corpus: { path: CORPUS, nodes: pipeline.graph.nodes.size },
             queries: frozen.length,
-            rule: 'maximise dev.recallAt20, then dev.mrr',
-            chosen: best.weighting,
+            rule: 'eligible only if no column is worse than the shipped weighting; then maximise dev.recallAt20 on the clean half, then its mean reciprocal rank; stage one over four fields, stage two over the fifth',
+            incumbent: {
+              weighting: incumbentRow.weighting,
+              all: incumbentRow.all,
+              leakFree: incumbentRow.leakFree,
+            },
+            chosen: weightingOf(bestVocabulary.weighting),
+            chosenIsIncumbent: bestVocabulary === incumbentRow,
             rows,
+            vocabularyRows,
           },
           null,
           2,
@@ -1074,10 +1294,15 @@ describe('the frozen questions and the frozen corpus', () => {
       );
       // eslint-disable-next-line no-console -- the artifact's content, printed where a reader runs the sweep.
       console.log(
-        `FIELD-SWEEP chosen=${JSON.stringify(best.weighting)} ` +
-          `dev@20=${best.dev.recallAt20} test@20=${best.test.recallAt20} all@20=${best.all.recallAt20}`,
+        `FIELD-SWEEP four=${JSON.stringify(best.weighting)} four@20=dev:${best.dev.recallAt20}/test:${best.test.recallAt20} ` +
+          `fifth=${JSON.stringify(bestVocabulary.weighting)} ` +
+          `chosen@20=dev:${bestVocabulary.dev.recallAt20}/test:${bestVocabulary.test.recallAt20}/all:${bestVocabulary.all.recallAt20} ` +
+          `leakFree:${bestVocabulary.leakFree.recallAt20}(${bestVocabulary.leakFree.found}) ` +
+          `leakFreeTest:${bestVocabulary.leakFreeTest.recallAt20} withLeak:${bestVocabulary.withLeak.recallAt20} ` +
+          `incumbent@20:all=${incumbentRow.all.recallAt20}/leakFree=${incumbentRow.leakFree.recallAt20}(${incumbentRow.leakFree.found}) ` +
+          `kept=${bestVocabulary === incumbentRow} eligible=${eligible.length}`,
       );
-      expect(best.all.recallAt20).toBeGreaterThanOrEqual(LEXICAL_FLOOR.recallAt20);
+      expect(bestVocabulary.all.recallAt20).toBeGreaterThanOrEqual(LEXICAL_FLOOR.recallAt20);
     },
     1_800_000,
   );
@@ -1262,25 +1487,25 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         engine: HybridSearchEngine,
         lists: Array<Array<{ node: GraphNode; score: number }>>,
         vectorWeight: number,
-      ): Column =>
-        summarise(
-          paraphrases.map((candidate, index) => {
-            const fused = engine.fuseResults(
-              lexicalLists[index]!.slice(0, TOP_K).map((hit) => ({
-                node: hit.node,
-                score: hit.score,
-              })),
-              (lists[index] ?? []).map((hit) => ({ node: hit.node, score: hit.score })),
-              60,
-              TOP_K,
-              vectorWeight,
-            );
-            const rank = fused.findIndex(
-              (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
-            );
-            return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
-          }),
-        );
+      ): Column & { slices: ReturnType<typeof sliceOf> } => {
+        const cases = paraphrases.map((candidate, index) => {
+          const fused = engine.fuseResults(
+            lexicalLists[index]!.slice(0, TOP_K).map((hit) => ({
+              node: hit.node,
+              score: hit.score,
+            })),
+            (lists[index] ?? []).map((hit) => ({ node: hit.node, score: hit.score })),
+            60,
+            TOP_K,
+            vectorWeight,
+          );
+          const rank = fused.findIndex(
+            (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
+          );
+          return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+        });
+        return { ...summarise(cases), slices: sliceOf(cases) };
+      };
 
       // **The ceiling of the pool at every depth a reranker could be given**, filled below when there is a semantic list
       // to fuse: without one the pool is the lexical list and its ceiling is already the depth curve.
@@ -1473,6 +1698,7 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
               poolDepth: depth,
               poolRecallAt20: Math.round((poolHits / paraphrases.length) * 10000) / 10000,
               ...summarise(cases),
+              slices: sliceOf(cases),
             };
           };
 
@@ -1560,6 +1786,8 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         lexical: lexicalColumn,
         // **Where the answer sits, not only whether it is inside twenty**: see the note on `lexicalDepth` above.
         lexicalDepth: depthCurve(lexical),
+        // **And on which half of the question set it was earned**: see the note on `sliceOf`.
+        lexicalSlices: sliceOf(lexical),
         // **The ceiling of each pool the arms below were given**, and the reason a deeper one could help at all.
         poolDepth,
         answerBudget: ANSWER_BUDGET,
@@ -1590,7 +1818,11 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
           `lexical@5=${lexicalColumn.recallAt5} @20=${lexicalColumn.recallAt20} mrr=${lexicalColumn.mrr} ` +
           `sweep=${sweep.map((s) => `${s.vectorWeight}:@20=${s.recallAt20}/mrr=${s.mrr}`).join(' ')} ` +
           `variants=${variants
-            .map((v) => `${v.name}:@20=${v.recallAt20 ?? '-'}/mrr=${v.mrr ?? '-'}`)
+            .map(
+              (v) =>
+                `${v.name}:@20=${v.recallAt20 ?? '-'}/mrr=${v.mrr ?? '-'}` +
+                (v.slices ? `/clean=${v.slices.leakFree.recallAt20}` : ''),
+            )
             .join(' ')} ` +
           `pool=${poolDepth.map((row) => `${row.depth}:${row.ceiling}`).join('/')} ` +
           `ceiling=${depthCurve(lexical).reachable}`,
