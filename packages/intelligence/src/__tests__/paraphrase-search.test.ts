@@ -110,6 +110,9 @@ const CAN_WRITE_QUERIES = Boolean(process.env['DEEPSEEK_API_KEY']);
 const NEEDS_QUERY_AUTHOR = REGENERATE || !existsSync(resolve(process.cwd(), QUERY_SET));
 
 interface QueryCase {
+  /** The frozen question's key, carried through so a case can be split into halves after it is scored. */
+  file: string;
+  qualifiedName: string;
   name: string;
   query: string;
   rank: number | null;
@@ -296,6 +299,51 @@ function analyseCorpus(): Promise<{
 }> {
   analysed ??= analyseCorpusOnce();
   return analysed;
+}
+
+/**
+ * The index the measurement ranks against: **the graph with every doc comment removed**, for every symbol rather than
+ * for the queried one. A leave-one-out index would need a rebuild per query, and a global strip is the same statement
+ * about every query at once.
+ */
+function strippedStore(pipeline: { graph: { nodes: Map<number, GraphNode> } }): InMemoryGraphStore {
+  const store = new InMemoryGraphStore();
+  for (const node of pipeline.graph.nodes.values()) {
+    const {
+      embedding: _embedding,
+      embeddingBackend: _backend,
+      ...rest
+    } = (node.properties ?? {}) as Record<string, unknown>;
+    store.insertNode({ ...node, docstring: null, properties: rest });
+  }
+  return store;
+}
+
+/**
+ * **The floors the lexical column may not fall below, and they are a ratchet rather than a target.**
+ *
+ * The column had no gate at all: it was measured, written into the artifact, and compared with nothing - which is how it
+ * fell from **0.3030 to 0.2424** across four iterations **without a red run**. The cause was not the retriever: the graph
+ * grew from 3 600 to 5 735 nodes and a single bag of name-plus-path-plus-signature scored a longer document lower for
+ * no reason a reader could see. The figures below are what the field-weighted ranking answers on the pinned corpus and
+ * the frozen questions, rounded down, so a change that costs a question has to be argued for.
+ */
+const LEXICAL_FLOOR = { recallAt5: 0.14, recallAt20: 0.3, mrr: 0.09 } as const;
+
+/**
+ * **Which half of the questions chose the weighting, and which half reports it.**
+ *
+ * A weight tuned on the questions it is then measured on is a figure about the tuning. The split is a stable hash of the
+ * key a question is asked under, so it is the same 99 questions in the same two halves on every machine and every run -
+ * and `PARAPHRASE_SWEEP=1` re-derives the choice from the `dev` half alone and reports the `test` half beside it.
+ */
+function foldOf(candidate: { file: string; qualifiedName: string }): number {
+  let hash = 0;
+  const key = `${candidate.file}::${candidate.qualifiedName}`;
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) % 100_003;
+  }
+  return hash % 2;
 }
 
 async function analyseCorpusOnce(): Promise<{
@@ -489,13 +537,18 @@ describe('the paraphrase that is not a lookup', () => {
 // defect they cover ran for a week: `recallAt20` counted a rank of 4 000 as a hit at twenty, and on an unbounded lexical
 // list that is a 20-point gift to the column that was supposed to be the baseline.
 describe('the recall arithmetic', () => {
+  /** Cases built from the only field a column reads, so a test says what it is measuring and nothing else. */
+  const scored = (...ranks: Array<number | null>): QueryCase[] =>
+    ranks.map((rank, index) => ({
+      file: 'f.ts',
+      qualifiedName: `f.ts:n${index}`,
+      name: `n${index}`,
+      query: 'q',
+      rank,
+    }));
+
   it('does not count an answer below the cut as recall at the cut', () => {
-    const column = summarise([
-      { name: 'a', query: 'q', rank: 1 },
-      { name: 'b', query: 'q', rank: TOP_K },
-      { name: 'c', query: 'q', rank: TOP_K + 1 },
-      { name: 'd', query: 'q', rank: 4_000 },
-    ]);
+    const column = summarise(scored(1, TOP_K, TOP_K + 1, 4_000));
     expect(column.recallAt5).toBe(0.25);
     // **Two of four, not four of four**: the answer at 21 and the answer at 4 000 are not in the top twenty.
     expect(column.recallAt20).toBe(0.5);
@@ -503,10 +556,7 @@ describe('the recall arithmetic', () => {
   });
 
   it('gives a rank beyond the cut no weight in MRR, so lists of different depths are comparable', () => {
-    const column = summarise([
-      { name: 'a', query: 'q', rank: 2 },
-      { name: 'b', query: 'q', rank: TOP_K + 1 },
-    ]);
+    const column = summarise(scored(2, TOP_K + 1));
     expect(column.mrr).toBe(0.25);
   });
 
@@ -732,6 +782,123 @@ describe('the frozen questions and the frozen corpus', () => {
     // **Ten minutes and not two**, because this is one pass over fifty-two files on a runner that is executing the rest
     // of the suite beside it: the figure has to survive a loaded machine or it is a figure about the machine.
   }, 600_000);
+
+  it('answers the frozen questions with the ranking the product ships', async () => {
+    const { corpusRoot, pipeline } = await analyseCorpus();
+    const frozen = readQuerySet(QUERY_SET)?.queries ?? [];
+    expect(
+      frozen.length,
+      `${QUERY_SET} is the input this measurement is defined on`,
+    ).toBeGreaterThan(0);
+
+    const engine = new HybridSearchEngine(strippedStore(pipeline));
+    engine.initialize();
+    const cases: QueryCase[] = frozen.map((candidate) => {
+      const want = `${candidate.file}::${candidate.qualifiedName}`;
+      const rank = engine
+        .bm25Search(candidate.query)
+        .findIndex((hit) => answerKey(hit.node, corpusRoot) === want);
+      return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+    });
+    const column = summarise(cases);
+
+    // eslint-disable-next-line no-console -- the workflow greps this line into the job summary, and it needs no key.
+    console.log(
+      `LEXICAL-COLUMN queries=${frozen.length} nodes=${engine.documentCount} ` +
+        `@5=${column.recallAt5} @20=${column.recallAt20} mrr=${column.mrr} found=${column.found}`,
+    );
+    expect(column.recallAt5, 'recall at 5').toBeGreaterThanOrEqual(LEXICAL_FLOOR.recallAt5);
+    expect(column.recallAt20, 'recall at 20').toBeGreaterThanOrEqual(LEXICAL_FLOOR.recallAt20);
+    expect(column.mrr, 'mean reciprocal rank').toBeGreaterThanOrEqual(LEXICAL_FLOOR.mrr);
+  }, 600_000);
+
+  it.skipIf(process.env['PARAPHRASE_SWEEP'] !== '1')(
+    're-derives the field weighting on one half of the questions, and reports the other half',
+    async () => {
+      const { corpusRoot, pipeline } = await analyseCorpus();
+      const frozen = readQuerySet(QUERY_SET)?.queries ?? [];
+      const store = strippedStore(pipeline);
+
+      const grid: Array<{ name: number; path: number; signature: number; b: number }> = [];
+      for (const name of [1, 2, 3]) {
+        for (const path of [0, 0.5, 1]) {
+          for (const signature of [0, 0.5, 1]) {
+            for (const b of [0, 0.3, 0.75]) grid.push({ name, path, signature, b });
+          }
+        }
+      }
+
+      const rows = grid.map((config) => {
+        const engine = new HybridSearchEngine(store, {
+          weight: {
+            name: config.name,
+            path: config.path,
+            signature: config.signature,
+            docstring: 1,
+          },
+          lengthNormalisation: { name: config.b, path: 0.75, signature: 0.75, docstring: 0.75 },
+        });
+        engine.initialize();
+        const cases: QueryCase[] = frozen.map((candidate) => {
+          const want = `${candidate.file}::${candidate.qualifiedName}`;
+          const rank = engine
+            .bm25Search(candidate.query)
+            .findIndex((hit) => answerKey(hit.node, corpusRoot) === want);
+          return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+        });
+        const dev = cases.filter((candidate) => foldOf(candidate) === 0);
+        const test = cases.filter((candidate) => foldOf(candidate) === 1);
+        return {
+          weighting: config,
+          dev: { size: dev.length, ...summarise(dev) },
+          test: { size: test.length, ...summarise(test) },
+          all: summarise(cases),
+        };
+      });
+
+      // **The choice is made on `dev` and stated as a rule, not as a maximum of everything measured.** Recall at 20
+      // first, because that is the column the competitor matrix compares; mean reciprocal rank second, because a
+      // question answered at rank 3 rather than rank 19 is the same hit and a better search box.
+      const best = rows.reduce((a, b) =>
+        b.dev.recallAt20 > a.dev.recallAt20 ||
+        (b.dev.recallAt20 === a.dev.recallAt20 && b.dev.mrr > a.dev.mrr)
+          ? b
+          : a,
+      );
+
+      writeFileSync(
+        'benchmarks/paraphrase-field-sweep.json',
+        `${JSON.stringify(
+          {
+            comment: [
+              'Every field weighting measured on the pinned corpus and the frozen questions, with the choice re-derived',
+              'from one half and reported on the other. **An input to a decision, not a headline**: the headline is the',
+              'lexical column in `paraphrase-search.json`, measured with the weighting this file selects.',
+              '',
+              '`dev` and `test` are a stable hash split of the ninety-nine questions, so the same questions are in the',
+              'same half on every machine. The rule is recall at 20 on `dev`, then mean reciprocal rank.',
+            ],
+            measuredAt: new Date().toISOString().slice(0, 10),
+            corpus: { path: CORPUS, nodes: pipeline.graph.nodes.size },
+            queries: frozen.length,
+            rule: 'maximise dev.recallAt20, then dev.mrr',
+            chosen: best.weighting,
+            rows,
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+      // eslint-disable-next-line no-console -- the artifact's content, printed where a reader runs the sweep.
+      console.log(
+        `FIELD-SWEEP chosen=${JSON.stringify(best.weighting)} ` +
+          `dev@20=${best.dev.recallAt20} test@20=${best.test.recallAt20} all@20=${best.all.recallAt20}`,
+      );
+      expect(best.all.recallAt20).toBeGreaterThanOrEqual(LEXICAL_FLOOR.recallAt20);
+    },
+    1_800_000,
+  );
 });
 
 describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(

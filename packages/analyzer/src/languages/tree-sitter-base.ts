@@ -8,8 +8,9 @@ import { extractConstantFacts } from './constant-fold.js';
 import { extractContainerCalls } from './container-calls.js';
 import { extractDiscardedValueRegions, regionsOfType } from './regions.js';
 import { extractReturnLines } from './return-sites.js';
+import { signatureOf } from './signatures.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
-import { exportedNamesByCursor } from './syntax-cursor.js';
+import { cursorNode, exportedNamesByCursor, walkPreOrder } from './syntax-cursor.js';
 
 import type { ConstantDialect, ConstantFacts } from './constant-fold.js';
 import type { ContainerCall, ContainerDialect } from './container-calls.js';
@@ -164,6 +165,73 @@ function noConstantFacts(): ConstantFacts {
  * **A set, because the test is asked once per node by every walk that emits call sites**, and it is exported so a walk
  * that reads types from a cursor can ask the same question without materialising the node it is asking about.
  */
+/**
+ * The tags whose capture is a declaration with a header: a function, a method, a constructor, or a named type.
+ *
+ * **A variable and a constant are excluded**, because `const x = 5` has no header to speak of - the text before the body
+ * is the initialiser, and a signature that carried it would be a second copy of the value.
+ */
+export const SIGNATURE_CAPTURE_TAGS: ReadonlySet<string> = new Set([
+  CAPTURE_TAGS.FUNCTION_DEF,
+  CAPTURE_TAGS.METHOD_DEF,
+  CAPTURE_TAGS.CONSTRUCTOR_DEF,
+  CAPTURE_TAGS.CLASS_DEF,
+  CAPTURE_TAGS.INTERFACE_DEF,
+  CAPTURE_TAGS.ENUM_DEF,
+  CAPTURE_TAGS.STRUCT_DEF,
+  CAPTURE_TAGS.TRAIT_DEF,
+  CAPTURE_TAGS.TYPE_DEF,
+]);
+
+/**
+ * The node types across the grammars this package speaks that can carry a header.
+ *
+ * **A type filter rather than a field probe, because the probe would run on every node of every tree**: the walk visits
+ * millions of nodes on a large repository and materialising each one to ask whether it has a `body` field would cost
+ * more than the field is worth. A type in this set is still only a candidate - `signatureOf` decides - so the list being
+ * generous costs nothing but the materialisation of a declaration node, which a capture needs anyway.
+ */
+export const SIGNATURE_NODE_TYPES: ReadonlySet<string> = new Set([
+  // Functions and methods.
+  'function_declaration',
+  'function_definition',
+  'function_item',
+  'function_signature',
+  'method_definition',
+  'method_declaration',
+  'method',
+  'singleton_method',
+  'constructor_declaration',
+  'constructor_definition',
+  'abstract_method_declaration',
+  'abstract_method_signature',
+  'method_signature',
+  // Named types.
+  'class_declaration',
+  'abstract_class_declaration',
+  'class_definition',
+  'class',
+  'interface_declaration',
+  'interface_definition',
+  'struct_declaration',
+  'struct_item',
+  'struct_specifier',
+  'trait_declaration',
+  'trait_item',
+  'enum_declaration',
+  'enum_item',
+  'enum_specifier',
+  'protocol_declaration',
+  'extension_declaration',
+  'object_declaration',
+  'companion_object',
+  'annotation_type_declaration',
+  // Aliases, which have a header and no body at all.
+  'type_alias_declaration',
+  'type_declaration',
+  'type_definition',
+]);
+
 export const CALL_NODE_TYPES: ReadonlySet<string> = new Set([
   'call_expression',
   'method_invocation',
@@ -351,6 +419,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     const tree = this.parser.parse(sanitized);
     const rootNode = tree.rootNode;
+    this.signatureRoot = rootNode;
 
     if (rootNode.hasError) {
       // If the AST has parse errors, fall back to regex
@@ -433,6 +502,15 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** **The tree for `parsedFor`**, so repeated questions about one file parse it once. */
   protected parsedTree: TreeSitterTree | null = null;
+
+  /**
+   * The tree **this** parse built, for the one pass that runs after the walk.
+   *
+   * **`parsedTree` cannot serve**: it is a cache keyed on the source it was handed, and it is deliberately left alone
+   * when the source needed sanitising - so a pass reading it would attach one file's headers to another file's
+   * declarations the first time a file with a BOM was parsed.
+   */
+  private signatureRoot: TreeSitterSyntaxNode | null = null;
   /** The source the cached tree describes, compared by reference and length. */
   protected parsedFor: string | null = null;
 
@@ -649,7 +727,65 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   private finishCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
     const ordered = captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
     this.attachDocCommentsInOrder(ordered);
+    this.attachSignatures(ordered);
     return this.decorateCaptures(ordered);
+  }
+
+  /**
+   * Give each declaration the header it was written with.
+   *
+   * **`GraphNode.signature` is a column in both stores, a term of the full-text index, an input to the embedding text and
+   * a field of the lexical ranking - and no provider ever filled it.** Every one of those readers therefore answered
+   * `null` for every node of every language, and nothing said so: an absent fact and an empty one are the same value.
+   * Measured on the pinned retrieval corpus, **5 735 nodes and 0 signatures**.
+   *
+   * **A stage in `parse`, and not a call inside a walk**, for the reason the doc-comment pass learned one iteration
+   * earlier: twenty providers build their captures inline and replace `walkAndCapture`, so a hook in the walk reaches
+   * the two providers that use the base one and no others. Java is one of the twenty, which is why the first version of
+   * this - written into `emitCapture` - produced signatures for TypeScript alone.
+   *
+   * **The innermost declaration containing a capture's name is that capture's declaration**, which needs no
+   * node-type-to-tag table: a class and a method both contain the method's name, and the method is the smaller one.
+   */
+  private attachSignatures(captures: UnifiedCapture[]): void {
+    const root = this.signatureRoot;
+    if (root === null) return;
+
+    /** Every declaration-shaped node, in source order - pre-order is ascending `startIndex`, so no sort is needed. */
+    const declarations: Array<{ start: number; end: number; signature: string }> = [];
+    walkPreOrder(root, (type, _depth, cursor) => {
+      if (!SIGNATURE_NODE_TYPES.has(type)) return;
+      const signature = signatureOf(cursorNode<TreeSitterSyntaxNode>(cursor));
+      if (signature !== undefined) {
+        declarations.push({ start: cursor.startIndex, end: cursor.endIndex, signature });
+      }
+    });
+    if (declarations.length === 0) return;
+
+    // **A sweep rather than a search per capture.** Declarations are properly nested and arrive sorted by start, so one
+    // stack serves every capture in the file: push what starts before the name, pop what ends before it, and the top is
+    // the innermost declaration that can contain it. Asking each capture independently would be `O(captures x
+    // declarations)` on a file with a thousand of each.
+    const ordered = [...captures]
+      .filter((capture) => SIGNATURE_CAPTURE_TAGS.has(capture.tag))
+      .sort((a, b) => a.startByte - b.startByte);
+    const open: Array<{ start: number; end: number; signature: string }> = [];
+    let next = 0;
+    for (const capture of ordered) {
+      while (next < declarations.length && declarations[next]!.start <= capture.startByte) {
+        const candidate = declarations[next]!;
+        while (open.length > 0 && open[open.length - 1]!.end <= candidate.start) open.pop();
+        open.push(candidate);
+        next += 1;
+      }
+      while (open.length > 0 && open[open.length - 1]!.end < capture.endByte) open.pop();
+      const enclosing = open[open.length - 1];
+      // **A capture the headers do not reach keeps `null`**, which is the honest answer for a declaration whose node this
+      // pass never saw - a capture built from a node above its own declaration, such as an arrow bound to a `const`.
+      if (enclosing !== undefined) {
+        capture.properties = { ...capture.properties, signature: enclosing.signature };
+      }
+    }
   }
 
   /**

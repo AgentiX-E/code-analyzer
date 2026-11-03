@@ -52,11 +52,40 @@ every question unchanged**. The three controls that separate this from a defect 
 | stripping the container from the **indexed** path, i.e. what the index held before iteration 65 | **25 of 99**, and **108 qualified names collide** in the store once the prefix is gone                                                                                      |
 | the two model-backed arms                                                                       | `hyde` **0.6566** and `rerank` **0.6869** are unchanged to four decimal places, because a reranker re-orders a fifty-deep pool instead of reading a length-normalised score |
 
-So the figure below is re-recorded from the run at `3e850de`, and **the honest description of the column is "the graph of
-the day"**: a lexical ranking over a graph that grows is not comparable with one over a graph that was smaller, and
-separating the two is a property of the _measurement_, not of the retriever. The next step is a weighted-field index
-(the declared name against the path rather than one bag of both) measured on these same ninety-nine questions, which is
-the change that would make the column a statement about ranking rather than about corpus size.
+So the figure below was re-recorded from the run at `3e850de`, and **the honest description of the column is "the graph
+of the day"**: a lexical ranking over a graph that grows is not comparable with one over a graph that was smaller, and
+separating the two is a property of the _measurement_, not of the retriever. The next step was named as a weighted-field
+index, measured on these same ninety-nine questions, and iteration 66 built it.
+
+### The fix, and what it recovered
+
+**One bag of tokens cannot tell where a word was written.** The index concatenated the declared name, the file and
+container path, the signature and the doc comment, then scored the concatenation — so `Parser.sanitize` living in
+`sanitize.ts` mentioned `sanitize` twice (once because it is declared, once because of the file it is declared in) and
+BM25 summed the two, for no reason a reader could see. Three changes, each measured on the same ninety-nine questions:
+
+| change                                                      | what it was before                                                                        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **four fields, weighted and normalised separately** (BM25F) | one bag, one document length, one `b`                                                     |
+| **`:` and `/` are token separators**                        | `file:types:ZodType` was a single token, so a query for `types` matched nothing           |
+| **the signature field is written for the first time**       | `GraphNode.signature` was `null` for **5 735 of 5 735 nodes**: no provider ever filled it |
+
+| column               | before | after      |
+| -------------------- | ------ | ---------- |
+| recall at 5          | 0.0808 | 0.1515     |
+| recall at 20         | 0.2424 | **0.3030** |
+| mean reciprocal rank | 0.0729 | 0.0980     |
+
+**The weighting was not chosen on the questions it is reported on.** `PARAPHRASE_SWEEP=1` measures eighty-one
+configurations and writes `paraphrase-field-sweep.json`; the choice is `dev` recall at 20 (then `dev` MRR) and the figure
+reported is always `test`. Re-derived on that half, the rule selects `name: 1, path: 0.5, signature: 1, b_name: 0` —
+**`b = 0` on the name field, because a long identifier is not a worse identifier** — with `dev` 0.3191 against `test`
+**0.2885** on the other forty-seven and fifty-two questions.
+
+**And the column is now a gate rather than a note.** It fell by 0.06 across four iterations without a red run, because
+the only assertion on it lived inside a block that is skipped when no API key is present — even though the lexical column
+needs no key at all. `paraphrase-search.test.ts` now asserts the three figures above on a machine with no credential, so
+the next regression costs a run.
 
 ## The third input, which nobody wrote
 

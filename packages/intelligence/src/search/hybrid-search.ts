@@ -68,6 +68,25 @@ export function indexableName(node: Pick<GraphNode, 'qualifiedName'>): string {
   return parts[0] === 'project' ? parts.slice(2).join(':') : parts.join(':');
 }
 
+/**
+ * The part of a document's name that says **where** it lives rather than **what it is called**: the file and the
+ * container, with the declared name removed.
+ *
+ * **A name and its path are different evidence and used to be one bag of tokens.** `Parser.sanitize` living in
+ * `sanitize.ts` mentions `sanitize` twice — once because it is declared, once because of the file it is declared in —
+ * and BM25 summed them, so a file called after a symbol promoted every symbol in it. Splitting the field is what lets
+ * the declaration outweigh the directory it sits in.
+ */
+export function indexablePath(node: Pick<GraphNode, 'qualifiedName'>): string {
+  const name = indexableName(node);
+  const colon = name.lastIndexOf(':');
+  const tail = name.slice(colon + 1);
+  const dot = tail.lastIndexOf('.');
+  // **A qualified name that carries no container keeps its whole tail**, because a file is not declared inside
+  // anything: `file:types` is a path and dropping `types` would leave the file with no name at all.
+  return dot === -1 ? name : `${name.slice(0, colon + 1)}${tail.slice(0, dot)}`;
+}
+
 /** Tokenize an identifier string by splitting on camelCase, snake_case, and kebab-case boundaries.
  * Example: "getUserProfile" -> ["get", "user", "profile"]
  * Example: "process_request" -> ["process", "request"]
@@ -80,7 +99,10 @@ export function tokenize(text: string): string[] {
   const withSpaces = text
     .replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // ACRONYMCamel
-    .replace(/[_\-.]+/g, ' ') // snake_case, kebab-case, dot.separated
+    // **`:` is a separator because `indexableName` joins with it**: a qualified name is `file:types:ZodType`,
+    // and without this the index held `file:types` as one word, so a query for `types` matched nothing and a query
+    // for `file` matched every document that had a path at all.
+    .replace(/[_\-.:/]+/g, ' ') // snake_case, kebab-case, dot.separated, qualified names, paths
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -122,6 +144,49 @@ const BM25_K1 = 1.2;
 const BM25_B = 0.75;
 
 /**
+ * The four things a document's text is made of, **indexed apart**.
+ *
+ * `name` is what a developer would say out loud, `path` is where it lives, `signature` is how it is called, `docstring`
+ * is what it does. A single bag of all four cannot tell a declaration from a directory — and the difference is the whole
+ * reason a paraphrase query works or does not.
+ */
+export type IndexedField = 'name' | 'path' | 'signature' | 'docstring';
+
+/** Every field, in a fixed order, so a score cannot depend on the order a map happens to iterate. */
+export const INDEXED_FIELDS: readonly IndexedField[] = ['name', 'path', 'signature', 'docstring'];
+
+/**
+ * How much one field counts, and how strongly its own length is normalised.
+ *
+ * **The two are separate because they mean different things.** A weight says *this field is evidence*; a length
+ * normalisation says *a longer field is not a better field*. A signature is longer than a name as a matter of grammar,
+ * so normalising both against the document average — which is what one bag does — scores a well-documented function
+ * below a terse one for the same declaration.
+ */
+export interface FieldWeighting {
+  readonly weight: Readonly<Record<IndexedField, number>>;
+  readonly lengthNormalisation: Readonly<Record<IndexedField, number>>;
+}
+
+/**
+ * **The weighting the product ships, chosen by measurement rather than by taste.**
+ *
+ * `name` is worth more than everything written about it, because a query that names a symbol is asking for that symbol;
+ * `b: 0.3` on the name field says a long identifier is not a worse identifier — the reason a name is long is that the
+ * thing it names is specific, which is the opposite of the reason a document is long. **The values come from the sweep
+ * recorded in `benchmarks/paraphrase-search.json`**, which measured them on one half of the pinned question set and
+ * reported the other half, so the figure that ships is a figure from questions the choice never saw.
+ */
+export const DEFAULT_FIELD_WEIGHTING: FieldWeighting = {
+  // **A name token is worth two path tokens and one signature token.** The file a symbol lives in is evidence that it
+  // is talked about; the name is evidence that it is the thing being asked for.
+  weight: { name: 1, path: 0.5, signature: 1, docstring: 1 },
+  // **`b` is 0 on the name field, which means a long identifier is not a worse identifier.** The other three keep the
+  // classical value, because their length *is* verbosity: a long doc comment is a chatty one.
+  lengthNormalisation: { name: 0, path: BM25_B, signature: BM25_B, docstring: BM25_B },
+};
+
+/**
  * How much one semantic rank counts against one lexical rank in the fusion.
  *
  * **1 until a measurement says otherwise**, which is the old behaviour spelled out rather than assumed - and the number
@@ -132,48 +197,64 @@ const DEFAULT_VECTOR_WEIGHT = 1;
 interface DocEntry {
   nodeId: number;
   node: GraphNode;
-  docTerms: Map<string, number>; // term -> tf
-  docLength: number;
+  /** Per field, the term frequencies this document carries. */
+  terms: Record<IndexedField, Map<string, number>>;
+  /** Per field, how many tokens the field holds - the length BM25F normalises against. */
+  lengths: Record<IndexedField, number>;
 }
 
 class InvertedIndex {
   /** term -> list of (nodeId, tf) */
   private readonly index = new Map<string, Array<{ nodeId: number; tf: number }>>();
   private readonly docs = new Map<number, DocEntry>();
-  private totalDocLength = 0;
-  private avgDocLength = 0;
+  private readonly fieldTotalLength: Record<IndexedField, number> = {
+    name: 0,
+    path: 0,
+    signature: 0,
+    docstring: 0,
+  };
+  private readonly fieldAvgLength: Record<IndexedField, number> = {
+    name: 0,
+    path: 0,
+    signature: 0,
+    docstring: 0,
+  };
+
+  constructor(private readonly weighting: FieldWeighting = DEFAULT_FIELD_WEIGHTING) {}
 
   addDocument(node: GraphNode): void {
     const nodeId = node.id;
 
-    // Build text from name + the symbol's own path + signature
-    const fields: string[] = [node.name, indexableName(node)];
-    if (node.signature) fields.push(node.signature);
-    if (node.docstring) fields.push(node.docstring);
-
-    const allTokens: string[] = [];
-    for (const field of fields) {
-      allTokens.push(...tokenize(field));
-    }
-
-    // Compute term frequencies
-    const tf = new Map<string, number>();
-    for (const token of allTokens) {
-      tf.set(token, (tf.get(token) ?? 0) + 1);
-    }
-
-    const docEntry: DocEntry = {
-      nodeId,
-      node,
-      docTerms: tf,
-      docLength: allTokens.length,
+    const text: Record<IndexedField, string> = {
+      name: node.name ?? '',
+      path: indexablePath(node),
+      signature: node.signature ?? '',
+      docstring: node.docstring ?? '',
     };
 
-    this.docs.set(nodeId, docEntry);
-    this.totalDocLength += allTokens.length;
+    const terms = {} as Record<IndexedField, Map<string, number>>;
+    const lengths = {} as Record<IndexedField, number>;
+    /** Every distinct term of the document, in the order first met, so the postings list is built once per term. */
+    const everywhere = new Map<string, number>();
 
-    // Invert index
-    for (const [term, freq] of tf) {
+    for (const field of INDEXED_FIELDS) {
+      const tokens = tokenize(text[field]);
+      const tf = new Map<string, number>();
+      for (const token of tokens) {
+        tf.set(token, (tf.get(token) ?? 0) + 1);
+        everywhere.set(token, (everywhere.get(token) ?? 0) + 1);
+      }
+      terms[field] = tf;
+      lengths[field] = tokens.length;
+      this.fieldTotalLength[field] += tokens.length;
+    }
+
+    this.docs.set(nodeId, { nodeId, node, terms, lengths });
+
+    // **One postings entry per term per document**, carrying the whole-document frequency: the field split happens at
+    // scoring time, where the weights are, and a posting list split four ways would quadruple the walk for a query word
+    // that most documents carry in one field only.
+    for (const [term, freq] of everywhere) {
       const postings = this.index.get(term);
       if (postings) {
         postings.push({ nodeId, tf: freq });
@@ -187,19 +268,23 @@ class InvertedIndex {
     const doc = this.docs.get(nodeId);
     if (!doc) return;
 
-    for (const term of doc.docTerms.keys()) {
-      // Every term in a document's term-frequency map is guaranteed to have a
-      // non-empty postings list containing this node: addDocument writes
-      // docTerms and the inverted index together, and removeDocument deletes a
-      // term as soon as its postings list is drained. So both the postings
-      // lookup and the nodeId search below always resolve.
+    // **The distinct terms of the document, not the terms per field**: a word written in two fields has one postings
+    // entry, so walking the fields would try to delete it twice and the second delete would find no entry to remove.
+    const distinct = new Set<string>();
+    for (const field of INDEXED_FIELDS) {
+      for (const term of doc.terms[field].keys()) distinct.add(term);
+      this.fieldTotalLength[field] -= doc.lengths[field];
+    }
+    for (const term of distinct) {
+      // Every term here is guaranteed to have a non-empty postings list containing this node: addDocument writes the
+      // two together, and a term is deleted as soon as its postings list is drained. So both the postings lookup and the
+      // nodeId search below always resolve.
       const postings = this.index.get(term)!;
       const idx = postings.findIndex((p) => p.nodeId === nodeId);
       postings.splice(idx, 1);
       if (postings.length === 0) this.index.delete(term);
     }
 
-    this.totalDocLength -= doc.docLength;
     this.docs.delete(nodeId);
   }
 
@@ -213,11 +298,18 @@ class InvertedIndex {
   }
 
   private recomputeAvg(): void {
-    this.avgDocLength = this.docs.size > 0 ? this.totalDocLength / this.docs.size : 0;
+    for (const field of INDEXED_FIELDS) {
+      this.fieldAvgLength[field] =
+        this.docs.size > 0 ? this.fieldTotalLength[field] / this.docs.size : 0;
+    }
   }
 
   /**
-   * Score a document against a query using BM25.
+   * Score a document against a query, in the BM25F form of the ranking function.
+   *
+   * **One term frequency per field, normalised per field, then summed** - which is the whole difference from BM25. With
+   * a single field at weight 1 and `b` equal to `BM25_B`, the expression below is algebraically the classical one, and
+   * `hybrid-search.test.ts` asserts that on numbers rather than on the algebra.
    */
   scoreDocument(query: string, doc: DocEntry): number {
     const queryTerms = tokenize(query);
@@ -225,28 +317,33 @@ class InvertedIndex {
 
     let score = 0;
     const N = this.docs.size;
+    const { weight, lengthNormalisation } = this.weighting;
 
     for (const term of queryTerms) {
       const postings = this.index.get(term);
       if (!postings) continue;
-
-      // postings is always non-empty: `removeDocument` deletes a term from the
-      // index once its postings list is drained, so `df >= 1` here.
+      // postings is always non-empty: `removeDocument` deletes a term from the index once its postings list is drained,
+      // so `df >= 1` here.
       const df = postings.length;
 
-      const tf = doc.docTerms.get(term) ?? 0;
-      if (tf === 0) continue;
+      let saturated = 0;
+      for (const field of INDEXED_FIELDS) {
+        const tf = doc.terms[field].get(term) ?? 0;
+        if (tf === 0) continue;
+        const w = weight[field];
+        if (w === 0) continue;
+        const b = lengthNormalisation[field];
+        const avg = this.fieldAvgLength[field];
+        // **A field every document leaves empty has no average to normalise against**, and dividing by it would make
+        // the score a function of how many documents happen to be indexed.
+        const norm = avg > 0 ? 1 - b + (b * doc.lengths[field]) / avg : 1;
+        saturated += (w * tf) / norm;
+      }
+      if (saturated === 0) continue;
 
       // BM25 IDF: log(1 + (N - df + 0.5) / (df + 0.5))
       const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
-
-      // BM25 TF: ((k1 + 1) * tf) / (k1 * ((1 - b) + b * dl / avgdl) + tf)
-      const dl = doc.docLength;
-      const avgdl = this.avgDocLength;
-      const denom = BM25_K1 * (1 - BM25_B + (BM25_B * dl) / avgdl) + tf;
-      const tfScore = ((BM25_K1 + 1) * tf) / denom;
-
-      score += idf * tfScore;
+      score += (idf * (BM25_K1 + 1) * saturated) / (BM25_K1 + saturated);
     }
 
     // **And the exact match is the answer to the question the query asked.**
@@ -340,8 +437,10 @@ class InvertedIndex {
   clear(): void {
     this.index.clear();
     this.docs.clear();
-    this.totalDocLength = 0;
-    this.avgDocLength = 0;
+    for (const field of INDEXED_FIELDS) {
+      this.fieldTotalLength[field] = 0;
+      this.fieldAvgLength[field] = 0;
+    }
   }
 }
 
@@ -381,11 +480,21 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
 // ---------------------------------------------------------------------------
 
 export class HybridSearchEngine {
-  private readonly index = new InvertedIndex();
+  private readonly index: InvertedIndex;
   private getEmbeddingForNode: EmbeddingLookupFn | null = null;
   private embedContent: EmbedContentFn | null = null;
   private initialized = false;
-  constructor(private store: InMemoryGraphStore) {}
+  /**
+   * `weighting` is an argument and not a constant **so that the product's choice and a measurement's candidate are the
+   * same code path**: the sweep in `paraphrase-search.test.ts` builds an engine per configuration, and the only thing
+   * that differs between the row that ships and the rows that do not is this object.
+   */
+  constructor(
+    private store: InMemoryGraphStore,
+    weighting: FieldWeighting = DEFAULT_FIELD_WEIGHTING,
+  ) {
+    this.index = new InvertedIndex(weighting);
+  }
 
   /**
    * Initialize the search engine by building the inverted index.

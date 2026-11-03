@@ -3,9 +3,14 @@
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { HybridSearchEngine, tokenize, cosineSimilarity } from '../search/hybrid-search.js';
+import {
+  HybridSearchEngine,
+  indexablePath,
+  tokenize,
+  cosineSimilarity,
+} from '../search/hybrid-search.js';
 
-import type { RankedResult } from '../search/hybrid-search.js';
+import type { FieldWeighting, RankedResult } from '../search/hybrid-search.js';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -1248,5 +1253,152 @@ describe('HybridSearchEngine — null metadata and vector search branches', () =
     const results = await engine.vectorSearch('query', 5);
     expect(results.length).toBe(1);
     expect(results[0]!.node.id).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Field weighting
+// ---------------------------------------------------------------------------
+
+/**
+ * **One bag of tokens cannot tell where a word was written**, and the corpus is full of documents that say the same
+ * words in different places: `Parser.sanitize` in `sanitize.ts` mentions `sanitize` twice, once as its own name and
+ * once as its file, while `sanitize`'s sibling in `keep.ts` mentions it once, as a name. BM25 sums those mentions and
+ * therefore ranks the file name and the declaration as the same evidence.
+ *
+ * **The fields are separated and weighted instead.** `name` is what a developer would say out loud, `path` is where it
+ * lives, `signature` is how it is called, `docstring` is what it does — and each is normalised against its own average
+ * length, because a signature is longer than a name by nature and not by verbosity.
+ */
+describe('the fields a document is indexed under', () => {
+  const corpora = (nodes: GraphNode[], weighting?: FieldWeighting): HybridSearchEngine => {
+    const store = new InMemoryGraphStore();
+    for (const node of nodes) store.insertNode(node);
+    const engine = new HybridSearchEngine(store, weighting);
+    engine.initialize();
+    return engine;
+  };
+
+  const node = (
+    id: number,
+    qualifiedName: string,
+    overrides: Partial<GraphNode> = {},
+  ): GraphNode => {
+    const name =
+      qualifiedName
+        .slice(qualifiedName.lastIndexOf(':') + 1)
+        .split('.')
+        .pop() ?? '';
+    return createNode(id, { name, qualifiedName, signature: null, docstring: null, ...overrides });
+  };
+
+  it('keeps the file and the container in the path field, and only the declaration in the name field', () => {
+    const holder = { qualifiedName: 'project:demo:file:/w/zod/src/types.ts:ZodType.checkExported' };
+    expect(indexablePath(holder)).toBe('file:types:ZodType');
+    // **A file's own name is its whole path**, because a file is not declared inside anything.
+    expect(indexablePath({ qualifiedName: 'project:demo:file:/w/zod/src/types.ts' })).toBe(
+      'file:types',
+    );
+  });
+
+  it('weighs the field a query word was written in, not the document it was written in', () => {
+    // `beam` is part of a declaration, and for the other document part of the file it lives in. **Neither is called
+    // `beam`**, so the exact-name multiplier is out of the picture and only the field weighting can decide the order.
+    const declared = node(1, 'file:/w/a.ts:Box.beamWidth');
+    const lived = node(2, 'file:/w/beam.ts:Box.wind');
+    const scoreOf = (engine: HybridSearchEngine, name: string): number =>
+      engine.bm25Search('beam').find((hit) => hit.node.name === name)?.score ?? 0;
+
+    const byName = corpora([declared, lived], {
+      weight: { name: 2, path: 1, signature: 1, docstring: 1 },
+      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+    });
+    expect(scoreOf(byName, 'beamWidth')).toBeGreaterThan(scoreOf(byName, 'wind'));
+
+    // **The same two documents and the opposite order**, which is the statement that the weight is read per field.
+    const byPath = corpora([declared, lived], {
+      weight: { name: 0.25, path: 1, signature: 1, docstring: 1 },
+      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+    });
+    expect(scoreOf(byPath, 'wind')).toBeGreaterThan(scoreOf(byPath, 'beamWidth'));
+  });
+
+  it('normalises a field against its own average, so a long signature does not dilute the name', () => {
+    const clipped = node(1, 'file:/w/a.ts:Widget.resize', { signature: 'resize(): void' });
+    const verbose = node(2, 'file:/w/b.ts:Widget.resize', {
+      signature: `resize(${Array.from({ length: 40 }, (_, i) => `option${i}: string`).join(', ')}): void`,
+    });
+    // **Identical name fields and different signature lengths**, so a single bag would score the shorter document higher
+    // for a reason that has nothing to do with the query.
+    const results = corpora([clipped, verbose]).bm25Search('resize');
+    expect(results).toHaveLength(2);
+    expect(results[0]!.score).toBeCloseTo(results[1]!.score, 12);
+  });
+
+  it('is the classical BM25 exactly when one field is weighted and the rest are not', () => {
+    // **The textbook definition, written from the paper rather than from this module**: a generalisation that does not
+    // reduce to the specific case at the specific case's settings is a different ranking function wearing its name, and
+    // no corpus figure would ever say so.
+    // The documents are handed over already tokenised, so the formula is the only thing being copied.
+    const classic = (docs: string[][], query: string, k1: number, b: number): number[] => {
+      const lengths = docs.map((tokens) => tokens.length);
+      const avgdl = lengths.reduce((a, l) => a + l, 0) / docs.length;
+      const df = docs.filter((tokens) => tokens.includes(query)).length;
+      const idf = Math.log(1 + (docs.length - df + 0.5) / (df + 0.5));
+      return docs.map((tokens, index) => {
+        const tf = tokens.filter((word) => word === query).length;
+        if (tf === 0) return 0;
+        return (idf * (k1 + 1) * tf) / (k1 * (1 - b + (b * lengths[index]!) / avgdl) + tf);
+      });
+    };
+
+    // **No document is called `alpha`**, because an exact name match multiplies the score after the ranking function
+    // and this test is about the ranking function.
+    const names = ['alpha_one', 'alpha_two', 'omega'];
+    const store = new InMemoryGraphStore();
+    names.forEach((name, index) => {
+      store.insertNode(node(index + 1, `file:/w/f${index}.ts:Box.${name}`, { name }));
+    });
+    const engine = new HybridSearchEngine(store, {
+      weight: { name: 1, path: 0, signature: 0, docstring: 0 },
+      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+    });
+    engine.initialize();
+
+    const expected = classic(
+      names.map((name) => tokenize(name)),
+      'alpha',
+      1.2,
+      0.75,
+    );
+    const scored = new Map(engine.bm25Search('alpha').map((hit) => [hit.node.name, hit.score]));
+    expect(scored.size).toBe(2);
+    expect(scored.get('alpha_one')).toBeCloseTo(expected[0]!, 12);
+    expect(scored.get('alpha_two')).toBeCloseTo(expected[1]!, 12);
+  });
+
+  it('scores nothing from a field whose weight is zero, so a match there cannot surface at all', () => {
+    const onlyInThePath = node(1, 'file:/w/telemetry.ts:Box.run');
+    const results = corpora([onlyInThePath], {
+      weight: { name: 1, path: 0, signature: 1, docstring: 1 },
+      lengthNormalisation: { name: 0.75, path: 0.75, signature: 0.75, docstring: 0.75 },
+    }).bm25Search('telemetry');
+    expect(results).toEqual([]);
+  });
+
+  it('answers a name exactly even against a doc comment that repeats it', () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(node(1, 'file:/w/a.ts:Box.resize'));
+    store.insertNode(
+      node(2, 'file:/w/b.ts:Box.apply', {
+        docstring: Array.from({ length: 40 }, () => 'resize').join(' '),
+      }),
+    );
+    // **At the weighting the product ships**, a document that repeats the word forty times is still not the symbol the
+    // developer named: a term-frequency model ranks documents, and the exact-name multiplier is how this index stays a
+    // lookup when the question is a lookup.
+    const engine = new HybridSearchEngine(store);
+    engine.initialize();
+    expect(engine.bm25Search('resize')[0]!.node.name).toBe('resize');
   });
 });
