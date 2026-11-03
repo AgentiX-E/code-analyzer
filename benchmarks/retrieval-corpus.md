@@ -234,7 +234,7 @@ construction, and it is nothing like complete for text**: a declaration's body i
 quoted, and a question is prose, where the last word ends in a question mark. `['escape',` and `input?` were single
 unmatchable tokens. **The two halves of the vocabulary could not meet, and the field was being measured without them.**
 
-**A word boundary is not whitespace**, so the rule is now *any character that is not a letter or a digit*
+**A word boundary is not whitespace**, so the rule is now _any character that is not a letter or a digit_
 (`[^\p{L}\p{N}]+` — a letter is a letter in any script, and a class of `a-z0-9` would delete a Chinese identifier rather
 than keep it as one word). Measured on the same code with the old rule put back, the boundary alone is worth
 **+8 answers at twenty, +7 of them in the leaking half, +1 clean, and a ceiling that reaches 0.8889** — and it moves the
@@ -250,7 +250,7 @@ made the engine answer **nothing at all for any question**, silently. `rebuildIn
 two calls, and a node inserted after the first call still visible after the second.
 
 **And the weighting was re-derived, which is where the last defect was.** The sweep's first rule maximised clean answers
-above the fifth field's *zero* row, which will trade a whole-set answer for a clean one at any rate: on the corrected
+above the fifth field's _zero_ row, which will trade a whole-set answer for a clean one at any rate: on the corrected
 tokenizer it selected `vocabulary 2, b 0.3` — **nine whole-set answers and thirty points of the leaking half gone, for
 one clean question** — and the only reason it was caught is that the trade fell below the lexical floor. **A rule can be
 wrong in a way that produces a number that looks like a decision.** The bar is now the configuration that ships: a
@@ -263,13 +263,13 @@ of one grid.
 own doc comment — the same corpus, the opposite protocol — and the fifth field cost it **eight answers at five and four
 points of MRR**:
 
-| `docstring` weight | recall@5   | recall@20  | MRR        |
-| ------------------ | ---------- | ---------- | ---------- |
-| 1 (parity)         | 0.8894     | 0.9724     | 0.8125     |
-| 2                  | 0.9724     | 0.9908     | 0.9154     |
-| **3 (shipped)**    | **0.9862** | **1.000**  | **0.9476** |
-| 4                  | 0.9954     | 1.000      | 0.9579     |
-| 6                  | 0.9954     | 1.000      | 0.9710     |
+| `docstring` weight | recall@5   | recall@20 | MRR        |
+| ------------------ | ---------- | --------- | ---------- |
+| 1 (parity)         | 0.8894     | 0.9724    | 0.8125     |
+| 2                  | 0.9724     | 0.9908    | 0.9154     |
+| **3 (shipped)**    | **0.9862** | **1.000** | **0.9476** |
+| 4                  | 0.9954     | 1.000     | 0.9579     |
+| 6                  | 0.9954     | 1.000     | 0.9710     |
 
 **A document that merely _contains_ the question's words was out-summing the document that is _described_ by them**, and
 the fix is the oldest argument in this file: text written about a symbol is stronger evidence than words the symbol
