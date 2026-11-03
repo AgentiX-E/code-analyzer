@@ -176,6 +176,14 @@ jobs:
           LCA_ANSWER_ARM: ${{ github.event.inputs.answer_arm || '0' }}
           BENCHMARK_WRITE: '1'
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # **A stated heap, so a heap exhaustion says so.** This job has **never succeeded**: every run since
+          # 2026-10-30 ends with `The runner has received a shutdown signal` and `exit code 143`, and it does so at a
+          # hundredth of the scope as well - `max_rows: 2, max_files: 200` died after five and a half minutes, the full
+          # sample after eleven and a half. A `SIGTERM` with no message is either the runner being reclaimed or the
+          # machine running out of memory, and those two call for opposite work. **A cap inside the runner's own limit
+          # turns the first case into a `JavaScript heap out of memory` naming the allocation**, which is a diagnosis
+          # instead of a mystery: the runner has 7 GB, so 5 GB of heap plus the checkout is the honest ceiling.
+          NODE_OPTIONS: --max-old-space-size=5120
         run: |
           set -o pipefail
           npx vitest run --config vitest.config.ts \
