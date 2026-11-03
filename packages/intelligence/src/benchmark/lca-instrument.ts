@@ -94,6 +94,35 @@ export function isTestPath(path: string): boolean {
 }
 
 /**
+ * How many files the pipeline will walk in a checkout, **which is not how many the corpus counts**.
+ *
+ * **The size bound that decides whether an instance is measurable has to be a bound on the work, and the work is the
+ * directory the pipeline is handed.** It was applied to `corpusFiles` — the configuration's own extension, test files
+ * excluded — and that is a bound on the *answer space*: `ccxt/ccxt` holds **686 Python files and tens of thousands of
+ * others**, passed the bound at 686, and the analysis of the whole checkout is what took the job down. Counting every
+ * file except `.git` is the conservative statement of what will be read; `node_modules` is counted because the pipeline
+ * walks it too, and a checkout of a JavaScript repository carries one.
+ *
+ * **Cheap enough to run per instance**: one `readdir` walk, against an analysis that reads and parses every one of them.
+ */
+export function checkoutFileCount(root: string): number {
+  let count = 0;
+  const walk = (directory: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name === '.git') continue;
+      const full = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (entry.isFile()) count += 1;
+    }
+  };
+  walk(root);
+  return count;
+}
+
+/**
  * Every file in a checkout that the corpus would count, as repository-relative POSIX paths.
  *
  * Sorted, because the metric is set-based and a figure that moved because `readdir` returned entries in another order

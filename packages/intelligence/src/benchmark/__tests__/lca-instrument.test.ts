@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_EXTENSION,
   LCA_CONFIGS,
+  checkoutFileCount,
   corpusFiles,
   dedupePreservingOrder,
   isTestPath,
@@ -144,6 +145,44 @@ describe('corpusFiles', () => {
 
   it('returns an empty list for a checkout with none of the extension', () => {
     expect(corpusFiles(build(), '.kt')).toEqual([]);
+  });
+});
+
+describe('checkoutFileCount', () => {
+  /**
+   * **The bound that decides whether an instance is measurable has to count what the work counts.** It was computed
+   * from `corpusFiles` — the configuration's extension, tests excluded — and `ccxt/ccxt` passed it with 686 Python
+   * files while the checkout held tens of thousands of others. The pipeline is handed the directory, so the bound is
+   * the directory's size.
+   */
+  const build = (): string => {
+    const root = mkdtempSync(join(tmpdir(), 'lca-checkout-'));
+    mkdirSync(join(root, 'src'), { recursive: true });
+    mkdirSync(join(root, 'tests'), { recursive: true });
+    mkdirSync(join(root, '.git'), { recursive: true });
+    writeFileSync(join(root, 'src/a.py'), '');
+    writeFileSync(join(root, 'src/b.js'), '');
+    writeFileSync(join(root, 'tests/c.py'), '');
+    writeFileSync(join(root, 'README.md'), '');
+    writeFileSync(join(root, '.git/d'), '');
+    return root;
+  };
+
+  it('counts every file the pipeline will read, and not the .git directory', () => {
+    // Four files: two Python, one JavaScript, one Markdown - and **the test file and the other language count**, which
+    // is exactly the difference between this and `corpusFiles`.
+    expect(checkoutFileCount(build())).toBe(4);
+  });
+
+  it('counts more than the corpus does whenever the checkout holds another language', () => {
+    const root = build();
+    expect(corpusFiles(root, '.py')).toEqual(['src/a.py']);
+    expect(checkoutFileCount(root)).toBeGreaterThan(corpusFiles(root, '.py').length);
+  });
+
+  it('is zero for an empty checkout', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lca-empty-'));
+    expect(checkoutFileCount(root)).toBe(0);
   });
 });
 

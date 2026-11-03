@@ -45,6 +45,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_EXTENSION,
   LCA_CONFIGS,
+  checkoutFileCount,
   corpusFiles,
   lcaQualityMetrics,
   mean,
@@ -283,6 +284,11 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         }
 
         const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
+        // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
+        // and tens of thousands of others: it passed a bound of two thousand computed from `corpusFiles`, and the
+        // analysis of the whole directory is what took the runner down six minutes later. The pipeline is handed the
+        // directory, so the directory is what has to be bounded.
+        const walked = checkoutFileCount(checkout);
         // **One line per instance, because the job that runs this has never once finished.** Every attempt ends with
         // `The runner has received a shutdown signal` and exit 143 — eleven and a half minutes at the full sample, five
         // and a half at a hundredth of the scope — and `tee` writes through a pipe, so a block-buffered `stdout` loses
@@ -295,7 +301,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         );
         // **The size bound, applied before any analysis**: an analysis that would not finish is not a measurement of
         // anything, and the skip is recorded so the artifact can say what the bound cost the sample.
-        if (allFiles.length > FILE_CAP) {
+        if (allFiles.length > FILE_CAP || walked > FILE_CAP) {
           outcomes.push({
             id: row.id,
             repo: `${row.repo_owner}/${row.repo_name}`,
@@ -303,7 +309,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             expected: row.changed_files.length,
             retrieval: {},
             answer: null,
-            skipped: `the repository holds ${String(allFiles.length)} files, above the cap of ${String(FILE_CAP)}`,
+            skipped: `the checkout holds ${String(walked)} files (${String(allFiles.length)} of the configuration's extension), above the cap of ${String(FILE_CAP)}`,
             offered: [],
             offeredRaw: [],
             outside: 0,
@@ -472,7 +478,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       },
       measuredAt: new Date().toISOString().slice(0, 10),
       rowLimit: ROW_LIMIT,
-      fileCap: FILE_CAP,
+      fileCap: { files: FILE_CAP, appliedTo: 'every file in the checkout except .git' },
       answerArm: ANSWER_ARM,
       cuts: CUTS.join(', '),
       configuration: {
