@@ -22,7 +22,7 @@
     "**Both columns run on the same index**: BM25 over name/signature only, and the same list fused with one",
     "semantic ranking at each weight."
   ],
-  "measuredAt": "2026-10-31",
+  "measuredAt": "2026-11-03",
   "querySet": {
     "source": "frozen",
     "path": "benchmarks/paraphrase-queries.json",
@@ -30,7 +30,7 @@
   },
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
-    "nodes": 3600,
+    "nodes": 5735,
     "queries": 99,
     "dropped": 1,
     "withAWordFromTheName": 52
@@ -43,76 +43,76 @@
   },
   "topK": 20,
   "lexical": {
-    "recallAt5": 0.1515,
-    "recallAt20": 0.303,
-    "mrr": 0.1021,
-    "found": 30
+    "recallAt5": 0.0808,
+    "recallAt20": 0.2424,
+    "mrr": 0.0729,
+    "found": 24
   },
   "variants": [
     {
       "name": "no-path",
       "note": "the composition the product shipped before the path was measured in",
-      "recallAt5": 0.3333,
-      "recallAt20": 0.5051,
-      "mrr": 0.2292,
-      "found": 50
+      "recallAt5": 0.2222,
+      "recallAt20": 0.404,
+      "mrr": 0.1634,
+      "found": 40
     },
     {
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.4646,
+      "recallAt5": 0.404,
       "recallAt20": 0.6566,
-      "mrr": 0.3065,
+      "mrr": 0.2718,
       "found": 65
     },
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
       "reranked": 99,
-      "poolRecallAt20": 0.7172,
-      "recallAt5": 0.5859,
+      "poolRecallAt20": 0.697,
+      "recallAt5": 0.5758,
       "recallAt20": 0.6869,
-      "mrr": 0.5212,
+      "mrr": 0.4801,
       "found": 68
     }
   ],
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.4242,
-      "recallAt20": 0.6162,
-      "mrr": 0.2513,
-      "found": 61
+      "recallAt5": 0.3333,
+      "recallAt20": 0.5657,
+      "mrr": 0.2197,
+      "found": 56
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.2626,
-      "recallAt20": 0.303,
-      "mrr": 0.1613,
-      "found": 30
+      "recallAt5": 0.1919,
+      "recallAt20": 0.2424,
+      "mrr": 0.1379,
+      "found": 24
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.2525,
-      "recallAt20": 0.303,
-      "mrr": 0.1459,
-      "found": 30
+      "recallAt5": 0.1818,
+      "recallAt20": 0.2424,
+      "mrr": 0.1232,
+      "found": 24
     },
     {
       "vectorWeight": 0.1,
-      "recallAt5": 0.1919,
-      "recallAt20": 0.303,
-      "mrr": 0.1203,
-      "found": 30
+      "recallAt5": 0.1212,
+      "recallAt20": 0.2424,
+      "mrr": 0.0997,
+      "found": 24
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.4242,
-    "recallAt20": 0.6162,
-    "mrr": 0.2513,
-    "found": 61
+    "recallAt5": 0.3333,
+    "recallAt20": 0.5657,
+    "mrr": 0.2197,
+    "found": 56
   },
   "target": {
     "recall": 0.9,
@@ -120,13 +120,13 @@
     "competitor": "Cody, quoted by the whitepaper"
   },
   "misses": [
+    "walkAndCapture: How do I find the name of a component declared with a decorator in ArkUI code?",
     "captureAccesses: How do I log each name found beneath a given element?",
     "trailingName: How do I get the final part of a fully qualified name?",
     "captureAccesses: How do I log each name found beneath a given element?",
     "extractIncludePath: How do I remove surrounding punctuation from an included file path?",
     "captureAccesses: How do I log each name found beneath a given element?",
     "extractImportPath: How do I get the thing a using directive points to?",
-    "extractTaintSources: How do I mark outside web addresses in styles as untrusted input?",
-    "extractedNames: How do I get the identifiers the language provider pulls out?"
+    "extractTaintSinks: How do I mark expressions that inject CSS as unsafe sinks?"
   ]
 }

@@ -10,7 +10,7 @@ documents itself is not the corpus that was measured.
 | source | `packages/analyzer/src/languages`                                                                                              |
 | commit | `4ae5c62` (2026-10-29)                                                                                                         |
 | files  | 52 — 40 sources and the 12 test files inside `__tests__`, which the walk reaches and therefore the measurement always included |
-| graph  | 3 600 nodes when analysed by the code in this commit                                                                           |
+| graph  | 3 600 nodes when analysed by the code of `4ae5c62`, **5 735 nodes when analysed by the code of iteration 65**                  |
 
 ## Why it is pinned
 
@@ -34,10 +34,29 @@ query is a paraphrase and the index holds no doc comment at all.
 ## The one figure that moves
 
 `benchmarks/paraphrase-search.json` was recorded on **2026-10-27**, against the live directory as it stood that day:
-**3 357 nodes**. This snapshot is the tree of 2026-10-29 and today's graph builder counts **3 600** nodes on it — the
-directory gained code in between, and the phases that build the graph have changed since. So both figures are
-**re-measured once** on the pinned corpus, and from then on they can only move with the retriever, which is the property
-that was missing.
+**3 357 nodes**. This snapshot is the tree of 2026-10-29 and the builder of that commit counts **3 600** nodes on it — the
+directory gained code in between, and the phases that build the graph have changed since. So both figures were
+**re-measured once** on the pinned corpus, and the expectation was that from then on they could only move with the
+retriever.
+
+**They could not, and the correction is worth stating in full.** Pinning the corpus pins its _text_. It does not pin the
+**graph built from that text**, and the graph is the corpus of a lexical ranking: document lengths, term frequencies and
+every IDF. Between the recording of 2026-10-31 and iteration 65 the builder went from **3 600 to 5 735 nodes** on this
+same fifty-two files — a container model, declared types on fields, parameters and locals, class expressions, aliases —
+and the lexical column moved **0.3030 -> 0.2424** (30 -> 24 of 99 answers inside the top twenty) **with every file and
+every question unchanged**. The three controls that separate this from a defect in the re-keying:
+
+| control                                                                                         | result                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the **key form** — matching an answer by its declared name rather than by its qualified name    | **24 of 99**, the same figure: the container prefix is not the cause                                                                                                        |
+| stripping the container from the **indexed** path, i.e. what the index held before iteration 65 | **25 of 99**, and **108 qualified names collide** in the store once the prefix is gone                                                                                      |
+| the two model-backed arms                                                                       | `hyde` **0.6566** and `rerank` **0.6869** are unchanged to four decimal places, because a reranker re-orders a fifty-deep pool instead of reading a length-normalised score |
+
+So the figure below is re-recorded from the run at `3e850de`, and **the honest description of the column is "the graph of
+the day"**: a lexical ranking over a graph that grows is not comparable with one over a graph that was smaller, and
+separating the two is a property of the _measurement_, not of the retriever. The next step is a weighted-field index
+(the declared name against the path rather than one bag of both) measured on these same ninety-nine questions, which is
+the change that would make the column a statement about ranking rather than about corpus size.
 
 ## The third input, which nobody wrote
 
