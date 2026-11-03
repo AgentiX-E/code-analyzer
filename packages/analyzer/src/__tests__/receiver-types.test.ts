@@ -1789,7 +1789,7 @@ describe('a hop names a member of the class or of a base, because that is what a
     const facts = buildFileTypes([
       declaration('Class', 'Child', undefined, { baseClasses: 'Base' }, 1),
       declaration('Class', 'Base', undefined, {}, 2),
-      declaration('Field', 'delegate', 'Base', { fieldType: 'Engine' }, 3),
+      declaration('Property', 'delegate', 'Base', { fieldType: 'Engine' }, 3),
       declaration('Class', 'Engine', undefined, {}, 4),
       // **The caller is declared, because the walk starts at the class the call is written in** and only a declaration
       // can say which class that is.
