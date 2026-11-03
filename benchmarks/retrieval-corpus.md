@@ -87,6 +87,21 @@ the only assertion on it lived inside a block that is skipped when no API key is
 needs no key at all. `paraphrase-search.test.ts` now asserts the three figures above on a machine with no credential, so
 the next regression costs a run.
 
+**The arms that need a model moved with it**, measured on the runner at `16ec359`:
+
+| arm                                             | before | after      |
+| ----------------------------------------------- | ------ | ---------- |
+| fused, weight 1                                 | 0.5657 | **0.5960** |
+| `hyde` (the query vector averages a hypothesis) | 0.6566 | **0.6667** |
+| `rerank`, cut at 20                             | 0.6869 | 0.6768     |
+| pool a reranker is given                        | 0.6970 | 0.6869     |
+
+**The reranker lost one question and gained on order** (MRR 0.4801 → 0.4815) — inside the ±1 resolution of a
+ninety-nine-question set, and stated rather than smoothed: a column that moves by one question is not evidence of a
+cause in either direction. **What the row does say is where the ceiling is**: the reranker answers 0.6768 of 0.6869, so
+**98 % of what it was given reached the top twenty**, and no amount of reordering can exceed the pool. The next lever is
+the pool's depth and not its order.
+
 ## The third input, which nobody wrote
 
 **Pinning the corpus pins its text, not the names derived from it.** A question in `paraphrase-queries.json` does not

@@ -43,76 +43,76 @@
   },
   "topK": 20,
   "lexical": {
-    "recallAt5": 0.0808,
-    "recallAt20": 0.2424,
-    "mrr": 0.0729,
-    "found": 24
+    "recallAt5": 0.1515,
+    "recallAt20": 0.303,
+    "mrr": 0.098,
+    "found": 30
   },
   "variants": [
     {
       "name": "no-path",
       "note": "the composition the product shipped before the path was measured in",
-      "recallAt5": 0.2222,
-      "recallAt20": 0.404,
-      "mrr": 0.1634,
-      "found": 40
+      "recallAt5": 0.2424,
+      "recallAt20": 0.3838,
+      "mrr": 0.1873,
+      "found": 38
     },
     {
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.404,
-      "recallAt20": 0.6566,
-      "mrr": 0.2718,
-      "found": 65
+      "recallAt5": 0.4444,
+      "recallAt20": 0.6667,
+      "mrr": 0.3104,
+      "found": 66
     },
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
       "reranked": 99,
-      "poolRecallAt20": 0.697,
-      "recallAt5": 0.5758,
-      "recallAt20": 0.6869,
-      "mrr": 0.4801,
-      "found": 68
+      "poolRecallAt20": 0.6869,
+      "recallAt5": 0.5859,
+      "recallAt20": 0.6768,
+      "mrr": 0.4815,
+      "found": 67
     }
   ],
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.3333,
-      "recallAt20": 0.5657,
-      "mrr": 0.2197,
-      "found": 56
+      "recallAt5": 0.3737,
+      "recallAt20": 0.596,
+      "mrr": 0.2748,
+      "found": 59
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.1919,
-      "recallAt20": 0.2424,
-      "mrr": 0.1379,
-      "found": 24
+      "recallAt5": 0.2525,
+      "recallAt20": 0.303,
+      "mrr": 0.2006,
+      "found": 30
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.1818,
-      "recallAt20": 0.2424,
-      "mrr": 0.1232,
-      "found": 24
+      "recallAt5": 0.2525,
+      "recallAt20": 0.303,
+      "mrr": 0.187,
+      "found": 30
     },
     {
       "vectorWeight": 0.1,
-      "recallAt5": 0.1212,
-      "recallAt20": 0.2424,
-      "mrr": 0.0997,
-      "found": 24
+      "recallAt5": 0.2222,
+      "recallAt20": 0.303,
+      "mrr": 0.1573,
+      "found": 30
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.3333,
-    "recallAt20": 0.5657,
-    "mrr": 0.2197,
-    "found": 56
+    "recallAt5": 0.3737,
+    "recallAt20": 0.596,
+    "mrr": 0.2748,
+    "found": 59
   },
   "target": {
     "recall": 0.9,
@@ -120,13 +120,13 @@
     "competitor": "Cody, quoted by the whitepaper"
   },
   "misses": [
-    "walkAndCapture: How do I find the name of a component declared with a decorator in ArkUI code?",
     "captureAccesses: How do I log each name found beneath a given element?",
     "trailingName: How do I get the final part of a fully qualified name?",
     "captureAccesses: How do I log each name found beneath a given element?",
-    "extractIncludePath: How do I remove surrounding punctuation from an included file path?",
     "captureAccesses: How do I log each name found beneath a given element?",
     "extractImportPath: How do I get the thing a using directive points to?",
-    "extractTaintSinks: How do I mark expressions that inject CSS as unsafe sinks?"
+    "extractTaintSources: How do I mark outside web addresses in styles as untrusted input?",
+    "GROOVY_THAT_FAILS: How do I define a method with parameters and a body without a type?",
+    "ArkTSProvider: How do I find the name of a component declared with decorators and state fields?"
   ]
 }
