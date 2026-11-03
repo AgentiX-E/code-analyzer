@@ -272,6 +272,119 @@ public class View extends AbstractView {
 `,
   );
 
+  // **A field a class does not declare is still a field of the class**, and a bare name is how Java reads it.
+  write(
+    'Buffer.java',
+    `package demo;
+
+public class Buffer {
+    public int size() { return 0; }
+}
+`,
+  );
+  write(
+    'AbstractSource.java',
+    `package demo;
+
+public class AbstractSource {
+    protected final Buffer buffer = new Buffer();
+}
+`,
+  );
+  write(
+    'PeekSource.java',
+    `package demo;
+
+public class PeekSource extends AbstractSource {
+    public int peek() { return buffer.size(); }
+}
+`,
+  );
+  // **A class written inside a class is written inside a scope**, and `toPath` is the outer class's private static.
+  write(
+    'Deferred.java',
+    `package demo;
+
+public class Deferred {
+    private static String toPath(final String directory) { return directory; }
+
+    public static class Bucket {
+        private String path;
+
+        public Bucket setDirectory(final String directory) {
+            this.path = toPath(directory);
+            return this;
+        }
+    }
+}
+`,
+  );
+  // **An enum writes two methods and names neither**, and `Stream.of(values())` is how the corpus iterates them.
+  write(
+    'CaseFinder.java',
+    `package demo;
+
+import java.util.stream.Stream;
+
+public class CaseFinder {
+    public static Case exact(final String name) {
+        return Case.valueOf(name);
+    }
+
+    public static Case find(final String name) {
+        return Stream.of(Case.values()).filter(c -> c.checkEquals(name, name)).findFirst().orElse(null);
+    }
+}
+`,
+  );
+  // **`Stream.of(array)` is a stream of the array's elements**, which is the second way a Java file opens one.
+  write(
+    'Token.java',
+    `package demo;
+
+public class Token {
+    public int value() { return 0; }
+}
+`,
+  );
+  write(
+    'Tokens.java',
+    `package demo;
+
+import java.util.stream.Stream;
+
+public class Tokens {
+    public static boolean has(final Token[] tokens) {
+        return Stream.of(tokens).anyMatch(token -> token.value() == 1);
+    }
+}
+`,
+  );
+
+  // **The enclosing walk is one step at a time**, so a class two deep reaches the outermost only by passing through
+  // its parent - which is the order the language resolves in and the shape a one-step rule would miss.
+  write(
+    'Nest.java',
+    `package demo;
+
+public class Nest {
+    private static String label() { return ""; }
+
+    public static class Middle {
+        public static class Inner {
+            public String read() { return label(); }
+        }
+    }
+}
+
+class Sibling {
+    private static String label() { return "sibling"; }
+
+    public String get() { return label(); }
+}
+`,
+  );
+
   const ctx = {
     projectId: 'java-receivers',
     rootPath: ROOT,
@@ -377,6 +490,42 @@ describe('a Java checkout answers what its own declarations say', () => {
     // **`this.style().text()`** - `style` is `AbstractView`'s, and a hop that asked only the class the call is written in
     // found no declaration and refused the whole receiver.
     expect(callsFrom('read', 'text')).toMatchObject({ calleeFile: 'Style.java' });
+  });
+
+  it('answers a call on a field the class inherits rather than declares', () => {
+    // **`buffer.size()` names a field of `AbstractSource`**, and a name written without `this` was looked for on the
+    // class the call sits in alone: `commons-io`'s `PeekableInputStream.peek` reads its base's `buffer` twice.
+    expect(callsFrom('peek', 'size')).toMatchObject({
+      arm: 'receiverType',
+      calleeFile: 'Buffer.java',
+    });
+  });
+
+  it('answers a member of the class that encloses a nested class', () => {
+    // **`Builder.setDirectory` calls `DeferredFileOutputStream.toPath`**, which is the outer class's private static
+    // method: Java's lookup walks outward through the classes that lexically contain the call, and this walk stopped at
+    // the class the call is written in. Two edges on `commons-io`, one on `commons-lang`.
+    expect(callsFrom('setDirectory', 'toPath')).toMatchObject({ calleeFile: 'Deferred.java' });
+  });
+
+  it('walks outward one enclosing class at a time', () => {
+    // **`Inner.read` calls `Nest.label` through `Middle`**, which declares the name nowhere: the walk passes through
+    // the class that does not answer rather than stopping at it.
+    expect(callsFrom('read', 'label')).toMatchObject({ arm: 'enclosing', calleeFile: 'Nest.java' });
+  });
+
+  it('answers the two methods an enum declares without writing them', () => {
+    // **`Case.valueOf(name)` and `Case.values()` have declarations the source never mentions.** `IOCase.forName` in
+    // `commons-io` filters its own `values()` and calls `getName()` on each, and neither answered.
+    expect(callsFrom('exact', 'valueOf')).toMatchObject({ calleeFile: 'Case.java' });
+    expect(callsFrom('find', 'values')).toMatchObject({ calleeFile: 'Case.java' });
+    expect(callsFrom('find', 'checkEquals')).toMatchObject({ calleeFile: 'Case.java' });
+  });
+
+  it('answers a stream opened with Stream.of, element by element', () => {
+    // **`Stream.of(tokens)` holds the elements of `tokens`**, so the lambda is handed a `Token` and its `value()` is a
+    // call on that class - `commons-lang`'s `DurationFormatUtils.Token.containsTokenWithValue` is the same three tokens.
+    expect(callsFrom('has', 'value')).toMatchObject({ calleeFile: 'Token.java' });
   });
 
   it('claims no call the checkout does not contain', () => {

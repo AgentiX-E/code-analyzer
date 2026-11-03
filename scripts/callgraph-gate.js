@@ -258,9 +258,13 @@ const TYPESCRIPT_FLOORS = {
 const JAVA_FLOORS = {
   'apache/commons-lang': {
     precision: 1,
-    recall: 0.991,
-    claimed: 2240,
+    recall: 0.992,
+    claimed: 2243,
     arms: {
+      // **The arm that answers a name in the class that lexically contains the caller.** `Builder.setDirectory` calls
+      // the outer class's private static `toPath`, and `StrategyParser.letterPattern` calls the outer class's
+      // `getStrategy`; neither is a base of the class the call sits in. Two claims, both right, on this corpus.
+      enclosing: 1,
       import: 0.99,
       inherited: 0.995,
       // **The arm that answers a name out of the file's own directory.** Measured 69 of 69 on this corpus and 83 of
@@ -278,9 +282,11 @@ const JAVA_FLOORS = {
   },
   'apache/commons-io': {
     precision: 1,
-    recall: 0.994,
-    claimed: 1662,
+    recall: 0.998,
+    claimed: 1668,
     arms: {
+      // Four claims, all right: `DeferredFileOutputStream`'s two nested-`Builder` calls to the outer `toPath`.
+      enclosing: 1,
       import: 0.99,
       inherited: 0.995,
       package: 0.99,

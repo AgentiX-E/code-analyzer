@@ -83,6 +83,15 @@ export interface FileTypes {
    */
   readonly returns: Map<string, string>;
   /**
+   * `Class.method` → the element of the array its declaration says it returns.
+   *
+   * **A method may name a container where `returns` expects a type.** `values()` is declared by the language on every
+   * enum, and its type is `IOCase[]`: `simpleTypeName` refuses it, correctly, because an array declares none of the
+   * element's members — and the element is exactly what a lambda handed one at a time holds. The field map has kept
+   * this reduction beside the refusal since iteration 44; the method map now does too.
+   */
+  readonly elementReturns: Map<string, string>;
+  /**
    * `Class.method` → the type variable its declaration writes in place of a return type, when it writes one.
    *
    * **`<T extends PathVisitor> T visitFileTree(T visitor, Path path)` states its result by naming its argument**, and
@@ -113,6 +122,16 @@ export interface FileTypes {
   readonly classOfFunction: Map<string, string>;
   /** `Class` → the class's own declaration. */
   readonly classes: Map<string, Declared>;
+  /**
+   * `Class` → the class that lexically contains it, when one does.
+   *
+   * **A class written inside a class is written inside a scope.** Java's member lookup starts at the class the code is
+   * written in and walks *outward* through the classes that contain it, so `Builder.setDirectory`'s `toPath(file, null)`
+   * names `DeferredFileOutputStream`'s private static method — and `FastDateParser.StrategyParser.letterPattern`'s
+   * `getStrategy(c, width, calendar)` names `FastDateParser`'s. Neither is a base of the class the call sits in, so the
+   * chain walk above cannot reach either, and the call was answered by nothing.
+   */
+  readonly outerClasses: Map<string, string>;
   /** `Class` → its members by name. */
   readonly members: Map<string, Map<string, Declared>>;
   /** `Class` → the simple names of the classes it extends, in declaration order. */
@@ -431,11 +450,13 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const parameters = new Map<string, string>();
   const locals = new Map<string, string>();
   const returns = new Map<string, string>();
+  const elementReturns = new Map<string, string>();
   const returnVariables = new Map<string, string>();
   const typeParameterOrder = new Map<string, readonly string[]>();
   const elements = new Map<string, string>();
   const classOfFunction = new Map<string, string>();
   const classes = new Map<string, Declared>();
+  const outerClasses = new Map<string, string>();
   const members = new Map<string, Map<string, Declared>>();
   const bases = new Map<string, readonly string[]>();
   const contracts = new Map<string, readonly string[]>();
@@ -507,6 +528,11 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
           elements.set(`${declaration.name}.${field}`, elementType);
         }
       }
+      // **A class written inside a class is written inside a scope**, and the class that contains it is a fact the
+      // provider read off the syntax. Filed here rather than inferred from line spans, because a span says which class
+      // a line sits in and not which class *contains* another one.
+      const outer = declaration.properties['outerClass'];
+      if (typeof outer === 'string' && outer.length > 0) outerClasses.set(declaration.name, outer);
       // **A class's bases are how a member it does not declare still belongs to it.** `Flask.__init__` calls
       // `self.add_url_rule(...)`, and `add_url_rule` is declared on `App` in `flask/sansio/app.py` - so a lookup that
       // stops at the class the call is written in answers nothing for the largest single group of inherited calls in
@@ -612,6 +638,13 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       if (declaredReturn !== undefined) {
         returns.set(ownerKeyOf(container, declaration.name), declaredReturn);
       }
+      // **And what it returns may name a container rather than a type.** The element is filed beside the refusal, for
+      // the same reason a field's is: `values()` on an enum returns `IOCase[]`, and the lambda `IOCase.forName` hands
+      // that array to is handed one `IOCase` at a time.
+      const returnElement = elementTypeName(declaration.properties['returnType']);
+      if (returnElement !== undefined) {
+        elementReturns.set(ownerKeyOf(container, declaration.name), returnElement);
+      }
       // **A return type written as one capital letter is a type variable**, which is the convention every Java
       // codebase follows and the one `fitsSignature` already reads the same way. It is kept apart from `returns`
       // because it names no class: what it stands for is decided at the call site, from the argument that fills it.
@@ -653,10 +686,12 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     locals,
     elements,
     returns,
+    elementReturns,
     returnVariables,
     typeParameterOrder,
     classOfFunction,
     classes,
+    outerClasses,
     members,
     bases,
     contracts,
@@ -1048,7 +1083,7 @@ function startOf(
   // `ESCAPE_CSV.translate(writer, input)` writes no `this` because a static member needs none. The lookup comes last
   // because Java's own scoping puts a local and a parameter ahead of a field with the same name, and a rule that
   // preferred the field would answer a call with a declaration the name does not mean.
-  const field = enclosing === undefined ? undefined : own?.fields.get(`${enclosing}.${base}`);
+  const field = enclosing === undefined ? undefined : fieldInChain(lookup, own, enclosing, base);
   if (field !== undefined) return bounded(valueOf(lookup, own, field, 'thisField'));
   // **A base may be a call, and what the call returns is what the receiver is.** `is(a).greaterThanOrEqualTo(b)`
   // writes a factory call where a name would go, and the member it calls belongs to `ComparableChecker` - the class
@@ -1061,9 +1096,19 @@ function startOf(
   // factory read off an unrelated class is a name this walk has no evidence about; both are the refusal this module
   // gives everywhere else rather than a guess.
   const called = calledNameOf(base);
-  if (called !== undefined && enclosing !== undefined) {
+  if (called !== undefined) {
+    // **A function that belongs to no class declares what it returns all the same.** `colinhacks/zod` writes its
+    // shorthand constructors as module-level arrows - `const ostring = () => stringType().optional()` - and the walk
+    // below only asked a *class* what its method returns, so the receiver was refused for want of an enclosing class
+    // that has nothing to do with the question. Four of that corpus's missing edges are this one shape.
+    //
+    // **The file's own declaration answers here and the class walk answers there**, which is the same split every other
+    // rule in this module makes: a module-level name is filed by its own spelling, and a member is filed by its class.
     const returned =
-      boundReturnOf(lookup, enclosing, called, base) ?? declaredReturnOf(lookup, enclosing, called);
+      enclosing === undefined
+        ? own?.returns.get(called)
+        : (boundReturnOf(lookup, enclosing, called, base) ??
+          declaredReturnOf(lookup, enclosing, called));
     if (returned !== undefined) return bounded({ className: returned, via: 'call' });
   }
   // **A receiver may be rooted at a class, and then the walk starts at that class.** `QueueInputStream.builder()`
@@ -1212,7 +1257,17 @@ function elementOfPath(
       enclosing === undefined ? undefined : own?.elements.get(`${enclosing}.${field}`);
     return element === undefined ? undefined : { className: element, via: 'thisField' };
   }
-  if (hops.length > 0) return undefined;
+  if (hops.length > 0) {
+    // **One hop may be a call, and what it returns may be an array.** `Stream.of(Color.values())` hands the lambda one
+    // element of what `values()` returns, and the declaration says `Color[]` — a container, whose element is the type.
+    // The path is read as a chain so the class may be declared in another file, which is where a base's method lives.
+    const method = hops.length === 1 ? hops[0] : undefined;
+    if (method === undefined) return undefined;
+    const element = alongChain(lookup, base, (file, name) =>
+      file?.elementReturns.get(`${name}.${method}`),
+    );
+    return element === undefined ? undefined : { className: element, via: 'call' };
+  }
   // A bare name is a local or a parameter, and both are filed under the same owner key - so this is one lookup, and
   // the answer does not have to say which of the two it was: `for (const x of items)` iterates what `items` is.
   const element = declaredUnder(own?.elements, lookup.owners, base);
@@ -2105,3 +2160,80 @@ function basesOf(index: ClassIndex, located: LocatedClass, withContracts = false
   }
   return out;
 }
+
+/**
+ * The type a bare name holds, read from the class it is written in **or from one of that class's bases**.
+ *
+ * **A field a class does not declare is still a field of the class.** Java's member lookup walks the inheritance chain
+ * for a name written without a receiver exactly as it does for one written with `this`, and this module walked it for a
+ * *hop* — `this.getStyle().getNullText()` — while a bare name was read off the class's own field map alone. On
+ * `apache/commons-io@2.16.1` that is `PeekableInputStream.peek`'s `buffer.getCurrentNumberOfBytes()` and
+ * `buffer.peek(…)`: `buffer` is `protected final CircularByteBuffer` on `CircularBufferInputStream`, two edges the
+ * oracle holds and the graph claimed nothing for.
+ *
+ * **The class's own field comes first, and `extends` alone is the chain.** A subclass that shadows a base's field is
+ * answered by its own, which is the order the language states; and a contract declares no field, so the contract list
+ * has nothing this walk could find in it.
+ */
+function fieldInChain(
+  lookup: ReceiverLookup,
+  own: FileTypes | undefined,
+  className: string,
+  field: string,
+): string | undefined {
+  const direct = own?.fields.get(`${className}.${field}`);
+  if (direct !== undefined) return direct;
+  const start = ownClassOf(lookup.index, lookup.origin?.file, className);
+  if (start === undefined) return undefined;
+  const visited = new Set<string>([keyOf(start)]);
+  let frontier = basesOf(lookup.index, start, false);
+  while (frontier.length > 0) {
+    const next: LocatedClass[] = [];
+    for (const located of frontier) {
+      const key = keyOf(located);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const answer = lookup.index.files.get(located.file)?.fields.get(`${located.name}.${field}`);
+      if (answer !== undefined) return answer;
+      next.push(...basesOf(lookup.index, located, false));
+    }
+    frontier = next;
+  }
+  return undefined;
+}
+
+/**
+ * The classes that lexically contain a class, innermost first — the scope a bare name is looked up in after its own.
+ *
+ * **Java resolves a simple name in the enclosing type before anything else**, and a class written inside a class is
+ * written inside a scope: `Builder.setDirectory`'s `toPath(file, null)` names the private static method of
+ * `DeferredFileOutputStream`, the class that contains the builder, and `StrategyParser.letterPattern`'s
+ * `getStrategy(c, width, calendar)` names `FastDateParser`'s. A base chain cannot reach either, because neither is a
+ * base of the class the call sits in — which is why the walk needs the containment relation rather than another list
+ * of names.
+ *
+ * **The walk is bounded and cycle-safe.** A file cannot express a containment cycle through the grammar, but the index
+ * is built from captures rather than from the grammar, and a reader that hangs on a malformed index is not a reader.
+ */
+export function outerClassesOf(
+  index: ClassIndex,
+  className: string,
+  origin?: LookupOrigin,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>([className]);
+  let located = locateClass(index, className, origin);
+  for (let step = 0; step < MAX_OUTER_STEPS && located !== undefined; step++) {
+    const outer = index.files.get(located.file)?.outerClasses.get(located.name);
+    if (outer === undefined || seen.has(outer)) break;
+    seen.add(outer);
+    out.push(outer);
+    // **The outer class is declared in the same file as the class it contains**, because that is what "written inside"
+    // means in every grammar this index reads; the file is carried rather than searched again.
+    located = locateClass(index, outer, { file: located.file });
+  }
+  return out;
+}
+
+/** The depth a lexical containment walk takes before it stops, which no real grammar reaches. */
+const MAX_OUTER_STEPS = 8;

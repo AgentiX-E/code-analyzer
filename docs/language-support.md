@@ -186,7 +186,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 | ---------- | :---------: | :---------------: | :------------------------------------------------------------------ |
 | TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis             |
 | Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug            |
-| Java       |    Fast     |       ~5MB        | **100.0 % / 99.1 %** commons-lang · **100.0 % / 99.5 %** commons-io |
+| Java       |    Fast     |       ~5MB        | **100.0 % / 99.3 %** commons-lang · **100.0 % / 99.8 %** commons-io |
 | JavaScript |    Fast     |       ~4MB        | not measured                                                        |
 | Go         |    Fast     |       ~3MB        | not measured                                                        |
 | Kotlin     |   Medium    |       ~4MB        | not measured                                                        |
@@ -209,7 +209,7 @@ checker, and `javac`'s own attribution), gated per arm by `scripts/callgraph-gat
 `.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: `commons-io` read 60.9 % when the
 instrument was first pointed at it, 80.2 % after the receiver arm learned to read a declared type, 95.8 % after the
 interface `extends` clause became a base, 97.9 % after four declarations the provider stepped past were read, and
-**99.5 % now** — and that number is a claim about the graph, not about Java. Its 9 unanswered pairs are named in
+**99.8 % now** — and that number is a claim about the graph, not about Java. Its 3 unanswered pairs are named in
 `benchmarks/callgraph-java-quality.json` under `missedSamples`, which is the
 only reason the figure can be worked on rather than argued about.
 
@@ -287,6 +287,31 @@ the body: `DEFAULT_COMPARATOR = new ReverseFileComparator()` inside `DirectoryFi
 to a constructor that calls it, **5 wrong edges on `commons-io`** and 2 on `commons-lang` (`FailableConsumer.nop`,
 `FailableSupplier.nul`). A constructor is written on the class's first line and that is the line it spans; the wrong
 edges went to zero and the correct ones stayed.
+
+**Then the scopes a name is written in, which are more than the class.** A name is answered by the code that
+surrounds it, and this walk knew two of the surrounding scopes: the class it was written in, and that class's bases.
+Java has four — the class, its bases, the classes that lexically contain it, and the values a declaration states it
+returns — and three of them were missing. Each rule was ablated alone, and the two corpora decompose again — **3 new
+correct edges on `commons-lang`, 6 on `commons-io`**:
+
+| rule disabled alone                                          | what the language states                                                                                                                                                                                                                                                                             | `commons-lang` | `commons-io` |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------ |
+| **A field a class does not declare is still its field**      | `PeekableInputStream.peek` calls `buffer.getCurrentNumberOfBytes()`, and `buffer` is `protected final CircularByteBuffer` on `CircularBufferInputStream`. The chain walk existed for a _hop_ and not for a bare name, so the call on it was answered by nothing — twice in one method                | **0**          | **-2**       |
+| **A class written inside a class is written inside a scope** | `Builder.setDirectory` calls `toPath(directory, null)`, which is `DeferredFileOutputStream`'s private static method; `StrategyParser.letterPattern` calls `FastDateParser.getStrategy`. Neither is a base of the class the call sits in, and Java resolves a simple name in the enclosing type first | **-2**         | **-2**       |
+| **An enum writes `values()` and `valueOf(String)`**          | the source names neither, and `javac` attributes both: `IOCase.forName` filters its own `values()`. A graph that files only what is spelled has no declaration to point at                                                                                                                           | **0**          | **-2**       |
+| **`Stream.of(x)` is a stream of `x`'s elements**             | `Stream.of(tokens).anyMatch(token -> token.getValue() …)` is the second spelling of `list.stream()`, and `Stream.of(Color.values())` names the element of what `values()` returns                                                                                                                    | **-1**         | **-1**       |
+
+0 + 2 + 0 + 1 is the first column and 2 + 2 + 2 + 1 the second, **one more than the six the corpus moved, because one
+edge needs two rules at once**: `IOCase.forName`'s `ioCase.getName()` is answered only when `values()` has a declaration
+to return an array _and_ the argument of `Stream.of` is read as a path — so ablating either rule loses it, and a table
+that added the rows would claim seven edges for six. That is the first time in this sequence that two rules were
+prerequisites of one edge, and it is worth stating rather than smoothing over: **an ablation table adds up only if each
+row is the delta of removing that rule from the full build**, which is what these are.
+
+**And the arm that answers it is new, so it is floored like the others.** `enclosing` claimed 2 edges on
+`commons-lang` and 4 on `commons-io`, all correct, and `scripts/callgraph-gate.js` now holds it at 100 % beside the
+six arms that were already there. A rule that is only measured inside an aggregate is a rule whose precision nobody
+knows.
 
 ## Adding a New Language
 

@@ -50,6 +50,19 @@ const METHOD_CONTAINERS: ReadonlySet<string> = new Set([
  */
 const STREAM_OPENER = /^(.*)\.(?:parallel)?stream\(\)$/;
 
+/**
+ * The other way a Java file opens a stream: `Stream.of(x)`, whose elements are `x`'s.
+ *
+ * **One call with one argument names one container.** `Stream.of(tokens)` holds the elements of the array and
+ * `Stream.of(Color.values())` holds the elements of what `values()` returns — so the lambda `anyMatch` and `filter`
+ * hand it one of those, and the argument is the path this provider records. A call with several arguments
+ * (`Stream.of(a, b)`) names as many elements as it passes and states no single one, so it is refused.
+ */
+const STREAM_OF = /^Stream\.of\(([\s\S]*)\)$/;
+
+/** A call that passes nothing: `Color.values()` is a name whose value is what the declaration says it returns. */
+const NO_ARGUMENT_CALL = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\(\)$/;
+
 const TYPE_NODES: ReadonlySet<string> = new Set([
   'type_identifier',
   'scoped_type_identifier',
@@ -303,7 +316,15 @@ export class JavaProvider extends TreeSitterBaseProvider {
    */
   private streamSourceOf(receiver: string): string {
     const opened = STREAM_OPENER.exec(receiver);
-    return opened?.[1] ?? receiver;
+    if (opened?.[1] !== undefined) return opened[1];
+    // **`Stream.of(x)` is the second spelling of the same statement.** The stream is a view of `x`'s elements, so the
+    // path is `x` — and when `x` is a call that passes nothing, the path is the call's own name, which the reader
+    // resolves to what the declaration says it returns. A receiver with several arguments names several elements and
+    // is left alone, which is the refusal this provider makes wherever a rule would have to pick one.
+    const handed = STREAM_OF.exec(receiver);
+    const inner = handed?.[1]?.trim();
+    if (inner === undefined || inner.length === 0 || inner.includes(',')) return receiver;
+    return NO_ARGUMENT_CALL.exec(inner)?.[1] ?? inner;
   }
 
   /** The single parameter a lambda declares, or `undefined` when it declares none or several. */
@@ -338,6 +359,64 @@ export class JavaProvider extends TreeSitterBaseProvider {
     // A `formal_parameter` always has the field, so there is no third shape and nothing here to answer `undefined`
     // for - which is what let the capture below stop guarding a case the production cannot write.
     return namedChildrenOf(parameter).find((child) => TYPE_NODES.has(child.type))!.text;
+  }
+
+  /**
+   * The class a declaration is lexically written inside, when one encloses it.
+   *
+   * **A class written inside a class is written inside a scope.** Java resolves a simple name in the enclosing type
+   * before it looks anywhere else, so `Builder.setDirectory`'s `toPath(file, null)` names the private static method of
+   * `DeferredFileOutputStream` - the class that contains the builder - and `StrategyParser.letterPattern`'s
+   * `getStrategy(c, width, calendar)` names `FastDateParser`'s. Neither is a base of the class the call sits in, so a
+   * graph that only knew the base chain had no way to reach them: **four pairs `javac` expected on `commons-io` and
+   * `commons-lang` and this graph claimed nothing for are this one shape.**
+   *
+   * **The nearest container, not the outermost.** A class two deep answers the class that directly contains it, and the
+   * reader walks outward one link at a time - which is the order the language resolves in.
+   */
+  private outerClassPropertyOf(node: TreeSitterSyntaxNode): Record<string, string> {
+    const container = this.findContainerNode(node);
+    if (container === null) return {};
+    const name = this.findChild(container, 'identifier')?.text;
+    return name === undefined || name.length === 0 ? {} : { outerClass: name };
+  }
+
+  /**
+   * The two methods every enum declares and no source writes.
+   *
+   * **`values()` and `valueOf(String)` are members of the enum the language writes for it**, and `javac`'s attribution
+   * names them: `IOCase.forName` in `apache/commons-io@2.16.1` filters its own `values()`, and the call resolved to
+   * nothing because a graph that files only what the source spells has no declaration to point at. `values()` returns
+   * `E[]` and `valueOf` returns `E`, which is what makes the first a container whose element is the enum and the second
+   * a value of it.
+   *
+   * **The span is the line the enum is declared on**, the same discipline the implicit constructor follows: a capture
+   * stretched over the body would become the caller of every constant initialiser in it.
+   */
+  private recordImplicitEnumMembers(
+    node: TreeSitterSyntaxNode,
+    nameNode: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+  ): void {
+    const span = {
+      startLine: node.startPosition.row + 1,
+      endLine: node.startPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: nameNode.endIndex,
+    };
+    for (const [name, returnType] of [
+      ['values', `${nameNode.text}[]`],
+      ['valueOf', nameNode.text],
+    ] as const) {
+      captures.push({
+        tag: CAPTURE_TAGS.METHOD_DEF,
+        text: name,
+        ...span,
+        name,
+        containerName: nameNode.text,
+        properties: { filePath: this.filePath, implicit: 'true', returnType },
+      });
+    }
   }
 
   /**
@@ -1010,6 +1089,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
           baseClasses: this.superclassNameOf(node),
           interfaces,
           filePath: this.filePath,
+          ...this.outerClassPropertyOf(node),
           ...this.typeParametersPropertyOf(node),
         },
       });
@@ -1033,6 +1113,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         properties: {
           filePath: this.filePath,
           baseClasses: this.extendedInterfacesOf(node),
+          ...this.outerClassPropertyOf(node),
           ...this.typeParametersPropertyOf(node),
         },
       });
@@ -1058,9 +1139,11 @@ export class JavaProvider extends TreeSitterBaseProvider {
         name: nameNode.text,
         properties: {
           filePath: this.filePath,
+          ...this.outerClassPropertyOf(node),
           ...this.typeParametersPropertyOf(node),
         },
       });
+      this.recordImplicitEnumMembers(node, nameNode, captures);
     } else if (nodeType === 'method_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;
       // **What the method says it returns**, in the grammar's `type:` field - which is where Java writes it and not

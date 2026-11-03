@@ -15,6 +15,7 @@ import {
   ELEMENT_OF,
   elementTypeName,
   mergeClassIndex,
+  outerClassesOf,
   ownerKeyOf,
   receiverTypeOf,
   simpleTypeName,
@@ -2357,5 +2358,253 @@ describe('the grammar of a written type, read exactly', () => {
     expect(
       receiverTypeOf({ index, origin: { file }, owners: ['Loop.run'] }, 'this.anything'),
     ).toBeUndefined();
+  });
+});
+
+// **A field a class does not declare is still a field of the class.** Java's member lookup walks the inheritance
+// chain, and this module walked it for a *hop* - `this.getStyle().getNullText()` - while a bare name was read off the
+// class alone. `commons-io`'s `PeekableInputStream.peek` calls `buffer.getCurrentNumberOfBytes()`, and `buffer` is
+// declared `protected final CircularByteBuffer` on `CircularBufferInputStream`, its base: two edges, both unanswered.
+describe('a field a class does not declare and still has', () => {
+  const FILE = '/peek.ts';
+  const facts = buildFileTypes([
+    declaration('Class', 'Base', undefined, { fieldTypes: '{"buffer":"Buffer"}' }, 1),
+    declaration('Class', 'Leaf', undefined, { baseClasses: 'Base' }, 2),
+    declaration('Method', 'peek', 'Leaf', {}, 3),
+    declaration('Class', 'Buffer', undefined, {}, 4),
+    // **A class that shadows a base's field is answered by its own**, which is the order the language states.
+    declaration(
+      'Class',
+      'Shadow',
+      undefined,
+      { baseClasses: 'Base', fieldTypes: '{"buffer":"Other"}' },
+      5,
+    ),
+    declaration('Method', 'look', 'Shadow', {}, 6),
+    declaration('Class', 'Other', undefined, {}, 7),
+    // And a name no class in the chain declares answers nothing.
+    declaration('Class', 'Empty', undefined, { baseClasses: 'Base' }, 8),
+    declaration('Method', 'read', 'Empty', {}, 9),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('answers a bare name with the type the base declares', () => {
+    expect(receiverTypeOf(at(['Leaf.peek']), 'buffer')).toEqual({
+      className: 'Buffer',
+      via: 'thisField',
+    });
+  });
+
+  it('answers with the class’s own field when both declare the name', () => {
+    expect(receiverTypeOf(at(['Shadow.look']), 'buffer')).toEqual({
+      className: 'Other',
+      via: 'thisField',
+    });
+  });
+
+  it('answers nothing when no class in the chain declares the name', () => {
+    expect(receiverTypeOf(at(['Empty.read']), 'missing')).toBeUndefined();
+  });
+});
+
+// **A function that belongs to no class still declares what it returns.** `colinhacks/zod` writes its shorthand
+// constructors as module-level arrows - `const ostring = () => stringType().optional()` - and the call was refused
+// because the receiver walk only asked a *class* what its method returns. Four of that corpus's 25 missing edges are
+// this one shape, and it costs nothing to read: the file already holds the declaration.
+describe('a function that belongs to no class', () => {
+  const FILE = '/zod.ts';
+  const facts = buildFileTypes([
+    declaration('Class', 'ZodString', undefined, { baseClasses: 'ZodType' }, 1),
+    declaration('Class', 'ZodType', undefined, {}, 2),
+    declaration('Method', 'optional', 'ZodType', {}, 3),
+    // A module-level function: no container, a return type, and the name a call is written on.
+    declaration('Function', 'stringType', undefined, { returnType: 'ZodString' }, 4),
+    declaration('Function', 'ostring', undefined, { localTypes: '{}' }, 5),
+    // A function that declares nothing answers nothing, which is the refusal an unannotated declaration has always got.
+    declaration('Function', 'mystery', undefined, {}, 6),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('answers what a module-level call returns', () => {
+    expect(receiverTypeOf(at(['ostring']), 'stringType()')).toEqual({
+      className: 'ZodString',
+      via: 'call',
+    });
+  });
+
+  it('answers nothing for a function that declares no return type', () => {
+    expect(receiverTypeOf(at(['ostring']), 'mystery()')).toBeUndefined();
+  });
+
+  it('answers nothing for a class member the enclosing class does not have', () => {
+    // The rule reads the file's own declaration of a name; a name no declaration in the file states is not one.
+    expect(receiverTypeOf(at(['ostring']), 'absent()')).toBeUndefined();
+  });
+});
+
+// **A method that declares an array return names its element.** `IOCase.values()` is a method the language writes for
+// an enum, its return type is `IOCase[]`, and a lambda handed one element at a time is handed an `IOCase` - which is
+// the type `ioCase.getName()` is a member of. The field map has held this fact for years; the method map had not.
+describe('the element of an array a method declares', () => {
+  const FILE = '/enum.ts';
+  const facts = buildFileTypes([
+    declaration('Enum', 'Color', undefined, {}, 1),
+    declaration('Method', 'values', 'Color', { returnType: 'Color[]' }, 2),
+    declaration('Method', 'byName', 'Color', {}, 3),
+    declaration(
+      'Function',
+      'boot',
+      undefined,
+      { localTypes: '{"c":"@elementOf:Color.values"}' },
+      4,
+    ),
+    declaration(
+      'Function',
+      'lost',
+      undefined,
+      { localTypes: '{"c":"@elementOf:Color.byName"}' },
+      5,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('answers the element of a method’s array return', () => {
+    expect(receiverTypeOf(at(['boot']), 'c')).toEqual({ className: 'Color', via: 'call' });
+  });
+
+  it('answers nothing for a method that declares no array', () => {
+    expect(receiverTypeOf(at(['lost']), 'c')).toBeUndefined();
+  });
+});
+
+// **The classes that lexically contain a class are a chain, and the chain is what a bare name walks outward through.**
+// The relation is recorded by the provider rather than inferred from line spans, because a span says which class a line
+// sits in and not which class *contains* another one - but the reader still has to terminate, and a chain is the shape
+// that can be written wrong.
+describe('the classes that lexically contain a class', () => {
+  const FILE = '/nested.ts';
+  const index = createClassIndex();
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Outer', undefined, {}, 1),
+      declaration('Class', 'Middle', undefined, { outerClass: 'Outer' }, 2),
+      declaration('Class', 'Inner', undefined, { outerClass: 'Middle' }, 3),
+      declaration('Class', 'Loop', undefined, { outerClass: 'Back' }, 4),
+      declaration('Class', 'Back', undefined, { outerClass: 'Loop' }, 5),
+    ]),
+    FILE,
+  );
+
+  it('answers the chain innermost first', () => {
+    expect(outerClassesOf(index, 'Inner', { file: FILE })).toEqual(['Middle', 'Outer']);
+    expect(outerClassesOf(index, 'Outer', { file: FILE })).toEqual([]);
+  });
+
+  it('ends at a containment cycle rather than following it', () => {
+    // No grammar writes one, and the index is built from captures rather than from a grammar - a reader that hangs on
+    // a malformed index is not a reader.
+    expect(outerClassesOf(index, 'Loop', { file: FILE })).toEqual(['Back']);
+  });
+
+  it('answers nothing for a class no file declares', () => {
+    expect(outerClassesOf(index, 'Absent')).toEqual([]);
+  });
+});
+
+// **A base may be declared in another file**, which is where every library class that matters lives, and a bare name
+// has to cross that boundary exactly as a hop does.
+describe('the edge of what a bare name can reach', () => {
+  const index = createClassIndex();
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Leaf', undefined, { baseClasses: 'Base' }, 1),
+      declaration('Method', 'peek', 'Leaf', {}, 2),
+      // **A class whose declarations were filed without a class entry** is what a provider that emitted a method and
+      // no enclosing type would leave behind, and the walk has to answer nothing rather than ask a map for nothing.
+      declaration('Method', 'orphan', 'Ghost', {}, 3),
+    ]),
+    '/leaf.ts',
+  );
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Base', undefined, { fieldTypes: '{"buffer":"Buffer"}' }, 4),
+      declaration('Class', 'Buffer', undefined, {}, 5),
+    ]),
+    '/base.ts',
+  );
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: '/leaf.ts' },
+    owners,
+  });
+
+  it('answers a field a base declares in another file', () => {
+    expect(receiverTypeOf(at(['Leaf.peek']), 'buffer')).toEqual({
+      className: 'Buffer',
+      via: 'thisField',
+    });
+  });
+
+  it('answers nothing when the class the method belongs to has no declaration', () => {
+    expect(receiverTypeOf(at(['Ghost.orphan']), 'buffer')).toBeUndefined();
+  });
+});
+
+// **A path is one hop and no more**, because the second hop would have to be typed itself and a loop header states
+// nothing about it. The two shapes that are refused are stated here rather than discovered by a corpus.
+describe('a path that is longer than the element rule reaches', () => {
+  const FILE = '/deep.ts';
+  const index = createClassIndex();
+  mergeClassIndex(
+    index,
+    buildFileTypes([
+      declaration('Class', 'Color', undefined, {}, 1),
+      declaration('Method', 'values', 'Color', { returnType: 'Color[]' }, 2),
+      declaration('Method', 'nested', 'Color', { returnType: 'Color' }, 3),
+      declaration(
+        'Function',
+        'boot',
+        undefined,
+        {
+          localTypes: '{"deep":"@elementOf:Color.nested.values","flat":"@elementOf:Color.absent"}',
+        },
+        4,
+      ),
+    ]),
+    FILE,
+  );
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('answers nothing for two hops', () => {
+    expect(receiverTypeOf(at(['boot']), 'deep')).toBeUndefined();
+  });
+
+  it('answers nothing for a method that declares no array', () => {
+    expect(receiverTypeOf(at(['boot']), 'flat')).toBeUndefined();
   });
 });

@@ -1066,3 +1066,137 @@ describe('a class that writes no constructor, and the one the language supplies'
     expect(constructorCaptures('interface Child extends Base { }')).toEqual([]);
   });
 });
+
+// **An enum writes two methods and the source never mentions either.** `values()` and `valueOf(String)` are declared by
+// the language for every enum, and `javac`'s attribution names them - so a graph that only files what the source spells
+// answers nothing for `IOCase.values()`, which is how `commons-io`'s `IOCase.forName` iterates its own constants.
+describe('the two methods an enum declares without writing them', () => {
+  const provider = new JavaProvider();
+
+  const methodsOf = (source: string) =>
+    provider.parse(source, 'Color.java').filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+
+  it('declares values and valueOf, and says the language wrote them', () => {
+    const source = ['enum Color {', '  RED("red");', '  Color(final String name) { }', '}'].join(
+      '\n',
+    );
+    const methods = methodsOf(source);
+    expect(methods.map((c) => c.name)).toEqual(['values', 'valueOf']);
+    expect(methods.map((c) => c.properties?.['implicit'])).toEqual(['true', 'true']);
+    // **`values()` is an array of the enum and `valueOf` is one of it**, which is what a receiver written on either
+    // means: `values()` iterates the constants, `valueOf(x)` is a constant.
+    expect(methods.map((c) => c.properties?.['returnType'])).toEqual(['Color[]', 'Color']);
+    expect(methods.map((c) => c.containerName)).toEqual(['Color', 'Color']);
+  });
+
+  it('declares them on the line the enum is declared on', () => {
+    // The span is what a capture is attributed to, and a synthetic declaration stretched over the body would claim the
+    // constants' own initialisers - the mistake the implicit constructor made once already.
+    const source = [
+      'enum Color {',
+      '  RED("red"), GREEN("green");',
+      '  Color(final String name) { }',
+      '}',
+    ].join('\n');
+    expect(methodsOf(source).map((c) => c.startLine)).toEqual([1, 1]);
+  });
+
+  it('declares none for a class or an interface, which the language writes none for', () => {
+    expect(methodsOf('class Color { }')).toEqual([]);
+    expect(methodsOf('interface Color { }')).toEqual([]);
+  });
+});
+
+// **`Stream.of(x)` is a stream of `x`'s elements**, and it is written where a container would be. `commons-lang`'s
+// `DurationFormatUtils.Token.containsTokenWithValue` reads `Stream.of(tokens).anyMatch(token -> token.getValue() …)`,
+// and `commons-io`'s `IOCase.forName` reads `Stream.of(IOCase.values()).filter(ioCase -> ioCase.getName() …)` — two
+// files, one rule, and both lambdas unbound because the receiver was an expression rather than a path.
+describe('a stream opened with Stream.of', () => {
+  const provider = new JavaProvider();
+
+  const localsOf = (source: string, name: string): Record<string, string> =>
+    JSON.parse(
+      String(
+        provider.parse(source, 'Holder.java').find((c) => c.name === name)?.properties?.[
+          'localTypes'
+        ] ?? '{}',
+      ),
+    ) as Record<string, string>;
+
+  it('binds the element of the array it was handed', () => {
+    const source = [
+      'class Holder {',
+      '  static boolean has(final Token[] tokens) {',
+      '    return Stream.of(tokens).anyMatch(token -> token.value() == 1);',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'has')).toEqual({ token: '@elementOf:tokens' });
+  });
+
+  it('binds the element of what the handed call returns', () => {
+    // **A call in the argument still names one declaration**, and the path recorded is the call's own name: what
+    // `Color.values` means is decided where it is declared, exactly as it is for a receiver.
+    const source = [
+      'class Holder {',
+      '  static Holder find(final String n) {',
+      '    return Stream.of(Color.values()).filter(c -> c.name().equals(n)).findFirst().orElse(null);',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'find')).toEqual({ c: '@elementOf:Color.values' });
+  });
+
+  it('binds nothing for a Stream.of that writes several arguments', () => {
+    // Three values are three elements, and which one the lambda is handed is the stream's business rather than the
+    // argument's - the refusal this module makes everywhere it would have to pick.
+    const source = 'class Holder { void fire() { Stream.of(a, b).forEach(x -> x.run()); } }';
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds nothing for a Stream.of written on another receiver', () => {
+    const source = 'class Holder { void fire() { gather.Stream.of(a).forEach(x -> x.run()); } }';
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+});
+
+// **A class written inside a class is written inside a scope.** Java's member lookup starts at the class the code is
+// written in and walks outward through the classes that lexically contain it, so `Builder.setDirectory`'s
+// `toPath(file, null)` names `DeferredFileOutputStream`'s private static method — two edges on `commons-io`, and the
+// same shape in `FastDateParser.StrategyParser.letterPattern`.
+describe('a class written inside another class', () => {
+  const provider = new JavaProvider();
+
+  const classOf = (source: string, name: string) =>
+    provider
+      .parse(source, 'Outer.java')
+      .find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === name);
+
+  it('names the class that encloses it', () => {
+    const source = [
+      'class Outer {',
+      '  static class Inner {',
+      '    void run() { }',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(classOf(source, 'Inner')?.properties?.['outerClass']).toBe('Outer');
+  });
+
+  it('names the nearest one, and an anonymous class names the class it is written in', () => {
+    // **The walk is one level at a time**, so a class two deep answers its own parent rather than the top-level one.
+    const source = [
+      'class Outer {',
+      '  static class Middle {',
+      '    static class Inner { }',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(classOf(source, 'Inner')?.properties?.['outerClass']).toBe('Middle');
+    expect(classOf(source, 'Middle')?.properties?.['outerClass']).toBe('Outer');
+  });
+
+  it('names none for a class written at the top level', () => {
+    expect(classOf('class Alone { }', 'Alone')?.properties?.['outerClass']).toBeUndefined();
+  });
+});

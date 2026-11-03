@@ -27,6 +27,7 @@ import {
   createClassIndex,
   fileArityOf,
   mergeClassIndex,
+  outerClassesOf,
   ownerKeyOf,
   receiverTypeOf,
 } from '../../resolution/receiver-types.js';
@@ -1189,6 +1190,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
               | 'sameFile'
               | 'static'
               | 'inherited'
+              | 'enclosing'
               | 'super'
               | 'receiverType'
               | 'namespace'
@@ -1430,6 +1432,8 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // condition the same-file arm applies: `m()` inside a Java or Kotlin method is `this.m()`, and inside a
             // Python method it is the module's `m`.
             let inheritedFrom: string | undefined;
+            /** The class that lexically contains the one the call is written in, when that is where it resolved. */
+            let enclosingClass: string | undefined;
             if (!target) {
               const sup = ref.receiver !== undefined && isSuperReceiver(ref.receiver);
               // **A bare call is own-scope only where the language gives a method implicit `this`, and only where
@@ -1479,6 +1483,41 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                     target = member;
                     arm = sup ? 'super' : 'inherited';
                     inheritedFrom = ownerClass;
+                  } else if (!sup) {
+                    // **And a name the class does not declare may be a member of a class that *contains* it.** Java
+                    // resolves a simple name in the nearest enclosing type before it looks further out, so
+                    // `Builder.setDirectory`'s `toPath(directory, null)` names `DeferredFileOutputStream`'s private
+                    // static method and `StrategyParser.letterPattern`'s `getStrategy(c, width, calendar)` names
+                    // `FastDateParser`'s. Neither is a base of the class the call sits in, so the base walk above has
+                    // no way to reach them and the call answered nothing: four pairs `javac` expects on
+                    // `apache/commons-io` and `apache/commons-lang`, all of them this one shape.
+                    //
+                    // **Asked one outward step at a time, and never for `super`.** `super` is the base of the object
+                    // the keyword names, and an enclosing class is not that object.
+                    for (const enclosing of outerClassesOf(classIndex, ownerClass, origin)) {
+                      const found =
+                        classMemberOf(
+                          classIndex,
+                          enclosing,
+                          ref.targetName,
+                          origin,
+                          ref.argumentCount,
+                          argumentTypes,
+                        ) ??
+                        baseMemberOf(
+                          classIndex,
+                          enclosing,
+                          ref.targetName,
+                          origin,
+                          ref.argumentCount,
+                          argumentTypes,
+                        );
+                      if (found === undefined) continue;
+                      target = found;
+                      arm = 'enclosing';
+                      enclosingClass = enclosing;
+                      break;
+                    }
                   }
                 }
               }
@@ -1606,6 +1645,10 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                       // `super` both reach a declaration the enclosing class does not make, and which class the walk
                       // started from is the whole of the evidence.
                       ...(inheritedFrom === undefined ? {} : { inheritedFrom }),
+                      // **The class that lexically contains the caller**, when the name was found in it. An
+                      // `enclosing` edge is a call into a class the source never names at the call site, and the
+                      // evidence for it is this name.
+                      ...(enclosingClass === undefined ? {} : { enclosingClass }),
                     };
                     callsByArm[arm] = (callsByArm[arm] ?? 0) + 1;
                     referencesResolved++;

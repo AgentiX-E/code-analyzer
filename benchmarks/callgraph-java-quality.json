@@ -23,18 +23,23 @@
         "excludedForDuplicateName": 0
       },
       "expectedPairs": 2260,
-      "claimedPairs": 2240,
+      "claimedPairs": 2243,
       "precision": {
-        "correct": 2240,
+        "correct": 2243,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 2240,
-        "missed": 20,
-        "value": 0.9912
+        "found": 2243,
+        "missed": 17,
+        "value": 0.9925
       },
       "byArm": {
+        "enclosing": {
+          "claimed": 2,
+          "correct": 2,
+          "precision": 1
+        },
         "import": {
           "claimed": 41,
           "correct": 41,
@@ -51,8 +56,8 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 443,
-          "correct": 443,
+          "claimed": 444,
+          "correct": 444,
           "precision": 1
         },
         "sameFile": {
@@ -73,10 +78,10 @@
       },
       "callers": {
         "oracle": 1341,
-        "graph": 1330,
+        "graph": 1332,
         "graphOnly": 0,
         "ownersWithAnyCall": 1926,
-        "graphCallers": 1330
+        "graphCallers": 1332
       },
       "wrongSamples": [],
       "missedSamples": [
@@ -87,7 +92,6 @@
         "org/apache/commons/lang3/builder/DiffBuilder.java|append|org/apache/commons/lang3/tuple/Pair.java|getRight",
         "org/apache/commons/lang3/builder/MultilineRecursiveToStringStyle.java|appendDetail|org/apache/commons/lang3/builder/ToStringStyle.java|appendDetail",
         "org/apache/commons/lang3/concurrent/AbstractConcurrentInitializer.java|close|org/apache/commons/lang3/function/FailableSupplier.java|get",
-        "org/apache/commons/lang3/concurrent/BackgroundInitializer.java|call|org/apache/commons/lang3/concurrent/AbstractConcurrentInitializer.java|initialize",
         "org/apache/commons/lang3/concurrent/ConcurrentUtils.java|createIfAbsent|org/apache/commons/lang3/function/FailableSupplier.java|get",
         "org/apache/commons/lang3/concurrent/ConcurrentUtils.java|initialize|org/apache/commons/lang3/function/FailableSupplier.java|get",
         "org/apache/commons/lang3/concurrent/MultiBackgroundInitializer.java|initialize|org/apache/commons/lang3/concurrent/BackgroundInitializer.java|get",
@@ -97,8 +101,6 @@
         "org/apache/commons/lang3/exception/DefaultExceptionContext.java|getContextValues|org/apache/commons/lang3/tuple/Pair.java|getKey",
         "org/apache/commons/lang3/exception/DefaultExceptionContext.java|getFirstContextValue|org/apache/commons/lang3/tuple/Pair.java|getKey",
         "org/apache/commons/lang3/function/Failable.java|stream|org/apache/commons/lang3/stream/Streams.java|FailableStream",
-        "org/apache/commons/lang3/time/DurationFormatUtils.java|containsTokenWithValue|org/apache/commons/lang3/time/DurationFormatUtils.java|getValue",
-        "org/apache/commons/lang3/time/FastDateParser.java|letterPattern|org/apache/commons/lang3/time/FastDateParser.java|getStrategy",
         "org/apache/commons/lang3/time/FastDatePrinter.java|init|org/apache/commons/lang3/time/FastDatePrinter.java|estimateLength"
       ],
       "wrongCauses": {}
@@ -124,18 +126,23 @@
         "excludedForDuplicateName": 0
       },
       "expectedPairs": 1671,
-      "claimedPairs": 1662,
+      "claimedPairs": 1668,
       "precision": {
-        "correct": 1662,
+        "correct": 1668,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 1662,
-        "missed": 9,
-        "value": 0.9946
+        "found": 1668,
+        "missed": 3,
+        "value": 0.9982
       },
       "byArm": {
+        "enclosing": {
+          "claimed": 4,
+          "correct": 4,
+          "precision": 1
+        },
         "import": {
           "claimed": 18,
           "correct": 18,
@@ -152,8 +159,8 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 302,
-          "correct": 302,
+          "claimed": 305,
+          "correct": 305,
           "precision": 1
         },
         "sameFile": {
@@ -162,8 +169,8 @@
           "precision": 1
         },
         "static": {
-          "claimed": 491,
-          "correct": 491,
+          "claimed": 492,
+          "correct": 492,
           "precision": 1
         },
         "super": {
@@ -174,22 +181,16 @@
       },
       "callers": {
         "oracle": 1030,
-        "graph": 1022,
+        "graph": 1025,
         "graphOnly": 0,
         "ownersWithAnyCall": 1495,
-        "graphCallers": 1022
+        "graphCallers": 1025
       },
       "wrongSamples": [],
       "missedSamples": [
-        "org/apache/commons/io/IOCase.java|forName|org/apache/commons/io/IOCase.java|getName",
-        "org/apache/commons/io/IOCase.java|forName|org/apache/commons/io/IOCase.java|values",
         "org/apache/commons/io/function/IOSpliterator.java|tryAdvance|org/apache/commons/io/function/IOConsumer.java|asConsumer",
         "org/apache/commons/io/function/UncheckedIOBaseStream.java|onClose|org/apache/commons/io/function/IOBaseStream.java|unwrap",
-        "org/apache/commons/io/function/UncheckedIOSpliterator.java|trySplit|org/apache/commons/io/function/IOSpliterator.java|unwrap",
-        "org/apache/commons/io/input/buffer/PeekableInputStream.java|peek|org/apache/commons/io/input/buffer/CircularByteBuffer.java|getCurrentNumberOfBytes",
-        "org/apache/commons/io/input/buffer/PeekableInputStream.java|peek|org/apache/commons/io/input/buffer/CircularByteBuffer.java|peek",
-        "org/apache/commons/io/output/DeferredFileOutputStream.java|setDirectory|org/apache/commons/io/output/DeferredFileOutputStream.java|toPath",
-        "org/apache/commons/io/output/DeferredFileOutputStream.java|setOutputFile|org/apache/commons/io/output/DeferredFileOutputStream.java|toPath"
+        "org/apache/commons/io/function/UncheckedIOSpliterator.java|trySplit|org/apache/commons/io/function/IOSpliterator.java|unwrap"
       ],
       "wrongCauses": {}
     }
