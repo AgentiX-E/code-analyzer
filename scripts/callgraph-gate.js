@@ -161,16 +161,30 @@ const TYPESCRIPT_FLOORS = {
   // the rule claimed 15 more edges that were wrong, because a bare `debug(…)` in `lib/Redis.ts` is a module-level
   // `const` and a bare `exists(…)` is a package import, and both were being answered by the inherited member. That is
   // the guard the iteration added, and it is why the figure below is 243 of 243 rather than 243 of 258.
+  //
+  // **Iteration 65 read the declarations the grammar writes and the walk did not file.** Four of them, and eight rules
+  // in all: `abstract class` is a class (zod declares its entire type system on one, ioredis its `AbstractConnector`),
+  // a **named class expression** is a class (ioredis writes `Script` that way, inside a constructor), an **arrow keeps
+  // `this`** while a `function` expression rebinds it, and a **type alias names a type** (`type ZodTypeAny =
+  // ZodType<…>`, which is how zod's own test helpers type their parameters). Three more answered a receiver written on
+  // a name bound to a class's static function - `const stringType = ZodString.create` - which needs the field-arrow's
+  // return type, the binding, and the module scope every declaration in a file can reach. Recall moved 80.6 % -> 89.9 %
+  // on zod (104 -> 116 edges) and 90.0 % -> 92.2 % on ioredis (243 -> 249), with precision still 100 % on both.
+  //
+  // **The rows of the ablation do not add up to the total, and that is the finding rather than an accounting error.**
+  // Ablated one at a time: 11 + 0 + 3 + 0 + 4 + 3 + 3 + 4 = 28 on zod against a total of 12, because the families are
+  // conjunctions - `type: ZodTypeAny` needs the evidence *and* the reader that reads it through the alias. Every row
+  // below is the delta of removing that one rule from the full build, which is what an ablation table can claim.
   'colinhacks/zod': {
     precision: 0.99,
-    recall: 0.8,
-    claimed: 100,
+    recall: 0.89,
+    claimed: 110,
     arms: { import: 0.99, inherited: 0.99, namespace: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
   'redis/ioredis': {
     precision: 0.99,
-    recall: 0.89,
-    claimed: 240,
+    recall: 0.915,
+    claimed: 245,
     arms: { import: 0.99, inherited: 0.99, namespace: 0.99, sameFile: 0.99, receiverType: 0.99 },
   },
 };

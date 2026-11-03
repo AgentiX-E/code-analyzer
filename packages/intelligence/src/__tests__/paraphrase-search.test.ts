@@ -18,7 +18,8 @@
 // **Both halves are then measured on the same leak-free index**, so the difference between the columns is the semantic
 // half and nothing else. If lexical wins on that corpus, the figure says so.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
 import {
@@ -81,6 +82,23 @@ const QUERY_SET = 'benchmarks/paraphrase-queries.json';
 const REGENERATE = process.env['PARAPHRASE_REGENERATE'] === '1';
 
 /**
+ * **Three inputs can move under this measurement, and the third one is derived.**
+ *
+ * The corpus is a snapshot and the questions are frozen, so the two halves cannot drift - but a question does not name a
+ * line range, it names a **qualified name**, and that string is produced *from the corpus* by the resolver on every run.
+ * An improvement to the resolver therefore renames answers that are the same declarations. Iteration 65 made
+ * `abstract class` a container (it was previously read as no container at all, so its members were file-scoped), and
+ * every member of `TreeSitterBaseProvider` moved from `checkExported` to `TreeSitterBaseProvider.checkExported`:
+ * **thirteen questions whose answer had not changed and whose key no longer matched a node.** The tripwire below fired
+ * exactly as designed, which is the difference between a defect caught and a defect measured as a retrieval miss.
+ *
+ * `PARAPHRASE_REQUALIFY=1` is the mechanical exit from that state, and it is an explicit act for the same reason
+ * regeneration is: it rewrites a committed dataset. It needs no credential, because no model is asked anything - the
+ * corpus answers, and `requalify` below decides whether the corpus's answer is unambiguous.
+ */
+const REQUALIFY = process.env['PARAPHRASE_REQUALIFY'] === '1';
+
+/**
  * **One credential is enough for the steady state, and the job reports which ones it had.**
  *
  * `ZHIPU_API_KEY` embeds both sides; `DEEPSEEK_API_KEY` is needed only when the question set has to be *written* -
@@ -128,6 +146,89 @@ function answerKey(
   rootPath: string,
 ): string {
   return `${stripRoot(rootPath, node.filePath ?? '')}::${stripRoot(rootPath, node.qualifiedName)}`;
+}
+
+/** What a class body is labelled by, which is the whole basis of the tie-break below. */
+const CLASS_LABEL = 'Class';
+
+/** The qualified name of the body a name is written in, or `null` for a name that is written in none. */
+function containerOf(candidate: string): string | null {
+  const colon = candidate.lastIndexOf(':');
+  const tail = candidate.slice(colon + 1);
+  const dot = tail.lastIndexOf('.');
+  return dot === -1 ? null : `${candidate.slice(0, colon + 1)}${tail.slice(0, dot)}`;
+}
+
+/**
+ * The qualified name the corpus gives a frozen answer today, or `null` when it gives none or cannot choose between two.
+ *
+ * **A suffix match on the file, and only when it is unique.** The last segment of a qualified name is the declared name,
+ * and a container prefix is exactly what a derivation change adds, so `file::X` is looked for as `file::*.X`. A key that
+ * already matches is not touched, so running the rewrite twice moves nothing the second time.
+ *
+ * **Two candidates is normally a refusal, and there is exactly one case where it is not - resolved by reconstructing
+ * the rule that wrote the bare key rather than by a list of exceptions.** A frozen key with no container in it could
+ * only have been written for a member of a body that *was not a container when the key was made*. Interfaces, enums,
+ * namespaces and ordinary classes were containers all along, so their members always carried a prefix; **the only
+ * bodies that were bare are the ones iteration 65 containerised - an `abstract class` and a class expression - and both
+ * are labelled `Class`.** So when a bare key now collides with an interface member of the same name,
+ * `extractSanitizers` in `TreeSitterBaseProvider` against the one `TaintProvider` declares, exactly one candidate sits
+ * in a class body and it is the answer the question was written for. Where that reading is not unique either - none of
+ * them, or two - the answer is left alone and the tripwire fires: **this function may move a key, never invent one.**
+ */
+function requalify(
+  frozen: { file: string; qualifiedName: string },
+  present: Map<string, string>,
+): string | null {
+  const prefix = `${frozen.file}::`;
+  if (present.has(`${prefix}${frozen.qualifiedName}`)) return null;
+  // **The declared tail is everything after the last `:`**, because a qualified name is
+  // `project:<id>:file:<path>:<name>` and `<name>` is where a container writes its dots.
+  const tail = frozen.qualifiedName.slice(frozen.qualifiedName.lastIndexOf(':') + 1);
+  const suffix = `.${tail}`;
+  const candidates = [...present.keys()].filter(
+    (candidate) => candidate.startsWith(prefix) && candidate.endsWith(suffix),
+  );
+  if (candidates.length === 1) return candidates[0]!.slice(prefix.length);
+  const inAClassBody = candidates.filter((candidate) => {
+    const container = containerOf(candidate);
+    return container !== null && present.get(container) === CLASS_LABEL;
+  });
+  if (inAClassBody.length !== 1) return null;
+  return inAClassBody[0]!.slice(prefix.length);
+}
+
+/**
+ * Rewrite only the `qualifiedName` of the answers named in `moved`, leaving every other byte of the dataset alone.
+ *
+ * **A targeted edit rather than a rewrite of the file**, because the rest of it - the questions, the `generatedAt` date,
+ * the `dropped` count - is what makes the set an input, and a regeneration would change all three. The provenance of
+ * the edit is recorded under `requalified` so a reader of the committed file can see that the derivation moved and why.
+ */
+function rewriteQualifiedNames(
+  path: string,
+  moved: ReadonlyArray<{ file: string; from: string; to: string }>,
+): void {
+  if (moved.length === 0) return;
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
+    queries?: FrozenQuery[];
+    requalified?: { at: string; reason: string; moved: unknown[] };
+  } & Record<string, unknown>;
+  const target = new Map(moved.map((entry) => [`${entry.file}::${entry.from}`, entry.to]));
+  for (const query of parsed.queries ?? []) {
+    const to = target.get(`${query.file}::${query.qualifiedName}`);
+    if (to !== undefined) query.qualifiedName = to;
+  }
+  parsed.requalified = {
+    at: new Date().toISOString().slice(0, 10),
+    reason:
+      'Iteration 65 reads `abstract class` as a container, so its members gained the `TreeSitterBaseProvider.` prefix. ' +
+      'The declarations are unchanged; only the derived name moved.',
+    // **Appended, not replaced**: a second migration months later is a second fact about the dataset, and a list that
+    // forgot the first one would leave a reader unable to explain the keys the first one moved.
+    moved: [...(parsed.requalified?.moved ?? []), ...moved],
+  };
+  writeFileSync(path, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8');
 }
 
 /** The committed question set, or `null` when there is none yet. */
@@ -400,15 +501,201 @@ describe('the recall arithmetic', () => {
   });
 });
 
+// **The rewrite itself is arithmetic on strings, so it is measured on strings.** The corpus only supplies the case that
+// prompted it: every branch below - a unique move, a key that already matches, a name the corpus lost, a suffix two
+// symbols share - exists independently of which corpus is pinned, and the last two would be invisible in a test that
+// only ran the rewrite against the real thing.
+describe('re-keying an answer whose derivation moved', () => {
+  const FILE = 'types.ts';
+  /** A corpus as the rewrite sees it: every answer key, against the label the graph gave that node. */
+  const corpusOf = (...nodes: Array<[string, string]>): Map<string, string> =>
+    new Map(nodes.map(([qualifiedName, label]) => [`${FILE}::${qualifiedName}`, label]));
+
+  it('moves a key onto the container prefix a derivation change added', () => {
+    expect(
+      requalify(
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:checkExported' },
+        corpusOf(
+          ['project:p:file:types.ts:Provider', 'Class'],
+          ['project:p:file:types.ts:Provider.checkExported', 'Method'],
+          ['project:p:file:types.ts:Provider.parse', 'Method'],
+        ),
+      ),
+    ).toBe('project:p:file:types.ts:Provider.checkExported');
+  });
+
+  it('moves a name that is itself inside a body, so the prefix is two segments deep', () => {
+    expect(
+      requalify(
+        {
+          file: FILE,
+          qualifiedName: 'project:p:file:types.ts:attachDocCommentsInOrder.DECLARATIONS',
+        },
+        corpusOf([
+          'project:p:file:types.ts:Provider.attachDocCommentsInOrder.DECLARATIONS',
+          'Variable',
+        ]),
+      ),
+    ).toBe('project:p:file:types.ts:Provider.attachDocCommentsInOrder.DECLARATIONS');
+  });
+
+  it('leaves a key that already matches alone, so a second run moves nothing', () => {
+    expect(
+      requalify(
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:Provider.parse' },
+        corpusOf(['project:p:file:types.ts:Provider.parse', 'Method']),
+      ),
+    ).toBeNull();
+  });
+
+  it('refuses to move a key the corpus no longer has in any form', () => {
+    expect(
+      requalify(
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:gone' },
+        corpusOf(['project:p:file:types.ts:Provider.parse', 'Method']),
+      ),
+    ).toBeNull();
+  });
+
+  it('prefers the class body when a bare key now collides with an interface member of the same name', () => {
+    // **The real case, as it reads in the corpus**: `extractSanitizers` was written bare because the abstract class it
+    // belongs to was not a container; the interface beside it always was, so its member was never written bare.
+    expect(
+      requalify(
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:extractSanitizers' },
+        corpusOf(
+          ['project:p:file:types.ts:Provider', 'Class'],
+          ['project:p:file:types.ts:Contract', 'Interface'],
+          ['project:p:file:types.ts:Provider.extractSanitizers', 'Method'],
+          ['project:p:file:types.ts:Contract.extractSanitizers', 'Method'],
+        ),
+      ),
+    ).toBe('project:p:file:types.ts:Provider.extractSanitizers');
+  });
+
+  it('refuses a collision the class rule cannot separate, because two class bodies is a question with no answer', () => {
+    expect(
+      requalify(
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:parse' },
+        corpusOf(
+          ['project:p:file:types.ts:Provider', 'Class'],
+          ['project:p:file:types.ts:Parser', 'Class'],
+          ['project:p:file:types.ts:Provider.parse', 'Method'],
+          ['project:p:file:types.ts:Parser.parse', 'Method'],
+        ),
+      ),
+    ).toBeNull();
+  });
+
+  it('reads a body by its label, so a collision with a module-level name is not mistaken for a class member', () => {
+    expect(
+      requalify(
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:parse' },
+        corpusOf(
+          ['project:p:file:types.ts:Provider', 'Class'],
+          ['project:p:file:types.ts:parse', 'Function'],
+          ['project:p:file:types.ts:Provider.parse', 'Method'],
+        ),
+      ),
+    ).toBeNull();
+  });
+
+  it('keeps the file, so a name that moved between files is not silently adopted', () => {
+    expect(
+      requalify(
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:parse' },
+        new Map([['other.ts::project:p:file:other.ts:Provider.parse', 'Method']]),
+      ),
+    ).toBeNull();
+  });
+
+  it('rewrites only the key it was given, and records why the dataset changed', () => {
+    // **The file on disk is the subject, so the test writes one** - a temporary path, the same bytes a run would meet,
+    // and the whole object read back afterwards. Asserting on an in-memory copy would leave the writing untested, which
+    // is the only part of this function that can damage a committed dataset.
+    const directory = mkdtempSync(resolve(tmpdir(), 'requalify-'));
+    const path = resolve(directory, 'queries.json');
+    const original = {
+      comment: ['an input, not a report'],
+      corpus: 'benchmarks/retrieval-corpus',
+      generatedAt: '2026-10-26',
+      generator: 'deepseek-chat · paraphrasePrompt',
+      dropped: 1,
+      queries: [
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:parse', name: 'parse', query: 'how' },
+        { file: FILE, qualifiedName: 'project:p:file:types.ts:gone', name: 'gone', query: 'why' },
+      ],
+    };
+    writeFileSync(path, `${JSON.stringify(original, null, 2)}\n`, 'utf8');
+    try {
+      rewriteQualifiedNames(path, [
+        {
+          file: FILE,
+          from: 'project:p:file:types.ts:parse',
+          to: 'project:p:file:types.ts:Provider.parse',
+        },
+      ]);
+      const written = JSON.parse(readFileSync(path, 'utf8')) as typeof original & {
+        requalified: { at: string; reason: string; moved: unknown[] };
+      };
+      expect(written.queries.map((query) => query.qualifiedName)).toEqual([
+        'project:p:file:types.ts:Provider.parse',
+        // **The one it was not given is untouched**, because a rewrite is not a licence to re-derive a whole dataset.
+        'project:p:file:types.ts:gone',
+      ]);
+      expect(written.generatedAt).toBe('2026-10-26');
+      expect(written.dropped).toBe(1);
+      expect(written.requalified.moved).toHaveLength(1);
+      expect(written.requalified.reason).toContain('abstract class');
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('writes nothing when nothing moved, so an accidental run cannot touch the dataset', () => {
+    const directory = mkdtempSync(resolve(tmpdir(), 'requalify-'));
+    const path = resolve(directory, 'queries.json');
+    const original = `${JSON.stringify({ queries: [], dropped: 0 }, null, 2)}\n`;
+    writeFileSync(path, original, 'utf8');
+    try {
+      rewriteQualifiedNames(path, []);
+      expect(readFileSync(path, 'utf8')).toBe(original);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
 // **The two inputs are pinned to each other, and this is the assertion that says so.** It needs no credential, because
 // the defect it guards against ran for four days precisely because the only check lived inside a block that is skipped
 // wherever one is absent: a question about a symbol the corpus has lost is a broken measurement, not a retrieval miss,
 // and scoring it as a miss understates whichever column is being compared.
 describe('the frozen questions and the frozen corpus', () => {
+  it.skipIf(!REQUALIFY)(
+    're-derives the keys a container change moved, when asked to',
+    async () => {
+      const { corpusRoot, pipeline } = await analyseCorpus();
+      const present = new Map(
+        [...pipeline.graph.nodes.values()].map((node) => [answerKey(node, corpusRoot), node.label]),
+      );
+      const frozen = readQuerySet(QUERY_SET);
+      expect(frozen, `${QUERY_SET} is the input this measurement is defined on`).not.toBeNull();
+      const moved = (frozen?.queries ?? []).flatMap((query) => {
+        const to = requalify(query, present);
+        return to === null ? [] : [{ file: query.file, from: query.qualifiedName, to }];
+      });
+      rewriteQualifiedNames(QUERY_SET, moved);
+      // **The count is the assertion**, because a rewrite that silently moves nothing leaves the tripwire below to fail
+      // for a reason this run had already been told about.
+      expect(moved.length, `${QUERY_SET} needed no re-keying - nothing moved`).toBeGreaterThan(0);
+    },
+    120_000,
+  );
+
   it('asks only about symbols the corpus still has', async () => {
     const { corpusRoot, pipeline } = await analyseCorpus();
-    const present = new Set(
-      [...pipeline.graph.nodes.values()].map((node) => answerKey(node, corpusRoot)),
+    const present = new Map(
+      [...pipeline.graph.nodes.values()].map((node) => [answerKey(node, corpusRoot), node.label]),
     );
     const frozen = readQuerySet(QUERY_SET);
     expect(frozen, `${QUERY_SET} is the input this measurement is defined on`).not.toBeNull();

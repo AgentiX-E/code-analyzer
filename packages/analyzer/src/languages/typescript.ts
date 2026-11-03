@@ -9,7 +9,7 @@ import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
 import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
-import { ELEMENT_OF, ownerKeyOf } from '../resolution/receiver-types.js';
+import { CALLS_OF, ELEMENT_OF, ownerKeyOf } from '../resolution/receiver-types.js';
 
 import type { ConstantDialect } from './constant-fold.js';
 import type { ContainerDialect } from './container-calls.js';
@@ -60,11 +60,59 @@ function captureTypesFor(
  * caller is the one that knows how to reduce them; this returns `Index`, `pkg.Index` and `Index<T>` and lets
  * `simpleTypeName` refuse the last. The leading colon is syntax, not part of the name.
  */
+/** The owner key a binding declared outside every function is filed under. */
+const MODULE_SCOPE = '';
+
 function declaredTypeOf(node: TreeSitterSyntaxNode): string | undefined {
   for (const child of namedChildrenOf(node)) {
     if (child.type !== 'type_annotation') continue;
     const text = child.text.replace(/^:\s*/, '').trim();
     return text.length === 0 ? undefined : text;
+  }
+  return undefined;
+}
+
+/**
+ * The return type an arrow writes, as a property, or nothing.
+ *
+ * `declaredTypeOf` already reads a `type_annotation` child, and an arrow states its return the same way - the field is
+ * called `return_type` in the grammar and the node is the same `type_annotation`, so the fact needs no second reader.
+ */
+function declaredReturnPropertyOf(body: TreeSitterSyntaxNode): Record<string, string> {
+  const declared = declaredTypeOf(body);
+  return declared === undefined ? {} : { returnType: `: ${declared}` };
+}
+
+/**
+ * The path a member expression writes, as the binding a call on the name returns from.
+ *
+ * `ZodString.create` is `@calls:ZodString.create`, and a computed member (`handlers[name]`) or a call in the qualifier
+ * (`build().create`) states no path and is refused - the two refusals every other path rule in this file makes.
+ */
+function memberPathOf(node: TreeSitterSyntaxNode): string | undefined {
+  const object = node.childForFieldName('object');
+  const property = node.childForFieldName('property');
+  if (object === null || object === undefined || property === null || property === undefined) {
+    return undefined;
+  }
+  if (object.type !== 'identifier' || property.type !== 'property_identifier') return undefined;
+  return `${CALLS_OF}${object.text}.${property.text}`;
+}
+
+/**
+ * The class a field's initialiser constructs, when it constructs one.
+ *
+ * **`private other = new Box()` is a declaration**, and it names one class the way an annotation does. Anything else
+ * in the initialiser - a call, a literal, a member - is a value this provider cannot reduce to a type, and the same
+ * refusal the local rule makes is made here.
+ */
+function constructedTypeOf(node: TreeSitterSyntaxNode): string | undefined {
+  for (const child of namedChildrenOf(node)) {
+    if (child.type !== 'new_expression') continue;
+    const callee = child.childForFieldName('constructor');
+    if (callee === null || callee === undefined) return undefined;
+    if (callee.type !== 'identifier') return undefined;
+    return callee.text;
   }
   return undefined;
 }
@@ -85,6 +133,9 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
   /** The local types recorded during the current parse, by the function that declares them. Cleared with the fields. */
   private readonly localTypes = new Map<string, Map<string, string>>();
+
+  /** The type each alias names, for the aliases whose right-hand side names one. Cleared with the fields. */
+  private readonly typeAliases = new Map<string, string>();
 
   readonly language: string = 'typescript';
   readonly displayName: string = 'TypeScript';
@@ -125,6 +176,13 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         captureTag: CAPTURE_TAGS.CLASS_DEF,
         nameChildType: 'type_identifier',
       },
+      // **`abstract class` is a class**, and this grammar spells it with its own node type. See `CLASS_NODE_TYPES`.
+      {
+        nodeType: 'abstract_class_declaration',
+        captureTag: CAPTURE_TAGS.CLASS_DEF,
+        nameChildType: 'type_identifier',
+      },
+
       {
         nodeType: 'method_definition',
         captureTag: CAPTURE_TAGS.METHOD_DEF,
@@ -226,6 +284,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       'abstract_method_signature',
       'variable_declarator',
       'for_in_statement',
+      // **A class expression, which no mapping row can describe**: the node has a `name` field and the *keyword* it
+      // starts with has the same node type and no name at all, so a `nodeType → nameChildType` row captures both and
+      // names the second one `class`. The arm below reads the field and skips the token.
+      'class',
     ]);
   }
 
@@ -285,10 +347,34 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       return;
     }
 
+    // **A class expression is a class, and its body belongs to it.** `this.Command = class CustomScriptCommand extends
+    // Command { toWritable() {…} }` is how `redis/ioredis@v5.4.2` writes `Script`: without this arm the members were
+    // attributed to the class lexically containing the expression, so a call inside them resolved against a class they
+    // have no relation to. **The keyword token has this node type too and no name**, which is why the field is read
+    // rather than the type.
+    if (nodeType === 'class') {
+      const nameNode = node.childForFieldName('name');
+      if (nameNode !== null && nameNode !== undefined) {
+        this.captureClassExpression(node, nameNode, captures);
+      }
+      return;
+    }
+
     if (nodeType === 'public_field_definition' || nodeType === 'property_signature') {
       this.captureFieldDeclaration(node, captures);
       this.captureFieldFunction(node, captures);
       return;
+    }
+
+    // **A type alias names a type, and this walk filed the name and nothing else.** `export type ZodTypeAny =
+    // ZodType<any, any, any>` is the only spelling `colinhacks/zod@3.23.8` uses for the parameters of its own test
+    // helpers - `function checkErrors(a: z.ZodTypeAny, bad: any)` - so eight test files' `a.nullable().parse(bad)` had a
+    // receiver whose type named no class. The alias is a statement and not an inference: its right-hand side either
+    // names one type or it does not, and a shape (`{ x: number }`) or a union (`string | number`) names none.
+    if (nodeType === 'type_alias_declaration') {
+      // **No early return**: the mapping table below already emits the declaration, and this pass only adds the fact
+      // that the name stands for another type.
+      this.captureTypeAlias(node);
     }
 
     // **A local declares a type the same way a field does, and nothing recorded it.** `const _this = this`,
@@ -745,6 +831,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         const declTypes = [
           'function_declaration',
           'class_declaration',
+          'abstract_class_declaration',
+          'class',
           'interface_declaration',
           'type_alias_declaration',
           'enum_declaration',
@@ -797,8 +885,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // this module can read.
     const nameNode = this.findNamedChild(declarator, 'identifier');
     if (nameNode === null) return;
-    const ownerKey = this.enclosingFunctionKeyOf(declarator);
-    if (ownerKey === undefined) return;
+    // **A binding written outside a function is visible to the whole file**, and `colinhacks/zod@3.23.8` writes its
+    // entire shorthand constructor family that way - `const stringType = ZodString.create` beside the arrows that call
+    // it. The owner key is empty because no function owns the declaration.
+    const ownerKey = this.enclosingFunctionKeyOf(declarator) ?? MODULE_SCOPE;
     const type = this.localTypeOf(declarator);
     if (type === undefined) return;
     let bucket = this.localTypes.get(ownerKey);
@@ -866,12 +956,52 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     bucket.set(nameNode.text, recorded);
   }
 
-  /** What one declarator says about the name it binds: its annotation, its `new`, or `this`. */
+  /**
+   * The type a type alias names, which is the right-hand side exactly when that side is one type reference.
+   *
+   * **Three shapes name a type and everything else names a shape.** `ZodType<any, any, any>` is a `generic_type` whose
+   * name is `ZodType`, `Client` is a `type_identifier`, and `typeof f` is the type of a value - which is a different
+   * question and the one this refuses. An object type, a union, an array and a function type all name nothing a member
+   * can be found in, and a qualified name (`z.Base`) leaves the qualifier to the resolver's import pass.
+   */
+  private captureTypeAlias(node: TreeSitterSyntaxNode): void {
+    const nameNode = this.findNamedChild(node, 'type_identifier');
+    if (nameNode === null) return;
+    const value = node.childForFieldName('value');
+    if (value === null || value === undefined) return;
+    const named = value.type === 'type_identifier' ? value.text : this.genericTypeNameOf(value);
+    if (named === undefined || named.includes('.')) return;
+    this.typeAliases.set(nameNode.text, named);
+  }
+
+  /** The name a `generic_type` is written on, or `undefined` when the node is not one. */
+  private genericTypeNameOf(node: TreeSitterSyntaxNode): string | undefined {
+    if (node.type !== 'generic_type') return undefined;
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === 'type_identifier') return child.text;
+      // `ZodType<T["_output"]>` names `ZodType` and its arguments are not part of the name.
+      if (child.type !== 'nested_type_identifier') continue;
+      const head = this.findNamedChild(child, 'type_identifier');
+      return head === null ? undefined : head.text;
+    }
+    return undefined;
+  }
+
+  /**
+   * What one declarator says about the name it binds: its annotation, its `new`, its `this`, or a member it aliases.
+   *
+   * **An alias of a member is the fourth spelling, and it is written rather than inferred.** `const stringType =
+   * ZodString.create` binds a name to a class's static function, so calling the name returns what calling that member
+   * returns - which is the only way to type `const ostring = () => stringType().optional()`, the shape every shorthand
+   * constructor in `colinhacks/zod@3.23.8` is written in. The path is filed unresolved, because whether the qualifier
+   * names a class is a question only the reader's index can answer.
+   */
   private localTypeOf(declarator: TreeSitterSyntaxNode): string | undefined {
     const annotated = declaredTypeOf(declarator);
     if (annotated !== undefined) return annotated;
     for (const child of childrenOf(declarator)) {
       if (child.type === 'this') return this.containerNameOf(declarator);
+      if (child.type === 'member_expression') return memberPathOf(child);
       if (child.type !== 'new_expression') continue;
       const callee = this.findNamedChild(child, 'identifier');
       return callee === null ? undefined : callee.text;
@@ -928,7 +1058,9 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // the type under and the node is skipped rather than filed under the text of the whole expression.
     const nameNode = this.findNamedChild(node, 'property_identifier');
     if (nameNode === null) return;
-    const fieldType = declaredTypeOf(node);
+    // **An initialised field states its type too, when the initialiser is a construction.** `private other = new
+    // Box()` writes no annotation and names exactly one class; a call on the field had no receiver for want of it.
+    const fieldType = declaredTypeOf(node) ?? constructedTypeOf(node);
     if (fieldType === undefined) return;
     this.recordFieldType(node, nameNode.text, fieldType);
   }
@@ -1039,6 +1171,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         filePath: this.filePath,
         async: String(body.text.trimStart().startsWith('async')),
         fieldFunction: 'true',
+        // **The arrow declares its return, and the capture dropped it.** `static create = (): ZodString => {…}` is
+        // every constructor in `colinhacks/zod`'s type system, and `const stringType = ZodString.create` can only
+        // inherit a return type from a declaration that has one.
+        ...declaredReturnPropertyOf(body),
       },
     });
   }
@@ -1056,6 +1192,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     while (container !== null) {
       const name = this.extractContainerName(container);
       if (name !== undefined) return name;
+      // **An anonymous class declares no name, and the class around it is not that name.** `return class { run() {} }`
+      // writes a member of an object nobody names; filing it under the class that contains the expression answers an
+      // unrelated class's member with it, which is worse than filing nothing.
+      if (container.type === 'class') return undefined;
       container = container.parent === null ? null : this.findContainerNode(container);
     }
     return undefined;
@@ -1072,9 +1212,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     for (const capture of captures) {
       this.attachFieldTypes(capture);
       this.attachLocalTypes(capture);
+      this.attachTypeAlias(capture);
     }
+    this.attachModuleLocals(captures);
     this.classFieldTypes.clear();
     this.localTypes.clear();
+    this.typeAliases.clear();
     // **The returns and arities this walk read are attached here, and until iteration 60 they were not attached at
     // all.** `recordDeclaredReturn` was called for every TypeScript method and `decorateCaptures` never read the map
     // back, so **the declared return type was recorded for every TypeScript file and reached no capture** - the fact
@@ -1124,6 +1267,72 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       ...capture.properties,
       localTypes: JSON.stringify(Object.fromEntries(locals)),
     };
+  }
+
+  /**
+   * A class expression, filed as the class it is.
+   *
+   * **The heritage clause is read here rather than by the generic property pass**, because that pass only runs for the
+   * node types in its own list and a class expression is not one of them: `class Inner extends Base` names a base the
+   * walk would otherwise never see, and a member reached through it resolved to nothing.
+   */
+  private captureClassExpression(
+    node: TreeSitterSyntaxNode,
+    nameNode: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+  ): void {
+    const capture = this.buildCapture(node, CAPTURE_TAGS.CLASS_DEF, nameNode);
+    const baseClasses = this.extractBaseClasses(node);
+    const interfaces = this.extractInterfaces(node);
+    captures.push({
+      ...capture,
+      properties: {
+        ...capture.properties,
+        ...(baseClasses === undefined ? {} : { baseClasses }),
+        ...(interfaces === undefined ? {} : { interfaces }),
+      },
+    });
+  }
+
+  /**
+   * The bindings written at module scope, carried on one declaration so the reader can file them once.
+   *
+   * **A `FileTypes` is built per file, so one carrier is enough**, and the first callable in the capture list is the
+   * one that holds them. Duplicating them onto every callable instead would put a file's constants into every one of
+   * its functions - `colinhacks/zod`'s `types.ts` holds both and the copy would be quadratic. A file with no callable
+   * at all has no call site either, so nothing is lost by dropping them there.
+   */
+  private attachModuleLocals(captures: UnifiedCapture[]): void {
+    const module = this.localTypes.get(MODULE_SCOPE);
+    if (module === undefined || module.size === 0) return;
+    const carrier = captures.find(
+      (capture) =>
+        capture.tag === CAPTURE_TAGS.FUNCTION_DEF ||
+        capture.tag === CAPTURE_TAGS.METHOD_DEF ||
+        capture.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF,
+    );
+    if (carrier === undefined) return;
+    carrier.properties = {
+      ...carrier.properties,
+      moduleLocals: JSON.stringify(Object.fromEntries(module)),
+    };
+  }
+
+  /**
+   * The type an alias names, filed on the alias's own declaration.
+   *
+   * **`export type ZodTypeAny = ZodType<any, any, any>` is a statement about a name.** Eight of `colinhacks/zod`'s test
+   * files write `function checkErrors(a: z.ZodTypeAny, bad: any)` and then `a.nullable().parse(bad)`, and the receiver
+   * named an alias no class map holds. The right-hand side is read as written and reduced by the reader, the same split
+   * every other type fact here makes.
+   */
+  private attachTypeAlias(capture: UnifiedCapture): void {
+    if (capture.tag !== CAPTURE_TAGS.TYPE_DEF) return;
+    const name = capture.name;
+    if (name === undefined) return;
+    const target = this.typeAliases.get(name);
+    if (target === undefined) return;
+    capture.properties = { ...capture.properties, aliasOf: target };
   }
 
   /**

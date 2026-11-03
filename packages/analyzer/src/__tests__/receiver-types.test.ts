@@ -8,10 +8,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  baseMemberOf,
   buildFileTypes,
+  CALLS_OF,
+  classInPackageOf,
   classMemberOf,
+  classNamed,
   containerOf,
   createClassIndex,
+  declaredTypeNameOf,
   ELEMENT_OF,
   elementTypeName,
   mergeClassIndex,
@@ -2606,5 +2611,447 @@ describe('a path that is longer than the element rule reaches', () => {
 
   it('answers nothing for a method that declares no array', () => {
     expect(receiverTypeOf(at(['boot']), 'flat')).toBeUndefined();
+  });
+});
+
+// **An arrow keeps `this`, and a function expression rebinds it.** The scope chain was read for own-scope *calls* -
+// `this.bump()` inside a callback - and not for a receiver *path*, so `this.sentinelIterator.next()` inside
+// `const connectToNext = async () => {…}` resolved to nothing: `redis/ioredis@v5.4.2` writes it twice in one method.
+// The walk out is the same one, and the distinction it needs is the one the language states: an arrow has no `this` of
+// its own, and a `function` expression is handed one by its call site.
+describe('a `this` written inside a nested function', () => {
+  const FILE = '/arrow.ts';
+  const facts = buildFileTypes([
+    declaration('Class', 'Box', undefined, {}, 1),
+    declaration('Class', 'Holder', undefined, { fieldTypes: '{"box":"Box"}' }, 2),
+    declaration('Method', 'nested', 'Holder', {}, 3),
+    // An arrow bound to a local inside the method: a declaration, whose container is the method and not the class.
+    declaration('Function', 'go', 'nested', { arrow: 'true' }, 4),
+    // And the same shape written as a function expression, which rebinds `this`.
+    declaration('Function', 'onSpawn', 'nested', { arrow: 'false' }, 5),
+    declaration('Method', 'deep', 'Holder', {}, 6),
+    declaration('Function', 'outer', 'deep', { arrow: 'true' }, 7),
+    declaration('Function', 'inner', 'outer', { arrow: 'true' }, 8),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('answers the enclosing class through an arrow', () => {
+    expect(receiverTypeOf(at(['nested.go', 'Holder.nested']), 'this.box')).toEqual({
+      className: 'Box',
+      via: 'thisField',
+    });
+  });
+
+  it('walks out through two arrows', () => {
+    expect(receiverTypeOf(at(['outer.inner', 'deep.outer', 'Holder.deep']), 'this.box')).toEqual({
+      className: 'Box',
+      via: 'thisField',
+    });
+  });
+
+  it('answers nothing through a function expression, which is handed its own `this`', () => {
+    expect(receiverTypeOf(at(['nested.onSpawn', 'Holder.nested']), 'this.box')).toBeUndefined();
+  });
+});
+
+// **A name bound to a member holds what that member returns.** `const stringType = ZodString.create` is how zod writes
+// every shorthand constructor, and `const ostring = () => stringType().optional()` cannot be typed without it: the name
+// is an alias, the member is a declaration, and the return type belongs to the declaration.
+describe('a name bound to a member of a class', () => {
+  const FILE = '/alias.ts';
+  const facts = buildFileTypes([
+    declaration('Class', 'ZodString', undefined, {}, 1),
+    declaration('Method', 'create', 'ZodString', { returnType: 'ZodString' }, 2),
+    declaration('Method', 'optional', 'ZodString', { returnType: 'ZodOptional' }, 3),
+    declaration('Class', 'ZodOptional', undefined, {}, 4),
+    // The module-scope binding, carried on the one declaration a `FileTypes` reads it from.
+    declaration(
+      'Function',
+      'ostring',
+      undefined,
+      { moduleLocals: '{"stringType":"@calls:ZodString.create"}' },
+      5,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('answers what the member returns, for a call on the name', () => {
+    expect(receiverTypeOf(at(['ostring']), 'stringType()')).toEqual({
+      className: 'ZodString',
+      via: 'call',
+    });
+  });
+
+  it('answers the members of what the member returns, one hop later', () => {
+    expect(receiverTypeOf(at(['ostring']), 'stringType().optional()')).toEqual({
+      className: 'ZodOptional',
+      via: 'call',
+    });
+  });
+
+  it('answers nothing for a qualifier no class answers', () => {
+    // `box.open` names a member of a value, and a value is not a class this module can find a return type in.
+    const other = buildFileTypes([
+      declaration('Function', 'run', undefined, { moduleLocals: '{"maker":"@calls:box.open"}' }, 1),
+    ]);
+    const otherIndex = createClassIndex();
+    mergeClassIndex(otherIndex, other, '/other.ts');
+    expect(
+      receiverTypeOf(
+        { index: otherIndex, origin: { file: '/other.ts' }, owners: ['run'] },
+        'maker()',
+      ),
+    ).toBeUndefined();
+  });
+});
+
+// **A type alias names a type.** `export type ZodTypeAny = ZodType<any, any, any>` is the only spelling zod's own test
+// helpers use for their parameters, so `a.nullable().parse(bad)` had a receiver whose declared type named no class.
+// Following the alias is not an inference: the right-hand side names one type, and the walk continues from it.
+describe('a parameter annotated with a type alias', () => {
+  const FILE = '/alias-type.ts';
+  const facts = buildFileTypes([
+    declaration('Class', 'ZodType', undefined, {}, 1),
+    declaration('Method', 'nullable', 'ZodType', { returnType: 'ZodNullable' }, 2),
+    declaration('Class', 'ZodNullable', undefined, { baseClasses: 'ZodType' }, 3),
+    declaration('Method', 'parse', 'ZodType', { returnType: 'ZodType' }, 4),
+    declaration('TypeAlias', 'ZodTypeAny', undefined, { aliasOf: 'ZodType' }, 5),
+    declaration('Function', 'check', undefined, {}, 6),
+    // A parameter is filed under the function that declares it, and its type is the alias.
+    declaration(
+      'Variable',
+      'a',
+      undefined,
+      { parameterOwner: 'check', parameterType: 'ZodTypeAny' },
+      7,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const at = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+
+  it('answers the members of the type the alias names', () => {
+    expect(receiverTypeOf(at(['check']), 'a.nullable()')).toEqual({
+      className: 'ZodNullable',
+      via: 'parameter',
+    });
+  });
+
+  it('walks out of the type the alias names', () => {
+    // `parse` is declared on `ZodType`, and `ZodNullable` reaches it through its base - the hop after an alias is an
+    // ordinary hop, and the alias is not consulted twice.
+    expect(receiverTypeOf(at(['check']), 'a.nullable().parse()')).toEqual({
+      className: 'ZodType',
+      via: 'parameter',
+    });
+  });
+
+  it('follows no alias that names no class', () => {
+    const other = buildFileTypes([
+      declaration('TypeAlias', 'Shape', undefined, { aliasOf: 'Absent' }, 1),
+      declaration('Function', 'use', undefined, {}, 2),
+      declaration('Variable', 's', undefined, { parameterOwner: 'use', parameterType: 'Shape' }, 3),
+    ]);
+    const otherIndex = createClassIndex();
+    mergeClassIndex(otherIndex, other, '/shape.ts');
+    const lookup: ReceiverLookup = {
+      index: otherIndex,
+      origin: { file: '/shape.ts' },
+      owners: ['use'],
+    };
+    expect(receiverTypeOf(lookup, 's.area()')).toBeUndefined();
+  });
+});
+
+// **The thinner the evidence, the more a rule has to say "no" with.** Every case here is a state the corpus produces
+// and the unit tests above do not: a call written in a file the fold never reached, a name two files both declare, a
+// declaration whose argument types nobody wrote. They are asserted because a fallback that answers instead of declining
+// is a wrong edge, and a fallback that throws is a crash in the middle of a walk.
+describe('a lookup whose evidence is thinner than the rule assumes', () => {
+  const FILE = '/work/holder.ts';
+  const facts = buildFileTypes([
+    declaration('Class', 'Holder', undefined, {}, 1),
+    declaration('Method', 'run', 'Holder', {}, 2),
+    declaration('Property', 'index', 'Holder', { fieldType: 'Index' }, 3),
+    declaration('Class', 'Index', undefined, {}, 4),
+    declaration('Method', 'create', 'Index', { returnType: 'Index' }, 5),
+    declaration('Method', 'parse', 'Index', { returnType: 'Leaf' }, 6),
+    declaration('Class', 'Leaf', undefined, {}, 7),
+    declaration('Function', 'connect', undefined, {}, 8),
+    declaration(
+      'Function',
+      'uses',
+      undefined,
+      {
+        localTypes: JSON.stringify({
+          chosen: 'Index',
+          leaves: `${ELEMENT_OF}this.index`,
+          alias: `${CALLS_OF}Index.create`,
+        }),
+      },
+      9,
+    ),
+    declaration('TypeAlias', 'Shape', undefined, { aliasOf: 'Index' }, 10),
+    declaration(
+      'Variable',
+      's',
+      undefined,
+      { parameterOwner: 'connect', parameterType: 'Shape' },
+      11,
+    ),
+  ]);
+  const index = createClassIndex();
+  mergeClassIndex(index, facts, FILE);
+  const here = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: FILE },
+    owners,
+  });
+  /** The same index, asked from a file it does not hold - a call in a file outside the analysed set. */
+  const elsewhere = (owners: readonly string[]): ReceiverLookup => ({
+    index,
+    origin: { file: '/work/unindexed.ts' },
+    owners,
+  });
+
+  it('declines every receiver whose own file was never folded in', () => {
+    // **No same-file facts means no enclosing class and no parameter**, so every rule that reads them has to fall
+    // through rather than answer with the first class of that name in the graph.
+    expect(receiverTypeOf(elsewhere(['Holder.run']), 'this.index')).toBeUndefined();
+    expect(receiverTypeOf(elsewhere(['connect']), 'chosen')).toBeUndefined();
+    expect(receiverTypeOf(elsewhere(['connect']), 'Index')).toBeUndefined();
+    expect(receiverTypeOf(elsewhere(['connect']), 'alias()')).toBeUndefined();
+  });
+
+  it('reads a member of the type an alias names, which is the parameter’s annotation one hop away', () => {
+    expect(receiverTypeOf(here(['connect']), 's.parse()')).toEqual({
+      className: 'Leaf',
+      via: 'parameter',
+    });
+  });
+
+  it('declines an element whose iterable is not a field of an enclosing class', () => {
+    // `@elementOf:this.index` in a function that belongs to no class: there is no `this` for the path to start at.
+    expect(receiverTypeOf(here(['uses']), 'leaves')).toBeUndefined();
+  });
+
+  it('answers what a name bound to a member returns, and nothing when the member declares no result', () => {
+    expect(declaredTypeNameOf(here(['uses']), 'alias')).toBe('create');
+    expect(declaredTypeNameOf(here(['uses']), 'chosen')).toBe('Index');
+    expect(declaredTypeNameOf(here(['uses']), 'absent')).toBeUndefined();
+  });
+
+  it('keeps a name two files declare ambiguous, so neither answers a call', () => {
+    const twice = createClassIndex();
+    mergeClassIndex(
+      twice,
+      buildFileTypes([declaration('Class', 'Twin', undefined, {}, 1)]),
+      '/a/twin.ts',
+    );
+    expect(classNamed(twice, 'Twin')?.file).toBe('/a/twin.ts');
+    mergeClassIndex(
+      twice,
+      buildFileTypes([declaration('Class', 'Twin', undefined, {}, 2)]),
+      '/b/twin.ts',
+    );
+    // **Two answers is not a coin toss**: the name is recorded as ambiguous and refused from then on, even by a third
+    // file that would otherwise have been the only one left.
+    expect(classNamed(twice, 'Twin')).toBeUndefined();
+    mergeClassIndex(
+      twice,
+      buildFileTypes([declaration('Class', 'Twin', undefined, {}, 3)]),
+      '/c/twin.ts',
+    );
+    expect(classNamed(twice, 'Twin')).toBeUndefined();
+  });
+
+  it('repeats a file without making its own class ambiguous', () => {
+    const once = createClassIndex();
+    const only = buildFileTypes([declaration('Class', 'Solo', undefined, {}, 1)]);
+    mergeClassIndex(once, only, '/only.ts');
+    mergeClassIndex(once, only, '/only.ts');
+    expect(classNamed(once, 'Solo')?.file).toBe('/only.ts');
+  });
+
+  it('answers a member from a class’s own declaration before any base', () => {
+    expect(classMemberOf(index, 'Holder', 'run', undefined)).toMatchObject({ nodeId: 2 });
+    // A class that declares the name not at all, and a class the index does not hold.
+    expect(classMemberOf(index, 'Holder', 'absent', undefined)).toBeUndefined();
+    expect(classMemberOf(index, 'Absent', 'run', undefined)).toBeUndefined();
+    // `Leaf` extends nothing, so a base walk from it has nowhere to go.
+    expect(baseMemberOf(index, 'Leaf', 'parse', undefined)).toBeUndefined();
+  });
+
+  it('answers a member of a base a class reaches through its own chain', () => {
+    const chain = createClassIndex();
+    mergeClassIndex(
+      chain,
+      buildFileTypes([
+        declaration('Class', 'Base', undefined, {}, 1),
+        declaration('Method', 'parse', 'Base', { returnType: 'Leaf' }, 2),
+        declaration('Class', 'Derived', undefined, { baseClasses: 'Base' }, 3),
+      ]),
+      FILE,
+    );
+    expect(baseMemberOf(chain, 'Derived', 'parse', undefined)).toMatchObject({ nodeId: 2 });
+  });
+
+  it('has no enclosing classes for a class the index does not hold', () => {
+    expect(outerClassesOf(index, 'Absent')).toEqual([]);
+    expect(outerClassesOf(index, 'Index')).toEqual([]);
+  });
+
+  it('declines a package search with no file to search from', () => {
+    expect(classInPackageOf(index, undefined, 'Holder')).toBeUndefined();
+    expect(classInPackageOf(index, FILE, 'Absent')).toBeUndefined();
+  });
+  // **An alias is a fact the file that wrote it owns, and a lookup may have to leave its own file to read one.**
+  // `type ZodTypeAny = ZodType<…>` lives in the library and the parameter is annotated with it in the test file, which
+  // is the shape zod writes 13 times. The three routes below are the three the resolver walks, in that order, and the
+  // last of them refuses a name two files alias differently.
+  describe('an alias declared by another file', () => {
+    const library = buildFileTypes([
+      declaration('Class', 'Real', undefined, {}, 1),
+      declaration('Method', 'run', 'Real', { returnType: 'Leaf' }, 2),
+      declaration('Class', 'Leaf', undefined, {}, 3),
+      declaration('TypeAlias', 'Base', undefined, { aliasOf: 'Real' }, 4),
+    ]);
+    const consumer = buildFileTypes([
+      declaration('Function', 'go', undefined, {}, 5),
+      declaration('Variable', 'x', undefined, { parameterOwner: 'go', parameterType: 'Base' }, 6),
+    ]);
+    const other = buildFileTypes([
+      declaration('Class', 'Elsewhere', undefined, {}, 7),
+      declaration('TypeAlias', 'Base', undefined, { aliasOf: 'Elsewhere' }, 8),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, library, '/w/lib.ts');
+    mergeClassIndex(index, consumer, '/w/use.ts');
+    mergeClassIndex(index, other, '/w/other.ts');
+    const from = (origin: ReceiverLookup['origin']): ReceiverLookup => ({
+      index,
+      origin,
+      owners: ['go'],
+    });
+
+    it('follows the alias the file publishes, which is the route a barrel takes', () => {
+      const lookup = from({
+        file: '/w/use.ts',
+        imported: new Set(['/w/lib.ts']),
+        published: new Map([['Base', '/w/lib.ts']]),
+      });
+      // **And the file the answer came from is part of the answer**: the member was read out of the library, not out of
+      // whatever `Leaf` the consumer's own directory happens to declare.
+      expect(receiverTypeOf(lookup, 'x.run()')).toEqual({
+        className: 'Leaf',
+        via: 'parameter',
+        declaredIn: '/w/lib.ts',
+      });
+    });
+
+    it('follows the alias of a file the name imports, even when nothing published it', () => {
+      const lookup = from({ file: '/w/use.ts', imported: new Set(['/w/lib.ts']) });
+      expect(receiverTypeOf(lookup, 'x.run()')).toEqual({
+        className: 'Leaf',
+        via: 'parameter',
+        declaredIn: '/w/lib.ts',
+      });
+    });
+
+    it('refuses an alias two imported files disagree about', () => {
+      // **`type Base = Real` in one imported file and `type Base = Elsewhere` in another is two answers**, and the
+      // module refuses a name it cannot decide rather than taking the first file the set happens to iterate.
+      const lookup = from({
+        file: '/w/use.ts',
+        imported: new Set(['/w/lib.ts', '/w/other.ts']),
+      });
+      expect(receiverTypeOf(lookup, 'x.run()')).toBeUndefined();
+    });
+
+    it('reads the alias a name is bound to without a file to start from', () => {
+      // A lookup with no origin has no own file, so the file's own alias map is the one thing it cannot consult; the
+      // declaration still answers, and nothing below may read `origin.file` unguarded.
+      const lookup: ReceiverLookup = { index, owners: ['go'] };
+      // The annotation is read, the class it names is not a class, and the file's own alias map is the one place the
+      // hop could have been read from - so the answer is nothing rather than the first alias of that name in the graph.
+      expect(declaredTypeNameOf(lookup, 'x')).toBeUndefined();
+      expect(receiverTypeOf(lookup, 'x.run()')).toBeUndefined();
+    });
+  });
+  // **A name the checkout cannot produce is a name that lives outside it, and the module the import names is how that is
+  // decided.** `Tailer.java` imports `java.io.ByteArrayOutputStream` while the checkout declares a different one two
+  // packages away; without the check the whole-graph fallback answered with the wrong class and claimed three calls
+  // into it. The module is checked against the path rather than trusted, because the same file also imports a class
+  // the checkout *does* declare under a qualified name.
+  it('answers a class only from the module the name imports', () => {
+    const checkout = createClassIndex();
+    // **No extension on the class file's path**, which is what a module looked up as a path looks like: the last dot in
+    // the string belongs to a directory, so the file name is the whole tail.
+    mergeClassIndex(
+      checkout,
+      buildFileTypes([
+        declaration('Class', 'ByteArrayOutputStream', undefined, {}, 1),
+        declaration('Method', 'write', 'ByteArrayOutputStream', { returnType: 'Written' }, 2),
+        declaration('Class', 'Written', undefined, {}, 3),
+      ]),
+      '/work/src/main/java/java/io/ByteArrayOutputStream',
+    );
+    mergeClassIndex(
+      checkout,
+      buildFileTypes([
+        declaration('Function', 'copy', undefined, {}, 4),
+        declaration(
+          'Variable',
+          'stream',
+          undefined,
+          { parameterOwner: 'copy', parameterType: 'ByteArrayOutputStream' },
+          5,
+        ),
+      ]),
+      '/work/src/main/java/app/Tailer.java',
+    );
+    const agreeing: ReceiverLookup = {
+      index: checkout,
+      origin: {
+        file: '/work/src/main/java/app/Tailer.java',
+        bound: new Map([['ByteArrayOutputStream', 'java.io.ByteArrayOutputStream']]),
+      },
+      owners: ['copy'],
+    };
+    expect(receiverTypeOf(agreeing, 'stream.write()')).toEqual({
+      className: 'Written',
+      via: 'parameter',
+      declaredIn: '/work/src/main/java/java/io/ByteArrayOutputStream',
+    });
+
+    const elsewhere: ReceiverLookup = {
+      index: checkout,
+      origin: {
+        file: '/work/src/main/java/app/Tailer.java',
+        bound: new Map([
+          ['ByteArrayOutputStream', 'org.apache.commons.io.output.ByteArrayOutputStream'],
+        ]),
+      },
+      owners: ['copy'],
+    };
+    // The class the checkout declares lives in neither package the import names, so the import says this name is not
+    // the checkout's - and the answer is nothing rather than the only class of that name in the graph.
+    expect(receiverTypeOf(elsewhere, 'stream.write()')).toBeUndefined();
   });
 });

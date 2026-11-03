@@ -534,13 +534,13 @@
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:attachDocCommentsInOrder",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.attachDocCommentsInOrder",
       "name": "attachDocCommentsInOrder",
       "query": "What kinds of comments can be attached to a documentation block?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:checkExported",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.checkExported",
       "name": "checkExported",
       "query": "How do I check whether a symbol is exported by traversing the syntax tree?"
     },
@@ -552,63 +552,129 @@
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:collectIdentifiers",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.collectIdentifiers",
       "name": "collectIdentifiers",
       "query": "How do I get all names of a certain kind from a node and its children?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:attachDocCommentsInOrder.DECLARATIONS",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.attachDocCommentsInOrder.DECLARATIONS",
       "name": "DECLARATIONS",
       "query": "What kinds of comments can be attached to documentation?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:emitCallCapture",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.emitCallCapture",
       "name": "emitCallCapture",
       "query": "How do I create a unified capture for a call site node?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:exportedNames",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.exportedNames",
       "name": "exportedNames",
       "query": "How do I get all the names a file exports in a single pass?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractBaseClasses",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractBaseClasses",
       "name": "extractBaseClasses",
       "query": "How do I get the parent types listed in a class definition?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractCallName",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractCallName",
       "name": "extractCallName",
       "query": "How do I get the name of the function being called in an expression?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractContainerName",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractContainerName",
       "name": "extractContainerName",
       "query": "How do I get the name out of a container node?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractInterfaces",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractInterfaces",
       "name": "extractInterfaces",
       "query": "How do I get the interfaces a class implements?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractNameFromNode",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractNameFromNode",
       "name": "extractNameFromNode",
       "query": "How do I get the identifier name from a node?"
     },
     {
       "file": "tree-sitter-base.ts",
-      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:extractSanitizers",
+      "qualifiedName": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractSanitizers",
       "name": "extractSanitizers",
       "query": "How do I find the functions that clean untrusted data by parsing the code structure?"
     }
-  ]
+  ],
+  "requalified": {
+    "at": "2026-11-03",
+    "reason": "Iteration 65 reads `abstract class` as a container, so its members gained the `TreeSitterBaseProvider.` prefix. The declarations are unchanged; only the derived name moved.",
+    "moved": [
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:attachDocCommentsInOrder",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.attachDocCommentsInOrder"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:checkExported",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.checkExported"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:collectIdentifiers",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.collectIdentifiers"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:attachDocCommentsInOrder.DECLARATIONS",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.attachDocCommentsInOrder.DECLARATIONS"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:emitCallCapture",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.emitCallCapture"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:exportedNames",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.exportedNames"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:extractBaseClasses",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractBaseClasses"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:extractCallName",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractCallName"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:extractContainerName",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractContainerName"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:extractInterfaces",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractInterfaces"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:extractNameFromNode",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractNameFromNode"
+      },
+      {
+        "file": "tree-sitter-base.ts",
+        "from": "project:paraphrase-search:file:tree-sitter-base.ts:extractSanitizers",
+        "to": "project:paraphrase-search:file:tree-sitter-base.ts:TreeSitterBaseProvider.extractSanitizers"
+      }
+    ]
+  }
 }

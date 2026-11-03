@@ -301,8 +301,14 @@ describe('TypeScriptProvider', () => {
       expect(classNode(captures, 'Shape')).toBe(JSON.stringify({ radius: 'Radius' }));
     });
 
-    it('says nothing about a class whose fields carry no annotation', () => {
-      const captures = provider.parse('class Holder {\n  index = new Index();\n}', '/p/a.ts');
+    it('says nothing about a class whose fields state no type at all', () => {
+      // **A field with neither an annotation nor a construction is a value this provider cannot reduce**, and the
+      // refusal is unchanged: `count = 0` and `index = build()` name no class. A construction *is* a type fact, which
+      // is the rule below.
+      const captures = provider.parse(
+        'class Holder {\n  count = 0;\n  index = build();\n}',
+        '/p/a.ts',
+      );
       expect(classNode(captures, 'Holder')).toBeUndefined();
     });
 
@@ -887,5 +893,375 @@ describe('a function assigned to a member', () => {
 
   it('is not invented when the right side is not a function', () => {
     expect(defs('app.port = 3000;\nconst typed: number = 1;\n')).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The two class spellings the walk did not file
+// ---------------------------------------------------------------------------
+
+// **`abstract class` is a class, and this grammar gives it its own node type.** `export abstract class ZodType<…>` is
+// where `colinhacks/zod@3.23.8` declares its entire type system, so every member of it was a member of nothing:
+// `this.nullable()` and the forty methods beside it resolved against no class at all, and `redis/ioredis@v5.4.2` spells
+// `AbstractConnector` the same way. The fix is the same fact stated three times - the node is a container, it is
+// captured as a class, and its heritage clause is read - which is why it is one set and not three conditions.
+describe('a class written abstract', () => {
+  const local = new TypeScriptProvider();
+
+  it('is a class, with the members it declares', () => {
+    const source = [
+      'export abstract class Shape {',
+      '  abstract area(): number;',
+      '  describe(): string { return ""; }',
+      '}',
+    ].join('\n');
+    const captures = local.parse(source, 'shape.ts');
+    const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(classes.map((c) => c.name)).toEqual(['Shape']);
+    const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+    expect(methods.map((c) => c.containerName)).toEqual(['Shape', 'Shape']);
+  });
+
+  it('reads the heritage clause written as an abstract class', () => {
+    const source = 'abstract class Base { }\nabstract class Child extends Base { }';
+    const child = local
+      .parse(source, 'shape.ts')
+      .find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'Child');
+    expect(child?.properties?.['baseClasses']).toBe('Base');
+  });
+
+  it('is exported when it says so', () => {
+    // The `export` flag is the parse phase's property and not this provider's, so the question is asked of the
+    // predicate that phase calls.
+    expect(local.isExported('export abstract class Shape { }', 'Shape')).toBe(true);
+    expect(local.isExported('abstract class Shape { }', 'Shape')).toBe(false);
+  });
+});
+
+// **A class expression is a class too, and its body belongs to it.** `this.Command = class CustomScriptCommand extends
+// Command { toWritable() {…} }` is how `redis/ioredis@5.4.2` writes `Script`, and every member of that class was
+// attributed to the class *containing the expression* - `Holder3` in the fixture below - which is worse than filing
+// nothing: a call inside it resolved against a class it has no relation to.
+describe('a class written as an expression', () => {
+  const local = new TypeScriptProvider();
+
+  it('is a class when it is named, with the members it declares', () => {
+    const source = [
+      'export class Outer {',
+      '  make(): unknown {',
+      '    return class Inner extends Base { run(): void { } };',
+      '  }',
+      '}',
+    ].join('\n');
+    const captures = local.parse(source, 'outer.ts');
+    const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(classes.map((c) => c.name)).toEqual(['Outer', 'Inner']);
+    const run = captures.find((c) => c.tag === CAPTURE_TAGS.METHOD_DEF && c.name === 'run');
+    expect(run?.containerName).toBe('Inner');
+  });
+
+  it('leaves the members of an anonymous one with no container', () => {
+    // **An anonymous class declares no name to belong to**, and the outer class is not it: a call inside the body is a
+    // call on the anonymous instance. Filing it under `Outer` would answer an unrelated class's member.
+    const source = [
+      'export class Outer {',
+      '  make(): unknown {',
+      '    return class { run(): void { } };',
+      '  }',
+      '}',
+    ].join('\n');
+    const captures = local.parse(source, 'outer.ts');
+    const run = captures.find((c) => c.tag === CAPTURE_TAGS.METHOD_DEF && c.name === 'run');
+    expect(run?.containerName).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The type facts a declaration states without an annotation
+// ---------------------------------------------------------------------------
+
+// **A type alias names a type.** `export type ZodTypeAny = ZodType<any, any, any>` is the only spelling zod's own tests
+// use for their helper parameters - `function checkErrors(a: z.ZodTypeAny, bad: any)` - and a resolver that stopped at
+// the alias answered nothing for `a.nullable().parse(bad)` in eight test files. The alias is a statement about a name
+// and not an inference: the right-hand side either names a type or it does not.
+describe('a type alias', () => {
+  const local = new TypeScriptProvider();
+
+  const aliasOf = (source: string, name: string) =>
+    local.parse(source, 'alias.ts').find((c) => c.tag === CAPTURE_TAGS.TYPE_DEF && c.name === name)
+      ?.properties?.['aliasOf'];
+
+  it('names the type its right-hand side names', () => {
+    expect(aliasOf('export type Any = ZodType<any, any, any>;', 'Any')).toBe('ZodType');
+    expect(aliasOf('type Direct = Client;', 'Direct')).toBe('Client');
+  });
+
+  it('names nothing for an alias of a shape or a union', () => {
+    // `type Point = { x: number }` and `type Value = string | number` are shapes, not names of a class.
+    expect(aliasOf('type Point = { x: number };', 'Point')).toBeUndefined();
+    expect(aliasOf('type Value = string | number;', 'Value')).toBeUndefined();
+  });
+
+  it('names nothing for a qualified target, which the file does not resolve alone', () => {
+    // `import * as z from "./index"` then `type T = z.Base` - the qualifier is the resolver's import pass, and this
+    // provider files what the declaration spells.
+    expect(aliasOf('type T = z.Base;', 'T')).toBeUndefined();
+  });
+});
+
+// **A class property whose value is a function declares what it returns.** `static create = (): ZodString => {…}` is
+// how zod writes every constructor in its type system, and the capture said `fieldFunction: 'true'` and stopped there -
+// so `const stringType = ZodString.create` had nothing to inherit a return type from.
+describe('a class property whose value is a function', () => {
+  const local = new TypeScriptProvider();
+
+  it('declares the return type its arrow writes', () => {
+    const source = [
+      'class ZodString {',
+      '  static create = (): ZodString => new ZodString();',
+      '}',
+    ].join('\n');
+    const create = local
+      .parse(source, 'z.ts')
+      .find((c) => c.tag === CAPTURE_TAGS.METHOD_DEF && c.name === 'create');
+    expect(create?.properties?.['returnType']).toBe(': ZodString');
+  });
+
+  it('declares none when the arrow writes none', () => {
+    const source = ['class ZodString {', '  static create = () => new ZodString();', '}'].join(
+      '\n',
+    );
+    const create = local
+      .parse(source, 'z.ts')
+      .find((c) => c.tag === CAPTURE_TAGS.METHOD_DEF && c.name === 'create');
+    expect(create?.properties?.['returnType']).toBeUndefined();
+  });
+});
+
+// **A field initialised by a construction holds that class.** `private other = new Box()` wrote no annotation and was
+// filed as nothing, so `this.other.run()` had no receiver. The initialiser is a declaration the same way an annotation
+// is: it names one class and the language reads the field as that class.
+describe('a field initialised by a construction', () => {
+  const local = new TypeScriptProvider();
+
+  const fieldTypesOf = (source: string, name: string) =>
+    JSON.parse(
+      String(
+        local
+          .parse(source, 'box.ts')
+          .find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === name)?.properties?.[
+          'fieldTypes'
+        ] ?? '{}',
+      ),
+    ) as Record<string, string>;
+
+  it('holds the class it constructs', () => {
+    const source = ['class Holder {', '  private other = new Box();', '}'].join('\n');
+    expect(fieldTypesOf(source, 'Holder')).toEqual({ other: 'Box' });
+  });
+
+  it('does not overrule an annotation it was written beside', () => {
+    const source = ['class Holder {', '  private other: Contract = new Box();', '}'].join('\n');
+    expect(fieldTypesOf(source, 'Holder')).toEqual({ other: 'Contract' });
+  });
+
+  it('holds nothing for an initialiser that constructs nothing', () => {
+    const source = [
+      'class Holder {',
+      '  private other = build();',
+      '  private count = 0;',
+      '}',
+    ].join('\n');
+    expect(fieldTypesOf(source, 'Holder')).toEqual({});
+  });
+});
+
+// **A name bound to a member holds what that member returns.** `const stringType = ZodString.create` is the whole of
+// zod's shorthand constructor family: `const ostring = () => stringType().optional()` cannot be typed without knowing
+// that calling `stringType` returns a `ZodString`. The binding is written, not inferred - the value is `Class.member`
+// and nothing else - so it is filed as the path the reader resolves, exactly as a `for…of` binding is.
+describe('a name bound to a member', () => {
+  const local = new TypeScriptProvider();
+
+  /** Everything one declaration carries about the names written around it: its own locals and the module's. */
+  const localsOf = (source: string, name: string) => {
+    const capture = local
+      .parse(source, 'z.ts')
+      .find((c) => c.name === name && c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+    const own = JSON.parse(String(capture?.properties?.['localTypes'] ?? '{}')) as Record<
+      string,
+      string
+    >;
+    const module = JSON.parse(String(capture?.properties?.['moduleLocals'] ?? '{}')) as Record<
+      string,
+      string
+    >;
+    return { ...module, ...own };
+  };
+
+  it('records the member as the path a call returns from', () => {
+    const source = [
+      'const ostring = (): unknown => {',
+      '  const maker = ZodString.create;',
+      '  return maker();',
+      '};',
+    ].join('\n');
+    expect(localsOf(source, 'ostring')).toEqual({ maker: '@calls:ZodString.create' });
+  });
+
+  it('records a module-scope binding, which every declaration in the file can reach', () => {
+    // **A binding written outside a function is visible to the whole file**, and zod writes its whole shorthand family
+    // that way. The owner key is empty because no function owns the declaration.
+    const source = [
+      'const stringType = ZodString.create;',
+      'const ostring = (): unknown => stringType();',
+    ].join('\n');
+    expect(localsOf(source, 'ostring')).toEqual({ stringType: '@calls:ZodString.create' });
+  });
+
+  it('records a member of a name that may hold no class, and leaves the reader to decide', () => {
+    // **The provider files the spelling and the reader holds the classes.** `box.open` names a member of *something*,
+    // and whether `box` is a class is a question this file cannot answer - the same split a `for…of` binding makes
+    // when it files `this.leaves` without reducing it.
+    const source = [
+      'const ostring = (): unknown => {',
+      '  const maker = build();',
+      '  const other = box.open;',
+      '  return maker(other);',
+      '};',
+    ].join('\n');
+    expect(localsOf(source, 'ostring')).toEqual({ other: '@calls:box.open' });
+  });
+});
+
+// **The shapes that must produce nothing, asserted beside the shapes that produce a fact.** Every rule this iteration
+// added refuses more than it accepts - a construction written on a qualifier, an alias whose right-hand side is a union,
+// a member assignment whose receiver is a variable - and a refusal nobody tests is a refusal that can turn into a claim
+// without a red run.
+describe('the refusals each new rule makes', () => {
+  const provider = new TypeScriptProvider();
+  const fieldTypesOf = (source: string, name: string) => {
+    const capture = provider.parse(source, 'z.ts').find((c) => c.name === name);
+    return JSON.parse(String(capture?.properties?.['fieldTypes'] ?? '{}')) as Record<
+      string,
+      string
+    >;
+  };
+  const aliasOf = (source: string, name: string) =>
+    provider.parse(source, 'z.ts').find((c) => c.name === name && c.tag === CAPTURE_TAGS.TYPE_DEF)
+      ?.properties?.['aliasOf'];
+
+  it('declines a field constructed through a qualifier, because the qualifier names no class here', () => {
+    // `new ns.Box()` states a member of a value; the class it means is the import pass's question, not this one.
+    expect(
+      fieldTypesOf(
+        'class Holder {\n  private other = new ns.Box();\n  kept = new Box();\n}',
+        'Holder',
+      ),
+    ).toEqual({
+      kept: 'Box',
+    });
+  });
+
+  it('declines a type alias whose right-hand side is not one type reference', () => {
+    // A qualified generic names the same class a plain generic does, so the head is read and the qualifier dropped.
+    expect(aliasOf('type Base<T> = z.Base<T>;', 'Base')).toBe('Base');
+    // A union, an object type and a function type name no class to find a member in.
+    expect(aliasOf('type Either = A | B;', 'Either')).toBeUndefined();
+    expect(aliasOf('type Shape = { area(): number };', 'Shape')).toBeUndefined();
+    expect(aliasOf('type Fn = () => number;', 'Fn')).toBeUndefined();
+    // `typeof f` is the type of a value, which is a different question.
+    expect(aliasOf('type Value = typeof f;', 'Value')).toBeUndefined();
+  });
+
+  it('declines a class expression that names no base and no contract, and reads the ones it does name', () => {
+    const captures = provider.parse(
+      [
+        'const Plain = class Named {};',
+        'const Extended = class Second extends Base implements Shape {};',
+      ].join('\n'),
+      'z.ts',
+    );
+    const plain = captures.find((c) => c.name === 'Named');
+    expect(plain?.properties?.['baseClasses']).toBeUndefined();
+    expect(plain?.properties?.['interfaces']).toBeUndefined();
+    const extended = captures.find((c) => c.name === 'Second');
+    expect(extended?.properties?.['baseClasses']).toBe('Base');
+    expect(extended?.properties?.['interfaces']).toBe('Shape');
+  });
+
+  it('declines a member assignment whose right-hand side is not a function', () => {
+    const captures = provider.parse('app.use = 1;', 'z.ts');
+    expect(captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF)).toEqual([]);
+  });
+
+  it('declines a member assignment whose receiver is not a constructor’s prototype', () => {
+    // `a.b.c = …` names a member of a value: two hops, and only the last one is a name this walk can prove.
+    const nested = provider.parse('a.b.c = function () {};', 'z.ts');
+    const capture = nested.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+    expect(capture?.name).toBe('c');
+    expect(capture?.properties?.['enclosingClass']).toBeUndefined();
+    // `(a.b).prototype.m = …` is the prototype of a value rather than of a name, so no class is claimed either.
+    const qualified = provider.parse('a.b.prototype.m = function () {};', 'z.ts');
+    expect(
+      qualified.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF)?.properties?.['enclosingClass'],
+    ).toBeUndefined();
+  });
+
+  it('carries no import for a side-effect import, which binds no name', () => {
+    expect(provider.extractImports("import './polyfill';")).toEqual([]);
+  });
+
+  it('records no local for a module-scope `this`, which names an object nobody declared', () => {
+    const captures = provider.parse(
+      'const self = this;\nexport function read() { return self; }',
+      'z.ts',
+    );
+    const read = captures.find((c) => c.name === 'read' && c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+    const module = JSON.parse(String(read?.properties?.['moduleLocals'] ?? '{}')) as Record<
+      string,
+      string
+    >;
+    expect(module['self']).toBeUndefined();
+  });
+  it('records no loop binding from an incomplete edit, which is a file being typed rather than a file', () => {
+    // **An editor sends this on every keystroke.** `for (const leaf of)` names an iterable that is not written yet, so
+    // the binding has no type to file - and the walk has to say so rather than read the missing side as a name.
+    const captures = provider.parse(
+      'export function read() {\n  for (const leaf of) {\n    leaf.go();\n  }\n}',
+      'z.ts',
+    );
+    const read = captures.find((c) => c.name === 'read' && c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+    const locals = JSON.parse(String(read?.properties?.['localTypes'] ?? '{}')) as Record<
+      string,
+      string
+    >;
+    expect(locals).toEqual({});
+  });
+
+  it('records no field from a construction whose class is not written', () => {
+    const captures = provider.parse('class Holder {\n  private other = new ();\n}', 'z.ts');
+    const holder = captures.find((c) => c.name === 'Holder' && c.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(holder?.properties?.['fieldTypes']).toBeUndefined();
+  });
+  it('refuses a loop binding whose body has no name, because no call site could ask for it', () => {
+    // **`const { run } = function () {…}` binds no name this walk can key a body under.** A local is filed against the
+    // owner the resolver names at the call site, so a body nobody named has no key to file against - and the binding is
+    // dropped rather than filed at file scope, where it would answer a `leaf` written anywhere in the file.
+    const source =
+      'const { run } = function () {\n' +
+      '  for (const leaf of this.leaves) {\n' +
+      '    leaf.go();\n' +
+      '  }\n' +
+      '};\n' +
+      'export function later() {}';
+    const captures = provider.parse(source, 'z.ts');
+    const filed = captures.flatMap((c) =>
+      Object.keys({
+        ...(JSON.parse(String(c.properties?.['moduleLocals'] ?? '{}')) as Record<string, string>),
+        ...(JSON.parse(String(c.properties?.['localTypes'] ?? '{}')) as Record<string, string>),
+      }),
+    );
+    expect(filed).not.toContain('leaf');
   });
 });

@@ -667,7 +667,7 @@ function main() {
       })
       .sort(),
     missedSamples: missed
-      .slice(0, 15)
+      .slice(0, 40)
       .map((key) => key.split('\u0000').join('|'))
       .sort(),
   };

@@ -28,6 +28,11 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Declared Return Types**   |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Parameter Arity**         |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Package-Qualified Names** |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Abstract Classes**        |     ✅     |    N/A     |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Class Expressions**       |     ✅     |     ✅     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Type Aliases**            |     ✅     |    N/A     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Member Alias Bindings**   |     ✅     |     ✅     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Lexical `this`**          |     ✅     |     ✅     |  N/A   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Deferred Calls (`::`)**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Resource Bindings**       |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Enum Constants**          |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
@@ -184,7 +189,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 
 | Language   | Parse Speed | Memory per 1K LOC | Call-graph precision / recall (measured)                            |
 | ---------- | :---------: | :---------------: | :------------------------------------------------------------------ |
-| TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis             |
+| TypeScript |    Fast     |       ~5MB        | **100.0 % / 89.9 %** zod · **100.0 % / 92.2 %** ioredis             |
 | Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug            |
 | Java       |    Fast     |       ~5MB        | **100.0 % / 99.3 %** commons-lang · **100.0 % / 99.8 %** commons-io |
 | JavaScript |    Fast     |       ~4MB        | not measured                                                        |
@@ -312,6 +317,37 @@ row is the delta of removing that rule from the full build**, which is what thes
 `commons-lang` and 4 on `commons-io`, all correct, and `scripts/callgraph-gate.js` now holds it at 100 % beside the
 six arms that were already there. A rule that is only measured inside an aggregate is a rule whose precision nobody
 knows.
+
+### TypeScript: the declarations a class writes and the walk did not file
+
+**Four of the eight rules below exist because a class can be declared in a way that is not `class Name {`.** The other
+four are about a **name that stands for a member**: a field holding a function, a field holding a construction, a local
+bound to a static member, and a type alias. All eight were found the same way — reading a missed pair in
+`benchmarks/callgraph-ts-quality.json` rather than reading the provider — and each was ablated alone:
+
+| rule disabled alone                                                    | what the language states                                                                                                                                                                                                                                             | `colinhacks/zod` | `redis/ioredis` |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------- |
+| **`abstract class` is a class**                                        | zod declares its whole type system on `export abstract class ZodType<…>`, ioredis its `AbstractConnector`. The node type is `abstract_class_declaration`, not `class_declaration`, so **no member of either belonged to anything** and `this.nullable()` had no host | **-11**          | **-3**          |
+| **A named class expression is a class**                                | `this.Command = class CustomScriptCommand extends Command { … }` — ioredis writes `Script` this way inside a constructor. The node type is `class`, which the `class` **keyword token also uses**, so what makes it a declaration is a `name` field and not a type   | **0**            | **-1**          |
+| **An arrow keeps `this`, a `function` expression rebinds it**          | the scope chain that answers "which class does this `this` refer to" walked every enclosing declaration as if it kept the receiver. It has to stop at a `function` expression, and only at one                                                                       | **-3**           | **-2**          |
+| **A field initialised by a construction states its type**              | `index = new Index()` is a type fact the annotation would have stated; without it the field is a name with no evidence behind it                                                                                                                                     | **0**            | **0**           |
+| **A field arrow's declared return type is the property's type**        | `static create: (params?: RawCreateParams) => ZodString` states the type on the _property_, which is where a `.d.ts`-shaped const writes it, not on the arrow                                                                                                        | **-4**           | **0**           |
+| **A name bound to a class's static member is that member**             | `const stringType = ZodString.create` binds a name to a member, not to a class. Calling it is a call on the member, so the receiver arm needs the binding and the member's return type together                                                                      | **-3**           | **0**           |
+| **Module-level bindings are visible to every declaration in the file** | the same `stringType`, declared at the top of a test file and used inside three `it(…)` callbacks, was scoped to the file and answered only because the first callable happened to precede it                                                                        | **-3**           | **0**           |
+| **A type alias names a type**                                          | `type ZodTypeAny = ZodType<any, any, any>` is how zod's own test helpers type their parameters; the parameter's annotation names a `TypeAlias`, and the class it stands for is one hop away                                                                          | **-4**           | **0**           |
+
+**The rows do not add up to the total, and that is the finding rather than an accounting error.** They sum to **28** on
+zod against a measured gain of **12** (104 → 116 edges, 80.6 % → 89.9 %), because the families are **conjunctions**: a
+parameter annotated `type: ZodTypeAny` needs the evidence the annotation gives _and_ the reader that follows the alias,
+so ablating either rule loses the same edges. ioredis's six rows sum to its six edges exactly, because every rule that
+fires there is a rule about a class body. **Every row is the delta of removing that one rule from the full build**, which
+is the only reading under which an ablation table can be published at all.
+
+**Precision is 100 % on both corpora after the eight rules**, so the floors moved to where a single wrong edge trips
+them, and the per-arm floors moved with them: `import`, `inherited`, `namespace`, `sameFile` and `receiverType` are each
+held at 99 %. **The 34 pairs still missing are named in `missedSamples`**, and the two groups they fall into are zod's
+own `__tests__` helpers (`bad`, `checkErrors`) and ioredis's `cluster/index.ts`, which calls `disconnect`, `on`, `quit`
+and `cluster` on a receiver whose type is a namespace rather than a class.
 
 ## Adding a New Language
 

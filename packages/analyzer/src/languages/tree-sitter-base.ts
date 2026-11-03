@@ -906,7 +906,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     }
 
     // Extract base classes for class-like nodes (extends/implements)
-    if (node.type === 'class_declaration' || node.type === 'class_definition') {
+    if (isClassNodeType(node.type)) {
       const baseClasses = this.extractBaseClasses(node);
       if (baseClasses) {
         properties['baseClasses'] = baseClasses;
@@ -1782,6 +1782,8 @@ const COMMENT_NODES: ReadonlySet<string> = new Set(['comment', 'line_comment', '
 
 const CONTAINER_NODE_TYPES: ReadonlySet<string> = new Set([
   'class_declaration',
+  'abstract_class_declaration',
+  'class',
   'interface_declaration',
   'enum_declaration',
   'object_type',
@@ -1790,6 +1792,32 @@ const CONTAINER_NODE_TYPES: ReadonlySet<string> = new Set([
   'impl_declaration',
   'record_declaration',
 ]);
+
+/**
+ * The node types that declare a class, which is more than one per grammar.
+ *
+ * **`abstract class` is a class**, and tree-sitter-typescript spells it `abstract_class_declaration` rather than
+ * `class_declaration`. Every member of one was therefore a member of nothing: `colinhacks/zod@3.23.8` declares its
+ * entire type system on `export abstract class ZodType<…>`, so `this.nullable()` and the forty methods beside it in the
+ * one class every other class extends resolved to no class at all, and `redis/ioredis@v5.4.2` declares
+ * `AbstractConnector` the same way. Read off the grammar rather than assumed: the same node is `class_definition` in
+ * Python, `record_declaration` in Java and C#, and `class_specifier` in C++ - so the list is per node type and not
+ * per keyword.
+ */
+const CLASS_NODE_TYPES: ReadonlySet<string> = new Set([
+  'class_declaration',
+  'abstract_class_declaration',
+  // **A class expression is a class**, and this grammar gives it a node type of its own. `this.Command = class
+  // CustomScriptCommand extends Command {…}` is how `redis/ioredis@v5.4.2` writes `Script`, and its members were being
+  // attributed to whichever class lexically contained the expression.
+  'class',
+  'class_definition',
+]);
+
+/** Whether a node type declares a class. */
+function isClassNodeType(type: string): boolean {
+  return CLASS_NODE_TYPES.has(type);
+}
 
 /** Whether a node type can own a member. */
 function isContainerNodeType(type: string): boolean {

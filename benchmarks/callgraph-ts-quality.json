@@ -21,16 +21,16 @@
         "graphRecursion": 0
       },
       "expectedPairs": 129,
-      "claimedPairs": 104,
+      "claimedPairs": 116,
       "precision": {
-        "correct": 104,
+        "correct": 116,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 104,
-        "missed": 25,
-        "value": 0.8062
+        "found": 116,
+        "missed": 13,
+        "value": 0.8992
       },
       "byArm": {
         "import": {
@@ -39,8 +39,8 @@
           "precision": 1
         },
         "inherited": {
-          "claimed": 6,
-          "correct": 6,
+          "claimed": 14,
+          "correct": 14,
           "precision": 1
         },
         "namespace": {
@@ -49,13 +49,13 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 3,
-          "correct": 3,
+          "claimed": 17,
+          "correct": 17,
           "precision": 1
         },
         "sameFile": {
-          "claimed": 45,
-          "correct": 45,
+          "claimed": 37,
+          "correct": 37,
           "precision": 1
         },
         "static": {
@@ -66,27 +66,25 @@
       },
       "callers": {
         "oracle": 146,
-        "graph": 83,
+        "graph": 89,
         "graphOnly": 0,
         "ownersWithAnyCall": 185
       },
       "wrongCauses": {},
       "wrongSamples": [],
       "missedSamples": [
-        "__tests__/nullable.test.ts|checkErrors|types.ts|nullable",
-        "__tests__/nullable.test.ts|checkErrors|types.ts|parse",
         "__tests__/object-augmentation.test.ts|bad|types.ts|parse",
-        "__tests__/optional.test.ts|checkErrors|types.ts|parse",
-        "types.ts|args|types.ts|rest",
-        "types.ts|finalizeSet|helpers/parseUtil.ts|dirty",
+        "__tests__/pickomit.test.ts|bad1|types.ts|parse",
+        "__tests__/pickomit.test.ts|bad2|types.ts|parse",
+        "__tests__/pickomit.test.ts|bad3|types.ts|parse",
+        "__tests__/pickomit.test.ts|bad4|types.ts|parse",
+        "__tests__/pickomit.test.ts|bad|types.ts|parse",
+        "__tests__/primitive.test.ts|f|types.ts|parse",
+        "__tests__/promise.test.ts|bad|types.ts|parse",
+        "__tests__/record.test.ts|badCheck|types.ts|parse",
+        "__tests__/tuple.test.ts|checker|types.ts|parse",
         "types.ts|getDiscriminator|types.ts|innerType",
-        "types.ts|handleAsync|helpers/parseUtil.ts|dirty",
         "types.ts|handleAsync|types.ts|_parseAsync",
-        "types.ts|handleParsed|helpers/parseUtil.ts|dirty",
-        "types.ts|nullish|types.ts|optional",
-        "types.ts|oboolean|types.ts|optional",
-        "types.ts|onumber|types.ts|optional",
-        "types.ts|ostring|types.ts|optional",
         "types.ts|setKey|types.ts|extend"
       ]
     },
@@ -109,16 +107,16 @@
         "graphRecursion": 1
       },
       "expectedPairs": 270,
-      "claimedPairs": 243,
+      "claimedPairs": 249,
       "precision": {
-        "correct": 243,
+        "correct": 249,
         "wrong": 0,
         "value": 1
       },
       "recall": {
-        "found": 243,
-        "missed": 27,
-        "value": 0.9
+        "found": 249,
+        "missed": 21,
+        "value": 0.9222
       },
       "byArm": {
         "import": {
@@ -137,8 +135,8 @@
           "precision": 1
         },
         "receiverType": {
-          "claimed": 82,
-          "correct": 82,
+          "claimed": 86,
+          "correct": 86,
           "precision": 1
         },
         "sameFile": {
@@ -150,11 +148,16 @@
           "claimed": 7,
           "correct": 7,
           "precision": 1
+        },
+        "super": {
+          "claimed": 2,
+          "correct": 2,
+          "precision": 1
         }
       },
       "callers": {
         "oracle": 127,
-        "graph": 114,
+        "graph": 115,
         "graphOnly": 0,
         "ownersWithAnyCall": 169
       },
@@ -163,15 +166,21 @@
       "missedSamples": [
         "DataHandler.ts|handleSubscriberReply|types.ts|resolve",
         "DataHandler.ts|returnReply|types.ts|resolve",
-        "Script.ts|toWritable|Command.ts|toWritable",
+        "Pipeline.ts|fillResult|cluster/index.ts|handleError",
+        "Pipeline.ts|fillResult|cluster/index.ts|refreshSlotsCache",
+        "Redis.ts|createClient|Redis.ts|Redis",
+        "Redis.ts|duplicate|Redis.ts|Redis",
+        "Redis.ts|monitor|Redis.ts|once",
         "cluster/ConnectionPool.ts|findOrCreate|utils/RedisCommander.ts|readonly",
         "cluster/ConnectionPool.ts|reset|Redis.ts|disconnect",
         "cluster/index.ts|closeListener|cluster/index.ts|invokeReadyDelayedCallbacks",
+        "cluster/index.ts|duplicate|cluster/index.ts|Cluster",
+        "cluster/index.ts|getInfoFromNode|Redis.ts|disconnect",
+        "cluster/index.ts|getInfoFromNode|Redis.ts|on",
+        "cluster/index.ts|getInfoFromNode|utils/RedisCommander.ts|cluster",
         "cluster/index.ts|quit|utils/RedisCommander.ts|quit",
-        "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|next",
-        "connectors/SentinelConnector/index.ts|connectToNext|connectors/SentinelConnector/SentinelIterator.ts|reset",
+        "cluster/index.ts|tryFirstOne|cluster/index.ts|dnsLookup",
         "connectors/SentinelConnector/index.ts|constructor|connectors/AbstractConnector.ts|AbstractConnector",
-        "connectors/SentinelConnector/index.ts|disconnect|connectors/AbstractConnector.ts|disconnect",
         "connectors/SentinelConnector/index.ts|initFailoverDetector|connectors/SentinelConnector/types.ts|on",
         "connectors/SentinelConnector/index.ts|resolve|connectors/SentinelConnector/types.ts|disconnect",
         "connectors/SentinelConnector/index.ts|resolve|connectors/SentinelConnector/types.ts|on",

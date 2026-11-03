@@ -120,6 +120,31 @@ export interface FileTypes {
   readonly elements: Map<string, string>;
   /** `Class.method` → the class that holds it, for the `this`/`self` receiver. */
   readonly classOfFunction: Map<string, string>;
+
+  /**
+   * The names of the callables this file declares, so a container can be told apart from a class it does not declare.
+   *
+   * `classOfFunction` answers *the container a function sits in*, and that container is sometimes another function -
+   * which is why the walk out of a nested arrow needs to know which names are declarations of this file at all.
+   */
+  readonly callables: Set<string>;
+
+  /**
+   * The declarations that are handed their own `this`, keyed by the owner key a call site builds - every `function`
+   * expression in TypeScript and JavaScript.
+   *
+   * **An arrow keeps `this` and a `function` expression rebinds it**, and the walk out of a receiver stops at the
+   * second: `const onSpawn = function () { this.bump() }` calls the member of whatever the call site binds, which is
+   * not the enclosing class and is not anything this file can name.
+   *
+   * **Keyed by declaration and not by name**, because a class may write both spellings under one identifier - the
+   * fixture this rule was written against declares an arrow `read` in one method and a function expression `read` in
+   * the next, and a set of names answered `rebinds` for both.
+   */
+  readonly rebindsThis: Set<string>;
+
+  /** The type each alias names, when its right-hand side names one. `type ZodTypeAny = ZodType<…>`. */
+  readonly aliases: Map<string, string>;
   /** `Class` → the class's own declaration. */
   readonly classes: Map<string, Declared>;
   /**
@@ -177,6 +202,18 @@ export interface FileTypes {
  * walk a receiver takes, asked one hop earlier.
  */
 export const ELEMENT_OF = '@elementOf:';
+
+/**
+ * The prefix a provider writes in front of the member a name is bound to, so the reader can tell a type from an alias.
+ *
+ * `const stringType = ZodString.create` binds a name to a class's static function; calling the name returns what calling
+ * that member returns. Recorded as a path and resolved here for the same reason `ELEMENT_OF` is: the provider that sees
+ * the declaration is not the reader that holds the classes.
+ */
+export const CALLS_OF = '@calls:';
+
+/** The owner key a binding written outside every function is filed under. */
+const MODULE_SCOPE_KEY = '';
 
 /**
  * The one declaration shape this module reads.
@@ -455,6 +492,9 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const typeParameterOrder = new Map<string, readonly string[]>();
   const elements = new Map<string, string>();
   const classOfFunction = new Map<string, string>();
+  const callables = new Set<string>();
+  const rebindsThis = new Set<string>();
+  const aliases = new Map<string, string>();
   const classes = new Map<string, Declared>();
   const outerClasses = new Map<string, string>();
   const members = new Map<string, Map<string, Declared>>();
@@ -667,10 +707,28 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       }
     }
 
+    // **A binding written outside every function belongs to the file**, and it is read here rather than per owner
+    // because a `FileTypes` is one file: `const stringType = ZodString.create` is visible to every declaration in it.
+    for (const [name, type] of stringEntriesOf(declaration.properties['moduleLocals'])) {
+      locals.set(`${MODULE_SCOPE_KEY}\u0000${name}`, type);
+    }
+
+    if (declaration.kind === 'TypeAlias') {
+      const names = declaration.properties['aliasOf'];
+      if (typeof names === 'string' && names.length > 0) aliases.set(declaration.name, names);
+    }
+
     if (container === undefined || container.length === 0) continue;
 
     if (callable) {
       classOfFunction.set(ownerKeyOf(container, declaration.name), container);
+      callables.add(declaration.name);
+      // **`arrow: 'false'` is a statement and an absent property is not.** A provider that files a method writes no
+      // `arrow` at all; the two providers that file a function expression write it explicitly, which is what makes
+      // this a fact rather than a default.
+      if (declaration.properties['arrow'] === 'false') {
+        rebindsThis.add(ownerKeyOf(container, declaration.name));
+      }
       declare(container, declaration.name, declaration);
       recordArity(arity, container, declaration);
       continue;
@@ -690,6 +748,9 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     returnVariables,
     typeParameterOrder,
     classOfFunction,
+    callables,
+    rebindsThis,
+    aliases,
     classes,
     outerClasses,
     members,
@@ -1051,10 +1112,7 @@ function startOf(
     if (named !== undefined) return { className: named.name, via: 'cast' };
   }
   if (OWN_SCOPE.has(base)) {
-    const enclosing = firstOf(
-      lookup.owners,
-      (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
-    );
+    const enclosing = enclosingClassOf(lookup, own);
     if (enclosing !== undefined) {
       // **`this.m()` is the same-file arm's case and not this module's.** What a bare own-scope receiver names is a
       // member of the enclosing class, which is the question that arm already asks of the class chain - with evidence.
@@ -1067,10 +1125,7 @@ function startOf(
     return parameter === undefined ? undefined : { className: parameter, via: 'parameter' };
   }
   const local = declaredUnder(own?.locals, lookup.owners, base);
-  const enclosing = firstOf(
-    lookup.owners,
-    (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
-  );
+  const enclosing = enclosingClassOf(lookup, own);
   // **A type written as a parameter is a name whose declaration is a bound.** `S delegate` says `delegate` holds an
   // `S`, and `S extends IOBaseStream` says what an `S` is - so every branch below answers with the bound rather than
   // with a class named `S`, which no file declares and no member can be found in.
@@ -1106,7 +1161,7 @@ function startOf(
     // rule in this module makes: a module-level name is filed by its own spelling, and a member is filed by its class.
     const returned =
       enclosing === undefined
-        ? own?.returns.get(called)
+        ? (own?.returns.get(called) ?? aliasReturnOf(lookup, own, called))
         : (boundReturnOf(lookup, enclosing, called, base) ??
           declaredReturnOf(lookup, enclosing, called));
     if (returned !== undefined) return bounded({ className: returned, via: 'call' });
@@ -1136,10 +1191,7 @@ export function declaredTypeNameOf(lookup: ReceiverLookup, name: string): string
   if (local !== undefined) return valueOf(lookup, own, local, 'local')?.className;
   const parameter = declaredUnder(own?.parameters, lookup.owners, name);
   if (parameter !== undefined) return valueOf(lookup, own, parameter, 'parameter')?.className;
-  const enclosing = firstOf(
-    lookup.owners,
-    (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
-  );
+  const enclosing = enclosingClassOf(lookup, own);
   const field = enclosing === undefined ? undefined : own?.fields.get(`${enclosing}.${name}`);
   return field === undefined ? undefined : valueOf(lookup, own, field, 'thisField')?.className;
 }
@@ -1249,10 +1301,7 @@ function elementOfPath(
     // the loop variable is written at a site that says nothing about it.
     const field = hops.length === 1 ? hops[0] : undefined;
     if (field === undefined) return undefined;
-    const enclosing = firstOf(
-      lookup.owners,
-      (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
-    );
+    const enclosing = enclosingClassOf(lookup, own);
     const element =
       enclosing === undefined ? undefined : own?.elements.get(`${enclosing}.${field}`);
     return element === undefined ? undefined : { className: element, via: 'thisField' };
@@ -1276,10 +1325,7 @@ function elementOfPath(
   // enclosing class, which is filed under the class rather than under the method - so the lookup above, keyed by owner,
   // cannot see it. The fallback is the same one the receiver walk makes: a bare name may be a field of the class the
   // call is written in.
-  const enclosing = firstOf(
-    lookup.owners,
-    (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
-  );
+  const enclosing = enclosingClassOf(lookup, own);
   const field = enclosing === undefined ? undefined : own?.elements.get(`${enclosing}.${base}`);
   if (field !== undefined) return { className: field, via: 'thisField' };
   // **A path may name the call the lambda was passed to rather than a container.** `forEachObserver(observer -> …)`
@@ -1361,16 +1407,41 @@ function wildcardInnerOf(argument: string): string {
   return bounded?.[1] ?? argument;
 }
 
-/** The first owner key, innermost first, that answers with something other than nothing. */
-function firstOf(
-  owners: readonly string[],
-  ask: (owner: string) => string | undefined,
-): string | undefined {
-  for (const owner of owners) {
-    const answer = ask(owner);
-    if (answer !== undefined) return answer;
+/**
+ * The class a `this` belongs to, walking outward through the scopes that keep it.
+ *
+ * **A receiver's `this` is answered by the nearest enclosing class, and the owners a call site carries are already the
+ * chain.** `ownersOf` lists every declaration whose span holds the call, innermost first, so the container of each one
+ * is a step outward: `Holder.deep` is a method whose container is the class, and `deep.outer` is an arrow whose
+ * container is that method.
+ *
+ * **An arrow keeps `this` and a `function` expression rebinds it**, which is the distinction the walk needs and the
+ * reason the previous rule stopped at every function alike. `const connectToNext = async () => { this.iterator.next() }`
+ * is an instance method in two pieces - `redis/ioredis@v5.4.2` writes it that way twice, and both edges were unanswered
+ * - while `function () { this.bump() }` calls the member of whatever the call site bound, which no file states.
+ *
+ * **A container this file does not declare is answered last, and not first.** `Legacy.prototype.fetchAll = function ()`
+ * augments a class that lives elsewhere; the provider named it and nothing in this file contradicts it, so it is the
+ * fallback rather than the stop.
+ */
+function enclosingClassOf(lookup: ReceiverLookup, own: FileTypes | undefined): string | undefined {
+  if (own === undefined) return undefined;
+  let fallback: string | undefined;
+  for (const owner of lookup.owners) {
+    // **The owner is the declaration the call is written in**, so the question "does this scope keep `this`" is asked
+    // of it before its container is read: a function expression rebinds, and every scope inside it is a different
+    // object's.
+    if (own.rebindsThis.has(nameKeyOf(owner))) return undefined;
+    const container = own.classOfFunction.get(nameKeyOf(owner));
+    if (container === undefined) continue;
+    if (own.classes.has(container)) return container;
+    if (!own.callables.has(container)) {
+      fallback ??= container;
+      continue;
+    }
+    if (own.rebindsThis.has(container)) return undefined;
   }
-  return undefined;
+  return fallback;
 }
 
 /** How one `name → type` map is keyed: by the owner that declares it, then by the name. */
@@ -1399,7 +1470,9 @@ function declaredUnder(
     const bare = map.get(key(nameKeyOf(owner), name));
     if (bare !== undefined) return bare;
   }
-  return undefined;
+  // **A name written outside every function is visible to every declaration in the file**, which is the last scope
+  // the walk reaches and the only one that is the same wherever the call site is.
+  return map.get(key(MODULE_SCOPE_KEY, name));
 }
 
 /**
@@ -1416,6 +1489,29 @@ function declaredReturnOf(
   method: string,
 ): string | undefined {
   return alongChain(lookup, className, (file, name) => file?.returns.get(`${name}.${method}`));
+}
+
+/**
+ * What calling a name bound to a member returns - `const stringType = ZodString.create; stringType()`.
+ *
+ * **The binding is written and the member is a declaration**, so the answer is the member's declared return type read
+ * through the same chain a call on the class would use. `colinhacks/zod@3.23.8` writes its whole shorthand constructor
+ * family this way: `const stringType = ZodString.create` beside `const ostring = () => stringType().optional()`, and
+ * without this hop neither `ostring` nor the thirteen edges its test files write through `z.string()` resolve.
+ *
+ * **Only a path of exactly two segments is read.** `build().create` and `a.b.create` name a member of a value whose
+ * type the binding does not state, and the refusal is the one this module makes everywhere it would have to guess.
+ */
+function aliasReturnOf(
+  lookup: ReceiverLookup,
+  own: FileTypes | undefined,
+  name: string,
+): string | undefined {
+  const recorded = declaredUnder(own?.locals, lookup.owners, name);
+  if (recorded === undefined || !recorded.startsWith(CALLS_OF)) return undefined;
+  const [className, member, ...rest] = recorded.slice(CALLS_OF.length).split('.');
+  if (className === undefined || member === undefined || rest.length > 0) return undefined;
+  return declaredReturnOf(lookup, className, member);
 }
 
 /** The type a class declares one of its fields to have, wherever that class lives. */
@@ -1705,7 +1801,15 @@ function locateClass(
   if (cut === -1) return locateSimpleClass(index, className, origin);
   const simple = className.slice(cut + 1);
   const found = locateSimpleClass(index, simple, origin);
-  return found !== undefined && declaredInPackage(found.file, className) ? found : undefined;
+  if (found === undefined) return undefined;
+  if (declaredInPackage(found.file, className)) return found;
+  // **A qualifier in front of an alias is a namespace and not a package.** `import * as z from "../index"` then
+  // `a: z.ZodTypeAny` names a member of a namespace, and the test above reads `z` as a package directory because it is
+  // lowercase. The two spellings are told apart by what the file wrote: an **alias** is a statement about a name, and a
+  // package that declares one is not a thing this index represents - while `java.io.ByteArrayOutputStream` names a
+  // class directly, and the refusal there is the one that keeps the checkout's same-named class out of it.
+  const aliased = aliasTargetOf(index, simple, origin);
+  return aliased === undefined ? undefined : locateSimpleClass(index, aliased, origin, 1);
 }
 
 /**
@@ -1728,6 +1832,7 @@ function locateSimpleClass(
   index: ClassIndex,
   className: string,
   origin: LookupOrigin | undefined,
+  depth = 0,
 ): LocatedClass | undefined {
   const own = ownClassOf(index, origin?.file, className);
   if (own !== undefined) return own;
@@ -1753,9 +1858,54 @@ function locateSimpleClass(
   const found =
     (origin?.packageScope === true ? classInPackageOf(index, origin.file, className) : undefined) ??
     uniqueGlobalClass(index, className);
-  if (found === undefined) return undefined;
-  const from = origin?.bound?.get(className);
-  return from === undefined || declaredUnderModule(found.file, from) ? found : undefined;
+  if (found !== undefined) {
+    const from = origin?.bound?.get(className);
+    return from === undefined || declaredUnderModule(found.file, from) ? found : undefined;
+  }
+  // **A name that declares no class may still be a name for one.** `export type ZodTypeAny = ZodType<any, any, any>`
+  // is how `colinhacks/zod@3.23.8` types the parameters of its own test helpers, and `a.nullable().parse(bad)` named a
+  // receiver whose type resolved to nothing. The alias is a declaration the file wrote, and following it is one hop the
+  // language performs before it looks for a member - not an inference about a shape.
+  if (depth >= MAX_ALIAS_HOPS) return undefined;
+  const target = aliasTargetOf(index, className, origin);
+  return target === undefined ? undefined : locateSimpleClass(index, target, origin, depth + 1);
+}
+
+/** The depth an alias chain is followed before it is a cycle, which no declaration of a type reaches. */
+const MAX_ALIAS_HOPS = 4;
+
+/**
+ * The type an alias names, read where the lookup is written.
+ *
+ * **The alias is a file's own statement first**, and a name two files alias differently is the ambiguity this module
+ * refuses everywhere: a `type T = A` in one file and `type T = B` in another is not one answer.
+ */
+function aliasTargetOf(
+  index: ClassIndex,
+  alias: string,
+  origin: LookupOrigin | undefined,
+): string | undefined {
+  const own = origin?.file === undefined ? undefined : index.files.get(origin.file)?.aliases;
+  const direct = own?.get(alias);
+  if (direct !== undefined) return direct;
+  const published = index.files.get(origin?.published?.get(alias) ?? '')?.aliases.get(alias);
+  if (published !== undefined) return published;
+  let found: string | undefined;
+  for (const file of origin?.imported ?? []) {
+    const target = index.files.get(file)?.aliases.get(alias);
+    if (target === undefined) continue;
+    if (found !== undefined && found !== target) return undefined;
+    found = target;
+  }
+  if (found !== undefined) return found;
+  let unique: string | undefined;
+  for (const file of index.files.values()) {
+    const target = file.aliases.get(alias);
+    if (target === undefined) continue;
+    if (unique !== undefined && unique !== target) return undefined;
+    unique = target;
+  }
+  return unique;
 }
 
 /** The one class in the graph filed under a simple name, or nothing when two files declare it. */
