@@ -43,6 +43,12 @@ tests/benchmarks/real-world/.stress-data/
 # the artifact. Committing them would also put somebody else's licence inside this one.
 benchmarks/corpora/
 
+# **The per-language parts of the bug-localisation measurement.** One job measures one split and writes
+# `benchmarks/lca-parts/<config>.json`; `scripts/lca-merge.ts` adds them up into the single committed figure. The parts
+# are therefore an intermediate of one run - the same status as the corpus they were measured on, and for the same
+# reason: they name a commit of somebody else's repository and the sample size of one dispatch.
+benchmarks/lca-parts/
+
 # Local working files from scripts/callgraph-quality.ts (the JSON record is committed, the dumps are not).
 .callgraph-quality/
 

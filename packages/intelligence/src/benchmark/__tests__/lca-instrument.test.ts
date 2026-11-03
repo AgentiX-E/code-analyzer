@@ -19,16 +19,25 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_EXTENSION,
   LCA_CONFIGS,
+  MEASURED_MB_PER_FILE,
+  MS_PER_FILE,
+  RUNNER_RESERVE_MB,
+  analysableFileBudget,
   checkoutFileCount,
   corpusFiles,
+  decideInstance,
   dedupePreservingOrder,
   isTestPath,
   lcaQualityMetrics,
+  limitedTotalMb,
   mean,
   outsideUniverse,
+  parseLanguages,
   restrictToUniverse,
   toCorpusPath,
 } from '../lca-instrument.js';
+
+import type { InstanceBounds } from '../lca-instrument.js';
 
 describe('toCorpusPath', () => {
   it('reduces an absolute path to the corpus’s own form', () => {
@@ -298,5 +307,170 @@ describe('the configuration table', () => {
   it('names three languages and one extension each', () => {
     expect(LCA_CONFIGS).toEqual(['py', 'java', 'kt']);
     expect(CONFIG_EXTENSION).toEqual({ py: '.py', java: '.java', kt: '.kt' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The bounds on one analysis
+// ---------------------------------------------------------------------------
+//
+// **The job this protects never finished.** Eleven runs, every one ending in a runner shutdown signal with no figure, at
+// a hundredth of the scope as well as at the full sample. The bound that existed was a number of files chosen by hand;
+// what was missing was an arithmetic statement of what the machine can afford and of what the job has left to spend, so
+// that an instance which would not finish is a recorded skip rather than a dead job.
+
+describe('analysableFileBudget', () => {
+  it('turns the machine’s remaining memory into a file count', () => {
+    // 7 GB runner, 400 MB resident, a gigabyte of reserve, and the measured 3.7 MB per file.
+    expect(
+      analysableFileBudget({
+        totalMb: 7168,
+        residentMb: 400,
+        reserveMb: RUNNER_RESERVE_MB,
+        mbPerFile: MEASURED_MB_PER_FILE,
+      }),
+    ).toBe(1552);
+  });
+
+  it('shrinks as the run accumulates resident pages', () => {
+    const of = (residentMb: number): number =>
+      analysableFileBudget({
+        totalMb: 7168,
+        residentMb,
+        reserveMb: RUNNER_RESERVE_MB,
+        mbPerFile: MEASURED_MB_PER_FILE,
+      });
+    // The measurement that explains the sharding: V8 keeps reclaimed pages, so a run's resident figure is the
+    // high-water mark of every instance it has analysed and the next instance's allowance is smaller than the first's.
+    expect(of(400)).toBeGreaterThan(of(3072));
+    expect(of(3072)).toBeGreaterThan(of(5120));
+  });
+
+  it('is zero rather than negative when there is no room', () => {
+    expect(
+      analysableFileBudget({
+        totalMb: 4096,
+        residentMb: 4000,
+        reserveMb: RUNNER_RESERVE_MB,
+        mbPerFile: 3.7,
+      }),
+    ).toBe(0);
+    expect(
+      analysableFileBudget({ totalMb: 4096, residentMb: 9000, reserveMb: 0, mbPerFile: 3.7 }),
+    ).toBe(0);
+  });
+
+  it('refuses to divide by a cost of zero files', () => {
+    expect(analysableFileBudget({ totalMb: 7168, residentMb: 0, reserveMb: 0, mbPerFile: 0 })).toBe(
+      0,
+    );
+  });
+});
+
+describe('decideInstance', () => {
+  const roomy: InstanceBounds = {
+    capFiles: 2000,
+    budgetFiles: 1500,
+    elapsedMs: 0,
+    budgetMs: 45 * 60_000,
+    residentMb: 400,
+    reserveMb: RUNNER_RESERVE_MB,
+  };
+
+  it('measures what fits inside all three bounds', () => {
+    expect(decideInstance(568, roomy)).toEqual({ analyse: true });
+  });
+
+  it('refuses what is above the stated cap, and says which cap', () => {
+    const verdict = decideInstance(2001, roomy);
+    expect(verdict.analyse).toBe(false);
+    expect(verdict.analyse ? '' : verdict.because).toBe(
+      'the checkout holds 2001 files, above the stated cap of 2000',
+    );
+  });
+
+  it('refuses what the remaining memory cannot afford, in megabytes and in files', () => {
+    const verdict = decideInstance(1200, {
+      ...roomy,
+      residentMb: 3072,
+      budgetFiles: 830,
+    });
+    expect(verdict.analyse ? '' : verdict.because).toBe(
+      'an analysis of 1200 files is estimated at 4440 MB resident (3.7 MB per file) and only 830 files of room remain ' +
+        'above a 1024 MB reserve, with 3072 MB resident',
+    );
+  });
+
+  it('refuses what would end past the job’s own budget', () => {
+    const verdict = decideInstance(700, {
+      ...roomy,
+      // Forty-four minutes fifty seconds spent, and a 35 s analysis left to run against a 45-minute budget.
+      elapsedMs: 2_690_000,
+      budgetMs: 45 * 60_000,
+    });
+    expect(verdict.analyse ? '' : verdict.because).toBe(
+      "an analysis of 700 files is estimated at 35000 ms and would end at 2725000 ms, past this job's budget of " +
+        '2700000 ms',
+    );
+  });
+
+  it('applies the cap before the memory bound, so a reader is told the bound somebody chose', () => {
+    const verdict = decideInstance(5000, { ...roomy, budgetFiles: 100 });
+    expect(verdict.analyse ? '' : verdict.because).toContain('above the stated cap');
+  });
+
+  it('uses the measured per-file costs rather than a second copy of them', () => {
+    const verdict = decideInstance(100, {
+      ...roomy,
+      elapsedMs: 0,
+      budgetMs: MS_PER_FILE * 100 - 1,
+    });
+    expect(verdict.analyse ? '' : verdict.because).toContain(
+      `estimated at ${String(100 * MS_PER_FILE)} ms`,
+    );
+    expect(MEASURED_MB_PER_FILE).toBe(3.7);
+  });
+});
+
+describe('limitedTotalMb', () => {
+  const SEVEN_GB = 7 * 1024 * 1024 * 1024;
+
+  it('answers with the cgroup’s limit when one is smaller than the machine', () => {
+    expect(limitedTotalMb(String(SEVEN_GB), 64 * 1024 * 1024 * 1024)).toBe(7168);
+  });
+
+  it('never answers more than the machine reports', () => {
+    expect(limitedTotalMb(String(64 * 1024 * 1024 * 1024), SEVEN_GB)).toBe(7168);
+  });
+
+  it('falls back to the machine’s own figure for every unreadable limit', () => {
+    expect(limitedTotalMb(null, SEVEN_GB)).toBe(7168);
+    expect(limitedTotalMb('max', SEVEN_GB)).toBe(7168);
+    expect(limitedTotalMb('   ', SEVEN_GB)).toBe(7168);
+    expect(limitedTotalMb('0', SEVEN_GB)).toBe(7168);
+    expect(limitedTotalMb('-1', SEVEN_GB)).toBe(7168);
+    expect(limitedTotalMb('lots', SEVEN_GB)).toBe(7168);
+  });
+});
+
+describe('parseLanguages', () => {
+  it('measures all three splits when nothing is asked for', () => {
+    expect(parseLanguages(undefined)).toEqual(['py', 'java', 'kt']);
+    expect(parseLanguages('')).toEqual(['py', 'java', 'kt']);
+    expect(parseLanguages('  ,  ')).toEqual(['py', 'java', 'kt']);
+  });
+
+  it('measures the one split a job was given', () => {
+    expect(parseLanguages('java')).toEqual(['java']);
+  });
+
+  it('drops a repeat rather than measuring a split twice', () => {
+    expect(parseLanguages('py,py,java')).toEqual(['py', 'java']);
+  });
+
+  it('answers with nothing when the specification names nothing valid', () => {
+    // **Not with everything**: a typo would otherwise start a ninety-minute job nobody asked for.
+    expect(parseLanguages('js')).toEqual([]);
+    expect(parseLanguages('py,js')).toEqual(['py']);
   });
 });

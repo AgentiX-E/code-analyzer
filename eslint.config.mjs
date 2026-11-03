@@ -114,6 +114,7 @@ export default tseslint.config(
       'scripts/feature-matrix.ts',
       'scripts/cross-repo-matrix.ts',
       'scripts/owasp-benchmark.ts',
+      'scripts/lca-merge.ts',
     ],
   },
   {

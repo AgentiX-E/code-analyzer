@@ -12,6 +12,16 @@ name: Long Code Arena — bug localisation
 # **Nothing is committed.** The split and the checkouts are downloaded per run, so the job always measures the
 # published revision; the artifact records the row count, the cuts and the configuration rather than only a number.
 #
+# **One job per language, and that is the fix rather than a preference.** This workflow was dispatched eleven times and
+# produced no figure: every run ended with `The runner has received a shutdown signal` and exit code 143, at a
+# hundredth of the scope as well as at the full sample. The cause was measured on four real checkouts rather than
+# guessed (`MEASURED_MB_PER_FILE` in `packages/intelligence/src/benchmark/lca-instrument.ts`): an analysis of 568 files
+# costs 2 088 MB of **resident** memory, and V8 returns reclaimed heap pages to itself rather than to the operating
+# system - so a run costs the high-water mark of every instance it has analysed, and three language splits in one
+# process was three times the accumulation. **Three jobs cannot accumulate into each other**, each writes its own part
+# of the artifact, and `scripts/lca-merge.ts` adds the parts up over rows so the combined figure is the one a single run
+# would have produced. A language that dies now costs its own column instead of the whole measurement.
+#
 # **The retrieval arm needs no model**, which is why this job is cheap and why its figure is reproducible to the digit:
 # a change in it is a change in the retriever. The answer arm runs when `DEEPSEEK_API_KEY` is present and says so when
 # it is not.
@@ -20,16 +30,16 @@ on:
   workflow_dispatch:
     inputs:
       max_rows:
-        # **Eight by default**: each instance needs its own checkout at its own commit plus a full analysis, and fifty
-        # per language exhausted a ninety-minute budget and reported nothing, and twelve reported nothing in two and a
-        # half hours. Raise it when there is time to spend.
+        # **Eight by default**: each instance needs its own checkout at its own commit plus a full analysis. Twelve is
+        # near what one runner finishes inside the time budget, and every instance a bound refuses is recorded with the
+        # sentence that refused it.
         description: 'How many instances of each language split to measure'
         required: false
         default: '8'
       max_files:
-        # **The size bound.** An instance whose repository holds more files than this is skipped and counted, because
-        # an analysis that does not finish is not a measurement. Recorded in the artifact.
-        description: 'Skip instances whose repository holds more than this many files'
+        # **The stated cap.** The bound that actually bites is the memory one, which is computed from what the runner
+        # has left; this is the promise to the reader that nothing above it is ever measured. Both are in the artifact.
+        description: 'Skip instances whose checkout holds more than this many files'
         required: false
         default: '2000'
       answer_arm:
@@ -41,9 +51,11 @@ on:
     branches: [master]
     paths:
       - 'packages/intelligence/src/__tests__/lca-bug-localization.test.ts'
+      - 'packages/intelligence/src/benchmark/lca-*.ts'
       - 'packages/intelligence/src/qa/**'
       - 'packages/intelligence/src/search/hybrid-search.ts'
-      - 'scripts/lca-gate.js'
+      - 'scripts/lca-*.js'
+      - 'scripts/lca-*.ts'
       - '.github/workflows/lca-bug-localization.yml'
 
 concurrency:
@@ -55,11 +67,18 @@ permissions:
 
 jobs:
   measure:
-    name: Measure bug localisation on the authors' test split
+    name: Measure ${{ matrix.language }} bug localisation
     runs-on: ubuntu-latest
-    # **Three hours**, because the job checks out and analyses a repository per instance. A budget that is stated rather
-    # than discovered by a timeout; the sample size is chosen to fit inside it.
-    timeout-minutes: 180
+    # **Ninety minutes per language, and the harness states its own budget inside it** (`LCA_BUDGET_MS`): a job that
+    # runs out of time writes the part it has, with the rows it never reached recorded as skipped. A job cancelled from
+    # outside writes nothing, which is how eleven runs produced no figure at all.
+    timeout-minutes: 90
+    strategy:
+      # **One language failing must not cancel the others**, because the whole point of the shard is that a language
+      # that dies costs its own column rather than the measurement.
+      fail-fast: false
+      matrix:
+        language: [py, java, kt]
 
     steps:
       - name: Checkout
@@ -84,7 +103,8 @@ jobs:
 
       # **The split, from the repository that publishes it**, one parquet per language. The hub is public and the
       # licence is Apache-2.0; a 401 here means the dataset became gated, and the job fails rather than measuring a
-      # different corpus.
+      # different corpus. **All three are fetched by every leg**, because the corpus directory is one shape and a leg
+      # that fetched only its own would be a different corpus by accident.
       - name: Fetch the test split
         run: |
           set -euo pipefail
@@ -139,7 +159,7 @@ jobs:
                       rows += 1
               print(f'{config}: {rows} instances -> {out}')
           PY
-          grep -c . benchmarks/corpora/lca/py/test.jsonl
+          grep -c . "benchmarks/corpora/lca/${{ matrix.language }}/test.jsonl"
 
       - name: Are the credentials present?
         id: credential
@@ -158,10 +178,10 @@ jobs:
           fi
 
       # **`ZHIPU_API_KEY` is deliberately not exported here.** `createAllPhases()` includes the embedding phase, which
-      # reads it from the environment: with the key present and the endpoint rate-limited, every one of the thirty-six
-      # instances spent its time in retries against an API that was refusing the request, and the job was still running
-      # after an hour with no figure to show. The retrieval arm of this benchmark is defined as lexical - the artifact
-      # records `space.semantic: false` and the gate requires that it says so - so the key bought nothing and cost the
+      # reads it from the environment: with the key present and the endpoint rate-limited, every instance spent its time
+      # in retries against an API that was refusing the request, and the job was still running after an hour with no
+      # figure to show. The retrieval arm of this benchmark is defined as lexical - the artifact records
+      # `space.semantic: false` and the gate requires that it says so - so the key bought nothing and cost the
       # measurement. **The answer arm keeps `DEEPSEEK_API_KEY`**, because that one is the model.
       - name: Measure
         env:
@@ -171,31 +191,90 @@ jobs:
           # the fixture stays absolute anyway - two defences, because a figure that depends on one is a figure that
           # dies with it.
           LCA_DIR: ${{ github.workspace }}/benchmarks/corpora/lca
+          LCA_LANGUAGES: ${{ matrix.language }}
           LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '8' }}
           LCA_MAX_FILES: ${{ github.event.inputs.max_files || '2000' }}
+          # **Fifty minutes, stated by the harness rather than discovered by the job's own timeout.** The bounds module
+          # projects 50 ms per file; this is the other half of the arithmetic, and a run that reaches it writes a part
+          # whose unmeasured rows say so.
+          LCA_BUDGET_MS: '3000000'
           LCA_ANSWER_ARM: ${{ github.event.inputs.answer_arm || '0' }}
           BENCHMARK_WRITE: '1'
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          # **A stated heap, so a heap exhaustion says so.** This job has **never succeeded**: every run since
-          # 2026-10-30 ends with `The runner has received a shutdown signal` and `exit code 143`, and it does so at a
-          # hundredth of the scope as well - `max_rows: 2, max_files: 200` died after five and a half minutes, the full
-          # sample after eleven and a half. A `SIGTERM` with no message is either the runner being reclaimed or the
-          # machine running out of memory, and those two call for opposite work. **A cap inside the runner's own limit
-          # turns the first case into a `JavaScript heap out of memory` naming the allocation**, which is a diagnosis
-          # instead of a mystery: the runner has 7 GB, so 5 GB of heap plus the checkout is the honest ceiling.
-          NODE_OPTIONS: --max-old-space-size=5120
+          # **A stated heap, and smaller than the runner.** 7 GB is the whole machine and the analysis shares it with
+          # vitest, the checkout and the OS; 4 GB of heap makes an exhaustion a `JavaScript heap out of memory` naming
+          # the allocation, where an unbounded heap makes it a runner shutdown signal and no message at all.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           set -o pipefail
-          # **Line-buffered, because a killed process loses a block-buffered pipe.** This job has never finished and
-          # every log ended at the vitest banner, which said nothing about where it stopped: `stdout` through `tee` is
-          # buffered in 4 KB blocks, so everything written before the signal went with it. `stdbuf -oL` makes the last
-          # line written the last line kept.
+          # **Line-buffered, because a killed process loses a block-buffered pipe.** Every log of this job used to end
+          # at the vitest banner, which said nothing about where it stopped: `stdout` through `tee` is buffered in 4 KB
+          # blocks, so everything written before the signal went with it. `stdbuf -oL` makes the last line written the
+          # last line kept - and that is how the growth in resident memory became visible.
+          mkdir -p benchmarks/lca-parts
           npx vitest run --config vitest.config.ts \
-            packages/intelligence/src/__tests__/lca-bug-localization.test.ts 2>&1 | stdbuf -oL -eL tee /tmp/lca.log
-          grep -o 'LCA-BUG-LOC .*' /tmp/lca.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+            packages/intelligence/src/__tests__/lca-bug-localization.test.ts 2>&1 \
+            | stdbuf -oL -eL tee "benchmarks/lca-parts/${{ matrix.language }}.log"
+          grep -o 'LCA-PART .*' "benchmarks/lca-parts/${{ matrix.language }}.log" | tail -1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # **The part and the log, whether or not the measurement finished.** A part is written after every instance's
+      # bounds are decided, so a run that dies has one; a log is what says where it died, and losing it is what made
+      # the first eleven runs undiagnosable.
+      - name: Upload the part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lca-part-${{ matrix.language }}
+          # **One root, so the artifact is one directory**: a second path outside the workspace makes the archive's
+          # layout depend on the least common ancestor of two unrelated directories.
+          path: benchmarks/lca-parts/
+          # **The log is uploaded with the part** - it is what says where a run that died, died.
+          if-no-files-found: warn
+          retention-days: 90
+
+  combine:
+    name: Combine the parts and gate the figure
+    needs: measure
+    # **`always()`, because a missing column is a fact to record rather than a reason to hide the columns that exist.**
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Collect the parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lca-part-*
+          path: benchmarks/lca-parts
+          merge-multiple: true
+
+      # **The arithmetic is a module with tests, and this step is the call.** The combination is a mean over the pooled
+      # rows rather than over the per-language means, so the combined figure is the one a single run would have
+      # produced; `scripts/lca-merge.ts` also names any part that is absent from the artifact.
+      - name: Combine
+        env:
+          BENCHMARK_WRITE: '1'
+        run: npx tsx scripts/lca-merge.ts
 
       - name: Gate the figure
-        if: always()
         run: node scripts/lca-gate.js
 
       - name: Upload the figure

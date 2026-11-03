@@ -164,6 +164,15 @@ stating plainly rather than leaving to a footnote:
 2. **The retrieval arm needs no model** — it is the fused list cut at k — so its figure is a property of the retriever
    and is reproducible to the digit. The model's arm (`LCA_ANSWER_ARM=1`) is reported separately and has not been run
    at scale.
+3. **It is measured one language at a time, because the first three architectures produced no figure at all.** Eleven
+   dispatches ended in a runner shutdown signal and exit 143, at a hundredth of the scope as well as at the full sample.
+   The cause was measured on four real checkouts rather than guessed: analysing 568 files costs **2 088 MB of resident
+   memory**, and V8 returns reclaimed heap pages to itself rather than to the operating system, so a run costs the
+   high-water mark of every instance it has analysed rather than the largest one. The workflow is now a three-job matrix
+   — one split per job, each writing `benchmarks/lca-parts/<config>.json` — and `scripts/lca-merge.ts` adds the parts up
+   **over pooled rows**, so the combined figure is the one a single run would have produced. Every instance the bounds
+   refused is a row in the artifact carrying the sentence that refused it: the stated cap, the memory left on the
+   runner, or the job's own time budget.
 
 **What this corpus cannot say.** Its published baselines include `filepath_imports`, which shows a model every path in
 the repository plus the import graph; this product shows a model the blocks a hybrid retriever selected under a

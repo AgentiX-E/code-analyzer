@@ -122,6 +122,156 @@ export function checkoutFileCount(root: string): number {
   return count;
 }
 
+// ---------------------------------------------------------------------------
+// The bound on one analysis, in the two currencies a runner runs out of
+// ---------------------------------------------------------------------------
+
+/**
+ * Resident megabytes one analysed file costs, **measured rather than guessed**.
+ *
+ * **The measurement.** Four real checkouts were analysed in one process, three rounds each, recording
+ * `process.memoryUsage()` around every analysis (`flask` 249 files, `zod` 226, `commons-lang` 568, `gson` 303):
+ *
+ *   | checkout | files | nodes | resident after | heap after | analysis |
+ *   |---|---|---|---|---|---|
+ *   | pallets/flask 3.0.3 | 249 | 10 731 | 417 MB | 174 MB | 2 157 ms |
+ *   | colinhacks/zod v3.23.8 | 226 | 17 303 | 791 MB | 421 MB | 4 015 ms |
+ *   | apache/commons-lang 3.14.0 | 568 | 62 790 | 2 879 MB | 1 148 MB | 24 851 ms |
+ *   | google/gson 2.11.0 | 303 | 29 909 | 3 326 MB | 1 575 MB | 10 174 ms |
+ *
+ * **And the second half of the measurement matters more than the first**: on the second and third rounds the
+ * *resident* figure stayed at 3.4-4.1 GB while the heap fell back to 0.4-1.9 GB. `global.gc()` was unavailable in
+ * that process, so this is V8's own scavenging - which returns heap pages to itself and not to the operating system.
+ * **A run over N instances therefore costs the high-water mark of all of them, not the largest one**: the job that has
+ * never finished was not killed by one enormous repository, it was killed by the sixth medium one.
+ *
+ * 2 088 MB of resident growth over 568 files is **3.7 MB per file**, and that is the number this bound uses. It is
+ * deliberately the Java figure: Kotlin is the same compiler front end and no Kotlin checkout was measured, and a bound
+ * that is too generous is the failure mode this module exists to remove.
+ */
+export const MEASURED_MB_PER_FILE = 3.7;
+
+/**
+ * What the rest of the runner needs, in megabytes, **kept back from the analysis**.
+ *
+ * A GitHub-hosted `ubuntu-latest` runner has 7 GB for a private repository and 16 GB for a public one, and the job
+ * shares it with the OS, the checkout on disk, vitest, and - in the answer arm - a provider client. One gigabyte is the
+ * reserve; the node heap is capped separately in the workflow so that a heap exhaustion is a named error rather than a
+ * runner that disappears.
+ */
+export const RUNNER_RESERVE_MB = 1024;
+
+/** Milliseconds one analysed file costs, from the same table: 44 ms/file at 568 files, 34 at 303, 9 at 249. */
+export const MS_PER_FILE = 50;
+
+/** How large an analysis the remaining memory allows, in files. **Zero when there is no room, never negative.** */
+export function analysableFileBudget(input: {
+  totalMb: number;
+  residentMb: number;
+  reserveMb: number;
+  mbPerFile: number;
+}): number {
+  const available = input.totalMb - input.residentMb - input.reserveMb;
+  if (available <= 0 || input.mbPerFile <= 0) return 0;
+  return Math.floor(available / input.mbPerFile);
+}
+
+/**
+ * The memory a container actually has, **which is not the memory the machine reports**.
+ *
+ * The same defect `vitest.config.ts` documents for CPUs, one resource over: a container is handed a 7 GB limit and
+ * `os.totalmem()` answers with the host's 16 or 64 GB, so a bound computed from it promises an analysis the cgroup will
+ * kill. `memory.max` is read when it exists - the exact same reading as `cpu.max` in the test configuration - and the
+ * smaller of the two answers wins. `'max'`, an unreadable file and a nonsensical value all fall back to the machine's
+ * own figure, because a bound is only useful if it is never larger than what can really be spent.
+ */
+export function limitedTotalMb(cgroup: string | null, totalBytes: number): number {
+  const fromMachine = Math.floor(totalBytes / 1_048_576);
+  if (cgroup === null) return fromMachine;
+  const trimmed = cgroup.trim();
+  if (trimmed === '' || trimmed === 'max') return fromMachine;
+  const bytes = Number(trimmed);
+  if (!Number.isFinite(bytes) || bytes <= 0) return fromMachine;
+  return Math.min(fromMachine, Math.floor(bytes / 1_048_576));
+}
+
+/**
+ * The language splits one job measures, from `LCA_LANGUAGES`.
+ *
+ * **A job per language is the unit of work** (see `lca-merge.ts` for why), so the harness has to be told which one it
+ * is. An absent or empty value means all three, which is what a local run wants. **A name that is not a configuration is
+ * dropped, and a specification that names nothing valid answers with an empty list rather than with everything**:
+ * `LCA_LANGUAGES=js` must measure nothing and be told so, because the alternative - silently measuring all three - is a
+ * ninety-minute job the caller did not ask for, and the failure would be invisible until it finished.
+ */
+export function parseLanguages(spec: string | undefined): LcaConfigName[] {
+  if (spec === undefined) return [...LCA_CONFIGS];
+  const parts = spec
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+  if (parts.length === 0) return [...LCA_CONFIGS];
+  const wanted = parts.filter((name) => (LCA_CONFIGS as readonly string[]).includes(name));
+  return [...new Set(wanted)] as LcaConfigName[];
+}
+
+/** What one instance is allowed to cost, in files and in milliseconds. */
+export interface InstanceBounds {
+  /** The bound stated in the artifact, from `LCA_MAX_FILES`. */
+  readonly capFiles: number;
+  /** The bound the remaining memory allows, from {@link analysableFileBudget}. */
+  readonly budgetFiles: number;
+  /** Milliseconds this job has already spent. */
+  readonly elapsedMs: number;
+  /** Milliseconds this job may spend in total. */
+  readonly budgetMs: number;
+  /** The resident figure the memory bound was computed from, so a skip can quote it. */
+  readonly residentMb: number;
+  /** The reserve that was subtracted, for the same reason. */
+  readonly reserveMb: number;
+}
+
+/** Whether an instance is measured, and if not, **which of the three bounds refused it**. */
+export type InstanceVerdict =
+  { readonly analyse: true } | { readonly analyse: false; readonly because: string };
+
+/**
+ * Decide whether one instance is measurable, **before any of it is analysed**.
+ *
+ * **Three bounds rather than one, because the job has three ways to die and only one of them is a number somebody
+ * chose.** A stated cap is a promise to the reader; the memory bound is what the machine can currently afford, which
+ * shrinks as the run accumulates resident pages; the time bound is what is left of the job's own budget. **A skip is a
+ * row in the artifact with the sentence that produced it**, so the sample's size is explainable without the log.
+ */
+export function decideInstance(files: number, bounds: InstanceBounds): InstanceVerdict {
+  if (files > bounds.capFiles) {
+    return {
+      analyse: false,
+      because: `the checkout holds ${String(files)} files, above the stated cap of ${String(bounds.capFiles)}`,
+    };
+  }
+  if (files > bounds.budgetFiles) {
+    const estimatedMb = Math.round(files * MEASURED_MB_PER_FILE);
+    return {
+      analyse: false,
+      because:
+        `an analysis of ${String(files)} files is estimated at ${String(estimatedMb)} MB resident ` +
+        `(${String(MEASURED_MB_PER_FILE)} MB per file) and only ${String(bounds.budgetFiles)} files of room remain ` +
+        `above a ${String(bounds.reserveMb)} MB reserve, with ${String(Math.round(bounds.residentMb))} MB resident`,
+    };
+  }
+  const projectedMs = bounds.elapsedMs + files * MS_PER_FILE;
+  if (projectedMs > bounds.budgetMs) {
+    return {
+      analyse: false,
+      because:
+        `an analysis of ${String(files)} files is estimated at ${String(files * MS_PER_FILE)} ms and would end at ` +
+        `${String(projectedMs)} ms, past this job's budget of ${String(bounds.budgetMs)} ms`,
+    };
+  }
+  return { analyse: true };
+}
+
 /**
  * Every file in a checkout that the corpus would count, as repository-relative POSIX paths.
  *
