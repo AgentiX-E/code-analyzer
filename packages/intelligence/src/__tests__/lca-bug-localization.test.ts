@@ -283,6 +283,16 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         }
 
         const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
+        // **One line per instance, because the job that runs this has never once finished.** Every attempt ends with
+        // `The runner has received a shutdown signal` and exit 143 — eleven and a half minutes at the full sample, five
+        // and a half at a hundredth of the scope — and `tee` writes through a pipe, so a block-buffered `stdout` loses
+        // every line when the signal arrives: **the log showed the vitest banner and nothing else, which is a report
+        // about buffering rather than about where the job stopped.** This line and `stdbuf -oL` in the workflow are
+        // what turn the next failure into a location.
+        // eslint-disable-next-line no-console -- the workflow greps this, and a killed process needs it already written.
+        console.log(
+          `LCA-INSTANCE ${config} id=${String(row.id)} ${row.repo_owner}/${row.repo_name} files=${String(allFiles.length)}`,
+        );
         // **The size bound, applied before any analysis**: an analysis that would not finish is not a measurement of
         // anything, and the skip is recorded so the artifact can say what the bound cost the sample.
         if (allFiles.length > FILE_CAP) {

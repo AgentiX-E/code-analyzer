@@ -186,8 +186,12 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=5120
         run: |
           set -o pipefail
+          # **Line-buffered, because a killed process loses a block-buffered pipe.** This job has never finished and
+          # every log ended at the vitest banner, which said nothing about where it stopped: `stdout` through `tee` is
+          # buffered in 4 KB blocks, so everything written before the signal went with it. `stdbuf -oL` makes the last
+          # line written the last line kept.
           npx vitest run --config vitest.config.ts \
-            packages/intelligence/src/__tests__/lca-bug-localization.test.ts 2>&1 | tee /tmp/lca.log
+            packages/intelligence/src/__tests__/lca-bug-localization.test.ts 2>&1 | stdbuf -oL -eL tee /tmp/lca.log
           grep -o 'LCA-BUG-LOC .*' /tmp/lca.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Gate the figure
