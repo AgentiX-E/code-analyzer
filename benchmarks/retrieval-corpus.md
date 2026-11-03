@@ -102,6 +102,43 @@ cause in either direction. **What the row does say is where the ceiling is**: th
 **98 % of what it was given reached the top twenty**, and no amount of reordering can exceed the pool. The next lever is
 the pool's depth and not its order.
 
+### Where the answer actually sits
+
+**Ninety-eight per cent of a pool reaching the top twenty is not a reranker that works; it is a reranker with nothing
+left to do.** The pool was fifty deep because _"fifty fits one prompt"_ — a claim about a prompt, used for two
+iterations as though it were a claim about the retriever. Nothing had ever asked where the answers were. The lexical
+list answers that, and it needs no credential, because BM25 returns every match:
+
+| cut                  | 5      | 10     | 20        | 30     | 50     | 75     | 100        | 150    | 200    |
+| -------------------- | ------ | ------ | --------- | ------ | ------ | ------ | ---------- | ------ | ------ |
+| recall, 99 questions | 0.1515 | 0.2323 | **0.303** | 0.3333 | 0.3838 | 0.4444 | **0.5051** | 0.5455 | 0.5556 |
+
+**Sixty-one of the ninety-nine answers are in the list somewhere, and the top twenty shows thirty of them.** The other
+**thirty-one sit below the cut** — and **the median found answer is at rank 24**, so the typical answer the index can
+find is one the head does not show. The remaining **thirty-eight are in no position at all**: no term of the question
+matches the document as the index tokenises it, so no pool depth reaches them. That split is the whole measurement:
+
+| quantity                      | value      | what it bounds                                       |
+| ----------------------------- | ---------- | ---------------------------------------------------- |
+| recall at 20                  | 0.3030     | what the product promises today                      |
+| recall at 100                 | 0.5051     | what a hundred-deep pool could show a reranker       |
+| **reachable at any rank**     | **0.6162** | **the ceiling no pool depth can pass**               |
+| headroom (reachable − at 20)  | 0.3131     | the most a deeper pool could ever buy, on this index |
+| absent from the list entirely | 38 of 99   | where only a better query or a better index can help |
+
+**The same defect was in the tool, and it was not a measurement artefact.** `search_code` computed its retrieval depth as
+`min(RERANK_POOL, maxLimit)` — the constant that describes how long a prompt can be, used to decide how deep to search —
+so `limit: 100` with `rerank: true` returned **fifty** items and reported `pool: 50`. A requested limit went unmet by a
+factor of two and **nothing said so**: `rerank.pool` reads as the pool the order came from, not as the size of the
+answer. It is `max(limit, RERANK_POOL)` now, and the case that would have caught it is a regression test.
+
+**So the pool is measured at five depths rather than chosen at one.** `paraphrase-search.json` carries a `poolDepth`
+array — the share of answers each depth puts in front of a reranker — computed from two candidate lists that are already
+in memory, at no cost in completions; and two rerank arms read the shallow and the deep end of it, **with the same
+index, the same questions, the same fusion weight and the same answer budget**, so the difference between their columns
+is the depth of the list and nothing else. `rerank-deep` reads **150**, which is where the lexical curve stops paying:
+it gains one question between 150 and 200 while the prompt grows by a third.
+
 ## The third input, which nobody wrote
 
 **Pinning the corpus pins its text, not the names derived from it.** A question in `paraphrase-queries.json` does not

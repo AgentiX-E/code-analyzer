@@ -78,6 +78,27 @@ export function rerankPrompt(question: string, candidates: RerankCandidate[]): s
   ].join('\n');
 }
 
+/** The floor of the answer budget, which is what a fifty-candidate pool needs and what every smaller pool inherits. */
+const MIN_ANSWER_TOKENS = 120;
+/** Four tokens per rank: generous for a three-digit number and a space, and `maxTokens` is a cap rather than a cost. */
+const TOKENS_PER_RANK = 4;
+
+/**
+ * **The answer budget, which has to fit the pool it answers about.**
+ *
+ * An answer lists at most one number per candidate, so a budget sized for fifty candidates does not fit a hundred and
+ * fifty. `maxTokens` was the constant `120`, chosen when the pool was fifty - and a pool that grows past it produces a
+ * completion cut mid-list, which `parseRerankAnswer` keeps the surviving numbers of and `applyOrder` reads as *"the
+ * model chose not to reorder these"*. **That is the right reading of a model that stopped early and the wrong reading
+ * of a transport that stopped it**, and from the caller's side the two are the same answer.
+ *
+ * So the budget is derived from the pool rather than declared once, and a caller that widens the pool cannot silently
+ * truncate the order it asked for.
+ */
+export function answerBudget(count: number): number {
+  return Math.max(MIN_ANSWER_TOKENS, count * TOKENS_PER_RANK);
+}
+
 /**
  * The order the model asked for, restricted to what the list can honour.
  *
@@ -151,7 +172,8 @@ export async function rerankCandidates<T extends { rank: number }>(
     const completion = await provider.complete(
       rerankPrompt(question, candidates.map(toCandidate)),
       {
-        maxTokens: options.maxTokens ?? 120,
+        // **Derived from the pool, not declared**: see `answerBudget`.
+        maxTokens: options.maxTokens ?? answerBudget(candidates.length),
         temperature: 0,
         ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
       },

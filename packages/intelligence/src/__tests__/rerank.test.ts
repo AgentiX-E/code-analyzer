@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  answerBudget,
   applyOrder,
   describeFailure,
   parseRerankAnswer,
@@ -170,6 +171,38 @@ describe('rerankCandidates', () => {
     // hide the failure rather than report it.
     expect(describeFailure(new Error('429 rate limited'))).toBe('429 rate limited');
     expect(describeFailure('socket closed')).toBe('socket closed');
+  });
+
+  it('sizes the default budget to the pool, because an order is one number per candidate', async () => {
+    // **The pool grew and the budget did not.** `120` was chosen when fifty candidates fitted one prompt; a hundred and
+    // fifty numbers do not fit in it, and a completion cut mid-list is read by `applyOrder` as a model that chose to
+    // stop - the surviving numbers reorder the head and the tail keeps the fused order, so a deeper pool would be
+    // measured as a worse one for a reason no column would name.
+    const seen: Array<{ maxTokens?: number }> = [];
+    const recording = {
+      name: 'recording',
+      complete: async (_prompt: string, options: { maxTokens?: number }) => {
+        seen.push(options);
+        return {
+          content: '1',
+          model: 'fake',
+          createdAt: new Date(0).toISOString(),
+          finishReason: 'stop',
+        };
+      },
+    } as unknown as LLMProvider;
+
+    const pool = (size: number): Candidate[] =>
+      Array.from({ length: size }, (_, index) => candidate(index + 1, `node${index}`));
+    await rerankCandidates('q', pool(50), describeCandidate, recording);
+    await rerankCandidates('q', pool(150), describeCandidate, recording);
+
+    // **The budget asked for is at least the budget the pool needs**, and a deeper pool asks for more than a shallower
+    // one - which is the whole point of deriving it.
+    expect(answerBudget(50)).toBeLessThanOrEqual(seen[0]!.maxTokens!);
+    expect(seen[1]!.maxTokens!).toBeGreaterThan(seen[0]!.maxTokens!);
+    // **And it is a floor, not a formula**: a pool small enough to fit the constant keeps the constant.
+    expect(answerBudget(2)).toBe(120);
   });
 
   it('returns the input when the answer has no usable number, and keeps the answer for the reader', async () => {

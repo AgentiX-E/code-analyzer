@@ -209,6 +209,31 @@ describe('search_code reorders the fused list when asked', () => {
     const payload = JSON.parse(textOf(result)) as { rerank: { applied: boolean } };
     expect(payload.rerank).toEqual({ applied: false });
   });
+
+  it('returns as many results as were asked for, even when that is more than the pool floor', async () => {
+    // **The pool was a ceiling on the answer.** The retrieval depth was `min(RERANK_POOL, maxLimit)` - a constant that
+    // describes how long a prompt can be, used to decide how deep to search - so `limit: 60` with `rerank: true`
+    // reached a fifty-long list and the caller received fifty items while the schema promises sixty. **Nothing
+    // reported the shortfall**: `rerank.pool` said 50, which reads as the pool the order was chosen from rather than
+    // as the size of the answer, and a truncated answer is exactly what the caller cannot distinguish from a sparse
+    // index.
+    const store = new InMemoryGraphStore();
+    for (let id = 1; id <= 80; id++) store.insertNode(await nodeWithVector(id, `walkCalls${id}`));
+
+    const result = await searchCode(
+      { query: 'walk', rerank: true, limit: 60 },
+      new ToolContextImpl(store, { llm: orderer }),
+    );
+    const payload = JSON.parse(textOf(result)) as {
+      rerank: { applied: boolean; pool?: number };
+      items: unknown[];
+    };
+
+    expect(payload.items).toHaveLength(60);
+    // **And the pool the order came from was at least the answer it was cut to**, which is the invariant the two
+    // constants have to satisfy: a model cannot rank past what it was shown.
+    expect(payload.rerank.pool).toBeGreaterThanOrEqual(60);
+  });
 });
 
 describe('search_code reports what the query side did', () => {

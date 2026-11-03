@@ -106,16 +106,16 @@ Get detailed information about a specific graph node.
 BM25 search fused with vector search by weighted Reciprocal Rank Fusion. **When the index holds vectors the answer is
 hybrid**, and every response says which half produced it (`semanticBackend`, per-item `searchMethod`).
 
-| Parameter   | Type      | Required | Description                                                                        |
-| ----------- | --------- | :------: | ---------------------------------------------------------------------------------- |
-| `query`     | `string`  |   Yes    | Search query                                                                       |
-| `language`  | `string`  |    No    | Filter by language (e.g., `typescript`)                                            |
-| `type`      | `string`  |    No    | Filter by node type (e.g., `Function`)                                             |
-| `filePath`  | `string`  |    No    | Restrict to specific file pattern                                                  |
-| `limit`     | `number`  |    No    | Maximum results (default: 20)                                                      |
-| `projectId` | `string`  |    No    | Project scope                                                                      |
-| `expand`    | `boolean` |    No    | Rewrite the query as the code it describes before searching (HyDE), one completion |
-| `rerank`    | `boolean` |    No    | Reorder the fused top 50 with a model before returning the first `limit`           |
+| Parameter   | Type      | Required | Description                                                                                    |
+| ----------- | --------- | :------: | ---------------------------------------------------------------------------------------------- |
+| `query`     | `string`  |   Yes    | Search query                                                                                   |
+| `language`  | `string`  |    No    | Filter by language (e.g., `typescript`)                                                        |
+| `type`      | `string`  |    No    | Filter by node type (e.g., `Function`)                                                         |
+| `filePath`  | `string`  |    No    | Restrict to specific file pattern                                                              |
+| `limit`     | `number`  |    No    | Maximum results (default: 20)                                                                  |
+| `projectId` | `string`  |    No    | Project scope                                                                                  |
+| `expand`    | `boolean` |    No    | Rewrite the query as the code it describes before searching (HyDE), one completion             |
+| `rerank`    | `boolean` |    No    | Reorder a pool of at least 50 fused candidates with a model before returning the first `limit` |
 
 **Example:**
 

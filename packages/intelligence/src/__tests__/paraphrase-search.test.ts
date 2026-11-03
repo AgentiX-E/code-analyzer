@@ -39,7 +39,6 @@ import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { expandToVector } from '../search/query-expansion.js';
 import { rerankCandidates } from '../search/rerank.js';
 
-import type { HybridSearchResult } from '../search/hybrid-search.js';
 import type { GraphNode, PipelineContext } from '@code-analyzer/shared';
 
 /**
@@ -68,6 +67,34 @@ const MAX_QUERIES = 100;
 const VECTOR_WEIGHTS = [1, 0.5, 0.25, 0.1];
 /** How many candidates a reranker sees. **A judgement task, not a reading task** - fifty fits one prompt. */
 const RERANK_POOL = 50;
+
+/**
+ * **The deepest pool the measurement offers a reranker, and the depths it reports the ceiling at.**
+ *
+ * `RERANK_POOL` was fifty because *"fifty fits one prompt"* - a claim about a prompt, used for two iterations as if it
+ * were a claim about the retriever. The depth curve settled the difference: the lexical list holds thirty-one answers
+ * it does not show in the top twenty, so **the pool is the arm's ceiling and nobody had measured where it sat**. These
+ * depths are the ones the ceiling is reported at; `DEEP_RERANK_POOL` is the one an arm actually reads.
+ *
+ * **One hundred and fifty, because that is where the lexical curve stops paying**: it moves from 0.5455 at 150 to
+ * 0.5556 at 200 - one question of ninety-nine - while the prompt grows by a third. A depth chosen at the knee is a
+ * depth a reader can defend; two hundred would be the widest list this file measures and three times the prompt of the
+ * arm it replaces, for a ceiling the shallowest of the two already reaches.
+ */
+const MAX_POOL = 200;
+const POOL_DEPTHS = [20, 50, 100, 150, 200] as const;
+const DEEP_RERANK_POOL = 150;
+
+/**
+ * **The same answer budget for both rerank arms, and that is the control rather than a detail.**
+ *
+ * The model is asked to order the candidates it is confident about and to leave the rest where they are
+ * (`applyOrder` keeps every candidate an answer did not mention in its fused position), so an answer needs room for the
+ * head each arm has to fill and not for the pool it was shown. **A hundred and twenty tokens is about fifty ids**,
+ * which covers a top twenty twice over at either depth - and holding it constant is what makes the two arms differ in
+ * the pool and nothing else.
+ */
+const ANSWER_BUDGET = 120;
 
 /**
  * **The question set is a dataset, so it is frozen and committed.**
@@ -331,6 +358,17 @@ function strippedStore(pipeline: { graph: { nodes: Map<number, GraphNode> } }): 
 const LEXICAL_FLOOR = { recallAt5: 0.14, recallAt20: 0.3, mrr: 0.09 } as const;
 
 /**
+ * **The depth the lexical list reaches, and the ceiling no pool can exceed.**
+ *
+ * Measured on the pinned corpus with the field weighting above: recall@20 **0.3030**, recall@100 **0.5051**, and
+ * **0.6162** of the ninety-nine answers appear somewhere in the list at all. The last figure is the one no retrieval
+ * arm can pass without a better query or a better index, and the gap between it and recall@20 - **thirty-one questions the
+ * list holds and the head does not, 0.3131** - is what a reranker with a deeper pool is offered. **Rounded down,
+ * like the floor above it**: a change that costs a question has to be argued for.
+ */
+const DEPTH_FLOOR = { at20: 0.3, at100: 0.5, reachable: 0.6 } as const;
+
+/**
  * **Which half of the questions chose the weighting, and which half reports it.**
  *
  * A weight tuned on the questions it is then measured on is a figure about the tuning. The split is a stable hash of the
@@ -376,6 +414,8 @@ interface VariantColumn extends Partial<Column> {
   reranked?: number;
   /** The ceiling: the share of answers present in the pool the reranker was given. */
   poolRecallAt20?: number;
+  /** How many candidates that pool held. **The arm's ceiling is a function of this number**, so it travels with it. */
+  poolDepth?: number;
   /** Why this arm did not run. **An absent row reads like a passing one**, so an unmeasured variant says so. */
   reason?: string;
 }
@@ -386,6 +426,49 @@ interface Column {
   recallAt20: number;
   mrr: number;
   found: number;
+}
+
+/**
+ * **Where the answer sits, which is a different question from whether it is inside twenty.**
+ *
+ * `recallAt20` is what the product promises and what the competitor matrix compares, and it cannot say where the rest
+ * of the answers are. A list that answers a question at rank 24 and a list that does not hold the answer at all both
+ * score zero, and the two call for opposite work: the first is a candidate pool too narrow to hand a reranker, the
+ * second is a query or an index that never found the symbol. **`reachable` is the ceiling any pool depth can reach, and
+ * the gap between it and recall at twenty is the whole headroom a deeper pool could spend** - which is the number the
+ * rerank arms in this file are bounded by, and the number a reader needs before deciding to widen one.
+ */
+interface DepthCurve {
+  /** Recall at each cut in `DEPTH_CUTS`, in the same order. */
+  recall: number[];
+  /** The share whose answer appears in the list at all - **the ceiling on any pool depth**. */
+  reachable: number;
+  /** Where a found answer sits, median. **Half of the answers this list holds sit below this rank.** */
+  medianFoundRank: number | null;
+}
+
+/** The cuts a depth curve is reported at. **The widest is the deepest pool the measurement offers a reranker.** */
+const DEPTH_CUTS = [5, 10, 20, 30, 50, 75, 100, 150, 200] as const;
+
+/** Recall at one cut of a curve. **A named lookup, so an assertion cannot silently read the wrong cut.** */
+function recallAt(curve: DepthCurve, cut: number): number {
+  const index = DEPTH_CUTS.indexOf(cut as (typeof DEPTH_CUTS)[number]);
+  return curve.recall[index] ?? 0;
+}
+
+function depthCurve(cases: QueryCase[]): DepthCurve {
+  const round = (value: number): number => Math.round(value * 10000) / 10000;
+  const found = cases
+    .map((candidate) => candidate.rank)
+    .filter((rank): rank is number => rank !== null)
+    .sort((a, b) => a - b);
+  return {
+    recall: DEPTH_CUTS.map((cut) =>
+      round(found.filter((rank) => rank <= cut).length / cases.length),
+    ),
+    reachable: round(found.length / cases.length),
+    medianFoundRank: found.length === 0 ? null : found[Math.floor(found.length / 2)]!,
+  };
 }
 
 /**
@@ -571,6 +654,52 @@ describe('the recall arithmetic', () => {
       ),
     ).toBe('arkts.ts::project:p:file:arkts.ts:walk');
     expect(answerKey({ filePath: null, qualifiedName: 'parse' }, root)).toBe('::parse');
+  });
+});
+
+// **A curve is arithmetic on ranks, so it is measured on ranks.** The corpus supplies the numbers it is published with,
+// but every property below - monotonicity, the ceiling, the median - is a statement about nine numbers and holds
+// whether or not the corpus is present.
+describe('the depth curve', () => {
+  const scored = (...ranks: Array<number | null>): QueryCase[] =>
+    ranks.map((rank, index) => ({
+      file: 'f.ts',
+      qualifiedName: `f.ts:n${index}`,
+      name: `n${index}`,
+      query: 'q',
+      rank,
+    }));
+
+  it('separates an answer ranked just below the cut from one the list never held', () => {
+    // **Both of these contribute nothing to recall at twenty, and only one of them is helped by a deeper pool.** A
+    // measurement that published only the first number could not tell a pool too narrow to show a reranker from an
+    // answer no candidate list ever contained, and the two call for opposite work.
+    const curve = depthCurve(scored(3, 24, null, null));
+    expect(recallAt(curve, TOP_K)).toBe(0.25);
+    expect(recallAt(curve, 30)).toBe(0.5);
+    // **The ceiling any pool depth is bounded by**, and it is above the head.
+    expect(curve.reachable).toBe(0.5);
+    // **And the median of the two found answers is the one outside the cut**: half of what this list holds, it holds
+    // below twenty.
+    expect(curve.medianFoundRank).toBe(24);
+  });
+
+  it('never falls as the cut deepens, and reports no median when the list holds no answer', () => {
+    const curve = depthCurve(scored(1, 120, 4_000, null));
+    expect(
+      curve.recall.every((value, index) => index === 0 || value >= curve.recall[index - 1]!),
+      'recall is non-decreasing in the cut',
+    ).toBe(true);
+    // **An answer beyond the last cut is still reachable** and still outside every published column, which is why
+    // `reachable` is not simply the widest cut.
+    expect(curve.reachable).toBe(0.75);
+    expect(recallAt(curve, 200)).toBe(0.5);
+    expect(recallAt(curve, 150)).toBe(0.5);
+
+    const empty = depthCurve(scored(null, null));
+    expect(empty.reachable).toBe(0);
+    expect(empty.medianFoundRank).toBeNull();
+    expect(empty.recall.every((value) => value === 0)).toBe(true);
   });
 });
 
@@ -812,6 +941,59 @@ describe('the frozen questions and the frozen corpus', () => {
     expect(column.mrr, 'mean reciprocal rank').toBeGreaterThanOrEqual(LEXICAL_FLOOR.mrr);
   }, 600_000);
 
+  // **The column above answers "is it inside twenty" and this one answers "where is it", and only one of them says
+  // whether a reranker has anything to work with.** It needs no credential for the same reason the column does: BM25
+  // returns every match, so the rank of an answer is a fact about the list rather than about a model.
+  it('reports where the answer sits, and the ceiling no pool depth can exceed', async () => {
+    const { corpusRoot, pipeline } = await analyseCorpus();
+    const frozen = readQuerySet(QUERY_SET)?.queries ?? [];
+    expect(
+      frozen.length,
+      `${QUERY_SET} is the input this measurement is defined on`,
+    ).toBeGreaterThan(0);
+
+    const engine = new HybridSearchEngine(strippedStore(pipeline));
+    engine.initialize();
+    const cases: QueryCase[] = frozen.map((candidate) => {
+      const want = `${candidate.file}::${candidate.qualifiedName}`;
+      const rank = engine
+        .bm25Search(candidate.query)
+        .findIndex((hit) => answerKey(hit.node, corpusRoot) === want);
+      return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+    });
+    const curve = depthCurve(cases);
+
+    // eslint-disable-next-line no-console -- the workflow greps this line into the job summary, and it needs no key.
+    console.log(
+      `LEXICAL-DEPTH queries=${frozen.length} nodes=${engine.documentCount} ` +
+        curve.recall.map((value, index) => `@${DEPTH_CUTS[index]}=${value}`).join(' ') +
+        ` reachable=${curve.reachable} medianFound=${curve.medianFoundRank}`,
+    );
+
+    expect(recallAt(curve, TOP_K), 'recall at 20').toBeGreaterThanOrEqual(DEPTH_FLOOR.at20);
+    expect(recallAt(curve, 100), 'recall at 100').toBeGreaterThanOrEqual(DEPTH_FLOOR.at100);
+    // **The ceiling, measured on the list and not on a pool**: the share of questions whose answer the lexical index
+    // holds at all. No retrieval arm in this file can pass it, and the arms that come closest are the ones worth
+    // deepening the pool for.
+    expect(
+      curve.reachable,
+      'the share whose answer the list holds at any rank',
+    ).toBeGreaterThanOrEqual(DEPTH_FLOOR.reachable);
+    // **And the headroom, which is the reason this file measures a pool at all.** A positive number here is the claim
+    // that there are answers the list already holds and the top twenty does not show - the only headroom a reranker
+    // with a deeper pool can spend, and zero would mean a reranker could only reorder.
+    expect(
+      curve.reachable - recallAt(curve, TOP_K),
+      'answers the list holds and the head does not',
+    ).toBeGreaterThan(0);
+    // **A curve that fell as the cut deepened would be an arithmetic defect**, so the assertion is here rather than in
+    // the report: nine numbers that only ever grow are the one property this arithmetic has to have.
+    expect(
+      curve.recall.every((value, index) => index === 0 || value >= curve.recall[index - 1]!),
+      'recall is non-decreasing in the cut',
+    ).toBe(true);
+  }, 600_000);
+
   it.skipIf(process.env['PARAPHRASE_SWEEP'] !== '1')(
     're-derives the field weighting on one half of the questions, and reports the other half',
     async () => {
@@ -1027,11 +1209,16 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
       });
 
       const semanticLists: Array<Array<{ node: GraphNode; score: number }>> = [];
+      // **One vector search per question, at the deepest pool any arm is given.** The list is sorted by similarity and
+      // its ties are broken by identity, so its first twenty *is* the list a `vectorSearch(query, 20)` returns - the
+      // columns below are unchanged by construction - and the deeper prefix is what the ceiling sweep and the deep arm
+      // need, at no extra call.
+      const semanticDeep: Array<Array<{ node: GraphNode; score: number }>> = [];
       if (queryEmbedder) {
         for (const candidate of paraphrases) {
-          const ranked = await hybrid.vectorSearch(candidate.query, TOP_K, null);
-          semanticLists.push(ranked);
+          semanticDeep.push(await hybrid.vectorSearch(candidate.query, MAX_POOL, null));
         }
+        semanticLists.push(...semanticDeep.map((ranked) => ranked.slice(0, TOP_K)));
       }
 
       const sweep = VECTOR_WEIGHTS.map((vectorWeight) => {
@@ -1094,7 +1281,53 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
           }),
         );
 
+      // **The ceiling of the pool at every depth a reranker could be given**, filled below when there is a semantic list
+      // to fuse: without one the pool is the lexical list and its ceiling is already the depth curve.
+      const poolDepth: Array<{ depth: number; ceiling: number }> = [];
+
       if (queryEmbedder) {
+        // **Arithmetic on two lists that are already in memory.** The fused list at depth `d` is the fusion of the two
+        // lists cut at `d`, so the whole sweep costs no completion and no second vector search - and it is the number
+        // every rerank arm is bounded by.
+        //
+        // **It is also the only honest answer to "would a deeper pool help"**: an arm cannot reach an answer the pool
+        // does not hold, so a depth whose ceiling has stopped moving is a depth past which the next lever is the query
+        // side. The gaps between the rows are what this file is buying when it widens a prompt.
+        for (const depth of POOL_DEPTHS) {
+          if (depth > MAX_POOL) continue;
+          let hits = 0;
+          for (let index = 0; index < paraphrases.length; index++) {
+            const candidate = paraphrases[index]!;
+            const fused = hybrid.fuseResults(
+              lexicalLists[index]!.slice(0, depth).map((hit) => ({
+                node: hit.node,
+                score: hit.score,
+              })),
+              (semanticDeep[index] ?? [])
+                .slice(0, depth)
+                .map((hit) => ({ node: hit.node, score: hit.score })),
+              60,
+              depth,
+              1,
+            );
+            if (fused.some((hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate)))
+              hits += 1;
+          }
+          poolDepth.push({
+            depth,
+            ceiling: Math.round((hits / paraphrases.length) * 10000) / 10000,
+          });
+        }
+        // **A ceiling that fell when the pool deepened would be a defect in the fusion and not a fact about retrieval**:
+        // a longer pair of candidate lists cannot make an answer *less* available. It is asserted where it is computed,
+        // because the artifact would otherwise report a falling curve as if it were a measurement.
+        expect(
+          poolDepth.every(
+            (row, index) => index === 0 || row.ceiling >= poolDepth[index - 1]!.ceiling,
+          ),
+          `pool ceilings by depth: ${poolDepth.map((row) => `${row.depth}:${row.ceiling}`).join(' ')}`,
+        ).toBe(true);
+
         // **The composition the product shipped before this measurement**: no path in the text. Kept as a column so the
         // gain the path produced is visible in the artifact rather than only in a commit message.
         const withoutPath = await generateEmbeddings(stripped, defaultEmbedderLoader, {
@@ -1176,77 +1409,94 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
               'DEEPSEEK_API_KEY is absent, so no hypothesis can be written and this arm did not run',
           });
         }
-        // **`rerank`**: the fused fifty, ordered by a model that can see all of them, then cut at twenty.
+        // **`rerank`, at two depths.** The fused pool, ordered by a model that can see all of it, then cut at twenty.
         //
         // **The pool is the ceiling, and it is published.** A reranker cannot answer a question whose symbol was not in
-        // the fifty it was given, so a reader who sees recall@20 rise without seeing the pool would not know whether the
-        // ordering did the work or a deeper candidate list did.
+        // the list it was given, so a reader who sees recall@20 rise without seeing the pool would not know whether the
+        // ordering did the work or a deeper candidate list did. **The two arms below differ in the depth of that list
+        // and in nothing else** - same index, same questions, same fusion weight, same answer budget - which is the
+        // only way the difference between their columns is the depth.
         if (CAN_WRITE_QUERIES) {
           const provider = new DeepSeekProvider({ timeout: 60_000 });
-          const pool: HybridSearchResult[][] = [];
-          for (let index = 0; index < paraphrases.length; index++) {
-            const candidate = paraphrases[index]!;
-            const semanticDeep = await hybrid.vectorSearch(candidate.query, RERANK_POOL, null);
-            pool.push(
-              hybrid.fuseResults(
-                lexicalLists[index]!.slice(0, RERANK_POOL).map((hit) => ({
+          const rerankArm = async (depth: number): Promise<VariantColumn> => {
+            const cases: QueryCase[] = [];
+            let reranked = 0;
+            let poolHits = 0;
+            for (let index = 0; index < paraphrases.length; index++) {
+              const candidate = paraphrases[index]!;
+              const fused = hybrid.fuseResults(
+                lexicalLists[index]!.slice(0, depth).map((hit) => ({
                   node: hit.node,
                   score: hit.score,
                 })),
-                semanticDeep.map((hit) => ({ node: hit.node, score: hit.score })),
+                (semanticDeep[index] ?? [])
+                  .slice(0, depth)
+                  .map((hit) => ({ node: hit.node, score: hit.score })),
                 60,
-                RERANK_POOL,
+                depth,
                 1,
-              ),
-            );
-          }
+              );
+              if (fused.some((hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate))) {
+                poolHits += 1;
+              }
+              const entries = fused.map((hit, position) => ({ rank: position + 1, hit }));
+              const result = await rerankCandidates(
+                candidate.query,
+                entries,
+                (entry) => ({
+                  rank: entry.rank,
+                  name: entry.hit.node.name,
+                  qualifiedName: entry.hit.node.qualifiedName,
+                  filePath: entry.hit.node.filePath,
+                  signature: entry.hit.node.signature,
+                  excerpt:
+                    typeof entry.hit.node.properties['body'] === 'string'
+                      ? entry.hit.node.properties['body'].slice(0, 240)
+                      : null,
+                }),
+                provider,
+                { maxTokens: ANSWER_BUDGET, timeout: 60_000 },
+              );
+              if (result.applied) reranked += 1;
+              const rank = result.ordered
+                .slice(0, TOP_K)
+                .findIndex(
+                  (entry) => answerKey(entry.hit.node, corpusRoot) === frozenKey(candidate),
+                );
+              cases.push({ ...candidate, rank: rank >= 0 ? rank + 1 : null });
+            }
+            return {
+              name: depth === RERANK_POOL ? 'rerank' : 'rerank-deep',
+              note: `the fused top ${depth}, reordered by a model, cut at ${TOP_K}`,
+              reranked,
+              poolDepth: depth,
+              poolRecallAt20: Math.round((poolHits / paraphrases.length) * 10000) / 10000,
+              ...summarise(cases),
+            };
+          };
 
-          const cases: QueryCase[] = [];
-          let reranked = 0;
-          let poolHits = 0;
-          for (let index = 0; index < paraphrases.length; index++) {
-            const candidate = paraphrases[index]!;
-            const fused = pool[index]!;
-            if (fused.some((hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate)))
-              poolHits += 1;
-            const entries = fused.map((hit, position) => ({ rank: position + 1, hit }));
-            const result = await rerankCandidates(
-              candidate.query,
-              entries,
-              (entry) => ({
-                rank: entry.rank,
-                name: entry.hit.node.name,
-                qualifiedName: entry.hit.node.qualifiedName,
-                filePath: entry.hit.node.filePath,
-                signature: entry.hit.node.signature,
-                excerpt:
-                  typeof entry.hit.node.properties['body'] === 'string'
-                    ? entry.hit.node.properties['body'].slice(0, 240)
-                    : null,
-              }),
-              provider,
-              { timeout: 60_000 },
-            );
-            if (result.applied) reranked += 1;
-            const rank = result.ordered
-              .slice(0, TOP_K)
-              .findIndex((entry) => answerKey(entry.hit.node, corpusRoot) === frozenKey(candidate));
-            cases.push({ ...candidate, rank: rank >= 0 ? rank + 1 : null });
-          }
-          variants.push({
-            name: 'rerank',
-            note: `the fused top ${RERANK_POOL}, reordered by a model, cut at ${TOP_K}`,
-            reranked,
-            poolRecallAt20: Math.round((poolHits / paraphrases.length) * 10000) / 10000,
-            ...summarise(cases),
-          });
+          const shallow = await rerankArm(RERANK_POOL);
+          // **The sweep and the arm are two computations of one quantity**, and they have to agree: the ceiling at the
+          // shallow depth is the pool ceiling the arm has published for two iterations, and a sweep that disagreed
+          // with it would be a new arithmetic rather than the same one applied to a longer list.
+          expect(
+            poolDepth.find((row) => row.depth === RERANK_POOL)?.ceiling,
+            `the depth sweep and the ${RERANK_POOL}-deep arm agree on the pool ceiling`,
+          ).toBe(shallow.poolRecallAt20);
+          variants.push(shallow);
+          // **And the same arm on a deeper list.** A pool that stops moving the ceiling is a pool past which the next
+          // lever is the query side; a pool that moves it and does not move the column is a reranker that cannot read
+          // that far, and the two failures call for different work.
+          variants.push(await rerankArm(DEEP_RERANK_POOL));
         } else {
-          variants.push({
-            name: 'rerank',
-            note: `the fused top ${RERANK_POOL}, reordered by a model, cut at ${TOP_K}`,
-            reason:
-              'DEEPSEEK_API_KEY is absent, so no ordering can be asked for and this arm did not run',
-          });
+          for (const depth of [RERANK_POOL, DEEP_RERANK_POOL]) {
+            variants.push({
+              name: depth === RERANK_POOL ? 'rerank' : 'rerank-deep',
+              note: `the fused top ${depth}, reordered by a model, cut at ${TOP_K}`,
+              reason:
+                'DEEPSEEK_API_KEY is absent, so no ordering can be asked for and this arm did not run',
+            });
+          }
         }
       }
 
@@ -1273,6 +1523,14 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
           '',
           '**Both columns run on the same index**: BM25 over name/signature only, and the same list fused with one',
           'semantic ranking at each weight.',
+          '',
+          '**`lexicalDepth` says where the answer sits rather than only whether it is inside twenty.** Recall at nine',
+          'cuts, the share the list holds at any rank (`reachable`, the ceiling no pool depth can pass), and the median',
+          'rank of a found answer. The gap between `reachable` and recall at 20 is the headroom a reranker with a deeper',
+          'pool is offered, and it is the number the `rerank` and `rerank-deep` arms are bounded by.',
+          '',
+          '**`poolDepth` is that ceiling measured on the fused list** at every depth a reranker could be given. It costs',
+          'no completion: the fused list at depth d is the fusion of the two candidate lists cut at d',
         ],
         measuredAt: new Date().toISOString().slice(0, 10),
         querySet: {
@@ -1299,6 +1557,11 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         },
         topK: TOP_K,
         lexical: lexicalColumn,
+        // **Where the answer sits, not only whether it is inside twenty**: see the note on `lexicalDepth` above.
+        lexicalDepth: depthCurve(lexical),
+        // **The ceiling of each pool the arms below were given**, and the reason a deeper one could help at all.
+        poolDepth,
+        answerBudget: ANSWER_BUDGET,
         variants,
         semanticSweep: sweep,
         // The row the product runs - see the note in `docstring-search.test.ts`.
@@ -1327,7 +1590,9 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
           `sweep=${sweep.map((s) => `${s.vectorWeight}:@20=${s.recallAt20}/mrr=${s.mrr}`).join(' ')} ` +
           `variants=${variants
             .map((v) => `${v.name}:@20=${v.recallAt20 ?? '-'}/mrr=${v.mrr ?? '-'}`)
-            .join(' ')}`,
+            .join(' ')} ` +
+          `pool=${poolDepth.map((row) => `${row.depth}:${row.ceiling}`).join('/')} ` +
+          `ceiling=${depthCurve(lexical).reachable}`,
       );
 
       // **The only claim this file can make without a semantic half**: the questions are answerable at all on an index
@@ -1356,6 +1621,17 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
           variant.recallAt20,
           `${variant.name} answered ${variant.recallAt20 ?? 0} recall@20 against lexical ${lexicalColumn.recallAt20}`,
         ).toBeGreaterThanOrEqual(lexicalColumn.recallAt20);
+      }
+
+      // **And no arm can pass the ceiling it was given.** This is the arithmetic that makes the two rerank rows
+      // readable: a row at the ceiling says the ordering is solved and the pool is the lever; a row far below its
+      // ceiling says the opposite, and the two look identical next to a recall figure alone.
+      for (const variant of variants) {
+        if (variant.reason || variant.poolRecallAt20 === undefined) continue;
+        expect(
+          variant.recallAt20 ?? 0,
+          `${variant.name} answered ${variant.recallAt20 ?? 0} of a pool that held ${variant.poolRecallAt20}`,
+        ).toBeLessThanOrEqual(variant.poolRecallAt20);
       }
     }, 3_600_000);
   },

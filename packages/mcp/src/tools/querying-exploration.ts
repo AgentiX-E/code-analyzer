@@ -160,7 +160,14 @@ interface SearchCodeParams {
   rerank?: boolean;
 }
 
-/** How many candidates a reranker is given. **A judgement task, not a reading task** - fifty fits one prompt. */
+/**
+ * How many candidates a reranker is given at minimum. **A judgement task, not a reading task** - fifty fits one prompt
+ * and a deeper list is a measurement rather than an assumption (`benchmarks/retrieval-corpus.md`).
+ *
+ * **A floor and not a ceiling.** The pool is `max(limit, RERANK_POOL)`, because a caller that asked for a hundred
+ * results cannot be served by an order chosen among fifty: the model must be shown at least what will be returned, or
+ * the results past the pool come back in an order nothing ranked.
+ */
 const RERANK_POOL = 50;
 
 /** What the reordering did. */
@@ -288,8 +295,8 @@ export const searchCodeSchema = {
     rerank: {
       type: 'boolean',
       description:
-        'Reorder the fused top 50 with a model before returning the first `limit`. Costs one LLM completion; ' +
-        'measured at +15 points of recall@20 and 2.2x MRR on the paraphrase corpus.',
+        'Reorder a pool of at least 50 fused candidates with a model before returning the first `limit`. Costs one ' +
+        'LLM completion; measured at +15 points of recall@20 and 2.2x MRR on the paraphrase corpus.',
     },
   },
   required: ['query'],
@@ -316,7 +323,13 @@ export async function searchCode(
 
       // **Two optional stages, and each says what it did.** A caller that asked for either and got the plain fused
       // list back needs to know, or it will read one answer as another.
-      const depth = params.rerank ? Math.min(RERANK_POOL, maxLimit) : limit;
+      //
+      // **The depth serves both the pool and the caller, and it was serving only the pool.** `min(RERANK_POOL,
+      // maxLimit)` read the pool as a cap on the retrieval, so `limit: 100` with `rerank: true` returned fifty items
+      // and reported `pool: 50` — a requested limit silently unmet, by a constant that describes the prompt rather
+      // than the answer. `max` is the same expression with the two roles the right way round: retrieval must be at
+      // least as deep as the pool the model reads and at least as deep as the list the caller asked for.
+      const depth = params.rerank ? Math.max(limit, RERANK_POOL) : limit;
       const retrieved = await retrieveWithExpansion(ctx, searchEngine, params, depth, embed);
       let results = retrieved.list.slice(0, limit);
       let rerank: RerankReport = { applied: false };
