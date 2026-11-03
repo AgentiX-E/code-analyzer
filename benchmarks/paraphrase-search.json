@@ -51,36 +51,62 @@
   },
   "topK": 20,
   "lexical": {
-    "recallAt5": 0.1515,
-    "recallAt20": 0.303,
-    "mrr": 0.098,
-    "found": 30
+    "recallAt5": 0.3131,
+    "recallAt20": 0.4646,
+    "mrr": 0.2034,
+    "found": 46
   },
   "lexicalDepth": {
-    "recall": [0.1515, 0.2323, 0.303, 0.3333, 0.3838, 0.4444, 0.5051, 0.5455, 0.5556],
-    "reachable": 0.6162,
-    "medianFoundRank": 24
+    "recall": [
+      0.3131,
+      0.3535,
+      0.4646,
+      0.4646,
+      0.5051,
+      0.5354,
+      0.5758,
+      0.6263,
+      0.6667
+    ],
+    "reachable": 0.8889,
+    "medianFoundRank": 20
+  },
+  "lexicalSlices": {
+    "leakFree": {
+      "size": 47,
+      "recallAt5": 0.0851,
+      "recallAt20": 0.1702,
+      "mrr": 0.0295,
+      "found": 8
+    },
+    "withLeak": {
+      "size": 52,
+      "recallAt5": 0.5192,
+      "recallAt20": 0.7308,
+      "mrr": 0.3605,
+      "found": 38
+    }
   },
   "poolDepth": [
     {
       "depth": 20,
-      "ceiling": 0.596
+      "ceiling": 0.6364
     },
     {
       "depth": 50,
-      "ceiling": 0.6869
+      "ceiling": 0.697
     },
     {
       "depth": 100,
-      "ceiling": 0.7879
+      "ceiling": 0.798
     },
     {
       "depth": 150,
-      "ceiling": 0.8283
+      "ceiling": 0.8384
     },
     {
       "depth": 200,
-      "ceiling": 0.8485
+      "ceiling": 0.8687
     }
   ],
   "answerBudget": 120,
@@ -88,79 +114,143 @@
     {
       "name": "no-path",
       "note": "the composition the product shipped before the path was measured in",
-      "recallAt5": 0.2323,
-      "recallAt20": 0.3838,
-      "mrr": 0.1869,
-      "found": 38
+      "recallAt5": 0.3232,
+      "recallAt20": 0.4646,
+      "mrr": 0.2489,
+      "found": 46,
+      "slices": {
+        "leakFree": {
+          "size": 47,
+          "recallAt5": 0.0851,
+          "recallAt20": 0.2553,
+          "mrr": 0.0544,
+          "found": 12
+        },
+        "withLeak": {
+          "size": 52,
+          "recallAt5": 0.5385,
+          "recallAt20": 0.6538,
+          "mrr": 0.4248,
+          "found": 34
+        }
+      }
     },
     {
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.4343,
-      "recallAt20": 0.6566,
-      "mrr": 0.3051,
-      "found": 65
+      "recallAt5": 0.4848,
+      "recallAt20": 0.697,
+      "mrr": 0.3599,
+      "found": 69,
+      "slices": {
+        "leakFree": {
+          "size": 47,
+          "recallAt5": 0.234,
+          "recallAt20": 0.4894,
+          "mrr": 0.1631,
+          "found": 23
+        },
+        "withLeak": {
+          "size": 52,
+          "recallAt5": 0.7115,
+          "recallAt20": 0.8846,
+          "mrr": 0.5378,
+          "found": 46
+        }
+      }
     },
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
       "reranked": 99,
       "poolDepth": 50,
-      "poolRecallAt20": 0.6869,
-      "recallAt5": 0.5859,
+      "poolRecallAt20": 0.697,
+      "recallAt5": 0.6465,
       "recallAt20": 0.6869,
-      "mrr": 0.48,
-      "found": 68
+      "mrr": 0.5054,
+      "found": 68,
+      "slices": {
+        "leakFree": {
+          "size": 47,
+          "recallAt5": 0.4468,
+          "recallAt20": 0.4894,
+          "mrr": 0.3508,
+          "found": 23
+        },
+        "withLeak": {
+          "size": 52,
+          "recallAt5": 0.8269,
+          "recallAt20": 0.8654,
+          "mrr": 0.6451,
+          "found": 45
+        }
+      }
     },
     {
       "name": "rerank-deep",
       "note": "the fused top 150, reordered by a model, cut at 20",
-      "reranked": 99,
+      "reranked": 98,
       "poolDepth": 150,
-      "poolRecallAt20": 0.8283,
-      "recallAt5": 0.6566,
-      "recallAt20": 0.7576,
-      "mrr": 0.5424,
-      "found": 75
+      "poolRecallAt20": 0.8384,
+      "recallAt5": 0.7172,
+      "recallAt20": 0.8182,
+      "mrr": 0.5535,
+      "found": 81,
+      "slices": {
+        "leakFree": {
+          "size": 47,
+          "recallAt5": 0.617,
+          "recallAt20": 0.7234,
+          "mrr": 0.455,
+          "found": 34
+        },
+        "withLeak": {
+          "size": 52,
+          "recallAt5": 0.8077,
+          "recallAt20": 0.9038,
+          "mrr": 0.6425,
+          "found": 47
+        }
+      }
     }
   ],
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.3737,
-      "recallAt20": 0.596,
-      "mrr": 0.2748,
-      "found": 59
+      "recallAt5": 0.4646,
+      "recallAt20": 0.6364,
+      "mrr": 0.3732,
+      "found": 63
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.2525,
-      "recallAt20": 0.303,
-      "mrr": 0.2006,
-      "found": 30
+      "recallAt5": 0.404,
+      "recallAt20": 0.4646,
+      "mrr": 0.3316,
+      "found": 46
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.2525,
-      "recallAt20": 0.303,
-      "mrr": 0.187,
-      "found": 30
+      "recallAt5": 0.404,
+      "recallAt20": 0.4646,
+      "mrr": 0.3266,
+      "found": 46
     },
     {
       "vectorWeight": 0.1,
-      "recallAt5": 0.2222,
-      "recallAt20": 0.303,
-      "mrr": 0.1573,
-      "found": 30
+      "recallAt5": 0.3434,
+      "recallAt20": 0.4646,
+      "mrr": 0.2831,
+      "found": 46
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.3737,
-    "recallAt20": 0.596,
-    "mrr": 0.2748,
-    "found": 59
+    "recallAt5": 0.4646,
+    "recallAt20": 0.6364,
+    "mrr": 0.3732,
+    "found": 63
   },
   "target": {
     "recall": 0.9,
@@ -168,13 +258,13 @@
     "competitor": "Cody, quoted by the whitepaper"
   },
   "misses": [
-    "captureAccesses: How do I log each name found beneath a given element?",
-    "trailingName: How do I get the final part of a fully qualified name?",
-    "captureAccesses: How do I log each name found beneath a given element?",
-    "captureAccesses: How do I log each name found beneath a given element?",
     "extractImportPath: How do I get the thing a using directive points to?",
     "extractTaintSources: How do I mark outside web addresses in styles as untrusted input?",
-    "GROOVY_THAT_FAILS: How do I define a method with parameters and a body without a type?",
-    "ArkTSProvider: How do I find the name of a component declared with decorators and state fields?"
+    "extractAnnotations: How do I read the modifiers attached above a class or method?",
+    "extractDocComments: How do I pull out the explanatory notes written above code?",
+    "CSHARP_TAINT_NODES: What are the three node types the collectors require in C#?",
+    "CSS_SINK_PATTERNS: How do I detect style properties that allow script execution?",
+    "DART_KEYWORDS: What words should a pattern avoid matching when finding function definitions?",
+    "sanitizeSource: How do I clean invisible characters and standardize line breaks in text?"
   ]
 }

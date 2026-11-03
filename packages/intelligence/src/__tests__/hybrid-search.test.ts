@@ -4,6 +4,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import {
+  DEFAULT_FIELD_WEIGHTING,
   HybridSearchEngine,
   indexablePath,
   tokenize,
@@ -1644,5 +1645,39 @@ describe('the fields a document is indexed under', () => {
       weight: { ...off.weight, vocabulary: 0.25 },
     });
     expect(on.bm25Search('html encode')[0]!.node.name).toBe('C_LIKE_SANITIZERS');
+  });
+
+  it('values a word written about a symbol more than a word the symbol merely contains', () => {
+    // **The two fields have to be told apart, and at parity they are not.** One document is described by the query in
+    // its doc comment; the other contains it in its body. Both are one token long in the field that matched and one
+    // token long in the field that did not, so neither length average is measuring normalisation at the same time.
+    //
+    // **Parity is the control**: at `docstring: 0.25` the two documents score the same and the tie falls to the name,
+    // which means the engine cannot tell "written about" from "written in". **Measured on the docstring corpus, that
+    // parity cost the lookup 1.000 / 0.9819 → 0.9724 / 0.8125** at twenty and in MRR — a document that merely contains
+    // the question's words out-summed the document that is described by them. At three the lookup is 1.000 / 0.9476
+    // again, and the paraphrase column, which strips every doc comment, did not move by one question at any weight
+    // tried. **Changing either weight has to change this test.**
+    const documented = node(1, 'file:/w/a.ts:Box.parse', {
+      docstring: 'sanitize',
+      properties: { body: 'parse' },
+    });
+    const containing = node(2, 'file:/w/b.ts:Box.apply', {
+      docstring: 'apply',
+      properties: { body: 'sanitize' },
+    });
+    const ranked = (engine: HybridSearchEngine): string[] =>
+      engine.bm25Search('sanitize').map((hit) => hit.node.name);
+
+    const atParity = corpora([documented, containing], {
+      weight: { name: 1, path: 0.5, signature: 1, docstring: 0.25, vocabulary: 0.25 },
+      lengthNormalisation: DEFAULT_FIELD_WEIGHTING.lengthNormalisation,
+    });
+    const scores = new Map(
+      atParity.bm25Search('sanitize').map((hit) => [hit.node.name, hit.score]),
+    );
+    expect(scores.get('parse')).toBeCloseTo(scores.get('apply')!, 12);
+
+    expect(ranked(corpora([documented, containing]))).toEqual(['parse', 'apply']);
   });
 });

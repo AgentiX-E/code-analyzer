@@ -77,10 +77,13 @@ const RERANK_POOL = 50;
  * it does not show in the top twenty, so **the pool is the arm's ceiling and nobody had measured where it sat**. These
  * depths are the ones the ceiling is reported at; `DEEP_RERANK_POOL` is the one an arm actually reads.
  *
- * **One hundred and fifty, because that is where the lexical curve stops paying**: it moves from 0.5455 at 150 to
- * 0.5556 at 200 - one question of ninety-nine - while the prompt grows by a third. A depth chosen at the knee is a
- * depth a reader can defend; two hundred would be the widest list this file measures and three times the prompt of the
- * arm it replaces, for a ceiling the shallowest of the two already reaches.
+ * **One hundred and fifty, and the knee moved under it once the index could read a body.** When this depth was chosen
+ * the lexical curve ran 0.5455 at 150 to 0.5556 at 200 - one question of ninety-nine - and the prompt grows by a third
+ * over that interval, so it was the last depth that paid. With the fifth field in and the word boundary fixed the same
+ * interval is 0.6263 to 0.6667, **four questions**, so the knee is at the widest list this file measures rather than at
+ * a hundred and fifty. It is left where it is for one iteration for the same reason the fifth field was measured before
+ * it was chosen: **the arm below is being re-measured on a corrected index for the first time, and moving the depth in
+ * the same run would leave two explanations for one number.** The two-stage arm is what reopens it.
  */
 const MAX_POOL = 200;
 const POOL_DEPTHS = [20, 50, 100, 150, 200] as const;
@@ -1147,6 +1150,14 @@ describe('the frozen questions and the frozen corpus', () => {
           }
         }
       }
+      /**
+       * One configuration of the grid, as a weighting.
+       *
+       * **The docstring weight is read from what ships rather than written as a literal**, because this measurement
+       * cannot speak about it: every doc comment is stripped from the index here, so the field is only ever filled by a
+       * prose node's name. Pinning it to a constant would put a row in the record that describes a configuration no
+       * product runs - and `docstring-search.test.ts` is where that field is decided.
+       */
       const weightingOf = (config: {
         name: number;
         path: number;
@@ -1159,7 +1170,7 @@ describe('the frozen questions and the frozen corpus', () => {
           name: config.name,
           path: config.path,
           signature: config.signature,
-          docstring: 1,
+          docstring: DEFAULT_FIELD_WEIGHTING.weight.docstring,
           vocabulary: config.vocabulary ?? 0,
         },
         lengthNormalisation: {

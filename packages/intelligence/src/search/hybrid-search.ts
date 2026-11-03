@@ -228,18 +228,30 @@ export interface FieldWeighting {
  *
  * **The values come from `benchmarks/paraphrase-field-sweep.json`**, which measures them on the pinned corpus and the
  * frozen questions and reports the configuration it chose. The fifth field's weight is chosen by a rule stated there:
- * a challenger is eligible only if it answers at least as many questions on the whole set **and** on the half where the
- * question shares no word with the name, and among the eligible ones the most clean answers wins. The chosen
- * configuration is a **strict improvement on every column** — whole set 0.3030 → 0.3838, recall at 5 0.1515 → 0.2323,
- * MRR 0.0980 → 0.1651 — with the clean half moving from **0 of 47 to 7 of 47**, which is the first time this index has
- * answered a question that does not reuse a word of the name at all.
+ * a challenger is eligible only if it answers at least as many questions on **every** column the measurement reports,
+ * and among the eligible ones the most clean answers wins. Nothing in the grid clears that bar, so `chosen` equals
+ * `incumbent` and the shipped configuration stands — and it is a **strict improvement on every column** over the four
+ * fields it extends: whole set 0.3030 → 0.4646, recall at 5 0.1515 → 0.3131, MRR 0.0980 → 0.2034, with the clean half
+ * moving from **0 of 47 to 8 of 47** and the ceiling from 0.6162 to 0.8889.
+ *
+ * **The docstring field is worth three name tokens, and that was chosen on a different measurement for a stated
+ * reason.** `docstring-search.test.ts` asks for a symbol by its own doc comment: with the fifth field in and the
+ * docstring at parity with the name, the lookup fell from **1.000 / 0.9819 to 0.9724 / 0.8125** at twenty and in MRR,
+ * because a document that merely *contains* the question's words could out-sum the document that is *described* by
+ * them. Raising the field recovers it, and the grid was measured so the value is not at its edge: **2 → 0.9908 /
+ * 0.9154**, **3 → 1.000 / 0.9476**, **4 → 1.000 / 0.9579**, **6 → 1.000 / 0.9710** at twenty and in MRR — and the MRR
+ * keeps rising because every query there is a docstring, so **its maximum is a lookup engine rather than the best
+ * retriever**. The rule is therefore the smallest weight that reaches the best recall at twenty the grid reaches: **3**.
+ * The paraphrase column cannot adjudicate it — every docstring is stripped from that index, so the field is only ever
+ * filled by a prose node's name — and it did not move by one question at any weight tried.
  */
 export const DEFAULT_FIELD_WEIGHTING: FieldWeighting = {
   // **A name token is worth four vocabulary tokens and two path tokens.** The file a symbol lives in is evidence that it
-  // is talked about, the name is evidence that it is the thing being asked for, and **the words a body is written in are
+  // is talked about, the name is evidence that it is the thing being asked for, **the words a body is written in are
   // worth a quarter of the name** — measured, and the first field to answer a question that shares no word with the name
-  // at all.
-  weight: { name: 1, path: 0.5, signature: 1, docstring: 1, vocabulary: 0.25 },
+  // at all — and **the text written about a symbol is worth three of its name tokens**, because a document that is
+  // described by the question is a better answer than one that merely contains its words.
+  weight: { name: 1, path: 0.5, signature: 1, docstring: 3, vocabulary: 0.25 },
   // **`b` is 0 on the name field, which means a long identifier is not a worse identifier**, and `b` is 0 on the
   // vocabulary field for the same reason: a body that says many things is not a worse answer for saying them, and
   // normalising by the size of its vocabulary scored every large function below every small one for the same word.
@@ -838,10 +850,15 @@ export class HybridSearchEngine {
 
   /**
    * Rebuild the entire inverted index from the store.
+   *
+   * **Clearing first is the whole of it**: postings, document table and per-field lengths are all derived from the store,
+   * so a rebuild that does not clear counts the old state twice - and `initialized` is set here because a rebuild is
+   * exactly what that flag claims, so the next `search()` does not pay for the same build again.
    */
   rebuildIndex(): void {
     this.index.clear();
     this.index.buildIndex(this.store);
+    this.initialized = true;
   }
 
   /** Number of indexed documents */
