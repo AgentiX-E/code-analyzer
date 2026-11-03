@@ -139,6 +139,51 @@ index, the same questions, the same fusion weight and the same answer budget**, 
 is the depth of the list and nothing else. `rerank-deep` reads **150**, which is where the lexical curve stops paying:
 it gains one question between 150 and 200 while the prompt grows by a third.
 
+### What the depth bought
+
+The ceiling of the fused pool, at every depth a reranker could be given:
+
+| pool depth | 20     | 50         | 100        | 150        | 200        |
+| ---------- | ------ | ---------- | ---------- | ---------- | ---------- |
+| ceiling    | 0.5960 | **0.6869** | **0.7879** | **0.8283** | **0.8485** |
+| questions  | 59     | 68         | 78         | 82         | 84         |
+
+**Ten questions arrive between fifty and a hundred, four more by a hundred and fifty, and two more by two hundred.**
+The shallow arm was not a bad ordering — it was a complete one over a list that had already thrown the answers away:
+
+| arm                      | pool | recall@5   | recall@20  | MRR        | of its own pool |
+| ------------------------ | ---- | ---------- | ---------- | ---------- | --------------- |
+| fused, weight 1          | —    | 0.3737     | 0.5960     | 0.2748     | —               |
+| `rerank`, cut at 20      | 50   | 0.5859     | 0.6869     | 0.4800     | **68 of 68**    |
+| `rerank-deep`, cut at 20 | 150  | **0.6566** | **0.7576** | **0.5424** | **75 of 82**    |
+
+**Seven more questions at the top of the list and seven more at the top five, for the same one completion.** Against the
+competitor reference quoted by the whitepaper (`Cody`, 0.75) the column reads **0.7576** — above it for the first time,
+and by a margin larger than any figure in this file has moved by accident.
+
+**And the ordering is no longer free**: at fifty the arm recovered **100 %** of its pool, at a hundred and fifty it
+recovers **91 %**, so a deeper list costs the model some of its judgement. That is the next measurement rather than a
+disappointment: 0.8283 is still above 0.7576, and the two-stage version of the arm is the shape that can close it.
+
+### What this instrument can resolve
+
+The shallow arm reproduced **0.6869 of a pool of 0.6869** against 0.6768 of 0.6869 the run before — one question, on
+code that did not change. **The same one-question drift appears in every column that consumes a service**, and in no
+column that does not:
+
+| column                 | before | after  | consumes                   |
+| ---------------------- | ------ | ------ | -------------------------- |
+| lexical                | 0.3030 | 0.3030 | nothing                    |
+| fused, weight 1        | 0.5960 | 0.5960 | the index vectors          |
+| `no-path`, recall at 5 | 0.2424 | 0.2323 | a second embedding pass    |
+| `hyde`                 | 0.6667 | 0.6566 | a completion, per question |
+| `rerank`               | 0.6768 | 0.6869 | a completion, per question |
+
+**So ±1 question is this instrument's resolution on the model arms and zero on the deterministic ones**, and a
+difference inside it is not a finding. It is written down here because iteration 66 reported a one-question loss as if
+it were one, and the honest reading — visible only once the same code had been measured twice — is that the arm did not
+move at all.
+
 ## The third input, which nobody wrote
 
 **Pinning the corpus pins its text, not the names derived from it.** A question in `paraphrase-queries.json` does not

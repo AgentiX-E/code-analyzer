@@ -1245,14 +1245,15 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
       const semantic = backend !== 'deterministic' && queryEmbedder !== null;
 
       // -----------------------------------------------------------------------------------------------------------
-      // Two candidate compositions, measured on the same ninety-nine questions.
+      // The candidate compositions, measured on the same ninety-nine questions.
       // -----------------------------------------------------------------------------------------------------------
       //
-      // **A variant is worth measuring only if it shares everything but the thing it changes.** Both of these run on
+      // **A variant is worth measuring only if it shares everything but the thing it changes.** The first two run on
       // the same stripped corpus, the same lexical lists and the same fusion weight (1); they differ in the text the
-      // index vector is built from and, for the second, in the vector the query is searched with. **Neither is the
-      // product default until its column beats the control**, which is why `embeddingText` takes the option instead of
-      // shipping it.
+      // index vector is built from and, for the second, in the vector the query is searched with. The last two differ
+      // in the depth of the pool a reranker reads and in nothing else. **None is the product default until its column
+      // beats the control**, which is why `embeddingText` takes the option instead of shipping it and why the deep arm
+      // is published beside the shallow one rather than replacing it.
       const variants: VariantColumn[] = [];
 
       // **One fused column, computed the same way as the sweep**: the lexical list cut at twenty, the semantic list

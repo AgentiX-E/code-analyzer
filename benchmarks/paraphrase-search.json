@@ -20,7 +20,15 @@
     "any rank would have measured a longer list against a shorter one.",
     "",
     "**Both columns run on the same index**: BM25 over name/signature only, and the same list fused with one",
-    "semantic ranking at each weight."
+    "semantic ranking at each weight.",
+    "",
+    "**`lexicalDepth` says where the answer sits rather than only whether it is inside twenty.** Recall at nine",
+    "cuts, the share the list holds at any rank (`reachable`, the ceiling no pool depth can pass), and the median",
+    "rank of a found answer. The gap between `reachable` and recall at 20 is the headroom a reranker with a deeper",
+    "pool is offered, and it is the number the `rerank` and `rerank-deep` arms are bounded by.",
+    "",
+    "**`poolDepth` is that ceiling measured on the fused list** at every depth a reranker could be given. It costs",
+    "no completion: the fused list at depth d is the fusion of the two candidate lists cut at d"
   ],
   "measuredAt": "2026-11-03",
   "querySet": {
@@ -48,33 +56,73 @@
     "mrr": 0.098,
     "found": 30
   },
+  "lexicalDepth": {
+    "recall": [0.1515, 0.2323, 0.303, 0.3333, 0.3838, 0.4444, 0.5051, 0.5455, 0.5556],
+    "reachable": 0.6162,
+    "medianFoundRank": 24
+  },
+  "poolDepth": [
+    {
+      "depth": 20,
+      "ceiling": 0.596
+    },
+    {
+      "depth": 50,
+      "ceiling": 0.6869
+    },
+    {
+      "depth": 100,
+      "ceiling": 0.7879
+    },
+    {
+      "depth": 150,
+      "ceiling": 0.8283
+    },
+    {
+      "depth": 200,
+      "ceiling": 0.8485
+    }
+  ],
+  "answerBudget": 120,
   "variants": [
     {
       "name": "no-path",
       "note": "the composition the product shipped before the path was measured in",
-      "recallAt5": 0.2424,
+      "recallAt5": 0.2323,
       "recallAt20": 0.3838,
-      "mrr": 0.1873,
+      "mrr": 0.1869,
       "found": 38
     },
     {
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.4444,
-      "recallAt20": 0.6667,
-      "mrr": 0.3104,
-      "found": 66
+      "recallAt5": 0.4343,
+      "recallAt20": 0.6566,
+      "mrr": 0.3051,
+      "found": 65
     },
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
       "reranked": 99,
+      "poolDepth": 50,
       "poolRecallAt20": 0.6869,
       "recallAt5": 0.5859,
-      "recallAt20": 0.6768,
-      "mrr": 0.4815,
-      "found": 67
+      "recallAt20": 0.6869,
+      "mrr": 0.48,
+      "found": 68
+    },
+    {
+      "name": "rerank-deep",
+      "note": "the fused top 150, reordered by a model, cut at 20",
+      "reranked": 99,
+      "poolDepth": 150,
+      "poolRecallAt20": 0.8283,
+      "recallAt5": 0.6566,
+      "recallAt20": 0.7576,
+      "mrr": 0.5424,
+      "found": 75
     }
   ],
   "semanticSweep": [

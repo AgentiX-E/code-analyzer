@@ -57,14 +57,15 @@ Reciprocal Rank Fusion. The weights, and whether the semantic half runs at all, 
 Two figures decide whether that semantic half earns its slots, and both come from `Embedding Backend`
 (`benchmarks/docstring-search.json`, `benchmarks/paraphrase-search.json`):
 
-| corpus                                                 | column                        | recall@5   | recall@20  | MRR        |
-| ------------------------------------------------------ | ----------------------------- | ---------- | ---------- | ---------- |
-| a symbol's own doc comment (214 queries)               | lexical                       | 0.9953     | 1.000      | 0.9819     |
-|                                                        | fused, weight 1               | 0.9766     | 1.000      | 0.9542     |
-| a paraphrase of it, doc comments stripped (99 queries) | lexical                       | 0.1515     | 0.3030     | 0.1021     |
-|                                                        | fused, weight 1 — the product | **0.4242** | **0.6162** | **0.2513** |
-|                                                        | + `expand: true` (HyDE)       | **0.4646** | **0.6566** | **0.3065** |
-|                                                        | + `rerank: true` (top 50)     | **0.5859** | **0.6869** | **0.5212** |
+| corpus                                                 | column                         | recall@5   | recall@20  | MRR        |
+| ------------------------------------------------------ | ------------------------------ | ---------- | ---------- | ---------- |
+| a symbol's own doc comment (214 queries)               | lexical                        | 0.9953     | 1.000      | 0.9819     |
+|                                                        | fused, weight 1                | 0.9766     | 1.000      | 0.9542     |
+| a paraphrase of it, doc comments stripped (99 queries) | lexical                        | 0.1515     | 0.3030     | 0.0980     |
+|                                                        | fused, weight 1                | 0.3737     | 0.5960     | 0.2748     |
+|                                                        | + `expand: true` (HyDE)        | 0.4343     | 0.6566     | 0.3051     |
+|                                                        | + `rerank: true` (top 50)      | 0.5859     | 0.6869     | 0.4800     |
+|                                                        | + `rerank: true` — the product | **0.6566** | **0.7576** | **0.5424** |
 
 ### On somebody else's corpus
 

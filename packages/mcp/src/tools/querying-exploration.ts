@@ -161,14 +161,23 @@ interface SearchCodeParams {
 }
 
 /**
- * How many candidates a reranker is given at minimum. **A judgement task, not a reading task** - fifty fits one prompt
- * and a deeper list is a measurement rather than an assumption (`benchmarks/retrieval-corpus.md`).
+ * How many candidates a reranker is given at minimum.
+ *
+ * **A judgement task, not a reading task** — and the number is measured rather than assumed, which is the whole history
+ * of this constant. It was fifty because *"fifty fits one prompt"*, a claim about a prompt used as though it were a
+ * claim about the retriever; `benchmarks/paraphrase-search.json` now reports the ceiling at every depth, and on the
+ * pinned corpus and the frozen ninety-nine questions the ceiling moves **0.6869 -> 0.7879 -> 0.8283** from fifty to a
+ * hundred to a hundred and fifty. The arm that reads a hundred and fifty answers **0.7576 recall@20 with MRR 0.5424,
+ * against 0.6869 / 0.4800 at fifty** — one completion either way, for seven more questions of ninety-nine.
+ *
+ * **A hundred and fifty and not two hundred**, because the curve flattens: 0.8283 to 0.8485 is two questions for a
+ * prompt a third larger again.
  *
  * **A floor and not a ceiling.** The pool is `max(limit, RERANK_POOL)`, because a caller that asked for a hundred
  * results cannot be served by an order chosen among fifty: the model must be shown at least what will be returned, or
  * the results past the pool come back in an order nothing ranked.
  */
-const RERANK_POOL = 50;
+const RERANK_POOL = 150;
 
 /** What the reordering did. */
 interface RerankReport {
@@ -295,8 +304,9 @@ export const searchCodeSchema = {
     rerank: {
       type: 'boolean',
       description:
-        'Reorder a pool of at least 50 fused candidates with a model before returning the first `limit`. Costs one ' +
-        'LLM completion; measured at +15 points of recall@20 and 2.2x MRR on the paraphrase corpus.',
+        'Reorder a pool of at least 150 fused candidates with a model before returning the first `limit`. Costs one ' +
+        'LLM completion over a prompt of that size; measured at +16 points of recall@20 (0.5960 -> 0.7576) and 2.0x ' +
+        'MRR on the paraphrase corpus.',
     },
   },
   required: ['query'],
