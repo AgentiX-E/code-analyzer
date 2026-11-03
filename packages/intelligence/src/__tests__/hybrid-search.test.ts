@@ -1335,6 +1335,36 @@ describe('the fields a document is indexed under', () => {
     expect(results[0]!.score).toBeCloseTo(results[1]!.score, 12);
   });
 
+  it('files the sentence a documentation provider calls a name where a doc comment goes', () => {
+    // **`markdown.ts` emits `## Understanding the owner controller` as a `CLASS_DEF` and every list item as a
+    // `VARIABLE_DEF`**, because a documentation provider has no identifiers to offer and its text is the only thing it
+    // can put where a name goes. Scored as a name, a sentence competes with every declaration in the repository - and
+    // won, on `spring-petclinic`, where the README out-ranked every Java class for a natural-language question.
+    const declared = node(1, 'file:/w/a.ts:Owner.owner', { language: 'typescript' });
+    const documented = node(2, 'file:/w/README.md:Understanding the owner controller', {
+      language: 'markdown',
+    });
+
+    const scores = new Map(
+      corpora([declared, documented])
+        .bm25Search('owner')
+        .map((hit) => [hit.node.name, hit.score]),
+    );
+    // **One word, written once in each document**, so the difference between the two scores is the field and nothing
+    // else: the same term matched as a name scores higher than the same term matched inside a sentence.
+    expect(scores.get('owner')).toBeGreaterThan(
+      scores.get('Understanding the owner controller') ?? 0,
+    );
+
+    // **And an index that does not read doc comments does not read documentation at all**, which is the sharper
+    // statement: a paraphrase measurement strips every doc comment, so a README has nothing left to match on.
+    const withoutDocs = corpora([declared, documented], {
+      weight: { name: 1, path: 0.5, signature: 1, docstring: 0 },
+      lengthNormalisation: { name: 0, path: 0.75, signature: 0.75, docstring: 0.75 },
+    }).bm25Search('owner controller');
+    expect(withoutDocs.map((hit) => hit.node.name)).toEqual(['owner']);
+  });
+
   it('is the classical BM25 exactly when one field is weighted and the rest are not', () => {
     // **The textbook definition, written from the paper rather than from this module**: a generalisation that does not
     // reduce to the specific case at the specific case's settings is a different ranking function wearing its name, and

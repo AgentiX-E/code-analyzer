@@ -212,3 +212,33 @@ describe('MarkdownProvider', () => {
     });
   });
 });
+
+// **A code span is one line, and the assertion is about what a stray backtick must not become.**
+//
+// `markdown.ts` reads documentation with regular expressions, so a pattern that reaches further than Markdown's own
+// grammar invents symbols. the one that did: `/`([^`]+)`/` matches a newline, so an **unbalanced** backtick - ordinary
+// in a README - paired with the next backtick anywhere below it, and the prose in between became the *name* of a
+// `VARIABLE_DEF`. `spring-petclinic`'s README produced `code: URL. The UUID is printed at startup to the console.`, and
+// once the lexical index stopped length-normalising names, that sentence out-ranked every Java class for a
+// natural-language question. **A symbol name with a newline in it is never a symbol name**, which is the invariant this
+// pins, and it holds for every prose rule rather than for the one that was wrong.
+describe('MarkdownProvider — a code span is one line', () => {
+  const provider = new MarkdownProvider();
+
+  it('does not let an unbalanced backtick swallow the prose beneath it', () => {
+    const source = [
+      '# Title',
+      '',
+      'Use the `--flag option to enable it.',
+      '',
+      'The next sentence mentions `code` and carries on for a while after it.',
+      '',
+    ].join('\n');
+    const captures = provider.parse(source, 'README.md');
+    for (const capture of captures) {
+      expect(capture.name, `${capture.tag} named with a line break`).not.toContain('\n');
+    }
+    // **And the balanced span beside it is still found**, because the fix is a bound on the pattern and not a removal.
+    expect(captures.some((capture) => capture.name === 'code:code')).toBe(true);
+  });
+});

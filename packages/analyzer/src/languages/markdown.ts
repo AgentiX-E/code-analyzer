@@ -154,7 +154,14 @@ export class MarkdownProvider implements LanguageProvider {
     }
 
     // Inline code: `code`
-    const inlineCodeRx = /`([^`]+)`/g;
+    //
+    // **A code span is one line, and letting this reach across lines turned prose into a symbol.** `[^`]` matches a
+    // newline, so **one stray backtick in a README pairs with the next backtick anywhere below it** and the span becomes
+    // the name of a `VARIABLE_DEF`: `spring-petclinic`'s README produced `code: URL. The UUID is printed at startup to
+    // the console.` as a node, and once the name field stopped being length-normalised **that sentence ranked above
+    // every Java class in the repository for a natural-language question**. `[^`\n]` is what Markdown means by a span,
+    // and the bound keeps a paragraph that happens to contain two backticks from becoming one.
+    const inlineCodeRx = /`([^`\n]{1,120})`/g;
     while ((m = inlineCodeRx.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,

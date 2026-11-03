@@ -87,6 +87,12 @@ export function indexablePath(node: Pick<GraphNode, 'qualifiedName'>): string {
   return dot === -1 ? name : `${name.slice(0, colon + 1)}${tail.slice(0, dot)}`;
 }
 
+/** A file's own name without its directory or extension, which is the one word a reader uses to find a page. */
+function fileStemOf(node: Pick<GraphNode, 'filePath'>): string {
+  const path = node.filePath ?? '';
+  return basename(path, extname(path));
+}
+
 /** Tokenize an identifier string by splitting on camelCase, snake_case, and kebab-case boundaries.
  * Example: "getUserProfile" -> ["get", "user", "profile"]
  * Example: "process_request" -> ["process", "request"]
@@ -163,6 +169,24 @@ export const INDEXED_FIELDS: readonly IndexedField[] = ['name', 'path', 'signatu
  * so normalising both against the document average — which is what one bag does — scores a well-documented function
  * below a terse one for the same declaration.
  */
+/**
+ * The languages whose text is **prose**: a heading, a list item, a blockquote, an inline code span.
+ *
+ * **A documentation provider has no identifiers to offer**, so it files a sentence where a name goes - `markdown.ts`
+ * emits `## Understanding the Spring Petclinic application` as a `CLASS_DEF` and every list item as a `VARIABLE_DEF`,
+ * which is the right shape for "find the page about X" and the wrong shape for "find the code that does X". Once the
+ * name field stopped being length-normalised, **`spring-petclinic`'s README out-ranked every Java class in the
+ * repository for a natural-language question** - measured on the cross-repository QA suite, which went from a context
+ * with graph neighbours to a context of README sentences and no neighbours at all.
+ *
+ * **A sentence is what a doc comment is, so it is filed where doc comments are filed.** What stays in the path field is
+ * the file's own name - `readme`, `contributing` - because that is the one word a reader does use to find a page. The
+ * qualified name cannot serve: a prose node's container is the sentence itself, so
+ * `file:/w/README.md:Understanding the owner controller` would leave the sentence in the path field and the whole split
+ * would be undone one field over.
+ */
+const PROSE_LANGUAGES: ReadonlySet<string> = new Set(['markdown', 'pdf']);
+
 export interface FieldWeighting {
   readonly weight: Readonly<Record<IndexedField, number>>;
   readonly lengthNormalisation: Readonly<Record<IndexedField, number>>;
@@ -225,11 +249,18 @@ class InvertedIndex {
   addDocument(node: GraphNode): void {
     const nodeId = node.id;
 
+    const prose = PROSE_LANGUAGES.has(node.language ?? '');
     const text: Record<IndexedField, string> = {
-      name: node.name ?? '',
-      path: indexablePath(node),
+      name: prose ? '' : (node.name ?? ''),
+      path: prose ? fileStemOf(node) : indexablePath(node),
       signature: node.signature ?? '',
-      docstring: node.docstring ?? '',
+      // **The prose's own text is what it says**, so a documentation node is still found by a question about it - at the
+      // weight a doc comment carries, which is the weight of documentation rather than the weight of a declaration.
+      docstring: prose
+        ? [node.name, node.docstring]
+            .filter((part) => typeof part === 'string' && part !== '')
+            .join('\n')
+        : (node.docstring ?? ''),
     };
 
     const terms = {} as Record<IndexedField, Map<string, number>>;
