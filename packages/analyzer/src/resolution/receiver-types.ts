@@ -83,6 +83,25 @@ export interface FileTypes {
    */
   readonly returns: Map<string, string>;
   /**
+   * `Class.method` → the type variable its declaration writes in place of a return type, when it writes one.
+   *
+   * **`<T extends PathVisitor> T visitFileTree(T visitor, Path path)` states its result by naming its argument**, and
+   * a map of class names cannot hold `T`: it names no class, so `returns` refuses it and five calls in
+   * `apache/commons-io`'s `PathUtils` (`cleanDirectory`, `copyDirectory`, `countDirectory`, `countDirectoryAsBigInteger`,
+   * `deleteDirectory`) end at `visitFileTree(...)` with nothing to look `getPathCounters` up in. The variable and the
+   * parameter that fills it are both written, so the binding is a fact the source states rather than an inference.
+   */
+  readonly returnVariables: Map<string, string>;
+  /**
+   * `Class` → every type parameter it declares, **in the order it declares them.**
+   *
+   * **A position is what a type argument means.** `FailableConsumer<Observer, IOException>` fills `T` with `Observer`
+   * and `E` with `IOException`, and which of the two a lambda is handed is decided by where the interface's single
+   * abstract method writes its parameter - `accept(T)` writes the first. `typeParameters` holds only the parameters that
+   * carry a bound, so it cannot answer that: `T` is unbounded and is the one that matters.
+   */
+  readonly typeParameterOrder: Map<string, readonly string[]>;
+  /**
    * The same keys as `fields`/`parameters`/`locals`, for the declarations whose annotation is an **array**.
    *
    * **A collection is not its element, and the two are read at different places.** `leaves: Leaf[]` says nothing about
@@ -412,6 +431,8 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
   const parameters = new Map<string, string>();
   const locals = new Map<string, string>();
   const returns = new Map<string, string>();
+  const returnVariables = new Map<string, string>();
+  const typeParameterOrder = new Map<string, readonly string[]>();
   const elements = new Map<string, string>();
   const classOfFunction = new Map<string, string>();
   const classes = new Map<string, Declared>();
@@ -521,6 +542,24 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       // **A type parameter's bound is the class its name stands for.** `S extends IOBaseStream<T, S, B>` is read
       // here as one fact about `UncheckedIOBaseStream`, and applied wherever a member of that class is typed `S` -
       // the field, the parameter and the return alike, because all three write the same variable.
+      // **Every parameter, in order**, because a type argument is read by position and an unbounded parameter is still
+      // one of the positions.
+      const order = declaration.properties['typeParameterNames'];
+      if (typeof order === 'string' && order.length > 0) {
+        try {
+          // **`unknown`, because a blob is not a fact until it is read as one** - the same discipline `parameterTypesOf`
+          // applies, so a payload of the wrong shape is refused rather than trusted by its type.
+          const parsed: unknown = JSON.parse(order);
+          if (
+            Array.isArray(parsed) &&
+            parsed.every((name): name is string => typeof name === 'string')
+          ) {
+            typeParameterOrder.set(declaration.name, parsed);
+          }
+        } catch {
+          // A blob this reader did not write is a fact it does not have, and the rule that needs it answers nothing.
+        }
+      }
       for (const [parameter, bound] of stringEntriesOf(declaration.properties['typeParameters'])) {
         const declaredBound = simpleTypeName(bound);
         if (declaredBound === undefined) continue;
@@ -573,6 +612,14 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
       if (declaredReturn !== undefined) {
         returns.set(ownerKeyOf(container, declaration.name), declaredReturn);
       }
+      // **A return type written as one capital letter is a type variable**, which is the convention every Java
+      // codebase follows and the one `fitsSignature` already reads the same way. It is kept apart from `returns`
+      // because it names no class: what it stands for is decided at the call site, from the argument that fills it.
+      const writtenReturn = declaration.properties['returnType'];
+      const variable = typeof writtenReturn === 'string' ? writtenReturn.trim() : '';
+      if (/^[A-Z]$/.test(variable)) {
+        returnVariables.set(ownerKeyOf(container, declaration.name), variable);
+      }
       for (const [name, type] of stringEntriesOf(declaration.properties['localTypes'])) {
         // **A loop binding records the iterable, not a type**, and the path is kept verbatim for the reader to resolve:
         // reducing it here would file the *last segment* of `this.leaves` as though it were a class.
@@ -606,6 +653,8 @@ export function buildFileTypes(declarations: readonly TypedDeclaration[]): FileT
     locals,
     elements,
     returns,
+    returnVariables,
+    typeParameterOrder,
     classOfFunction,
     classes,
     members,
@@ -922,10 +971,15 @@ export function receiverTypeOf(lookup: ReceiverLookup, receiver: string): Receiv
     // class for a field; `builder()` asks it for a method and takes what that method declares it returns.
     const here: ReceiverLookup = { index: lookup.index, origin: scope, owners: lookup.owners };
     const called = calledNameOf(hop);
+    // **The binding is asked first, and it is the narrower question.** A declaration whose return type is `T` states
+    // its result by naming a parameter, so `T` alone is not an answer: it is a name the *class* may have bound, which
+    // is what `returns` holds and what sent `visitFileTree(…)` to `FileVisitor` - a contract that declares no
+    // `getPathCounters`. The argument answers it where the class's bound cannot, and `returns` still answers wherever
+    // the variable is not filled at the call site.
     const next =
       called === undefined
         ? declaredFieldOf(here, current, hop)
-        : declaredReturnOf(here, current, called);
+        : (boundReturnOf(here, current, called, hop) ?? declaredReturnOf(here, current, called));
     if (next === undefined) return undefined;
     const declared = locateClass(lookup.index, current, scope);
     if (declared !== undefined) scope = { ...lookup.origin, file: declared.file };
@@ -1008,7 +1062,8 @@ function startOf(
   // gives everywhere else rather than a guess.
   const called = calledNameOf(base);
   if (called !== undefined && enclosing !== undefined) {
-    const returned = declaredReturnOf(lookup, enclosing, called);
+    const returned =
+      boundReturnOf(lookup, enclosing, called, base) ?? declaredReturnOf(lookup, enclosing, called);
     if (returned !== undefined) return bounded({ className: returned, via: 'call' });
   }
   // **A receiver may be rooted at a class, and then the walk starts at that class.** `QueueInputStream.builder()`
@@ -1171,7 +1226,84 @@ function elementOfPath(
     (owner) => own && own.classOfFunction.get(nameKeyOf(owner)),
   );
   const field = enclosing === undefined ? undefined : own?.elements.get(`${enclosing}.${base}`);
-  return field === undefined ? undefined : { className: field, via: 'thisField' };
+  if (field !== undefined) return { className: field, via: 'thisField' };
+  // **A path may name the call the lambda was passed to rather than a container.** `forEachObserver(observer -> …)`
+  // writes the element on `forEachObserver`'s own parameter - a `FailableConsumer<Observer, IOException>` - and the
+  // declaration says which of the interface's type arguments the lambda is handed. The element is the type the
+  // functional interface's single abstract method takes, read as a position in the interface's own type parameters:
+  // `accept(T)` names `T`, `T` is the interface's first parameter, and the call site fills it with `Observer`.
+  for (const declaration of (enclosing === undefined
+    ? undefined
+    : own?.arity.get(`${enclosing}\u0000${base}`)) ?? []) {
+    const written = declaration.types?.[0];
+    const consumed = written === undefined ? undefined : consumedTypeOf(lookup.index, written);
+    if (consumed !== undefined) return { className: consumed, via: 'parameter' };
+  }
+  return undefined;
+}
+
+/**
+ * The type a single-parameter lambda is handed by a functional interface written as `Head<…>`.
+ *
+ * **The position is the interface's own statement and not a convention.** `FailableConsumer<T, E>` declares
+ * `void accept(T)`; the lambda's parameter is whatever `T` was filled with, and `T` is the interface's first type
+ * parameter - so the answer is the *n*-th type argument, where *n* is where the abstract method's parameter sits in the
+ * interface's type-parameter list. `Comparator<T>` (`compare(T, T)`) needs two and is refused by the lambda rule
+ * before this is asked; a `Weird<A, B>` whose only method takes a `B` would be answered with the argument at
+ * position one, which is the fact its declaration states.
+ *
+ * **The interface has to be in the graph**, because that is where its type parameters and its single abstract method
+ * are. A library interface - `java.util.function.Predicate` - is not, and answers nothing: the element rule covers the
+ * stream calls that use those, and guessing the first type argument for an interface this reader cannot see would be
+ * the convention dressed as evidence.
+ */
+function consumedTypeOf(index: ClassIndex, written: string): string | undefined {
+  const open = written.indexOf('<');
+  const close = written.lastIndexOf('>');
+  if (open <= 0 || close <= open) return undefined;
+  const head = simpleTypeName(written.slice(0, open));
+  if (head === undefined) return undefined;
+  const argumentsOfType = written
+    .slice(open + 1, close)
+    .split(',')
+    .map((argument) => wildcardInnerOf(argument.trim()));
+  const located = index.classes.get(head);
+  if (located === undefined || located === 'ambiguous') return undefined;
+  const file = index.files.get(located.file);
+  const variables = file?.typeParameterOrder.get(located.name);
+  if (variables === undefined) return undefined;
+  const consumed = firstAbstractParameterOf(index, located);
+  const position = consumed === undefined ? -1 : variables.indexOf(consumed);
+  const answer = position < 0 ? undefined : argumentsOfType[position];
+  return answer === undefined ? undefined : simpleTypeName(answer);
+}
+
+/**
+ * The type variable an interface's single abstract method takes first, or `undefined` when the interface has none or
+ * several.
+ *
+ * **A body is the difference between a signature and code**, which is the same fact the typed walk reads: `accept(T)` on
+ * `FailableConsumer` has none and is what a lambda fills, while `andThen`, `nop` and `asConsumer` beside it are written.
+ * Two abstract methods make the interface not a functional interface at all, and there is no single parameter to name.
+ */
+function firstAbstractParameterOf(index: ClassIndex, located: LocatedClass): string | undefined {
+  const file = index.files.get(located.file);
+  const bucket = file?.members.get(located.name);
+  if (bucket === undefined) return undefined;
+  const abstracts = [...bucket.keys()].flatMap((name) =>
+    (file?.arity.get(`${located.name}\u0000${name}`) ?? []).filter(
+      (declaration) => declaration.label === 'Method' && !declaration.hasBody,
+    ),
+  );
+  const only = abstracts.length === 1 ? abstracts[0] : undefined;
+  const written = only?.types?.[0];
+  return written === undefined ? undefined : signatureName(written);
+}
+
+/** The type name a written type argument states, with a wildcard's bound unwrapped: `? super X` is `X`. */
+function wildcardInnerOf(argument: string): string {
+  const bounded = /^\?\s*(?:super|extends)\s+(.+)$/.exec(argument);
+  return bounded?.[1] ?? argument;
 }
 
 /** The first owner key, innermost first, that answers with something other than nothing. */
@@ -1228,9 +1360,7 @@ function declaredReturnOf(
   className: string,
   method: string,
 ): string | undefined {
-  const located = locateClass(lookup.index, className, lookup.origin);
-  if (located === undefined) return undefined;
-  return lookup.index.files.get(located.file)?.returns.get(`${located.name}.${method}`);
+  return alongChain(lookup, className, (file, name) => file?.returns.get(`${name}.${method}`));
 }
 
 /** The type a class declares one of its fields to have, wherever that class lives. */
@@ -1239,9 +1369,105 @@ function declaredFieldOf(
   className: string,
   field: string,
 ): string | undefined {
+  return alongChain(lookup, className, (file, name) => file?.fields.get(`${name}.${field}`));
+}
+
+/**
+ * The nearest class in the chain - the class itself, then its bases - that states a fact about one name.
+ *
+ * **A member a class does not declare is still a member of the class**, which is the same sentence the call walk is
+ * built on, and a *hop* was the one place that forgot it. `this.getStyle().getNullText()` is how
+ * `ReflectionToStringBuilder.toString` reads the style it was configured with: `getStyle` is declared on
+ * `ToStringBuilder`, the class's base, so the first hop found no declaration and the whole receiver was refused -
+ * one edge on `apache/commons-lang@3.14.0`, and the same shape at every call written on an inherited getter.
+ *
+ * **The chain is `extends` alone.** A contract declares no body and no field, so a hop that landed on one would take
+ * its return type for the receiver's type while the code that runs is the implementing class's - the refusal that took
+ * contracts out of the call walk in the first place, applied to the walk one hop earlier.
+ */
+function alongChain(
+  lookup: ReceiverLookup,
+  className: string,
+  ask: (file: FileTypes | undefined, name: string) => string | undefined,
+): string | undefined {
+  const start = locateClass(lookup.index, className, lookup.origin);
+  if (start === undefined) return undefined;
+  const visited = new Set<string>();
+  let frontier: LocatedClass[] = [start];
+  while (frontier.length > 0) {
+    const next: LocatedClass[] = [];
+    for (const located of frontier) {
+      const key = `${located.file}\u0000${located.name}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const answer = ask(lookup.index.files.get(located.file), located.name);
+      if (answer !== undefined) return answer;
+      next.push(...basesOf(lookup.index, located, false));
+    }
+    frontier = next;
+  }
+  return undefined;
+}
+
+/**
+ * The class a call to a generic factory returns, **from the argument that fills its return variable.**
+ *
+ * `<T extends PathVisitor> T visitFileTree(T visitor, Path path)` names its result by naming its parameter, so the type
+ * the call holds is the type it was handed. Both halves are written at the two ends of one declaration: the return
+ * type is the variable, one of the parameter types is that same variable, and the call site supplies the value - so the
+ * rule is a substitution and nothing more, with no inference and no ranking of candidates.
+ *
+ * **The argument is read by the same walk that reads any receiver**, which is what makes the rule compose:
+ * `visitFileTree(CountingPathVisitor.withLongCounters(), directory)` passes a *call*, and what that call returns is
+ * what the outer call returns. A position whose argument states no type leaves the whole answer `undefined`, in the
+ * same "unknown is not a refusal, and it is not an answer either" sense the rest of this module keeps.
+ */
+function boundReturnOf(
+  lookup: ReceiverLookup,
+  className: string,
+  method: string,
+  callText: string,
+): string | undefined {
   const located = locateClass(lookup.index, className, lookup.origin);
   if (located === undefined) return undefined;
-  return lookup.index.files.get(located.file)?.fields.get(`${located.name}.${field}`);
+  const file = lookup.index.files.get(located.file);
+  const variable = file?.returnVariables.get(`${located.name}.${method}`);
+  if (variable === undefined) return undefined;
+  const argumentsOf = argumentTextsOf(callText);
+  for (const declaration of file?.arity.get(`${located.name}\u0000${method}`) ?? []) {
+    const position = (declaration.types ?? []).findIndex(
+      (type) => signatureName(type) === variable,
+    );
+    const argument = position < 0 ? undefined : argumentsOf[position];
+    if (argument === undefined) continue;
+    const answered = receiverTypeOf(lookup, argument);
+    if (answered !== undefined) return answered.className;
+  }
+  return undefined;
+}
+
+/** The arguments a call writes, split where the commas are not inside brackets. */
+function argumentTextsOf(callText: string): string[] {
+  const open = callText.indexOf('(');
+  const close = callText.lastIndexOf(')');
+  if (open === -1 || close <= open) return [];
+  const inner = callText.slice(open + 1, close);
+  if (inner.trim().length === 0) return [];
+  const parts: string[] = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index < inner.length; index++) {
+    const character = inner[index];
+    if (character === '(' || character === '[' || character === '{' || character === '<') depth++;
+    else if (character === ')' || character === ']' || character === '}' || character === '>')
+      depth--;
+    else if (character === ',' && depth === 0) {
+      parts.push(inner.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  parts.push(inner.slice(start).trim());
+  return parts;
 }
 
 /**

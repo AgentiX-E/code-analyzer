@@ -41,31 +41,14 @@ const METHOD_CONTAINERS: ReadonlySet<string> = new Set([
 ]);
 
 /** The node types a Java declaration's type is written as. */
+
 /**
- * The calls whose single functional parameter receives the receiver's element.
+ * The two calls that open a stream over a container, and the container they were written on.
  *
- * **The list is short because the claim is strong.** Each name is a method of `Iterable` or `Stream` whose parameter is
- * declared `Consumer<? super T>`, `Function<? super T, …>` or `Predicate<? super T>` - the element, and nothing else -
- * so a one-parameter lambda written there binds it. `reduce` and `sorted` are deliberately absent: a two-parameter
- * lambda is an accumulator or a comparator and its first parameter is not the element.
+ * **A stream is a view of one collection and holds no element of its own**, so `set.stream()` has the element of `set`.
+ * Both spellings are `Iterable`'s and `Collection`'s, and neither takes an argument.
  */
-const LAMBDA_ELEMENT_CALLS: ReadonlySet<string> = new Set([
-  'forEach',
-  'forEachOrdered',
-  'map',
-  'mapToInt',
-  'mapToLong',
-  'mapToDouble',
-  'flatMap',
-  'filter',
-  'peek',
-  'removeIf',
-  'anyMatch',
-  'allMatch',
-  'noneMatch',
-  'takeWhile',
-  'dropWhile',
-]);
+const STREAM_OPENER = /^(.*)\.(?:parallel)?stream\(\)$/;
 
 const TYPE_NODES: ReadonlySet<string> = new Set([
   'type_identifier',
@@ -272,27 +255,55 @@ export class JavaProvider extends TreeSitterBaseProvider {
    * `AbstractFileFilter.preVisitDirectory` runs - while `accept(File)` beside it is a signature the class must fill.
    */
   /**
-   * Record the one parameter of a lambda passed to an element-passing call, **as the element of the receiver.**
+   * Record the one parameter of a lambda, **as the element of what the lambda is passed to.**
    *
-   * Every name in `LAMBDA_ELEMENT_CALLS` is a method whose single functional parameter receives the container's element
-   * and nothing else - `forEach`, `filter`, `map` and their siblings - so a one-parameter lambda written there binds
-   * that element. A lambda with two parameters is a fold or a comparator and gets nothing: its first parameter is not
-   * the element, and answering it would be the guess this provider does not make.
+   * **Every call that takes a lambda and one element names that element somewhere a declaration can be read**: on the
+   * container the call is written on (`listeners.forEach(listener -> …)`), or on the callee's own first parameter
+   * (`forEachObserver(observer -> …)`, whose parameter is a `FailableConsumer<Observer, IOException>`). Both are paths
+   * this provider records verbatim and the resolver reads later - the container's element, or the functional
+   * interface's type argument - so the two shapes are one rule with two spellings rather than a table of method names.
+   * Iteration 62 shipped that table; the twenty-fifth call it did not name was the one `commons-io` needed.
+   *
+   * **A lambda with two parameters binds nothing.** It is a fold or a comparator, its first parameter is not the
+   * element, and answering it would be the guess this provider does not make.
    */
   private recordLambdaElement(node: TreeSitterSyntaxNode): void {
     const list = node.childForFieldName('arguments');
     const receiver = node.childForFieldName('object');
-    if (list === null || receiver === null) return;
-    const argumentsOfCall = namedChildrenOf(list);
-    if (argumentsOfCall.length !== 1) return;
-    const lambda = argumentsOfCall[0]!;
+    if (list === null) return;
+    // **The count is asked before the children are materialised**, because this runs on every call in the checkout and
+    // almost none of them passes a lambda: a call with two arguments allocates nothing here.
+    if (list.namedChildCount !== 1) return;
+    const lambda = list.namedChild(0);
     if (lambda.type !== 'lambda_expression') return;
     const name = this.lambdaParameterNameOf(lambda);
     if (name === undefined) return;
     // **A path and nothing else**, the same rule the call's receiver follows: `this.listeners` is a declaration,
     // `getListeners()` is a call site that states no type.
-    if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(receiver.text)) return;
-    this.recordLocalType(node, name, `${ELEMENT_OF}${receiver.text}`);
+    //
+    // **A call with no receiver names its container in its own declaration instead.** `forEachObserver(observer -> …)`
+    // is `ObservableInputStream`'s own loop over its listeners, and the element is written on `forEachObserver`'s
+    // parameter - one file away or one line away, it makes no difference to a reader that resolves the path later.
+    // The path is the callee's name, and what it means is decided where the declaration is.
+    const generated =
+      receiver === null ? node.childForFieldName('name')?.text : this.streamSourceOf(receiver.text);
+    if (generated === undefined) return;
+    if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(generated)) return;
+    this.recordLocalType(node, name, `${ELEMENT_OF}${generated}`);
+  }
+
+  /**
+   * The container a stream was opened from, or the expression itself when it was not.
+   *
+   * **`set.stream().anyMatch(range -> range.contains(ch))` is a loop written as a call**, and the element the lambda is
+   * handed is the element of `set` - the stream is a view of one collection and holds nothing of its own. `commons-io`'s
+   * `AndFileFilter.accept` and `commons-lang`'s `CharSet.contains` are the same three tokens, and both were unanswered
+   * because the receiver was `set.stream()` and the element rule only read paths. Stripping one `.stream()` is the
+   * whole of the rule: a stream of a stream is not a thing the language has.
+   */
+  private streamSourceOf(receiver: string): string {
+    const opened = STREAM_OPENER.exec(receiver);
+    return opened?.[1] ?? receiver;
   }
 
   /** The single parameter a lambda declares, or `undefined` when it declares none or several. */
@@ -327,6 +338,64 @@ export class JavaProvider extends TreeSitterBaseProvider {
     // A `formal_parameter` always has the field, so there is no third shape and nothing here to answer `undefined`
     // for - which is what let the capture below stop guarding a case the production cannot write.
     return namedChildrenOf(parameter).find((child) => TYPE_NODES.has(child.type))!.text;
+  }
+
+  /**
+   * The constructor the language supplies to a class that writes none, and the base constructor it calls.
+   *
+   * **A class with no `constructor_declaration` still has a constructor**, and it still runs its base's - `javac`'s own
+   * attribution names both, which is why the oracle holds the pair. Every other arm of this walk is keyed on a
+   * declaration being written, so a class that writes nothing contributed no node and no call, and the call it makes is
+   * the first thing every instance of it does. Measured on `apache/commons-lang@3.14.0` and `apache/commons-io@2.16.1`,
+   * that shape is **20 of the 40 pairs `javac` expected and this graph claimed nothing for**: the four `Builder` classes
+   * of the concurrent initializers, `DirectoryFileComparator`, `LastModifiedFileComparator`, `CsvEscaper`,
+   * `CsvUnescaper`, `StateStrategyClosed` and `BoundedInputStream.Builder`, each a two-line subclass whose entire
+   * behaviour is the base's.
+   *
+   * **A class that extends nothing is left alone**, because the constructor it runs is `Object`'s and this graph holds
+   * no declaration for it - the same refusal the written-constructor arm above makes, for the same reason. A class that
+   * writes a constructor of its own is also left alone: the language then supplies nothing, and the implicit `super()`
+   * of that written constructor is recorded where the constructor is.
+   */
+  private recordDefaultConstructor(
+    node: TreeSitterSyntaxNode,
+    nameNode: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+  ): void {
+    const body = this.findChild(node, 'class_body');
+    if (body === null) return;
+    if (namedChildrenOf(body).some((child) => child.type === 'constructor_declaration')) return;
+    const base = this.superclassNameOf(node);
+    if (base.length === 0) return;
+    const span = {
+      startLine: node.startPosition.row + 1,
+      // **One line, and not the class body.** A declaration's span is what a capture is attributed to, so a constructor
+      // stretched over the whole class would claim every field initialiser in it - and `DEFAULT_COMPARATOR = new
+      // ReverseFileComparator()` inside `DirectoryFileComparator` moved from no caller at all to a constructor that
+      // calls it, which is 5 wrong edges on `apache/commons-io@2.16.1`. The constructor this node stands for is written
+      // on the line the class is declared on, and that is the line it spans.
+      endLine: node.startPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: nameNode.endIndex,
+    };
+    captures.push({
+      tag: CAPTURE_TAGS.CONSTRUCTOR_DEF,
+      text: nameNode.text,
+      ...span,
+      name: nameNode.text,
+      containerName: nameNode.text,
+      // **The fact that it is implicit is stated rather than inferred**, because a reader of the graph cannot tell a
+      // constructor written on the class line from one the language supplied, and a coverage question about
+      // constructors has to be able to.
+      properties: { filePath: this.filePath, implicit: 'true' },
+    });
+    captures.push({
+      tag: CAPTURE_TAGS.FUNCTION_CALL,
+      text: base,
+      ...span,
+      name: base,
+      properties: { filePath: this.filePath, implicitSuper: 'true' },
+    });
   }
 
   /**
@@ -537,7 +606,30 @@ export class JavaProvider extends TreeSitterBaseProvider {
   /** The same fact, as a property a capture carries only when the type declares one. */
   private typeParametersPropertyOf(node: TreeSitterSyntaxNode): Record<string, string> {
     const bounds = this.typeParameterBoundsOf(node);
-    return bounds.length === 0 ? {} : { typeParameters: bounds };
+    const names = this.typeParameterNamesOf(node);
+    return {
+      ...(bounds.length === 0 ? {} : { typeParameters: bounds }),
+      ...(names.length === 0 ? {} : { typeParameterNames: names }),
+    };
+  }
+
+  /**
+   * Every type parameter's name, in the order the declaration writes them, **bounded or not.**
+   *
+   * **`typeParameters` answers "what is this variable a kind of", and the question here is "which one is it"**:
+   * `FailableConsumer<T, E extends Exception>` writes two parameters and bounds one, so a map of bounds alone cannot
+   * say that a `FailableConsumer<Observer, IOException>` hands `Observer` to a lambda - the `T` it stands for is
+   * exactly the parameter that map has no entry for. The order is the whole of the answer, which is why it is a list.
+   */
+  private typeParameterNamesOf(node: TreeSitterSyntaxNode): string {
+    const names: string[] = [];
+    for (const clause of namedChildrenOf(node).filter((c) => c.type === 'type_parameters')) {
+      for (const parameter of namedChildrenOf(clause).filter((c) => c.type === 'type_parameter')) {
+        const name = this.findChild(parameter, 'type_identifier');
+        if (name !== null) names.push(name.text);
+      }
+    }
+    return names.length === 0 ? '' : JSON.stringify(names);
   }
 
   /** File one local's declared type under the method that declares it. */
@@ -719,7 +811,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
       // what `listener` is happens to be the field the call is written on - `List<FileAlterationListener>`. The binding
       // is recorded as "the element of that path", which is the same fact a for-each header records and the same one
       // the resolver already knows how to read.
-      if (LAMBDA_ELEMENT_CALLS.has(nameNode.text)) this.recordLambdaElement(node);
+      this.recordLambdaElement(node);
       this.captureArgumentAccesses(node.childForFieldName('arguments')!, captures, line);
     } else if (nodeType === 'enhanced_for_statement') {
       // **`for (Cookie theCookie : theCookies)` binds a name that every iteration writes**, and nothing recorded it.
@@ -921,6 +1013,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
           ...this.typeParametersPropertyOf(node),
         },
       });
+      this.recordDefaultConstructor(node, nameNode, captures);
     } else if (nodeType === 'interface_declaration') {
       const nameNode = this.findChild(node, 'identifier')!;
       captures.push({

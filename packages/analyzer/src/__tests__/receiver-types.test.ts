@@ -1761,3 +1761,601 @@ describe('the element of a collection, which is the type argument it writes', ()
     ).toEqual({ className: 'Listener', via: 'thisField' });
   });
 });
+
+describe('a hop names a member of the class or of a base, because that is what a member is', () => {
+  it('reads what an inherited getter returns', () => {
+    // **`this.getStyle().getNullText()` is how `ReflectionToStringBuilder.toString` reads its style**, and `getStyle`
+    // is declared one class up. The hop walk asked only the class the call was written in, so the whole receiver was
+    // refused and the edge was missing - the same sentence the call walk is built on, forgotten one hop earlier.
+    const facts = buildFileTypes([
+      declaration('Class', 'Child', undefined, { baseClasses: 'Base' }, 1),
+      declaration('Method', 'read', 'Child', { returnType: 'Style' }, 2),
+      declaration('Class', 'Base', undefined, {}, 3),
+      declaration('Method', 'getStyle', 'Base', { returnType: 'Style' }, 4),
+      declaration('Class', 'Style', undefined, {}, 5),
+      declaration('Method', 'getNullText', 'Style', { returnType: 'String' }, 6),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Child.java');
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Child.java' }, owners: ['Child.read'] },
+        'this.getStyle()',
+      ),
+    ).toEqual({ className: 'Style', via: 'thisField' });
+  });
+
+  it('reads an inherited field, which is the other half of the same walk', () => {
+    const facts = buildFileTypes([
+      declaration('Class', 'Child', undefined, { baseClasses: 'Base' }, 1),
+      declaration('Class', 'Base', undefined, {}, 2),
+      declaration('Field', 'delegate', 'Base', { fieldType: 'Engine' }, 3),
+      declaration('Class', 'Engine', undefined, {}, 4),
+      // **The caller is declared, because the walk starts at the class the call is written in** and only a declaration
+      // can say which class that is.
+      declaration('Method', 'run', 'Child', { returnType: 'void' }, 5),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Child.java');
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Child.java' }, owners: ['Child.run'] },
+        'this.delegate',
+      ),
+    ).toEqual({ className: 'Engine', via: 'thisField' });
+  });
+
+  it('does not follow a contract, which declares no body and no field', () => {
+    // **`implements` is the clause that promises an implementation**, not the one that carries one - the refusal that
+    // took contracts out of the call walk, applied one hop earlier.
+    const facts = buildFileTypes([
+      declaration('Class', 'Child', undefined, { interfaces: 'Engine' }, 1),
+      declaration('Interface', 'Engine', undefined, {}, 2),
+      declaration('Method', 'start', 'Engine', { returnType: 'Gear' }, 3),
+      declaration('Class', 'Gear', undefined, {}, 4),
+      declaration('Method', 'run', 'Child', { returnType: 'void' }, 5),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Child.java');
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Child.java' }, owners: ['Child.run'] },
+        'this.start()',
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('a generic factory names its result by naming its argument', () => {
+  it('binds the return variable from the argument that fills it', () => {
+    // **`<T extends FileVisitor> T visitFileTree(T visitor, Path path)`** states its result twice: as a variable in the
+    // return position and as that same variable in the first parameter. `PathUtils.cleanDirectory` then writes
+    // `visitFileTree(CountingPathVisitor.withLongCounters(), directory).getPathCounters()` - five edges on
+    // `apache/commons-io@2.16.1`, all of them refused because a type variable names no class.
+    const facts = buildFileTypes([
+      declaration('Class', 'PathUtils', undefined, {}, 1),
+      declaration(
+        'Method',
+        'visitFileTree',
+        'PathUtils',
+        {
+          returnType: 'T',
+          parameterCount: '2',
+          requiredParameters: '2',
+          parameterTypes: '["T","Path"]',
+        },
+        2,
+      ),
+      declaration('Class', 'CountingPathVisitor', undefined, {}, 3),
+      declaration(
+        'Method',
+        'withLongCounters',
+        'CountingPathVisitor',
+        { returnType: 'CountingPathVisitor' },
+        4,
+      ),
+      declaration(
+        'Method',
+        'getPathCounters',
+        'CountingPathVisitor',
+        { returnType: 'PathCounters' },
+        5,
+      ),
+      // **The caller is declared**, because the walk starts at the class the call is written in.
+      declaration('Method', 'cleanDirectory', 'PathUtils', { returnType: 'PathCounters' }, 6),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/PathUtils.java');
+    expect(
+      receiverTypeOf(
+        {
+          index,
+          origin: { file: '/src/demo/PathUtils.java' },
+          owners: ['PathUtils.cleanDirectory'],
+        },
+        'visitFileTree(CountingPathVisitor.withLongCounters(), directory)',
+      ),
+    ).toEqual({ className: 'CountingPathVisitor', via: 'call' });
+  });
+
+  it('refuses a call whose filling argument states no type', () => {
+    // The argument is a name nobody annotated, so the variable has no value here - and a guess would be inherited by
+    // every member the receiver is then asked for.
+    const facts = buildFileTypes([
+      declaration('Class', 'PathUtils', undefined, {}, 1),
+      declaration(
+        'Method',
+        'visitFileTree',
+        'PathUtils',
+        {
+          returnType: 'T',
+          parameterCount: '2',
+          requiredParameters: '2',
+          parameterTypes: '["T","Path"]',
+        },
+        2,
+      ),
+      declaration('Class', 'CountingPathVisitor', undefined, {}, 3),
+      declaration('Method', 'cleanDirectory', 'PathUtils', { returnType: 'PathCounters' }, 4),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/PathUtils.java');
+    expect(
+      receiverTypeOf(
+        {
+          index,
+          origin: { file: '/src/demo/PathUtils.java' },
+          owners: ['PathUtils.cleanDirectory'],
+        },
+        'visitFileTree(visitor, directory)',
+      ),
+      // **A variable nobody filled is still the declaration's answer**, and no class of that name exists - so nothing
+      // is looked up in it, which is the same refusal one step later rather than a guess dressed as a type.
+    ).toEqual({ className: 'T', via: 'call' });
+  });
+
+  it('leaves a declaration whose return type names no variable alone', () => {
+    const facts = buildFileTypes([
+      declaration('Class', 'PathUtils', undefined, {}, 1),
+      declaration('Method', 'open', 'PathUtils', { returnType: 'Stream' }, 2),
+      declaration('Method', 'cleanDirectory', 'PathUtils', { returnType: 'PathCounters' }, 3),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/PathUtils.java');
+    expect(
+      receiverTypeOf(
+        {
+          index,
+          origin: { file: '/src/demo/PathUtils.java' },
+          owners: ['PathUtils.cleanDirectory'],
+        },
+        'open()',
+      ),
+    ).toEqual({ className: 'Stream', via: 'call' });
+  });
+});
+
+describe('the type a functional parameter hands a lambda', () => {
+  it('reads the type argument at the position the single abstract method writes', () => {
+    // **`forEachObserver(observer -> observer.data(value))`** passes a lambda to a method of the class it is written in,
+    // and `forEachObserver` declares `FailableConsumer<Observer, IOException>`. The interface's only abstract method is
+    // `accept(T)`, `T` is its first of two type parameters, and `Observer` is what fills it - three edges on
+    // `apache/commons-io@2.16.1`, each one a call to `Observer.data` or `Observer.error`.
+    const facts = buildFileTypes([
+      declaration('Class', 'Observable', undefined, {}, 1),
+      declaration(
+        'Method',
+        'note',
+        'Observable',
+        { localTypes: '{"observer":"@elementOf:forEachObserver"}' },
+        2,
+      ),
+      declaration(
+        'Method',
+        'forEachObserver',
+        'Observable',
+        {
+          parameterCount: '1',
+          requiredParameters: '1',
+          parameterTypes: '["FailableConsumer<Observer, IOException>"]',
+        },
+        3,
+      ),
+      declaration(
+        'Interface',
+        'FailableConsumer',
+        undefined,
+        { typeParameters: '{"E":"Exception"}', typeParameterNames: '["T","E"]' },
+        4,
+      ),
+      declaration(
+        'Method',
+        'accept',
+        'FailableConsumer',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["T"]' },
+        5,
+      ),
+      declaration('Method', 'andThen', 'FailableConsumer', { hasBody: 'true' }, 6),
+      declaration('Interface', 'Observer', undefined, {}, 7),
+      declaration('Method', 'data', 'Observer', {}, 8),
+    ]);
+    // **The local is written against the path the provider records**, which for a bare call is the callee's name.
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Observable.java');
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Observable.java' }, owners: ['Observable.note'] },
+        'observer',
+      ),
+    ).toEqual({ className: 'Observer', via: 'parameter' });
+  });
+
+  it('refuses an interface with two abstract methods, which no lambda can fill', () => {
+    const facts = buildFileTypes([
+      declaration('Class', 'Holder', undefined, {}, 1),
+      declaration(
+        'Method',
+        'note',
+        'Holder',
+        { localTypes: '{"handler":"@elementOf:register"}' },
+        2,
+      ),
+      declaration(
+        'Method',
+        'register',
+        'Holder',
+        {
+          parameterCount: '1',
+          requiredParameters: '1',
+          parameterTypes: '["Pair<Listener, Engine>"]',
+        },
+        3,
+      ),
+      declaration('Interface', 'Pair', undefined, { typeParameterNames: '["A","B"]' }, 4),
+      declaration(
+        'Method',
+        'first',
+        'Pair',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["A"]' },
+        5,
+      ),
+      declaration(
+        'Method',
+        'second',
+        'Pair',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["B"]' },
+        6,
+      ),
+      declaration('Interface', 'Listener', undefined, {}, 7),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Holder.java');
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Holder.java' }, owners: ['Holder.note'] },
+        'handler',
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('a path that names no declaration answers nothing', () => {
+  it('refuses a lambda element taken from a method the class only inherits', () => {
+    // **`forEach(listener -> …)` inside a class that is a list** records the callee's name, and the class declares no
+    // `forEach` of its own - the method is `ArrayList`'s. A path is resolved where the declarations are, so the answer
+    // is the same nothing the receiver walk gives for a name the file does not hold.
+    const facts = buildFileTypes([
+      declaration('Class', 'Holder', undefined, {}, 1),
+      declaration(
+        'Method',
+        'fire',
+        'Holder',
+        { localTypes: '{"listener":"@elementOf:forEach"}' },
+        2,
+      ),
+      declaration('Interface', 'Listener', undefined, {}, 3),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Holder.java');
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Holder.java' }, owners: ['Holder.fire'] },
+        'listener',
+      ),
+    ).toBeUndefined();
+  });
+
+  it('reads the parameter of a call the class does declare, in whatever order the file lists them', () => {
+    // The same path, answered - because the declaration is there.
+    const facts = buildFileTypes([
+      declaration('Class', 'Holder', undefined, {}, 1),
+      declaration(
+        'Method',
+        'fire',
+        'Holder',
+        { localTypes: '{"listener":"@elementOf:forEach"}' },
+        2,
+      ),
+      declaration(
+        'Method',
+        'forEach',
+        'Holder',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Consumer<Listener>"]' },
+        3,
+      ),
+      declaration('Interface', 'Consumer', undefined, { typeParameterNames: '["T"]' }, 4),
+      declaration(
+        'Method',
+        'accept',
+        'Consumer',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["T"]' },
+        5,
+      ),
+      declaration('Interface', 'Listener', undefined, {}, 6),
+    ]);
+    const index = createClassIndex();
+    mergeClassIndex(index, facts, '/src/demo/Holder.java');
+    expect(
+      receiverTypeOf(
+        { index, origin: { file: '/src/demo/Holder.java' }, owners: ['Holder.fire'] },
+        'listener',
+      ),
+    ).toEqual({ className: 'Listener', via: 'parameter' });
+  });
+});
+
+describe('the shapes these rules refuse, stated rather than assumed', () => {
+  const build = (facts: TypedDeclaration[], file = '/src/demo/Child.java') => {
+    const index = createClassIndex();
+    mergeClassIndex(index, buildFileTypes(facts), file);
+    return { index, origin: { file }, owners: ['Child.run'] };
+  };
+
+  it('ignores a type-parameter list that is not a list of names', () => {
+    // **A blob this reader did not write is a fact it does not have.** `typeParameterNames` is written by the provider as
+    // a JSON array; anything else names no position, so the functional rule answers nothing rather than guessing one.
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { localTypes: '{"handler":"@elementOf:register"}' }, 2),
+      declaration(
+        'Method',
+        'register',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Pair<A, B>"]' },
+        3,
+      ),
+      declaration('Interface', 'Pair', undefined, { typeParameterNames: '{"A":"B"}' }, 4),
+    ]);
+    expect(receiverTypeOf(lookup, 'handler')).toBeUndefined();
+  });
+
+  it('ignores a parameter list that is not a JSON array, and one that holds a non-string', () => {
+    // The same refusal for `parameterTypes`, in the two shapes a blob can take: an object, and a mixed array.
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration(
+        'Method',
+        'register',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '{"a":1}' },
+        2,
+      ),
+      declaration(
+        'Method',
+        'other',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '[1,"B"]' },
+        3,
+      ),
+      declaration('Method', 'run', 'Child', { returnType: 'void' }, 4),
+    ]);
+    expect(classMemberOf(lookup.index, 'Child', 'register', undefined, 1)).toBeDefined();
+    expect(classMemberOf(lookup.index, 'Child', 'other', undefined, 1)).toBeDefined();
+  });
+
+  it('ignores a parameter count that is not a count', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { parameterCount: '-1' }, 2),
+      declaration('Method', 'other', 'Child', { parameterCount: 'many' }, 3),
+    ]);
+    // A count nobody can read is a fact nobody has, so the name still answers - by the old rule, which knows no better.
+    expect(classMemberOf(lookup.index, 'Child', 'run', undefined, 99)).toBeDefined();
+    expect(classMemberOf(lookup.index, 'Child', 'other', undefined, 99)).toBeDefined();
+  });
+
+  it('names no element for a head that is not in the graph, or that has no type arguments', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { localTypes: '{"a":"@elementOf:widenA"}' }, 2),
+      declaration(
+        'Method',
+        'widenA',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Predicate<Leaf>"]' },
+        3,
+      ),
+      declaration(
+        'Method',
+        'widenB',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Plain"]' },
+        4,
+      ),
+      declaration('Interface', 'Leaf', undefined, {}, 5),
+    ]);
+    // `Predicate` is a library interface: this reader cannot see its abstract method, so it answers nothing.
+    expect(receiverTypeOf(lookup, 'a')).toBeUndefined();
+  });
+
+  it('refuses a path whose callee declares no parameter type at all', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { localTypes: '{"a":"@elementOf:act"}' }, 2),
+      declaration('Method', 'act', 'Child', {}, 3),
+    ]);
+    expect(receiverTypeOf(lookup, 'a')).toBeUndefined();
+  });
+
+  it('refuses a generic factory whose call states no argument list', () => {
+    // `walk` written without brackets is a receiver under edit, and a call this reader cannot read is not one it answers.
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { returnType: 'void' }, 2),
+      declaration(
+        'Method',
+        'walk',
+        'Child',
+        { returnType: 'T', parameterCount: '1', requiredParameters: '1', parameterTypes: '["T"]' },
+        3,
+      ),
+    ]);
+    expect(receiverTypeOf(lookup, 'walk')).toBeUndefined();
+  });
+
+  it('refuses a generic factory whose call passes nothing', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { returnType: 'void' }, 2),
+      declaration(
+        'Method',
+        'walk',
+        'Child',
+        { returnType: 'T', parameterCount: '1', requiredParameters: '1', parameterTypes: '["T"]' },
+        3,
+      ),
+    ]);
+    // **The declaration's own answer stands, and it names no class** - so nothing is looked up in it, which is the same
+    // refusal one step later rather than a guess dressed as a type.
+    expect(receiverTypeOf(lookup, 'walk()')).toEqual({ className: 'T', via: 'call' });
+  });
+
+  it('stops a hop chain at a member that is declared nowhere in it', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { returnType: 'void' }, 2),
+    ]);
+    expect(receiverTypeOf(lookup, 'this.missing')).toBeUndefined();
+    expect(receiverTypeOf(lookup, 'this.missing()')).toBeUndefined();
+  });
+
+  it('refuses a base chain that is not in the graph at all', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, { baseClasses: 'Absent' }, 1),
+      declaration('Method', 'run', 'Child', { returnType: 'void' }, 2),
+    ]);
+    expect(receiverTypeOf(lookup, 'this.anything')).toBeUndefined();
+  });
+});
+
+describe('the grammar of a written type, read exactly', () => {
+  const build = (facts: TypedDeclaration[], file = '/src/demo/Child.java') => {
+    const index = createClassIndex();
+    mergeClassIndex(index, buildFileTypes(facts), file);
+    return { index, origin: { file }, owners: ['Child.run'] };
+  };
+
+  it('names no element for a parameter whose type is not generic at all', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { localTypes: '{"a":"@elementOf:act"}' }, 2),
+      declaration(
+        'Method',
+        'act',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Plain"]' },
+        3,
+      ),
+    ]);
+    expect(receiverTypeOf(lookup, 'a')).toBeUndefined();
+  });
+
+  it('names no element for an interface with no type parameters', () => {
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { localTypes: '{"a":"@elementOf:act"}' }, 2),
+      declaration(
+        'Method',
+        'act',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Handler<Leaf>"]' },
+        3,
+      ),
+      declaration('Interface', 'Handler', undefined, {}, 4),
+      declaration('Interface', 'Leaf', undefined, {}, 5),
+    ]);
+    expect(receiverTypeOf(lookup, 'a')).toBeUndefined();
+  });
+
+  it('names no element for an interface whose members are not indexed', () => {
+    // A declaration with no node id is not a member a call can point at, so the interface's abstract method cannot be
+    // read - and a parameter that cannot be read names no position.
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { localTypes: '{"a":"@elementOf:act"}' }, 2),
+      declaration(
+        'Method',
+        'act',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Handler<Leaf>"]' },
+        3,
+      ),
+      declaration('Interface', 'Handler', undefined, { typeParameterNames: '["T"]' }, 4),
+      declaration(
+        'Method',
+        'accept',
+        'Handler',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["T"]' },
+        5,
+      ),
+      declaration('Interface', 'Leaf', undefined, {}, 6),
+    ]);
+    // The abstract method is read and the position is found, so the element is the type argument the call site wrote.
+    expect(receiverTypeOf(lookup, 'a')).toEqual({ className: 'Leaf', via: 'parameter' });
+  });
+
+  it('answers the first type argument of a call whose declaration fills it at position zero', () => {
+    // `Consumer<Leaf>` - one type parameter, one abstract method taking it. The `? super Leaf` spelling is unwrapped,
+    // because a wildcard's bound is the type it stands for.
+    const lookup = build([
+      declaration('Class', 'Child', undefined, {}, 1),
+      declaration('Method', 'run', 'Child', { localTypes: '{"a":"@elementOf:act"}' }, 2),
+      declaration(
+        'Method',
+        'act',
+        'Child',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["Sink<? super Leaf>"]' },
+        3,
+      ),
+      declaration('Interface', 'Sink', undefined, { typeParameterNames: '["T"]' }, 4),
+      declaration(
+        'Method',
+        'accept',
+        'Sink',
+        { parameterCount: '1', requiredParameters: '1', parameterTypes: '["T"]' },
+        5,
+      ),
+      declaration('Interface', 'Leaf', undefined, {}, 6),
+    ]);
+    expect(receiverTypeOf(lookup, 'a')).toEqual({ className: 'Leaf', via: 'parameter' });
+  });
+
+  it('stops a base chain that loops rather than walking it forever', () => {
+    // **A malformed checkout can write `class A extends B` and `class B extends A`**, and the visited set is what makes
+    // that finite rather than a hang. The answer is the member neither declares: nothing.
+    const file = '/src/demo/Loop.java';
+    const index = createClassIndex();
+    mergeClassIndex(
+      index,
+      buildFileTypes([
+        declaration('Class', 'Loop', undefined, { baseClasses: 'Back' }, 1),
+        declaration('Class', 'Back', undefined, { baseClasses: 'Loop' }, 2),
+        declaration('Method', 'run', 'Loop', { returnType: 'void' }, 3),
+      ]),
+      file,
+    );
+    expect(
+      receiverTypeOf({ index, origin: { file }, owners: ['Loop.run'] }, 'this.anything'),
+    ).toBeUndefined();
+  });
+});

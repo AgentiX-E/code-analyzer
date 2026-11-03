@@ -943,15 +943,18 @@ describe('a lambda parameter and the collection it is passed to', () => {
     expect(localsOf(source, 'fire')).toEqual({});
   });
 
-  it('binds nothing for a call written without a receiver', () => {
-    // **`forEach(…)` inside a class that *is* a list** has no `object` field at all: the receiver is `this`, which
-    // names the container the class already is rather than a declaration this rule can read.
+  it('records the callee a call without a receiver names, and leaves the meaning to the declaration', () => {
+    // **`forEach(…)` inside a class that *is* a list** has no `object` field at all: the receiver is `this`, which the
+    // class already is. The provider records the callee's name and nothing more - it cannot see whether the class
+    // declares `forEach` or inherits it - and the resolver answers with the parameter that declaration writes, or with
+    // nothing when the class declares none. `Holder` here inherits `forEach` from `ArrayList`, so the path resolves to
+    // no declaration and the lambda's parameter keeps no type, which is the refusal this case has always asserted.
     const source = [
       'class Holder extends ArrayList<Listener> {',
       '  void fire() { forEach(listener -> listener.onStart(this)); }',
       '}',
     ].join('\n');
-    expect(localsOf(source, 'fire')).toEqual({});
+    expect(localsOf(source, 'fire')).toEqual({ listener: '@elementOf:forEach' });
   });
 
   it('binds nothing for a call that passes no lambda', () => {
@@ -973,5 +976,93 @@ describe('a lambda parameter and the collection it is passed to', () => {
       '}',
     ].join('\n');
     expect(localsOf(source, 'fire')).toEqual({});
+  });
+
+  it('binds the element of the collection a stream was opened from', () => {
+    // **A stream is a view of one collection and holds no element of its own**, so `set.stream().anyMatch(…)` hands the
+    // lambda the element of `set`. `commons-io`'s `AndFileFilter.accept` and `commons-lang`'s `CharSet.contains` are this
+    // shape, and both were unanswered because the receiver was an expression rather than a path.
+    const source = [
+      'class Holder {',
+      '  private final Set<Range> ranges;',
+      '  void fire(final char ch) { ranges.stream().anyMatch(range -> range.contains(ch)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({ range: '@elementOf:ranges' });
+  });
+
+  it('binds the element a callee names on its own parameter', () => {
+    // **`forEachObserver(observer -> …)` names no container at all**, and the element is written on `forEachObserver`'s
+    // parameter - a `FailableConsumer<Observer, IOException>`. The path recorded is the callee's name, and what it means
+    // is decided where that declaration is.
+    const source = [
+      'class Holder {',
+      '  void fire() { forEachObserver(observer -> observer.data(1)); }',
+      '  private void forEachObserver(final FailableConsumer<Observer, IOException> action) { }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({ observer: '@elementOf:forEachObserver' });
+  });
+
+  it('binds nothing for a stream opened on an expression, which names no declaration', () => {
+    const source = [
+      'class Holder {',
+      '  void fire() { getRanges().stream().anyMatch(range -> range.contains(1)); }',
+      '}',
+    ].join('\n');
+    expect(localsOf(source, 'fire')).toEqual({});
+  });
+});
+
+describe('a class that writes no constructor, and the one the language supplies', () => {
+  const provider = new JavaProvider();
+
+  const constructorCaptures = (source: string) =>
+    provider.parse(source, 'Child.java').filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
+
+  const implicitSuperCall = (source: string) =>
+    provider.parse(source, 'Child.java').filter((c) => c.properties?.['implicitSuper'] === 'true');
+
+  it('declares the constructor, and the base constructor it calls', () => {
+    // **`class Child extends Base { }` writes no constructor and still has one**, and that constructor's first act is
+    // `super()`. `javac`'s attribution names both, so a graph that names neither is missing a call every instance of
+    // the class makes.
+    const source = 'class Child extends Base { }';
+    const constructors = constructorCaptures(source);
+    expect(constructors.map((c) => c.name)).toEqual(['Child']);
+    expect(constructors[0]!.containerName).toBe('Child');
+    // **Implicit is stated rather than inferred**, because a reader cannot tell a constructor written on the class line
+    // from one the language put there.
+    expect(constructors[0]!.properties?.['implicit']).toBe('true');
+    expect(implicitSuperCall(source).map((c) => c.name)).toEqual(['Base']);
+  });
+
+  it('puts the constructor on the line the class is declared on, and no further', () => {
+    // **A declaration's span is what a capture is attributed to**, so a constructor stretched over the class body
+    // claimed every field initialiser in it: `DEFAULT_COMPARATOR = new ReverseFileComparator()` inside
+    // `DirectoryFileComparator` moved from no caller at all to a constructor that calls it - 5 wrong edges on
+    // `apache/commons-io@2.16.1`, all of them caught by the corpus and none by a unit test that only counted nodes.
+    const source = ['class Child extends Base {', '  int field = build();', '}'].join('\n');
+    const constructor = constructorCaptures(source)[0]!;
+    expect(constructor.startLine).toBe(1);
+    expect(constructor.endLine).toBe(1);
+  });
+
+  it('declares none for a class that extends nothing', () => {
+    // The constructor such a class runs is `Object`'s, whose declaration this graph does not hold - the same refusal the
+    // written-constructor path already makes.
+    expect(constructorCaptures('class Alone { }')).toEqual([]);
+  });
+
+  it('declares none for a class that writes its own', () => {
+    // The language supplies a constructor only where none is written, and the written one records its own `super()`.
+    const source = 'class Child extends Base { Child(final int a) { } }';
+    const constructors = constructorCaptures(source);
+    expect(constructors.map((c) => c.properties?.['implicit'])).toEqual([undefined]);
+    expect(implicitSuperCall(source)).toHaveLength(1);
+  });
+
+  it('declares none for an interface, which has no constructor at all', () => {
+    expect(constructorCaptures('interface Child extends Base { }')).toEqual([]);
   });
 });

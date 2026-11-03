@@ -1,7 +1,51 @@
-import { defineConfig } from 'vitest/config';
+import { readFileSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { resolve } from 'node:path';
 
+import { defineConfig } from 'vitest/config';
+
 const packagesDir = resolve(__dirname, 'packages');
+
+/**
+ * The CPUs this process may actually use, which is **not** the number the machine reports.
+ *
+ * **A container says one thing and enforces another.** `os.cpus()` counts the host's cores and a cgroup quota caps the
+ * CPU time the group gets, so a runner that reports 32 cores and enforces four makes vitest start 31 workers that all
+ * wait on the same four - and every timing in the suite is then measured against a machine it does not have. Measured
+ * here: 555 test files, a reported 32 cores and a `cpu.max` of `400000 100000`. Three suites timed out on three
+ * consecutive runs - the MCP registry's import, the server's listen, and a 500-file Java scan that takes 4.6 s alone -
+ * and the failures moved around, which is what oversubscription looks like from the inside.
+ *
+ * **The quota is read and the workers are capped to it**, so a container runs the suite it can afford rather than the
+ * one its host advertises. On a machine with no quota this answers the same number `os.cpus()` would.
+ */
+function usableCpus(): number {
+  const quotaOf = (quota: string, period: string): number | undefined => {
+    if (quota === 'max') return undefined;
+    const ratio = Number(quota) / Number(period);
+    return Number.isFinite(ratio) && ratio > 0 ? Math.ceil(ratio) : undefined;
+  };
+  const fromV2 = (): number | undefined => {
+    try {
+      const [quota, period] = readFileSync('/sys/fs/cgroup/cpu.max', 'utf8').trim().split(/\s+/);
+      return quota === undefined || period === undefined ? undefined : quotaOf(quota, period);
+    } catch {
+      return undefined;
+    }
+  };
+  const fromV1 = (): number | undefined => {
+    try {
+      const quota = readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_quota_us', 'utf8').trim();
+      const period = readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_period_us', 'utf8').trim();
+      return quotaOf(quota, period);
+    } catch {
+      return undefined;
+    }
+  };
+  const quoted = fromV2() ?? fromV1();
+  if (quoted === undefined) return Math.max(1, availableParallelism());
+  return Math.max(1, Math.min(quoted, availableParallelism()));
+}
 
 export default defineConfig({
   resolve: {
@@ -27,6 +71,9 @@ export default defineConfig({
     // addons accumulate in one process. tree-sitter's C bindings are
     // fork-safe on vitest 4 + Node 22, so the default pool is correct.
     pool: 'forks',
+    // **As many workers as the quota allows, and no more**, because a worker that cannot be scheduled turns every
+    // timing in the suite into a measurement of the queue.
+    maxWorkers: usableCpus(),
     testTimeout: 90_000,
     hookTimeout: 60_000,
     include: [

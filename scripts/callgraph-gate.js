@@ -234,12 +234,32 @@ const TYPESCRIPT_FLOORS = {
  * than an addition: without it, the inherited arm answers `AbstractFileFilter.preVisitDirectory`'s `accept(dir, attrs)`
  * out of `FileFilter.accept(File)` and the graph writes two wrong edges. That is the pair iteration 60 could not fix
  * and iteration 61 named; it is gone, and the floor of 1.0 is what keeps it gone.
+ *
+ * ---
+ *
+ * **Iteration 63 read what a declaration states about the code it does not write**: the constructor the language
+ * supplies, the element a lambda is handed, the result a generic factory returns, and the member a hop is read from.
+ * **2240 of 2240** on `commons-lang` (recall 98.3 % -> **99.1 %**) and **1662 of 1662** on `commons-io` (98.7 % ->
+ * **99.5 %**), with no wrong edge anywhere and every arm at 100.0 %. Ablated one rule at a time, the two corpora close
+ * the sum exactly again:
+ *
+ * | rule disabled alone | `commons-lang` | `commons-io` |
+ * | --- | --- | --- |
+ * | a class that writes no constructor still has one | 2225 (-15) | 1659 (-3) |
+ * | a stream has the element of the collection it was opened from | 2239 (-1) | 1660 (-2) |
+ * | a functional parameter types the lambda passed to it | 2240 (0) | 1659 (-3) |
+ * | a hop reads a member of the class or of a base | 2238 (-2) | 1662 (0) |
+ * | a generic factory's result is bound by the argument that fills it | 2240 (0) | 1657 (-5) |
+ *
+ * 15 + 1 + 2 is `commons-lang`'s eighteen and 3 + 2 + 3 + 5 is `commons-io`'s thirteen. **The two vertical sums are the
+ * whole of the claim**: a rule that no corpus asks for shows up as a zero and is reported as one rather than dropped,
+ * which is why the generic-factory row is here with a zero in the first column.
  */
 const JAVA_FLOORS = {
   'apache/commons-lang': {
     precision: 1,
-    recall: 0.983,
-    claimed: 2222,
+    recall: 0.991,
+    claimed: 2240,
     arms: {
       import: 0.99,
       inherited: 0.995,
@@ -258,8 +278,8 @@ const JAVA_FLOORS = {
   },
   'apache/commons-io': {
     precision: 1,
-    recall: 0.986,
-    claimed: 1649,
+    recall: 0.994,
+    claimed: 1662,
     arms: {
       import: 0.99,
       inherited: 0.995,

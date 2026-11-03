@@ -38,6 +38,11 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Argument-Type Dispatch**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Collection Elements**     |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Lambda Parameter Types**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Functional Parameters**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Stream Receivers**        |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Implicit Construction**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Generic Factory Returns** |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Inherited Member Hops**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Generics**                |     ✅     |    N/A     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Async Detection**         |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |
 | **Extension Functions**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
@@ -181,7 +186,7 @@ Code Analyzer supports **cross-language analysis** within a single project. For 
 | ---------- | :---------: | :---------------: | :------------------------------------------------------------------ |
 | TypeScript |    Fast     |       ~5MB        | **100.0 % / 80.6 %** zod · **100.0 % / 90.0 %** ioredis             |
 | Python     |   Medium    |       ~3MB        | **97.9 % / 97.9 %** flask · **98.0 % / 96.7 %** werkzeug            |
-| Java       |    Fast     |       ~5MB        | **100.0 % / 98.3 %** commons-lang · **100.0 % / 98.7 %** commons-io |
+| Java       |    Fast     |       ~5MB        | **100.0 % / 99.1 %** commons-lang · **100.0 % / 99.5 %** commons-io |
 | JavaScript |    Fast     |       ~4MB        | not measured                                                        |
 | Go         |    Fast     |       ~3MB        | not measured                                                        |
 | Kotlin     |   Medium    |       ~4MB        | not measured                                                        |
@@ -204,7 +209,7 @@ checker, and `javac`'s own attribution), gated per arm by `scripts/callgraph-gat
 `.github/workflows/callgraph-quality.yml`. **The recall column is the honest one**: `commons-io` read 60.9 % when the
 instrument was first pointed at it, 80.2 % after the receiver arm learned to read a declared type, 95.8 % after the
 interface `extends` clause became a base, 97.9 % after four declarations the provider stepped past were read, and
-**98.7 % now** — and that number is a claim about the graph, not about Java. Its 22 unanswered pairs are named in
+**99.5 % now** — and that number is a claim about the graph, not about Java. Its 9 unanswered pairs are named in
 `benchmarks/callgraph-java-quality.json` under `missedSamples`, which is the
 only reason the figure can be worked on rather than argued about.
 
@@ -255,6 +260,33 @@ that ran before types existed. The order is the whole of the design: **the typed
 withdraw one.** Reporting a tie as "ambiguous" instead cost **46 edges** on the first measurement — `ToStringStyle` and
 every subclass that repeats its `appendDetail` — which is what an abstention looks like when the previous rule was the
 one answering.
+
+**Then five facts about code nobody wrote, which is where the last of the recall was.** A declaration describes more
+than the body it holds: a class with no constructor has one anyway, a lambda's parameter is typed by whatever consumes
+it, a generic factory names its result by naming its argument, and a hop is a member of the class _or of a base_. Each
+rule was ablated alone, and the two corpora decompose again — **18 new correct edges on `commons-lang`, 13 on
+`commons-io`, every one of them correct**:
+
+| rule disabled alone                                               | what the language states                                                                                                                                                                                                                                                                                                                                                                 | `commons-lang` | `commons-io` |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------ |
+| **A class that writes no constructor still has one**              | `class CsvEscaper extends CharSequenceTranslator { }` declares no constructor and `javac` still names one, whose first act is `super()`. Every other arm of the walk is keyed on a declaration being written, so the call every instance makes was invisible — the four `Builder`s of the concurrent initializers, both comparators, `CsvEscaper`, `CsvUnescaper`, `StateStrategyClosed` | **-15**        | **-3**       |
+| **A stream has the element of the collection it was opened from** | `ranges.stream().anyMatch(range -> …)` is a loop written as a call: the stream is a view of one collection and holds no element of its own                                                                                                                                                                                                                                               | **-1**         | **-2**       |
+| **A functional parameter types the lambda passed to it**          | `forEachObserver(observer -> …)` names no container; the element is on the callee's parameter, a `FailableConsumer<Observer, IOException>`, and the interface's single abstract method says _which_ of its two type arguments the lambda is handed                                                                                                                                       | **0**          | **-3**       |
+| **A hop reads a member of the class or of a base**                | `this.getStyle().getNullText()` — `getStyle` is the base's, and the hop asked only the class the call was written in                                                                                                                                                                                                                                                                     | **-2**         | **0**        |
+| **A generic result is bound by the argument that fills it**       | `<T extends PathVisitor> T visitFileTree(T visitor, Path path)` states its result twice, and `visitFileTree(CountingPathVisitor.withLongCounters(), dir).getPathCounters()` is a call on `CountingPathVisitor`                                                                                                                                                                           | **0**          | **-5**       |
+
+15 + 1 + 2 is the first column and 3 + 2 + 3 + 5 the second. **The zeros are reported as zeros**: a rule one corpus
+never asks for is a rule the other one measured, and a table that dropped it would be a table whose sum only appears to
+close. The last row of the previous section's table — a lambda parameter bound to a container's element — is now the
+general case of the third row here: the container path and the callee's parameter are two spellings of one question, so
+the list of blessed method names iteration 62 shipped is gone and the declaration answers instead.
+
+**One rule had to be narrowed rather than widened, and the corpus said so before a test did.** The synthesized
+constructor was first given the class's own span, which made it the enclosing declaration of every field initialiser in
+the body: `DEFAULT_COMPARATOR = new ReverseFileComparator()` inside `DirectoryFileComparator` moved from no caller at all
+to a constructor that calls it, **5 wrong edges on `commons-io`** and 2 on `commons-lang` (`FailableConsumer.nop`,
+`FailableSupplier.nul`). A constructor is written on the class's first line and that is the line it spans; the wrong
+edges went to zero and the correct ones stayed.
 
 ## Adding a New Language
 

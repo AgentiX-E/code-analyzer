@@ -172,6 +172,106 @@ public class Caller {
 `,
   );
 
+  // **A class that writes no constructor still has one**, and it calls the base it extends.
+  write(
+    'AbstractThing.java',
+    `package demo;
+
+public abstract class AbstractThing {
+    protected AbstractThing() { }
+
+    public int size() { return 0; }
+}
+`,
+  );
+  write(
+    'Thing.java',
+    `package demo;
+
+public class Thing extends AbstractThing {
+}
+`,
+  );
+  // **A stream is a view of one collection**, so the element a lambda is handed is the collection's.
+  write(
+    'Range.java',
+    `package demo;
+
+public class Range {
+    public boolean contains(final char ch) { return false; }
+}
+`,
+  );
+  write(
+    'Ranges.java',
+    `package demo;
+
+import java.util.HashSet;
+import java.util.Set;
+
+public class Ranges {
+    private final Set<Range> ranges = new HashSet<>();
+
+    public boolean check(final char ch) {
+        return ranges.stream().anyMatch(range -> range.contains(ch));
+    }
+}
+`,
+  );
+  // **A generic factory names its result by naming its argument.**
+  write(
+    'Visitor.java',
+    `package demo;
+
+public class Visitor {
+    public int getCount() { return 0; }
+}
+`,
+  );
+  write(
+    'Factory.java',
+    `package demo;
+
+public class Factory {
+    public static <T extends Visitor> T walk(final T visitor, final String path) {
+        return visitor;
+    }
+
+    public static int use(final String path) {
+        return walk(new Visitor(), path).getCount();
+    }
+}
+`,
+  );
+  // **A hop names a member of the class or of a base**, which is what a member is.
+  write(
+    'Style.java',
+    `package demo;
+
+public class Style {
+    public String text() { return ""; }
+}
+`,
+  );
+  write(
+    'AbstractView.java',
+    `package demo;
+
+public class AbstractView {
+    public Style style() { return new Style(); }
+}
+`,
+  );
+  write(
+    'View.java',
+    `package demo;
+
+public class View extends AbstractView {
+    public String read() { return this.style().text(); }
+}
+`,
+  );
+
   const ctx = {
     projectId: 'java-receivers',
     rootPath: ROOT,
@@ -253,6 +353,30 @@ describe('a Java checkout answers what its own declarations say', () => {
       (call) => call.caller === 'preVisit' && call.callee === 'accept',
     );
     expect(answered).toEqual([expect.objectContaining({ calleeFile: 'Filter.java' })]);
+  });
+
+  it('answers the constructor a class writes none of, and the base constructor it calls', () => {
+    // **`class Thing extends AbstractThing { }` writes no constructor and still has one**, and its first act is
+    // `super()`. Twenty of the forty pairs `javac` expected and this graph claimed nothing for were this shape.
+    expect(callsFrom('Thing', 'AbstractThing')).toMatchObject({ calleeFile: 'AbstractThing.java' });
+  });
+
+  it('answers a lambda parameter with the element of the collection its stream was opened from', () => {
+    // **`ranges.stream().anyMatch(range -> …)`** - the stream is a view of `ranges`, so `range` holds a `Range` and the
+    // call it makes is `Range.contains`.
+    expect(callsFrom('check', 'contains')).toMatchObject({ calleeFile: 'Range.java' });
+  });
+
+  it('answers what a generic factory returns, from the argument that fills its variable', () => {
+    // **`<T extends Visitor> T walk(T visitor, String path)`** returns what it was handed, so
+    // `walk(new Visitor(), path).getCount()` is a call on `Visitor`.
+    expect(callsFrom('use', 'getCount')).toMatchObject({ calleeFile: 'Visitor.java' });
+  });
+
+  it('answers a call on a getter the base declares, and not only one the class does', () => {
+    // **`this.style().text()`** - `style` is `AbstractView`'s, and a hop that asked only the class the call is written in
+    // found no declaration and refused the whole receiver.
+    expect(callsFrom('read', 'text')).toMatchObject({ calleeFile: 'Style.java' });
   });
 
   it('claims no call the checkout does not contain', () => {
