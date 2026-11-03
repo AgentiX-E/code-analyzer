@@ -94,7 +94,7 @@
     },
     {
       "depth": 50,
-      "ceiling": 0.697
+      "ceiling": 0.7071
     },
     {
       "depth": 100,
@@ -114,23 +114,23 @@
     {
       "name": "no-path",
       "note": "the composition the product shipped before the path was measured in",
-      "recallAt5": 0.3232,
+      "recallAt5": 0.3333,
       "recallAt20": 0.4646,
-      "mrr": 0.2489,
+      "mrr": 0.2493,
       "found": 46,
       "slices": {
         "leakFree": {
           "size": 47,
           "recallAt5": 0.0851,
           "recallAt20": 0.2553,
-          "mrr": 0.0544,
+          "mrr": 0.0543,
           "found": 12
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.5385,
+          "recallAt5": 0.5577,
           "recallAt20": 0.6538,
-          "mrr": 0.4248,
+          "mrr": 0.4255,
           "found": 34
         }
       }
@@ -139,23 +139,23 @@
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.4848,
-      "recallAt20": 0.697,
-      "mrr": 0.3599,
-      "found": 69,
+      "recallAt5": 0.4949,
+      "recallAt20": 0.6869,
+      "mrr": 0.3615,
+      "found": 68,
       "slices": {
         "leakFree": {
           "size": 47,
           "recallAt5": 0.234,
-          "recallAt20": 0.4894,
-          "mrr": 0.1631,
-          "found": 23
+          "recallAt20": 0.4681,
+          "mrr": 0.1607,
+          "found": 22
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.7115,
+          "recallAt5": 0.7308,
           "recallAt20": 0.8846,
-          "mrr": 0.5378,
+          "mrr": 0.5429,
           "found": 46
         }
       }
@@ -163,26 +163,26 @@
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
-      "reranked": 99,
+      "reranked": 97,
       "poolDepth": 50,
-      "poolRecallAt20": 0.697,
-      "recallAt5": 0.6465,
-      "recallAt20": 0.6869,
-      "mrr": 0.5054,
-      "found": 68,
+      "poolRecallAt20": 0.7071,
+      "recallAt5": 0.6061,
+      "recallAt20": 0.697,
+      "mrr": 0.4975,
+      "found": 69,
       "slices": {
         "leakFree": {
           "size": 47,
           "recallAt5": 0.4468,
-          "recallAt20": 0.4894,
-          "mrr": 0.3508,
-          "found": 23
+          "recallAt20": 0.5106,
+          "mrr": 0.3521,
+          "found": 24
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.8269,
+          "recallAt5": 0.75,
           "recallAt20": 0.8654,
-          "mrr": 0.6451,
+          "mrr": 0.6289,
           "found": 45
         }
       }
@@ -190,26 +190,26 @@
     {
       "name": "rerank-deep",
       "note": "the fused top 150, reordered by a model, cut at 20",
-      "reranked": 98,
+      "reranked": 97,
       "poolDepth": 150,
       "poolRecallAt20": 0.8384,
-      "recallAt5": 0.7172,
-      "recallAt20": 0.8182,
-      "mrr": 0.5535,
-      "found": 81,
+      "recallAt5": 0.697,
+      "recallAt20": 0.8081,
+      "mrr": 0.5447,
+      "found": 80,
       "slices": {
         "leakFree": {
           "size": 47,
-          "recallAt5": 0.617,
-          "recallAt20": 0.7234,
-          "mrr": 0.455,
-          "found": 34
+          "recallAt5": 0.5957,
+          "recallAt20": 0.7021,
+          "mrr": 0.4661,
+          "found": 33
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.8077,
+          "recallAt5": 0.7885,
           "recallAt20": 0.9038,
-          "mrr": 0.6425,
+          "mrr": 0.6157,
           "found": 47
         }
       }
@@ -234,7 +234,7 @@
       "vectorWeight": 0.25,
       "recallAt5": 0.404,
       "recallAt20": 0.4646,
-      "mrr": 0.3266,
+      "mrr": 0.326,
       "found": 46
     },
     {

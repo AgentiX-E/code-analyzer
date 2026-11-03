@@ -33,6 +33,10 @@ query is a paraphrase and the index holds no doc comment at all.
 
 ## The one figure that moves
 
+**Every table in this file is the state of the measurement at the commit that wrote it, and the current figures are in
+"The hidden files, and the four defects the field found"** — the sections between here and there are the history of how
+the figure got to 0.4646 at twenty, and each one names the commit it was measured at.
+
 `benchmarks/paraphrase-search.json` was recorded on **2026-10-27**, against the live directory as it stood that day:
 **3 357 nodes**. This snapshot is the tree of 2026-10-29 and the builder of that commit counts **3 600** nodes on it — the
 directory gained code in between, and the phases that build the graph have changed since. So both figures were
@@ -205,7 +209,7 @@ and no question about _"what cleans dangerous input"_ can reach any of them from
 **distinct** tokens of a body rather than all of them (five to sixty per declaration on this corpus), so its cost is an
 index build and not a corpus of prose.
 
-### The hidden files, and the two defects the field found
+### The hidden files, and the four defects the field found
 
 **The field was built as described and it worked — and the first test written for it failed, which is the only reason
 this section exists.** A declaration's body is indexed as the **distinct** tokens it is written in: term frequency is
@@ -254,6 +258,46 @@ challenger is eligible only if it answers at least as many questions on **every*
 nothing clears it the sweep returns what it started with. **On the twenty-one-cell grid over the fifth field, nothing
 does**: `chosen` equals `incumbent`, `eligible` is one row, and the shipped weighting is therefore not a local accident
 of one grid.
+
+**The fourth defect was in a measurement this file does not own.** `docstring-search.test.ts` asks for a symbol by its
+own doc comment — the same corpus, the opposite protocol — and the fifth field cost it **eight answers at five and four
+points of MRR**:
+
+| `docstring` weight | recall@5   | recall@20  | MRR        |
+| ------------------ | ---------- | ---------- | ---------- |
+| 1 (parity)         | 0.8894     | 0.9724     | 0.8125     |
+| 2                  | 0.9724     | 0.9908     | 0.9154     |
+| **3 (shipped)**    | **0.9862** | **1.000**  | **0.9476** |
+| 4                  | 0.9954     | 1.000      | 0.9579     |
+| 6                  | 0.9954     | 1.000      | 0.9710     |
+
+**A document that merely _contains_ the question's words was out-summing the document that is _described_ by them**, and
+the fix is the oldest argument in this file: text written about a symbol is stronger evidence than words the symbol
+happens to hold. **The MRR keeps rising past three, and that is why three is where it stops**: every query in that
+measurement is a docstring, so its maximum is a lookup engine and not the best retriever, and the value taken is the
+smallest weight that reaches the best recall at twenty the grid reaches. This measurement cannot adjudicate it — every
+doc comment is stripped from that index, so the field is only ever filled by a prose node's name — and **it did not move
+by one question at any weight tried**, which is what makes the choice safe rather than a trade.
+
+**And the arms that need a model moved with all of it**, measured on the runner over `f24e684` and `91552c4`:
+
+| pool depth | 20     | 50         | 100        | 150        | 200        |
+| ---------- | ------ | ---------- | ---------- | ---------- | ---------- |
+| ceiling    | 0.6364 | **0.7071** | **0.7980** | **0.8384** | **0.8687** |
+| questions  | 63     | 70         | 79         | 83         | 86         |
+
+| arm                      | pool | recall@5   | recall@20  | MRR        | of its own pool |
+| ------------------------ | ---- | ---------- | ---------- | ---------- | --------------- |
+| fused, weight 1          | —    | 0.4646     | 0.6364     | 0.3732     | —               |
+| `rerank`, cut at 20      | 50   | 0.6061     | 0.6970     | 0.4975     | **69 of 70**    |
+| `rerank-deep`, cut at 20 | 150  | **0.6970** | **0.8081** | **0.5447** | **80 of 83**    |
+
+**The deep arm answers 0.8081 against a reference of 0.75** — the previous run recorded 0.8182 on the same pool, so the
+arm sits one question away from either figure and **both are inside the ±1 this instrument resolves**. What is not
+inside it is the distance from the default path: **0.6364 fused against 0.8081 reranked is seventeen questions**, and
+`search_code` only takes the second one when `rerank: true` is asked for. **The matrix reads the default path, so its
+cell is the first number** — a product decision about the cost of one completion is the thing standing between the
+published cell and the arm.
 
 ## The third input, which nobody wrote
 

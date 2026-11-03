@@ -1656,8 +1656,9 @@ describe('the fields a document is indexed under', () => {
     // which means the engine cannot tell "written about" from "written in". **Measured on the docstring corpus, that
     // parity cost the lookup 1.000 / 0.9819 → 0.9724 / 0.8125** at twenty and in MRR — a document that merely contains
     // the question's words out-summed the document that is described by them. At three the lookup is 1.000 / 0.9476
-    // again, and the paraphrase column, which strips every doc comment, did not move by one question at any weight
-    // tried. **Changing either weight has to change this test.**
+    // again, and the lexical column of the paraphrase measurement — which strips every doc comment, so this field is
+    // only ever a prose node's name there — measured the same three numbers to the last digit at weight one and at
+    // weight three. **Changing either weight has to change this test.**
     const documented = node(1, 'file:/w/a.ts:Box.parse', {
       docstring: 'sanitize',
       properties: { body: 'parse' },

@@ -131,20 +131,21 @@ and `rerank` — `{ applied, pool?, reason? }`.
 the code that answers it. `expand: true` asks the configured LLM for a plausible implementation of the question and
 searches with the mean of the question's vector and the hypothesis's — _Precise Zero-Shot Dense Retrieval without
 Relevance Labels_ (Gao et al., 2022). Measured on 99 questions over this repository with every doc comment stripped
-from the index: **recall@20 0.5960 → 0.6566, MRR 0.2748 → 0.3051**, against a lexical baseline of 0.3030 / 0.0980.
+from the index: **recall@20 0.6364 → 0.6869** against a lexical baseline of 0.4646 / 0.2034 — **four answers bought, and
+MRR 0.3732 → 0.3615 given back**, so it is an arm to reach for when the answer is missing rather than a default.
 It costs one completion and needs `DEEPSEEK_API_KEY`; without either, the tool answers the plain query and says so in
 `queryExpansion.reason`.
 
 **Why `rerank` exists, and what it costs.** Fusion decides _which_ twenty a reader sees; it does not decide their order,
-and order is what a reader feels. `rerank: true` gives the model the fused **top 150** — name, path, signature and a
-240-character excerpt — and asks for a bracketed ordering; the first `limit` of that order is returned. **A rerank is
-enforced to be a permutation**: an invented id is dropped, a repeat is ignored, and a candidate the answer did not
-mention keeps its fused position, so no candidate can be lost by asking for a better order. Measured on the same 99
-questions: **recall@20 0.5960 → 0.7576, MRR 0.2748 → 0.5424**, against a pool ceiling of **0.8283** — 75 of the 82
-answers inside the pool are returned. **The depth is measured rather than assumed**: at fifty the same arm answers
-0.6869 / 0.4800 against a ceiling of 0.6869, so the ordering was already complete and the pool was the whole
-constraint. It costs one completion over a prompt of that size; without a provider the fused order is returned with the
-reason in `rerank.reason`.
+and order is what a reader feels. `rerank: true` gives the model the fused **top 150** — name, path, signature, the
+distinct words of the body and a 240-character excerpt — and asks for a bracketed ordering; the first `limit` of that
+order is returned. **A rerank is enforced to be a permutation**: an invented id is dropped, a repeat is ignored, and a
+candidate the answer did not mention keeps its fused position, so no candidate can be lost by asking for a better order.
+Measured on the same 99 questions: **recall@20 0.6364 → 0.8081, MRR 0.3732 → 0.5447**, against a pool ceiling of
+**0.8384** — 80 of the 83 answers inside the pool are returned. **The depth is measured rather than assumed**: at fifty
+the same arm answers 0.6970 / 0.4975 against a ceiling of 0.7071, so the ordering was already complete and the pool was
+the whole constraint. It costs one completion over a prompt of that size; without a provider the fused order is returned
+with the reason in `rerank.reason`.
 
 ---
 

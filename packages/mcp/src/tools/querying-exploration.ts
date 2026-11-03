@@ -166,12 +166,13 @@ interface SearchCodeParams {
  * **A judgement task, not a reading task** — and the number is measured rather than assumed, which is the whole history
  * of this constant. It was fifty because *"fifty fits one prompt"*, a claim about a prompt used as though it were a
  * claim about the retriever; `benchmarks/paraphrase-search.json` now reports the ceiling at every depth, and on the
- * pinned corpus and the frozen ninety-nine questions the ceiling moves **0.6869 -> 0.7879 -> 0.8283** from fifty to a
- * hundred to a hundred and fifty. The arm that reads a hundred and fifty answers **0.7576 recall@20 with MRR 0.5424,
- * against 0.6869 / 0.4800 at fifty** — one completion either way, for seven more questions of ninety-nine.
+ * pinned corpus and the frozen ninety-nine questions the ceiling moves **0.7071 -> 0.7980 -> 0.8384** from fifty to a
+ * hundred to a hundred and fifty. The arm that reads a hundred and fifty answers **0.8081 recall@20 with MRR 0.5447,
+ * against 0.6970 / 0.4975 at fifty** — one completion either way, for eleven more questions of ninety-nine.
  *
- * **A hundred and fifty and not two hundred**, because the curve flattens: 0.8283 to 0.8485 is two questions for a
- * prompt a third larger again.
+ * **A hundred and fifty and not two hundred**, because the curve still flattens: 0.8384 to 0.8687 is three questions
+ * for a prompt a third larger again — and the knee moved once the index learned to read a body, which is why this is a
+ * measured figure rather than a constant somebody liked.
  *
  * **A floor and not a ceiling.** The pool is `max(limit, RERANK_POOL)`, because a caller that asked for a hundred
  * results cannot be served by an order chosen among fifty: the model must be shown at least what will be returned, or
@@ -305,7 +306,7 @@ export const searchCodeSchema = {
       type: 'boolean',
       description:
         'Reorder a pool of at least 150 fused candidates with a model before returning the first `limit`. Costs one ' +
-        'LLM completion over a prompt of that size; measured at +16 points of recall@20 (0.5960 -> 0.7576) and 2.0x ' +
+        'LLM completion over a prompt of that size; measured at +17 points of recall@20 (0.6364 -> 0.8081) and 1.5x ' +
         'MRR on the paraphrase corpus.',
     },
   },

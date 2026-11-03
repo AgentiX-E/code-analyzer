@@ -243,7 +243,8 @@ export interface FieldWeighting {
  * keeps rising because every query there is a docstring, so **its maximum is a lookup engine rather than the best
  * retriever**. The rule is therefore the smallest weight that reaches the best recall at twenty the grid reaches: **3**.
  * The paraphrase column cannot adjudicate it — every docstring is stripped from that index, so the field is only ever
- * filled by a prose node's name — and it did not move by one question at any weight tried.
+ * filled by a prose node's name — and the lexical column it is built on measured **0.3131 / 0.4646 / 0.2034 at weight
+ * one and at weight three, to the last digit**.
  */
 export const DEFAULT_FIELD_WEIGHTING: FieldWeighting = {
   // **A name token is worth four vocabulary tokens and two path tokens.** The file a symbol lives in is evidence that it
