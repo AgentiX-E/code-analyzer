@@ -316,6 +316,23 @@ describe('fitCost', () => {
     expect(fit!.mbPerByte).toBeCloseTo(0.4, 6);
   });
 
+  it('refuses to fit a stopped instance, because its cost is the bound that stopped it', () => {
+    // **A censored observation is not a data point.** `airbnb/lottie-android` was killed at the 6 144 MB ceiling, so
+    // its `peakRssMb` is the ceiling rather than its cost; `microsoft/deepspeed` was stopped at the 900 s clock, so its
+    // `elapsedMs` is the clock. Fitting a line through either would pull the slope towards the bound by exactly the
+    // amount the bound clipped, and the bound would then be chosen from a line that agreed with itself.
+    const fit = fitCost([
+      costRow(1, 1_000, 600, 1_000),
+      costRow(2, 3_000, 1_400, 3_000),
+      costRow(3, 5_000, 2_200, 5_000),
+      { ...costRow(4, 7_000, 6_145, 900_000), skipped: 'reached 6145 MB resident' },
+    ]);
+    expect(fit!.rows).toBe(3);
+    expect(fit!.mbPerByte).toBeCloseTo(0.4, 6);
+    // 2 200 MB over ten corpus files, and **not** the stopped instance's 6 145 over ten.
+    expect(fit!.mbPerFile.max).toBeCloseTo(220, 6);
+  });
+
   it('returns null when every instance read the same number of bytes, because a vertical line has no slope', () => {
     expect(
       fitCost([

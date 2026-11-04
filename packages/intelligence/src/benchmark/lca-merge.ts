@@ -207,8 +207,17 @@ function median(values: readonly number[]): number {
  * reporting one would be reporting a perfect fit that proves nothing.
  */
 export function fitCost(rows: readonly LcaRowScore[]): CostFit | null {
+  // **Only the rows that finished, because a stopped instance is a censored observation.** A row killed at the resident
+  // ceiling has `peakRssMb` equal to the ceiling rather than to its cost, and a row killed at the clock has
+  // `elapsedMs` equal to the clock: both are lower bounds, and fitting a line through them would pull it down by
+  // exactly the amount the bound clipped. The refusals are not lost - each carries the sentence that stopped it - but
+  // they cannot be points in a regression that is used to choose the bound.
   const usable = rows.filter(
-    (row) => row.cost !== null && row.corpusBytes !== null && row.corpusUnreadable === 0,
+    (row) =>
+      row.skipped === null &&
+      row.cost !== null &&
+      row.corpusBytes !== null &&
+      row.corpusUnreadable === 0,
   );
   if (usable.length < 3) return null;
 
