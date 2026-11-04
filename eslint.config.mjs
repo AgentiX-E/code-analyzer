@@ -115,6 +115,9 @@ export default tseslint.config(
       'scripts/cross-repo-matrix.ts',
       'scripts/owasp-benchmark.ts',
       'scripts/lca-merge.ts',
+      // **The child process the bug-localisation harness supervises**, enrolled for the same reason as the merge beside
+      // it: a script that runs only inside a killed process is a script no `tsc` gate would otherwise see.
+      'scripts/lca-instance.ts',
     ],
   },
   {

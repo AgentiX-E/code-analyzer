@@ -63,6 +63,13 @@ const RULES = [
   // artifact**, with its precision and recall, and it is not gated for the reason above.
   ['retrieval.at1.fpr', ['overall', 'retrieval', 'at1', 'fpr'], null, 0.05, false],
   ['retrieval.at10.precision', ['overall', 'retrieval', 'at10', 'precision'], 0.01, null, false],
+  // **The column the published table reports.** `overall.map.value` exists only when an instance produced a ranking,
+  // and its floor is a hundredth for the same reason every other floor in this block is: the numbers above it were
+  // fitted to a run that turned out to be measuring the harness rather than the retriever, and a floor raised in the
+  // commit that records a figure is a ratchet while a floor invented before one is a guess. **The comparator is the
+  // paper's `BM25` row at 0.25**, and closing that distance is what the optimisation plan measures itself by - the
+  // gate's job is to stop it going backwards while it is being closed.
+  ['map', ['overall', 'map', 'value'], 0.01, null, false],
   // **The answer arm**: what the model cited, scored with the same ruler. Present only with a key. **Floors of one
   // hundredth, because this arm has never been measured**: a floor of 0.05 chosen before the first number existed
   // would be a guess that could only fail, and the point of a first measurement is to learn what the number is. It is

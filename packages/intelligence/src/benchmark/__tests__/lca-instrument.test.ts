@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CONFIG_EXTENSION,
+  averagePrecision,
   LCA_CONFIGS,
   MEASURED_MB_PER_FILE,
   MS_PER_FILE,
@@ -472,5 +473,37 @@ describe('parseLanguages', () => {
     // **Not with everything**: a typo would otherwise start a ninety-minute job nobody asked for.
     expect(parseLanguages('js')).toEqual([]);
     expect(parseLanguages('py,js')).toEqual(['py']);
+  });
+});
+
+describe('averagePrecision', () => {
+  it('is one when the first file named is the answer', () => {
+    expect(averagePrecision(['src/retry.py', 'src/http.py'], ['src/retry.py'], 200)).toBe(1);
+  });
+
+  it('is the reciprocal rank when there is one answer and it is not first', () => {
+    // precision at the rank where the answer sits, divided by the number of relevant files.
+    expect(averagePrecision(['src/http.py', 'src/retry.py'], ['src/retry.py'], 200)).toBe(0.5);
+  });
+
+  it('averages the precisions at both ranks when two answers are found', () => {
+    // P@1 = 1, P@3 = 2/3, and the mean of those is the average precision.
+    const ap = averagePrecision(['a', 'b', 'c', 'd'], ['a', 'c'], 200);
+    expect(ap).toBeCloseTo((1 + 2 / 3) / 2, 10);
+  });
+
+  it('counts an answer the depth never reaches as missing', () => {
+    // **A truncated list can only lose credit**, which is why the published column says it is a floor.
+    expect(averagePrecision(['a', 'b', 'c', 'd'], ['d'], 3)).toBe(0);
+    expect(averagePrecision(['a', 'b', 'c', 'd'], ['d'], 4)).toBe(0.25);
+  });
+
+  it('answers zero for a row with no relevant file rather than dividing by none', () => {
+    expect(averagePrecision(['a'], [], 200)).toBe(0);
+  });
+
+  it('answers zero for an empty ranking and for a depth of zero', () => {
+    expect(averagePrecision([], ['a'], 200)).toBe(0);
+    expect(averagePrecision(['a'], ['a'], 0)).toBe(0);
   });
 });

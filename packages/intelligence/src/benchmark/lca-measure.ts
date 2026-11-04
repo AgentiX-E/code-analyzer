@@ -1,0 +1,195 @@
+// @code-analyzer/intelligence — one instance of the bug-localisation measurement, as a unit of work
+//
+// **Why the measurement is a module and not a loop inside a test.** Iteration 68 closed with the Kotlin leg of the Long
+// Code Arena job red: `airbnb/lottie-android`, a thousand-odd files, an analysis that grew past what the runner could
+// hold and a `SIGTERM` at five minutes - and the row was lost because the only thing that could have recorded it was the
+// process that died. The repair is not a smaller bound. It is that **one instance is measured by one process**, which
+// can be killed without taking the measurement with it, and a module is what both the process and its test can call.
+//
+// **The two arms, unchanged.** `retrieval` is the fused list cut at k with no model involved - free, deterministic, and
+// a change in it is a change in the retriever. `answer` is the file set the model cited, scored with the same ruler.
+//
+// **And the third figure, which iteration 69 adds.** The corpus's own metric scores a set at a fixed cut; the paper's
+// baseline table reports **MAP**. Both are computed here from the same ranked list, and the ranked list is published in
+// the row's first ten entries so that a reader can see why a precision column and a MAP column disagree.
+
+import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
+import { getDefaultConfig } from '@code-analyzer/core';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+
+import {
+  averagePrecision,
+  dedupePreservingOrder,
+  lcaQualityMetrics,
+  outsideUniverse,
+  restrictToUniverse,
+  toCorpusPath,
+} from './lca-instrument.js';
+import { askCodebase } from '../qa/ask.js';
+import { HybridSearchEngine } from '../search/hybrid-search.js';
+
+import type { ArmMetrics, LcaRowScore } from './lca-merge.js';
+import type { LLMProvider } from '../review/llm/provider.js';
+import type { GraphEdge, GraphNode, PipelineContext } from '@code-analyzer/shared';
+
+/** One row of the corpus's test split, as the harness reads it. */
+export interface LcaCorpusRow {
+  readonly id: number;
+  readonly repo_owner: string;
+  readonly repo_name: string;
+  readonly base_sha?: string;
+  readonly issue_title: string;
+  readonly issue_body: string;
+  readonly changed_files: readonly string[];
+}
+
+/** The cuts the retrieval arm reports. **Fixed in advance**, because a cut chosen after seeing the answer is a fit. */
+export const RETRIEVAL_CUTS = [1, 3, 5, 10] as const;
+
+/**
+ * How deep the average-precision column reads.
+ *
+ * **Two hundred, which is the retriever's own pool** (`retrieveLimit`). A depth larger than the pool would report a
+ * figure about a list that does not exist, and a smaller one would silently truncate a ranking the product already
+ * produced. The number is in the artifact beside the column.
+ */
+export const MAP_DEPTH = 200;
+
+/** What one instance needs: the row, the checkout, the answer space, and optionally a model. */
+export interface MeasureInput {
+  readonly row: LcaCorpusRow;
+  /** The checkout of `repo_owner/repo_name` at `base_sha`, **already fetched**. */
+  readonly checkout: string;
+  /** Every non-test file of the configuration's extension, repository-relative. **The answer space.** */
+  readonly allFiles: readonly string[];
+  /** The provider for the answer arm, or `null` when this run has no key. */
+  readonly provider?: LLMProvider | null;
+  /** Blocks the answer is assembled from. Stated rather than defaulted, because a figure is about a budget. */
+  readonly maxBlocks?: number;
+  /** Candidates retrieval returns before the cuts are taken. */
+  readonly retrieveLimit?: number;
+}
+
+/** The seven figures the authors' metric produces, for one instance. */
+function metricsOf(
+  allFiles: readonly string[],
+  expected: readonly string[],
+  actual: string[],
+): ArmMetrics {
+  const score = lcaQualityMetrics([...allFiles], [...expected], actual);
+  return {
+    precision: score.precision,
+    recall: score.recall,
+    f1: score.f1,
+    fpr: score.fpr,
+    allCorrect: score.allCorrect,
+    atLeastOneCorrect: score.atLeastOneCorrect,
+    allIncorrect: score.allIncorrect,
+  };
+}
+
+/**
+ * Copy an analysed graph into a store, **renumbering the nodes and skipping an edge whose endpoint is not there**.
+ *
+ * **The skip is not defensive noise, it is a resolver fact**: an edge can name a node the graph never registered (an
+ * external symbol, a declaration the walk refused), and an edge pointing at a node id the store does not hold would
+ * make every later query answer with a dangling target. It is a function rather than three lines inside
+ * `measureInstance` so that the case has a test with a graph that really holds such an edge, rather than being a branch
+ * the fixture never reaches.
+ */
+export function insertGraph(
+  store: InMemoryGraphStore,
+  nodes: Iterable<GraphNode>,
+  edges: Iterable<GraphEdge>,
+): void {
+  const storeIdOf = new Map<number, number>();
+  for (const node of nodes) {
+    storeIdOf.set(node.id, store.insertNode(node));
+  }
+  for (const edge of edges) {
+    const source = storeIdOf.get(edge.sourceId);
+    const target = storeIdOf.get(edge.targetId);
+    if (source === undefined || target === undefined) continue;
+    store.insertEdge({
+      projectId: edge.projectId,
+      sourceId: source,
+      targetId: target,
+      type: edge.type,
+      properties: edge.properties,
+      weight: edge.weight,
+    });
+  }
+}
+
+/** Analyse one checkout, ask the question, and score both arms. **The only place the product is exercised.** */
+export async function measureInstance(input: MeasureInput): Promise<LcaRowScore> {
+  const provider = input.provider ?? null;
+  const maxBlocks = input.maxBlocks ?? 40;
+  const retrieveLimit = input.retrieveLimit ?? MAP_DEPTH;
+  const ctx = {
+    projectId: `${input.row.repo_owner}/${input.row.repo_name}`,
+    rootPath: input.checkout,
+    config: getDefaultConfig(),
+    signal: new AbortController().signal,
+    metadata: {},
+  } as unknown as PipelineContext;
+
+  const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(ctx);
+  const store = new InMemoryGraphStore();
+  insertGraph(store, pipeline.graph.nodes.values(), pipeline.graph.edges.values());
+
+  const search = new HybridSearchEngine(store);
+  search.initialize();
+
+  const question = `${input.row.issue_title}\n\n${input.row.issue_body}`.trim();
+  const result = await askCodebase({
+    question,
+    store,
+    search,
+    ...(provider ? { provider } : {}),
+    options: { generate: Boolean(provider), rerank: Boolean(provider), maxBlocks, retrieveLimit },
+  });
+
+  // **The two halves of this comparison are recorded in different coordinate systems**, and the first published run of
+  // this instrument scored 0.0000 in three languages because of it: the pipeline writes `filePath` as an absolute path
+  // while the corpus records repository-relative ones. `toCorpusPath` is the conversion and it has its own tests.
+  //
+  // **The second conversion is the answer space.** The corpus counts the non-test files of the configuration's extension
+  // and the published baselines rank exactly that set, so a `History.md` our retriever offers was never in the running.
+  // Restricting to that set is a filter that preserves the retriever's order.
+  const universe = new Set(input.allFiles);
+  const offeredRaw = dedupePreservingOrder(
+    result.retrievedFiles.map((file) => toCorpusPath(input.checkout, file)),
+  );
+  const candidates = restrictToUniverse(offeredRaw, universe);
+  const answered = restrictToUniverse(
+    result.files.map((file) => toCorpusPath(input.checkout, file)),
+    universe,
+  );
+
+  const retrieval: Record<string, ArmMetrics> = {};
+  for (const cut of RETRIEVAL_CUTS) {
+    retrieval[`at${String(cut)}`] = metricsOf(
+      input.allFiles,
+      input.row.changed_files,
+      candidates.slice(0, cut),
+    );
+  }
+
+  store.close();
+
+  return {
+    id: input.row.id,
+    repo: `${input.row.repo_owner}/${input.row.repo_name}`,
+    corpusFiles: input.allFiles.length,
+    expectedFiles: input.row.changed_files.length,
+    expectedOutside: input.row.changed_files.filter((file) => !universe.has(file)).length,
+    offered: candidates.length,
+    outside: outsideUniverse(offeredRaw, universe),
+    offeredPaths: offeredRaw.slice(0, 10),
+    skipped: null,
+    retrieval,
+    map: averagePrecision(candidates, input.row.changed_files, MAP_DEPTH),
+    answer: provider ? metricsOf(input.allFiles, input.row.changed_files, answered) : null,
+  };
+}

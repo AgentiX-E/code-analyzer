@@ -12,19 +12,27 @@ name: Long Code Arena — bug localisation
 # **Nothing is committed.** The split and the checkouts are downloaded per run, so the job always measures the
 # published revision; the artifact records the row count, the cuts and the configuration rather than only a number.
 #
-# **One job per language, and that is the fix rather than a preference.** This workflow was dispatched eleven times and
-# produced no figure: every run ended with `The runner has received a shutdown signal` and exit code 143, at a
-# hundredth of the scope as well as at the full sample. The cause was measured on four real checkouts rather than
-# guessed (`MEASURED_MB_PER_FILE` in `packages/intelligence/src/benchmark/lca-instrument.ts`): an analysis of 568 files
-# costs 2 088 MB of **resident** memory, and V8 returns reclaimed heap pages to itself rather than to the operating
-# system - so a run costs the high-water mark of every instance it has analysed, and three language splits in one
-# process was three times the accumulation. **Three jobs cannot accumulate into each other**, each writes its own part
-# of the artifact, and `scripts/lca-merge.ts` adds the parts up over rows so the combined figure is the one a single run
-# would have produced. A language that dies now costs its own column instead of the whole measurement.
+# **One job per language, and one process per instance.** This workflow was dispatched eleven times and produced no
+# figure: every run ended with `The runner has received a shutdown signal` and exit code 143, at a hundredth of the
+# scope as well as at the full sample. The cause was measured on four real checkouts rather than guessed
+# (`MEASURED_MB_PER_FILE` in `packages/intelligence/src/benchmark/lca-instrument.ts`): an analysis of 568 files costs
+# 2 088 MB of **resident** memory, and V8 returns reclaimed heap pages to itself rather than to the operating system -
+# so a run costs the high-water mark of every instance it has analysed. Sharding by language fixed Python and Java and
+# left Kotlin red on its first instance, because **the remaining bound was a statement about the machine while the
+# analysis runs in a process**: `room` was computed from the runner's sixteen gigabytes and the process holding the
+# result was capped at four gigabytes of heap, with tree-sitter's trees outside the heap entirely. So the unit of
+# execution is now the unit of failure - `scripts/lca-instance.ts` measures one instance in one child process, the
+# parent samples that process's resident set and kills it at `LCA_INSTANCE_RSS_MB`, and the row is published as refused
+# naming the number that refused it. **A kill costs one row instead of the whole column, resident memory stops
+# accumulating between instances, and the sample can be larger than the four rows a language used to yield.**
 #
 # **The retrieval arm needs no model**, which is why this job is cheap and why its figure is reproducible to the digit:
 # a change in it is a change in the retriever. The answer arm runs when `DEEPSEEK_API_KEY` is present and says so when
 # it is not.
+#
+# **The figure is published against the paper's own MAP table.** `LCA-MAP` prints our average precision beside the best
+# published row and the number of rows it beats; the artifact carries the complete table with the protocol it was
+# measured under, because a figure quoted without its sample size is a figure nobody can check.
 
 on:
   workflow_dispatch:
@@ -35,7 +43,7 @@ on:
         # sentence that refused it.
         description: 'How many instances of each language split to measure'
         required: false
-        default: '8'
+        default: '12'
       max_files:
         # **The stated cap.** The bound that actually bites is the memory one, which is computed from what the runner
         # has left; this is the promise to the reader that nothing above it is ever measured. Both are in the artifact.
@@ -192,19 +200,32 @@ jobs:
           # dies with it.
           LCA_DIR: ${{ github.workspace }}/benchmarks/corpora/lca
           LCA_LANGUAGES: ${{ matrix.language }}
-          LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '8' }}
+          LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '12' }}
           LCA_MAX_FILES: ${{ github.event.inputs.max_files || '2000' }}
           # **Fifty minutes, stated by the harness rather than discovered by the job's own timeout.** The bounds module
           # projects 50 ms per file; this is the other half of the arithmetic, and a run that reaches it writes a part
           # whose unmeasured rows say so.
           LCA_BUDGET_MS: '3000000'
           LCA_ANSWER_ARM: ${{ github.event.inputs.answer_arm || '0' }}
+          # **The ceiling one instance may reach, enforced by the supervisor rather than promised by the harness.**
+          # Every earlier bound was a statement about the machine: `room` was computed from the runner's sixteen
+          # gigabytes while the process holding the result was capped at four gigabytes of heap, and tree-sitter's
+          # trees are native memory that no heap flag bounds - which is how `airbnb/lottie-android` took the Kotlin leg
+          # down with `exit 143` and no row. A child is killed at `LCA_INSTANCE_RSS_MB` and the row is published as
+          # refused, naming the figure that refused it.
+          LCA_INSTANCE_RSS_MB: '6144'
+          LCA_INSTANCE_HEAP_MB: '3072'
+          LCA_INSTANCE_TIMEOUT_MS: '900000'
           BENCHMARK_WRITE: '1'
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          # **A stated heap, and smaller than the runner.** 7 GB is the whole machine and the analysis shares it with
-          # vitest, the checkout and the OS; 4 GB of heap makes an exhaustion a `JavaScript heap out of memory` naming
-          # the allocation, where an unbounded heap makes it a runner shutdown signal and no message at all.
-          NODE_OPTIONS: --max-old-space-size=4096
+          # **The workspace imports in the child resolve through a tsconfig**, because the packages' `main` points at a
+          # `dist/` this job does not build and a figure measured against a stale build is a figure about the build.
+          TSX_TSCONFIG_PATH: tsconfig.tests.json
+          # **A stated heap for the orchestrator, and it no longer has to be the analyser's.** Iteration 69 moved each
+          # instance's analysis into its own process, so this heap holds vitest, the row bookkeeping and nothing else:
+          # a smaller figure here is the architecture's own claim, and a parent that grows past it is a defect rather
+          # than a measurement.
+          NODE_OPTIONS: --max-old-space-size=2048
         run: |
           set -o pipefail
           # **Line-buffered, because a killed process loses a block-buffered pipe.** Every log of this job used to end

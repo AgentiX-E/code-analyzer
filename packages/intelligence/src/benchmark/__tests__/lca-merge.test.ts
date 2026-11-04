@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { armScore, combineParts, summarisePart } from '../lca-merge.js';
+import { armScore, combineParts, mapScore, skippedRow, summarisePart } from '../lca-merge.js';
 
 import type { ArmMetrics, LanguagePart, LcaRowScore } from '../lca-merge.js';
 
@@ -41,6 +41,7 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     offeredPaths: [],
     skipped: null,
     retrieval,
+    map: precision,
     answer: metrics(precision, recall),
   };
 }
@@ -69,6 +70,9 @@ function part(config: string, rows: LcaRowScore[], answerArm = true): LanguagePa
       mbPerFile: 3.7,
       reserveMb: 1024,
       budgetMs: 2_700_000,
+      instanceRssCapMb: 6144,
+      instanceHeapMb: 3072,
+      instanceTimeoutMs: 900_000,
     },
     space: { semantic: false, reason: 'lexical only' },
     configuration: { maxBlocks: 40, retrieveLimit: 200 },
@@ -183,5 +187,48 @@ describe('combineParts', () => {
     expect(single.overall.retrieval['at10']).toEqual(
       summarisePart(part('py', [row(1, 0.4, 0.2)]), [1, 3, 5, 10]).retrieval['at10'],
     );
+  });
+});
+
+describe('mapScore', () => {
+  it('averages the column over the rows that produced a ranking', () => {
+    const rows = [
+      { ...row(1, 1, 1), map: 0.4 },
+      { ...row(2, 0.6, 0.4), map: 0.6 },
+    ];
+    expect(mapScore(rows)).toEqual({ rows: 2, value: 0.5 });
+  });
+
+  it('excludes a refused row rather than counting it as a zero', () => {
+    // **The two zeros are different facts**: "the runner refused this instance" and "the retriever found nothing".
+    const rows = [skipped(9, 'too large'), { ...row(1, 1, 1), map: 0.8 }];
+    expect(mapScore(rows)).toEqual({ rows: 1, value: 0.8 });
+  });
+
+  it('answers null when nothing was measured, because a mean over none is not a score', () => {
+    expect(mapScore([skipped(9, 'too large')])).toBeNull();
+    expect(mapScore([])).toBeNull();
+  });
+});
+
+describe('skippedRow', () => {
+  it('carries the sentence, no metrics, and a map that cannot be averaged by accident', () => {
+    const refused = skippedRow({
+      id: 7,
+      repo: 'owner/repo',
+      corpusFiles: 100,
+      expectedFiles: 2,
+      because: 'the analysis reached 7000 MB resident',
+    });
+    expect(refused).toMatchObject({
+      id: 7,
+      repo: 'owner/repo',
+      corpusFiles: 100,
+      expectedFiles: 2,
+      offered: 0,
+      skipped: 'the analysis reached 7000 MB resident',
+      retrieval: {},
+      answer: null,
+    });
   });
 });

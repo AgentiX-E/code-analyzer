@@ -1,0 +1,109 @@
+#!/usr/bin/env node
+// One instance of the Long Code Arena measurement, in its own process.
+//
+// **This file exists because the measurement has to survive its own analysis.** The Kotlin leg of
+// `.github/workflows/lca-bug-localization.yml` died on its first instance - a thousand-file checkout, an analysis past
+// what the runner could hold, `exit 143` - and took the whole part with it because the analyser and the record were the
+// same process. `benchmark/lca-supervisor.ts` states the reasoning; this is the program it supervises.
+//
+// **It is a script rather than a test on purpose.** A test's process is shared with vitest, its module graph and every
+// file the suite has loaded; a process that is going to be killed at a memory ceiling has to be a process with nothing
+// else in it.
+//
+// Usage:
+//   TSX_TSCONFIG_PATH=tsconfig.tests.json npx tsx scripts/lca-instance.ts \
+//     --config py --checkout <dir> --row <row.json> --out <row-out.json> [--answer-arm]
+//
+// **The `tsconfig` is stated because a workspace import is not a relative one.** tsx resolves `@code-analyzer/analyzer`
+// through the tsconfig it is pointed at; without this it reads the package's `main`, which points at a `dist/` this
+// measurement does not build and does not want - a figure measured against a stale build would be a figure about the
+// build. `scripts/lca-merge.ts` reaches the same modules and is run by the same tool.
+//
+// Exit codes: 0 when a row was written (measured or refused by the analysis), 2 when the arguments are wrong. **An
+// analysis that throws is not an exit code** - it is a row whose `skipped` sentence names the defect, because a row is
+// what the artifact can publish and an exit code is not.
+
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+
+import {
+  CONFIG_EXTENSION,
+  corpusFiles,
+} from '../packages/intelligence/src/benchmark/lca-instrument.js';
+import { measureInstance } from '../packages/intelligence/src/benchmark/lca-measure.js';
+import { skippedRow } from '../packages/intelligence/src/benchmark/lca-merge.js';
+import { DeepSeekProvider } from '../packages/intelligence/src/review/llm/provider.js';
+
+import type { LcaConfigName } from '../packages/intelligence/src/benchmark/lca-instrument.js';
+import type { LcaCorpusRow } from '../packages/intelligence/src/benchmark/lca-measure.js';
+
+/** A flag's value, or `undefined` when it is absent. */
+function flagOf(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  if (index === -1) return undefined;
+  const value = process.argv[index + 1];
+  return value === undefined || value.startsWith('--') ? undefined : value;
+}
+
+const config = flagOf('--config') as LcaConfigName | undefined;
+const checkout = flagOf('--checkout');
+const rowFile = flagOf('--row');
+const out = flagOf('--out');
+
+if (config === undefined || checkout === undefined || rowFile === undefined || out === undefined) {
+  console.error(
+    'lca-instance: --config, --checkout, --row and --out are all required; ' +
+      'a measurement with a missing argument is not a measurement',
+  );
+  process.exit(2);
+}
+
+if (!existsSync(rowFile)) {
+  console.error(`lca-instance: the row file ${rowFile} does not exist`);
+  process.exit(2);
+}
+
+const row = JSON.parse(readFileSync(rowFile, 'utf8')) as LcaCorpusRow;
+
+/** Write the row and stop. **The write is the contract**: the supervisor reads this file and nothing else. */
+function emit(value: unknown): void {
+  writeFileSync(out!, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+async function main(): Promise<void> {
+  const allFiles = corpusFiles(checkout!, CONFIG_EXTENSION[config!]);
+  const provider =
+    process.argv.includes('--answer-arm') && process.env['DEEPSEEK_API_KEY']
+      ? new DeepSeekProvider({ timeout: 45_000 })
+      : null;
+
+  try {
+    const scored = await measureInstance({ row, checkout: checkout!, allFiles, provider });
+    emit({ row: scored });
+    console.log(
+      `LCA-INSTANCE ${config!} id=${String(row.id)} measured offered=${String(scored.offered)} ` +
+        `map=${scored.map.toFixed(4)} outside=${String(scored.outside)}`,
+    );
+  } catch (error) {
+    // **A repository the analyser cannot read is a fact about the repository**, and it is published as a refused row
+    // rather than as a missing one: the difference between "this instance scored nothing" and "this instance was never
+    // examined" is the difference between a figure and a hole.
+    const message = error instanceof Error ? error.message.split('\n')[0] : String(error);
+    emit({
+      row: skippedRow({
+        id: row.id,
+        repo: `${row.repo_owner}/${row.repo_name}`,
+        corpusFiles: allFiles.length,
+        expectedFiles: row.changed_files.length,
+        because: `the analysis failed: ${String(message)}`,
+      }),
+    });
+    console.log(`LCA-INSTANCE ${config!} id=${String(row.id)} analysis failed: ${String(message)}`);
+  }
+}
+
+// **A `catch` rather than an unhandled rejection**: a process that dies without writing a row is a row lost to a
+// reason nobody can read, which is exactly what this file exists to prevent.
+main().catch((error: unknown) => {
+  console.error(`lca-instance: ${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+});

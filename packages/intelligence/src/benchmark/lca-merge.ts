@@ -59,6 +59,12 @@ export interface LcaRowScore {
    * and the reader who greps for one of them finds nothing.
    */
   readonly retrieval: Readonly<Record<string, ArmMetrics>>;
+  /**
+   * Average precision over the retriever's own pool, **the column the published baselines report**.
+   *
+   * `0` on a skipped row, which is excluded from every mean by `skipped !== null` and never averaged as a zero.
+   */
+  readonly map: number;
   /** What the model cited, or `null` when no provider was present. */
   readonly answer: ArmMetrics | null;
 }
@@ -78,6 +84,18 @@ export interface LanguagePart {
     readonly mbPerFile: number;
     readonly reserveMb: number;
     readonly budgetMs: number;
+    /**
+     * The resident ceiling a single instance's process may reach, **enforced by the supervisor**.
+     *
+     * Iteration 69 added this because every earlier bound was a statement about the machine while the analysis runs in
+     * a process: `memoryFiles` was computed from sixteen gigabytes of runner and the process holding the result was
+     * capped at four gigabytes of heap.
+     */
+    readonly instanceRssCapMb: number;
+    /** The child's own heap flag, so a heap exhaustion is a named error rather than a kill. */
+    readonly instanceHeapMb: number;
+    /** How long one instance may run. */
+    readonly instanceTimeoutMs: number;
   };
   readonly space: { readonly semantic: boolean; readonly reason: string };
   readonly configuration: Record<string, unknown>;
@@ -92,6 +110,30 @@ export interface ArmAggregate extends ArmScore {
   readonly skipped: number;
 }
 
+/** A row that was not measured, **with the sentence that refused it** - the two are written together or not at all. */
+export function skippedRow(input: {
+  id: number;
+  repo: string;
+  corpusFiles: number;
+  expectedFiles: number;
+  because: string;
+}): LcaRowScore {
+  return {
+    id: input.id,
+    repo: input.repo,
+    corpusFiles: input.corpusFiles,
+    expectedFiles: input.expectedFiles,
+    expectedOutside: 0,
+    offered: 0,
+    outside: 0,
+    offeredPaths: [],
+    skipped: input.because,
+    retrieval: {},
+    map: 0,
+    answer: null,
+  };
+}
+
 /** A cut's worth of an arm, plus what the sample size was. */
 export interface LanguageSummary {
   readonly config: string;
@@ -99,7 +141,28 @@ export interface LanguageSummary {
   readonly measured: number;
   readonly skipped: number;
   readonly retrieval: Readonly<Record<string, ArmScore>>;
+  /** Mean average precision over the instances that produced one, `null` when none did. */
+  readonly map: MapScore | null;
   readonly answer: ArmScore | null;
+}
+
+/** Mean average precision, with the count it was averaged over. **A mean over none is not a score.** */
+export interface MapScore {
+  readonly rows: number;
+  readonly value: number;
+}
+
+/**
+ * Average one column over the rows that produced it.
+ *
+ * **A skipped row has no ranking**, so it is excluded rather than counted as zero: a zero that means "the runner
+ * refused this instance" and a zero that means "the retriever found nothing" are different facts, and only the second
+ * belongs in a mean.
+ */
+export function mapScore(rows: readonly LcaRowScore[]): MapScore | null {
+  const measured = rows.filter((row) => row.skipped === null);
+  if (measured.length === 0) return null;
+  return { rows: measured.length, value: mean(measured.map((row) => row.map)) };
 }
 
 /**
@@ -151,6 +214,7 @@ export function summarisePart(part: LanguagePart, cuts: readonly number[]): Lang
     measured: measured.length,
     skipped: part.rows.length - measured.length,
     retrieval: retrievalOf(measured, cuts),
+    map: mapScore(measured),
     answer: part.answerArm ? armScore(measured, (row) => row.answer) : null,
   };
 }
@@ -163,6 +227,7 @@ export interface Combined {
     readonly measured: number;
     readonly skipped: number;
     readonly retrieval: Readonly<Record<string, ArmScore>>;
+    readonly map: MapScore | null;
     readonly answer: ArmScore | null;
   };
   /** Each part on its own, keyed by its configuration, so a reader can see which language moved. */
@@ -194,6 +259,7 @@ export function combineParts(parts: readonly LanguagePart[], cuts: readonly numb
       measured: measured.length,
       skipped: allRows.length - measured.length,
       retrieval: retrievalOf(measured, cuts),
+      map: mapScore(measured),
       answer,
     },
     byLanguage,

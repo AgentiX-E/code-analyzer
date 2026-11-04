@@ -381,6 +381,47 @@ export function lcaQualityMetrics(
   };
 }
 
+/**
+ * Average precision of one ranked list, **which is the only column the published baselines report**.
+ *
+ * **Why this exists.** The corpus's own `quality_metrics.py` scores a *set* at a fixed cut, and the paper's baseline
+ * table does not: it reports **MAP** - `GTE` 0.33, `Mistral` 0.30, `TF-IDF` 0.27, `BM25` below 0.25, `GPT-4` 0.39 - so
+ * a figure of ours at `k = 10` cannot be placed beside any of them without a conversion somebody invented. This is that
+ * conversion written once, as the textbook definition: the mean, over the ranks where a relevant file was found, of the
+ * precision at that rank, divided by the number of relevant files.
+ *
+ * **The denominator is every relevant file, not the ones inside the answer space.** A `changed_files` entry whose
+ * extension the configuration excludes can never be ranked, so it lowers average precision the same way it lowers
+ * recall - and reporting AP against a smaller denominator than recall uses would make the two columns disagree about
+ * what the same instance was worth.
+ *
+ * **`depth` is stated by the caller and published with the figure.** This product's retriever returns a bounded pool
+ * (two hundred candidates), so AP is computed over that pool rather than over the repository; a list cut short can only
+ * *lose* credit, which makes the figure a floor rather than an estimate, and the artifact says so where the column is
+ * defined rather than in a footnote a reader has to find.
+ */
+export function averagePrecision(
+  ranked: readonly string[],
+  expected: readonly string[],
+  depth: number,
+): number {
+  const relevant = new Set(expected);
+  if (relevant.size === 0) return 0;
+  const limit = Math.min(ranked.length, Math.max(0, depth));
+  let hits = 0;
+  let sum = 0;
+  for (let index = 0; index < limit; index += 1) {
+    const file = ranked[index];
+    // **`undefined` is unreachable here** because `index < limit <= ranked.length`; written as a guard rather than a
+    // non-null assertion so that the branch is visible to the coverage report rather than hidden from it.
+    if (file === undefined) break;
+    if (!relevant.has(file)) continue;
+    hits += 1;
+    sum += hits / (index + 1);
+  }
+  return sum / relevant.size;
+}
+
 /** Mean of a numeric field over the rows that produced one. **Rounded to four places, as the corpus's tables are.** */
 export function mean(values: number[]): number {
   if (values.length === 0) return 0;

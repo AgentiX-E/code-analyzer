@@ -8,15 +8,15 @@
 //   Long Code Arena, bug localisation (Bogomolov et al., arXiv 2406.11612, NeurIPS 2024 D&B).
 //   "Given an issue with the bug description and the repository code in the state where the issue is
 //   reproducible, identify the files within the project that need to be modified."
-//   Dataset: huggingface.co/datasets/JetBrains-Research/lca-bug-localization (Apache-2.0).
-//   Metric: lca-baselines/bug_localization/src/baselines/metrics/quality_metrics.py, transcribed below unchanged.
+//   Dataset: huggingface.co/datasets/JetBrains-Research/lca-bug-localization (Apache-2.0), 50 instances per language.
+//   Metric: lca-baselines/bug_localization/src/baselines/metrics/quality_metrics.py, transcribed unchanged below.
 //
 // **Why this task and not another.** It is a natural-language question whose answer is a set of files in a real
 // repository, in three languages (Python, Java, Kotlin), which is the shape requirement 5 asks about; the ground truth
 // is the commit that fixed the issue, so nobody wrote it by hand; it needs no grader model, so the number does not move
-// when a vendor changes a model; and **its published baselines include BM25 and `filepath_imports`** - the second is
-// exactly the "give the model the paths and the import graph" strategy this project claims to improve on, so the
-// comparison is like for like rather than an argument.
+// when a vendor changes a model; and **the paper publishes MAP for six retrieval baselines and two chat configurations**
+// (`GTE` 0.33, `Mistral` 0.30, `TF-IDF` 0.27, `BM25` under 0.25, `GPT-4` 0.39), so the comparison is like for like
+// rather than an argument.
 //
 // **Two arms, both reported.**
 //
@@ -25,31 +25,28 @@
 // * `answer` - the file set the model cited, scored with the corpus's own metric. Only when a provider is present.
 //
 // **What is not claimed.** The published baselines read the *whole* repository in the context composer or name every
-// file path; this harness gives the model **the twelve blocks the retriever selected**, which is a different and much
-// smaller prompt. So the answer arm is not the `filepath_imports` configuration reproduced - it is this product's
+// file path; this harness gives the model **the blocks the retriever selected**, which is a different and much smaller
+// prompt. So the answer arm is not the `filepath_imports` configuration reproduced - it is this product's
 // configuration measured with the same ruler, and the artifact says so.
 //
 // **The corpus is never committed.** `LCA_DIR` points at a directory the workflow fills; without it this file skips,
 // because a measurement that silently ran on a stale copy would be a measurement of the copy.
 //
-// **One language split per `it()`, and that is a change of architecture rather than of style.** The job this file runs
-// in had never once finished: eleven attempts, all ending in `The runner has received a shutdown signal` and exit 143,
-// at a hundredth of the scope as well as at the full sample. The cause was measured rather than guessed - see
-// `MEASURED_MB_PER_FILE` in `benchmark/lca-instrument.ts`: an analysis of 568 files costs 2 088 MB of *resident* memory,
-// and V8 returns reclaimed heap pages to itself and not to the operating system, so a run costs the high-water mark of
-// every instance it has analysed. Three splits in one process was three times the accumulation. **Now the workflow runs
-// one job per language, each `it()` writes its own part of the artifact, and `lca-merge.ts` adds the parts up over rows
-// so the combined figure is the one a single run would have produced.** A language that dies now costs its own rows
-// instead of the whole figure.
+// **One instance, one process - and that is iteration 69's whole change.** This job had never produced a figure in
+// eleven attempts, and the sharded repair (one job per language) fixed two of the three languages: the Kotlin leg still
+// died on its first instance with `exit 143`, because the analysis of a thousand-file checkout outgrew the runner while
+// the analyser and the record lived in the same process. **The bounds were all statements about the machine** (`room`
+// was computed from the runner's 16 GB) while the process that had to hold the result was capped at four gigabytes of
+// heap and tree-sitter's trees are native memory no heap flag bounds. So the measurement is now orchestrated here and
+// executed by `scripts/lca-instance.ts`: the parent samples the child's resident set, kills it at a stated ceiling, and
+// records the row as refused with the number that refused it. **A kill costs one row, and resident memory stops
+// accumulating** - which is also what lets a language be measured over more instances than before.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
-import { totalmem } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { totalmem, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
-import { getDefaultConfig } from '@code-analyzer/core';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -62,22 +59,15 @@ import {
   checkoutFileCount,
   corpusFiles,
   decideInstance,
-  dedupePreservingOrder,
-  lcaQualityMetrics,
   limitedTotalMb,
   mean,
-  outsideUniverse,
   parseLanguages,
-  restrictToUniverse,
-  toCorpusPath,
 } from '../benchmark/lca-instrument.js';
-import { summarisePart } from '../benchmark/lca-merge.js';
-import { askCodebase } from '../qa/ask.js';
-import { DeepSeekProvider } from '../review/llm/provider.js';
-import { HybridSearchEngine } from '../search/hybrid-search.js';
+import { skippedRow, summarisePart } from '../benchmark/lca-merge.js';
+import { readResidentMb, superviseInstance } from '../benchmark/lca-supervisor.js';
 
-import type { ArmMetrics, LcaRowScore, LanguagePart } from '../benchmark/lca-merge.js';
-import type { PipelineContext } from '@code-analyzer/shared';
+import type { LcaCorpusRow } from '../benchmark/lca-measure.js';
+import type { LcaRowScore, LanguagePart } from '../benchmark/lca-merge.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -107,19 +97,19 @@ if (CORPUS_DIR !== undefined && LANGUAGES.length === 0) {
 /**
  * How many instances of one language split to measure. **Twelve by default, and the part states it.**
  *
- * The published protocol is the whole test split - hundreds of instances per language - and **each instance needs its
- * own checkout of its own repository at its own commit**, then a full analysis of that checkout. **Twelve is what one
+ * The published protocol is the whole test split - fifty instances per language - and **each instance needs its own
+ * checkout of its own repository at its own commit**, then a full analysis of that checkout. **Twelve is what one
  * runner finishes**; the row count is recorded beside every figure, and every instance the bounds refused is recorded
  * with the sentence that refused it, so the sample is smaller than the protocol rather than pretending to be it.
  */
-const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '8', 10);
+const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '12', 10);
 
 /**
  * The hard ceiling on a checkout, in files. **A stated cap, because an unbounded instrument measures nothing.**
  *
- * The bound that actually bites is the memory one ({@link analysableFileBudget}), which shrinks as the run accumulates
- * resident pages; this number is the promise to the reader that no instance above it is measured even on a huge runner.
- * Both are recorded in the part, and a skipped row quotes whichever refused it.
+ * The bound that actually bites is the memory one ({@link analysableFileBudget}), computed from the ceiling a single
+ * instance may reach; this number is the promise to the reader that no instance above it is measured even on a huge
+ * runner. Both are recorded in the part, and a skipped row quotes whichever refused it.
  */
 const FILE_CAP = Number.parseInt(process.env['LCA_MAX_FILES'] ?? '2000', 10);
 
@@ -141,28 +131,16 @@ const MIRROR_DIR = process.env['LCA_GIT_MIRROR'];
  * Whether the answer arm runs. **Off unless asked for.**
  *
  * It costs one completion per instance against a real endpoint, and a completion that reaches its timeout costs the
- * whole budget - thirty-six of those is most of an hour spent on the slower half of the same measurement. The retrieval
- * arm needs no model, is deterministic to the digit, and is the arm the published baselines are comparable with.
+ * whole budget. The retrieval arm needs no model, is deterministic to the digit, and is the arm the published baselines
+ * are comparable with.
  */
 const ANSWER_ARM = process.env['LCA_ANSWER_ARM'] === '1';
-/** The cuts the retrieval arm reports. **Fixed in advance**, because a cut chosen after seeing the answer is a fit. */
-const CUTS = [1, 3, 5, 10] as const;
+
 /** What a checkout is allowed to take before the row is reported as skipped rather than failed. */
 const FETCH_TIMEOUT_MS = 240_000;
 
-interface LcaRow {
-  id: number;
-  text_id: string;
-  repo_owner: string;
-  repo_name: string;
-  base_sha: string;
-  issue_title: string;
-  issue_body: string;
-  changed_files: string[];
-}
-
 // ---------------------------------------------------------------------------
-// The machine
+// The machine, and the ceiling a single instance may reach
 // ---------------------------------------------------------------------------
 
 /** The memory this job may spend, in megabytes, **read from the cgroup when there is one**. */
@@ -184,12 +162,34 @@ const TOTAL_MB = machineTotalMb();
 
 const residentMb = (): number => Math.round(process.memoryUsage().rss / 1_048_576);
 
+/**
+ * The resident set one instance may reach, in megabytes.
+ *
+ * **This is the correction the failed Kotlin leg taught, expressed as a number.** The old bound subtracted the reserve
+ * from the *runner's* memory - sixteen gigabytes on a public runner - and promised an analysis of four thousand files
+ * to a process whose heap was capped at four gigabytes, while tree-sitter's trees live outside the heap entirely. The
+ * ceiling is now stated for the instance, enforced by the supervisor, and never larger than what the machine has left.
+ */
+const INSTANCE_RSS_CAP_MB = Math.max(
+  1024,
+  Math.min(
+    TOTAL_MB - RUNNER_RESERVE_MB,
+    Number.parseInt(process.env['LCA_INSTANCE_RSS_MB'] ?? '6144', 10),
+  ),
+);
+
+/** The child's own heap cap. **Smaller than the resident ceiling**, so a heap exhaustion names itself before the kill. */
+const INSTANCE_HEAP_MB = Number.parseInt(process.env['LCA_INSTANCE_HEAP_MB'] ?? '3072', 10);
+
+/** How long one instance may run. **A job with twelve instances cannot spend the whole budget on one.** */
+const INSTANCE_TIMEOUT_MS = Number.parseInt(process.env['LCA_INSTANCE_TIMEOUT_MS'] ?? '900000', 10);
+
 // ---------------------------------------------------------------------------
 // Checkouts
 // ---------------------------------------------------------------------------
 
 /** A checkout at one commit, fetched shallowly. **Cached per repository**, because a split reuses repositories. */
-function ensureCheckout(cacheRoot: string, row: LcaRow): string | null {
+function ensureCheckout(cacheRoot: string, row: LcaCorpusRow): string | null {
   const repoDir = join(cacheRoot, `${row.repo_owner}__${row.repo_name}`);
   const git = (args: string[], cwd: string): void => {
     execFileSync('git', args, {
@@ -215,7 +215,7 @@ function ensureCheckout(cacheRoot: string, row: LcaRow): string | null {
     }
     // **The commit, not the branch**: the corpus records the state in which the issue is reproducible, and a tag that
     // moved is a different repository.
-    git(['fetch', '--quiet', '--depth', '1', 'origin', row.base_sha], repoDir);
+    git(['fetch', '--quiet', '--depth', '1', 'origin', row.base_sha ?? 'HEAD'], repoDir);
     git(['checkout', '--quiet', '--force', 'FETCH_HEAD'], repoDir);
     return repoDir;
   } catch {
@@ -223,151 +223,15 @@ function ensureCheckout(cacheRoot: string, row: LcaRow): string | null {
   }
 }
 
-// ---------------------------------------------------------------------------
-// The measurement
-// ---------------------------------------------------------------------------
-
-/** The seven figures, from the authors' metric. */
-function metricsOf(allFiles: string[], expected: string[], actual: string[]): ArmMetrics {
-  const score = lcaQualityMetrics(allFiles, expected, actual);
-  return {
-    precision: score.precision,
-    recall: score.recall,
-    f1: score.f1,
-    fpr: score.fpr,
-    allCorrect: score.allCorrect,
-    atLeastOneCorrect: score.atLeastOneCorrect,
-    allIncorrect: score.allIncorrect,
-  };
-}
-
-/** A row that was not measured, **with the sentence that refused it** - the two are written together or not at all. */
-function skippedRow(row: LcaRow, corpusFileCount: number, because: string): LcaRowScore {
-  return {
-    id: row.id,
-    repo: `${row.repo_owner}/${row.repo_name}`,
-    corpusFiles: corpusFileCount,
-    expectedFiles: row.changed_files.length,
-    expectedOutside: 0,
-    offered: 0,
-    outside: 0,
-    offeredPaths: [],
-    skipped: because,
-    retrieval: {},
-    answer: null,
-  };
-}
-
-/** Analyse one checkout, ask the question, and score both arms. **The only place the product is exercised.** */
-async function measureOne(
-  row: LcaRow,
-  checkout: string,
-  allFiles: string[],
-  provider: DeepSeekProvider | null,
-): Promise<LcaRowScore> {
-  const ctx = {
-    projectId: `${row.repo_owner}/${row.repo_name}`,
-    rootPath: checkout,
-    config: getDefaultConfig(),
-    signal: new AbortController().signal,
-    metadata: {},
-  } as unknown as PipelineContext;
-
-  const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(ctx);
-  const store = new InMemoryGraphStore();
-  const storeIdOf = new Map<number, number>();
-  for (const node of pipeline.graph.nodes.values()) {
-    storeIdOf.set(node.id, store.insertNode(node));
-  }
-  for (const edge of pipeline.graph.edges.values()) {
-    const source = storeIdOf.get(edge.sourceId);
-    const target = storeIdOf.get(edge.targetId);
-    if (source === undefined || target === undefined) continue;
-    store.insertEdge({
-      projectId: edge.projectId,
-      sourceId: source,
-      targetId: target,
-      type: edge.type,
-      properties: edge.properties,
-      weight: edge.weight,
-    });
-  }
-
-  const search = new HybridSearchEngine(store);
-  search.initialize();
-
-  // **The budget is stated rather than inherited from a default.** Forty blocks is what a caller asking for evidence
-  // gets, and a candidate pool of two hundred is what makes the cuts at three, five and ten different from each other
-  // instead of three views of the same four files. Both numbers are recorded in the part, because a figure measured
-  // under an unstated budget is a figure about the budget.
-  const question = `${row.issue_title}\n\n${row.issue_body}`.trim();
-  const result = await askCodebase({
-    question,
-    store,
-    search,
-    ...(provider ? { provider } : {}),
-    options: {
-      generate: Boolean(provider),
-      rerank: Boolean(provider),
-      maxBlocks: 40,
-      retrieveLimit: 200,
-    },
-  });
-
-  // **The two halves of this comparison are recorded in different coordinate systems, and the first published run of
-  // this instrument scored 0.0000 in three languages because of it.** The pipeline writes `filePath` as an absolute
-  // path - it is given a root and it joins - while the corpus records `changed_files` as repository-relative, so the
-  // set intersection was empty on every instance and the figure was a property of the units rather than of the
-  // retriever. `toCorpusPath` is the conversion and it has its own tests.
-  //
-  // **The second conversion is the answer space.** The corpus counts the non-test files of the configuration's
-  // extension and the published baselines rank exactly that set, so a `History.md` our retriever offers is not a
-  // candidate that lost - it was never in the running. Restricting to that set is a filter that preserves the
-  // retriever's order, and the count of what it removed is published beside the figure rather than dropped.
-  const universe = new Set(allFiles);
-  const offeredRaw = dedupePreservingOrder(
-    result.retrievedFiles.map((file) => toCorpusPath(checkout, file)),
-  );
-  const candidates = restrictToUniverse(offeredRaw, universe);
-  const answered = restrictToUniverse(
-    result.files.map((file) => toCorpusPath(checkout, file)),
-    universe,
-  );
-
-  const retrieval: Record<string, ArmMetrics> = {};
-  for (const cut of CUTS) {
-    retrieval[`at${String(cut)}`] = metricsOf(
-      allFiles,
-      row.changed_files,
-      candidates.slice(0, cut),
-    );
-  }
-
-  store.close();
-
-  return {
-    id: row.id,
-    repo: `${row.repo_owner}/${row.repo_name}`,
-    corpusFiles: allFiles.length,
-    expectedFiles: row.changed_files.length,
-    expectedOutside: row.changed_files.filter((file) => !universe.has(file)).length,
-    offered: candidates.length,
-    outside: outsideUniverse(offeredRaw, universe),
-    offeredPaths: offeredRaw.slice(0, 10),
-    skipped: null,
-    retrieval,
-    answer: provider ? metricsOf(allFiles, row.changed_files, answered) : null,
-  };
-}
-
 /** The configuration every part carries, so the merged artifact can state it once. */
-function configurationOf(provider: DeepSeekProvider | null): Record<string, unknown> {
+function configurationOf(answerArm: boolean): Record<string, unknown> {
   return {
     maxBlocks: 40,
     retrieveLimit: 200,
     excerptChars: null,
-    rerank: Boolean(provider),
-    generate: Boolean(provider),
+    rerank: answerArm,
+    generate: answerArm,
+    mapDepth: 200,
     note:
       'The context budget the measurement asked for. **Stated because a figure measured under an unstated budget ' +
       'is a figure about the budget**: a pool of twenty candidates makes the cuts at three, five and ten into ' +
@@ -378,6 +242,8 @@ function configurationOf(provider: DeepSeekProvider | null): Record<string, unkn
       "Candidates are restricted to the corpus's answer space - non-test files of the configuration's extension, " +
         "which is the set the published baselines rank. **The filter preserves the retriever's order** and the " +
         'count it removed is in every row as `outside`.',
+      'Average precision reads the first two hundred candidates, which is the pool the product returns. **A shorter ' +
+        'list can only lose credit**, so the MAP column is a floor rather than an estimate.',
     ],
   };
 }
@@ -388,27 +254,20 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       const root = CORPUS_DIR!;
       const cacheRoot = join(root, 'checkouts');
       mkdirSync(cacheRoot, { recursive: true });
+      // **Rows live outside the artifact directory**: they are the interface between this file and the child, not a
+      // published figure, and the workflow uploads `benchmarks/lca-parts/` whole.
+      const rowsDir = mkdtempSync(join(tmpdir(), 'lca-rows-'));
 
       const startedAt = Date.now();
-      const provider =
-        CAN_ASK_A_MODEL && ANSWER_ARM ? new DeepSeekProvider({ timeout: 45_000 }) : null;
+      const answerArm = CAN_ASK_A_MODEL && ANSWER_ARM;
       const splitFile = join(root, config, 'test.jsonl');
-      const rows: LcaRow[] = existsSync(splitFile)
+      const rows: LcaCorpusRow[] = existsSync(splitFile)
         ? readFileSync(splitFile, 'utf8')
             .split('\n')
             .filter((line) => line.trim().length > 0)
-            .map((line) => JSON.parse(line) as LcaRow)
+            .map((line) => JSON.parse(line) as LcaCorpusRow)
             .slice(0, ROW_LIMIT)
         : [];
-
-      // **The bound at the start of the part**, recorded rather than recomputed later, because a reader comparing
-      // `measured` against `capFiles` needs to know what the machine could afford when the job began.
-      const memoryFilesAtStart = analysableFileBudget({
-        totalMb: TOTAL_MB,
-        residentMb: residentMb(),
-        reserveMb: RUNNER_RESERVE_MB,
-        mbPerFile: MEASURED_MB_PER_FILE,
-      });
 
       const scores: LcaRowScore[] = [];
 
@@ -416,27 +275,34 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         config,
         measuredAt: new Date().toISOString(),
         rowLimit: ROW_LIMIT,
-        answerArm: provider !== null,
+        answerArm,
         bounds: {
           capFiles: FILE_CAP,
-          memoryFiles: memoryFilesAtStart,
+          memoryFiles: analysableFileBudget({
+            totalMb: INSTANCE_RSS_CAP_MB,
+            residentMb: 0,
+            reserveMb: 0,
+            mbPerFile: MEASURED_MB_PER_FILE,
+          }),
           mbPerFile: MEASURED_MB_PER_FILE,
           reserveMb: RUNNER_RESERVE_MB,
           budgetMs: BUDGET_MS,
+          instanceRssCapMb: INSTANCE_RSS_CAP_MB,
+          instanceHeapMb: INSTANCE_HEAP_MB,
+          instanceTimeoutMs: INSTANCE_TIMEOUT_MS,
         },
         space: {
           semantic: false,
           reason:
             'the indexing pipeline was run without an embedding backend in this job, so the fused list is the lexical list',
         },
-        configuration: configurationOf(provider),
+        configuration: configurationOf(answerArm),
         rows: [...scores],
       });
 
-      // **Written after every instance rather than at the end, because the end is what a killed process does not reach.**
-      // A part that only exists once the loop finishes is a part that eleven runs of this job never wrote; a part that
-      // exists after each row survives a worker that exhausts its heap, and the rows the loop never reached are simply
-      // absent from `rows` rather than the whole measurement being absent from the artifact.
+      // **Written after every instance rather than at the end, because the end is what a killed process does not
+      // reach.** A part that only exists once the loop finishes is a part that eleven runs of this job never wrote; a
+      // part that exists after each row survives a child that is killed at its ceiling.
       const writePart = (): void => {
         const recorded = recordArtifact(`benchmarks/lca-parts/${config}.json`, partOf());
         if (!recorded.written) {
@@ -448,27 +314,42 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       for (const row of rows) {
         const checkout = ensureCheckout(cacheRoot, row);
         if (checkout === null || !existsSync(join(checkout, '.git'))) {
-          scores.push(skippedRow(row, 0, 'the commit could not be fetched'));
+          scores.push(
+            skippedRow({
+              id: row.id,
+              repo: `${row.repo_owner}/${row.repo_name}`,
+              corpusFiles: 0,
+              expectedFiles: row.changed_files.length,
+              because: 'the commit could not be fetched',
+            }),
+          );
           continue;
         }
         if (statSync(checkout).size === 0) {
-          scores.push(skippedRow(row, 0, 'the checkout is empty'));
+          scores.push(
+            skippedRow({
+              id: row.id,
+              repo: `${row.repo_owner}/${row.repo_name}`,
+              corpusFiles: 0,
+              expectedFiles: row.changed_files.length,
+              because: 'the checkout is empty',
+            }),
+          );
           continue;
         }
 
         const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
         // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
-        // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the
-        // whole directory is what took the runner down six minutes later. The pipeline is handed the directory, so
-        // the directory is what has to be bounded.
+        // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
+        // directory is what took the runner down six minutes later.
         const walked = checkoutFileCount(checkout);
         const resident = residentMb();
         const bounds = {
           capFiles: FILE_CAP,
           budgetFiles: analysableFileBudget({
-            totalMb: TOTAL_MB,
-            residentMb: resident,
-            reserveMb: RUNNER_RESERVE_MB,
+            totalMb: INSTANCE_RSS_CAP_MB,
+            residentMb: 0,
+            reserveMb: 0,
             mbPerFile: MEASURED_MB_PER_FILE,
           }),
           elapsedMs: Date.now() - startedAt,
@@ -477,48 +358,90 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           reserveMb: RUNNER_RESERVE_MB,
         };
         const verdict = decideInstance(walked, bounds);
+        const repo = `${row.repo_owner}/${row.repo_name}`;
 
-        // **One line per instance, and it carries the three numbers that decide the next one** - resident memory, the
-        // room that leaves, and the time spent. A killed process leaves this line written (`stdbuf -oL` in the
-        // workflow), so the next failure is a location rather than a mystery: eleven runs of this job died with a
-        // block-buffered log that showed the vitest banner and nothing else.
+        // **One line per instance, and it carries the numbers that decide the next one** - the parent's resident set,
+        // the ceiling a child may reach, and the time spent. A killed process leaves this line written (`stdbuf -oL`
+        // in the workflow), so the next failure is a location rather than a mystery.
         // eslint-disable-next-line no-console -- the workflow greps this, and a killed process needs it written.
         console.log(
-          `LCA-INSTANCE ${config} id=${String(row.id)} ${row.repo_owner}/${row.repo_name} ` +
-            `files=${String(allFiles.length)} walked=${String(walked)} rss=${String(resident)}MB ` +
+          `LCA-INSTANCE ${config} id=${String(row.id)} ${repo} files=${String(allFiles.length)} ` +
+            `walked=${String(walked)} parentRss=${String(resident)}MB ceiling=${String(INSTANCE_RSS_CAP_MB)}MB ` +
             `room=${String(bounds.budgetFiles)} underCap=${String(FILE_CAP)} ` +
             `estimate=${String(walked * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
             `${verdict.analyse ? 'measuring' : 'skipped'}`,
         );
 
         if (!verdict.analyse) {
-          scores.push(skippedRow(row, allFiles.length, verdict.because));
+          scores.push(
+            skippedRow({
+              id: row.id,
+              repo,
+              corpusFiles: allFiles.length,
+              expectedFiles: row.changed_files.length,
+              because: verdict.because,
+            }),
+          );
           continue;
         }
 
-        const startedMeasuring = Date.now();
-        try {
-          scores.push(await measureOne(row, checkout, allFiles, provider));
-          // eslint-disable-next-line no-console -- per-instance cost, so a slow instance is visible before it kills the job.
-          console.log(
-            `LCA-INSTANCE ${config} id=${String(row.id)} analysed in ${String(Date.now() - startedMeasuring)}ms ` +
-              `rss=${String(residentMb())}MB`,
-          );
-        } catch (error) {
-          // **An analysis that throws is a skipped row, not a lost part.** The pipeline reads and parses every file in
-          // the checkout, and a file it cannot handle is a fact about that repository; the row records the first line
-          // of what it said, which is the line that names the defect.
-          const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
-          scores.push(skippedRow(row, allFiles.length, `the analysis failed: ${String(reason)}`));
-          // eslint-disable-next-line no-console -- a failure that is not printed is a failure that is retried blindly.
-          console.log(
-            `LCA-INSTANCE ${config} id=${String(row.id)} analysis failed: ${String(reason)}`,
+        const rowFile = join(rowsDir, `${config}-${String(row.id)}.json`);
+        const outFile = join(rowsDir, `${config}-${String(row.id)}.row.json`);
+        writeFileSync(rowFile, JSON.stringify(row), 'utf8');
+
+        const outcome = await superviseInstance({
+          command: 'npx',
+          args: [
+            'tsx',
+            'scripts/lca-instance.ts',
+            '--config',
+            config,
+            '--checkout',
+            checkout,
+            '--row',
+            rowFile,
+            '--out',
+            outFile,
+            ...(answerArm ? ['--answer-arm'] : []),
+          ],
+          outFile,
+          rssCapMb: INSTANCE_RSS_CAP_MB,
+          timeoutMs: INSTANCE_TIMEOUT_MS,
+          // **The workspace imports resolve through a tsconfig, and the child is told which one.** Without it tsx reads
+          // each package's `main`, which points at a `dist/` this job does not build: the harness would then measure a
+          // build older than the commit that triggered it. The heap flag is the child's own ceiling, stated so that a
+          // heap exhaustion names itself before the supervisor's kill.
+          env: {
+            NODE_OPTIONS: `--max-old-space-size=${String(INSTANCE_HEAP_MB)}`,
+            TSX_TSCONFIG_PATH: 'tsconfig.tests.json',
+          },
+        });
+
+        if (outcome.kind === 'row') {
+          scores.push(outcome.row);
+        } else {
+          // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
+          // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
+          scores.push(
+            skippedRow({
+              id: row.id,
+              repo,
+              corpusFiles: allFiles.length,
+              expectedFiles: row.changed_files.length,
+              because: outcome.because,
+            }),
           );
         }
+
+        // eslint-disable-next-line no-console -- per-instance cost, so a slow instance is visible before it is killed.
+        console.log(
+          `LCA-INSTANCE ${config} id=${String(row.id)} ${outcome.kind} in ${String(outcome.ms)}ms ` +
+            `peakRss=${String(outcome.peakRssMb)}MB parentRss=${String(residentMb())}MB`,
+        );
         writePart();
       }
 
-      const summary = summarisePart(partOf(), CUTS);
+      const summary = summarisePart(partOf(), [1, 3, 5, 10]);
       const at10 = summary.retrieval['at10']!;
       // The summary line **is** the interface: the workflow greps it into the job summary.
       // eslint-disable-next-line no-console
@@ -526,6 +449,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         `LCA-PART ${config} measured=${String(summary.measured)}/${String(summary.rows)} ` +
           `retrieval@10 P=${String(at10.precision)} R=${String(at10.recall)} F1=${String(at10.f1)} ` +
           `retrieval@1 R=${String(summary.retrieval['at1']!.recall)} ` +
+          `map=${summary.map === null ? 'none' : String(summary.map.value)} ` +
           `offered=${String(
             mean(scores.filter((score) => score.skipped === null).map((score) => score.offered)),
           )} ` +
@@ -537,11 +461,13 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
 
       // **What this file can claim on its own**: it examined the split's rows and wrote a part that says what it
       // measured and what the bounds refused. **Whether the figure is good, and whether one exists at all, is the
-      // gate's question** - `scripts/lca-gate.js` requires a measured instance and refuses a mean over none. A test
-      // that failed when every instance was skipped would report a *bound* as a broken harness, and the two want
-      // different fixes.
+      // gate's question** - `scripts/lca-gate.js` requires a measured instance and refuses a mean over none.
       expect(scores.length).toBeGreaterThan(0);
       expect(summary.rows).toBe(scores.length);
+      // **The parent must not be where the memory went.** A child per instance is only worth its cost if the process
+      // that orchestrates stays small; this is the assertion that says the architecture did what it claims.
+      expect(residentMb()).toBeLessThan(INSTANCE_RSS_CAP_MB);
+      expect(readResidentMb(process.pid)).toBeGreaterThan(0);
     }, 3_600_000);
   }
 });

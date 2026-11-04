@@ -34,6 +34,75 @@ const PARTS_DIR = argumentOf('--parts', 'benchmarks/lca-parts');
 const OUT = argumentOf('--out', 'benchmarks/lca-bug-localization.json');
 const CUTS = [1, 3, 5, 10] as const;
 
+/**
+ * The published MAP table, **transcribed from the paper with the protocol it was measured under**.
+ *
+ * Retrieval baselines rank every file in the repository by cosine distance; the chat baselines name one to five files
+ * from the issue and the whole path list. This product's single arm is a hybrid retriever over an indexed repository,
+ * which is the retrieval shape - so the retrieval rows are the ones a reader should compare against, and the chat rows
+ * are here because the table is public and leaving out the row that beats everything would be the dishonest edit.
+ */
+const PUBLISHED_BASELINES = {
+  metric: 'MAP',
+  source: 'arXiv:2406.11612 §2.5 (Long Code Arena, NeurIPS 2024 D&B)',
+  conditions: {
+    instancesPerLanguage: 50,
+    languages: ['py', 'java', 'kt'],
+    note:
+      'Retrieval baselines rank every file in the repository by cosine distance; the chat baselines name 1-5 files ' +
+      'from the issue and the whole path list, chunked when it does not fit the context.',
+  },
+  rows: [
+    { name: 'GPT-4 (chat)', map: 0.39, kind: 'chat' },
+    { name: 'GTE (embedding)', map: 0.33, kind: 'retrieval' },
+    { name: 'Mistral (embedding)', map: 0.3, kind: 'retrieval' },
+    { name: 'TF-IDF (BPE)', map: 0.27, kind: 'retrieval' },
+    // **A bound rather than a figure**: the paper says "lower than 0.25" for the rest, BM25 among them.
+    { name: 'BM25 and the remaining models', map: 0.25, kind: 'retrieval', bound: 'below' },
+  ],
+} as const;
+
+/**
+ * Where this measurement stands in that table, **as a rank over the published rows plus the caveats that bound it**.
+ *
+ * **The rank is computed from the numbers and not from a sentence**, because the previous version of this comparison
+ * lived in prose and drifted: a figure moved, the sentence did not. The caveats travel with it, so a reader who quotes
+ * the rank has to quote the conditions with it.
+ */
+function comparisonOf(ours: number | null): Record<string, unknown> {
+  if (ours === null) {
+    return {
+      metric: PUBLISHED_BASELINES.metric,
+      ours: null,
+      rank: null,
+      why: 'no instance produced an average precision, so there is nothing to place in the table',
+    };
+  }
+  const beaten = PUBLISHED_BASELINES.rows.filter((row) =>
+    'bound' in row ? ours >= row.map : ours > row.map,
+  ).length;
+  return {
+    metric: PUBLISHED_BASELINES.metric,
+    ours,
+    // **Rank 1 means nothing in the table is above us**; a bound row counts as beaten only when it is met.
+    rank: beaten,
+    of: PUBLISHED_BASELINES.rows.length,
+    beaten: PUBLISHED_BASELINES.rows
+      .filter((row) => ('bound' in row ? ours >= row.map : ours > row.map))
+      .map((row) => row.name),
+    notBeaten: PUBLISHED_BASELINES.rows
+      .filter((row) => ('bound' in row ? ours < row.map : ours <= row.map))
+      .map((row) => row.name),
+    caveats: [
+      'The published figures are over all fifty instances per split; this one is over the rows the runner reached, ' +
+        'and the measured count is beside it.',
+      "Average precision here reads the retriever's own pool of two hundred candidates, which can only lose credit.",
+      'The answer arm is not the chat baselines reproduced: it cites from the blocks the retriever selected rather ' +
+        'than from the whole path list.',
+    ],
+  };
+}
+
 function readParts(): { parts: LanguagePart[]; missing: string[]; malformed: string[] } {
   const parts: LanguagePart[] = [];
   const missing: string[] = [];
@@ -100,6 +169,13 @@ function main(): void {
       'system - three splits in one process was three times the accumulation, and that job never finished. **The',
       'combination is a mean over the pooled rows**, so it equals what a single run would have produced, and',
       '`byLanguage` shows which language moved.',
+      '',
+      '**The published baselines are a MAP table, so a MAP column is published beside the cuts.** The paper reports',
+      '`GTE` 0.33, `Mistral` 0.30, `TF-IDF` 0.27, `BM25` under 0.25 and `GPT-4` 0.39, averaged over the same',
+      'three splits - so `overall.map` is the only column here that can be placed beside them without a conversion',
+      'somebody invented. **Two differences are stated rather than smoothed**: their figures are over all fifty',
+      'instances per split and this one is over the rows a runner reached, and average precision here reads the',
+      "retriever's own pool of two hundred candidates, which can only lose credit.",
     ],
     dataset: {
       name: 'JetBrains-Research/lca-bug-localization',
@@ -108,6 +184,9 @@ function main(): void {
       licence: 'Apache-2.0',
       metricSource:
         'github.com/JetBrains-Research/lca-baselines · bug_localization/src/baselines/metrics/quality_metrics.py',
+      /** **Bogomolov et al. 2024, §2.5.** Transcribed with the sentence each number came from, because a table copied
+       * without its protocol is a table nobody can check. */
+      publishedBaselines: PUBLISHED_BASELINES,
     },
     measuredAt: new Date().toISOString().slice(0, 10),
     rowLimit,
@@ -127,9 +206,14 @@ function main(): void {
           parts.map((part) => [part.config, part.bounds.memoryFiles]),
         ),
         timeBudgetMs: first.bounds.budgetMs,
+        instanceRssCapMb: first.bounds.instanceRssCapMb,
+        instanceHeapMb: first.bounds.instanceHeapMb,
+        instanceTimeoutMs: first.bounds.instanceTimeoutMs,
         note:
           'An instance is skipped when its checkout is above the stated cap, above what the remaining memory allows, ' +
-          "or would end past the job's time budget; the row records which of the three refused it.",
+          "or would end past the job's time budget; the row records which of the three refused it. **A measured " +
+          'instance ran in its own process**, which is killed at `instanceRssCapMb` and `instanceTimeoutMs`, so a ' +
+          'refusal names the ceiling that fired rather than the runner disappearing.',
       },
     },
     answerArm: parts.some((part) => part.answerArm),
@@ -138,6 +222,8 @@ function main(): void {
     space: first.space,
     overall: combined.overall,
     byLanguage: combined.byLanguage,
+    /** **Where this figure stands against the published table**, computed rather than asserted. */
+    comparison: comparisonOf(combined.overall.map?.value ?? null),
     /** One entry per instance, so that a zero can be explained from the artifact alone. */
     rows: parts.flatMap((part) =>
       part.rows.map((row) => ({
@@ -150,6 +236,7 @@ function main(): void {
         offered: row.offered,
         outside: row.outside,
         offeredPaths: row.offeredPaths,
+        map: row.map,
         skipped: row.skipped,
       })),
     ),
@@ -162,16 +249,27 @@ function main(): void {
 
   const at10 = combined.overall.retrieval['at10']!;
   const at1 = combined.overall.retrieval['at1']!;
+  const oursMap = combined.overall.map;
   const summary =
     `LCA-BUG-LOC rows=${String(combined.overall.measured)}/${String(combined.overall.rows)} ` +
     `parts=${parts.map((part) => part.config).join('+')}` +
     `${missing.length > 0 ? ` missing=${missing.join(',')}` : ''} ` +
     `retrieval@10 P=${String(at10.precision)} R=${String(at10.recall)} F1=${String(at10.f1)} ` +
     `retrieval@1 R=${String(at1.recall)} ` +
+    `map=${oursMap === null ? 'none' : String(oursMap.value)} ` +
     (combined.overall.answer === null
       ? 'answer=none'
       : `answer F1=${String(combined.overall.answer.f1)}`);
   console.log(summary);
+  if (oursMap !== null) {
+    // **The comparison as a line a reader can quote**, with the count it rests on beside it and the best published row
+    // named, so the rank is not the only thing that travels.
+    const best = PUBLISHED_BASELINES.rows.reduce((a, b) => (b.map > a.map ? b : a));
+    console.log(
+      `LCA-MAP ours=${String(oursMap.value)} rows=${String(oursMap.rows)} ` +
+        `bestPublished=${best.name}@${String(best.map)} of=${String(PUBLISHED_BASELINES.rows.length)}`,
+    );
+  }
   const stepSummary = process.env['GITHUB_STEP_SUMMARY'];
   if (stepSummary !== undefined && stepSummary !== '') {
     appendFileSync(stepSummary, `\n${summary}\n`);
@@ -184,7 +282,8 @@ function main(): void {
     console.log(
       `LCA-LANGUAGE ${config} measured=${String(language.measured)}/${String(language.rows)} ` +
         `R@10=${String(languageAt10 === undefined ? 0 : languageAt10.recall)} ` +
-        `F1@10=${String(languageAt10 === undefined ? 0 : languageAt10.f1)}`,
+        `F1@10=${String(languageAt10 === undefined ? 0 : languageAt10.f1)} ` +
+        `map=${language.map === null ? 'none' : String(language.map.value)}`,
     );
   }
 }
