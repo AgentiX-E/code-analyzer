@@ -57,6 +57,7 @@ import {
   RUNNER_RESERVE_MB,
   analysableFileBudget,
   checkoutFileCount,
+  checkoutBytes,
   corpusBytes,
   corpusFiles,
   decideInstance,
@@ -378,6 +379,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           // replaced by a fit against exactly this number: a refusal that does not record what the instance would have
           // cost leaves the next iteration arguing about the rule instead of computing a better one.
           const refusedSize = corpusBytes(checkout, allFiles);
+          const refusedWalked = checkoutBytes(checkout);
           scores.push(
             skippedRow({
               id: row.id,
@@ -387,6 +389,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               because: verdict.because,
               corpusBytes: refusedSize.bytes,
               corpusUnreadable: refusedSize.unreadable,
+              checkoutBytes: refusedWalked.bytes,
+              checkoutUnreadable: refusedWalked.unreadable,
             }),
           );
           continue;

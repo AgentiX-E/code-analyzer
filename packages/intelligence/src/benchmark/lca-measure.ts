@@ -19,6 +19,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import {
   averagePrecision,
+  checkoutBytes,
   corpusBytes,
   dedupePreservingOrder,
   lcaQualityMetrics,
@@ -184,6 +185,9 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   // bytes per row. It is counted here rather than in the orchestrator because this is the only place that already holds
   // the answer space and the checkout together.
   const size = corpusBytes(input.checkout, input.allFiles);
+  // **And the size of everything the pipeline walked**, which is a different quantity and the one the first fit showed
+  // matters: 52 Java files worth 122 KB cost 3 074 MB on `appium/appium` because the pipeline parses the whole checkout.
+  const walked = checkoutBytes(input.checkout);
 
   return {
     id: input.row.id,
@@ -196,6 +200,8 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     offeredPaths: offeredRaw.slice(0, 10),
     corpusBytes: size.bytes,
     corpusUnreadable: size.unreadable,
+    checkoutBytes: walked.bytes,
+    checkoutUnreadable: walked.unreadable,
     // **The cost is the supervisor's observation, not the child's opinion of itself**, and the orchestrator attaches it
     // after the process closes. A row written here cannot know what it will peak at later.
     cost: null,

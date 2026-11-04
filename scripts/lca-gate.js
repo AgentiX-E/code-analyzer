@@ -125,27 +125,30 @@ function main() {
   // artifact has to carry is the fit that replaces it: the slope, the intercept, the residual that says whether the
   // ceiling can be trusted, and the spread the constant could not express. **A gate on the quality figures alone would
   // let the instrumentation disappear quietly**, and the next refusal would be argued about without it.
-  const fit = at(record, ['costModel', 'fit']);
+  const fit = at(record, ['costModel', 'recommended']);
   const fitLine = (() => {
     if (fit === null || typeof fit !== 'object') {
       return {
         line: '| cost model | not fitted | ≥ 3 rows | ✗ |',
         failure:
-          'costModel.fit: absent — the artifact must publish the memory and clock fit, or say why it could not',
+          'costModel.recommended: absent — the artifact must publish the memory and clock fit it recommends, or say ' +
+          'why neither predictor could be fitted',
       };
     }
     const ok =
       typeof fit.rows === 'number' &&
       fit.rows >= 3 &&
       typeof fit.meanResidualMb === 'number' &&
+      typeof fit.r2 === 'number' &&
+      typeof fit.constantR2 === 'number' &&
       typeof fit.mbPerFile?.min === 'number' &&
       typeof fit.mbPerFile?.max === 'number';
     return {
       line:
-        `| cost model | ${String(fit.rows)} rows · ${Number(fit.meanResidualMb).toFixed(0)} MB residual · ` +
-        `MB/file ${Number(fit.mbPerFile?.min).toFixed(1)}–${Number(fit.mbPerFile?.max).toFixed(1)} | ≥ 3 rows | ` +
-        `${ok ? '✓' : '✗'} |`,
-      failure: ok ? null : 'costModel.fit: fewer than three rows, or a figure missing',
+        `| cost model (${String(fit.predictor)}) | ${String(fit.rows)} rows · R² ${Number(fit.r2).toFixed(2)} vs ` +
+        `constant ${Number(fit.constantR2).toFixed(2)} · ${Number(fit.meanResidualMb).toFixed(0)} MB residual | ` +
+        `≥ 3 rows | ${ok ? '✓' : '✗'} |`,
+      failure: ok ? null : 'costModel.recommended: fewer than three rows, or a figure missing',
     };
   })();
 

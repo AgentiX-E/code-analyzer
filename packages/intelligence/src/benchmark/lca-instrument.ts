@@ -106,7 +106,19 @@ export function isTestPath(path: string): boolean {
  * **Cheap enough to run per instance**: one `readdir` walk, against an analysis that reads and parses every one of them.
  */
 export function checkoutFileCount(root: string): number {
-  let count = 0;
+  return checkoutFiles(root).length;
+}
+
+/**
+ * Every file the pipeline will walk, as repository-relative POSIX paths, sorted.
+ *
+ * **One walk, three readers.** The bound counts these files, the cost fit sums their bytes, and both have to agree about
+ * what a file is - a count that skips a symlink while the byte total follows it would be two different statements about
+ * one checkout. Sorted for the same reason `corpusFiles` is: a figure that moved because `readdir` returned entries in
+ * another order would be a figure about the filesystem.
+ */
+export function checkoutFiles(root: string): string[] {
+  const found: string[] = [];
   const walk = (directory: string): void => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (entry.name === '.git') continue;
@@ -115,11 +127,27 @@ export function checkoutFileCount(root: string): number {
         walk(full);
         continue;
       }
-      if (entry.isFile()) count += 1;
+      if (!entry.isFile()) continue;
+      found.push(relative(root, full).split(sep).join(posix.sep));
     }
   };
   walk(root);
-  return count;
+  return found.sort();
+}
+
+/**
+ * The bytes of every file the pipeline will walk, **which is not the bytes of the answer space**.
+ *
+ * **`corpusBytes` measured the wrong thing, and the first fit said so.** Regressing peak resident memory on the bytes of
+ * the *answer space* explained 39 % of the variance over 24 instances, with a worst miss of 2 113 MB: `appium/appium`
+ * holds 52 Java files and 122 KB of them, and its analysis cost 3 074 MB - because the pipeline parses the whole
+ * checkout, not the corpus's extension. A model of the work has to count the work.
+ *
+ * The unreadable case is `corpusBytes`'s, not a second copy of it: a file that vanishes between the walk and the stat is
+ * the same race, and it is counted by the same function.
+ */
+export function checkoutBytes(root: string): CorpusSize {
+  return corpusBytes(root, checkoutFiles(root));
 }
 
 // ---------------------------------------------------------------------------

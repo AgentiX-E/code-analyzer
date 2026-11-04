@@ -17,7 +17,7 @@ import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { LCA_CONFIGS } from '../packages/intelligence/src/benchmark/lca-instrument.js';
-import { combineParts, fitCost } from '../packages/intelligence/src/benchmark/lca-merge.js';
+import { combineParts, costModels } from '../packages/intelligence/src/benchmark/lca-merge.js';
 import { recordArtifact } from '../packages/shared/src/benchmark/artifact.js';
 
 import type { LanguagePart } from '../packages/intelligence/src/benchmark/lca-merge.js';
@@ -222,7 +222,9 @@ function main(): void {
      * corpus file spans two orders of magnitude, and the clock was eighteen times its own estimate on one repository.
      * **The fit is published before the rule is changed**, so the change can be argued from the artifact. */
     costModel: {
-      fit: fitCost(parts.flatMap((part) => part.rows)),
+      /** **Which quantity the work tracks**, decided by `R²` rather than by preference: the answer space the corpus scores
+       * or the checkout the pipeline reads. */
+      ...costModels(parts.flatMap((part) => part.rows)),
       note:
         'Least squares of peak resident megabytes on the bytes of the answer space, over the rows that ran, counted ' +
         'their bytes, and could read every file of them. `rows` is that sample rather than the row count. ' +
@@ -290,14 +292,22 @@ function main(): void {
   }
   // **The cost model on its own line**, because a fit nobody reads is a fit nobody can act on: the slope, the residual
   // that says whether the ceiling can be trusted, and the spread that condemns the constant.
-  const fit = artifact.costModel.fit;
-  if (fit !== null) {
+  for (const [name, fit] of [
+    ['answerSpace', artifact.costModel.byAnswerSpace],
+    ['checkout', artifact.costModel.byCheckout],
+  ] as const) {
+    if (fit === null) {
+      console.log(`LCA-COST ${name} none`);
+      continue;
+    }
     console.log(
-      `LCA-COST rows=${String(fit.rows)} intercept=${fit.interceptMb.toFixed(0)}MB ` +
-        `mbPerMb=${fit.mbPerByte.toFixed(5)} residual=${fit.meanResidualMb.toFixed(0)}/${fit.maxResidualMb.toFixed(0)}MB ` +
+      `LCA-COST ${name} rows=${String(fit.rows)} r2=${fit.r2.toFixed(3)} constantR2=${fit.constantR2.toFixed(3)} ` +
+        `intercept=${fit.interceptMb.toFixed(0)}MB mbPerByte=${fit.mbPerByte.toFixed(7)} ` +
+        `residual=${fit.meanResidualMb.toFixed(0)}/${fit.maxResidualMb.toFixed(0)}MB ` +
         `mbPerFile=${fit.mbPerFile.min.toFixed(1)}/${fit.mbPerFile.median.toFixed(1)}/${fit.mbPerFile.max.toFixed(1)}`,
     );
   }
+  console.log(`LCA-COST recommended=${artifact.costModel.recommended?.predictor ?? 'none'}`);
   const stepSummary = process.env['GITHUB_STEP_SUMMARY'];
   if (stepSummary !== undefined && stepSummary !== '') {
     appendFileSync(stepSummary, `\n${summary}\n`);

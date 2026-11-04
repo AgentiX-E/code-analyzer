@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   armScore,
   combineParts,
+  costModels,
   fitCost,
   mapScore,
   skippedRow,
@@ -48,6 +49,8 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     offeredPaths: [],
     corpusBytes: 1_000,
     corpusUnreadable: 0,
+    checkoutBytes: 4_000,
+    checkoutUnreadable: 0,
     cost: { peakRssMb: 500, elapsedMs: 1_000 },
     skipped: null,
     retrieval,
@@ -370,5 +373,82 @@ describe('fitCost', () => {
     ]);
     expect(fit!.mbPerFile.min).toBe(500);
     expect(fit!.mbPerFile.max).toBe(700);
+  });
+});
+
+describe('costModels', () => {
+  const withBytes = (
+    id: number,
+    corpusBytes: number,
+    checkoutBytes: number,
+    peakRssMb: number,
+  ): LcaRowScore => ({
+    ...row(id, 0.5, 0.5),
+    corpusBytes,
+    checkoutBytes,
+    cost: { peakRssMb, elapsedMs: 1_000 },
+  });
+
+  it('recommends the predictor that explains more, and says which one that is', () => {
+    // **Two predictors, one decision, and the decision is arithmetic.** The answer space is unrelated to the cost here
+    // and the checkout is proportional to it, so the checkout has to win - which is what the real instances did when
+    // `appium/appium` cost three gigabytes for a hundred and twenty-two kilobytes of Java.
+    const rows = [
+      withBytes(1, 9_000, 1_000, 500),
+      withBytes(2, 1_000, 2_000, 1_000),
+      withBytes(3, 5_000, 3_000, 1_500),
+    ];
+    const models = costModels(rows);
+    expect(models.recommended!.predictor).toBe('checkoutBytes');
+    expect(models.recommended!.r2).toBeGreaterThan(models.byAnswerSpace!.r2);
+  });
+
+  it('recommends the answer space when that is the one that tracks the cost', () => {
+    const rows = [
+      withBytes(1, 1_000, 9_000, 500),
+      withBytes(2, 2_000, 1_000, 1_000),
+      withBytes(3, 3_000, 5_000, 1_500),
+    ];
+    expect(costModels(rows).recommended!.predictor).toBe('answerSpaceBytes');
+  });
+
+  it('still recommends the one that could be fitted when the other could not', () => {
+    const rows = [
+      { ...withBytes(1, 1_000, 1_000, 500), corpusUnreadable: 1 },
+      withBytes(2, 2_000, 2_000, 1_000),
+      withBytes(3, 3_000, 3_000, 1_500),
+    ];
+    const models = costModels(rows);
+    expect(models.byAnswerSpace).toBeNull();
+    expect(models.recommended!.predictor).toBe('checkoutBytes');
+  });
+
+  it('recommends nothing when neither could be fitted', () => {
+    const models = costModels([withBytes(1, 1_000, 1_000, 500)]);
+    expect(models.byAnswerSpace).toBeNull();
+    expect(models.byCheckout).toBeNull();
+    expect(models.recommended).toBeNull();
+  });
+
+  it('states the bar the constant it replaces scores, which is negative and therefore unreachable by a fit', () => {
+    // **A least-squares line cannot score below zero on the data it was fitted to**, so a negative figure in this
+    // artifact is always the *fixed* model's: `3.7 MB x corpusFiles`, evaluated rather than fitted. That is the bar,
+    // and publishing it is what makes "the constant is worse than the mean" a number instead of an assertion.
+    const rows = [
+      withBytes(1, 1_000, 1_000, 900),
+      withBytes(2, 2_000, 2_000, 100),
+      withBytes(3, 3_000, 3_000, 900),
+    ];
+    expect(fitCost(rows)!.constantR2).toBeLessThan(0);
+    expect(fitCost(rows)!.r2).toBeGreaterThanOrEqual(0);
+  });
+
+  it('reports no explanation rather than a perfect one when every instance cost the same', () => {
+    const fit = fitCost([
+      withBytes(1, 1_000, 1_000, 500),
+      withBytes(2, 2_000, 2_000, 500),
+      withBytes(3, 3_000, 3_000, 500),
+    ]);
+    expect(fit!.r2).toBe(0);
   });
 });

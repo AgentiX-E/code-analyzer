@@ -14,7 +14,7 @@
 // rounded averages a single-language artifact would have shown: the merged figure is computed from the rows, and every
 // figure in it is rounded once.
 
-import { mean } from './lca-instrument.js';
+import { MEASURED_MB_PER_FILE, mean } from './lca-instrument.js';
 
 /** The seven figures the authors' `get_quality_metrics` produces, for one instance or as a mean. */
 export interface ArmMetrics {
@@ -67,6 +67,17 @@ export interface LcaRowScore {
   readonly corpusBytes: number | null;
   /** How many of the answer space's files could not be stat'ed. **A non-zero count excludes the row from the fit.** */
   readonly corpusUnreadable: number;
+  /**
+   * The bytes of every file the pipeline walked, or `null` when the instance never counted them.
+   *
+   * **The second predictor, and the reason there are two.** Peak memory regressed on the *answer space* explained 39 %
+   * of the variance with a 2 113 MB worst miss: `appium/appium` has 52 Java files and 122 KB of them and cost 3 074 MB,
+   * because the pipeline parses the whole checkout rather than the corpus's extension. Both columns are published so the
+   * artifact can say which one the work actually tracks.
+   */
+  readonly checkoutBytes: number | null;
+  /** How many of the checkout's files could not be stat'ed. */
+  readonly checkoutUnreadable: number;
   /** What the instance cost, or `null` when it did not run (refused before the spawn). */
   readonly cost: InstanceCost | null;
   /** The sentence that refused this instance, or `null` when it was measured. */
@@ -140,6 +151,8 @@ export function skippedRow(input: {
   /** The bytes the answer space held, when the caller counted them before refusing. */
   corpusBytes?: number | null;
   corpusUnreadable?: number;
+  checkoutBytes?: number | null;
+  checkoutUnreadable?: number;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
 }): LcaRowScore {
@@ -154,6 +167,8 @@ export function skippedRow(input: {
     offeredPaths: [],
     corpusBytes: input.corpusBytes ?? null,
     corpusUnreadable: input.corpusUnreadable ?? 0,
+    checkoutBytes: input.checkoutBytes ?? null,
+    checkoutUnreadable: input.checkoutUnreadable ?? 0,
     cost: input.cost ?? null,
     skipped: input.because,
     retrieval: {},
@@ -187,7 +202,43 @@ export interface CostFit {
   readonly mbPerFile: { readonly min: number; readonly median: number; readonly max: number };
   /** The same for the clock: milliseconds per corpus file. */
   readonly msPerFile: { readonly min: number; readonly median: number; readonly max: number };
+  /**
+   * How much of the variation the predictor explains, **and it is published because it decides whether the line may
+   * set a ceiling**.
+   *
+   * A constant times the file count scored **-0.395** on these instances: worse than predicting the mean, which is what
+   * a model has to beat before it is trusted with a bound. A fit at 0.9 is a ceiling; a fit at 0.4 is a hint.
+   */
+  readonly r2: number;
+  /**
+   * The R² of the model that ships today - `3.7 MB × corpusFiles` - evaluated on the same rows.
+   *
+   * **A fixed model can score below zero and a fitted one cannot**, so this is the only negative figure the artifact
+   * will publish, and it is the bar the fit has to clear: on the 24 instances measured, the constant scored **-0.395**,
+   * which is worse than predicting the average cost of every instance.
+   */
+  readonly constantR2: number;
+  /** Which quantity the fit regressed on, so the number is not read without its variable. */
+  readonly predictor: 'answerSpaceBytes' | 'checkoutBytes';
 }
+
+/** Which column of a row a cost fit reads, and how many of its files could not be read. */
+export interface CostPredictor {
+  readonly name: CostFit['predictor'];
+  readonly of: (row: LcaRowScore) => { readonly x: number | null; readonly unreadable: number };
+}
+
+/** The answer space: what the corpus scores, and **not** what the pipeline reads. */
+export const ANSWER_SPACE_BYTES: CostPredictor = {
+  name: 'answerSpaceBytes',
+  of: (row) => ({ x: row.corpusBytes, unreadable: row.corpusUnreadable }),
+};
+
+/** The whole checkout: what the pipeline reads, and **not** what the corpus scores. */
+export const CHECKOUT_BYTES: CostPredictor = {
+  name: 'checkoutBytes',
+  of: (row) => ({ x: row.checkoutBytes, unreadable: row.checkoutUnreadable }),
+};
 
 /** The median of a non-empty list, averaging the two middles of an even one. */
 function median(values: readonly number[]): number {
@@ -206,22 +257,23 @@ function median(values: readonly number[]): number {
  * **`null` under three rows.** A line through two points passes through both of them and has no residual to publish, so
  * reporting one would be reporting a perfect fit that proves nothing.
  */
-export function fitCost(rows: readonly LcaRowScore[]): CostFit | null {
+export function fitCost(
+  rows: readonly LcaRowScore[],
+  predictor: CostPredictor = ANSWER_SPACE_BYTES,
+): CostFit | null {
   // **Only the rows that finished, because a stopped instance is a censored observation.** A row killed at the resident
   // ceiling has `peakRssMb` equal to the ceiling rather than to its cost, and a row killed at the clock has
   // `elapsedMs` equal to the clock: both are lower bounds, and fitting a line through them would pull it down by
   // exactly the amount the bound clipped. The refusals are not lost - each carries the sentence that stopped it - but
   // they cannot be points in a regression that is used to choose the bound.
-  const usable = rows.filter(
-    (row) =>
-      row.skipped === null &&
-      row.cost !== null &&
-      row.corpusBytes !== null &&
-      row.corpusUnreadable === 0,
-  );
+  const usable = rows.filter((row) => {
+    if (row.skipped !== null || row.cost === null) return false;
+    const read = predictor.of(row);
+    return read.x !== null && read.unreadable === 0;
+  });
   if (usable.length < 3) return null;
 
-  const xs = usable.map((row) => row.corpusBytes!);
+  const xs = usable.map((row) => predictor.of(row).x!);
   const ys = usable.map((row) => row.cost!.peakRssMb);
   const n = xs.length;
   const meanX = xs.reduce((sum, x) => sum + x, 0) / n;
@@ -241,6 +293,13 @@ export function fitCost(rows: readonly LcaRowScore[]): CostFit | null {
   const residuals = usable.map((_, index) =>
     Math.abs(interceptMb + mbPerByte * xs[index]! - ys[index]!),
   );
+  // **`R²` against the mean, because that is the bar a model has to clear to be a model.** A negative figure means the
+  // line is worse than predicting the average cost of every instance, which is what the constant it replaces scores.
+  const totalSum = ys.reduce((sum, y) => sum + (y - meanY) ** 2, 0);
+  const residualSum = usable.reduce(
+    (sum, _, index) => sum + (interceptMb + mbPerByte * xs[index]! - ys[index]!) ** 2,
+    0,
+  );
   const perFile = usable.map((row) => row.cost!.peakRssMb / Math.max(row.corpusFiles, 1));
   const perFileMs = usable.map((row) => row.cost!.elapsedMs / Math.max(row.corpusFiles, 1));
 
@@ -256,7 +315,44 @@ export function fitCost(rows: readonly LcaRowScore[]): CostFit | null {
       median: median(perFileMs),
       max: Math.max(...perFileMs),
     },
+    // **A sample with no variation in the outcome has nothing to explain**, and `0/0` is reported as no explanation
+    // rather than as a perfect one.
+    r2: totalSum === 0 ? 0 : 1 - residualSum / totalSum,
+    constantR2:
+      totalSum === 0
+        ? 0
+        : 1 -
+          usable.reduce(
+            (sum, row) => sum + (MEASURED_MB_PER_FILE * row.corpusFiles - row.cost!.peakRssMb) ** 2,
+            0,
+          ) /
+            totalSum,
+    predictor: predictor.name,
   };
+}
+
+/** Both predictors, and which one the artifact recommends - **the choice is made by `R²`, not by preference**. */
+export interface CostModels {
+  readonly byAnswerSpace: CostFit | null;
+  readonly byCheckout: CostFit | null;
+  /** The fit with the higher `R²`, or `null` when neither could be computed. **Ties go to the checkout**, because
+   * that is the quantity the pipeline reads and the one a bound on the work should be about. */
+  readonly recommended: CostFit | null;
+}
+
+/** Fit both predictors over the same rows, so the artifact can say which one tracks the work. */
+export function costModels(rows: readonly LcaRowScore[]): CostModels {
+  const byAnswerSpace = fitCost(rows, ANSWER_SPACE_BYTES);
+  const byCheckout = fitCost(rows, CHECKOUT_BYTES);
+  const recommended =
+    byCheckout === null
+      ? byAnswerSpace
+      : byAnswerSpace === null
+        ? byCheckout
+        : byCheckout.r2 >= byAnswerSpace.r2
+          ? byCheckout
+          : byAnswerSpace;
+  return { byAnswerSpace, byCheckout, recommended };
 }
 
 /** A cut's worth of an arm, plus what the sample size was. */

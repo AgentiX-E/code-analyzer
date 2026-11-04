@@ -24,7 +24,9 @@ import {
   MS_PER_FILE,
   RUNNER_RESERVE_MB,
   analysableFileBudget,
+  checkoutBytes,
   checkoutFileCount,
+  checkoutFiles,
   corpusBytes,
   corpusFiles,
   decideInstance,
@@ -234,6 +236,52 @@ describe('checkoutFileCount', () => {
   it('is zero for an empty checkout', () => {
     const root = mkdtempSync(join(tmpdir(), 'lca-empty-'));
     expect(checkoutFileCount(root)).toBe(0);
+  });
+});
+
+describe('checkoutBytes', () => {
+  /**
+   * **The predictor the first fit said was the right one.** Regressing peak memory on the answer space explained 39 %
+   * of the variance: `appium/appium` has 52 Java files worth 122 KB and cost 3 074 MB, because the pipeline parses every
+   * file it is handed rather than the corpus's extension. This counts what the pipeline is handed.
+   */
+  const build = (): string => {
+    const root = mkdtempSync(join(tmpdir(), 'lca-checkout-bytes-'));
+    mkdirSync(join(root, 'src'), { recursive: true });
+    mkdirSync(join(root, '.git'), { recursive: true });
+    writeFileSync(join(root, 'src/a.py'), 'x'.repeat(100));
+    writeFileSync(join(root, 'src/b.js'), 'y'.repeat(200));
+    writeFileSync(join(root, 'README.md'), 'z'.repeat(50));
+    writeFileSync(join(root, '.git/HEAD'), 'w'.repeat(999));
+    return root;
+  };
+
+  it('counts every file the pipeline will read and not the .git directory', () => {
+    // 100 + 200 + 50, and **the other language counts**, which is exactly the difference between this and `corpusBytes`.
+    expect(checkoutBytes(build())).toEqual({ bytes: 350, unreadable: 0 });
+  });
+
+  it('counts more than the answer space does, which is why the bound has to read it', () => {
+    const root = build();
+    expect(checkoutBytes(root).bytes).toBeGreaterThan(
+      corpusBytes(root, corpusFiles(root, '.py')).bytes,
+    );
+  });
+
+  it('is zero for an empty checkout', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lca-checkout-empty-'));
+    expect(checkoutBytes(root)).toEqual({ bytes: 0, unreadable: 0 });
+  });
+
+  it('does not follow a symlink, because the count and the byte total have to agree about what a file is', () => {
+    // **One walk, three readers.** A count that skipped a symlink while the byte total followed it would be two
+    // statements about one checkout; `checkoutFiles` is the single answer both of them read.
+    const root = build();
+    symlinkSync(join(root, 'src/a.py'), join(root, 'src/link.py'));
+    symlinkSync(join(root, 'nowhere'), join(root, 'src/dangling.py'));
+    expect(checkoutFiles(root)).toEqual(['README.md', 'src/a.py', 'src/b.js']);
+    expect(checkoutBytes(root)).toEqual({ bytes: 350, unreadable: 0 });
+    expect(checkoutFileCount(root)).toBe(3);
   });
 });
 
