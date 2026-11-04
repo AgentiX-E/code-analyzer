@@ -33,6 +33,14 @@ export interface ArmScore extends ArmMetrics {
   readonly rows: number;
 }
 
+/** What one instance cost the runner, as the supervisor observed it. */
+export interface InstanceCost {
+  /** The largest resident set the parent sampled over the whole process group, in megabytes. */
+  readonly peakRssMb: number;
+  /** Wall clock, from spawn to close. */
+  readonly elapsedMs: number;
+}
+
 /** One instance, as the measurement recorded it. **Everything needed to explain a zero lives here.** */
 export interface LcaRowScore {
   readonly id: number;
@@ -49,6 +57,18 @@ export interface LcaRowScore {
   readonly outside: number;
   /** The first ten of them, in the corpus's coordinate system. */
   readonly offeredPaths: readonly string[];
+  /**
+   * The bytes the answer space holds, or `null` when the instance never got as far as counting them.
+   *
+   * **Published because the bounds are calibrated against it.** Iteration 69 measured peak memory per corpus file
+   * spanning 1.3 MB to 430 MB, which is what a `constant × files` estimate cannot express; the fit that replaces it
+   * needs the quantity it regresses on, in the artifact, per row.
+   */
+  readonly corpusBytes: number | null;
+  /** How many of the answer space's files could not be stat'ed. **A non-zero count excludes the row from the fit.** */
+  readonly corpusUnreadable: number;
+  /** What the instance cost, or `null` when it did not run (refused before the spawn). */
+  readonly cost: InstanceCost | null;
   /** The sentence that refused this instance, or `null` when it was measured. */
   readonly skipped: string | null;
   /**
@@ -117,6 +137,11 @@ export function skippedRow(input: {
   corpusFiles: number;
   expectedFiles: number;
   because: string;
+  /** The bytes the answer space held, when the caller counted them before refusing. */
+  corpusBytes?: number | null;
+  corpusUnreadable?: number;
+  /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
+  cost?: InstanceCost | null;
 }): LcaRowScore {
   return {
     id: input.id,
@@ -127,10 +152,101 @@ export function skippedRow(input: {
     offered: 0,
     outside: 0,
     offeredPaths: [],
+    corpusBytes: input.corpusBytes ?? null,
+    corpusUnreadable: input.corpusUnreadable ?? 0,
+    cost: input.cost ?? null,
     skipped: input.because,
     retrieval: {},
     map: 0,
     answer: null,
+  };
+}
+
+/**
+ * What resident memory costs per byte of source, fitted rather than assumed.
+ *
+ * **The number this replaces was a constant, and the evidence against it is a spread of 330×.** Every bound in the
+ * harness was `constant × files`: a 2 000-file cap, a `3.7 MB per file` memory estimate, and a `ms per file` clock.
+ * Measured over the 23 instances that produced a peak, memory per corpus file ranged from 1.3 MB to 430 MB, and the
+ * clock was eighteen times its own estimate on `microsoft/deepspeed`. **A constant cannot be recalibrated into a
+ * model**; what replaces it is a line fitted to the rows that ran, published with its residual so that its own accuracy
+ * is a number in the artifact instead of a claim in a comment.
+ */
+export interface CostFit {
+  /** Rows the fit was computed over. **A line through fewer than three points is a line through noise.** */
+  readonly rows: number;
+  /** Resident megabytes an instance of zero bytes costs - the runtime, before any source is read. */
+  readonly interceptMb: number;
+  /** Resident megabytes per byte of source. **Multiply by `corpusBytes` and add the intercept.** */
+  readonly mbPerByte: number;
+  /** Mean absolute distance from the line, in megabytes. */
+  readonly meanResidualMb: number;
+  /** The worst single miss, in megabytes - **the number that says whether the ceiling can be trusted**. */
+  readonly maxResidualMb: number;
+  /** The spread the constant could not express: MB per corpus file, over the same rows. */
+  readonly mbPerFile: { readonly min: number; readonly median: number; readonly max: number };
+  /** The same for the clock: milliseconds per corpus file. */
+  readonly msPerFile: { readonly min: number; readonly median: number; readonly max: number };
+}
+
+/** The median of a non-empty list, averaging the two middles of an even one. */
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+}
+
+/**
+ * Fit resident memory and wall clock against the size of the answer space.
+ *
+ * **Least squares over the rows that have all three numbers**, which is a smaller set than the rows that ran: a row
+ * with an unreadable file has a byte count that is short by an unknown amount, and a row with no cost never ran. The
+ * two exclusions are stated in `rows` rather than applied silently.
+ *
+ * **`null` under three rows.** A line through two points passes through both of them and has no residual to publish, so
+ * reporting one would be reporting a perfect fit that proves nothing.
+ */
+export function fitCost(rows: readonly LcaRowScore[]): CostFit | null {
+  const usable = rows.filter(
+    (row) => row.cost !== null && row.corpusBytes !== null && row.corpusUnreadable === 0,
+  );
+  if (usable.length < 3) return null;
+
+  const xs = usable.map((row) => row.corpusBytes!);
+  const ys = usable.map((row) => row.cost!.peakRssMb);
+  const n = xs.length;
+  const meanX = xs.reduce((sum, x) => sum + x, 0) / n;
+  const meanY = ys.reduce((sum, y) => sum + y, 0) / n;
+  let covariance = 0;
+  let variance = 0;
+  for (let index = 0; index < n; index += 1) {
+    covariance += (xs[index]! - meanX) * (ys[index]! - meanY);
+    variance += (xs[index]! - meanX) ** 2;
+  }
+  // **A vertical line has no slope and no useful answer**: every instance read the same number of bytes, which is a
+  // sample that cannot say what a byte costs. Reporting the mean as an intercept would be a fit that claims one.
+  if (variance === 0) return null;
+  const mbPerByte = covariance / variance;
+  const interceptMb = meanY - mbPerByte * meanX;
+
+  const residuals = usable.map((_, index) =>
+    Math.abs(interceptMb + mbPerByte * xs[index]! - ys[index]!),
+  );
+  const perFile = usable.map((row) => row.cost!.peakRssMb / Math.max(row.corpusFiles, 1));
+  const perFileMs = usable.map((row) => row.cost!.elapsedMs / Math.max(row.corpusFiles, 1));
+
+  return {
+    rows: n,
+    interceptMb,
+    mbPerByte,
+    meanResidualMb: residuals.reduce((sum, value) => sum + value, 0) / n,
+    maxResidualMb: Math.max(...residuals),
+    mbPerFile: { min: Math.min(...perFile), median: median(perFile), max: Math.max(...perFile) },
+    msPerFile: {
+      min: Math.min(...perFileMs),
+      median: median(perFileMs),
+      max: Math.max(...perFileMs),
+    },
   };
 }
 

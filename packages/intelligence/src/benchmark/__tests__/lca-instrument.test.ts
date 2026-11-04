@@ -25,6 +25,7 @@ import {
   RUNNER_RESERVE_MB,
   analysableFileBudget,
   checkoutFileCount,
+  corpusBytes,
   corpusFiles,
   decideInstance,
   dedupePreservingOrder,
@@ -155,6 +156,46 @@ describe('corpusFiles', () => {
 
   it('returns an empty list for a checkout with none of the extension', () => {
     expect(corpusFiles(build(), '.kt')).toEqual([]);
+  });
+});
+
+describe('corpusBytes', () => {
+  /**
+   * **The predictor the memory bound never had.** Every refuse rule in the harness was `constant × files`, and the
+   * instances that ran showed peak memory per corpus file spanning 1.3 MB to 430 MB, so the quantity the next fit
+   * regresses on cannot be a count. What is counted here is the bytes the analysis has to read.
+   */
+  const build = (): string => {
+    const root = mkdtempSync(join(tmpdir(), 'lca-bytes-'));
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src/a.py'), 'x'.repeat(300));
+    writeFileSync(join(root, 'src/b.py'), 'y'.repeat(700));
+    return root;
+  };
+
+  it('sums the answer space, in bytes, and reports nothing unreadable', () => {
+    const root = build();
+    expect(corpusBytes(root, corpusFiles(root, '.py'))).toEqual({ bytes: 1_000, unreadable: 0 });
+  });
+
+  it('counts a file that is not there instead of throwing, and says how many', () => {
+    // **The race is the point**: a file can vanish between the walk that found it and the stat that sizes it, and a
+    // total that silently drops it is a predictor short by an unknown amount. The count is what excludes the row.
+    expect(corpusBytes(build(), ['src/a.py', 'src/gone.py'])).toEqual({
+      bytes: 300,
+      unreadable: 1,
+    });
+  });
+
+  it('is zero over an answer space with no files', () => {
+    expect(corpusBytes(build(), [])).toEqual({ bytes: 0, unreadable: 0 });
+  });
+
+  it('reports every file of an answer space that has all gone as unreadable', () => {
+    expect(corpusBytes(build(), ['src/gone.py', 'src/also-gone.py'])).toEqual({
+      bytes: 0,
+      unreadable: 2,
+    });
   });
 });
 

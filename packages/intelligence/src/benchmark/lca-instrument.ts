@@ -19,7 +19,7 @@
 //    the running. Filtering it out is aligning the candidate sets, **not** reordering them: the order the retriever
 //    produced is preserved exactly.
 
-import { readdirSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 
 /** The three language configurations the corpus publishes. **`mixed` is a fourth and is not measured here.** */
@@ -298,6 +298,44 @@ export function corpusFiles(root: string, extension: string): string[] {
   };
   walk(root);
   return found.sort();
+}
+
+/** The size of an answer space, and how many of its files could not be read. */
+export interface CorpusSize {
+  /** Total bytes of the files that could be read. */
+  readonly bytes: number;
+  /**
+   * How many files could not be read.
+   *
+   * **A byte count missing files is not a byte count**, so it is published rather than folded into the total: the row
+   * carries both numbers and the cost fit skips a row whose `unreadable` is not zero, because a predictor computed over
+   * a subset cannot be compared with a cost paid over the whole.
+   */
+  readonly unreadable: number;
+}
+
+/**
+ * Sum the sizes of an answer space.
+ *
+ * **Bytes, not files, because files is the variable that failed.** The harness's two bounds were both
+ * `constant × file count`, and the instances that ran showed peak memory per corpus file spanning 1.3 MB to 430 MB -
+ * a factor of 330 around the constant of 3.7. A count cannot express that spread; the bytes the analysis has to read
+ * are at least the right kind of quantity, and whether they predict the cost is a question the artifact answers with a
+ * fit rather than with a constant.
+ */
+export function corpusBytes(root: string, files: readonly string[]): CorpusSize {
+  let bytes = 0;
+  let unreadable = 0;
+  for (const file of files) {
+    try {
+      bytes += statSync(join(root, file)).size;
+    } catch {
+      // **A file that vanished between the walk and the stat** is the expected race, and it is counted rather than
+      // ignored: a silenter answer would be a total that is short by an unknown amount and says nothing.
+      unreadable += 1;
+    }
+  }
+  return { bytes, unreadable };
 }
 
 /** The order of `ranked` with duplicates collapsed, as the retriever's own file ranking. */

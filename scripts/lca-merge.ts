@@ -17,7 +17,7 @@ import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { LCA_CONFIGS } from '../packages/intelligence/src/benchmark/lca-instrument.js';
-import { combineParts } from '../packages/intelligence/src/benchmark/lca-merge.js';
+import { combineParts, fitCost } from '../packages/intelligence/src/benchmark/lca-merge.js';
 import { recordArtifact } from '../packages/shared/src/benchmark/artifact.js';
 
 import type { LanguagePart } from '../packages/intelligence/src/benchmark/lca-merge.js';
@@ -216,6 +216,20 @@ function main(): void {
           'refusal names the ceiling that fired rather than the runner disappearing.',
       },
     },
+    /** **The bound's own accuracy, measured rather than assumed.** Peak resident memory and wall clock, fitted against
+     * the size of the answer space over the instances that ran. The refuse rules above are still `constant × files`,
+     * and this block exists because the instances that ran show that constant is wrong in both directions: memory per
+     * corpus file spans two orders of magnitude, and the clock was eighteen times its own estimate on one repository.
+     * **The fit is published before the rule is changed**, so the change can be argued from the artifact. */
+    costModel: {
+      fit: fitCost(parts.flatMap((part) => part.rows)),
+      note:
+        'Least squares of peak resident megabytes on the bytes of the answer space, over the rows that ran, counted ' +
+        'their bytes, and could read every file of them. `rows` is that sample rather than the row count. ' +
+        '`mbPerFile` and `msPerFile` are the spread the constant could not express. **A row without `cost` never ran** ' +
+        'and a row with `corpusUnreadable` above zero has a byte count short by an unknown amount, so neither is in ' +
+        'the fit.',
+    },
     answerArm: parts.some((part) => part.answerArm),
     cuts: CUTS.join(', '),
     configuration: first.configuration,
@@ -236,6 +250,10 @@ function main(): void {
         offered: row.offered,
         outside: row.outside,
         offeredPaths: row.offeredPaths,
+        corpusBytes: row.corpusBytes,
+        corpusUnreadable: row.corpusUnreadable,
+        peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
+        elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
         map: row.map,
         skipped: row.skipped,
       })),
@@ -268,6 +286,16 @@ function main(): void {
     console.log(
       `LCA-MAP ours=${String(oursMap.value)} rows=${String(oursMap.rows)} ` +
         `bestPublished=${best.name}@${String(best.map)} of=${String(PUBLISHED_BASELINES.rows.length)}`,
+    );
+  }
+  // **The cost model on its own line**, because a fit nobody reads is a fit nobody can act on: the slope, the residual
+  // that says whether the ceiling can be trusted, and the spread that condemns the constant.
+  const fit = artifact.costModel.fit;
+  if (fit !== null) {
+    console.log(
+      `LCA-COST rows=${String(fit.rows)} intercept=${fit.interceptMb.toFixed(0)}MB ` +
+        `mbPerMb=${fit.mbPerByte.toFixed(5)} residual=${fit.meanResidualMb.toFixed(0)}/${fit.maxResidualMb.toFixed(0)}MB ` +
+        `mbPerFile=${fit.mbPerFile.min.toFixed(1)}/${fit.mbPerFile.median.toFixed(1)}/${fit.mbPerFile.max.toFixed(1)}`,
     );
   }
   const stepSummary = process.env['GITHUB_STEP_SUMMARY'];

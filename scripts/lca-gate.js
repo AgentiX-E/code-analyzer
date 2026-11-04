@@ -120,8 +120,39 @@ function main() {
     process.exit(1);
   }
 
+  // **The cost model is a published figure, so its absence is a failure.** Both refuse rules in this harness are
+  // `constant x files` and the instances that ran show that constant wrong by two orders of magnitude, so what the
+  // artifact has to carry is the fit that replaces it: the slope, the intercept, the residual that says whether the
+  // ceiling can be trusted, and the spread the constant could not express. **A gate on the quality figures alone would
+  // let the instrumentation disappear quietly**, and the next refusal would be argued about without it.
+  const fit = at(record, ['costModel', 'fit']);
+  const fitLine = (() => {
+    if (fit === null || typeof fit !== 'object') {
+      return {
+        line: '| cost model | not fitted | ≥ 3 rows | ✗ |',
+        failure:
+          'costModel.fit: absent — the artifact must publish the memory and clock fit, or say why it could not',
+      };
+    }
+    const ok =
+      typeof fit.rows === 'number' &&
+      fit.rows >= 3 &&
+      typeof fit.meanResidualMb === 'number' &&
+      typeof fit.mbPerFile?.min === 'number' &&
+      typeof fit.mbPerFile?.max === 'number';
+    return {
+      line:
+        `| cost model | ${String(fit.rows)} rows · ${Number(fit.meanResidualMb).toFixed(0)} MB residual · ` +
+        `MB/file ${Number(fit.mbPerFile?.min).toFixed(1)}–${Number(fit.mbPerFile?.max).toFixed(1)} | ≥ 3 rows | ` +
+        `${ok ? '✓' : '✗'} |`,
+      failure: ok ? null : 'costModel.fit: fewer than three rows, or a figure missing',
+    };
+  })();
+
   const rows = [];
   const failures = [];
+  rows.push(fitLine.line);
+  if (fitLine.failure) failures.push(fitLine.failure);
   for (const [name, path, floor, ceiling, optional] of RULES) {
     const { row: line, failure } = row(name, at(record, path), floor, ceiling, optional);
     rows.push(line);

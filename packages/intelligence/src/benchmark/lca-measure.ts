@@ -19,6 +19,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import {
   averagePrecision,
+  corpusBytes,
   dedupePreservingOrder,
   lcaQualityMetrics,
   outsideUniverse,
@@ -178,6 +179,12 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
 
   store.close();
 
+  // **The size of the answer space, because the bounds are calibrated against it.** Peak memory per corpus file spans
+  // 1.3 MB to 430 MB across the instances this harness has run, so the fit that replaces `constant × files` needs the
+  // bytes per row. It is counted here rather than in the orchestrator because this is the only place that already holds
+  // the answer space and the checkout together.
+  const size = corpusBytes(input.checkout, input.allFiles);
+
   return {
     id: input.row.id,
     repo: `${input.row.repo_owner}/${input.row.repo_name}`,
@@ -187,6 +194,11 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     offered: candidates.length,
     outside: outsideUniverse(offeredRaw, universe),
     offeredPaths: offeredRaw.slice(0, 10),
+    corpusBytes: size.bytes,
+    corpusUnreadable: size.unreadable,
+    // **The cost is the supervisor's observation, not the child's opinion of itself**, and the orchestrator attaches it
+    // after the process closes. A row written here cannot know what it will peak at later.
+    cost: null,
     skipped: null,
     retrieval,
     map: averagePrecision(candidates, input.row.changed_files, MAP_DEPTH),

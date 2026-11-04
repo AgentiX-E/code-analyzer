@@ -57,6 +57,7 @@ import {
   RUNNER_RESERVE_MB,
   analysableFileBudget,
   checkoutFileCount,
+  corpusBytes,
   corpusFiles,
   decideInstance,
   limitedTotalMb,
@@ -373,6 +374,10 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         );
 
         if (!verdict.analyse) {
+          // **The size of the answer space travels with the refusal**, because the rule that produced it is about to be
+          // replaced by a fit against exactly this number: a refusal that does not record what the instance would have
+          // cost leaves the next iteration arguing about the rule instead of computing a better one.
+          const refusedSize = corpusBytes(checkout, allFiles);
           scores.push(
             skippedRow({
               id: row.id,
@@ -380,6 +385,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               corpusFiles: allFiles.length,
               expectedFiles: row.changed_files.length,
               because: verdict.because,
+              corpusBytes: refusedSize.bytes,
+              corpusUnreadable: refusedSize.unreadable,
             }),
           );
           continue;
@@ -417,8 +424,12 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           },
         });
 
+        // **What the instance cost is the supervisor's observation**, so it is attached to the row after the process
+        // has closed - a row written by the child cannot know what it will peak at later, and a figure the child
+        // reported about itself would be a child's opinion rather than a measurement.
+        const cost = { peakRssMb: outcome.peakRssMb, elapsedMs: outcome.ms };
         if (outcome.kind === 'row') {
-          scores.push(outcome.row);
+          scores.push({ ...outcome.row, cost });
         } else {
           // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
           // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
@@ -429,6 +440,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               corpusFiles: allFiles.length,
               expectedFiles: row.changed_files.length,
               because: outcome.because,
+              cost,
             }),
           );
         }

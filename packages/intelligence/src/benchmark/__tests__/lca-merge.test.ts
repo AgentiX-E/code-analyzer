@@ -8,7 +8,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { armScore, combineParts, mapScore, skippedRow, summarisePart } from '../lca-merge.js';
+import {
+  armScore,
+  combineParts,
+  fitCost,
+  mapScore,
+  skippedRow,
+  summarisePart,
+} from '../lca-merge.js';
 
 import type { ArmMetrics, LanguagePart, LcaRowScore } from '../lca-merge.js';
 
@@ -39,6 +46,9 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     offered: 10,
     outside: 0,
     offeredPaths: [],
+    corpusBytes: 1_000,
+    corpusUnreadable: 0,
+    cost: { peakRssMb: 500, elapsedMs: 1_000 },
     skipped: null,
     retrieval,
     map: precision,
@@ -230,5 +240,118 @@ describe('skippedRow', () => {
       retrieval: {},
       answer: null,
     });
+  });
+});
+
+describe('fitCost', () => {
+  /**
+   * **The bound that is still wrong, and the fit that replaces it.** Both refusals in this harness are
+   * `constant × files` - a 2000-file cap and a `3.7 MB per file` estimate - and the 23 instances that produced a peak
+   * showed memory per corpus file spanning 1.3 MB to 430 MB. A constant cannot be recalibrated into a model, so what
+   * ships is a line fitted to the rows that ran, published with its residual.
+   */
+  const costRow = (
+    id: number,
+    corpusBytes: number | null,
+    peakRssMb: number,
+    elapsedMs: number,
+    corpusFiles = 10,
+    corpusUnreadable = 0,
+  ): LcaRowScore => ({
+    ...row(id, 0.5, 0.5),
+    corpusFiles,
+    corpusBytes,
+    corpusUnreadable,
+    cost: { peakRssMb, elapsedMs },
+  });
+
+  it('returns null below three rows, because a line through two points has no residual to publish', () => {
+    expect(fitCost([])).toBeNull();
+    expect(fitCost([costRow(1, 1_000, 500, 100), costRow(2, 2_000, 900, 200)])).toBeNull();
+  });
+
+  it('recovers the line it was given, exactly', () => {
+    // **The regression has to be checkable by hand**, or a defect in it is invisible: 1000 bytes → 600 MB,
+    // 3000 bytes → 1400 MB, 5000 bytes → 2200 MB is `200 + 0.4 × bytes`, and every one of the three is on it.
+    const fit = fitCost([
+      costRow(1, 1_000, 600, 1_000),
+      costRow(2, 3_000, 1_400, 3_000),
+      costRow(3, 5_000, 2_200, 5_000),
+    ]);
+    expect(fit).not.toBeNull();
+    expect(fit!.rows).toBe(3);
+    expect(fit!.interceptMb).toBeCloseTo(200, 6);
+    expect(fit!.mbPerByte).toBeCloseTo(0.4, 6);
+    expect(fit!.meanResidualMb).toBeCloseTo(0, 6);
+    expect(fit!.maxResidualMb).toBeCloseTo(0, 6);
+  });
+
+  it('publishes the residual of a point the line misses', () => {
+    // **The worst miss is the number that says whether the ceiling can be trusted**, so it is asserted as a number
+    // rather than described: the same line as above, with one instance that costs 400 MB more than it predicts.
+    const fit = fitCost([
+      costRow(1, 1_000, 600, 1_000),
+      costRow(2, 3_000, 1_800, 3_000),
+      costRow(3, 5_000, 2_200, 5_000),
+    ]);
+    // The line through four of the six points is `333.33 + 0.4 × bytes`, so the displaced instance misses by
+    // `1800 - (333.33 + 1200) = 266.67` - asserted as a number rather than recomputed from the fit, which would make
+    // the test agree with whatever the fit did.
+    expect(fit!.maxResidualMb).toBeCloseTo(266.666_667, 5);
+  });
+
+  it('skips a row with no byte count, no cost, or a byte count missing files', () => {
+    const fit = fitCost([
+      costRow(1, 1_000, 600, 1_000),
+      costRow(2, 3_000, 1_400, 3_000),
+      costRow(3, 5_000, 2_200, 5_000),
+      // A row that never got as far as counting its bytes.
+      costRow(4, null, 9_000, 9_000),
+      // A row whose byte count is short by a file that vanished, so it cannot be compared with a cost paid in full.
+      costRow(5, 7_000, 3_000, 7_000, 10, 1),
+      // A row that was refused before the spawn and never cost anything.
+      { ...costRow(6, 9_000, 0, 0), cost: null },
+    ]);
+    expect(fit!.rows).toBe(3);
+    expect(fit!.mbPerByte).toBeCloseTo(0.4, 6);
+  });
+
+  it('returns null when every instance read the same number of bytes, because a vertical line has no slope', () => {
+    expect(
+      fitCost([
+        costRow(1, 1_000, 600, 1_000),
+        costRow(2, 1_000, 900, 2_000),
+        costRow(3, 1_000, 1_200, 3_000),
+      ]),
+    ).toBeNull();
+  });
+
+  it('publishes the spread a constant cannot express, and averages the two middles of an even sample', () => {
+    // Four instances: 100, 300, 600 and 1000 MB for ten files each, so the median is (30 + 60) / 2 = 45.
+    const fit = fitCost([
+      costRow(1, 1_000, 100, 100),
+      costRow(2, 2_000, 300, 200),
+      costRow(3, 3_000, 600, 300),
+      costRow(4, 4_000, 1_000, 400),
+    ]);
+    expect(fit!.mbPerFile.min).toBeCloseTo(10, 6);
+    expect(fit!.mbPerFile.max).toBeCloseTo(100, 6);
+    expect(fit!.mbPerFile.median).toBeCloseTo(45, 6);
+    // The clock gets the same three figures, because it is fitted against the same variable.
+    expect(fit!.msPerFile.min).toBeCloseTo(10, 6);
+    expect(fit!.msPerFile.median).toBeCloseTo(25, 6);
+    expect(fit!.msPerFile.max).toBeCloseTo(40, 6);
+  });
+
+  it('does not divide by a corpus of zero files', () => {
+    // A checkout whose answer space is empty still costs the runtime. The ratio must not be an infinity - a reader
+    // compares this column against 3.7 - so a zero-file corpus degenerates to the resident set itself.
+    const fit = fitCost([
+      costRow(1, 1_000, 500, 100, 0),
+      costRow(2, 2_000, 600, 300, 0),
+      costRow(3, 3_000, 700, 500, 0),
+    ]);
+    expect(fit!.mbPerFile.min).toBe(500);
+    expect(fit!.mbPerFile.max).toBe(700);
   });
 });
