@@ -155,24 +155,60 @@ published, and each of them is gated by a script that fails when the figure fall
 | **Long Code Arena — bug localisation** | given an issue and the repository at the commit where it reproduces, are the files a fix touches among the files named? Metric: the authors' own `quality_metrics.py` | `benchmarks/lca-bug-localization.json`                          | `scripts/lca-gate.js`               |
 
 **The last row is the newest and the most demanding**, because its ground truth is a fixing commit rather than a
-generator: Python, Java and Kotlin, decided by what a maintainer actually changed. Two things about it are worth
-stating plainly rather than leaving to a footnote:
+generator: Python, Java and Kotlin, decided by what a maintainer actually changed. **It is also the first corpus this
+project did not author, and the first figure that can be placed in a published table.**
+
+| rank  | system                        | MAP        | measured over          |
+| ----- | ----------------------------- | ---------- | ---------------------- |
+| 1     | GPT-4 (chat)                  | 0.39       | 50 instances per split |
+| **2** | **this harness**              | **0.3794** | **24 of 35 rows**      |
+| 3     | GTE (embedding)               | 0.33       | 50 per split           |
+| 4     | Mistral (embedding)           | 0.30       | 50 per split           |
+| 5     | TF-IDF (BPE)                  | 0.27       | 50 per split           |
+| 6     | BM25 and the remaining models | below 0.25 | 50 per split           |
+
+Ranked against §2.5 of [arXiv:2406.11612](https://arxiv.org/abs/2406.11612), scored by the authors' own
+`quality_metrics.py`. The `comparison` block in the artifact computes the rank rather than asserting it, and carries the
+three assumptions that bound it: the published figures are over fifty instances per split and this one is over the rows
+the runner reached; average precision here reads the retriever's own pool of two hundred candidates, which can only lose
+credit; and the answer arm is not the chat baselines reproduced.
+
+| split  | measured | MAP        | recall at 10 |
+| ------ | -------- | ---------- | ------------ |
+| Python | 9 / 12   | **0.6204** | 0.7037       |
+| Java   | 7 / 12   | **0.2413** | 0.3190       |
+| Kotlin | 8 / 11   | **0.2292** | 0.2292       |
+
+**The gap between those three columns is a bound, not a language.** Eight of the eleven refused rows were refused by one
+rule — a checkout above 2 000 files — and every one of them is a large Java or Kotlin repository (`dbeaver/dbeaver` ×2,
+`apache/shardingsphere` ×2, `libgdx/libgdx`, `quarkusio/quarkus`, `ccxt/ccxt`, `streamlit/streamlit`). The Java column is
+therefore a figure about repository size published under a heading that says `java`. The remaining three refusals name
+themselves in the artifact: a memory estimate above the room left (`square/leakcanary`), a clock (`microsoft/deepspeed`,
+900 s for 324 corpus files), and a ceiling that fired (`airbnb/lottie-android`, 6 145 MB).
+
+Four things about this corpus are worth stating plainly rather than leaving to a footnote:
 
 1. **It showed that the product reports absolute paths while every corpus records repository-relative ones.** The
    conversion lives in `packages/intelligence/src/benchmark/lca-instrument.ts` with its own tests, and the acceptance
    suite asserts both coordinate systems, because a measurement that assumes one form silently scores zero.
 2. **The retrieval arm needs no model** — it is the fused list cut at k — so its figure is a property of the retriever
    and is reproducible to the digit. The model's arm (`LCA_ANSWER_ARM=1`) is reported separately and has not been run
-   at scale.
-3. **It is measured one language at a time, because the first three architectures produced no figure at all.** Eleven
-   dispatches ended in a runner shutdown signal and exit 143, at a hundredth of the scope as well as at the full sample.
-   The cause was measured on four real checkouts rather than guessed: analysing 568 files costs **2 088 MB of resident
-   memory**, and V8 returns reclaimed heap pages to itself rather than to the operating system, so a run costs the
-   high-water mark of every instance it has analysed rather than the largest one. The workflow is now a three-job matrix
-   — one split per job, each writing `benchmarks/lca-parts/<config>.json` — and `scripts/lca-merge.ts` adds the parts up
-   **over pooled rows**, so the combined figure is the one a single run would have produced. Every instance the bounds
-   refused is a row in the artifact carrying the sentence that refused it: the stated cap, the memory left on the
-   runner, or the job's own time budget.
+   at scale, so the comparison to the chat baselines is a comparison of two different amounts of context.
+3. **It is measured one instance per process, because the first eleven architectures produced no figure at all.** Each
+   dispatch ended in a runner shutdown signal and `exit 143`. The cause was measured on four real checkouts rather than
+   guessed: analysing 568 files costs **2 088 MB of resident memory**, and V8 returns reclaimed heap pages to itself
+   rather than to the operating system, so a run in one process costs the high-water mark of every instance it has
+   analysed rather than the largest one. `benchmark/lca-supervisor.ts` now starts `scripts/lca-instance.ts` once per
+   instance, samples the resident set, and kills the process **group** at a stated ceiling or a stated clock, so a
+   refusal names the ceiling that fired instead of the runner disappearing.
+4. **The supervisor watches the process group, and that was the last defect.** `npx` is a shim: sampling the spawned pid
+   measured the wrapper, so a 6 144 MB ceiling reported a peak of 83 MB and could never fire while the worker underneath
+   it consumed the runner. Summing every process whose group leader is the spawned pid reads the same command as
+   **286 MB** instead of 83 MB, and the Kotlin instance that used to die at `exit 134` now stops honestly at 6 145 MB.
+
+The workflow is a three-job matrix — one split per job, each writing `benchmarks/lca-parts/<config>.json` — and
+`scripts/lca-merge.ts` adds the parts up **over pooled rows**, so the combined figure is the one a single run would have
+produced. Every instance the bounds refused is a row in the artifact carrying the sentence that refused it.
 
 **What this corpus cannot say.** Its published baselines include `filepath_imports`, which shows a model every path in
 the repository plus the import graph; this product shows a model the blocks a hybrid retriever selected under a
