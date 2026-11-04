@@ -51,6 +51,8 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     corpusUnreadable: 0,
     checkoutBytes: 4_000,
     checkoutUnreadable: 0,
+    graphNodes: 0,
+    graphEdges: 0,
     cost: { peakRssMb: 500, elapsedMs: 1_000 },
     skipped: null,
     retrieval,
@@ -401,6 +403,31 @@ describe('costModels', () => {
     const models = costModels(rows);
     expect(models.recommended!.predictor).toBe('checkoutBytes');
     expect(models.recommended!.r2).toBeGreaterThan(models.byAnswerSpace!.r2);
+  });
+
+  it('prefers the mechanistic predictor when it ties, because the graph is the thing memory holds', () => {
+    // Three predictors over rows where the node count is exactly proportional to the cost: the graph has to win, and it
+    // has to win on `R²` rather than on being listed last.
+    const rows = [
+      { ...withBytes(1, 1_000, 1_000, 500), graphNodes: 1_000 },
+      { ...withBytes(2, 2_000, 2_000, 1_000), graphNodes: 2_000 },
+      { ...withBytes(3, 5_000, 5_000, 2_500), graphNodes: 5_000 },
+    ];
+    const models = costModels(rows);
+    expect(models.byGraphNodes!.predictor).toBe('graphNodes');
+    expect(models.byGraphNodes!.r2).toBeCloseTo(1, 6);
+    expect(models.recommended!.predictor).toBe('graphNodes');
+  });
+
+  it('does not fit a graph predictor on rows that never analysed anything', () => {
+    const rows = [
+      withBytes(1, 1_000, 1_000, 500),
+      withBytes(2, 2_000, 2_000, 1_000),
+      withBytes(3, 3_000, 3_000, 1_500),
+    ];
+    expect(costModels(rows).byGraphNodes).toBeNull();
+    // The two byte fits still stand, so the artifact is not left without a model.
+    expect(costModels(rows).recommended).not.toBeNull();
   });
 
   it('recommends the answer space when that is the one that tracks the cost', () => {

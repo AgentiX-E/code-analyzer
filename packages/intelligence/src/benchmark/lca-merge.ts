@@ -78,6 +78,18 @@ export interface LcaRowScore {
   readonly checkoutBytes: number | null;
   /** How many of the checkout's files could not be stat'ed. */
   readonly checkoutUnreadable: number;
+  /**
+   * How many nodes the analysis put in the graph, or `null` when it never ran.
+   *
+   * **The third predictor, and the first mechanistic one.** The two byte totals failed: the checkout's bytes are
+   * dominated by assets the pipeline never parses (`android/compose-samples` walks 126 MB and costs 674 MB, while
+   * `square/leakcanary` walks 38 MB and costs 385 MB), and R² came out at 0.007. What resident memory actually holds
+   * is the graph - one object per declaration, one per edge - so the count of those is the quantity to try, and it is
+   * the quantity the analysis itself knows.
+   */
+  readonly graphNodes: number | null;
+  /** How many edges the analysis put in the graph. */
+  readonly graphEdges: number | null;
   /** What the instance cost, or `null` when it did not run (refused before the spawn). */
   readonly cost: InstanceCost | null;
   /** The sentence that refused this instance, or `null` when it was measured. */
@@ -153,6 +165,8 @@ export function skippedRow(input: {
   corpusUnreadable?: number;
   checkoutBytes?: number | null;
   checkoutUnreadable?: number;
+  graphNodes?: number | null;
+  graphEdges?: number | null;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
 }): LcaRowScore {
@@ -169,6 +183,8 @@ export function skippedRow(input: {
     corpusUnreadable: input.corpusUnreadable ?? 0,
     checkoutBytes: input.checkoutBytes ?? null,
     checkoutUnreadable: input.checkoutUnreadable ?? 0,
+    graphNodes: input.graphNodes ?? null,
+    graphEdges: input.graphEdges ?? null,
     cost: input.cost ?? null,
     skipped: input.because,
     retrieval: {},
@@ -219,7 +235,7 @@ export interface CostFit {
    */
   readonly constantR2: number;
   /** Which quantity the fit regressed on, so the number is not read without its variable. */
-  readonly predictor: 'answerSpaceBytes' | 'checkoutBytes';
+  readonly predictor: 'answerSpaceBytes' | 'checkoutBytes' | 'graphNodes';
 }
 
 /** Which column of a row a cost fit reads, and how many of its files could not be read. */
@@ -238,6 +254,18 @@ export const ANSWER_SPACE_BYTES: CostPredictor = {
 export const CHECKOUT_BYTES: CostPredictor = {
   name: 'checkoutBytes',
   of: (row) => ({ x: row.checkoutBytes, unreadable: row.checkoutUnreadable }),
+};
+
+/**
+ * The graph the analysis built: **the first predictor that names the thing memory actually holds**.
+ *
+ * A byte total is a proxy for the work. A node count is the work: every declaration and every edge in the graph is an
+ * object the process keeps until it closes, and a run that costs three gigabytes has three gigabytes of objects rather
+ * than three gigabytes of source. `unreadable` is always zero because a count of objects is either known or absent.
+ */
+export const GRAPH_NODES: CostPredictor = {
+  name: 'graphNodes',
+  of: (row) => ({ x: row.graphNodes, unreadable: 0 }),
 };
 
 /** The median of a non-empty list, averaging the two middles of an even one. */
@@ -335,8 +363,9 @@ export function fitCost(
 export interface CostModels {
   readonly byAnswerSpace: CostFit | null;
   readonly byCheckout: CostFit | null;
-  /** The fit with the higher `R²`, or `null` when neither could be computed. **Ties go to the checkout**, because
-   * that is the quantity the pipeline reads and the one a bound on the work should be about. */
+  readonly byGraphNodes: CostFit | null;
+  /** The fit with the highest `R²`, or `null` when none could be computed. **Ties go to the later predictor**, because
+   * a mechanistic quantity is worth more than a proxy that happened to fit. */
   readonly recommended: CostFit | null;
 }
 
@@ -344,15 +373,13 @@ export interface CostModels {
 export function costModels(rows: readonly LcaRowScore[]): CostModels {
   const byAnswerSpace = fitCost(rows, ANSWER_SPACE_BYTES);
   const byCheckout = fitCost(rows, CHECKOUT_BYTES);
-  const recommended =
-    byCheckout === null
-      ? byAnswerSpace
-      : byAnswerSpace === null
-        ? byCheckout
-        : byCheckout.r2 >= byAnswerSpace.r2
-          ? byCheckout
-          : byAnswerSpace;
-  return { byAnswerSpace, byCheckout, recommended };
+  const byGraphNodes = fitCost(rows, GRAPH_NODES);
+  let recommended: CostFit | null = null;
+  for (const fit of [byAnswerSpace, byCheckout, byGraphNodes]) {
+    if (fit === null) continue;
+    if (recommended === null || fit.r2 >= recommended.r2) recommended = fit;
+  }
+  return { byAnswerSpace, byCheckout, byGraphNodes, recommended };
 }
 
 /** A cut's worth of an arm, plus what the sample size was. */

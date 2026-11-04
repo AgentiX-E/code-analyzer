@@ -137,6 +137,12 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   } as unknown as PipelineContext;
 
   const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(ctx);
+  // **What the analysis produced, counted before the graph is copied into a store.** Resident memory holds objects -
+  // one per declaration, one per edge - so the count of them is the first predictor that names the thing the ceiling is
+  // actually bounding. The two byte totals measured before this were proxies, and both failed: the checkout's bytes are
+  // dominated by assets the pipeline never parses.
+  const graphNodes = pipeline.graph.nodes.size;
+  const graphEdges = pipeline.graph.edges.size;
   const store = new InMemoryGraphStore();
   insertGraph(store, pipeline.graph.nodes.values(), pipeline.graph.edges.values());
 
@@ -202,6 +208,8 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     corpusUnreadable: size.unreadable,
     checkoutBytes: walked.bytes,
     checkoutUnreadable: walked.unreadable,
+    graphNodes,
+    graphEdges,
     // **The cost is the supervisor's observation, not the child's opinion of itself**, and the orchestrator attaches it
     // after the process closes. A row written here cannot know what it will peak at later.
     cost: null,

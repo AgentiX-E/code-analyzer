@@ -254,6 +254,10 @@ function main(): void {
         offeredPaths: row.offeredPaths,
         corpusBytes: row.corpusBytes,
         corpusUnreadable: row.corpusUnreadable,
+        checkoutBytes: row.checkoutBytes,
+        checkoutUnreadable: row.checkoutUnreadable,
+        graphNodes: row.graphNodes,
+        graphEdges: row.graphEdges,
         peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
         elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
         map: row.map,
@@ -295,6 +299,7 @@ function main(): void {
   for (const [name, fit] of [
     ['answerSpace', artifact.costModel.byAnswerSpace],
     ['checkout', artifact.costModel.byCheckout],
+    ['graphNodes', artifact.costModel.byGraphNodes],
   ] as const) {
     if (fit === null) {
       console.log(`LCA-COST ${name} none`);
