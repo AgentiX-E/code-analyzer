@@ -14,16 +14,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
-
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { MAP_DEPTH, insertGraph, measureInstance } from '../lca-measure.js';
 
-import type { GraphEdge, GraphNode } from '@code-analyzer/shared';
-
 import type { LLMProvider } from '../../review/llm/provider.js';
 import type { LcaCorpusRow } from '../lca-measure.js';
+import type { GraphEdge, GraphNode } from '@code-analyzer/shared';
 
 const SCRATCH = mkdtempSync(join(tmpdir(), 'lca-measure-'));
 

@@ -27,7 +27,7 @@
 // did it produce a row, and if not, what stopped it.
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 
 import type { LcaRowScore } from './lca-merge.js';
 
@@ -96,6 +96,72 @@ export function residentMbFromStatus(status: string): number | null {
   if (match === null) return null;
   const kilobytes = Number(match[1]);
   return Number.isFinite(kilobytes) ? Math.round(kilobytes / 1024) : null;
+}
+
+/**
+ * The process group one pid leads, and the resident set of everything in it.
+ *
+ * **Sampling the child's own pid was measuring the wrapper.** With `npx tsx` the child is npm's shim and the analysis
+ * runs in *its* child: on the first run of this design the Kotlin leg reported `peakRss=83MB` while the worker it had
+ * started aborted at `exit 134` five minutes later. A ceiling read from the shim can never fire, so the question was
+ * wrong rather than the number - **the memory an instance costs is the memory of its process group**.
+ *
+ * **The operating system's two files are an argument rather than an import**, because the alternative is a function
+ * whose failure paths - a process that exits between the listing and the read, a status without `VmRSS`, a `stat` that
+ * cannot be parsed - can only be reached by a race. `residentOfGroup` is the decision and takes the reader; the
+ * exported `groupResidentMb` binds it to `/proc` and is what the supervisor calls.
+ */
+export interface ProcFilesystem {
+  /** Every directory name under `/proc`, which is one per process plus a handful of kernel entries. */
+  readonly list: () => string[];
+  /** One file's contents, or a throw when the process has gone. */
+  readonly read: (path: string) => string;
+}
+
+/**
+ * Sum the resident sets of every process whose group leader is `leaderPid`.
+ *
+ * **`null` when the group cannot be seen at all**, which is the same contract as `readResidentMb`: a monitor that
+ * cannot see must not report zero, because zero is a reading and blindness is not.
+ */
+export function residentOfGroup(leaderPid: number, proc: ProcFilesystem): number | null {
+  let entries: string[];
+  try {
+    entries = proc.list();
+  } catch {
+    return null;
+  }
+  let total = 0;
+  let seen = 0;
+  for (const entry of entries) {
+    const pid = Number.parseInt(entry, 10);
+    // **A cheap filter before a read**: `/proc` holds a directory per process and a file per kernel knob.
+    if (!Number.isFinite(pid)) continue;
+    try {
+      const stat = proc.read(`/proc/${entry}/stat`);
+      // **The comm field may contain spaces and parentheses**, so the fields after it start at the last `)`. A stat
+      // without one is not a stat, and its `pgrp` parses to `NaN`, which matches no leader - no guard needed.
+      const close = stat.lastIndexOf(')');
+      const fields = stat.slice(close + 2).split(' ');
+      if (Number.parseInt(fields[2] ?? '', 10) !== leaderPid) continue;
+      const rss = residentMbFromStatus(proc.read(`/proc/${entry}/status`));
+      if (rss === null) continue;
+      total += rss;
+      seen += 1;
+    } catch {
+      // **A process that exits between the listing and the read** is the expected race, not an error.
+      continue;
+    }
+  }
+  return seen === 0 ? null : total;
+}
+
+/** The resident set of a process group, from the real `/proc`. */
+export function groupResidentMb(leaderPid: number): number | null {
+  return residentOfGroup(leaderPid, {
+    list: () => readdirSync('/proc'),
+    read: (path) => readFileSync(path, 'utf8'),
+  });
 }
 
 /** The resident set of a process, in megabytes, or `null` where the operating system does not publish it. */
@@ -250,7 +316,9 @@ export function superviseInstance(options: SupervisorOptions): Promise<InstanceO
       pid === undefined
         ? null
         : setInterval(() => {
-            const rss = readResidentMb(pid);
+            // **The group, not the process**: `npx` is a shim and the analysis runs in its child, which is why the first
+            // run of this design reported 83 MB while the worker aborted at `exit 134`.
+            const rss = groupResidentMb(pid);
             // **`?? 0` rather than a guard**: an unreadable sample cannot raise a maximum, and a branch whose arm is
             // "the process was gone when we looked" is one only a race can reach.
             peakRssMb = Math.max(peakRssMb, rss ?? 0);
@@ -288,8 +356,9 @@ export function superviseInstance(options: SupervisorOptions): Promise<InstanceO
 
     // **A spawn that never starts is a refusal, not a hang.** `error` fires for a missing executable and for a
     // permission failure, and both are properties of the job rather than of the instance.
+    // **`close` always follows `error`**, so the interval is cleared there rather than twice: a handler that clears it
+    // in both places has an arm - "an error after a process started" - that no spawn failure produces.
     child.on('error', (error) => {
-      if (timer !== null) clearInterval(timer);
       resolve({
         kind: 'refused',
         because: `the instance process could not be started: ${error.message}`,

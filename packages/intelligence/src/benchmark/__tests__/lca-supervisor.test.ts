@@ -10,16 +10,17 @@
 // comment: a process killed at a memory ceiling, a process that outlives its clock, and a process that exits without
 // leaving a row.
 
+import { spawn } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
-import { spawn } from 'node:child_process';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
   ceilingBreach,
+  groupResidentMb,
+  residentOfGroup,
   isRow,
   lastLine,
   readResidentMb,
@@ -399,5 +400,106 @@ describe('superviseInstance', () => {
     // **`realpath`, because `/tmp` is a symlink on macOS** and the comparison would otherwise fail for a reason that
     // has nothing to do with the supervisor.
     expect(realpathSync(outcome.row.repo)).toBe(realpathSync(SCRATCH));
+  });
+});
+
+describe('residentOfGroup', () => {
+  /**
+   * A `/proc` written as data, **because the failure paths are races in the real one**: a process that exits between the
+   * listing and the read, a status with no `VmRSS`, a `stat` that cannot be parsed. Each is a real shape a real kernel
+   * produces at some point, and each decides whether a ceiling is enforced or the monitor silently reads zero.
+   */
+  function procOf(
+    processes: { pid: number; pgrp: number; rssKb?: number; stat?: string; vanish?: boolean }[],
+  ): { list: () => string[]; read: (path: string) => string } {
+    return {
+      list: () => [...processes.map((entry) => String(entry.pid)), 'self', 'net'],
+      read: (path: string) => {
+        const match = /^\/proc\/(\d+)\/(stat|status)$/.exec(path);
+        const process = processes.find((candidate) => String(candidate.pid) === match?.[1]);
+        if (process === undefined || process.vanish === true) throw new Error('ENOENT');
+        if (match?.[2] === 'stat') {
+          return process.stat ?? `${String(process.pid)} (node) S 1 ${String(process.pgrp)} 0 0`;
+        }
+        return process.rssKb === undefined
+          ? 'Name:\tnode\nThreads:\t2\n'
+          : `Name:\tnode\nVmRSS:\t${String(process.rssKb)} kB\n`;
+      },
+    };
+  }
+
+  it('adds every process in the group and ignores every other one', () => {
+    expect(
+      residentOfGroup(
+        10,
+        procOf([
+          { pid: 10, pgrp: 10, rssKb: 102_400 },
+          { pid: 11, pgrp: 10, rssKb: 51_200 },
+          { pid: 12, pgrp: 12, rssKb: 900_000 },
+        ]),
+      ),
+    ).toBe(150);
+  });
+
+  it('skips a member whose status carries no VmRSS rather than counting it as zero', () => {
+    expect(
+      residentOfGroup(
+        10,
+        procOf([
+          { pid: 10, pgrp: 10, rssKb: 102_400 },
+          { pid: 11, pgrp: 10 },
+        ]),
+      ),
+    ).toBe(100);
+  });
+
+  it('skips a member that disappears between the listing and the read', () => {
+    expect(
+      residentOfGroup(
+        10,
+        procOf([
+          { pid: 10, pgrp: 10, rssKb: 102_400 },
+          { pid: 11, pgrp: 10, vanish: true },
+        ]),
+      ),
+    ).toBe(100);
+  });
+
+  it('ignores a stat it cannot parse instead of attributing it to the group', () => {
+    expect(
+      residentOfGroup(
+        10,
+        procOf([
+          { pid: 10, pgrp: 10, rssKb: 102_400 },
+          // **Too few fields to hold a `pgrp`**, which is the shape a truncated read produces.
+          { pid: 11, pgrp: 10, stat: '7 (x)', rssKb: 51_200 },
+        ]),
+      ),
+    ).toBe(100);
+  });
+
+  it('answers null when the group holds nothing, and when /proc cannot be listed', () => {
+    expect(residentOfGroup(99, procOf([]))).toBeNull();
+    expect(
+      residentOfGroup(10, {
+        list: () => {
+          throw new Error('EACCES');
+        },
+        read: () => '',
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('groupResidentMb', () => {
+  it('reads the real /proc for a live process, and never less than the process itself', () => {
+    const own = readResidentMb(process.pid);
+    const group = groupResidentMb(process.pid);
+    if (own === null) return;
+    if (group !== null) expect(group).toBeGreaterThanOrEqual(own);
+  });
+
+  it('answers null for a group that does not exist', () => {
+    expect(groupResidentMb(2_147_483_646)).toBeNull();
   });
 });
