@@ -201,7 +201,12 @@ Four things about this corpus are worth stating plainly rather than leaving to a
    analysed rather than the largest one. `benchmark/lca-supervisor.ts` now starts `scripts/lca-instance.ts` once per
    instance, samples the resident set, and kills the process **group** at a stated ceiling or a stated clock, so a
    refusal names the ceiling that fired instead of the runner disappearing.
-4. **The supervisor watches the process group, and that was the last defect.** `npx` is a shim: sampling the spawned pid
+4. **The bounds are calibrated against the graph, not the file count.** The two refuse rules were `constant × files`
+   and the constant scored **`R²` −0.393** on the 24 instances that ran — worse than predicting the mean. Peak resident
+   memory fits **`RSS ≈ 349 MB + 31 KB × graphNodes`** at **`R²` 0.814**, with answer-space bytes at 0.399 and the
+   checkout's bytes at 0.007. `costModel` in the artifact publishes all three fits, the residual of each and the shipped
+   constant's own `R²` beside them, because a model has to be compared with the one it replaces on the same rows.
+5. **The supervisor watches the process group, and that was the last defect.** `npx` is a shim: sampling the spawned pid
    measured the wrapper, so a 6 144 MB ceiling reported a peak of 83 MB and could never fire while the worker underneath
    it consumed the runner. Summing every process whose group leader is the spawned pid reads the same command as
    **286 MB** instead of 83 MB, and the Kotlin instance that used to die at `exit 134` now stops honestly at 6 145 MB.
