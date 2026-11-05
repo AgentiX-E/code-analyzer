@@ -61,6 +61,22 @@ describe('locateRepository', () => {
     expect(output.error).toBeDefined();
     expect(output.files).toEqual([]);
   });
+
+  it('survives a caller that throws something that is not an Error', () => {
+    // **A `catch` has to render whatever arrived at it.** A thrown string is legal JavaScript and a library boundary is
+    // exactly where it turns up; a handler that assumed `Error` would replace the message with `undefined` and the
+    // command would exit with a failure nobody can act on. The getter is the fixture: reading `limit` throws.
+    const output = locateRepository({
+      question: 'anything',
+      directory: root,
+      get limit(): number {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- the fixture *is* the non-Error throw.
+        throw 'a plain string, not an Error';
+      },
+    });
+    expect(output.success).toBe(false);
+    expect(output.error).toBe('a plain string, not an Error');
+  });
 });
 
 describe('formatLocateOutput', () => {
@@ -124,6 +140,25 @@ describe('formatLocateOutput', () => {
       'text',
     );
     expect(text).toContain('Locate failed: ENOENT');
+  });
+
+  it('renders a failure that carries no message as a failure, rather than as `undefined`', () => {
+    // The field is optional, so this is a legal value and not a malformed one.
+    const text = formatLocateOutput(
+      {
+        success: false,
+        question: 'q',
+        directory: '/tmp',
+        files: [],
+        answerSpace: 0,
+        truncated: false,
+        importLines: 0,
+        unreadableFiles: 0,
+        durationMs: 1,
+      },
+      'text',
+    );
+    expect(text).toContain('Locate failed: unknown error');
   });
 
   it('emits JSON that a program can read', () => {
