@@ -302,6 +302,87 @@ function main() {
     `fileRanking: ${String(checked)} rows carry an armature against ${String(sample?.measured)} measured - a row ` +
       'without one is an instance the comparison skipped silently',
   );
+  // **The seventh invariant: the second control.** A paired difference against **one** comparator is a difference that
+  // can be a fit to that comparator, so the artifact publishes a second scorer over the identical index - and the gate
+  // requires it to be a control rather than a decoration:
+  //
+  //   * it exists, is paired, and carries its own configuration, because a control described as "TF-IDF" without its
+  //     weighting is a name rather than a method;
+  //   * it ran on **exactly the rows** the primary control ran on - two controls over two different sets of checkouts
+  //     would make the pair a comparison of samples rather than of formulas;
+  //   * every `controlSummary` delta is `ours - control` on the rows that control scored, and every summary row counts
+  //     the same paired rows as the comparison it summarises.
+  //
+  // **Per row as well as in the mean**, for the reason the armature is checked per row: two means can agree while the
+  // rows behind them do not, and a control that silently skipped the hard instances would produce exactly that.
+  const crossCheck = at(record, ['crossCheck']);
+  const crossOverall = at(record, ['crossCheck', 'overall']);
+  const crossPaired = at(record, ['crossCheck', 'paired']);
+  guard(
+    crossCheck !== null &&
+      typeof crossOverall?.rows === 'number' &&
+      crossOverall.rows > 0 &&
+      typeof crossCheck?.configuration?.termFrequency === 'string' &&
+      typeof crossCheck?.configuration?.inverseDocumentFrequency === 'string',
+    'crossCheck: absent, empty, or silent about its weighting - a second control is a measurement only if its formula ' +
+      'is stated',
+  );
+  guard(
+    typeof crossPaired?.rows === 'number' && crossPaired.rows === paired?.rows,
+    `crossCheck: ${String(crossPaired?.rows)} paired rows against ${String(paired?.rows)} for the primary control - ` +
+      'the two controls must be measured on the same instances',
+  );
+  guard(
+    crossOverall?.rows === at(record, ['baseline', 'overall', 'rows']),
+    `crossCheck: ${String(crossOverall?.rows)} control rows against ` +
+      `${String(at(record, ['baseline', 'overall', 'rows']))} for BM25 - the second control did not run everywhere the ` +
+      'first one did',
+  );
+  let secondControlRows = 0;
+  let unmatchedControlRows = 0;
+  for (const row of rowsOf) {
+    if (typeof row?.bm25Map !== 'number') continue;
+    secondControlRows += 1;
+    if (typeof row?.tfidfMap !== 'number') unmatchedControlRows += 1;
+  }
+  guard(
+    unmatchedControlRows === 0,
+    `rows: ${String(unmatchedControlRows)} of ${String(secondControlRows)} rows carry a BM25 figure without a TF-IDF ` +
+      'one - a control that skips the hard instances is the bias it exists to remove, one formula at a time',
+  );
+  const controlSummary = Array.isArray(at(record, ['controlSummary']))
+    ? at(record, ['controlSummary'])
+    : [];
+  guard(
+    controlSummary.length === 2 && new Set(controlSummary.map((entry) => entry?.name)).size === 2,
+    `controlSummary: ${String(controlSummary.length)} entries - it exists to hold both controls, once each`,
+  );
+  for (const entry of controlSummary) {
+    const name = String(entry?.name);
+    const pairedRows = typeof entry?.pairedRows === 'number' ? entry.pairedRows : -1;
+    guard(
+      pairedRows === paired?.rows,
+      `controlSummary.${name}: summarises ${String(entry?.pairedRows)} paired rows against ` +
+        `${String(paired?.rows)} on the figure`,
+    );
+    if (
+      typeof entry?.delta !== 'number' ||
+      typeof entry?.oursPaired !== 'number' ||
+      typeof entry?.controlMap !== 'number'
+    ) {
+      guard(
+        pairedRows === 0,
+        `controlSummary.${name}: a paired row without a delta, an under-ours mean or a control mean`,
+      );
+      continue;
+    }
+    guard(
+      Math.abs(entry.delta - (entry.oursPaired - entry.controlMap)) < 1e-4,
+      `controlSummary.${name}: delta ${String(entry.delta)} is not ours minus control ` +
+        `(${String(entry.oursPaired)} - ${String(entry.controlMap)})`,
+    );
+  }
+
   const sampleLine =
     typeof sample?.measured === 'number'
       ? `| sample | ${String(sample.measured)} measured of ${String(sample.attempted)} attempted of ` +
@@ -317,6 +398,13 @@ function main() {
         `p ${Number(paired.pValue).toFixed(4)} | ${String(paired.rows)} rows, all measured | ` +
         `${paired.rows === sample?.measured ? '✓' : '✗'} |`
       : '| paired vs BM25 | not measured | every measured row paired | ✗ |';
+  const crossPairedLine =
+    typeof crossPaired?.meanDelta === 'number'
+      ? `| paired vs TF-IDF | ${crossPaired.meanDelta.toFixed(4)} ` +
+        `[${Number(crossPaired.lower).toFixed(4)}, ${Number(crossPaired.upper).toFixed(4)}] · ` +
+        `p ${Number(crossPaired.pValue).toFixed(4)} | ${String(crossPaired.rows)} rows, the same ones | ` +
+        `${crossPaired.rows === paired?.rows ? '✓' : '✗'} |`
+      : '| paired vs TF-IDF | not measured | same rows as the primary control | ✗ |';
 
   const diagnosisLine =
     typeof diagnosis?.rows === 'number'
@@ -330,7 +418,7 @@ function main() {
   const failures = [...invariants];
   rows.push(fitLine.line);
   if (fitLine.failure) failures.push(fitLine.failure);
-  rows.push(sampleLine, pairedLine, diagnosisLine);
+  rows.push(sampleLine, pairedLine, crossPairedLine, diagnosisLine);
   // **One line per reading of the pool**, because the block is a comparison and a comparison a reader cannot see is a
   // number with a name. The shipped arm is marked, since it is the control rather than a candidate - and a candidate
   // that loses is a ✓ here, because losing is a finding rather than a failure of the gate.

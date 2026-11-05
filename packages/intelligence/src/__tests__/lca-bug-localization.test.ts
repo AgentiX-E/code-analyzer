@@ -50,7 +50,7 @@ import { join, resolve } from 'node:path';
 import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
-import { bm25Map } from '../benchmark/lca-baseline.js';
+import { lexicalControls } from '../benchmark/lca-baseline.js';
 import {
   CONFIG_EXTENSION,
   MEASURED_MB_PER_FILE,
@@ -354,19 +354,25 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
 
         const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
 
-        // **The control runs before the bound does, and that ordering is the iteration.** BM25 reads the answer space as
-        // text - no parser, no graph, no model - so it fits inside the parent that has to survive whatever the child
-        // does. Running it *before* `decideInstance` is what gives a refused instance a figure: the thirteen rows the
-        // caps removed are the large repositories, and a control that only existed on the easy rows would reproduce the
-        // bias it is meant to measure.
+        // **The controls run before the bound does, and that ordering is the iteration.** A lexical control reads the
+        // answer space as text - no parser, no graph, no model - so it fits inside the parent that has to survive
+        // whatever the child does. Running it *before* `decideInstance` is what gives a refused instance a figure: the
+        // thirteen rows the caps removed are the large repositories, and a control that only existed on the easy rows
+        // would reproduce the bias it is meant to measure.
+        //
+        // **Two controls, one index.** BM25 is the comparator the shipped reading was chosen against; TF-IDF reads the
+        // same documents with a different weighting, so the gap can be told from a fit to one formula. Building the
+        // index once is what makes "same documents, same terms, same tie-break" a structural fact rather than a claim.
         const question = `${row.issue_title}\n\n${row.issue_body}`.trim();
-        const control = bm25Map({
+        const controls = lexicalControls({
           checkout,
           files: allFiles,
           query: question,
           expected: row.changed_files,
           depth: MAP_DEPTH,
         });
+        const control = controls.bm25;
+        const secondControl = controls.tfidf;
         // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
         // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
         // directory is what took the runner down six minutes later.
@@ -418,6 +424,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               checkoutBytes: refusedWalked.bytes,
               checkoutUnreadable: refusedWalked.unreadable,
               bm25: control,
+              tfidf: secondControl,
             }),
           );
           continue;
@@ -460,7 +467,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         // reported about itself would be a child's opinion rather than a measurement.
         const cost = { peakRssMb: outcome.peakRssMb, elapsedMs: outcome.ms };
         if (outcome.kind === 'row') {
-          scores.push({ ...outcome.row, cost, bm25: control });
+          scores.push({ ...outcome.row, cost, bm25: control, tfidf: secondControl });
         } else {
           // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
           // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
@@ -473,6 +480,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               because: outcome.because,
               cost,
               bm25: control,
+              tfidf: secondControl,
             }),
           );
         }

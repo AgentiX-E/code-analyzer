@@ -102,6 +102,60 @@ function baseRecord(): Record<string, unknown> {
       upper: 0.31,
       pValue: 0.5,
     },
+    // **The second control, over the same rows as the first.** Added in iteration 75: the shipped reading was chosen
+    // against BM25, so an artifact that only ever measured that one comparator cannot say whether the gap is a property
+    // of lexical retrieval or of the formula the decision was tuned against.
+    crossCheck: {
+      name: 'TF-IDF (cosine)',
+      configuration: {
+        termFrequency: 'sublinear: 1 + ln(tf)',
+        inverseDocumentFrequency: 'smoothed: ln((1 + N) / (1 + df)) + 1',
+      },
+      overall: { rows: 3, map: 0.25, oursPaired: 0.4, oursPairedRows: 2 },
+      byLanguage: { kt: { rows: 2, map: 0.25, ours: 0.4, delta: 0.15 } },
+      paired: {
+        rows: 2,
+        wins: 2,
+        losses: 0,
+        ties: 0,
+        meanDelta: 0.15,
+        lower: 0.02,
+        upper: 0.28,
+        pValue: 0.5,
+      },
+    },
+    controlSummary: [
+      {
+        name: 'BM25',
+        controlRows: 3,
+        controlMap: 0.22,
+        oursPairedRows: 2,
+        oursPaired: 0.4,
+        pairedRows: 2,
+        delta: 0.18,
+        lower: 0.05,
+        upper: 0.31,
+        pValue: 0.5,
+        wins: 2,
+        losses: 0,
+        ties: 0,
+      },
+      {
+        name: 'TF-IDF (cosine)',
+        controlRows: 3,
+        controlMap: 0.25,
+        oursPairedRows: 2,
+        oursPaired: 0.4,
+        pairedRows: 2,
+        delta: 0.15,
+        lower: 0.02,
+        upper: 0.28,
+        pValue: 0.5,
+        wins: 2,
+        losses: 0,
+        ties: 0,
+      },
+    ],
     stratified: [{ label: '0-50 files', attempted: 2, measured: 2, map: 0.4, bm25: 0.22 }],
     // **The armature, with two measured rows behind it.** The shipped arm repeats each row's own figures, which is
     // what the gate checks per row: an armature that collapsed the pool would have five arms that all agree with each
@@ -118,6 +172,8 @@ function baseRecord(): Record<string, unknown> {
         skipped: null,
         map: 0.5,
         answerRank: 1,
+        bm25Map: 0.3,
+        tfidfMap: 0.35,
         fileArms: [
           { aggregation: 'max', map: 0.5, answerRank: 1 },
           { aggregation: 'sum', map: 0.6, answerRank: 1 },
@@ -131,6 +187,8 @@ function baseRecord(): Record<string, unknown> {
         skipped: null,
         map: 0.3,
         answerRank: 3,
+        bm25Map: 0.14,
+        tfidfMap: 0.15,
         fileArms: [
           { aggregation: 'max', map: 0.3, answerRank: 3 },
           { aggregation: 'sum', map: 0.2, answerRank: 4 },
@@ -144,6 +202,8 @@ function baseRecord(): Record<string, unknown> {
         skipped: 'the checkout holds 4970 files, above the stated cap of 2000',
         map: 0,
         answerRank: null,
+        bm25Map: 0.11,
+        tfidfMap: 0.12,
         fileArms: null,
       },
     ],
@@ -404,5 +464,84 @@ describe('lca gate', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('map');
+  });
+
+  // **The second control, and the four ways it can be present without being a control.** A paired difference against
+  // one comparator is a difference that can be a fit to it, so the artifact carries a second scorer over the identical
+  // index - and each of these cases is a way for that second scorer to look present and measure nothing.
+  it('refuses a record with no second control', () => {
+    const run = runGate(
+      mutated((record) => {
+        delete record['crossCheck'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('crossCheck');
+  });
+
+  it('refuses a second control that is silent about its weighting', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['crossCheck'] as Record<string, unknown>)['configuration'] = {};
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('weighting');
+  });
+
+  it('refuses a second control paired over a different number of rows', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['crossCheck'] as Record<string, unknown>)['paired'] = {
+          rows: 1,
+          wins: 1,
+          losses: 0,
+          ties: 0,
+          meanDelta: 0.15,
+          lower: 0.02,
+          upper: 0.28,
+          pValue: 1,
+        };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('same instances');
+  });
+
+  it('refuses a second control that ran on fewer rows than the first', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['crossCheck'] as Record<string, unknown>)['overall'] = {
+          rows: 2,
+          map: 0.25,
+          oursPaired: 0.4,
+          oursPairedRows: 2,
+        };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('did not run everywhere');
+  });
+
+  it('refuses a control summary whose delta is not ours minus control', () => {
+    const run = runGate(
+      mutated((record) => {
+        const summary = record['controlSummary'] as Array<Record<string, unknown>>;
+        summary[1]!['delta'] = 0.4 - 0.25 + 0.01;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('not ours minus control');
+  });
+
+  it('refuses a row that carries a BM25 figure without a TF-IDF one', () => {
+    const run = runGate(
+      mutated((record) => {
+        const rows = record['rows'] as Array<Record<string, unknown>>;
+        delete rows[2]!['tfidfMap'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('without a TF-IDF');
   });
 });

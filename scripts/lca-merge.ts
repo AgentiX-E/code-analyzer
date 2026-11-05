@@ -28,6 +28,7 @@ import {
   armComparison,
   BOOTSTRAP_RESAMPLES,
   BOOTSTRAP_SEED,
+  TFIDF_MAP,
   pairedByLanguage,
   pairedComparison,
   publishedRank,
@@ -48,6 +49,96 @@ function argumentOf(flag: string, fallback: string): string {
   if (index === -1) return fallback;
   const value = process.argv[index + 1];
   return value === undefined ? fallback : value;
+}
+
+/** The tokeniser both controls use. **One string, so the artifact cannot claim two different ones.** */
+const TOKENISER =
+  'lower case, split on non-alphanumerics, then split at camel-case boundaries; tokens shorter than two ' +
+  'characters and a stated list of function words are dropped';
+
+/**
+ * One control's block: what it is, how it was configured, and what it scored.
+ *
+ * **A function because there are two of them and they must be built the same way.** A control whose `overall.mean` was
+ * computed over a different row set than its neighbour's is the defect this whole artifact exists to make impossible,
+ * and two hand-written copies of the same four fields is how that defect gets in.
+ */
+function controlBlock(input: {
+  readonly name: string;
+  readonly configuration: Record<string, unknown>;
+  readonly rows: readonly number[];
+  readonly oursPaired: readonly number[];
+  readonly byLanguage: Record<string, unknown>;
+  readonly note: string;
+}): Record<string, unknown> {
+  return {
+    name: input.name,
+    configuration: input.configuration,
+    overall: {
+      rows: input.rows.length,
+      map: input.rows.length === 0 ? null : mean([...input.rows]),
+      /** Our own mean over exactly the rows this control scored, **so the two means are subtractable**. */
+      oursPaired: input.oursPaired.length === 0 ? null : mean([...input.oursPaired]),
+      oursPairedRows: input.oursPaired.length,
+    },
+    byLanguage: input.byLanguage,
+    note: input.note,
+  };
+}
+
+/**
+ * One line of `controlSummary`: **the paired figures, flattened**, so the two controls are one table.
+ *
+ * Typed rather than left as an index signature because the line is printed as well as published, and a field read out of
+ * an index signature in the log loop is a field the compiler cannot tell you is gone.
+ */
+interface ControlSummary {
+  readonly name: string;
+  readonly controlRows: number;
+  readonly controlMap: number | null;
+  readonly oursPairedRows: number;
+  readonly oursPaired: number | null;
+  readonly pairedRows: number | null;
+  readonly delta: number | null;
+  readonly lower: number | null;
+  readonly upper: number | null;
+  readonly pValue: number | null;
+  readonly wins: number | null;
+  readonly losses: number | null;
+  readonly ties: number | null;
+}
+
+/** One line of `controlSummary`. **The paired figures, flattened**, so the two controls are one table. */
+function summaryOf(
+  name: string,
+  rows: readonly number[],
+  oursPaired: readonly number[],
+  paired: {
+    readonly rows: number;
+    readonly meanDelta: number;
+    readonly lower: number;
+    readonly upper: number;
+    readonly pValue: number;
+    readonly wins: number;
+    readonly losses: number;
+    readonly ties: number;
+  } | null,
+): ControlSummary {
+  return {
+    name,
+    controlRows: rows.length,
+    controlMap: rows.length === 0 ? null : mean([...rows]),
+    oursPairedRows: oursPaired.length,
+    oursPaired: oursPaired.length === 0 ? null : mean([...oursPaired]),
+    pairedRows: paired?.rows ?? null,
+    delta: paired?.meanDelta ?? null,
+    lower: paired?.lower ?? null,
+    upper: paired?.upper ?? null,
+    pValue: paired?.pValue ?? null,
+    wins: paired?.wins ?? null,
+    losses: paired?.losses ?? null,
+    ties: paired?.ties ?? null,
+  };
 }
 
 const PARTS_DIR = argumentOf('--parts', 'benchmarks/lca-parts');
@@ -174,10 +265,17 @@ function main(): void {
   const strata = stratify(allRows);
   const standardised = standardisedMap(strata);
   const paired = pairedComparison(allRows);
+  // **The second control, paired on its own rows.** It reads the same index as the first, so on a run where both ran
+  // its row set is identical - and the gate refuses an artifact where they differ, because two controls over two
+  // different sets of checkouts would make the pair a comparison of samples rather than of formulas.
+  const pairedTfidf = pairedComparison(allRows, { control: TFIDF_MAP });
   // **The control over every row that has one**, which is a superset of the rows we measured: BM25 ranks the checkouts
   // the supervisor refused, so the control's coverage is not the product's coverage and the two are published apart.
   const controlRows = allRows
     .map((row) => row.bm25?.map)
+    .filter((value): value is number => typeof value === 'number');
+  const secondControlRows = allRows
+    .map((row) => row.tfidf?.map)
     .filter((value): value is number => typeof value === 'number');
   // **One pair of means per language, over one set of rows.** This used to take ours over the measured rows and the
   // control's over every row that carried one, refused rows included - and refused rows are the large repositories,
@@ -187,6 +285,12 @@ function main(): void {
   const pairing = pairedByLanguage(parts);
   const controlByLanguage = Object.fromEntries(
     pairing.map((entry) => [
+      entry.config,
+      { rows: entry.rows, map: entry.control, ours: entry.ours, delta: entry.delta },
+    ]),
+  );
+  const controlByLanguageTfidf = Object.fromEntries(
+    pairedByLanguage(parts, TFIDF_MAP).map((entry) => [
       entry.config,
       { rows: entry.rows, map: entry.control, ours: entry.ours, delta: entry.delta },
     ]),
@@ -203,6 +307,10 @@ function main(): void {
   // mean invites the reader to subtract two numbers measured on different sets.
   const pairedOurs = allRows
     .filter((row) => row.skipped === null && typeof row.bm25?.map === 'number')
+    .map((row) => row.map);
+  /** The same restriction against the second control's coverage, **so its means are subtractable too**. */
+  const pairedOursTfidf = allRows
+    .filter((row) => row.skipped === null && typeof row.tfidf?.map === 'number')
     .map((row) => row.map);
 
   const artifact = {
@@ -227,6 +335,12 @@ function main(): void {
       '',
       '**Why the retrieval arm leads with k and not with a chosen set size.** A set size picked after seeing the',
       'ground truth is a fit. The cuts are fixed in advance and all of them are published.',
+      '',
+      '**Why there are two controls.** The reading the product ships - a file is placed by its best two declarations',
+      'rather than by its best one - was chosen because its paired interval against BM25 excluded zero, and a choice',
+      'made against one comparator can be a fit to it. `crossCheck` ranks the identical index with TF-IDF, so the two',
+      'controls differ in the weighting formula and nothing else; `controlSummary` prints them one line each and the',
+      'gate refuses an artifact where they were not measured on the same instances.',
       '',
       '**Why the figure is combined from parts.** One job measures one language split, because an analysis of a real',
       'checkout costs megabytes of resident memory per file and V8 does not return reclaimed pages to the operating',
@@ -327,32 +441,74 @@ function main(): void {
      * assumption in a sentence. What it buys is `paired`: two rankings of the same files of the same repository at the
      * same commit, where repository size, language and issue difficulty cancel because both terms share them.
      */
-    baseline: {
+    baseline: controlBlock({
       name: 'BM25',
       configuration: {
         k1: BM25_K1,
         b: BM25_B,
         maxFileBytes: BM25_MAX_FILE_BYTES,
         maxDocuments: BM25_MAX_DOCUMENTS,
-        tokeniser:
-          'lower case, split on non-alphanumerics, then split at camel-case boundaries; tokens shorter than two ' +
-          'characters and a stated list of function words are dropped',
+        tokeniser: TOKENISER,
         document: 'the answer space file, with its repository-relative path prefixed to its text',
         tieBreak:
           'path ascending, so the ranking is a function of the corpus rather than of the directory order',
       },
-      overall: {
-        rows: controlRows.length,
-        map: controlRows.length === 0 ? null : mean(controlRows),
-        /** Our own mean over exactly the rows the control scored, **so the two means are subtractable**. */
-        oursPaired: pairedOurs.length === 0 ? null : mean(pairedOurs),
-        oursPairedRows: pairedOurs.length,
-      },
+      rows: controlRows,
+      oursPaired: pairedOurs,
       byLanguage: controlByLanguage,
       note:
         'A control variate, not a reproduction of the paper’s BM25 row. Its value is that it measures the instances our ' +
         'analysis cannot run, so the difficulty of the unmeasured half of the corpus is a figure rather than a worry.',
+    }),
+    /**
+     * **A second control, and the reason it exists is the decision the product just made.**
+     *
+     * The reading the product ships - a file's position is its best two declarations - was chosen because its paired
+     * interval against **BM25** excluded zero. A choice made against one comparator can be a fit to that comparator, so
+     * the same rows are compared against a scorer the choice was not made against: **TF-IDF over the identical index**,
+     * same documents, same tokeniser, same caps, same tie-break, different weighting. Whatever the two controls disagree
+     * about is the formula; whatever they agree about is lexical retrieval, and that is the claim the report can make.
+     *
+     * **Its pairing lives here rather than at the top level**, because the top-level `paired` is the headline figure and
+     * a headline with two subjects is not one. `controlSummary` is where the two are read side by side.
+     */
+    crossCheck: {
+      ...controlBlock({
+        name: 'TF-IDF (cosine)',
+        configuration: {
+          termFrequency:
+            'sublinear: 1 + ln(tf), so a file that says a word forty times is not forty times about it',
+          inverseDocumentFrequency: 'smoothed: ln((1 + N) / (1 + df)) + 1',
+          normalisation:
+            'L2 over the document vector; cosine against the query vector, so length is divided out',
+          maxFileBytes: BM25_MAX_FILE_BYTES,
+          maxDocuments: BM25_MAX_DOCUMENTS,
+          tokeniser: TOKENISER,
+          document: 'the answer space file, with its repository-relative path prefixed to its text',
+          tieBreak:
+            'path ascending, the same rule as the primary control, so the two differ in weighting alone',
+        },
+        rows: secondControlRows,
+        oursPaired: pairedOursTfidf,
+        byLanguage: controlByLanguageTfidf,
+        note:
+          'A second control over the same index, added because the shipped reading was chosen against the first one. ' +
+          'It is not a reproduction of the paper’s TF-IDF row either: their tokeniser is a BPE vocabulary and this one ' +
+          'is the shared term index, which is stated so the difference is a configuration rather than an assumption.',
+      }),
+      paired: pairedTfidf,
     },
+    /**
+     * **The two controls on one line each**, so a reader compares formulas rather than scrolling between blocks.
+     *
+     * `delta` is `ours - control` on the rows the two share, and it is computed rather than left to the reader: written
+     * as four rounding steps on two means, it is the operation that published a 0.0037 *win* out of two figures
+     * averaged over different rows.
+     */
+    controlSummary: [
+      summaryOf('BM25', controlRows, pairedOurs, paired),
+      summaryOf('TF-IDF (cosine)', secondControlRows, pairedOursTfidf, pairedTfidf),
+    ],
     /**
      * **The paired comparison**, which is the only figure here in which repository size cannot be the explanation.
      *
@@ -413,6 +569,9 @@ function main(): void {
         graphEdges: row.graphEdges,
         bm25Map: row.bm25 === null ? null : row.bm25.map,
         bm25Documents: row.bm25 === null ? null : row.bm25.documents,
+        /** The second control on the same instance, **so a row can be read against both formulas**. */
+        tfidfMap: row.tfidf === null ? null : row.tfidf.map,
+        tfidfRank: row.tfidf === null ? null : row.tfidf.rank,
         peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
         elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
         map: row.map,
@@ -519,7 +678,23 @@ function main(): void {
     console.log(
       `LCA-STRATUM ${stratum.label} attempted=${String(stratum.attempted)} measured=${String(stratum.measured)} ` +
         `ours=${stratum.map === null ? 'none' : stratum.map.toFixed(4)} ` +
-        `bm25=${stratum.bm25 === null ? 'none' : stratum.bm25.toFixed(4)}`,
+        `bm25=${stratum.bm25 === null ? 'none' : stratum.bm25.toFixed(4)} ` +
+        `tfidf=${stratum.tfidf === null ? 'none' : stratum.tfidf.toFixed(4)}`,
+    );
+  }
+  // **The two controls one line each**, so the gap can be attributed to a formula or to lexical retrieval before the
+  // headline pairing is read. `delta` is `ours - control` on the rows the two share; a reader who wants only the primary
+  // one still has `LCA-PAIRED` below it.
+  for (const control of artifact.controlSummary) {
+    console.log(
+      `LCA-CONTROL ${control.name.replace(/\s+/g, '_')} rows=${String(control.pairedRows)} ` +
+        `map=${control.controlMap === null ? 'none' : control.controlMap.toFixed(4)} ` +
+        `ours=${control.oursPaired === null ? 'none' : control.oursPaired.toFixed(4)} ` +
+        `delta=${control.delta === null ? 'none' : control.delta.toFixed(4)} ` +
+        `ci=[${control.lower === null ? 'none' : control.lower.toFixed(4)},` +
+        `${control.upper === null ? 'none' : control.upper.toFixed(4)}] ` +
+        `W/L/T=${String(control.wins)}/${String(control.losses)}/${String(control.ties)} ` +
+        `p=${control.pValue === null ? 'none' : control.pValue.toFixed(4)}`,
     );
   }
   // **The paired comparison on one line**, because it is the figure that survives the sampling objection and the one a

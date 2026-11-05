@@ -254,11 +254,12 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     // **The cost is the supervisor's observation, not the child's opinion of itself**, and the orchestrator attaches it
     // after the process closes. A row written here cannot know what it will peak at later.
     cost: null,
-    // **The control is the parent's job, and that is a design decision rather than an omission.** BM25 has to run on
-    // the instances whose analysis is killed at the ceiling, so it cannot live in the process that gets killed; the
-    // parent - which is the process that survives - computes it for every row it attempts, measured or refused, and
-    // attaches it here. A row that arrived from the child carries `null` until it does.
+    // **The controls are the parent's job, and that is a design decision rather than an omission.** A lexical control
+    // has to run on the instances whose analysis is killed at the ceiling, so it cannot live in the process that gets
+    // killed; the parent - which is the process that survives - computes both of them for every row it attempts,
+    // measured or refused, and attaches them here. A row that arrived from the child carries `null` until it does.
     bm25: null,
+    tfidf: null,
     skipped: null,
     fileArms,
     retrieval,

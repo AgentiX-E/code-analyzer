@@ -22,9 +22,9 @@ import {
   signTest,
   standardisedMap,
   stratify,
+  TFIDF_MAP,
   worstCaseMap,
 } from '../lca-sample.js';
-
 
 import type { LcaRowScore } from '../lca-merge.js';
 
@@ -34,6 +34,7 @@ function row(input: {
   corpusFiles: number;
   map?: number;
   bm25?: number | null;
+  tfidf?: number | null;
   skipped?: string | null;
   answerRank?: number | null;
   bm25Rank?: number | null;
@@ -62,6 +63,17 @@ function row(input: {
         : {
             map: input.bm25,
             rank: input.bm25Rank ?? null,
+            documents: 10,
+            skippedFiles: 0,
+            unreadableFiles: 0,
+            ranked: [],
+          },
+    tfidf:
+      input.tfidf === undefined || input.tfidf === null
+        ? null
+        : {
+            map: input.tfidf,
+            rank: null,
             documents: 10,
             skippedFiles: 0,
             unreadableFiles: 0,
@@ -149,6 +161,21 @@ describe('rowsInBand', () => {
 });
 
 describe('stratify', () => {
+  it('reports the second control per band as well, and counts its rows separately', () => {
+    // **Two measurements of a band's difficulty rather than one.** A band both formulas find hard is a band the bounds
+    // really did remove; a band one of them finds easy is a band whose difficulty is a property of a formula. The row
+    // counts are separate because a control can be missing from a row the other one scored.
+    const strata = stratify(
+      [
+        row({ id: 1, corpusFiles: 10, map: 0.5, bm25: 0.25, tfidf: 0.4 }),
+        row({ id: 2, corpusFiles: 10, map: 0.5, bm25: 0.25 }),
+      ],
+      DEFAULT_STRATA,
+    );
+    expect(strata[0]).toMatchObject({ bm25: 0.25, bm25Rows: 2, tfidf: 0.4, tfidfRows: 1 });
+    expect(strata[4]).toMatchObject({ bm25: null, bm25Rows: 0, tfidf: null, tfidfRows: 0 });
+  });
+
   it('reports both rankings per band', () => {
     const strata = stratify(
       [
@@ -322,6 +349,33 @@ describe('pairedComparison', () => {
     ]);
     expect(paired).toMatchObject({ rows: 3, wins: 1, losses: 1, ties: 1 });
     expect(paired!.meanDelta).toBeCloseTo((0.4 - 0.3 + 0) / 3, 4);
+  });
+
+  it('pairs against whichever control it is given', () => {
+    // **The second control is a reading, not a second function.** The arithmetic is the same subtraction; what changes
+    // is which figure is subtracted - so a bug in one pairing cannot hide behind a second copy of the code that
+    // computed the other.
+    const rows = [
+      row({ id: 1, corpusFiles: 10, map: 0.6, bm25: 0.2, tfidf: 0.55 }),
+      row({ id: 2, corpusFiles: 10, map: 0.1, bm25: 0.4, tfidf: 0.05 }),
+    ];
+    const primary = pairedComparison(rows);
+    const second = pairedComparison(rows, { control: TFIDF_MAP });
+    expect(primary!.meanDelta).toBeCloseTo(0.05, 4);
+    expect(second!.meanDelta).toBeCloseTo(0.05, 4);
+    // **The same mean and a different split**, which is why the reading is a parameter: the primary control wins one
+    // row and loses the other, the second loses both, and the mean alone cannot tell those two situations apart.
+    expect(primary).toMatchObject({ wins: 1, losses: 1 });
+    expect(second).toMatchObject({ wins: 2, losses: 0 });
+  });
+
+  it('drops a row the chosen control did not score', () => {
+    const rows = [
+      row({ id: 1, corpusFiles: 10, map: 0.6, bm25: 0.2, tfidf: 0.5 }),
+      row({ id: 2, corpusFiles: 10, map: 0.1, bm25: 0.4 }),
+    ];
+    expect(pairedComparison(rows)!.rows).toBe(2);
+    expect(pairedComparison(rows, { control: TFIDF_MAP })!.rows).toBe(1);
   });
 
   it('excludes a refused row, which has no ranking of ours to pair', () => {

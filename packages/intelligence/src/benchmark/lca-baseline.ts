@@ -22,6 +22,15 @@
 // with their tokeniser, and this module states its own (k1 1.2, b 0.75, camel-case splitting, 64 KB per file) in the
 // artifact beside the number. **A control that is documented is a control; a control that is described as "the same as
 // theirs" is a claim nobody can check.**
+//
+// **And a second control reads the same index, because one is not enough to carry the conclusion.** The retrieval
+// reading the product now ships - a file's position is its best two declarations rather than its best one - was chosen
+// against BM25: the paired interval excluded zero on the armature and BM25 was the control on those rows. **A decision
+// made against one comparator is a decision that can be fitted to it**, and the question a reader is entitled to ask is
+// whether the gain is a property of retrieval in general or of the one scorer the choice was tuned against. TF-IDF is
+// the second control: same documents, same tokeniser, same caps, same tie-break, and a different weighting formula - so
+// whatever differs between the two arms is the formula and nothing else. It is also one of the paper's own rows
+// (`TF-IDF` 0.27), which is why it is the one worth adding rather than a scorer this project invented to lose.
 
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -181,16 +190,16 @@ export function tokenize(text: string): string[] {
 }
 
 /** One document: its term counts, and how many terms it held. */
-export interface Bm25Document {
+export interface TermDocument {
   /** Repository-relative POSIX path, **the corpus's own coordinate system**. */
   readonly path: string;
   readonly termFrequency: ReadonlyMap<string, number>;
   readonly length: number;
 }
 
-/** Everything the ranking needs, built once per instance. */
-export interface Bm25Index {
-  readonly documents: readonly Bm25Document[];
+/** Everything the ranking needs, built once per instance. **One index, read by two scorers.** */
+export interface TermIndex {
+  readonly documents: readonly TermDocument[];
   /** How many documents hold each term, which is what the inverse document frequency is computed from. */
   readonly documentFrequency: ReadonlyMap<string, number>;
   /** Mean document length, for the length normalisation. `0` on an empty index. */
@@ -228,8 +237,8 @@ function readPrefix(absolute: string, cap: number): string | null {
   }
 }
 
-/** Options for {@link buildBm25}. **Stated at the call site so the artifact can print them.** */
-export interface Bm25Options {
+/** Options for {@link buildTermIndex}. **Stated at the call site so the artifact can print them.** */
+export interface TermIndexOptions {
   readonly maxFileBytes?: number;
   readonly maxDocuments?: number;
   /** Prefix a document's text with its path, so a term in a filename can match. **Default `true`.** */
@@ -243,16 +252,16 @@ export interface Bm25Options {
  * files of the configuration's extension, and a control allowed to rank a superset would be a control measured on an
  * easier question.
  */
-export function buildBm25(
+export function buildTermIndex(
   checkout: string,
   files: readonly string[],
-  options: Bm25Options = {},
-): Bm25Index {
+  options: TermIndexOptions = {},
+): TermIndex {
   const cap = options.maxFileBytes ?? BM25_MAX_FILE_BYTES;
   const limit = options.maxDocuments ?? BM25_MAX_DOCUMENTS;
   const includePath = options.includePath ?? true;
 
-  const documents: Bm25Document[] = [];
+  const documents: TermDocument[] = [];
   const documentFrequency = new Map<string, number>();
   let skippedFiles = 0;
   let unreadableFiles = 0;
@@ -289,7 +298,12 @@ export function buildBm25(
 }
 
 /** The BM25 weight of one term in one document. **Zero when the term is absent**, which is what makes a sparse sum. */
-function score(document: Bm25Document, term: string, idf: number, averageLength: number): number {
+function bm25Score(
+  document: TermDocument,
+  term: string,
+  idf: number,
+  averageLength: number,
+): number {
   const frequency = document.termFrequency.get(term);
   if (frequency === undefined) return 0;
   const normaliser =
@@ -308,7 +322,7 @@ function score(document: Bm25Document, term: string, idf: number, averageLength:
  * absence of one, and returning the whole answer space in path order would give credit for a name match that never
  * happened.
  */
-export function rankBm25(index: Bm25Index, query: string, limit: number): string[] {
+export function rankBm25(index: TermIndex, query: string, limit: number): string[] {
   const terms = [...new Set(tokenize(query))];
   if (terms.length === 0 || index.documents.length === 0) return [];
   const total = index.documents.length;
@@ -320,10 +334,34 @@ export function rankBm25(index: Bm25Index, query: string, limit: number): string
     return { term, idf: Math.log(1 + (total - frequency + 0.5) / (frequency + 0.5)) };
   });
 
+  return rankScored(
+    index,
+    (document) => {
+      let value = 0;
+      for (const { term, idf } of weighted)
+        value += bm25Score(document, term, idf, index.averageLength);
+      return value;
+    },
+    limit,
+  );
+}
+
+/**
+ * Score every document, drop the ones that scored nothing, sort and cut.
+ *
+ * **The half both controls share, and sharing it is the point.** The two readings are supposed to differ in one thing -
+ * the formula that turns a term count into a weight - so the tie-break, the drop-the-zeros rule and the cut are written
+ * once. Two copies of this would let a later edit make the comparison a comparison of two orderings rather than of two
+ * weightings, and the diff would look like a one-line change.
+ */
+function rankScored(
+  index: TermIndex,
+  scoreOf: (document: TermDocument) => number,
+  limit: number,
+): string[] {
   const scored: { path: string; score: number }[] = [];
   for (const document of index.documents) {
-    let value = 0;
-    for (const { term, idf } of weighted) value += score(document, term, idf, index.averageLength);
+    const value = scoreOf(document);
     if (value > 0) scored.push({ path: document.path, score: value });
   }
   scored.sort((left, right) =>
@@ -332,8 +370,80 @@ export function rankBm25(index: Bm25Index, query: string, limit: number): string
   return scored.slice(0, Math.max(0, limit)).map((entry) => entry.path);
 }
 
+/**
+ * The smoothed inverse document frequency of TF-IDF: `ln((1 + N) / (1 + df)) + 1`.
+ *
+ * **Smoothed for the same reason BM25's is**: a term that appears in every document must weigh something rather than
+ * nothing, and a weight of zero would make a whole class of matches invisible instead of weak.
+ */
+function tfidfIdf(documentFrequency: number, total: number): number {
+  return Math.log((1 + total) / (1 + documentFrequency)) + 1;
+}
+
+/**
+ * The term's weight in one document: **sublinear** term frequency times the smoothed idf.
+ *
+ * **`1 + ln(tf)` rather than `tf`**, because a file that mentions a word forty times is not forty times more about it -
+ * the same reason BM25 saturates, arrived at without a parameter. And **the document vector is L2 normalised** by
+ * {@link rankTfidf} rather than by a length parameter, which is the other half of what makes this a different weighting
+ * and not a different configuration of the same one.
+ */
+function tfidfWeight(frequency: number, idf: number): number {
+  return (1 + Math.log(frequency)) * idf;
+}
+
+/**
+ * Rank the same index with TF-IDF cosine similarity.
+ *
+ * **Cosine rather than a raw sum, so length is divided out rather than tuned away.** BM25's `b` is a parameter that says
+ * how much a document's length should count; the cosine says it counts once, in the norm, and there is nothing to set.
+ *
+ * **The document norm is over the document's own terms and not over the query's**, which is what makes the two controls
+ * differ in weighting alone: a norm computed over the three query terms would be a different document representation
+ * with a different vocabulary, and the pairing would no longer isolate the formula. The cost is one pass over the
+ * index's tokens per query, and this harness asks one question per instance.
+ */
+export function rankTfidf(index: TermIndex, query: string, limit: number): string[] {
+  const counts = new Map<string, number>();
+  for (const token of tokenize(query)) counts.set(token, (counts.get(token) ?? 0) + 1);
+  if (counts.size === 0 || index.documents.length === 0) return [];
+  const total = index.documents.length;
+
+  const queryWeight = new Map<string, number>();
+  let queryNormSquared = 0;
+  for (const [term, frequency] of counts) {
+    const documentFrequency = index.documentFrequency.get(term);
+    // **A term no document holds contributes to neither side of the cosine**, and keeping it would divide every score
+    // by a norm that includes a dimension nothing occupies.
+    if (documentFrequency === undefined) continue;
+    const weight = tfidfWeight(frequency, tfidfIdf(documentFrequency, total));
+    queryWeight.set(term, weight);
+    queryNormSquared += weight * weight;
+  }
+  if (queryWeight.size === 0) return [];
+  const queryNorm = Math.sqrt(queryNormSquared);
+
+  return rankScored(
+    index,
+    (document) => {
+      let dot = 0;
+      let normSquared = 0;
+      for (const [term, frequency] of document.termFrequency) {
+        const documentFrequency = index.documentFrequency.get(term) ?? 0;
+        const weight = tfidfWeight(frequency, tfidfIdf(documentFrequency, total));
+        normSquared += weight * weight;
+        const fromQuery = queryWeight.get(term);
+        if (fromQuery !== undefined) dot += fromQuery * weight;
+      }
+      if (dot === 0 || normSquared === 0) return 0;
+      return dot / (Math.sqrt(normSquared) * queryNorm);
+    },
+    limit,
+  );
+}
+
 /** What one instance's control produced. **Every field is published in the row.** */
-export interface Bm25Result {
+export interface ControlResult {
   /** Average precision against the fixing commit, over the same depth the product's MAP column reads. */
   readonly map: number;
   /**
@@ -355,28 +465,37 @@ export interface Bm25Result {
 }
 
 /**
- * The control's average precision on one instance.
+ * The controls' average precision on one instance, **both read off one index**.
  *
  * **The same ruler as the product's own MAP column**: `averagePrecision` from the instrument module, read to the same
  * depth, against the same ground truth, restricted to the same answer space. Nothing here is allowed to differ from
  * the thing it is compared with except the ranking itself.
+ *
+ * **One index and two rankings is a decision, not a shortcut.** `buildTermIndex` reads the answer space off disk and
+ * builds the term counts; building it twice would double the I/O of the only part of this harness that runs on every
+ * attempted instance, and - worse - a second build is a second chance for the two controls to see a different set of
+ * files, which is exactly the confound a control exists to rule out. The two results therefore share `documents`,
+ * `skippedFiles` and `unreadableFiles` by construction, and the gate refuses an artifact where they disagree.
  */
-export function bm25Map(input: {
+export function lexicalControls(input: {
   readonly checkout: string;
   readonly files: readonly string[];
   readonly query: string;
   readonly expected: readonly string[];
   readonly depth: number;
-  readonly options?: Bm25Options;
-}): Bm25Result {
-  const index = buildBm25(input.checkout, input.files, input.options ?? {});
-  const ranked = rankBm25(index, input.query, input.depth);
-  return {
+  readonly options?: TermIndexOptions;
+}): { readonly bm25: ControlResult; readonly tfidf: ControlResult } {
+  const index = buildTermIndex(input.checkout, input.files, input.options ?? {});
+  const read = (ranked: string[]): ControlResult => ({
     map: averagePrecision(ranked, input.expected, input.depth),
     rank: firstRelevantRank(ranked, input.expected),
     documents: index.documents.length,
     skippedFiles: index.skippedFiles,
     unreadableFiles: index.unreadableFiles,
     ranked: ranked.slice(0, 10),
+  });
+  return {
+    bm25: read(rankBm25(index, input.query, input.depth)),
+    tfidf: read(rankTfidf(index, input.query, input.depth)),
   };
 }

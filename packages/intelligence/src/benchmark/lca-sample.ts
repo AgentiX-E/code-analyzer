@@ -36,6 +36,15 @@ import type { LanguagePart, LcaRowScore } from './lca-merge.js';
 const SHIPPED_AGGREGATION: string = FILE_AGGREGATION;
 
 /** One refusal sentence, and how many instances it stopped. **The sentence is quoted, never paraphrased into a code.** */
+/** One control's figure for a row, or `null`/`undefined` when it did not run on it. */
+export type ControlReading = (row: LcaRowScore) => number | null | undefined;
+
+/** The primary control's reading. **Named rather than inlined**, because a second control reads the same rows. */
+export const BM25_MAP: ControlReading = (row) => row.bm25?.map;
+
+/** The second control's reading, on the same rule. */
+export const TFIDF_MAP: ControlReading = (row) => row.tfidf?.map;
+
 export interface RefusalCount {
   readonly because: string;
   readonly count: number;
@@ -113,10 +122,20 @@ export interface Stratum {
   readonly refused: number;
   /** Our retriever's mean average precision over the measured rows of this band, or `null` when none was measured. */
   readonly map: number | null;
-  /** The control's mean average precision over **every** row of this band that has one. */
+  /** The primary control's mean average precision over **every** row of this band that has one. */
   readonly bm25: number | null;
-  /** How many rows in this band carry a control figure. */
+  /** How many rows in this band carry a primary-control figure. */
   readonly bm25Rows: number;
+  /**
+   * **The second control's figure for the same band**, so the difficulty of a band is two measurements rather than one.
+   *
+   * A band that is easy for BM25 and hard for TF-IDF is a band whose difficulty is a property of a formula, and a band
+   * both controls find easy is one the bounds really did remove. The two columns are never subtracted from each other:
+   * the per-band claim is about our sample, and `paired` is where two rankings are compared.
+   */
+  readonly tfidf: number | null;
+  /** How many rows in this band carry a second-control figure. */
+  readonly tfidfRows: number;
 }
 
 /**
@@ -144,10 +163,13 @@ export function rowsInBand(
   return rows.filter((row) => row.corpusFiles >= from && (to === null || row.corpusFiles < to));
 }
 
-/** Average precision of the control over the rows that produced one. **A row without it is excluded, not zeroed.** */
-function bm25Of(rows: readonly LcaRowScore[]): { value: number | null; rows: number } {
+/** Average precision of one control over the rows that produced one. **A row without it is excluded, not zeroed.** */
+function controlOf(
+  rows: readonly LcaRowScore[],
+  reading: ControlReading,
+): { value: number | null; rows: number } {
   const values = rows
-    .map((row) => row.bm25?.map)
+    .map((row) => reading(row))
     .filter((value): value is number => typeof value === 'number');
   return { value: values.length === 0 ? null : mean(values), rows: values.length };
 }
@@ -167,7 +189,8 @@ export function stratify(
   return bands.map(([from, to]) => {
     const band = rowsInBand(rows, from, to);
     const measured = band.filter((row) => row.skipped === null);
-    const control = bm25Of(band);
+    const control = controlOf(band, BM25_MAP);
+    const second = controlOf(band, TFIDF_MAP);
     return {
       label: to === null ? `${String(from)}+ files` : `${String(from)}-${String(to)} files`,
       from,
@@ -178,6 +201,8 @@ export function stratify(
       map: measured.length === 0 ? null : mean(measured.map((row) => row.map)),
       bm25: control.value,
       bm25Rows: control.rows,
+      tfidf: second.value,
+      tfidfRows: second.rows,
     };
   });
 }
@@ -311,6 +336,14 @@ export function signTest(wins: number, losses: number): number {
   return Math.min(1, (2 * probability) / 2 ** n);
 }
 
+/** How a pairing is computed. **The control is a parameter**, so the same arithmetic serves both comparisons. */
+export interface PairingOptions {
+  readonly seed?: number;
+  readonly resamples?: number;
+  /** Which control's figure to pair against. **Defaults to the primary one**, which is the paper's own row. */
+  readonly control?: ControlReading;
+}
+
 /**
  * Compare our ranking with the control on the same instances.
  *
@@ -324,12 +357,13 @@ export function signTest(wins: number, losses: number): number {
  */
 export function pairedComparison(
   rows: readonly LcaRowScore[],
-  options: { readonly seed?: number; readonly resamples?: number } = {},
+  options: PairingOptions = {},
 ): PairedComparison | null {
+  const reading = options.control ?? BM25_MAP;
   const deltas: number[] = [];
   for (const row of rows) {
     if (row.skipped !== null) continue;
-    const control = row.bm25?.map;
+    const control = reading(row);
     if (typeof control !== 'number') continue;
     deltas.push(row.map - control);
   }
@@ -626,22 +660,25 @@ export interface LanguagePairing {
  * same rows says **a 0.102 loss**. A per-language table can only subtract two numbers that were averaged over the same
  * instances, which is what this function computes.
  */
-export function pairedByLanguage(parts: readonly LanguagePart[]): LanguagePairing[] {
+export function pairedByLanguage(
+  parts: readonly LanguagePart[],
+  control: ControlReading = BM25_MAP,
+): LanguagePairing[] {
   return parts.map((part) => {
     const paired = part.rows.filter(
-      (row) => row.skipped === null && typeof row.bm25?.map === 'number',
+      (row) => row.skipped === null && typeof control(row) === 'number',
     );
     if (paired.length === 0) {
       return { config: part.config, rows: 0, ours: null, control: null, delta: null };
     }
     const ours = mean(paired.map((row) => row.map));
-    const control = mean(paired.map((row) => row.bm25!.map));
+    const controlMean = mean(paired.map((row) => control(row)!));
     return {
       config: part.config,
       rows: paired.length,
       ours,
-      control,
-      delta: Math.round((ours - control) * 10000) / 10000,
+      control: controlMean,
+      delta: Math.round((ours - controlMean) * 10000) / 10000,
     };
   });
 }

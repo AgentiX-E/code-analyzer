@@ -16,7 +16,7 @@
 
 import { MEASURED_MB_PER_FILE, mean } from './lca-instrument.js';
 
-import type { Bm25Result } from './lca-baseline.js';
+import type { ControlResult } from './lca-baseline.js';
 
 /** The seven figures the authors' `get_quality_metrics` produces, for one instance or as a mean. */
 export interface ArmMetrics {
@@ -114,7 +114,16 @@ export interface LcaRowScore {
    * **`null` means the control did not run**, which is different from a control that scored zero; `lca-sample.ts`
    * excludes the row from the paired comparison rather than pairing it against a zero.
    */
-  readonly bm25: Bm25Result | null;
+  readonly bm25: ControlResult | null;
+  /**
+   * **A second control over the same index**, so that the figure this project now optimises against is not one scorer's
+   * opinion. `bm25` is the paper's own row and the comparator the shipped reading was chosen against; TF-IDF reads the
+   * same documents with a different weighting, so it answers the question a reader is entitled to ask - **is the gap a
+   * property of lexical retrieval, or of the one formula the choice was tuned against**.
+   *
+   * `null` under the same rule as `bm25`: the control did not run, which is not the same as a control that scored zero.
+   */
+  readonly tfidf: ControlResult | null;
   /** The sentence that refused this instance, or `null` when it was measured. */
   readonly skipped: string | null;
   /**
@@ -223,7 +232,9 @@ export function skippedRow(input: {
   graphNodes?: number | null;
   graphEdges?: number | null;
   /** The control's figure, **which a refused instance can have even though it has no ranking of ours**. */
-  bm25?: Bm25Result | null;
+  bm25?: ControlResult | null;
+  /** The second control's figure, on the same rule. */
+  tfidf?: ControlResult | null;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
 }): LcaRowScore {
@@ -245,6 +256,7 @@ export function skippedRow(input: {
     graphEdges: input.graphEdges ?? null,
     cost: input.cost ?? null,
     bm25: input.bm25 ?? null,
+    tfidf: input.tfidf ?? null,
     skipped: input.because,
     fileArms: null,
     retrieval: {},
