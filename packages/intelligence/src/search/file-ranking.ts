@@ -47,8 +47,12 @@ export interface RankedFile {
  * * `sum` — every declaration, so the file is scored as the union of its parts.
  * * `top2`, `top3` — the best two or three, so a file is not rewarded for having a thousand declarations.
  * * `count` — how many declarations matched at all, magnitudes ignored.
+ * * `blend25`, `blend50`, `blend75` — the best declaration plus a fraction of the second. **A one-parameter family
+ *   whose ends are `max` (0) and `top2` (1)**, so its response curve answers a question no single arm can: whether a
+ *   second declaration is evidence in proportion to how much of it you count, or whether one arm happened to fit.
  */
-export type FileAggregation = 'max' | 'sum' | 'top2' | 'top3' | 'count';
+export type FileAggregation =
+  'max' | 'sum' | 'top2' | 'top3' | 'count' | 'blend25' | 'blend50' | 'blend75';
 
 /**
  * Every aggregation, in the order they are published.
@@ -63,6 +67,9 @@ export const FILE_AGGREGATIONS: readonly FileAggregation[] = [
   'top2',
   'top3',
   'count',
+  'blend25',
+  'blend50',
+  'blend75',
 ];
 
 /** The aggregation the product ships. **A constant rather than a literal, so the armature can say what it compared against.** */
@@ -74,6 +81,9 @@ function depthOf(aggregation: FileAggregation): number | null {
     case 'max':
       return 1;
     case 'top2':
+    case 'blend25':
+    case 'blend50':
+    case 'blend75':
       return 2;
     case 'top3':
       return 3;
@@ -83,9 +93,25 @@ function depthOf(aggregation: FileAggregation): number | null {
   }
 }
 
+/** How much of the second declaration each blend counts. **The family's parameter, and the only number it has.** */
+function blendOf(aggregation: FileAggregation): number {
+  switch (aggregation) {
+    case 'blend25':
+      return 0.25;
+    case 'blend50':
+      return 0.5;
+    case 'blend75':
+      return 0.75;
+    default:
+      return 0;
+  }
+}
+
 /** The aggregated figure for one file's declarations, given in descending score order. */
 function aggregateOf(scores: readonly number[], aggregation: FileAggregation): number {
   if (aggregation === 'count') return scores.length;
+  const weight = blendOf(aggregation);
+  if (weight > 0) return scores[0]! + weight * (scores[1] ?? 0);
   const depth = depthOf(aggregation);
   const read = depth === null ? scores : scores.slice(0, depth);
   return read.reduce((sum, score) => sum + score, 0);

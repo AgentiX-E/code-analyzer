@@ -126,6 +126,40 @@ describe('when breadth is bounded', () => {
   });
 });
 
+describe('the one-parameter blend, whose ends are `max` and `top2`', () => {
+  // Two files: `peak` has one declaration of 6, `pair` has two of 4 and 4. `max` prefers the peak, `top2` prefers the
+  // pair, and every blend weight between them has to be monotone - which is what makes the family a dose-response
+  // rather than five chances to find a winner.
+  const pool = [entry('peak.py', 6), entry('pair.py', 4), entry('pair.py', 4)];
+  const scoreOf = (aggregation: Parameters<typeof rankFiles>[1], file: string): number =>
+    rankFiles(pool, aggregation).find((entry) => entry.filePath === file)!.score;
+
+  it('starts at `max` and ends at `top2`', () => {
+    expect(scoreOf('blend25', 'pair.py')).toBe(5);
+    expect(scoreOf('blend50', 'pair.py')).toBe(6);
+    expect(scoreOf('blend75', 'pair.py')).toBe(7);
+    // **The ends are the two arms already published**, so the curve is comparable with them rather than being a third
+    // scale that means nothing beside the others.
+    expect(scoreOf('max', 'pair.py')).toBe(4);
+    expect(scoreOf('top2', 'pair.py')).toBe(8);
+  });
+
+  it('moves the order at the weight where the second declaration outweighs the gap, and not before', () => {
+    // 6 against 4 + 0.25x4 = 5: the peak still wins. 6 against 4 + 0.5x4 = 6: **a tie, and the pool breaks it** -
+    // `peak.py` came first, so it stays first. 6 against 4 + 0.75x4 = 7: the pair wins.
+    expect(order(pool, 'blend25')).toEqual(['peak.py', 'pair.py']);
+    expect(order(pool, 'blend50')).toEqual(['peak.py', 'pair.py']);
+    expect(order(pool, 'blend75')).toEqual(['pair.py', 'peak.py']);
+  });
+
+  it('counts the same declaration twice only when the file really has two', () => {
+    const single = [entry('solo.py', 6)];
+    for (const aggregation of ['blend25', 'blend50', 'blend75'] as const) {
+      expect(rankFiles(single, aggregation)[0]!.score).toBe(6);
+    }
+  });
+});
+
 describe('degenerate pools', () => {
   it('ranks nothing when there is nothing', () => {
     expect(rankFiles([], 'sum')).toEqual([]);

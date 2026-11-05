@@ -194,6 +194,9 @@ describe('measureInstance', () => {
       'top2',
       'top3',
       'count',
+      'blend25',
+      'blend50',
+      'blend75',
     ]);
     const shipped = scored.fileArms?.[0];
     expect(shipped?.map).toBe(scored.map);
