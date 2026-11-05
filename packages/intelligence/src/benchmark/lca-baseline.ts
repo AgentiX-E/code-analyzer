@@ -429,13 +429,20 @@ export function rankTfidf(index: TermIndex, query: string, limit: number): strin
       let dot = 0;
       let normSquared = 0;
       for (const [term, frequency] of document.termFrequency) {
+        // **The second branch in this module no fixture reaches, and it is stated rather than excused.**
+        // `documentFrequency` is incremented for every term of every document in `buildTermIndex`, so a term that a
+        // document holds is always in the map. The fallback stays because the alternative is a non-null assertion on a
+        // lookup, which would turn a build defect into a silent `NaN` in a published figure rather than into `0`.
         const documentFrequency = index.documentFrequency.get(term) ?? 0;
         const weight = tfidfWeight(frequency, tfidfIdf(documentFrequency, total));
         normSquared += weight * weight;
         const fromQuery = queryWeight.get(term);
         if (fromQuery !== undefined) dot += fromQuery * weight;
       }
-      if (dot === 0 || normSquared === 0) return 0;
+      // **`normSquared` needs no zero guard**: a non-zero dot product means the document holds a query term, which means
+      // it holds at least one term, which means its norm is positive. A guard there would be a branch no fixture can
+      // reach and the coverage report would have to excuse - the same reason `readPrefix` states its own.
+      if (dot === 0) return 0;
       return dot / (Math.sqrt(normSquared) * queryNorm);
     },
     limit,
