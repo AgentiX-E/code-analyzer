@@ -98,9 +98,16 @@ function comparisonOf(ours: number | null, label = 'measured'): Record<string, u
   // returned the *number of rows beaten* under the name `rank`, so a figure that beat four of five rows published
   // `rank: 4` and was quoted as fourth when it was second. It is `publishedRank` in `lca-sample.ts` now, where it has
   // tests and where a table of known size can check a position.
+  // **The table is transcribed with a `kind` and a `bound` string for the reader**, and `publishedRank` takes the two
+  // fields it computes from - `bound` as a boolean, because a row published as "below 0.25" is a ceiling to be met
+  // rather than a figure to be beaten.
   const placed = publishedRank(
     ours,
-    PUBLISHED_BASELINES.rows.map((row) => ({ ...row })),
+    PUBLISHED_BASELINES.rows.map((row) => ({
+      name: row.name,
+      map: row.map,
+      ...('bound' in row ? { bound: true } : {}),
+    })),
   );
   return {
     metric: PUBLISHED_BASELINES.metric,

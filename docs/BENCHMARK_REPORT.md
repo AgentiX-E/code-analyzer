@@ -176,11 +176,11 @@ turns out not to be a usable comparator: **our own BM25 scores 0.4271 on this co
 number produced outside this harness does not mean the same thing as one produced inside it. What can be compared is
 published beside the control:
 
-| | rows | MAP |
-| --- | --- | --- |
-| this harness | 102 | **0.3951** |
+|                                    | rows    | MAP        |
+| ---------------------------------- | ------- | ---------- |
+| this harness                       | 102     | **0.3951** |
 | **BM25, same harness, same ruler** | **141** | **0.4232** |
-| BM25 on the 102 we measured | 102 | 0.4672 |
+| BM25 on the 102 we measured        | 102     | 0.4672     |
 
 **Paired: 23 wins, 56 losses, 23 ties, mean Δ −0.0721, 95 % bootstrap interval [−0.1221, −0.0220], exact sign test
 p = 0.0003.** Plain BM25 — no parser, no graph, no model — beats the product on the same files of the same repositories.
@@ -211,7 +211,7 @@ weight, and the floor with every refusal scored zero is **0.2858**.
 against a retrieval depth of 200; `retrieveContext` now returns `rankedFiles`, the fused ranking before any budget, and
 the Kotlin split's `offered` went from **5.21 to 53.74** and its MAP from **0.2670 to 0.3228** on the same instances,
 and Java's from **9.00 to 50.70** and **0.3612 to 0.4097**.
-And `comparison.rank` held the *number of rows beaten* under the name of a *position*; it is `publishedRank` in
+And `comparison.rank` held the _number of rows beaten_ under the name of a _position_; it is `publishedRank` in
 `lca-sample.ts` now, with a table of known size in its tests.
 Four things about this corpus are worth stating plainly rather than leaving to a footnote:
 
