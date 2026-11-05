@@ -424,6 +424,20 @@ describe('toResponse', () => {
     });
   });
 
+  it('carries the ranking and the pool it was read from, which is the answer to "why is that file first"', () => {
+    const response = toResponse(result);
+    // **A different claim from `retrievedFiles`**: the ranking is the retriever's own order, cut only by its depth,
+    // while `retrievedFiles` is the files of the blocks a prompt budget let through.
+    expect(response.rankedFiles).toEqual(['app/auth.py', 'app/views.py']);
+    expect(response.rankedPool).toEqual([
+      { filePath: 'app/auth.py', score: 0.033 },
+      { filePath: 'app/views.py', score: 0.016 },
+    ]);
+    // **One entry per declaration**, so a file reached twice appears twice - which is what makes the collapse
+    // inspectable. The fields are copied rather than passed by reference, because a caller serialises this.
+    expect(response.rankedPool[0]).not.toBe(result.rankedPool[0]);
+  });
+
   it('carries the notes and the stats, which are how a caller sees the cost', () => {
     const response = toResponse(result);
     expect(response.notes).toEqual(['the answer cites one block of two']);

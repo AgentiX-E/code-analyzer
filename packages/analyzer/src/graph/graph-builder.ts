@@ -101,7 +101,13 @@ export class GraphBuilder {
     };
 
     // Create the root Project node
-    const projectNode = this.createNode('Project', ctx.projectId, { name: ctx.projectId });
+    const projectNode = this.createNode(
+      'Project',
+      ctx.projectId,
+      { name: ctx.projectId },
+      undefined,
+      ctx.projectId,
+    );
     graph.nodes.set(projectNode.id, projectNode);
     graph.qnameIndex.set(`project:${ctx.projectId}`, projectNode.id);
 
@@ -114,6 +120,7 @@ export class GraphBuilder {
       basename(ctx.rootPath),
       { name: basename(ctx.rootPath), filePath: ctx.rootPath },
       this.nextNodeId++,
+      ctx.projectId,
     );
     graph.nodes.set(rootFolder.id, rootFolder);
     graph.fileIndex.set(ctx.rootPath, rootFolder.id);
@@ -247,7 +254,7 @@ export class GraphBuilder {
       return existingNode;
     }
 
-    const node = this.createNode(label, name, properties);
+    const node = this.createNode(label, name, properties, undefined, graph.projectId);
     // **The graph's own high-water mark, not this builder's counter.** The check has to handle several builders
     // writing into one graph, and the first version did it by stepping this builder's counter until it found a free
     // id. A builder created per file starts that counter from the same low value every time, so the first node of
@@ -343,11 +350,29 @@ export class GraphBuilder {
   // Node/Edge Factory Methods (public for external use)
   // -------------------------------------------------------------------------
 
-  createNode(label: NodeLabel, name: string, properties: NodeProperties, id?: number): GraphNode {
+  /**
+   * Build a node.
+   *
+   * **`projectId` is an argument because leaving it out made the field a promise two consumers never collected.** The
+   * node was created with `projectId: ''` and a comment saying it would be set when dumped - and `dumpToStore` is the
+   * only place that does. A phase that dumps is fine; a consumer that reads the graph the phases write into is not, and
+   * the consumers that read it are the ones that ask questions: `retrieveContext` narrows a question to a project by
+   * filtering candidates on `node.projectId`, so **every candidate of a pipeline-built graph was filtered away and
+   * `ask_codebase` answered `no-blocks-retrieved` on a repository where the tool beside it ranked the file first.**
+   * Measured on the end-to-end fixture: 12 candidates retrieved, 12 of them with an empty project, none with a file to
+   * cite. Every internal caller now passes the graph's own project, so no node in an analysed graph is unscoped.
+   */
+  createNode(
+    label: NodeLabel,
+    name: string,
+    properties: NodeProperties,
+    id?: number,
+    projectId = '',
+  ): GraphNode {
     const nodeId = id ?? this.nextNodeId++;
     return {
       id: nodeId,
-      projectId: '', // Will be set when dumped
+      projectId,
       label,
       name,
       qualifiedName: label === 'Project' ? `project:${name}` : name,

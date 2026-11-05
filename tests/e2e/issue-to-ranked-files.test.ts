@@ -197,34 +197,43 @@ describe('a developer pastes an issue and gets the file that must change', () =>
   }, 120_000);
 
   /**
-   * **The second defect, and the more serious one: two entry points over one store disagree about whether anything
-   * matched at all.**
+   * **Two entry points over one store, and they used to disagree about whether anything matched at all.**
    *
-   * `search_code` ranks two files for this issue and `ask_codebase` abstains with `no-blocks-retrieved`. A user who
-   * asks the question in the QA tool is told the repository has nothing to do with it, while the search box beside it
-   * lists the file. **Whichever of the two is right, the product cannot hold both answers**, and until this is repaired
-   * the QA tool is not a second way to ask the same question - it is a different question with a worse answer.
+   * `search_code` ranked two files for this issue and `ask_codebase` abstained with `no-blocks-retrieved`. A user who
+   * asked the question in the QA tool was told the repository had nothing to do with it, while the search box beside it
+   * listed the file. **The cause was upstream of both**: `GraphBuilder` created every node with `projectId: ''` and a
+   * comment promising to set it when the graph was dumped, so a consumer that read the graph the phases write into saw
+   * unscoped nodes - and `retrieveContext` narrows a question to a project by filtering candidates on exactly that
+   * field. Twelve candidates retrieved, twelve of them with no project, and the answer was an abstention that read like
+   * a fact about the repository. The node now knows its project as soon as it exists.
    */
-  it.fails(
-    'does not abstain on a question the search tool answered',
-    async () => {
-      const { registry, toolContext } = await build();
-      const result = await registry.execute(
-        'ask_codebase',
-        { question: ISSUE, projectId: 'issue-to-files' },
-        toolContext,
-      );
+  it('does not abstain on a question the search tool answered', async () => {
+    const { registry, toolContext } = await build();
+    const result = await registry.execute(
+      'ask_codebase',
+      { question: ISSUE, projectId: 'issue-to-files' },
+      toolContext,
+    );
 
-      expect(result.isError).toBeFalsy();
-      const answer = JSON.parse((result.content[0] as { text: string }).text) as {
-        abstained?: string;
-        retrievedFiles?: string[];
-        citations?: unknown[];
-      };
-      expect(answer.retrievedFiles?.some((file) => file.endsWith('src/retry.py'))).toBe(true);
-    },
-    120_000,
-  );
+    expect(result.isError).toBeFalsy();
+    const answer = JSON.parse((result.content[0] as { text: string }).text) as {
+      abstained?: string;
+      retrievedFiles?: string[];
+      rankedFiles?: string[];
+      rankedPool?: Array<{ filePath?: string }>;
+      citations?: unknown[];
+    };
+    expect(answer.retrievedFiles?.some((file) => file.endsWith('src/retry.py'))).toBe(true);
+    // **And the ranking behind the blocks**, which is a different and deeper claim: `retrievedFiles` is what a
+    // prompt budget let through, so it can only ever be a prefix of the ranking.
+    expect(answer.rankedFiles?.some((file) => file.endsWith('src/retry.py'))).toBe(true);
+    expect(answer.rankedFiles?.length).toBeGreaterThanOrEqual(answer.retrievedFiles?.length ?? 0);
+    // **The ranking is explainable from the response alone**: its first file is the file of the pool's first entry,
+    // and the pool holds at least one entry per ranked file - so a user who asks "why is that file first" reads the
+    // declaration that put it there rather than a number with no provenance.
+    expect(answer.rankedPool?.[0]?.filePath).toBe(answer.rankedFiles?.[0]);
+    expect((answer.rankedPool?.length ?? 0) >= (answer.rankedFiles?.length ?? 0)).toBe(true);
+  }, 120_000);
 });
 
 /**

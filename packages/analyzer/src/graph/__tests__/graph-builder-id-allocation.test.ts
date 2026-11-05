@@ -146,3 +146,25 @@ describe('a builder without a store', () => {
     expect(() => builder.dumpToStore(graph, 'probe')).toThrow(/addNode or addEdge/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The scope a node is created with
+// ---------------------------------------------------------------------------
+
+describe('GraphBuilder node scope', () => {
+  it('stamps every node it adds with the graph\u2019s project, not with an empty string', () => {
+    // **The field was a promise two consumers never collected.** A node was created with `projectId: ''` and a comment
+    // saying it would be set when dumped, and only `dumpToStore` sets it - so every consumer that reads the graph the
+    // phases write into saw an unscoped node. One of them filters a question's candidates by that field, and on a
+    // pipeline-built graph it therefore filtered all of them away: **12 candidates retrieved, none with a project, and
+    // an answer of `no-blocks-retrieved` on a repository whose file the search tool ranked first.**
+    const builder = new GraphBuilder();
+    const { graph } = countingGraph();
+    const node = builder.addNode(graph, 'Function', 'walk', props);
+
+    expect(node.projectId).toBe('probe');
+    // **And the promise is kept by construction rather than by a later pass**, which is the difference between a field
+    // that is right after `dumpToStore` and a field that is right as soon as the node exists.
+    expect(graph.nodes.get(node.id)?.projectId).toBe('probe');
+  });
+});

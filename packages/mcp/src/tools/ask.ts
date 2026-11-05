@@ -74,6 +74,24 @@ export interface AskCodebaseResponse {
   abstained: string | null;
   citations: Array<{ id: number; filePath: string; startLine: number | null; name: string }>;
   files: string[];
+  /**
+   * **The retriever's ranking of files**, before the context budget cut it.
+   *
+   * `retrievedFiles` is the files of the blocks that survived `maxBlocks`, which is a *prompt* budget - on a real
+   * repository it is five to nine files - so a caller that read it as the ranking was reading a budget. The ranking is
+   * a different claim and it is now a separate field, in rank order, cut only by the retrieval depth.
+   */
+  rankedFiles: string[];
+  /**
+   * **The declarations the ranking was read from**, one entry per candidate, in rank order.
+   *
+   * A file's position is a function of the declarations that live in it, so a caller holding only `rankedFiles` cannot
+   * tell a file that ranked first because one of its declarations did from one that would have ranked first under a
+   * different reading of the same evidence. **This is the "why is that file first" answer**: the first entry names the
+   * declaration that put a file there, and the count of entries in a file says how much of the file the question
+   * reached.
+   */
+  rankedPool: Array<{ filePath: string; score: number }>;
   retrievedFiles: string[];
   /** The repository the answer was narrowed to, or `null` when the whole workspace was searched. */
   scope: { projectId: string; because: string } | null;
@@ -105,6 +123,11 @@ export function toResponse(result: AnswerResult): AskCodebaseResponse {
       name: citation.name,
     })),
     files: result.files,
+    rankedFiles: result.rankedFiles,
+    rankedPool: result.rankedPool.map((entry) => ({
+      filePath: entry.filePath,
+      score: entry.score,
+    })),
     retrievedFiles: result.retrievedFiles,
     scope: result.scope,
     grounding: {
