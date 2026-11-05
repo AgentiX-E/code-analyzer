@@ -365,3 +365,49 @@ export function pairedComparison(
     resamples,
   };
 }
+
+/**
+ * One row of somebody else's published table, **with whether its number is a figure or a bound**.
+ *
+ * `bound` exists because the paper publishes one row as *"BM25 and the remaining models: below 0.25"* - a ceiling rather
+ * than a measurement. A bound is met rather than beaten: a figure of exactly 0.25 is not above the BM25 row, it is at
+ * the top of it.
+ */
+export interface PublishedRow {
+  readonly name: string;
+  readonly map: number;
+  readonly bound?: boolean;
+}
+
+/** Where a figure stands in a published table. **A position, and the count it was derived from.** */
+export interface PublishedRank {
+  /** 1 means nothing in the table is above us. **Includes us**, so a table of five gives a position between 1 and 6. */
+  readonly rank: number;
+  /** The table's size with us in it. */
+  readonly of: number;
+  readonly beaten: readonly string[];
+  readonly notBeaten: readonly string[];
+}
+
+/**
+ * Place a figure in somebody else's table.
+ *
+ * **A position is not a count, and publishing one as the other is a claim nobody checks.** The first version of this
+ * arithmetic returned the *number of rows beaten*, so a figure that beat four of five rows published `rank: 4` and was
+ * quoted in a report as *fourth* - when it was second. The two differ by `rows + 1`, both are small integers, and the
+ * artifact's shape could not tell them apart; a test that asserts a position against a table of known size can.
+ */
+export function publishedRank(ours: number, table: readonly PublishedRow[]): PublishedRank {
+  const beaten = table
+    .filter((row) => (row.bound === true ? ours >= row.map : ours > row.map))
+    .map((row) => row.name);
+  const notBeaten = table
+    .filter((row) => (row.bound === true ? ours < row.map : ours <= row.map))
+    .map((row) => row.name);
+  return {
+    rank: table.length + 1 - beaten.length,
+    of: table.length + 1,
+    beaten,
+    notBeaten,
+  };
+}

@@ -28,6 +28,7 @@ import {
   BOOTSTRAP_RESAMPLES,
   BOOTSTRAP_SEED,
   pairedComparison,
+  publishedRank,
   sampleCoverage,
   standardisedMap,
   stratify,
@@ -93,22 +94,19 @@ function comparisonOf(ours: number | null, label = 'measured'): Record<string, u
       why: 'no instance produced an average precision, so there is nothing to place in the table',
     };
   }
-  const beaten = PUBLISHED_BASELINES.rows.filter((row) =>
-    'bound' in row ? ours >= row.map : ours > row.map,
-  ).length;
+  // **A position, not a count, and the difference published a wrong claim.** This arithmetic used to live here and
+  // returned the *number of rows beaten* under the name `rank`, so a figure that beat four of five rows published
+  // `rank: 4` and was quoted as fourth when it was second. It is `publishedRank` in `lca-sample.ts` now, where it has
+  // tests and where a table of known size can check a position.
+  const placed = publishedRank(
+    ours,
+    PUBLISHED_BASELINES.rows.map((row) => ({ ...row })),
+  );
   return {
     metric: PUBLISHED_BASELINES.metric,
     basis: label,
     ours,
-    // **Rank 1 means nothing in the table is above us**; a bound row counts as beaten only when it is met.
-    rank: beaten,
-    of: PUBLISHED_BASELINES.rows.length,
-    beaten: PUBLISHED_BASELINES.rows
-      .filter((row) => ('bound' in row ? ours >= row.map : ours > row.map))
-      .map((row) => row.name),
-    notBeaten: PUBLISHED_BASELINES.rows
-      .filter((row) => ('bound' in row ? ours < row.map : ours <= row.map))
-      .map((row) => row.name),
+    ...placed,
     caveats: [
       'The published figures are over all fifty instances per split; this one is over the rows the runner reached, ' +
         'and the measured count is beside it.',

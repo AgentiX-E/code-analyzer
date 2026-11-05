@@ -161,31 +161,58 @@ project did not author, and the first figure that can be placed in a published t
 | rank  | system                        | MAP        | measured over          |
 | ----- | ----------------------------- | ---------- | ---------------------- |
 | 1     | GPT-4 (chat)                  | 0.39       | 50 instances per split |
-| **2** | **this harness**              | **0.3794** | **24 of 35 rows**      |
-| 3     | GTE (embedding)               | 0.33       | 50 per split           |
-| 4     | Mistral (embedding)           | 0.30       | 50 per split           |
-| 5     | TF-IDF (BPE)                  | 0.27       | 50 per split           |
-| 6     | BM25 and the remaining models | below 0.25 | 50 per split           |
+| 2     | GTE (embedding)               | 0.33       | 50 per split           |
+| 3     | Mistral (embedding)           | 0.30       | 50 per split           |
+| 4     | TF-IDF (BPE)                  | 0.27       | 50 per split           |
+| 5     | BM25 and the remaining models | below 0.25 | 50 per split           |
+| **2** | **this harness**              | **0.3951** | **102 of 150 rows**    |
 
 Ranked against §2.5 of [arXiv:2406.11612](https://arxiv.org/abs/2406.11612), scored by the authors' own
-`quality_metrics.py`. The `comparison` block in the artifact computes the rank rather than asserting it, and carries the
-three assumptions that bound it: the published figures are over fifty instances per split and this one is over the rows
-the runner reached; average precision here reads the retriever's own pool of two hundred candidates, which can only lose
-credit; and the answer arm is not the chat baselines reproduced.
+`quality_metrics.py`. The `comparison` block in the artifact computes the position rather than asserting it.
 
-| split  | measured | MAP        | recall at 10 |
-| ------ | -------- | ---------- | ------------ |
-| Python | 9 / 12   | **0.6204** | 0.7037       |
-| Java   | 7 / 12   | **0.2413** | 0.3190       |
-| Kotlin | 8 / 11   | **0.2292** | 0.2292       |
+**That table is no longer the comparison, and this section says so before it says anything else.** A published MAP row
+turns out not to be a usable comparator: **our own BM25 scores 0.4271 on this corpus where the paper's row says "below
+0.25"**, so either their BM25 is a far weaker configuration or their MAP is computed another way — and either way a
+number produced outside this harness does not mean the same thing as one produced inside it. What can be compared is
+published beside the control:
 
-**The gap between those three columns is a bound, not a language.** Eight of the eleven refused rows were refused by one
-rule — a checkout above 2 000 files — and every one of them is a large Java or Kotlin repository (`dbeaver/dbeaver` ×2,
-`apache/shardingsphere` ×2, `libgdx/libgdx`, `quarkusio/quarkus`, `ccxt/ccxt`, `streamlit/streamlit`). The Java column is
-therefore a figure about repository size published under a heading that says `java`. The remaining three refusals name
-themselves in the artifact: a memory estimate above the room left (`square/leakcanary`), a clock (`microsoft/deepspeed`,
-900 s for 324 corpus files), and a ceiling that fired (`airbnb/lottie-android`, 6 145 MB).
+| | rows | MAP |
+| --- | --- | --- |
+| this harness | 102 | **0.3951** |
+| **BM25, same harness, same ruler** | **141** | **0.4232** |
+| BM25 on the 102 we measured | 102 | 0.4672 |
 
+**Paired: 23 wins, 56 losses, 23 ties, mean Δ −0.0721, 95 % bootstrap interval [−0.1221, −0.0220], exact sign test
+p = 0.0003.** Plain BM25 — no parser, no graph, no model — beats the product on the same files of the same repositories.
+That is the figure this project now optimises against, and it is published in the artifact as `paired`.
+
+| split  | measured | MAP        | BM25       |
+| ------ | -------- | ---------- | ---------- |
+| Python | 34 / 50  | **0.4629** | 0.4571     |
+| Java   | 30 / 50  | **0.4097** | 0.4060     |
+| Kotlin | 38 / 50  | **0.3228** | **0.4127** |
+
+**The gap is one language.** The product beats the control on Python by 0.0058 and on Java by 0.0037, and loses to it on
+Kotlin by **0.0899**. A single combined figure averages a narrow win and a large loss into a moderate loss, which is why
+the split is published beside it. **Kotlin is the next iteration's target, and the reason is now a number rather than an
+impression.**
+
+**The sample, stated rather than implied.** 150 instances were intended, 141 reached, 102 measured, 39 refused, 9 never
+reached — so **68.0 % of the protocol**. Every refusal carries its sentence in `sample.refusals`: fifteen the 2 000-file
+cap, nine the `3.7 MB per file` estimate, two the 900-second clock, two the 6 144 MB ceiling, one a `SIGABRT`.
+
+**And the sample was not easier than the corpus.** Measured per band of repository size, BM25 scores **0.1808** on the
+eight 2 000+-file instances against **0.6897** on the smallest, so the bounds removed the band where **both** retrievers
+do worst. The mean reweighted to the attempted population is **0.4046** against a raw **0.3951**, over 94.4 % of the
+weight, and the floor with every refusal scored zero is **0.2858**.
+
+**Two defects this corpus found in its own instrument, both now fixed.** The retrieval arm was scored on
+`retrievedFiles` — the files of the blocks that survived a **prompt** budget of forty — so `offered` averaged **6.61** before that fix and **50.95** after it
+against a retrieval depth of 200; `retrieveContext` now returns `rankedFiles`, the fused ranking before any budget, and
+the Kotlin split's `offered` went from **5.21 to 53.74** and its MAP from **0.2670 to 0.3228** on the same instances,
+and Java's from **9.00 to 50.70** and **0.3612 to 0.4097**.
+And `comparison.rank` held the *number of rows beaten* under the name of a *position*; it is `publishedRank` in
+`lca-sample.ts` now, with a table of known size in its tests.
 Four things about this corpus are worth stating plainly rather than leaving to a footnote:
 
 1. **It showed that the product reports absolute paths while every corpus records repository-relative ones.** The

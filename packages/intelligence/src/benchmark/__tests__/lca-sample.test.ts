@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BOOTSTRAP_SEED,
   DEFAULT_STRATA,
+  publishedRank,
   pairedComparison,
   rowsInBand,
   sampleCoverage,
@@ -371,5 +372,59 @@ describe('pairedComparison', () => {
     const paired = pairedComparison(rows, { seed: 7, resamples: 10 });
     expect(paired!.seed).toBe(7);
     expect(paired!.resamples).toBe(10);
+  });
+});
+
+describe('publishedRank', () => {
+  /** The paper's table, abridged to the shape the function reads. */
+  const TABLE = [
+    { name: 'GPT-4', map: 0.39 },
+    { name: 'GTE', map: 0.33 },
+    { name: 'Mistral', map: 0.3 },
+    { name: 'TF-IDF', map: 0.27 },
+    { name: 'BM25 and the rest', map: 0.25, bound: true },
+  ];
+
+  it('answers a position rather than a count of rows beaten', () => {
+    // **The defect**: beating four of five used to publish `rank: 4` and be read as fourth. It is second, of six.
+    const placed = publishedRank(0.3458, TABLE);
+    expect(placed.beaten).toHaveLength(4);
+    expect(placed.rank).toBe(2);
+    expect(placed.of).toBe(6);
+  });
+
+  it('puts a figure above every row first', () => {
+    const placed = publishedRank(0.9, TABLE);
+    expect(placed.rank).toBe(1);
+    expect(placed.of).toBe(6);
+    expect(placed.beaten).toHaveLength(5);
+    expect(placed.notBeaten).toHaveLength(0);
+  });
+
+  it('puts a figure below every row last', () => {
+    const placed = publishedRank(0.01, TABLE);
+    expect(placed.rank).toBe(6);
+    expect(placed.beaten).toHaveLength(0);
+    expect(placed.notBeaten).toHaveLength(5);
+  });
+
+  it('meets a bound rather than having to beat it', () => {
+    // **A row published as "below 0.25" is a ceiling**, so a figure of exactly 0.25 is at the top of it and not above
+    // it. A strict comparison here would credit us with beating a number the row never claimed.
+    const at = publishedRank(0.25, TABLE);
+    expect(at.beaten).toContain('BM25 and the rest');
+    expect(publishedRank(0.2499, TABLE).beaten).not.toContain('BM25 and the rest');
+  });
+
+  it('counts a figure equal to a published figure as not beating it', () => {
+    const placed = publishedRank(0.33, TABLE);
+    expect(placed.beaten).not.toContain('GTE');
+    expect(placed.notBeaten).toContain('GTE');
+  });
+
+  it('places a figure against an empty table first of one', () => {
+    const placed = publishedRank(0.5, []);
+    expect(placed.rank).toBe(1);
+    expect(placed.of).toBe(1);
   });
 });
