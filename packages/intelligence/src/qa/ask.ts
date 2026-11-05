@@ -23,6 +23,7 @@ import { hasGroundedClaim, verifyCitations } from './citations.js';
 import { assembleContext, contextChars, filesOf, rankCandidates } from './context.js';
 import { answerPrompt } from './prompt.js';
 import { resolveScope } from './scope.js';
+import { FILE_AGGREGATION, rankFiles } from '../search/file-ranking.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { rerankCandidates } from '../search/rerank.js';
 
@@ -34,6 +35,7 @@ import type {
   ScopeReport,
 } from './types.js';
 import type { LLMProvider } from '../review/llm/provider.js';
+import type { PoolEntry } from '../search/file-ranking.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
 
@@ -57,6 +59,19 @@ export interface AskInput {
 /** How many candidates retrieval returns before assembly trims them. **Sixty, because the rerank pool is fifty.** */
 const DEFAULT_RETRIEVE_LIMIT = 60;
 
+/** What `retrieveContext` returns: the context, the ranking, and the pool the ranking was read from. */
+export interface RetrievalOnly {
+  blocks: ContextBlock[];
+  /** The fused list's files in rank order, **before `maxBlocks` truncates it** - see `AnswerResult.rankedFiles`. */
+  rankedFiles: string[];
+  /** The file each candidate came from, with its fused score, **one entry per declaration**. */
+  rankedPool: PoolEntry[];
+  candidates: number;
+  rerankApplied: boolean;
+  rerankReason: string | null;
+  scope: ScopeReport | null;
+}
+
 /**
  * The context for a question, with no model involved.
  *
@@ -65,15 +80,7 @@ const DEFAULT_RETRIEVE_LIMIT = 60;
  */
 export async function retrieveContext(
   input: Omit<AskInput, 'question'> & { question: string },
-): Promise<{
-  blocks: ContextBlock[];
-  /** The fused list's files in rank order, **before `maxBlocks` truncates it** - see `AnswerResult.rankedFiles`. */
-  rankedFiles: string[];
-  candidates: number;
-  rerankApplied: boolean;
-  rerankReason: string | null;
-  scope: ScopeReport | null;
-}> {
+): Promise<RetrievalOnly> {
   const options = input.options ?? {};
   const limit = options.retrieveLimit ?? DEFAULT_RETRIEVE_LIMIT;
   const scope = resolveContextScope(input.question, input.store, input.projectId, options);
@@ -140,17 +147,29 @@ export async function retrieveContext(
   // **The ranking as a file list, taken before the context budget is applied.** Two nodes in one file are one file and
   // the order is the order the retriever chose; a file that appears twice would otherwise occupy two positions in an
   // average precision that counts positions.
-  const rankedFiles: string[] = [];
-  const rankedSeen = new Set<string>();
+  //
+  // **The pool is what the collapse reads, and it is published rather than kept.** A file's position is a function of
+  // the declarations that live in it, and three iterations of "the answer is in the list but not first" cannot be
+  // diagnosed from the file list alone: the reader needs the declarations, their scores, and the rule
+  // (`search/file-ranking.ts`) that turns one into the other. One entry per candidate, in rank order.
+  const rankedPool: PoolEntry[] = [];
   for (const candidate of compacted) {
-    const file = candidate.node.filePath;
     // **A node with no file cannot be ranked as one**: it is a synthetic or external declaration, and giving it a slot
     // would push a real candidate down for something no user could open.
-    if (file === null || rankedSeen.has(file)) continue;
-    rankedSeen.add(file);
-    rankedFiles.push(file);
+    const file = candidate.node.filePath;
+    if (file === null) continue;
+    rankedPool.push({ filePath: file, score: candidate.score });
   }
-  return { blocks, rankedFiles, candidates: fused.length, rerankApplied, rerankReason, scope };
+  const rankedFiles = rankFiles(rankedPool, FILE_AGGREGATION).map((file) => file.filePath);
+  return {
+    blocks,
+    rankedFiles,
+    rankedPool,
+    candidates: fused.length,
+    rerankApplied,
+    rerankReason,
+    scope,
+  };
 }
 
 /**
@@ -192,7 +211,7 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
   const options = input.options ?? {};
   const notes: string[] = [];
 
-  const { blocks, rankedFiles, candidates, rerankApplied, rerankReason, scope } =
+  const { blocks, rankedFiles, rankedPool, candidates, rerankApplied, rerankReason, scope } =
     await retrieveContext(input);
   if (rerankApplied) notes.push('the fused list was reordered by a listwise rerank');
   else if (rerankReason) notes.push(`the fused list kept its order: ${rerankReason}`);
@@ -209,6 +228,7 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
     context: blocks,
     retrievedFiles: filesOf(blocks),
     rankedFiles,
+    rankedPool,
     scope,
   };
 

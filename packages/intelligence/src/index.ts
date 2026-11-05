@@ -4,6 +4,8 @@
 // Search
 export { HybridSearchEngine, tokenize, cosineSimilarity } from './search/hybrid-search.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
+export { FILE_AGGREGATION, FILE_AGGREGATIONS, rankFiles } from './search/file-ranking.js';
+export type { FileAggregation, PoolEntry, RankedFile } from './search/file-ranking.js';
 export {
   compareCodeUnits,
   compareNodeIdentity,

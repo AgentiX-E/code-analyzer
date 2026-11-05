@@ -29,10 +29,12 @@ import {
   toCorpusPath,
 } from './lca-instrument.js';
 import { askCodebase } from '../qa/ask.js';
+import { FILE_AGGREGATIONS, rankFiles } from '../search/file-ranking.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
-import type { ArmMetrics, LcaRowScore } from './lca-merge.js';
+import type { ArmMetrics, FileArmScore, LcaRowScore } from './lca-merge.js';
 import type { LLMProvider } from '../review/llm/provider.js';
+import type { PoolEntry } from '../search/file-ranking.js';
 import type { GraphEdge, GraphNode, PipelineContext } from '@code-analyzer/shared';
 
 /** One row of the corpus's test split, as the harness reads it. */
@@ -183,6 +185,33 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     universe,
   );
 
+  // **The same pool, read as a ranking of files five ways.** The retrieval stage ranks declarations and the corpus asks
+  // which files must change; `search/file-ranking.ts` is the conversion and this is where its alternatives are measured
+  // rather than argued. Every arm reads the identical pool - the candidate list the product returned, mapped into the
+  // corpus's coordinate system and cut to the answer space - so the only thing that differs between them is the rule
+  // for turning a file's declarations into a file's position.
+  //
+  // **The first arm is the control, not a competitor.** `max` is what the product ships, so its `map` must equal the
+  // row's `map` and its `answerRank` the row's `answerRank`; the gate refuses an artifact where they disagree, which is
+  // how a wiring mistake in the armature is told from a measurement that found nothing.
+  // **The pool, converted and cut, entry by entry.** A file's *declarations* are what the aggregation reads, so the
+  // pool keeps one entry per declaration rather than one per path: collapsing it here would leave every arm reading the
+  // same single score per file and make the armature a test of five identical functions.
+  const pool: PoolEntry[] = [];
+  for (const entry of result.rankedPool) {
+    const path = toCorpusPath(input.checkout, entry.filePath);
+    if (!universe.has(path)) continue;
+    pool.push({ filePath: path, score: entry.score });
+  }
+  const fileArms: FileArmScore[] = FILE_AGGREGATIONS.map((aggregation) => {
+    const ranked = rankFiles(pool, aggregation).map((file) => file.filePath);
+    return {
+      aggregation,
+      map: averagePrecision(ranked, input.row.changed_files, MAP_DEPTH),
+      answerRank: firstRelevantRank(ranked.slice(0, MAP_DEPTH), input.row.changed_files),
+    };
+  });
+
   const retrieval: Record<string, ArmMetrics> = {};
   for (const cut of RETRIEVAL_CUTS) {
     retrieval[`at${String(cut)}`] = metricsOf(
@@ -231,6 +260,7 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     // attaches it here. A row that arrived from the child carries `null` until it does.
     bm25: null,
     skipped: null,
+    fileArms,
     retrieval,
     map: averagePrecision(candidates, input.row.changed_files, MAP_DEPTH),
     answer: provider ? metricsOf(input.allFiles, input.row.changed_files, answered) : null,

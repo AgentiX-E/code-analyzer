@@ -164,6 +164,45 @@ describe('measureInstance', () => {
     expect(scored.answer?.precision).toBe(1);
   });
 
+  it('drops a pool entry outside the answer space instead of ranking a file the corpus never counted', async () => {
+    // **The pool and the answer space are two different sets**, and the armature reads the intersection: a declaration
+    // in `README.md` is a real candidate the retriever offered and a file the corpus's baselines never ranked, so it is
+    // counted as `outside` and removed from every arm. A question that names it is how that branch is reached.
+    const { root, allFiles } = checkout();
+    const question: LcaCorpusRow = {
+      ...row(['src/retry.py']),
+      issue_title: 'the fixture README does not mention that requests are retried on 503',
+    };
+    const scored = await measureInstance({ row: question, checkout: root, allFiles });
+
+    expect(scored.outside).toBeGreaterThan(0);
+    expect(scored.offered).toBeLessThanOrEqual(allFiles.length);
+    for (const arm of scored.fileArms ?? []) expect(arm.answerRank).toBe(1);
+  });
+
+  it('publishes the same pool read as a ranking of files five ways, with the shipped one reproducible', async () => {
+    // **A choice the product made without measuring it.** The retrieval stage ranks declarations and the corpus asks
+    // which files must change; every arm below reads the identical pool, so what differs between them is the rule for
+    // turning a file's declarations into a file's position - and the shipped rule has to reproduce the row's own
+    // figures, or the armature is measuring a second implementation of the product instead of the product.
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({ row: row(['src/retry.py']), checkout: root, allFiles });
+
+    expect(scored.fileArms?.map((arm) => arm.aggregation)).toEqual([
+      'max',
+      'sum',
+      'top2',
+      'top3',
+      'count',
+    ]);
+    const shipped = scored.fileArms?.[0];
+    expect(shipped?.map).toBe(scored.map);
+    expect(shipped?.answerRank).toBe(scored.answerRank);
+    // **Every arm ranks the same set of files**, because they read the same pool: an arm that lost a file would be a
+    // filter rather than a reordering.
+    for (const arm of scored.fileArms ?? []) expect(arm.answerRank === null).toBe(false);
+  });
+
   it('states the depth average precision reads, so the column has a definition', () => {
     // **A figure whose depth is not stated is a figure about a list nobody described.** The pool is the retriever's
     // own, and the artifact publishes the number beside the column.

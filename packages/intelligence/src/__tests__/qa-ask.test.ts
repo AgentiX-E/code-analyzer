@@ -197,6 +197,32 @@ describe('retrieveContext', () => {
     expect(new Set(context.rankedFiles).size).toBe(context.rankedFiles.length);
   });
 
+  it('publishes the pool the file ranking was read from, one entry per declaration', async () => {
+    // **A file list is a collapse and a collapse is a rule.** `app/auth.py` declares two functions the question reaches
+    // and `app/views.py` declares one, so the pool holds three entries across two files - and a reader holding only
+    // `rankedFiles` could not tell that the first file was reached twice.
+    const fixture = buildFixture();
+    const context = await retrieveContext({
+      question: 'parse the token, then set the cookie on login',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, retrieveLimit: 50 },
+    });
+    expect(context.rankedPool.length).toBeGreaterThanOrEqual(context.rankedFiles.length);
+    for (const entry of context.rankedPool) {
+      expect(typeof entry.filePath).toBe('string');
+      expect(typeof entry.score).toBe('number');
+    }
+    // **The list is the pool read in order**, so the first entry of each file appears in the same sequence.
+    const files: string[] = [];
+    for (const entry of context.rankedPool)
+      if (!files.includes(entry.filePath)) files.push(entry.filePath);
+    expect(files).toEqual(context.rankedFiles);
+    // And the pool is ordered by score, which is what makes its order the tie-break the collapse uses.
+    const scores = context.rankedPool.map((entry) => entry.score);
+    expect([...scores].sort((left, right) => right - left)).toEqual(scores);
+  });
+
   it('never ranks a directory as a file', async () => {
     // **A folder is a node and a directory is not a file.** The graph holds one per directory, its `filePath` is the
     // directory, and a query that matches the directory's name put it in the ranking - measured on

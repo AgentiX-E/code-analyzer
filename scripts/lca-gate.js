@@ -240,6 +240,68 @@ function main() {
         `(${String(entry.ours)} - ${String(entry.map)})`,
     );
   }
+
+  // **The sixth invariant, and it is an equality against the product rather than a floor.**
+  //
+  // `fileRanking` publishes what the same pool would have scored under five readings of a file. Four of them are
+  // candidates and one of them is the product, so the armature has to be checked against the product before any
+  // candidate is read: **the shipped arm's own delta must be zero, and on every row the shipped arm's average precision
+  // and answer position must be the row's own.** An armature that measured five rules without one of them being the
+  // shipped rule would publish four differences between candidates and call one of them the control.
+  const fileRanking = at(record, ['fileRanking']);
+  const arms = Array.isArray(fileRanking?.arms) ? fileRanking.arms : [];
+  guard(
+    typeof fileRanking?.shipped === 'string' && arms.length > 1,
+    'fileRanking: absent, or holds fewer than two readings - an armature with one arm measures nothing',
+  );
+  const shippedArm = arms.find((arm) => arm?.aggregation === fileRanking?.shipped);
+  guard(
+    shippedArm !== undefined,
+    `fileRanking: the shipped aggregation ${String(fileRanking?.shipped)} is not among the arms, so nothing in this ` +
+      'block is a comparison against the product',
+  );
+  if (shippedArm !== undefined) {
+    guard(
+      shippedArm.delta === 0 && shippedArm.wins === 0 && shippedArm.losses === 0,
+      `fileRanking.${String(shippedArm.aggregation)}: compared with itself it reports delta ` +
+        `${String(shippedArm.delta)}, ${String(shippedArm.wins)} wins and ${String(shippedArm.losses)} losses`,
+    );
+    guard(
+      shippedArm.rows === paired?.rows,
+      `fileRanking.${String(shippedArm.aggregation)}: ${String(shippedArm.rows)} paired rows against ` +
+        `${String(paired?.rows)} on the figure, so the armature is about a different sample`,
+    );
+  }
+  for (const entry of arms) {
+    guard(
+      typeof entry?.aggregation === 'string' &&
+        typeof entry?.rows === 'number' &&
+        typeof entry?.map === 'number',
+      `fileRanking: an arm (${String(entry?.aggregation)}) is missing its name, its row count or its mean`,
+    );
+  }
+  // **Per row, because a mean can agree with a mean while the rows behind them do not.** This is the check that would
+  // have caught the armature reading a collapsed pool: every file would then score identically under all five arms and
+  // the figures would agree, so the assertion is the shipped arm's *per-row* figures rather than its mean alone.
+  const rowsOf = Array.isArray(at(record, ['rows'])) ? at(record, ['rows']) : [];
+  let checked = 0;
+  for (const row of rowsOf) {
+    if (row?.skipped !== null || !Array.isArray(row?.fileArms)) continue;
+    const shipped = row.fileArms.find((arm) => arm?.aggregation === fileRanking?.shipped);
+    if (shipped === undefined) continue;
+    checked += 1;
+    guard(
+      Math.abs(shipped.map - row.map) < 1e-9 && shipped.answerRank === row.answerRank,
+      `rows[${String(row.id)}]: the shipped arm reads ${String(shipped.map)}/${String(shipped.answerRank)} where the ` +
+        `product published ${String(row.map)}/${String(row.answerRank)} - the armature is not reading the pool the ` +
+        'product ranked',
+    );
+  }
+  guard(
+    checked >= (sample?.measured ?? 0),
+    `fileRanking: ${String(checked)} rows carry an armature against ${String(sample?.measured)} measured - a row ` +
+      'without one is an instance the comparison skipped silently',
+  );
   const sampleLine =
     typeof sample?.measured === 'number'
       ? `| sample | ${String(sample.measured)} measured of ${String(sample.attempted)} attempted of ` +
@@ -269,6 +331,20 @@ function main() {
   rows.push(fitLine.line);
   if (fitLine.failure) failures.push(fitLine.failure);
   rows.push(sampleLine, pairedLine, diagnosisLine);
+  // **One line per reading of the pool**, because the block is a comparison and a comparison a reader cannot see is a
+  // number with a name. The shipped arm is marked, since it is the control rather than a candidate - and a candidate
+  // that loses is a ✓ here, because losing is a finding rather than a failure of the gate.
+  for (const entry of arms) {
+    const mark = entry?.aggregation === fileRanking?.shipped ? ' (shipped)' : '';
+    const delta = typeof entry?.delta === 'number' ? entry.delta : null;
+    rows.push(
+      `| file aggregation: ${String(entry?.aggregation)}${mark} | ` +
+        `${typeof entry?.map === 'number' ? entry.map.toFixed(4) : 'none'} vs ` +
+        `${typeof entry?.control === 'number' ? entry.control.toFixed(4) : 'none'} · Δ ` +
+        `${delta === null ? 'none' : delta.toFixed(4)} · first ${String(entry?.firstPlaced)} | ` +
+        `paired, ${String(entry?.rows)} rows | ${delta === null ? '✗' : '✓'} |`,
+    );
+  }
   for (const [name, path, floor, ceiling, optional] of RULES) {
     const { row: line, failure } = row(name, at(record, path), floor, ceiling, optional);
     rows.push(line);

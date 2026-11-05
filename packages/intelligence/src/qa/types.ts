@@ -10,6 +10,7 @@
 // deterministic functions of (question, index, provider); a caller with no provider gets the same context and no
 // prose, which is a result rather than a failure.
 
+import type { PoolEntry } from '../search/file-ranking.js';
 import type { NodeLabel, RelationshipType } from '@code-analyzer/shared';
 
 /**
@@ -140,6 +141,16 @@ export interface AnswerResult {
    * answer arm was silently truncating the retrieval arm's denominator.**
    */
   rankedFiles: string[];
+  /**
+   * **The pool `rankedFiles` was read from**, one entry per candidate declaration, in rank order.
+   *
+   * `rankedFiles` is a collapse, and a collapse is a rule: a file's position is derived from the declarations that live
+   * in it (`search/file-ranking.ts`), and a reader who has only the file list cannot tell a file that ranked first
+   * because one of its declarations did from one that would have ranked first under a different reading of the same
+   * evidence. **That distinction is what three iterations of "the answer is in the list but not first" needed**, and it
+   * is why the pool is published beside the list rather than kept inside the retriever.
+   */
+  rankedPool: PoolEntry[];
   grounding: GroundingReport;
   /** Set when there is no answer, with the reason. **`null` means an answer was produced.** */
   abstained: AbstainReason | null;

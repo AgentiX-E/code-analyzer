@@ -103,6 +103,75 @@ function baseRecord(): Record<string, unknown> {
       pValue: 0.5,
     },
     stratified: [{ label: '0-50 files', attempted: 2, measured: 2, map: 0.4, bm25: 0.22 }],
+    // **The armature, with two measured rows behind it.** The shipped arm repeats each row's own figures, which is
+    // what the gate checks per row: an armature that collapsed the pool would have five arms that all agree with each
+    // other and none of them with the product, and the equality below is what tells the two apart.
+    fileRanking: {
+      shipped: 'max',
+      arms: [arm('max', 0, 0, 0, 1), arm('sum', 0.05, 1, 1, 2), arm('top2', -0.05, 0, 1, 1)],
+    },
+    rows: [
+      {
+        config: 'kt',
+        id: 1,
+        repo: 'owner/one',
+        skipped: null,
+        map: 0.5,
+        answerRank: 1,
+        fileArms: [
+          { aggregation: 'max', map: 0.5, answerRank: 1 },
+          { aggregation: 'sum', map: 0.6, answerRank: 1 },
+          { aggregation: 'top2', map: 0.45, answerRank: 1 },
+        ],
+      },
+      {
+        config: 'kt',
+        id: 2,
+        repo: 'owner/two',
+        skipped: null,
+        map: 0.3,
+        answerRank: 3,
+        fileArms: [
+          { aggregation: 'max', map: 0.3, answerRank: 3 },
+          { aggregation: 'sum', map: 0.2, answerRank: 4 },
+          { aggregation: 'top2', map: 0.25, answerRank: 3 },
+        ],
+      },
+      {
+        config: 'kt',
+        id: 3,
+        repo: 'owner/three',
+        skipped: 'the checkout holds 4970 files, above the stated cap of 2000',
+        map: 0,
+        answerRank: null,
+        fileArms: null,
+      },
+    ],
+  };
+}
+
+/** One published arm. **The shipped one is compared with itself, so its three counts are a tie per row.** */
+function arm(
+  aggregation: string,
+  delta: number,
+  wins: number,
+  losses: number,
+  firstPlaced: number,
+): Record<string, unknown> {
+  return {
+    aggregation,
+    rows: 2,
+    map: 0.4 + delta,
+    control: 0.4,
+    delta,
+    wins,
+    losses,
+    ties: 2 - wins - losses,
+    lower: delta - 0.05,
+    upper: delta + 0.05,
+    pValue: 1,
+    firstPlaced,
+    found: 2,
   };
 }
 
@@ -139,6 +208,70 @@ describe('lca gate', () => {
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('sample');
     expect(run.stdout).toContain('paired vs BM25');
+    expect(run.stdout).toContain('file aggregation: max (shipped)');
+    expect(run.stdout).toContain('file aggregation: sum');
+  });
+
+  it('refuses an armature that is not comparing against the product', () => {
+    // **The shipped arm's own delta is zero or the instrument is broken.** A non-zero value there means the armature
+    // and the product disagree about what the product does, and every other arm in the block is then a difference
+    // against a rule nobody ships.
+    const run = runGate(
+      mutated((record) => {
+        const arms = (record['fileRanking'] as Record<string, unknown>)['arms'] as Record<
+          string,
+          unknown
+        >[];
+        arms[0]!['delta'] = 0.02;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('compared with itself');
+  });
+
+  it('refuses an armature whose shipped aggregation is not among its arms', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['fileRanking'] as Record<string, unknown>)['shipped'] = 'median';
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('not among the arms');
+  });
+
+  it('refuses an armature whose shipped arm disagrees with a row of the product', () => {
+    // **The check a mean cannot make.** Five arms that all read a collapsed pool agree with each other and disagree
+    // with the column the product published; the per-row equality is what separates a measurement from a wiring bug.
+    const run = runGate(
+      mutated((record) => {
+        const rows = record['rows'] as Record<string, unknown>[];
+        const arms = rows[1]!['fileArms'] as Record<string, unknown>[];
+        arms[0]!['map'] = 0.31;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('not reading the pool');
+  });
+
+  it('refuses an armature that skipped a measured instance', () => {
+    const run = runGate(
+      mutated((record) => {
+        const rows = record['rows'] as Record<string, unknown>[];
+        rows[1]!['fileArms'] = null;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('skipped silently');
+  });
+
+  it('refuses a record with no armature at all', () => {
+    const run = runGate(
+      mutated((record) => {
+        delete record['fileRanking'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('fileRanking');
   });
 
   it('refuses a record whose attempted count is not measured plus refused', () => {

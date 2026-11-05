@@ -25,6 +25,7 @@ import {
 import { LCA_CONFIGS, mean } from '../packages/intelligence/src/benchmark/lca-instrument.js';
 import { combineParts, costModels } from '../packages/intelligence/src/benchmark/lca-merge.js';
 import {
+  armComparison,
   BOOTSTRAP_RESAMPLES,
   BOOTSTRAP_SEED,
   pairedByLanguage,
@@ -36,6 +37,7 @@ import {
   stratify,
   worstCaseMap,
 } from '../packages/intelligence/src/benchmark/lca-sample.js';
+import { FILE_AGGREGATION } from '../packages/intelligence/src/search/file-ranking.js';
 import { recordArtifact } from '../packages/shared/src/benchmark/artifact.js';
 
 import type { LanguagePart } from '../packages/intelligence/src/benchmark/lca-merge.js';
@@ -192,6 +194,10 @@ function main(): void {
   // **Whether a small figure is a ranking problem or a missing answer.** Published for the same intersection the
   // pairing uses, because the two defects need different repairs and a MAP column reports them identically.
   const diagnosis = rankDiagnosis(allRows);
+  // **The conversion from declarations to files, measured rather than chosen.** Five readings of the same pool, paired
+  // on the same rows, with the shipped one first - and its own delta is zero by construction, which is the armature's
+  // wiring check rather than a result.
+  const fileRanking = { shipped: FILE_AGGREGATION, arms: armComparison(allRows) };
   const worst = worstCaseMap(allRows);
   // **Our mean restricted to the rows the control also scored**, because a paired difference printed beside an unpaired
   // mean invites the reader to subtract two numbers measured on different sets.
@@ -356,6 +362,12 @@ function main(): void {
      */
     paired,
     diagnosis,
+    /**
+     * **The same ranked pool read as a ranking of files five ways**, which is a choice the product made without
+     * measuring it. `max` is what it ships and is listed first, so its delta is zero by construction and a non-zero one
+     * is a wiring mistake the gate refuses; the other four are the alternatives, paired on the same rows.
+     */
+    fileRanking,
     /** The same comparison, split by how large a repository the instance was. **This is the table that answers
      * "is our sample easier than theirs".** */
     stratified: strata,
@@ -389,6 +401,8 @@ function main(): void {
         offeredPaths: row.offeredPaths,
         /** Where the first fixing file sits in our list, and in the control's. **One number each, same instance.** */
         answerRank: row.answerRank,
+        /** Every reading of the pool, so a reader can recompute `fileRanking` from the rows. */
+        fileArms: row.fileArms,
         bm25Rank: row.bm25 === null ? null : row.bm25.rank,
         bm25Top: row.bm25 === null ? null : row.bm25.ranked,
         corpusBytes: row.corpusBytes,
@@ -453,6 +467,21 @@ function main(): void {
       `oursMedian=${diagnosis.oursMedian === null ? 'none' : String(diagnosis.oursMedian)} ` +
       `controlMedian=${diagnosis.controlMedian === null ? 'none' : String(diagnosis.controlMedian)}`,
   );
+  // **The conversion from declarations to files, one line per reading of it.** `shipped` comes first and its delta is
+  // the armature's control: a number other than zero there means the armature and the product disagree about what the
+  // product does, which is a defect in the instrument rather than a finding about the retriever.
+  for (const arm of fileRanking.arms) {
+    console.log(
+      `LCA-ARM ${arm.aggregation === fileRanking.shipped ? '*' : ' '}${arm.aggregation} ` +
+        `rows=${String(arm.rows)} map=${arm.map === null ? 'none' : arm.map.toFixed(4)} ` +
+        `shipped=${arm.control === null ? 'none' : arm.control.toFixed(4)} ` +
+        `delta=${arm.delta === null ? 'none' : arm.delta.toFixed(4)} ` +
+        `ci=[${arm.lower === null ? 'none' : arm.lower.toFixed(4)},` +
+        `${arm.upper === null ? 'none' : arm.upper.toFixed(4)}] p=${arm.pValue === null ? 'none' : String(arm.pValue)} ` +
+        `wins=${String(arm.wins)} losses=${String(arm.losses)} ties=${String(arm.ties)} ` +
+        `first=${String(arm.firstPlaced)} found=${String(arm.found)}`,
+    );
+  }
   // **The cost model on its own line**, because a fit nobody reads is a fit nobody can act on: the slope, the residual
   // that says whether the ceiling can be trusted, and the spread that condemns the constant.
   for (const [name, fit] of [

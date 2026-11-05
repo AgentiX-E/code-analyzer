@@ -22,8 +22,18 @@
 // from the artifact by anyone holding it, which is the only sense in which a published figure is checkable.
 
 import { mean } from './lca-instrument.js';
+import { FILE_AGGREGATION } from '../search/file-ranking.js';
 
 import type { LanguagePart, LcaRowScore } from './lca-merge.js';
+
+/**
+ * The aggregation the product ships, read from the module that owns the choice rather than restated here.
+ *
+ * **One constant in two places is two choices.** The armature compares against whatever `search/file-ranking.ts` says
+ * the product does, so shipping a different default changes the control automatically instead of silently comparing the
+ * other four arms against an arm nobody uses.
+ */
+const SHIPPED_AGGREGATION: string = FILE_AGGREGATION;
 
 /** One refusal sentence, and how many instances it stopped. **The sentence is quoted, never paraphrased into a code.** */
 export interface RefusalCount {
@@ -325,20 +335,50 @@ export function pairedComparison(
   }
   if (deltas.length === 0) return null;
 
-  const seed = options.seed ?? BOOTSTRAP_SEED;
-  const resamples = options.resamples ?? BOOTSTRAP_RESAMPLES;
+  const counts = countOf(deltas);
+  const interval = bootstrapOf(deltas, options);
+  return {
+    rows: deltas.length,
+    ...counts,
+    meanDelta: round4(deltas.reduce((sum, value) => sum + value, 0) / deltas.length),
+    lower: interval.lower,
+    upper: interval.upper,
+    pValue: round4(signTest(counts.wins, counts.losses)),
+    seed: options.seed ?? BOOTSTRAP_SEED,
+    resamples: options.resamples ?? BOOTSTRAP_RESAMPLES,
+  };
+}
+
+/** Four places, because the artifact publishes four and a comparison against it has to be made at that precision. */
+function round4(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
+/** Wins, losses and ties over a list of paired differences. **A tie is exact**, since both terms are means of exact ratios. */
+function countOf(deltas: readonly number[]): { wins: number; losses: number; ties: number } {
   let wins = 0;
   let losses = 0;
   let ties = 0;
   for (const delta of deltas) {
-    // **An exact comparison, because the values are four-place means of exact ratios.** A tie is a tie to the digit the
-    // artifact publishes, which is the digit a reader would compare.
     if (Math.abs(delta) < 1e-9) ties += 1;
     else if (delta > 0) wins += 1;
     else losses += 1;
   }
+  return { wins, losses, ties };
+}
 
-  const random = seeded(seed);
+/**
+ * The percentile bootstrap of the mean of a list of paired differences.
+ *
+ * **The interval is the only thing here that needs randomness, and the randomness is seeded.** A published interval
+ * that moves between two runs of the same commit is an interval nobody can check.
+ */
+function bootstrapOf(
+  deltas: readonly number[],
+  options: { readonly seed?: number; readonly resamples?: number },
+): { lower: number; upper: number } {
+  const random = seeded(options.seed ?? BOOTSTRAP_SEED);
+  const resamples = options.resamples ?? BOOTSTRAP_RESAMPLES;
   const means: number[] = [];
   for (let round = 0; round < resamples; round += 1) {
     let sum = 0;
@@ -350,20 +390,115 @@ export function pairedComparison(
   means.sort((left, right) => left - right);
   const at = (quantile: number): number =>
     means[Math.min(means.length - 1, Math.floor(quantile * means.length))]!;
+  return { lower: round4(at(0.025)), upper: round4(at(0.975)) };
+}
 
-  return {
-    rows: deltas.length,
-    wins,
-    losses,
-    ties,
-    meanDelta:
-      Math.round((deltas.reduce((sum, value) => sum + value, 0) / deltas.length) * 10000) / 10000,
-    lower: Math.round(at(0.025) * 10000) / 10000,
-    upper: Math.round(at(0.975) * 10000) / 10000,
-    pValue: Math.round(signTest(wins, losses) * 10000) / 10000,
-    seed,
-    resamples,
-  };
+/** One way of reading a file off the declarations it holds, and what it would have been worth. */
+export interface ArmComparison {
+  /** The aggregation, from `search/file-ranking.ts`. */
+  readonly aggregation: string;
+  /** Rows where this arm and the shipped arm both produced a figure. **The paired intersection.** */
+  readonly rows: number;
+  /** This arm's mean average precision over those rows. */
+  readonly map: number | null;
+  /** The shipped arm's mean over **the same rows**, so the two are subtractable. */
+  readonly control: number | null;
+  /** `map - control`, on the same rows. **What changing the rule would have been worth, in MAP.** */
+  readonly delta: number | null;
+  readonly wins: number;
+  readonly losses: number;
+  readonly ties: number;
+  readonly lower: number | null;
+  readonly upper: number | null;
+  readonly pValue: number | null;
+  /** Rows whose first entry is a fixing file under this arm. */
+  readonly firstPlaced: number;
+  /** Rows whose ranking contains a fixing file at all. */
+  readonly found: number;
+}
+
+/**
+ * What each way of turning declarations into files would have scored, on the instances the run actually measured.
+ *
+ * **The question this answers is a choice the product made without measuring it.** A declaration ranking becomes a file
+ * ranking; the product took a file's position to be its earliest declaration's, and `search/file-ranking.ts` states four
+ * other readings of the same pool. A choice between five functions is not settled by an argument about which is more
+ * natural - it is settled by the paired difference on the same rows, which is what this computes, and the sign test is
+ * the one reported because average precision over a hundred rows is bounded, skewed and not normal.
+ *
+ * **The shipped arm is compared against itself and must publish exactly zero.** That row is the armature's control: an
+ * arm that disagrees with the product's own column is a wiring mistake, not a measurement, and the gate refuses an
+ * artifact where `max`'s own delta is anything but zero.
+ *
+ * **`shipped` is an argument with a default rather than a literal read from the rows**, because a run that published no
+ * `max` arm at all (an older part merged beside a newer one) has to fail this comparison loudly rather than quietly
+ * compare two other arms and label one of them the product.
+ */
+export function armComparison(
+  rows: readonly LcaRowScore[],
+  options: { readonly shipped?: string; readonly seed?: number; readonly resamples?: number } = {},
+): ArmComparison[] {
+  const shipped = options.shipped ?? SHIPPED_AGGREGATION;
+  const present: string[] = [];
+  for (const row of rows) {
+    for (const arm of row.fileArms ?? []) {
+      if (!present.includes(arm.aggregation)) present.push(arm.aggregation);
+    }
+  }
+
+  return present.map((aggregation) => {
+    const deltas: number[] = [];
+    const arms: number[] = [];
+    const controls: number[] = [];
+    let firstPlaced = 0;
+    let found = 0;
+    for (const row of rows) {
+      if (row.skipped !== null) continue;
+      const arm = row.fileArms?.find((entry) => entry.aggregation === aggregation);
+      if (arm === undefined) continue;
+      if (arm.answerRank !== null) found += 1;
+      if (arm.answerRank === 1) firstPlaced += 1;
+      const control = row.fileArms?.find((entry) => entry.aggregation === shipped);
+      if (control === undefined) continue;
+      arms.push(arm.map);
+      controls.push(control.map);
+      deltas.push(arm.map - control.map);
+    }
+
+    if (deltas.length === 0) {
+      return {
+        aggregation,
+        rows: 0,
+        map: null,
+        control: null,
+        delta: null,
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        lower: null,
+        upper: null,
+        pValue: null,
+        firstPlaced,
+        found,
+      };
+    }
+
+    const counts = countOf(deltas);
+    const interval = bootstrapOf(deltas, options);
+    return {
+      aggregation,
+      rows: deltas.length,
+      map: mean(arms),
+      control: mean(controls),
+      delta: round4(mean(deltas)),
+      ...counts,
+      lower: interval.lower,
+      upper: interval.upper,
+      pValue: round4(signTest(counts.wins, counts.losses)),
+      firstPlaced,
+      found,
+    };
+  });
 }
 
 /**

@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  armComparison,
   BOOTSTRAP_SEED,
   DEFAULT_STRATA,
   publishedRank,
@@ -34,6 +35,7 @@ function row(input: {
   skipped?: string | null;
   answerRank?: number | null;
   bm25Rank?: number | null;
+  fileArms?: LcaRowScore['fileArms'];
 }): LcaRowScore {
   return {
     id: input.id,
@@ -51,6 +53,7 @@ function row(input: {
     graphNodes: null,
     graphEdges: null,
     cost: null,
+    fileArms: input.fileArms ?? null,
     bm25:
       input.bm25 === undefined || input.bm25 === null
         ? null
@@ -568,5 +571,136 @@ describe('pairedByLanguage', () => {
     expect(paired[0]?.ours).toBeNull();
     expect(paired[0]?.control).toBeNull();
     expect(paired[0]?.delta).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The file aggregation armature
+// ---------------------------------------------------------------------------
+
+/** A row carrying the same pool read by each aggregation, with `max` standing in for the shipped arm. */
+function armRow(
+  id: number,
+  figures: Readonly<Record<string, readonly [number, number | null]>>,
+): LcaRowScore {
+  return row({
+    id,
+    corpusFiles: 100,
+    map: figures['max']?.[0] ?? 0,
+    bm25: 0.1,
+    fileArms: Object.entries(figures).map(([aggregation, [map, answerRank]]) => ({
+      aggregation,
+      map,
+      answerRank,
+    })),
+  });
+}
+
+describe('the file aggregation armature', () => {
+  it('compares the shipped arm with itself and publishes zero, because that is the control', () => {
+    const arms = armComparison([armRow(1, { max: [0.4, 2], sum: [0.6, 1] })]);
+    const shipped = arms.find((arm) => arm.aggregation === 'max')!;
+    expect(shipped.delta).toBe(0);
+    expect(shipped.wins).toBe(0);
+    expect(shipped.losses).toBe(0);
+    expect(shipped.ties).toBe(1);
+    expect(shipped.pValue).toBe(1);
+    expect(shipped.lower).toBe(0);
+    expect(shipped.upper).toBe(0);
+    // **And the two means are the same number**, because they were averaged over the same rows.
+    expect(shipped.map).toBe(shipped.control);
+    expect(shipped.map).toBe(0.4);
+  });
+
+  it('reports what a change of rule would have been worth, with the interval that says whether it is a change', () => {
+    const arms = armComparison([
+      armRow(1, { max: [0.2, 4], sum: [0.7, 1] }),
+      armRow(2, { max: [0.5, 2], sum: [0.8, 2] }),
+      armRow(3, { max: [0.9, 1], sum: [0.9, 1] }),
+      armRow(4, { max: [0.1, 5], sum: [0.4, 3] }),
+    ]);
+    const sum = arms.find((arm) => arm.aggregation === 'sum')!;
+    expect(sum.rows).toBe(4);
+    expect(sum.wins).toBe(3);
+    expect(sum.losses).toBe(0);
+    expect(sum.ties).toBe(1);
+    expect(sum.delta).toBe(0.275);
+    expect(sum.map).toBe(0.7);
+    expect(sum.control).toBe(0.425);
+    // **The tie leaves the sample, as it must** - an instance both readings scored identically carries no evidence -
+    // so three wins against no losses is `p = 0.25` rather than `0.125`: the denominator is the three rows that
+    // disagreed.
+    expect(sum.pValue).toBe(0.25);
+    expect(sum.lower).toBeGreaterThan(0);
+  });
+
+  it('lists the arms in the order the module publishes them, so the table is the module reading order', () => {
+    const arms = armComparison([armRow(1, { max: [0.4, 1], sum: [0.4, 1], top2: [0.4, 1] })]);
+    expect(arms.map((arm) => arm.aggregation)).toEqual(['max', 'sum', 'top2']);
+  });
+
+  it('counts how often each arm leads with the answer, over every row that carries it', () => {
+    const arms = armComparison([
+      armRow(1, { max: [0.2, 4], sum: [1, 1] }),
+      armRow(2, { max: [1, 1], sum: [1, 1] }),
+      // A row whose answer is in neither list still carries the arm, and contributes to neither count.
+      armRow(3, { max: [0, null], sum: [0, null] }),
+    ]);
+    const sum = arms.find((arm) => arm.aggregation === 'sum')!;
+    expect(sum.firstPlaced).toBe(2);
+    expect(sum.found).toBe(2);
+    const max = arms.find((arm) => arm.aggregation === 'max')!;
+    expect(max.firstPlaced).toBe(1);
+    expect(max.found).toBe(2);
+  });
+
+  it('excludes a refused row from the pairing, because a refused row has no pool', () => {
+    const refused = row({ id: 9, corpusFiles: 100, skipped: 'above the stated cap', bm25: 0.1 });
+    const arms = armComparison([armRow(1, { max: [0.3, 1], sum: [0.5, 1] }), refused]);
+    expect(arms.every((arm) => arm.rows === 1)).toBe(true);
+    expect(arms.every((arm) => arm.found === 1)).toBe(true);
+  });
+
+  it('drops a row from an arm whose control is missing rather than pairing it against zero', () => {
+    const orphan: LcaRowScore = {
+      ...armRow(2, { sum: [0.9, 1] }),
+      map: 0,
+    };
+    const arms = armComparison([armRow(1, { max: [0.4, 1], sum: [0.6, 1] }), orphan]);
+    const sum = arms.find((arm) => arm.aggregation === 'sum')!;
+    // Two rows carried the `sum` arm; only one of them also carried the shipped one.
+    expect(sum.rows).toBe(1);
+    expect(sum.found).toBe(2);
+    expect(sum.delta).toBe(0.2);
+  });
+
+  it('publishes an arm whose control never appeared as a row count of zero rather than as a difference', () => {
+    // **A part merged from an older run can carry an arm the shipped column does not have.** Reading a difference there
+    // would require pairing a candidate against nothing, which is the same defect as pairing a refused row against a
+    // zero - so the arm is published with no comparison, and the gate can see that it was published rather than dropped.
+    const arms = armComparison([armRow(1, { sum: [0.7, 1] }), armRow(2, { sum: [0.4, 2] })]);
+    expect(arms.map((arm) => arm.aggregation)).toEqual(['sum']);
+    expect(arms[0]?.rows).toBe(0);
+    expect(arms[0]?.delta).toBeNull();
+    expect(arms[0]?.lower).toBeNull();
+    expect(arms[0]?.pValue).toBeNull();
+    // The counts that do not need a control are still published, because they are about this arm alone.
+    expect(arms[0]?.found).toBe(2);
+    expect(arms[0]?.firstPlaced).toBe(1);
+  });
+
+  it('publishes no comparison at all when nothing was measured', () => {
+    expect(armComparison([])).toEqual([]);
+    const refused = row({ id: 9, corpusFiles: 100, skipped: 'clock', bm25: 0.1 });
+    expect(armComparison([refused])).toEqual([]);
+  });
+
+  it('computes the same interval twice, because the interval is a function of the rows', () => {
+    const rows = [
+      armRow(1, { max: [0.2, 4], sum: [0.7, 1] }),
+      armRow(2, { max: [0.6, 2], sum: [0.5, 3] }),
+    ];
+    expect(armComparison(rows)[1]!.lower).toBe(armComparison(rows)[1]!.lower);
+    expect(BOOTSTRAP_SEED).toBeGreaterThan(0);
   });
 });

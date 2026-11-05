@@ -118,6 +118,19 @@ export interface LcaRowScore {
   /** The sentence that refused this instance, or `null` when it was measured. */
   readonly skipped: string | null;
   /**
+   * The same ranked pool read as a ranking of **files** under every aggregation the product knows how to apply.
+   *
+   * **The conversion from declarations to files is a choice, and a choice nobody measured is a second ranking
+   * function.** The retrieval stage scores declarations; the corpus asks which files must change; the product has
+   * always taken a file's position to be the position of its earliest declaration, which is the `max` of its scores
+   * and nothing else about the file. `search/file-ranking.ts` states the alternatives and the armature publishes all of
+   * them on **the same rows**, so the answer to "should a file be read as its best declaration or as the union of
+   * them" is a paired difference on real instances rather than a preference.
+   *
+   * `null` on a refused row, because a refused row produced no pool to read.
+   */
+  readonly fileArms: readonly FileArmScore[] | null;
+  /**
    * Metrics at each cut, keyed `at1`, `at3`, ... **Absent on a skipped row.**
    *
    * **The artifact's own addresses**, because the gate, the documentation and the audit all quote
@@ -133,6 +146,16 @@ export interface LcaRowScore {
   readonly map: number;
   /** What the model cited, or `null` when no provider was present. */
   readonly answer: ArmMetrics | null;
+}
+
+/** One file aggregation's figures on one instance. **The same pool, read five ways.** */
+export interface FileArmScore {
+  /** Which reading of a file's declarations produced this, from `search/file-ranking.ts`. */
+  readonly aggregation: string;
+  /** Average precision of the resulting file ranking, over the retriever's whole pool. */
+  readonly map: number;
+  /** Where the first fixing file sits in it, or `null` when the file is not in the ranking at all. */
+  readonly answerRank: number | null;
 }
 
 /** One language split, as one job measured it. */
@@ -223,6 +246,7 @@ export function skippedRow(input: {
     cost: input.cost ?? null,
     bm25: input.bm25 ?? null,
     skipped: input.because,
+    fileArms: null,
     retrieval: {},
     map: 0,
     answer: null,
