@@ -128,9 +128,13 @@ function baseRecord(): Record<string, unknown> {
       {
         name: 'BM25',
         controlRows: 3,
-        controlMap: 0.22,
+        controlMap: 0.21,
         oursPairedRows: 2,
         oursPaired: 0.4,
+        // **Deliberately different from `controlMap`**, so a gate that subtracted the wrong one fails here rather than
+        // in a published artifact: 0.22 is the control's mean over the rows it was paired on, 0.21 over every row it
+        // scored, and only the first is the term that `delta` is measured against.
+        pairedControl: 0.22,
         pairedRows: 2,
         delta: 0.18,
         lower: 0.05,
@@ -143,9 +147,10 @@ function baseRecord(): Record<string, unknown> {
       {
         name: 'TF-IDF (cosine)',
         controlRows: 3,
-        controlMap: 0.25,
+        controlMap: 0.24,
         oursPairedRows: 2,
         oursPaired: 0.4,
+        pairedControl: 0.25,
         pairedRows: 2,
         delta: 0.15,
         lower: 0.02,

@@ -365,21 +365,25 @@ function main() {
       `controlSummary.${name}: summarises ${String(entry?.pairedRows)} paired rows against ` +
         `${String(paired?.rows)} on the figure`,
     );
+    // **The paired control mean, not the control's mean over every row it scored.** Those are two different numbers
+    // whenever the controls ran on instances we could not measure - which is the normal case, and which is the exact
+    // subtraction that published a 0.0037 Java win in iteration 71. The tolerance is a thousandth because the artifact
+    // publishes four decimals and a difference of two rounded means is not the rounded mean of differences.
     if (
       typeof entry?.delta !== 'number' ||
       typeof entry?.oursPaired !== 'number' ||
-      typeof entry?.controlMap !== 'number'
+      typeof entry?.pairedControl !== 'number'
     ) {
       guard(
         pairedRows === 0,
-        `controlSummary.${name}: a paired row without a delta, an under-ours mean or a control mean`,
+        `controlSummary.${name}: a paired row without a delta, an under-ours mean or a paired control mean`,
       );
       continue;
     }
     guard(
-      Math.abs(entry.delta - (entry.oursPaired - entry.controlMap)) < 1e-4,
-      `controlSummary.${name}: delta ${String(entry.delta)} is not ours minus control ` +
-        `(${String(entry.oursPaired)} - ${String(entry.controlMap)})`,
+      Math.abs(entry.delta - (entry.oursPaired - entry.pairedControl)) < 1e-3,
+      `controlSummary.${name}: delta ${String(entry.delta)} is not ours minus control on the paired rows ` +
+        `(${String(entry.oursPaired)} - ${String(entry.pairedControl)})`,
     );
   }
 

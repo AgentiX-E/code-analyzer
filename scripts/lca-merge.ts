@@ -94,10 +94,22 @@ function controlBlock(input: {
  */
 interface ControlSummary {
   readonly name: string;
+  /** Every row the control scored, **which is a superset of the rows it was paired on**. */
   readonly controlRows: number;
+  /** The control's mean over those rows. **Not subtractable from `oursPaired`** - see `pairedControl`. */
   readonly controlMap: number | null;
   readonly oursPairedRows: number;
+  /** Our mean over the rows that were paired. */
   readonly oursPaired: number | null;
+  /**
+   * The control's mean **over the paired rows**, which is the term `delta` is measured against.
+   *
+   * **The distinction is the defect this field exists to prevent.** `controlMap` is a mean over every row the control
+   * scored - 150 of them on the run that added this - while `oursPaired` is a mean over the 109 that were also
+   * measured, and the unmeasured rows are the large repositories the control scores worst on. Subtracting the first
+   * from the second is exactly the operation that published a 0.0037 Java *win* in iteration 71.
+   */
+  readonly pairedControl: number | null;
   readonly pairedRows: number | null;
   readonly delta: number | null;
   readonly lower: number | null;
@@ -108,11 +120,16 @@ interface ControlSummary {
   readonly ties: number | null;
 }
 
+/** Four places, the precision every figure in this artifact is published at. */
+function round4(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
 /** One line of `controlSummary`. **The paired figures, flattened**, so the two controls are one table. */
 function summaryOf(
   name: string,
   rows: readonly number[],
-  oursPaired: readonly number[],
+  pairs: readonly { readonly ours: number; readonly control: number }[],
   paired: {
     readonly rows: number;
     readonly meanDelta: number;
@@ -128,10 +145,14 @@ function summaryOf(
     name,
     controlRows: rows.length,
     controlMap: rows.length === 0 ? null : mean([...rows]),
-    oursPairedRows: oursPaired.length,
-    oursPaired: oursPaired.length === 0 ? null : mean([...oursPaired]),
+    oursPairedRows: pairs.length,
+    oursPaired: pairs.length === 0 ? null : mean(pairs.map((pair) => pair.ours)),
+    pairedControl: pairs.length === 0 ? null : mean(pairs.map((pair) => pair.control)),
     pairedRows: paired?.rows ?? null,
-    delta: paired?.meanDelta ?? null,
+    // **The mean of the differences, not the difference of two means.** Written the other way the number is the same up
+    // to rounding, and the rounding is what makes a reader's recomputation disagree with the artifact in the fourth
+    // decimal - which reads as an error rather than as a rounding.
+    delta: pairs.length === 0 ? null : round4(mean(pairs.map((pair) => pair.ours - pair.control))),
     lower: paired?.lower ?? null,
     upper: paired?.upper ?? null,
     pValue: paired?.pValue ?? null,
@@ -305,13 +326,17 @@ function main(): void {
   const worst = worstCaseMap(allRows);
   // **Our mean restricted to the rows the control also scored**, because a paired difference printed beside an unpaired
   // mean invites the reader to subtract two numbers measured on different sets.
-  const pairedOurs = allRows
+  // **The pairs, not just our half of them.** A summary that published our mean over the paired rows and the control's
+  // mean over all of its rows would invite the subtraction that is wrong by construction, so each control carries both
+  // halves of every pair and the delta is the mean of the differences.
+  const pairsBm25 = allRows
     .filter((row) => row.skipped === null && typeof row.bm25?.map === 'number')
-    .map((row) => row.map);
-  /** The same restriction against the second control's coverage, **so its means are subtractable too**. */
-  const pairedOursTfidf = allRows
+    .map((row) => ({ ours: row.map, control: row.bm25!.map }));
+  const pairsTfidf = allRows
     .filter((row) => row.skipped === null && typeof row.tfidf?.map === 'number')
-    .map((row) => row.map);
+    .map((row) => ({ ours: row.map, control: row.tfidf!.map }));
+  const pairedOurs = pairsBm25.map((pair) => pair.ours);
+  const pairedOursTfidf = pairsTfidf.map((pair) => pair.ours);
 
   const artifact = {
     comment: [
@@ -506,8 +531,8 @@ function main(): void {
      * averaged over different rows.
      */
     controlSummary: [
-      summaryOf('BM25', controlRows, pairedOurs, paired),
-      summaryOf('TF-IDF (cosine)', secondControlRows, pairedOursTfidf, pairedTfidf),
+      summaryOf('BM25', controlRows, pairsBm25, paired),
+      summaryOf('TF-IDF (cosine)', secondControlRows, pairsTfidf, pairedTfidf),
     ],
     /**
      * **The paired comparison**, which is the only figure here in which repository size cannot be the explanation.
