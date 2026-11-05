@@ -165,9 +165,16 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   // **The second conversion is the answer space.** The corpus counts the non-test files of the configuration's extension
   // and the published baselines rank exactly that set, so a `History.md` our retriever offers was never in the running.
   // Restricting to that set is a filter that preserves the retriever's order.
+  //
+  // **And the list is `rankedFiles`, not `retrievedFiles` - which is a defect this line used to have.** `retrievedFiles`
+  // is the files of the blocks that survived `maxBlocks`, a **prompt** budget of forty blocks that also admits the
+  // structural neighbours the retriever never ranked. Measured over real instances, that list held **five to nine
+  // files**, so the MAP column was computed over a tenth of the depth the metric reads and the published baselines use:
+  // **the answer arm's context budget was truncating the retrieval arm's denominator.** `rankedFiles` is the fused
+  // ranking before that budget applies, which is what the retrieval arm claims to be.
   const universe = new Set(input.allFiles);
   const offeredRaw = dedupePreservingOrder(
-    result.retrievedFiles.map((file) => toCorpusPath(input.checkout, file)),
+    result.rankedFiles.map((file) => toCorpusPath(input.checkout, file)),
   );
   const candidates = restrictToUniverse(offeredRaw, universe);
   const answered = restrictToUniverse(

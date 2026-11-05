@@ -388,6 +388,9 @@ describe('toResponse', () => {
     citations: [{ id: 1, filePath: 'app/auth.py', startLine: 3, endLine: 9, name: 'parse' }],
     files: ['app/auth.py'],
     retrievedFiles: ['app/auth.py', 'app/views.py'],
+    // **The ranking before the context budget**, which on this fixture is the same two files: the budget did not bite,
+    // so the two fields agree and the case is about the response shape rather than about the truncation.
+    rankedFiles: ['app/auth.py', 'app/views.py'],
     scope: { projectId: 'o/auth', because: 'named in the question' },
     grounding: {
       unknownIds: [],

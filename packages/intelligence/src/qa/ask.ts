@@ -67,6 +67,8 @@ export async function retrieveContext(
   input: Omit<AskInput, 'question'> & { question: string },
 ): Promise<{
   blocks: ContextBlock[];
+  /** The fused list's files in rank order, **before `maxBlocks` truncates it** - see `AnswerResult.rankedFiles`. */
+  rankedFiles: string[];
   candidates: number;
   rerankApplied: boolean;
   rerankReason: string | null;
@@ -128,7 +130,20 @@ export async function retrieveContext(
 
   const contextOptions: ContextOptions = { ...options };
   const blocks = assembleContext(input.store, compacted, contextOptions);
-  return { blocks, candidates: fused.length, rerankApplied, rerankReason, scope };
+  // **The ranking as a file list, taken before the context budget is applied.** Two nodes in one file are one file and
+  // the order is the order the retriever chose; a file that appears twice would otherwise occupy two positions in an
+  // average precision that counts positions.
+  const rankedFiles: string[] = [];
+  const rankedSeen = new Set<string>();
+  for (const candidate of compacted) {
+    const file = candidate.node.filePath;
+    // **A node with no file cannot be ranked as one**: it is a synthetic or external declaration, and giving it a slot
+    // would push a real candidate down for something no user could open.
+    if (file === null || rankedSeen.has(file)) continue;
+    rankedSeen.add(file);
+    rankedFiles.push(file);
+  }
+  return { blocks, rankedFiles, candidates: fused.length, rerankApplied, rerankReason, scope };
 }
 
 /**
@@ -170,7 +185,8 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
   const options = input.options ?? {};
   const notes: string[] = [];
 
-  const { blocks, candidates, rerankApplied, rerankReason, scope } = await retrieveContext(input);
+  const { blocks, rankedFiles, candidates, rerankApplied, rerankReason, scope } =
+    await retrieveContext(input);
   if (rerankApplied) notes.push('the fused list was reordered by a listwise rerank');
   else if (rerankReason) notes.push(`the fused list kept its order: ${rerankReason}`);
   if (scope) {
@@ -185,6 +201,7 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
     question: input.question,
     context: blocks,
     retrievedFiles: filesOf(blocks),
+    rankedFiles,
     scope,
   };
 

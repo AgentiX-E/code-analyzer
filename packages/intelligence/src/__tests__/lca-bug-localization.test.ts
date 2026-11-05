@@ -485,23 +485,40 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         writePart();
       }
 
+      // **And once more after the loop, because the loop can now leave early.** The budget stops the run instead of
+      // being re-decided per row, and a run whose first instance is already past its budget never reached the
+      // `writePart()` inside the loop - so the one call that makes an empty part exist is this one.
+      writePart();
+
       const summary = summarisePart(partOf(), [1, 3, 5, 10]);
       const at10 = summary.retrieval['at10']!;
+      // **A part that examined nothing has no `at10` arm to print**, and `summary.retrieval['at10']!` on an empty sample
+      // would be a crash standing in for a fact. The sentence below is the fact.
+      if (at10 === undefined) {
+        // eslint-disable-next-line no-console -- the workflow greps this, and an empty part has to say so.
+        console.log(
+          `LCA-PART ${config} measured=0/${String(summary.rows)} attempted=0/${String(rows.length)} ` +
+            `budget=${String(BUDGET_MS)}ms used=${String(Date.now() - startedAt)}ms - the budget was spent before ` +
+            'the first instance was examined, so the part exists and measures nothing',
+        );
+      }
       // The summary line **is** the interface: the workflow greps it into the job summary.
-      // eslint-disable-next-line no-console
-      console.log(
-        `LCA-PART ${config} measured=${String(summary.measured)}/${String(summary.rows)} ` +
-          `retrieval@10 P=${String(at10.precision)} R=${String(at10.recall)} F1=${String(at10.f1)} ` +
-          `retrieval@1 R=${String(summary.retrieval['at1']!.recall)} ` +
-          `map=${summary.map === null ? 'none' : String(summary.map.value)} ` +
-          `offered=${String(
-            mean(scores.filter((score) => score.skipped === null).map((score) => score.offered)),
-          )} ` +
-          `outside=${String(
-            mean(scores.filter((score) => score.skipped === null).map((score) => score.outside)),
-          )} answer=${summary.answer === null ? 'none' : String(summary.answer.f1)} ` +
-          `budget=${String(BUDGET_MS)}ms used=${String(Date.now() - startedAt)}ms`,
-      );
+      if (at10 !== undefined) {
+        // eslint-disable-next-line no-console -- the workflow greps this, and it is the only interface there is.
+        console.log(
+          `LCA-PART ${config} measured=${String(summary.measured)}/${String(summary.rows)} ` +
+            `retrieval@10 P=${String(at10.precision)} R=${String(at10.recall)} F1=${String(at10.f1)} ` +
+            `retrieval@1 R=${String(summary.retrieval['at1']!.recall)} ` +
+            `map=${summary.map === null ? 'none' : String(summary.map.value)} ` +
+            `offered=${String(
+              mean(scores.filter((score) => score.skipped === null).map((score) => score.offered)),
+            )} ` +
+            `outside=${String(
+              mean(scores.filter((score) => score.skipped === null).map((score) => score.outside)),
+            )} answer=${summary.answer === null ? 'none' : String(summary.answer.f1)} ` +
+            `budget=${String(BUDGET_MS)}ms used=${String(Date.now() - startedAt)}ms`,
+        );
+      }
 
       // **What this file can claim on its own**: it examined the split's rows and wrote a part that says what it
       // measured and what the bounds refused. **Whether the figure is good, and whether one exists at all, is the

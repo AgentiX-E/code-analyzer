@@ -123,6 +123,23 @@ export interface AnswerResult {
    * assumed one form published 0.0000 in three languages on every instance.
    */
   retrievedFiles: string[];
+  /**
+   * **The retriever's ranking of files, before the context budget was applied.**
+   *
+   * A third field rather than a third meaning for one of the other two, because the three are three different claims
+   * and a measurement that conflates them publishes a figure about the wrong one:
+   *
+   * * `rankedFiles` is what the retrieval stage produced, **in rank order, cut only by the retrieval depth**;
+   * * `retrievedFiles` is the files of the blocks that survived `maxBlocks` - a context budget, and one that also
+   *   admits structural neighbours the retriever never ranked;
+   * * `files` is what the answer cited.
+   *
+   * **Why this had to exist.** The bug-localisation measurement read `retrievedFiles`, which is a list of about ten
+   * files on a real repository because forty blocks is a prompt budget and not a ranking; its MAP column was therefore
+   * computed over a tenth of the depth the metric reads and the published baselines use. **A budget that belongs to the
+   * answer arm was silently truncating the retrieval arm's denominator.**
+   */
+  rankedFiles: string[];
   grounding: GroundingReport;
   /** Set when there is no answer, with the reason. **`null` means an answer was produced.** */
   abstained: AbstainReason | null;

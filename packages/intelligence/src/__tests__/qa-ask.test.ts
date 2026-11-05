@@ -121,6 +121,82 @@ describe('retrieveContext', () => {
     expect(result.blocks.map((block) => block.name)).toContain('parse_token');
   });
 
+  it('reports the ranking before the context budget truncates it', async () => {
+    // **The defect this field was added for.** `retrievedFiles` is the files of the blocks that survived `maxBlocks` -
+    // a **prompt** budget. The bug-localisation measurement read that field as the retrieval arm's ranking, so on a real
+    // repository it scored a list of five to nine files while the metric reads two hundred, and its MAP column was a
+    // figure about a prompt budget wearing a retriever's name.
+    const fixture = buildFixture();
+    const context = await retrieveContext({
+      question: 'parse the token, then set the cookie on login',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, maxBlocks: 1, retrieveLimit: 50 },
+    });
+    expect(context.blocks).toHaveLength(1);
+    expect(context.rankedFiles.length).toBeGreaterThan(1);
+  });
+
+  it('reports the same list as the context when the budget does not bite', async () => {
+    // **The other half of the claim**: with room for every block the two fields agree, so the difference between them
+    // is the budget rather than an artefact of how either list is built.
+    const fixture = buildFixture();
+    const context = await retrieveContext({
+      question: 'parse the token, then set the cookie on login',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, maxBlocks: 40, retrieveLimit: 50 },
+    });
+    expect(context.rankedFiles.length).toBeGreaterThan(1);
+    for (const file of context.rankedFiles)
+      expect(context.blocks.some((b) => b.filePath === file)).toBe(true);
+  });
+
+  it('leaves out a declaration that belongs to no file', async () => {
+    // **A synthetic node has no file to open**, so giving it a position in a file ranking would push a real candidate
+    // down for something a user cannot click. It is excluded from the ranking and still available to the graph.
+    const fixture = buildFixture();
+    fixture.store.insertNode({
+      projectId: 'qa',
+      label: 'Function',
+      name: 'token_hook',
+      qualifiedName: 'app.external.token_hook',
+      filePath: null,
+      startLine: 1,
+      endLine: 2,
+      language: 'python',
+      properties: { body: 'token hook called on every parse' },
+      signature: 'def token_hook():',
+      complexity: null,
+      isExported: false,
+    } as never);
+    fixture.search.initialize();
+
+    const context = await retrieveContext({
+      question: 'parse the token',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, retrieveLimit: 50 },
+    });
+    expect(context.rankedFiles.some((file) => file === null)).toBe(false);
+    expect(context.rankedFiles.every((file) => typeof file === 'string' && file.length > 0)).toBe(
+      true,
+    );
+  });
+
+  it('keeps one entry per file even when two declarations share it', async () => {
+    // **Average precision counts positions**, so a file appearing twice would occupy two of them and a retriever that
+    // ranked two functions of one file would look twice as deep as it is.
+    const fixture = buildFixture();
+    const context = await retrieveContext({
+      question: 'parse the token',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, retrieveLimit: 50 },
+    });
+    expect(new Set(context.rankedFiles).size).toBe(context.rankedFiles.length);
+  });
+
   it('records that no rerank happened when there is no provider', async () => {
     const { store, search } = buildFixture();
     const result = await retrieveContext({ question: 'parse token', store, search });
@@ -163,6 +239,18 @@ describe('askCodebase', () => {
     expect(result.citations).toHaveLength(1);
     expect(result.files).toEqual([result.citations[0]!.filePath]);
     expect(result.grounding.allCitationsResolve).toBe(true);
+  });
+
+  it('carries the ranked files through to the result', async () => {
+    const fixture = buildFixture();
+    const result = await askCodebase({
+      question: 'parse the token, then set the cookie on login',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, maxBlocks: 1, retrieveLimit: 50 },
+    });
+    expect(Array.isArray(result.rankedFiles)).toBe(true);
+    expect(result.rankedFiles.length).toBeGreaterThan(result.retrievedFiles.length);
   });
 
   it('derives the file set from citations, not from the context', async () => {
