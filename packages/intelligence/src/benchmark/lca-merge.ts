@@ -16,6 +16,8 @@
 
 import { MEASURED_MB_PER_FILE, mean } from './lca-instrument.js';
 
+import type { Bm25Result } from './lca-baseline.js';
+
 /** The seven figures the authors' `get_quality_metrics` produces, for one instance or as a mean. */
 export interface ArmMetrics {
   readonly precision: number;
@@ -92,6 +94,19 @@ export interface LcaRowScore {
   readonly graphEdges: number | null;
   /** What the instance cost, or `null` when it did not run (refused before the spawn). */
   readonly cost: InstanceCost | null;
+  /**
+   * The control's average precision on this instance, **or `null` when it could not be computed at all**.
+   *
+   * **Present on refused rows as well as measured ones, and that is the entire point.** The thirteen instances the bounds
+   * refuse are the large repositories, which are the hardest - so a mean over the ones that ran is a mean over the easy
+   * half of the corpus. BM25 needs no parser and no graph, so it ranks the checkout the product never got to parse,
+   * and the difference between the two rankings on the instances where both exist is a comparison in which repository
+   * size cannot be the explanation.
+   *
+   * **`null` means the control did not run**, which is different from a control that scored zero; `lca-sample.ts`
+   * excludes the row from the paired comparison rather than pairing it against a zero.
+   */
+  readonly bm25: Bm25Result | null;
   /** The sentence that refused this instance, or `null` when it was measured. */
   readonly skipped: string | null;
   /**
@@ -117,6 +132,15 @@ export interface LanguagePart {
   readonly config: string;
   readonly measuredAt: string;
   readonly rowLimit: number;
+  /**
+   * How many instances this part intended to examine.
+   *
+   * **Separate from `rowLimit`, because a split can be shorter than the limit and a budget can be spent before the last
+   * row is reached.** The two are the numerator and the denominator of two different claims - "we measured 24 of the 35
+   * we examined" and "we examined 35 of the 50 the protocol asks for" - and a part that published only `rowLimit` would
+   * make the second one unanswerable.
+   */
+  readonly planned: number;
   /** Whether the answer arm ran at all in this part. */
   readonly answerArm: boolean;
   /** The bounds the run applied, carried through to the merged artifact. */
@@ -167,6 +191,8 @@ export function skippedRow(input: {
   checkoutUnreadable?: number;
   graphNodes?: number | null;
   graphEdges?: number | null;
+  /** The control's figure, **which a refused instance can have even though it has no ranking of ours**. */
+  bm25?: Bm25Result | null;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
 }): LcaRowScore {
@@ -186,6 +212,7 @@ export function skippedRow(input: {
     graphNodes: input.graphNodes ?? null,
     graphEdges: input.graphEdges ?? null,
     cost: input.cost ?? null,
+    bm25: input.bm25 ?? null,
     skipped: input.because,
     retrieval: {},
     map: 0,
@@ -472,6 +499,8 @@ export interface Combined {
   /** The mean over every instance any part measured. **The figure the gate reads.** */
   readonly overall: {
     readonly rows: number;
+    /** How many instances the parts intended to examine, **the denominator of the protocol's own coverage**. */
+    readonly planned: number;
     readonly measured: number;
     readonly skipped: number;
     readonly retrieval: Readonly<Record<string, ArmScore>>;
@@ -504,6 +533,7 @@ export function combineParts(parts: readonly LanguagePart[], cuts: readonly numb
   return {
     overall: {
       rows: allRows.length,
+      planned: parts.reduce((sum, part) => sum + part.planned, 0),
       measured: measured.length,
       skipped: allRows.length - measured.length,
       retrieval: retrievalOf(measured, cuts),

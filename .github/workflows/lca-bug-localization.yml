@@ -33,17 +33,27 @@ name: Long Code Arena — bug localisation
 # **The figure is published against the paper's own MAP table.** `LCA-MAP` prints our average precision beside the best
 # published row and the number of rows it beats; the artifact carries the complete table with the protocol it was
 # measured under, because a figure quoted without its sample size is a figure nobody can check.
+#
+# **And since iteration 71, beside a control that runs where the analysis cannot.** The rows a bound refuses are the
+# large repositories - which are the ones with the most candidates and therefore the hardest - so a mean over the rows
+# that survived is a mean over the easy part of the corpus stated in the same font as a mean over all of it. BM25 needs
+# no parser, no graph and no model, so it ranks every checkout this job refuses; the artifact publishes the paired
+# difference, the exact sign test on it, the per-size-band means of both rankings, and the measured mean reweighted to
+# the attempted population. **A reader can now see how much easier the sample was instead of being asked to assume it
+# was not.**
 
 on:
   workflow_dispatch:
     inputs:
       max_rows:
-        # **Eight by default**: each instance needs its own checkout at its own commit plus a full analysis. Twelve is
-        # near what one runner finishes inside the time budget, and every instance a bound refuses is recorded with the
-        # sentence that refused it.
+        # **Fifty by default, which is the whole split**, and the reasons are two. The published baselines are means over
+        # fifty instances per language, so a figure over twelve is a figure about a sixth of the protocol; and the rows
+        # a smaller limit removes are whatever order the split happens to be in, which is a sample nobody chose. **The
+        # budget, not this number, is what bounds the run**: a part records how many it intended, reached and measured,
+        # so a run that stops at thirty-eight says so instead of reporting a sample of twelve as if it were the split.
         description: 'How many instances of each language split to measure'
         required: false
-        default: '12'
+        default: '50'
       max_files:
         # **The stated cap.** The bound that actually bites is the memory one, which is computed from what the runner
         # has left; this is the promise to the reader that nothing above it is ever measured. Both are in the artifact.
@@ -185,6 +195,11 @@ jobs:
             echo "vectors=absent" >> "$GITHUB_OUTPUT"
           fi
 
+      # **The control runs in the parent, and the budget stops the loop rather than paying a fetch per refused row.**
+      # BM25 is counted before each instance's bounds are decided, so a checkout the supervisor would kill still gets a
+      # figure; and once the budget is spent the remaining rows are not fetched at all - twenty more `git fetch` calls at
+      # up to four minutes each is a job that spends its last half hour learning what it already knew.
+      #
       # **`ZHIPU_API_KEY` is deliberately not exported here.** `createAllPhases()` includes the embedding phase, which
       # reads it from the environment: with the key present and the endpoint rate-limited, every instance spent its time
       # in retries against an API that was refusing the request, and the job was still running after an hour with no
@@ -200,7 +215,7 @@ jobs:
           # dies with it.
           LCA_DIR: ${{ github.workspace }}/benchmarks/corpora/lca
           LCA_LANGUAGES: ${{ matrix.language }}
-          LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '12' }}
+          LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '50' }}
           LCA_MAX_FILES: ${{ github.event.inputs.max_files || '2000' }}
           # **Fifty minutes, stated by the harness rather than discovered by the job's own timeout.** The bounds module
           # projects 50 ms per file; this is the other half of the arithmetic, and a run that reaches it writes a part

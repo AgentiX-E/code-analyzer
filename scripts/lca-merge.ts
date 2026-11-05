@@ -16,8 +16,23 @@
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { LCA_CONFIGS } from '../packages/intelligence/src/benchmark/lca-instrument.js';
+import {
+  BM25_B,
+  BM25_K1,
+  BM25_MAX_DOCUMENTS,
+  BM25_MAX_FILE_BYTES,
+} from '../packages/intelligence/src/benchmark/lca-baseline.js';
+import { LCA_CONFIGS, mean } from '../packages/intelligence/src/benchmark/lca-instrument.js';
 import { combineParts, costModels } from '../packages/intelligence/src/benchmark/lca-merge.js';
+import {
+  BOOTSTRAP_RESAMPLES,
+  BOOTSTRAP_SEED,
+  pairedComparison,
+  sampleCoverage,
+  standardisedMap,
+  stratify,
+  worstCaseMap,
+} from '../packages/intelligence/src/benchmark/lca-sample.js';
 import { recordArtifact } from '../packages/shared/src/benchmark/artifact.js';
 
 import type { LanguagePart } from '../packages/intelligence/src/benchmark/lca-merge.js';
@@ -69,7 +84,7 @@ const PUBLISHED_BASELINES = {
  * lived in prose and drifted: a figure moved, the sentence did not. The caveats travel with it, so a reader who quotes
  * the rank has to quote the conditions with it.
  */
-function comparisonOf(ours: number | null): Record<string, unknown> {
+function comparisonOf(ours: number | null, label = 'measured'): Record<string, unknown> {
   if (ours === null) {
     return {
       metric: PUBLISHED_BASELINES.metric,
@@ -83,6 +98,7 @@ function comparisonOf(ours: number | null): Record<string, unknown> {
   ).length;
   return {
     metric: PUBLISHED_BASELINES.metric,
+    basis: label,
     ours,
     // **Rank 1 means nothing in the table is above us**; a bound row counts as beaten only when it is met.
     rank: beaten,
@@ -140,6 +156,43 @@ function main(): void {
   const combined = combineParts(parts, CUTS);
   const first = parts[0]!;
   const rowLimit = Math.max(...parts.map((part) => part.rowLimit));
+  const allRows = parts.flatMap((part) => part.rows);
+
+  // **The sample, described before any figure computed over it is published.** `planned` is what the run intended to
+  // examine, `attempted` is what it reached, `measured` is what produced a ranking - three different denominators and
+  // the only honest way to say "MAP over 24 rows" is with the other two beside it.
+  const coverage = sampleCoverage(allRows, combined.overall.planned);
+  const strata = stratify(allRows);
+  const standardised = standardisedMap(strata);
+  const paired = pairedComparison(allRows);
+  // **The control over every row that has one**, which is a superset of the rows we measured: BM25 ranks the checkouts
+  // the supervisor refused, so the control's coverage is not the product's coverage and the two are published apart.
+  const controlRows = allRows
+    .map((row) => row.bm25?.map)
+    .filter((value): value is number => typeof value === 'number');
+  const controlByLanguage = Object.fromEntries(
+    parts.map((part) => {
+      const values = part.rows
+        .map((row) => row.bm25?.map)
+        .filter((value): value is number => typeof value === 'number');
+      const ours = part.rows.filter((row) => row.skipped === null).map((row) => row.map);
+      return [
+        part.config,
+        {
+          rows: values.length,
+          map: values.length === 0 ? null : mean(values),
+          ours: ours.length === 0 ? null : mean(ours),
+          oursRows: ours.length,
+        },
+      ];
+    }),
+  );
+  const worst = worstCaseMap(allRows);
+  // **Our mean restricted to the rows the control also scored**, because a paired difference printed beside an unpaired
+  // mean invites the reader to subtract two numbers measured on different sets.
+  const pairedOurs = allRows
+    .filter((row) => row.skipped === null && typeof row.bm25?.map === 'number')
+    .map((row) => row.map);
 
   const artifact = {
     comment: [
@@ -232,6 +285,74 @@ function main(): void {
         'and a row with `corpusUnreadable` above zero has a byte count short by an unknown amount, so neither is in ' +
         'the fit.',
     },
+    /**
+     * **What the sample was, before the figure over it is read.**
+     *
+     * The published table is a mean over fifty instances per split. This figure is a mean over the rows a runner
+     * reached, and **the rows it did not reach are systematically the large repositories** - which are the ones with the
+     * most candidates to rank and therefore the hardest. A number quoted without this block is a number about an
+     * unknown population, which is the defect iteration 71 exists to close.
+     */
+    sample: {
+      ...coverage,
+      /** The measured mean with **every refused instance scored zero** - the lower bound nobody can argue with. */
+      worstCaseMap: worst,
+      /** The measured mean reweighted to the attempted population, and how much of that population the weights cover. */
+      standardised,
+      note:
+        '`planned` is what the run intended to examine, `attempted` what it reached, `measured` what produced a ' +
+        'ranking. **`ofAttempted` is the share of reached instances that were measured and `ofPlanned` the share of ' +
+        'the protocol**; both are published because a refusal and a row the run never reached are different facts. ' +
+        '`worstCaseMap` scores every refusal as zero, so it is a floor on what a run with no bounds at all would have ' +
+        'scored, and `standardised` reweights the per-size-band means by the attempted counts so the figure estimates ' +
+        'the population it was drawn from rather than the part of it that fitted.',
+    },
+    /**
+     * **The control.** BM25 is one of the paper's own baseline rows, and it is the one thing here that can rank a
+     * checkout the analysis was killed on: no parser, no graph, no model, just term counts over the answer space.
+     *
+     * **It is a control and it is not a reproduction.** The paper's BM25 row is their tokeniser over their index; this
+     * one states its own parameters in `configuration` so the difference is a number in the artifact rather than an
+     * assumption in a sentence. What it buys is `paired`: two rankings of the same files of the same repository at the
+     * same commit, where repository size, language and issue difficulty cancel because both terms share them.
+     */
+    baseline: {
+      name: 'BM25',
+      configuration: {
+        k1: BM25_K1,
+        b: BM25_B,
+        maxFileBytes: BM25_MAX_FILE_BYTES,
+        maxDocuments: BM25_MAX_DOCUMENTS,
+        tokeniser:
+          'lower case, split on non-alphanumerics, then split at camel-case boundaries; tokens shorter than two ' +
+          'characters and a stated list of function words are dropped',
+        document: 'the answer space file, with its repository-relative path prefixed to its text',
+        tieBreak:
+          'path ascending, so the ranking is a function of the corpus rather than of the directory order',
+      },
+      overall: {
+        rows: controlRows.length,
+        map: controlRows.length === 0 ? null : mean(controlRows),
+        /** Our own mean over exactly the rows the control scored, **so the two means are subtractable**. */
+        oursPaired: pairedOurs.length === 0 ? null : mean(pairedOurs),
+        oursPairedRows: pairedOurs.length,
+      },
+      byLanguage: controlByLanguage,
+      note:
+        'A control variate, not a reproduction of the paper’s BM25 row. Its value is that it measures the instances our ' +
+        'analysis cannot run, so the difficulty of the unmeasured half of the corpus is a figure rather than a worry.',
+    },
+    /**
+     * **The paired comparison**, which is the only figure here in which repository size cannot be the explanation.
+     *
+     * Wins and losses are counted per instance, the interval is a percentile bootstrap over instances with the seed
+     * published, and the p-value is the **exact two-sided sign test** - an assumption-free test, which is the right one
+     * for a bounded, skewed, twenty-four-point sample that no t-test should be pointed at.
+     */
+    paired,
+    /** The same comparison, split by how large a repository the instance was. **This is the table that answers
+     * "is our sample easier than theirs".** */
+    stratified: strata,
     answerArm: parts.some((part) => part.answerArm),
     cuts: CUTS.join(', '),
     configuration: first.configuration,
@@ -239,7 +360,15 @@ function main(): void {
     overall: combined.overall,
     byLanguage: combined.byLanguage,
     /** **Where this figure stands against the published table**, computed rather than asserted. */
-    comparison: comparisonOf(combined.overall.map?.value ?? null),
+    comparison: comparisonOf(combined.overall.map?.value ?? null, 'measured'),
+    /**
+     * **The same ranking computed on the floor rather than on the mean.**
+     *
+     * If the ranking at the floor is the same as the ranking at the mean, the figure's position in the published table
+     * does not depend on which half of the corpus the bounds let through - which is the strongest statement this
+     * artifact can make, and it is made by arithmetic rather than by an assurance.
+     */
+    comparisonWorstCase: comparisonOf(worst, 'worstCase'),
     /** One entry per instance, so that a zero can be explained from the artifact alone. */
     rows: parts.flatMap((part) =>
       part.rows.map((row) => ({
@@ -258,6 +387,8 @@ function main(): void {
         checkoutUnreadable: row.checkoutUnreadable,
         graphNodes: row.graphNodes,
         graphEdges: row.graphEdges,
+        bm25Map: row.bm25 === null ? null : row.bm25.map,
+        bm25Documents: row.bm25 === null ? null : row.bm25.documents,
         peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
         elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
         map: row.map,
@@ -313,6 +444,37 @@ function main(): void {
     );
   }
   console.log(`LCA-COST recommended=${artifact.costModel.recommended?.predictor ?? 'none'}`);
+
+  // **The sample on its own line, before the figure.** Three denominators, because "MAP over 24" is only a statement
+  // when the reader can see that 24 is of 35 examined and 35 is of 150 asked for.
+  console.log(
+    `LCA-SAMPLE attempted=${String(coverage.attempted)}/${String(coverage.planned)} ` +
+      `measured=${String(coverage.measured)} ofAttempted=${coverage.ofAttempted.toFixed(3)} ` +
+      `ofPlanned=${coverage.ofPlanned.toFixed(3)} refused=${String(coverage.refused)} ` +
+      `worstCase=${worst === null ? 'none' : worst.toFixed(4)} ` +
+      `standardised=${standardised.value === null ? 'none' : standardised.value.toFixed(4)} ` +
+      `covered=${standardised.coveredShare.toFixed(3)}`,
+  );
+  for (const refusal of coverage.refusals) {
+    console.log(`LCA-REFUSAL n=${String(refusal.count)} because=${refusal.because}`);
+  }
+  for (const stratum of strata) {
+    console.log(
+      `LCA-STRATUM ${stratum.label} attempted=${String(stratum.attempted)} measured=${String(stratum.measured)} ` +
+        `ours=${stratum.map === null ? 'none' : stratum.map.toFixed(4)} ` +
+        `bm25=${stratum.bm25 === null ? 'none' : stratum.bm25.toFixed(4)}`,
+    );
+  }
+  // **The paired comparison on one line**, because it is the figure that survives the sampling objection and the one a
+  // reader should quote: the difference between two rankings of the same files, with its interval and its test.
+  console.log(
+    paired === null
+      ? 'LCA-PAIRED none'
+      : `LCA-PAIRED rows=${String(paired.rows)} delta=${paired.meanDelta.toFixed(4)} ` +
+          `ci=[${paired.lower.toFixed(4)},${paired.upper.toFixed(4)}] ` +
+          `W/L/T=${String(paired.wins)}/${String(paired.losses)}/${String(paired.ties)} ` +
+          `p=${paired.pValue.toFixed(4)} seed=${String(BOOTSTRAP_SEED)} resamples=${String(BOOTSTRAP_RESAMPLES)}`,
+  );
   const stepSummary = process.env['GITHUB_STEP_SUMMARY'];
   if (stepSummary !== undefined && stepSummary !== '') {
     appendFileSync(stepSummary, `\n${summary}\n`);

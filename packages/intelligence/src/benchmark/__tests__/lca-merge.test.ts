@@ -54,6 +54,7 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     graphNodes: 0,
     graphEdges: 0,
     cost: { peakRssMb: 500, elapsedMs: 1_000 },
+    bm25: null,
     skipped: null,
     retrieval,
     map: precision,
@@ -78,6 +79,7 @@ function part(config: string, rows: LcaRowScore[], answerArm = true): LanguagePa
     config,
     measuredAt: '2026-11-03',
     rowLimit: 8,
+    planned: 8,
     answerArm,
     bounds: {
       capFiles: 2000,

@@ -50,6 +50,7 @@ import { join, resolve } from 'node:path';
 import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
+import { bm25Map } from '../benchmark/lca-baseline.js';
 import {
   CONFIG_EXTENSION,
   MEASURED_MB_PER_FILE,
@@ -65,6 +66,7 @@ import {
   mean,
   parseLanguages,
 } from '../benchmark/lca-instrument.js';
+import { MAP_DEPTH } from '../benchmark/lca-measure.js';
 import { skippedRow, summarisePart } from '../benchmark/lca-merge.js';
 import { readResidentMb, superviseInstance } from '../benchmark/lca-supervisor.js';
 
@@ -97,14 +99,16 @@ if (CORPUS_DIR !== undefined && LANGUAGES.length === 0) {
 }
 
 /**
- * How many instances of one language split to measure. **Twelve by default, and the part states it.**
+ * How many instances of one language split to measure. **Fifty by default, which is the split.**
  *
- * The published protocol is the whole test split - fifty instances per language - and **each instance needs its own
- * checkout of its own repository at its own commit**, then a full analysis of that checkout. **Twelve is what one
- * runner finishes**; the row count is recorded beside every figure, and every instance the bounds refused is recorded
- * with the sentence that refused it, so the sample is smaller than the protocol rather than pretending to be it.
+ * The published baselines are means over fifty instances per language, and **a limit smaller than the split does not
+ * remove instances - it removes whichever ones the file happens to list first**, which is a sample nobody chose. The
+ * cost of asking for all of them is paid in the budget rather than here: the loop stops when the budget is spent, and
+ * the part records how many instances it **intended** (`planned`), **reached** (`attempted`) and **measured**
+ * (`measured`). Three denominators, because a reader comparing this figure with a published one needs to know which of
+ * them the mean was taken over.
  */
-const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '12', 10);
+const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '50', 10);
 
 /**
  * The hard ceiling on a checkout, in files. **A stated cap, because an unbounded instrument measures nothing.**
@@ -277,6 +281,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         config,
         measuredAt: new Date().toISOString(),
         rowLimit: ROW_LIMIT,
+        planned: rows.length,
         answerArm,
         bounds: {
           capFiles: FILE_CAP,
@@ -314,6 +319,13 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
       };
 
       for (const row of rows) {
+        // **A spent budget stops the run rather than being re-decided per row.** `decideInstance` would refuse the
+        // analysis, but the loop would still fetch twenty more checkouts at up to four minutes each to learn that - and
+        // a job that spends its last half hour in `git fetch` writes the same part as one that stopped. The rows that
+        // were never examined produce no row at all: `planned` records how many were intended, and the difference is
+        // the number this run did not see. **Inventing a zero-file row for each of them would corrupt the very
+        // stratification this iteration exists to publish.**
+        if (Date.now() - startedAt >= BUDGET_MS) break;
         const checkout = ensureCheckout(cacheRoot, row);
         if (checkout === null || !existsSync(join(checkout, '.git'))) {
           scores.push(
@@ -341,6 +353,20 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         }
 
         const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
+
+        // **The control runs before the bound does, and that ordering is the iteration.** BM25 reads the answer space as
+        // text - no parser, no graph, no model - so it fits inside the parent that has to survive whatever the child
+        // does. Running it *before* `decideInstance` is what gives a refused instance a figure: the thirteen rows the
+        // caps removed are the large repositories, and a control that only existed on the easy rows would reproduce the
+        // bias it is meant to measure.
+        const question = `${row.issue_title}\n\n${row.issue_body}`.trim();
+        const control = bm25Map({
+          checkout,
+          files: allFiles,
+          query: question,
+          expected: row.changed_files,
+          depth: MAP_DEPTH,
+        });
         // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
         // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
         // directory is what took the runner down six minutes later.
@@ -391,6 +417,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               corpusUnreadable: refusedSize.unreadable,
               checkoutBytes: refusedWalked.bytes,
               checkoutUnreadable: refusedWalked.unreadable,
+              bm25: control,
             }),
           );
           continue;
@@ -433,7 +460,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         // reported about itself would be a child's opinion rather than a measurement.
         const cost = { peakRssMb: outcome.peakRssMb, elapsedMs: outcome.ms };
         if (outcome.kind === 'row') {
-          scores.push({ ...outcome.row, cost });
+          scores.push({ ...outcome.row, cost, bm25: control });
         } else {
           // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
           // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
@@ -445,6 +472,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               expectedFiles: row.changed_files.length,
               because: outcome.because,
               cost,
+              bm25: control,
             }),
           );
         }

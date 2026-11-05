@@ -152,10 +152,84 @@ function main() {
     };
   })();
 
+  // **The sample and the control, as invariants rather than as aspirations.**
+  //
+  // A floor on `paired.meanDelta` would be an aspiration - the number has never been measured, and a floor invented
+  // before the first measurement can only be a guess wearing a gate's clothes. What *can* be required before any figure
+  // is read is that the sample adds up and that the comparison is actually paired:
+  //
+  //   * `attempted = measured + refused`, because a row is one of the two and a gap is a row nobody counted;
+  //   * the control exists on **every** measured row, because a paired comparison that dropped its hardest instances is
+  //     the bias it was built to remove;
+  //   * `paired.rows = measured`, for the same reason stated as an equality rather than as an inequality.
+  //
+  // **These are the conditions under which the published mean is a figure at all.** They cost nothing to satisfy when
+  // the instrumentation works and fail loudly when it stops, which is what a gate is for.
+  const sample = at(record, ['sample']);
+  const control = at(record, ['baseline', 'overall']);
+  const paired = at(record, ['paired']);
+  const invariants = [];
+  const guard = (condition, message) => {
+    if (!condition) invariants.push(message);
+  };
+  guard(
+    typeof sample?.attempted === 'number' &&
+      typeof sample?.measured === 'number' &&
+      typeof sample?.refused === 'number',
+    'sample: attempted / measured / refused are absent, so the figure does not say what it was computed over',
+  );
+  if (typeof sample?.attempted === 'number') {
+    guard(
+      sample.attempted === sample.measured + sample.refused,
+      `sample: attempted ${String(sample.attempted)} is not measured plus refused ` +
+        `(${String(sample.measured)} + ${String(sample.refused)})`,
+    );
+    guard(
+      sample.planned >= sample.attempted,
+      `sample: planned ${String(sample.planned)} is below attempted ${String(sample.attempted)}`,
+    );
+    guard(
+      typeof sample.ofPlanned === 'number' && sample.ofPlanned > 0,
+      'sample: ofPlanned is absent or zero, so the run saw none of the protocol',
+    );
+  }
+  guard(
+    typeof control?.rows === 'number' &&
+      typeof sample?.measured === 'number' &&
+      control.rows >= sample.measured,
+    `baseline: the control scored ${String(control?.rows)} rows against ${String(sample?.measured)} measured - a ` +
+      'control that skips instances is the bias it exists to remove',
+  );
+  guard(
+    typeof paired?.rows === 'number' && paired.rows === sample?.measured,
+    `paired: ${String(paired?.rows)} paired rows against ${String(sample?.measured)} measured - every measured ` +
+      'instance must be paired, or the comparison is over a different sample than the figure',
+  );
+  guard(
+    Array.isArray(at(record, ['stratified'])) && at(record, ['stratified']).length > 0,
+    'stratified: absent - the sample’s difficulty cannot be read without it',
+  );
+  const sampleLine =
+    typeof sample?.measured === 'number'
+      ? `| sample | ${String(sample.measured)} measured of ${String(sample.attempted)} attempted of ` +
+        `${String(sample.planned)} planned · worst case ` +
+        `${typeof sample.worstCaseMap === 'number' ? sample.worstCaseMap.toFixed(4) : 'none'} · standardised ` +
+        `${typeof sample.standardised?.value === 'number' ? sample.standardised.value.toFixed(4) : 'none'} | ` +
+        `measured + refused = attempted | ${invariants.length === 0 ? '✓' : '✗'} |`
+      : '| sample | absent | measured + refused = attempted | ✗ |';
+  const pairedLine =
+    typeof paired?.meanDelta === 'number'
+      ? `| paired vs BM25 | ${paired.meanDelta.toFixed(4)} ` +
+        `[${Number(paired.lower).toFixed(4)}, ${Number(paired.upper).toFixed(4)}] · ` +
+        `p ${Number(paired.pValue).toFixed(4)} | ${String(paired.rows)} rows, all measured | ` +
+        `${paired.rows === sample?.measured ? '✓' : '✗'} |`
+      : '| paired vs BM25 | not measured | every measured row paired | ✗ |';
+
   const rows = [];
-  const failures = [];
+  const failures = [...invariants];
   rows.push(fitLine.line);
   if (fitLine.failure) failures.push(fitLine.failure);
+  rows.push(sampleLine, pairedLine);
   for (const [name, path, floor, ceiling, optional] of RULES) {
     const { row: line, failure } = row(name, at(record, path), floor, ceiling, optional);
     rows.push(line);
