@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { FILE_AGGREGATION } from '../../search/file-ranking.js';
 import {
   armComparison,
   BOOTSTRAP_SEED,
@@ -23,6 +24,7 @@ import {
   stratify,
   worstCaseMap,
 } from '../lca-sample.js';
+
 
 import type { LcaRowScore } from '../lca-merge.js';
 
@@ -597,8 +599,16 @@ function armRow(
 }
 
 describe('the file aggregation armature', () => {
+  /**
+   * **Every case below states which reading is the control.** The product's choice between them has already moved once
+   * (`max` → `top2`, iteration 74) and will be measured again, so a test that read the default would be a test that has
+   * to be rewritten whenever a figure moves - and worse, one that could pass because the *default* changed rather than
+   * because the arithmetic is right. The wiring is checked separately, by the case at the end of this block.
+   */
+  const CONTROL = { shipped: 'max' } as const;
+
   it('compares the shipped arm with itself and publishes zero, because that is the control', () => {
-    const arms = armComparison([armRow(1, { max: [0.4, 2], sum: [0.6, 1] })]);
+    const arms = armComparison([armRow(1, { max: [0.4, 2], sum: [0.6, 1] })], CONTROL);
     const shipped = arms.find((arm) => arm.aggregation === 'max')!;
     expect(shipped.delta).toBe(0);
     expect(shipped.wins).toBe(0);
@@ -613,12 +623,15 @@ describe('the file aggregation armature', () => {
   });
 
   it('reports what a change of rule would have been worth, with the interval that says whether it is a change', () => {
-    const arms = armComparison([
-      armRow(1, { max: [0.2, 4], sum: [0.7, 1] }),
-      armRow(2, { max: [0.5, 2], sum: [0.8, 2] }),
-      armRow(3, { max: [0.9, 1], sum: [0.9, 1] }),
-      armRow(4, { max: [0.1, 5], sum: [0.4, 3] }),
-    ]);
+    const arms = armComparison(
+      [
+        armRow(1, { max: [0.2, 4], sum: [0.7, 1] }),
+        armRow(2, { max: [0.5, 2], sum: [0.8, 2] }),
+        armRow(3, { max: [0.9, 1], sum: [0.9, 1] }),
+        armRow(4, { max: [0.1, 5], sum: [0.4, 3] }),
+      ],
+      CONTROL,
+    );
     const sum = arms.find((arm) => arm.aggregation === 'sum')!;
     expect(sum.rows).toBe(4);
     expect(sum.wins).toBe(3);
@@ -635,17 +648,23 @@ describe('the file aggregation armature', () => {
   });
 
   it('lists the arms in the order the module publishes them, so the table is the module reading order', () => {
-    const arms = armComparison([armRow(1, { max: [0.4, 1], sum: [0.4, 1], top2: [0.4, 1] })]);
+    const arms = armComparison(
+      [armRow(1, { max: [0.4, 1], sum: [0.4, 1], top2: [0.4, 1] })],
+      CONTROL,
+    );
     expect(arms.map((arm) => arm.aggregation)).toEqual(['max', 'sum', 'top2']);
   });
 
   it('counts how often each arm leads with the answer, over every row that carries it', () => {
-    const arms = armComparison([
-      armRow(1, { max: [0.2, 4], sum: [1, 1] }),
-      armRow(2, { max: [1, 1], sum: [1, 1] }),
-      // A row whose answer is in neither list still carries the arm, and contributes to neither count.
-      armRow(3, { max: [0, null], sum: [0, null] }),
-    ]);
+    const arms = armComparison(
+      [
+        armRow(1, { max: [0.2, 4], sum: [1, 1] }),
+        armRow(2, { max: [1, 1], sum: [1, 1] }),
+        // A row whose answer is in neither list still carries the arm, and contributes to neither count.
+        armRow(3, { max: [0, null], sum: [0, null] }),
+      ],
+      CONTROL,
+    );
     const sum = arms.find((arm) => arm.aggregation === 'sum')!;
     expect(sum.firstPlaced).toBe(2);
     expect(sum.found).toBe(2);
@@ -656,7 +675,7 @@ describe('the file aggregation armature', () => {
 
   it('excludes a refused row from the pairing, because a refused row has no pool', () => {
     const refused = row({ id: 9, corpusFiles: 100, skipped: 'above the stated cap', bm25: 0.1 });
-    const arms = armComparison([armRow(1, { max: [0.3, 1], sum: [0.5, 1] }), refused]);
+    const arms = armComparison([armRow(1, { max: [0.3, 1], sum: [0.5, 1] }), refused], CONTROL);
     expect(arms.every((arm) => arm.rows === 1)).toBe(true);
     expect(arms.every((arm) => arm.found === 1)).toBe(true);
   });
@@ -666,7 +685,7 @@ describe('the file aggregation armature', () => {
       ...armRow(2, { sum: [0.9, 1] }),
       map: 0,
     };
-    const arms = armComparison([armRow(1, { max: [0.4, 1], sum: [0.6, 1] }), orphan]);
+    const arms = armComparison([armRow(1, { max: [0.4, 1], sum: [0.6, 1] }), orphan], CONTROL);
     const sum = arms.find((arm) => arm.aggregation === 'sum')!;
     // Two rows carried the `sum` arm; only one of them also carried the shipped one.
     expect(sum.rows).toBe(1);
@@ -700,7 +719,20 @@ describe('the file aggregation armature', () => {
       armRow(1, { max: [0.2, 4], sum: [0.7, 1] }),
       armRow(2, { max: [0.6, 2], sum: [0.5, 3] }),
     ];
-    expect(armComparison(rows)[1]!.lower).toBe(armComparison(rows)[1]!.lower);
+    expect(armComparison(rows, CONTROL)[1]!.lower).toBe(armComparison(rows, CONTROL)[1]!.lower);
     expect(BOOTSTRAP_SEED).toBeGreaterThan(0);
+  });
+
+  it('defaults the control to the reading the product ships, rather than to a name written here', () => {
+    // **The wiring check, and the one case that reads the default.** `search/file-ranking.ts` owns the choice; the
+    // armature reads it, so shipping a different reading moves the control automatically instead of leaving the other
+    // arms compared against a rule nobody uses.
+    const rows = [armRow(1, { max: [0.2, 4], sum: [0.7, 1], top2: [0.9, 1] })];
+    const shipped = armComparison(rows).find((arm) => arm.aggregation === FILE_AGGREGATION)!;
+    expect(shipped.delta).toBe(0);
+    expect(shipped.ties).toBe(1);
+    // **And a reading that is not shipped now carries a difference against it**, which is the whole point of a default
+    // that follows the product rather than a constant in this file.
+    expect(armComparison(rows).find((arm) => arm.aggregation === 'max')!.delta).toBeLessThan(0);
   });
 });
