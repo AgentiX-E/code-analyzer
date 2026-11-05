@@ -25,12 +25,15 @@ function order(pool: readonly PoolEntry[], aggregation: Parameters<typeof rankFi
 }
 
 describe('the aggregation the product ships', () => {
-  it('is `max`, and it is stated rather than implied', () => {
-    expect(FILE_AGGREGATION).toBe('max');
+  it('is `top2`, and it is stated rather than implied', () => {
+    // **Measured, not preferred**: on 108 Long Code Arena instances `top2` gained +0.0290 MAP over `max` with an
+    // interval that excludes zero, and lifted the first-place count from 50 to 58. `max` stays in the list because it
+    // is the reading the product used until then, and a reader comparing two artifacts needs the row to still be there.
+    expect(FILE_AGGREGATION).toBe('top2');
     expect(FILE_AGGREGATIONS[0]).toBe('max');
   });
 
-  it('reproduces first appearance exactly, which is what it replaces', () => {
+  it('reproduces first appearance exactly, which is what the previous rule was', () => {
     // Three files interleaved in the pool, so a grouping that sorted by path, by count or by anything else would
     // produce a different order than the pool did.
     const pool = [

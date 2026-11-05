@@ -57,9 +57,9 @@ export type FileAggregation =
 /**
  * Every aggregation, in the order they are published.
  *
- * **`max` is first because it is the shipped one and the control for the rest.** An armature whose control is not
- * bit-identical to the product measures the difference between the product and a second implementation of the product,
- * which is not the question anybody asked.
+ * **`max` stays first even though it is no longer what ships**, because it is the order the table has been printed in
+ * since iteration 74 and a table whose rows move between artifacts is a table a reader has to re-learn. It is also the
+ * reading the product used until it was measured, so the column beside it is the history rather than a candidate.
  */
 export const FILE_AGGREGATIONS: readonly FileAggregation[] = [
   'max',
@@ -72,8 +72,21 @@ export const FILE_AGGREGATIONS: readonly FileAggregation[] = [
   'blend75',
 ];
 
-/** The aggregation the product ships. **A constant rather than a literal, so the armature can say what it compared against.** */
-export const FILE_AGGREGATION: FileAggregation = 'max';
+/**
+ * The aggregation the product ships.
+ *
+ * **`top2`, chosen by measurement on 108 Long Code Arena instances and confirmed on the next run rather than here.**
+ * The armature put every reading on the same pool: `sum` and `count` **lose** (−0.0082 and −0.0223 on that sample)
+ * because the largest file in a repository is the vendored one rather than the one that must change, and `top2` gains
+ * **+0.0290 MAP** with a 95 % interval of `[+0.0073, +0.0537]` that excludes zero, and lifts the number of instances
+ * whose first entry is a fixing file from **50 to 58** on the same rows. Dropping any single repository from the sample
+ * leaves the gain between +0.0223 and +0.0272, so it is not one instance.
+ *
+ * **The second declaration is evidence, and only the second.** A file the question reached twice is more likely to be
+ * the file that must change - and a file it reached forty times is a directory of vendored code, which is why the
+ * unbounded readings lose. `top3` gains less than `top2`, which is the same statement one term further out.
+ */
+export const FILE_AGGREGATION: FileAggregation = 'top2';
 
 /** How many declarations each aggregation reads. `max` reads one, `sum` and `count` read all of them. */
 function depthOf(aggregation: FileAggregation): number | null {

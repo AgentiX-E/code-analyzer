@@ -18,6 +18,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { MAP_DEPTH, insertGraph, measureInstance } from '../lca-measure.js';
+import { FILE_AGGREGATION } from '../../search/file-ranking.js';
 
 import type { LLMProvider } from '../../review/llm/provider.js';
 import type { LcaCorpusRow } from '../lca-measure.js';
@@ -198,7 +199,9 @@ describe('measureInstance', () => {
       'blend50',
       'blend75',
     ]);
-    const shipped = scored.fileArms?.[0];
+    // **The arm named by the product's own constant, not the first one in the list** - the list's order is the table's
+    // order and the shipped reading sits nowhere in particular in it.
+    const shipped = scored.fileArms?.find((arm) => arm.aggregation === FILE_AGGREGATION);
     expect(shipped?.map).toBe(scored.map);
     expect(shipped?.answerRank).toBe(scored.answerRank);
     // **Every arm ranks the same set of files**, because they read the same pool: an arm that lost a file would be a
