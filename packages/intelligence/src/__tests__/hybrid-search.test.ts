@@ -286,6 +286,41 @@ describe('HybridSearchEngine.fuseResults', () => {
     engine = new HybridSearchEngine(store);
   });
 
+  it('breaks a fused tie with the evidence rather than with a node id', () => {
+    // **Reciprocal rank fusion produces exact ties, and there is no tie in the underlying evidence.** A node in the
+    // lexical list at rank 2 scores `1/62`; a node in the vector list at rank 2 scores exactly the same, and the fused
+    // order between the two was decided by **node identity — which is insertion order**. Measured through the MCP
+    // search tool on a two-file fixture, a declaration with a lexical score of 39.96 was ordered below a node with no
+    // lexical score at all, because both ends of the tie landed on the same reciprocal rank.
+    const nodes: GraphNode[] = [
+      createNode(1, { name: 'lexicalLeader', qualifiedName: 'a.lexical' }),
+      createNode(2, { name: 'lexicalSecond', qualifiedName: 'b.lexical' }),
+      createNode(3, { name: 'vectorFirst', qualifiedName: 'c.vector' }),
+      createNode(4, { name: 'vectorSecond', qualifiedName: 'd.vector' }),
+    ];
+    const bm25Results: RankedResult[] = [
+      { node: nodes[0]!, score: 40 },
+      { node: nodes[1]!, score: 39.96 },
+    ];
+    const vectorResults: RankedResult[] = [
+      { node: nodes[2]!, score: 0.5 },
+      { node: nodes[3]!, score: 0.49 },
+    ];
+
+    const fused = engine.fuseResults(bm25Results, vectorResults, 60);
+    const tied = fused.filter((hit) => hit.combinedScore === 1 / 62);
+
+    expect(tied).toHaveLength(2);
+    // **In both tied pairs the stronger evidence leads**, and in both it is the member identity would have put second:
+    // `lexicalLeader` scores 40 against `vectorFirst`'s 0, and `lexicalSecond` 39.96 against `vectorSecond`'s 0.
+    expect(fused.map((hit) => hit.node.name)).toEqual([
+      'lexicalLeader',
+      'vectorFirst',
+      'lexicalSecond',
+      'vectorSecond',
+    ]);
+  });
+
   it('should combine BM25 and vector results using RRF', () => {
     const nodes: GraphNode[] = [
       createNode(1, { name: 'getUser' }),

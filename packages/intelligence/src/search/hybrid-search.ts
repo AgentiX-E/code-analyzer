@@ -6,7 +6,7 @@ import { basename, extname } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import { DataflowSearchEngine, type DataflowPath } from './dataflow-search.js';
-import { sortByScoreThenIdentity } from './ranking.js';
+import { compareNodeIdentity, sortByScoreThenIdentity } from './ranking.js';
 
 import type { GraphNode, SearchOptions, NodeLabel } from '@code-analyzer/shared';
 
@@ -819,13 +819,24 @@ export class HybridSearchEngine {
       }
     }
 
-    // **Combined score descending, then identity.** Fusion is the step where ties are most common: two documents that
-    // BM25 scored identically get identical reciprocal ranks, and the fused list would otherwise inherit the walk order
-    // through the insertion order of `combined`.
-    const resultsArray = sortByScoreThenIdentity(
-      Array.from(combined.values()),
-      (r) => r.combinedScore,
-    );
+    // **Combined score descending, then the evidence, then identity.**
+    //
+    // Fusion is the step where ties are most common, because a reciprocal rank is a small integer over a small
+    // denominator: a node at lexical rank 2 and a node at vector rank 2 both score exactly `1/62`, and the order between
+    // them was decided by **node identity, which is insertion order**. The evidence behind those two equal numbers is
+    // not equal at all — one is a term match that scored 39.96 and the other is a cosine of 0.49 — and measured through
+    // the MCP search tool on a two-file fixture, a declaration with a lexical score of 39.96 was ordered below a node
+    // with no lexical score whatsoever. **A tie-break has to read the thing the tie was computed from**, so the raw
+    // per-source scores come before identity, and identity remains as the last resort that makes the order a function
+    // of the corpus rather than of the walk.
+    const resultsArray = Array.from(combined.values()).sort((left, right) => {
+      const byFused = right.combinedScore - left.combinedScore;
+      if (byFused !== 0) return byFused;
+      const byLexical = right.bm25Score - left.bm25Score;
+      if (byLexical !== 0) return byLexical;
+      const byVector = right.vectorScore - left.vectorScore;
+      return byVector !== 0 ? byVector : compareNodeIdentity(left.node, right.node);
+    });
 
     if (limit !== undefined && limit > 0) {
       return resultsArray.slice(0, limit);
