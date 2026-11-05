@@ -51,6 +51,7 @@ import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { lexicalControls } from '../benchmark/lca-baseline.js';
+import { fallbackArm } from '../benchmark/lca-fallback.js';
 import {
   CONFIG_EXTENSION,
   MEASURED_MB_PER_FILE,
@@ -373,6 +374,17 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         });
         const control = controls.bm25;
         const secondControl = controls.tfidf;
+        // **The product's own answer for the instances the analysis cannot run, and it is computed here for the same
+        // reason the controls are**: the child that would have ranked them is the child the supervisor kills, so a
+        // figure produced there would exist only for the instances that did not need it. This is the only column whose
+        // denominator is *every* instance the run reached, which is what makes it the one comparable level.
+        const fallback = fallbackArm({
+          checkout,
+          files: allFiles,
+          query: question,
+          expected: row.changed_files,
+          depth: MAP_DEPTH,
+        });
         // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
         // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
         // directory is what took the runner down six minutes later.
@@ -425,6 +437,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               checkoutUnreadable: refusedWalked.unreadable,
               bm25: control,
               tfidf: secondControl,
+              fallback,
             }),
           );
           continue;
@@ -467,7 +480,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         // reported about itself would be a child's opinion rather than a measurement.
         const cost = { peakRssMb: outcome.peakRssMb, elapsedMs: outcome.ms };
         if (outcome.kind === 'row') {
-          scores.push({ ...outcome.row, cost, bm25: control, tfidf: secondControl });
+          scores.push({ ...outcome.row, cost, bm25: control, tfidf: secondControl, fallback });
         } else {
           // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
           // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
@@ -481,6 +494,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               cost,
               bm25: control,
               tfidf: secondControl,
+              fallback,
             }),
           );
         }

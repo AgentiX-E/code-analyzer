@@ -7,6 +7,27 @@ export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js
 export { FILE_AGGREGATION, FILE_AGGREGATIONS, rankFiles } from './search/file-ranking.js';
 export type { FileAggregation, PoolEntry, RankedFile } from './search/file-ranking.js';
 export {
+  MAX_SOURCE_FILES,
+  SKIPPED_DIRECTORIES,
+  SOURCE_EXTENSIONS,
+  walkSourceFiles,
+} from './search/file-tree.js';
+export type { FileTree, FileTreeOptions } from './search/file-tree.js';
+export { locateFiles } from './search/locate.js';
+export type { LocateOptions, LocateResult } from './search/locate.js';
+export {
+  buildPathImportsIndex,
+  extractImports,
+  pathImportsRanking,
+  rankByPathImports,
+} from './search/path-imports.js';
+export type {
+  PathDocument,
+  PathImportsIndex,
+  PathImportsOptions,
+  PathImportsResult,
+} from './search/path-imports.js';
+export {
   compareCodeUnits,
   compareNodeIdentity,
   sortByScoreThenIdentity,

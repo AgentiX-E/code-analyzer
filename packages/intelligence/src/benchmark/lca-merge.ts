@@ -17,6 +17,7 @@
 import { MEASURED_MB_PER_FILE, mean } from './lca-instrument.js';
 
 import type { ControlResult } from './lca-baseline.js';
+import type { FallbackResult } from './lca-fallback.js';
 
 /** The seven figures the authors' `get_quality_metrics` produces, for one instance or as a mean. */
 export interface ArmMetrics {
@@ -124,6 +125,18 @@ export interface LcaRowScore {
    * `null` under the same rule as `bm25`: the control did not run, which is not the same as a control that scored zero.
    */
   readonly tfidf: ControlResult | null;
+  /**
+   * **The product's file-level fallback: path and imports, ranked on every instance the run reached.**
+   *
+   * `bm25` and `tfidf` are controls and this is not one - it is what the product does when the checkout is too large for
+   * the analyser, so it produces a figure where the product would otherwise produce a refusal. **It is the only column
+   * whose denominator is every attempted instance**, which is what makes it the one number that can be placed beside a
+   * published table measured over fifty instances per split.
+   *
+   * `null` only when the instance had no answer space to rank (the checkout could not be fetched), which is a different
+   * fact from a fallback that scored zero.
+   */
+  readonly fallback: FallbackResult | null;
   /** The sentence that refused this instance, or `null` when it was measured. */
   readonly skipped: string | null;
   /**
@@ -235,6 +248,8 @@ export function skippedRow(input: {
   bm25?: ControlResult | null;
   /** The second control's figure, on the same rule. */
   tfidf?: ControlResult | null;
+  /** The product's fallback ranking, **which a refused instance has by construction**. */
+  fallback?: FallbackResult | null;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
 }): LcaRowScore {
@@ -257,6 +272,7 @@ export function skippedRow(input: {
     cost: input.cost ?? null,
     bm25: input.bm25 ?? null,
     tfidf: input.tfidf ?? null,
+    fallback: input.fallback ?? null,
     skipped: input.because,
     fileArms: null,
     retrieval: {},

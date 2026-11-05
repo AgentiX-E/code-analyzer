@@ -57,6 +57,7 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     cost: { peakRssMb: 500, elapsedMs: 1_000 },
     bm25: null,
     tfidf: null,
+    fallback: null,
     skipped: null,
     fileArms: null,
     retrieval,

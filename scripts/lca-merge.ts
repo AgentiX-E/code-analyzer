@@ -29,8 +29,12 @@ import {
   BOOTSTRAP_RESAMPLES,
   BOOTSTRAP_SEED,
   TFIDF_MAP,
+  fallbackMapOf,
+  fallbackOf,
+  pairedBetween,
   pairedByLanguage,
   pairedComparison,
+  OURS,
   publishedRank,
   rankDiagnosis,
   sampleCoverage,
@@ -39,6 +43,7 @@ import {
   worstCaseMap,
 } from '../packages/intelligence/src/benchmark/lca-sample.js';
 import { FILE_AGGREGATION } from '../packages/intelligence/src/search/file-ranking.js';
+import { IMPORT_HEAD_BYTES } from '../packages/intelligence/src/search/path-imports.js';
 import { recordArtifact } from '../packages/shared/src/benchmark/artifact.js';
 
 import type { LanguagePart } from '../packages/intelligence/src/benchmark/lca-merge.js';
@@ -329,6 +334,21 @@ function main(): void {
   // **The pairs, not just our half of them.** A summary that published our mean over the paired rows and the control's
   // mean over all of its rows would invite the subtraction that is wrong by construction, so each control carries both
   // halves of every pair and the delta is the mean of the differences.
+  // **The fallback, whose denominator is the run rather than the rankings it produced.** Every attempted instance has
+  // one, so this is the only product column that can be placed beside a table measured over all fifty instances per
+  // split - and the gap between it and `overall.map` is exactly what the bounds cost.
+  const fallbackOverall = fallbackOf(allRows);
+  const fallbackByLanguage = Object.fromEntries(
+    parts.map((part) => [part.config, { attempted: part.rows.length, ...fallbackOf(part.rows) }]),
+  );
+  // **The fallback against a control on the same instance**, which is a paired difference between two rankings of the
+  // same files - the control's cap is the one asymmetry, and `skippedFiles` in the control's own block states it.
+  const fallbackVsBm25 = pairedBetween(allRows, fallbackMapOf, (row) => row.bm25?.map);
+  const fallbackVsTfidf = pairedBetween(allRows, fallbackMapOf, (row) => row.tfidf?.map);
+  // **And against our own analysis, on the rows both ran.** This is the mechanism test rather than a comparison with a
+  // competitor: if a path and its imports outrank the whole analyser's pool on the same instances, the pool is losing
+  // information the file's own name carried.
+  const fallbackVsOurs = pairedBetween(allRows, fallbackMapOf, OURS);
   const pairsBm25 = allRows
     .filter((row) => row.skipped === null && typeof row.bm25?.map === 'number')
     .map((row) => ({ ours: row.map, control: row.bm25!.map }));
@@ -535,6 +555,56 @@ function main(): void {
       summaryOf('TF-IDF (cosine)', secondControlRows, pairsTfidf, pairedTfidf),
     ],
     /**
+     * **The product's file-level fallback, and the only figure in this artifact whose denominator is the run.**
+     *
+     * Every other column is a mean over the instances that produced it, and the instances that did not are systematically
+     * the large repositories - the ones with the most candidates and therefore the hardest. A fallback that ranks a file
+     * by its path and its imports needs no parser, no graph and no model, so it produces a ranking on **every** attempted
+     * instance, including the checkouts the analysis was killed on. **That is what makes `overall.map` here the one
+     * number a published table can be placed beside**, and the distance between it and the top-level `overall.map` is
+     * the cost of the bounds stated as a figure rather than as a caveat.
+     *
+     * **It differs from the control in one thing and the difference is the experiment.** The tokeniser, the saturation,
+     * the length normalisation, the dropped-zero rule and the tie-break are `search/lexical.ts`, imported by both; the
+     * control reads a file's whole text and this reads its path and its imports. `pairedVsOurs` is therefore a
+     * mechanism test rather than a comparison with anybody: on the rows where the analysis also ran, does a document the
+     * analyser never builds rank the fixing file higher than the pool it does build?
+     */
+    fallback: {
+      name: 'path + imports (file level)',
+      configuration: {
+        headBytes: IMPORT_HEAD_BYTES,
+        document:
+          'the answer space file as its repository-relative path followed by the module names of its import ' +
+          'statements; **the body is never read**, which is what makes this a second instrument rather than a smaller ' +
+          'version of the first',
+        extractor:
+          'one pattern per import form, tested against each line of the head in a fixed order; Python, Java, Kotlin, ' +
+          'Scala, Groovy, JavaScript, TypeScript, CommonJS, C#, Rust, C/C++ and Go are recognised and a miss is visible ' +
+          'as a zero in `importLines`',
+        tokeniser: TOKENISER,
+        weighting: `BM25, k1=${String(BM25_K1)}, b=${String(BM25_B)}, the same arithmetic the control uses`,
+        maxDocuments: null,
+        tieBreak: 'path ascending, the same rule as the controls',
+      },
+      coverage: {
+        rows: fallbackOverall.rows,
+        attempted: allRows.length,
+        share: allRows.length === 0 ? 0 : fallbackOverall.rows / allRows.length,
+        importLines: allRows.reduce((sum, row) => sum + (row.fallback?.importLines ?? 0), 0),
+      },
+      overall: fallbackOverall,
+      byLanguage: fallbackByLanguage,
+      pairedVsControl: { bm25: fallbackVsBm25, tfidf: fallbackVsTfidf },
+      /** **The mechanism test**: the fallback against our own analysis, on the instances both ranked. */
+      pairedVsOurs: fallbackVsOurs,
+      note:
+        'The product degraded rather than declining. `coverage.rows` equals the number of instances that had an answer ' +
+        'space to rank, so a mean in `overall` is a mean over the protocol rather than over the part of it that fitted. ' +
+        '`pairedVsControl` is a difference of two rankings of the same files; the one asymmetry is the control’s ' +
+        'document cap, stated in its own block and in every row as `skippedFiles`.',
+    },
+    /**
      * **The paired comparison**, which is the only figure here in which repository size cannot be the explanation.
      *
      * Wins and losses are counted per instance, the interval is a percentile bootstrap over instances with the seed
@@ -597,6 +667,11 @@ function main(): void {
         /** The second control on the same instance, **so a row can be read against both formulas**. */
         tfidfMap: row.tfidf === null ? null : row.tfidf.map,
         tfidfRank: row.tfidf === null ? null : row.tfidf.rank,
+        /** **The fallback on this instance, refused or measured.** The row a mean over the whole run is built from. */
+        fallbackMap: row.fallback === null ? null : row.fallback.map,
+        fallbackRank: row.fallback === null ? null : row.fallback.rank,
+        fallbackDocuments: row.fallback === null ? null : row.fallback.documents,
+        importLines: row.fallback === null ? null : row.fallback.importLines,
         peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
         elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
         map: row.map,
@@ -700,13 +775,29 @@ function main(): void {
     console.log(`LCA-REFUSAL n=${String(refusal.count)} because=${refusal.because}`);
   }
   for (const stratum of strata) {
+    // **Two comparisons on one line, and each carries its own row count.** `vsBm25` is a paired difference over the rows
+    // the band measured; `bm25`/`tfidf` are the band's difficulty over every row it holds, refusals included. Mixing
+    // them - which is what the previous version of this line invited - subtracts two means over two different samples.
+    const pairedBm25 = stratum.vsBm25;
     console.log(
       `LCA-STRATUM ${stratum.label} attempted=${String(stratum.attempted)} measured=${String(stratum.measured)} ` +
-        `ours=${stratum.map === null ? 'none' : stratum.map.toFixed(4)} ` +
-        `bm25=${stratum.bm25 === null ? 'none' : stratum.bm25.toFixed(4)} ` +
-        `tfidf=${stratum.tfidf === null ? 'none' : stratum.tfidf.toFixed(4)}`,
+        `ours=${stratum.ours === null ? 'none' : stratum.ours.toFixed(4)} ` +
+        `bm25Paired=${pairedBm25.control === null ? 'none' : pairedBm25.control.toFixed(4)} ` +
+        `deltaBm25=${pairedBm25.delta === null ? 'none' : pairedBm25.delta.toFixed(4)} ` +
+        `pairedRows=${String(pairedBm25.rows)} ` +
+        `fallback=${stratum.fallback === null ? 'none' : stratum.fallback.toFixed(4)} ` +
+        `fallbackRows=${String(stratum.fallbackRows)} ` +
+        `bm25Band=${stratum.bm25 === null ? 'none' : stratum.bm25.toFixed(4)} ` +
+        `tfidfBand=${stratum.tfidf === null ? 'none' : stratum.tfidf.toFixed(4)}`,
     );
   }
+  console.log(
+    `LCA-FALLBACK rows=${String(fallbackOverall.rows)}/${String(allRows.length)} ` +
+      `map=${fallbackOverall.value === null ? 'none' : fallbackOverall.value.toFixed(4)} ` +
+      `vsBm25=${fallbackVsBm25.delta === null ? 'none' : fallbackVsBm25.delta.toFixed(4)} ` +
+      `vsTfidf=${fallbackVsTfidf.delta === null ? 'none' : fallbackVsTfidf.delta.toFixed(4)} ` +
+      `vsOurs=${fallbackVsOurs.delta === null ? 'none' : fallbackVsOurs.delta.toFixed(4)}`,
+  );
   // **The two controls one line each**, so the gap can be attributed to a formula or to lexical retrieval before the
   // headline pairing is read. `delta` is `ours - control` on the rows the two share; a reader who wants only the primary
   // one still has `LCA-PAIRED` below it.

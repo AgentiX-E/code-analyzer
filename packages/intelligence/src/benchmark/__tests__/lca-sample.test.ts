@@ -13,6 +13,9 @@ import {
   armComparison,
   BOOTSTRAP_SEED,
   DEFAULT_STRATA,
+  fallbackMapOf,
+  fallbackOf,
+  pairedBetween,
   publishedRank,
   pairedByLanguage,
   pairedComparison,
@@ -38,6 +41,7 @@ function row(input: {
   skipped?: string | null;
   answerRank?: number | null;
   bm25Rank?: number | null;
+  fallback?: number | null;
   fileArms?: LcaRowScore['fileArms'];
 }): LcaRowScore {
   return {
@@ -66,6 +70,17 @@ function row(input: {
             documents: 10,
             skippedFiles: 0,
             unreadableFiles: 0,
+            ranked: [],
+          },
+    fallback:
+      input.fallback === undefined || input.fallback === null
+        ? null
+        : {
+            map: input.fallback,
+            rank: null,
+            documents: 10,
+            unreadableFiles: 0,
+            importLines: 0,
             ranked: [],
           },
     tfidf:
@@ -188,7 +203,7 @@ describe('stratify', () => {
     expect(strata[0]).toMatchObject({
       attempted: 2,
       measured: 2,
-      map: 0.5,
+      ours: 0.5,
       bm25: 0.25,
       bm25Rows: 2,
     });
@@ -197,7 +212,7 @@ describe('stratify', () => {
     expect(strata[4]).toMatchObject({
       attempted: 1,
       measured: 0,
-      map: null,
+      ours: null,
       bm25: 0.1,
       bm25Rows: 1,
     });
@@ -207,6 +222,48 @@ describe('stratify', () => {
     const strata = stratify([row({ id: 1, corpusFiles: 10, map: 0.5 })]);
     expect(strata[0]!.bm25).toBeNull();
     expect(strata[0]!.bm25Rows).toBe(0);
+  });
+
+  it('**pairs each band against the control on the band’s own measured rows**', () => {
+    // **The subtraction the band table used to invite.** Ours is 0.60 over the one row we measured; the control's mean
+    // over the whole band is dragged down by the refused instance, whose control figure is 0.10. Printed on one line
+    // those two numbers read as a 0.50 win for us. Paired, ours loses 0.40 - because on the instance both ranked the
+    // control scored 1.00 and we scored 0.60.
+    const strata = stratify(
+      [
+        row({ id: 1, corpusFiles: 10, map: 0.6, bm25: 1.0 }),
+        row({ id: 2, corpusFiles: 12, skipped: 'too large', bm25: 0.1 }),
+      ],
+      DEFAULT_STRATA,
+    );
+    expect(strata[0]!.ours).toBeCloseTo(0.6, 6);
+    expect(strata[0]!.bm25).toBeCloseTo(0.55, 6);
+    expect(strata[0]!.vsBm25).toMatchObject({ rows: 1, ours: 0.6, control: 1.0 });
+    expect(strata[0]!.vsBm25.delta).toBeCloseTo(-0.4, 6);
+  });
+
+  it('carries a second paired object for the second control, over the same rows', () => {
+    const strata = stratify(
+      [row({ id: 1, corpusFiles: 10, map: 0.5, bm25: 0.25, tfidf: 0.75 })],
+      DEFAULT_STRATA,
+    );
+    expect(strata[0]!.vsTfidf).toMatchObject({ rows: 1, ours: 0.5, control: 0.75 });
+    expect(strata[0]!.vsTfidf.delta).toBeCloseTo(-0.25, 6);
+  });
+
+  it('reports the fallback over every row of the band, refused or not', () => {
+    // **The one column whose denominator is the band rather than the measured part of it**, which is what makes a band
+    // the analyser could not enter answerable at all.
+    const strata = stratify(
+      [
+        row({ id: 1, corpusFiles: 10, map: 0.6, bm25: 1, fallback: 0.4 }),
+        row({ id: 2, corpusFiles: 12, skipped: 'too large', bm25: 0.1, fallback: 0.2 }),
+      ],
+      DEFAULT_STRATA,
+    );
+    expect(strata[0]!.fallback).toBeCloseTo(0.3, 6);
+    expect(strata[0]!.fallbackRows).toBe(2);
+    expect(strata[0]!.measured).toBe(1);
   });
 
   it('labels the open band without an upper bound', () => {
@@ -229,8 +286,60 @@ describe('stratify', () => {
       ],
     );
     expect(strata).toHaveLength(2);
-    expect(strata[0]!.map).toBe(1);
-    expect(strata[1]!.map).toBeNull();
+    expect(strata[0]!.ours).toBe(1);
+    expect(strata[1]!.ours).toBeNull();
+  });
+});
+
+describe('pairedBetween', () => {
+  it('drops a refused row rather than pairing our zero against the control’s figure', () => {
+    // **A refusal is not a loss.** Our `map` on a refused row is a zero that means "no ranking"; pairing it would turn a
+    // statement about the bounds into a statement about the ranking.
+    const paired = pairedBetween([
+      row({ id: 1, corpusFiles: 10, map: 0.5, bm25: 0.25 }),
+      row({ id: 2, corpusFiles: 10, skipped: 'too large', bm25: 0.9 }),
+    ]);
+    expect(paired.rows).toBe(1);
+    expect(paired.delta).toBeCloseTo(0.25, 6);
+  });
+
+  it('pairs two readings that are both available on a refused row', () => {
+    // **The fallback case.** A refused instance has no ranking of ours and does have a fallback, so the pair between the
+    // fallback and a control is over every attempted instance - which is exactly the comparison the bounds cannot bias.
+    const paired = pairedBetween(
+      [
+        row({ id: 1, corpusFiles: 10, skipped: 'too large', bm25: 0.2, fallback: 0.4 }),
+        row({ id: 2, corpusFiles: 10, skipped: 'too large', bm25: 0.4, fallback: 0.2 }),
+      ],
+      fallbackMapOf,
+      (entry) => entry.bm25?.map,
+    );
+    expect(paired.rows).toBe(2);
+    expect(paired.delta).toBe(0);
+  });
+
+  it('answers an empty intersection with no figure rather than with zero', () => {
+    expect(pairedBetween([row({ id: 1, corpusFiles: 10, skipped: 'x' })])).toEqual({
+      rows: 0,
+      ours: null,
+      control: null,
+      delta: null,
+    });
+  });
+});
+
+describe('fallbackOf', () => {
+  it('averages over every row that carries one, refused rows included', () => {
+    const measured = fallbackOf([
+      row({ id: 1, corpusFiles: 10, map: 0.5, fallback: 0.4 }),
+      row({ id: 2, corpusFiles: 10, skipped: 'too large', fallback: 0.2 }),
+    ]);
+    expect(measured.rows).toBe(2);
+    expect(measured.value).toBeCloseTo(0.3, 6);
+  });
+
+  it('answers no figure when nothing ran', () => {
+    expect(fallbackOf([row({ id: 1, corpusFiles: 10 })])).toEqual({ value: null, rows: 0 });
   });
 });
 

@@ -22,6 +22,8 @@ import {
   tokenize,
 } from '../lca-baseline.js';
 
+import type { TermIndex } from '../lca-baseline.js';
+
 /** A checkout holding the named files, each with the content given. **Real files, because the caps are about bytes.** */
 function checkout(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), 'lca-bm25-'));
@@ -325,6 +327,36 @@ describe('rankTfidf', () => {
     });
     const index = buildTermIndex(root, ['short.py', 'long.py'], { includePath: false });
     expect(rankTfidf(index, 'backoff', 10)[0]).toBe('short.py');
+  });
+
+  it('**penalises a document holding a term the index never counted**, rather than producing NaN', () => {
+    // **The one branch in this module a corpus cannot produce, tested through the public API instead of excused.**
+    // `buildTermIndex` counts a document frequency for every term of every document, so on any index it builds the
+    // lookup always succeeds. But `TermIndex` is an exported shape and `rankTfidf` is an exported function, so a caller
+    // can hand over a document holding a term the frequency map does not list - and the question of what happens then
+    // is a real question with one defensible answer: the term weighs as if no document held it, which *raises* the
+    // document's norm and therefore *lowers* its score. The alternative - a non-null assertion on the lookup - would
+    // make the weight `NaN` and the score `NaN`, and a `NaN` in a published mean is a defect that travels.
+    const index: TermIndex = {
+      documents: [
+        {
+          path: 'counted.py',
+          termFrequency: new Map([
+            ['alpha', 1],
+            ['beta', 1],
+          ]),
+          length: 2,
+        },
+        { path: 'plain.py', termFrequency: new Map([['alpha', 1]]), length: 1 },
+      ],
+      // `beta` is deliberately absent: the document holds it, the index does not count it.
+      documentFrequency: new Map([['alpha', 2]]),
+      averageLength: 1.5,
+      skippedFiles: 0,
+      unreadableFiles: 0,
+    };
+    const ranking = rankTfidf(index, 'alpha', 10);
+    expect(ranking).toEqual(['plain.py', 'counted.py']);
   });
 
   it('orders a pair differently from BM25, which is the reason there are two controls', () => {

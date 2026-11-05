@@ -260,6 +260,9 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     // measured or refused, and attaches them here. A row that arrived from the child carries `null` until it does.
     bm25: null,
     tfidf: null,
+    // **The fallback, like the controls, is the parent's** - the process that survives the analysis is the only one that
+    // can rank a checkout the analysis was killed on, and this rows' own instance is exactly such a checkout.
+    fallback: null,
     skipped: null,
     fileArms,
     retrieval,

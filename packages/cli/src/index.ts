@@ -10,6 +10,11 @@ import { Command } from 'commander';
 import { createAgentCommand } from './commands/agent.js';
 import { analyzeRepository, formatAnalyzeResult, type AnalyzeOptions } from './commands/analyze.js';
 import { initProject, type InitOptions } from './commands/init.js';
+import {
+  formatLocateOutput,
+  locateRepository,
+  type LocateCommandOptions,
+} from './commands/locate.js';
 import { reviewCode, formatReviewResult, type ReviewOptions } from './commands/review.js';
 import { searchGraph, formatSearchResult, type SearchOptions } from './commands/search.js';
 import { getStatus, formatStatusReport, type StatusOptions } from './commands/status.js';
@@ -130,6 +135,39 @@ program
     const result = await searchGraph(options);
     const output = formatSearchResult(result, options.format ?? 'text');
     console.log(output);
+    process.exit(result.success ? 0 : 1);
+  });
+
+// ---------------------------------------------------------------------------
+// locate — Rank the files a question is about, without building an index
+// ---------------------------------------------------------------------------
+program
+  .command('locate')
+  .description('Rank the files a question is about, reading only paths and imports (no index)')
+  .argument('<question>', 'The question, in your own words')
+  .option('-d, --directory <path>', 'Checkout to rank', process.cwd())
+  .option('-l, --limit <number>', 'How many paths to print', '10')
+  .option('-f, --format <format>', 'Output format: text or json', 'text')
+  .option(
+    '-e, --extensions <list>',
+    'Comma-separated extensions to consider, e.g. .java,.kt (defaults to every supported language)',
+  )
+  .action((question: string, opts: Record<string, string | undefined>) => {
+    const extensions = (opts['extensions'] ?? '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+      .map((entry) => (entry.startsWith('.') ? entry : `.${entry}`));
+    const options: LocateCommandOptions = {
+      question,
+      directory: opts['directory'] ?? process.cwd(),
+      limit: parseInt(opts['limit'] ?? '10', 10) || 10,
+      extensions: extensions.length === 0 ? undefined : extensions,
+    };
+    const result = locateRepository(options);
+    // `process.stdout.write` rather than `console.log`: the ranking is the command's whole output and its trailing
+    // newline is part of the format, so it is written rather than printed.
+    process.stdout.write(formatLocateOutput(result, opts['format'] === 'json' ? 'json' : 'text'));
     process.exit(result.success ? 0 : 1);
   });
 

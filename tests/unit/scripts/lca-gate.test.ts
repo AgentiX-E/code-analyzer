@@ -161,7 +161,53 @@ function baseRecord(): Record<string, unknown> {
         ties: 0,
       },
     ],
-    stratified: [{ label: '0-50 files', attempted: 2, measured: 2, map: 0.4, bm25: 0.22 }],
+    // **The fallback, whose denominator is the run.** `coverage.rows` equals the instances that had an answer space to
+    // rank, so `overall` is a mean over the protocol rather than over the part of it that fitted - and `pairedVsOurs`
+    // is the mechanism test over the rows both instruments ranked, which is the same intersection as `paired`.
+    fallback: {
+      name: 'path + imports (file level)',
+      configuration: { document: 'the path followed by the module names of its import statements' },
+      coverage: { rows: 3, attempted: 3, share: 1, importLines: 12 },
+      overall: { value: 0.3, rows: 3 },
+      byLanguage: { kt: { attempted: 3, value: 0.3, rows: 3 } },
+      pairedVsControl: {
+        bm25: { rows: 3, ours: 0.3, control: 0.2, delta: 0.1 },
+        tfidf: { rows: 3, ours: 0.3, control: 0.21, delta: 0.09 },
+      },
+      pairedVsOurs: { rows: 2, ours: 0.3, control: 0.4, delta: -0.1 },
+    },
+    // **Every band carries a paired object with its own row count**, so the reader cannot subtract our mean over the
+    // measured rows from the control's over the whole band - the subtraction that published a 0.0037 Java win.
+    stratified: [
+      {
+        label: '0-50 files',
+        attempted: 2,
+        measured: 2,
+        ours: 0.4,
+        bm25: 0.22,
+        bm25Rows: 2,
+        tfidf: 0.25,
+        tfidfRows: 2,
+        vsBm25: { rows: 2, ours: 0.4, control: 0.22, delta: 0.18 },
+        vsTfidf: { rows: 2, ours: 0.4, control: 0.25, delta: 0.15 },
+        fallback: 0.35,
+        fallbackRows: 2,
+      },
+      {
+        label: '2000+ files',
+        attempted: 1,
+        measured: 0,
+        ours: null,
+        bm25: 0.11,
+        bm25Rows: 1,
+        tfidf: 0.12,
+        tfidfRows: 1,
+        vsBm25: { rows: 0, ours: null, control: null, delta: null },
+        vsTfidf: { rows: 0, ours: null, control: null, delta: null },
+        fallback: 0.2,
+        fallbackRows: 1,
+      },
+    ],
     // **The armature, with two measured rows behind it.** The shipped arm repeats each row's own figures, which is
     // what the gate checks per row: an armature that collapsed the pool would have five arms that all agree with each
     // other and none of them with the product, and the equality below is what tells the two apart.
@@ -174,10 +220,12 @@ function baseRecord(): Record<string, unknown> {
         config: 'kt',
         id: 1,
         repo: 'owner/one',
+        corpusFiles: 20,
         skipped: null,
         map: 0.5,
         answerRank: 1,
         bm25Map: 0.3,
+        fallbackMap: 0.4,
         tfidfMap: 0.35,
         fileArms: [
           { aggregation: 'max', map: 0.5, answerRank: 1 },
@@ -189,10 +237,12 @@ function baseRecord(): Record<string, unknown> {
         config: 'kt',
         id: 2,
         repo: 'owner/two',
+        corpusFiles: 30,
         skipped: null,
         map: 0.3,
         answerRank: 3,
         bm25Map: 0.14,
+        fallbackMap: 0.2,
         tfidfMap: 0.15,
         fileArms: [
           { aggregation: 'max', map: 0.3, answerRank: 3 },
@@ -204,10 +254,12 @@ function baseRecord(): Record<string, unknown> {
         config: 'kt',
         id: 3,
         repo: 'owner/three',
+        corpusFiles: 4_970,
         skipped: 'the checkout holds 4970 files, above the stated cap of 2000',
         map: 0,
         answerRank: null,
         bm25Map: 0.11,
+        fallbackMap: 0.2,
         tfidfMap: 0.12,
         fileArms: null,
       },
@@ -275,6 +327,96 @@ describe('lca gate', () => {
     expect(run.stdout).toContain('paired vs BM25');
     expect(run.stdout).toContain('file aggregation: max (shipped)');
     expect(run.stdout).toContain('file aggregation: sum');
+  });
+
+  it('refuses a record whose fallback is silent about the document it ranks', () => {
+    // **A fallback described as "path and imports" without saying what a document is is a name rather than a method.**
+    // Its configuration is what makes the two words a claim, and the block is required for the same reason the controls'
+    // configuration is: a figure whose method is unstated cannot be reproduced from the artifact.
+    const run = runGate(
+      mutated((record) => {
+        delete (record['fallback'] as Record<string, unknown>)['configuration'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('fallback: absent, empty, or silent about the document');
+  });
+
+  it('refuses a fallback whose mean is over fewer rows than it claims to cover', () => {
+    // **The one column whose denominator is the run.** A mean over 2 of 3 attempted instances published beside a
+    // coverage of 3 is a favourable subset wearing the name of a mean over the protocol - exactly the defect the
+    // fallback exists to remove, reintroduced inside the fallback's own block.
+    const run = runGate(
+      mutated((record) => {
+        (record['fallback'] as Record<string, unknown>)['overall'] = { value: 0.4, rows: 2 };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a mean over fewer rows than it claims is a favourable subset');
+  });
+
+  it('refuses a row that had an answer space and produced no fallback figure', () => {
+    // **Per row, because a mean does not show a hole.** A refused instance is precisely the row a fallback exists for,
+    // so an instance with files but no fallback figure is the coverage claim failing where it matters most.
+    const run = runGate(
+      mutated((record) => {
+        const rowsList = record['rows'] as Record<string, unknown>[];
+        delete rowsList[2]!['fallbackMap'];
+        (record['fallback'] as Record<string, unknown>)['coverage'] = {
+          rows: 2,
+          attempted: 3,
+          share: 2 / 3,
+          importLines: 12,
+        };
+        (record['fallback'] as Record<string, unknown>)['overall'] = { value: 0.3, rows: 2 };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('had an answer space and no fallback figure');
+  });
+
+  it('refuses a band whose delta is not the difference of the means beside it', () => {
+    // **The band table is where the wrong subtraction looked most innocent**, because the two numbers sit in one row
+    // and the bands are what a reader uses to decide whether the sample is easier. The delta is computed by the merge
+    // and checked here against the two means printed next to it.
+    const run = runGate(
+      mutated((record) => {
+        const bands = record['stratified'] as Record<string, unknown>[];
+        (bands[0]!['vsBm25'] as Record<string, unknown>)['delta'] = 0.5;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('is not ours minus control on the paired rows');
+  });
+
+  it('refuses a band whose control ran on fewer rows than the band measured', () => {
+    // **A control that skipped a measured instance is the bias the control exists to remove**, one band at a time: the
+    // instances it would skip are the hard ones, and the band's delta would then be computed over the easy remainder.
+    const run = runGate(
+      mutated((record) => {
+        const bands = record['stratified'] as Record<string, unknown>[];
+        (bands[0]!['vsBm25'] as Record<string, unknown>)['rows'] = 1;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a row the band dropped');
+  });
+
+  it('refuses a mechanism test over a different intersection than the pairing', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['fallback'] as Record<string, unknown>)['pairedVsOurs'] = {
+          rows: 3,
+          ours: 0.3,
+          control: 0.4,
+          delta: -0.1,
+        };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain(
+      'the mechanism test has to be over the instances both instruments ranked',
+    );
   });
 
   it('refuses an armature that is not comparing against the product', () => {

@@ -109,7 +109,26 @@ export function sampleCoverage(
   };
 }
 
-/** One band of the answer space's size, and what the two rankings did inside it. */
+/**
+ * Two rankings' means over **the same rows**, and the difference that is therefore subtractable.
+ *
+ * **The bug this shape removes was a subtraction nobody performed and everybody could.** A band used to publish our
+ * mean over the rows we measured beside the control's mean over every row of the band - refused rows included, and
+ * refused rows are the large repositories where the control scores worst. The two numbers sat on one line, the reader
+ * subtracts them, and the result is a comparison between two different samples. Every comparison in this module is now
+ * an object that carries its own row count, so a mean over one sample cannot be printed beside a mean over another
+ * without the two counts being visible.
+ */
+export interface PairedMeans {
+  /** Rows where both terms exist. **The only rows this difference may use.** */
+  readonly rows: number;
+  readonly ours: number | null;
+  readonly control: number | null;
+  /** `ours - control`, on the same rows. **Never the difference of two means over different samples.** */
+  readonly delta: number | null;
+}
+
+/** One band of the answer space's size, and what the rankings did inside it. */
 export interface Stratum {
   /** How the band is printed, e.g. `201-500 files`. */
   readonly label: string;
@@ -121,7 +140,20 @@ export interface Stratum {
   readonly measured: number;
   readonly refused: number;
   /** Our retriever's mean average precision over the measured rows of this band, or `null` when none was measured. */
-  readonly map: number | null;
+  readonly ours: number | null;
+  /** Our figure against the primary control, **on the rows both produced one**. */
+  readonly vsBm25: PairedMeans;
+  /** And against the second control, on the same rule. */
+  readonly vsTfidf: PairedMeans;
+  /**
+   * The product's fallback over **every attempted row of the band**, and how many that was.
+   *
+   * **This is the column that makes a band's difficulty answerable.** `refused` says how much of the band the analyser
+   * could not run; a fallback figure over the whole band says what the product would have scored there if it had
+   * degraded instead of declining, which is the quantity the bounds are costing and the quantity a raise would buy.
+   */
+  readonly fallback: number | null;
+  readonly fallbackRows: number;
   /** The primary control's mean average precision over **every** row of this band that has one. */
   readonly bm25: number | null;
   /** How many rows in this band carry a primary-control figure. */
@@ -175,6 +207,81 @@ function controlOf(
 }
 
 /**
+ * The product's fallback figure for a row.
+ *
+ * **Not a `ControlReading`**, because a fallback is not a control: it exists on every attempted row, so its mean is
+ * taken over the attempted sample rather than over an intersection, and averaging it with the controls would hide the
+ * one property that makes it worth publishing.
+ */
+export function fallbackMapOf(row: LcaRowScore): number | undefined {
+  return row.fallback?.map;
+}
+
+/** The fallback's mean over the rows that carry one. **The coverage-bearing figure: its denominator is the run.** */
+export function fallbackOf(rows: readonly LcaRowScore[]): { value: number | null; rows: number } {
+  const values = rows
+    .map(fallbackMapOf)
+    .filter((value): value is number => typeof value === 'number');
+  return { value: values.length === 0 ? null : mean(values), rows: values.length };
+}
+
+/**
+ * Two rankings over **the same rows**, which is what makes their difference a difference.
+ *
+ * **One function for every grouping.** The per-language table and the per-band table asked the same question and the
+ * per-band one answered it wrongly for two iterations - ours over the rows we measured, the control over every row of
+ * the band - because the arithmetic was written twice. It is written once here and both tables call it.
+ */
+export function pairedMeans(
+  rows: readonly LcaRowScore[],
+  control: ControlReading = BM25_MAP,
+): PairedMeans {
+  return pairedBetween(rows, OURS, control);
+}
+
+/** A figure read off a row, or `null`/`undefined` when the row has none. **The general form of a pairing.** */
+export type RowReading = (row: LcaRowScore) => number | null | undefined;
+
+/**
+ * Our own ranking, **which exists only on rows the analysis produced**.
+ *
+ * A refused row's `map` is a zero that means "no ranking", and pairing it against a control that did produce one would
+ * turn a refusal into a loss - which is a claim about the bounds wearing the name of a claim about the ranking.
+ */
+export const OURS: RowReading = (row) => (row.skipped === null ? row.map : null);
+
+/**
+ * Two readings over the rows **both** produced a figure, whatever the pair is.
+ *
+ * **The general form exists because there are now three pairs and one of them is not against a control.** The product's
+ * fallback ranks a checkout the analysis refused, so it has a figure on rows our own ranking does not; and on the rows
+ * where both exist the comparison between them is the mechanism test - *is a path and its imports a better document
+ * than the whole analyser's pool* - which is a question about our two instruments and not about a competitor.
+ */
+export function pairedBetween(
+  rows: readonly LcaRowScore[],
+  left: RowReading = OURS,
+  right: RowReading = BM25_MAP,
+): PairedMeans {
+  const paired: { ours: number; control: number }[] = [];
+  for (const row of rows) {
+    const first = left(row);
+    const second = right(row);
+    if (typeof first !== 'number' || typeof second !== 'number') continue;
+    paired.push({ ours: first, control: second });
+  }
+  if (paired.length === 0) return { rows: 0, ours: null, control: null, delta: null };
+  const ours = mean(paired.map((pair) => pair.ours));
+  const controlMean = mean(paired.map((pair) => pair.control));
+  return {
+    rows: paired.length,
+    ours,
+    control: controlMean,
+    delta: Math.round((ours - controlMean) * 10000) / 10000,
+  };
+}
+
+/**
  * The sample, split by how large a repository it was.
  *
  * **This is the table that answers "is our sample easier".** The control's column is a measurement of difficulty that
@@ -191,6 +298,7 @@ export function stratify(
     const measured = band.filter((row) => row.skipped === null);
     const control = controlOf(band, BM25_MAP);
     const second = controlOf(band, TFIDF_MAP);
+    const fallback = fallbackOf(band);
     return {
       label: to === null ? `${String(from)}+ files` : `${String(from)}-${String(to)} files`,
       from,
@@ -198,7 +306,11 @@ export function stratify(
       attempted: band.length,
       measured: measured.length,
       refused: band.length - measured.length,
-      map: measured.length === 0 ? null : mean(measured.map((row) => row.map)),
+      ours: measured.length === 0 ? null : mean(measured.map((row) => row.map)),
+      vsBm25: pairedMeans(band, BM25_MAP),
+      vsTfidf: pairedMeans(band, TFIDF_MAP),
+      fallback: fallback.value,
+      fallbackRows: fallback.rows,
       bm25: control.value,
       bm25Rows: control.rows,
       tfidf: second.value,
@@ -232,18 +344,18 @@ export interface Standardised {
  */
 export function standardisedMap(strata: readonly Stratum[]): Standardised {
   const total = strata.reduce((sum, stratum) => sum + stratum.attempted, 0);
-  const covered = strata.filter((stratum) => stratum.map !== null && stratum.attempted > 0);
+  const covered = strata.filter((stratum) => stratum.ours !== null && stratum.attempted > 0);
   const coveredWeight = covered.reduce((sum, stratum) => sum + stratum.attempted, 0);
   const measuredRows = strata.reduce((sum, stratum) => sum + stratum.measured, 0);
   const measuredSum = strata.reduce(
-    (sum, stratum) => sum + (stratum.map === null ? 0 : stratum.map * stratum.measured),
+    (sum, stratum) => sum + (stratum.ours === null ? 0 : stratum.ours * stratum.measured),
     0,
   );
   return {
     value:
       coveredWeight === 0
         ? null
-        : covered.reduce((sum, stratum) => sum + stratum.map! * stratum.attempted, 0) /
+        : covered.reduce((sum, stratum) => sum + stratum.ours! * stratum.attempted, 0) /
           coveredWeight,
     raw: measuredRows === 0 ? null : measuredSum / measuredRows,
     coveredShare: total === 0 ? 0 : coveredWeight / total,
@@ -641,13 +753,8 @@ export function rankDiagnosis(rows: readonly LcaRowScore[]): RankDiagnosis {
 }
 
 /** One language split's paired means. **The same rows on both sides, or the difference is not a difference.** */
-export interface LanguagePairing {
+export interface LanguagePairing extends PairedMeans {
   readonly config: string;
-  /** Rows where both terms exist. */
-  readonly rows: number;
-  readonly ours: number | null;
-  readonly control: number | null;
-  readonly delta: number | null;
 }
 
 /**
@@ -664,21 +771,5 @@ export function pairedByLanguage(
   parts: readonly LanguagePart[],
   control: ControlReading = BM25_MAP,
 ): LanguagePairing[] {
-  return parts.map((part) => {
-    const paired = part.rows.filter(
-      (row) => row.skipped === null && typeof control(row) === 'number',
-    );
-    if (paired.length === 0) {
-      return { config: part.config, rows: 0, ours: null, control: null, delta: null };
-    }
-    const ours = mean(paired.map((row) => row.map));
-    const controlMean = mean(paired.map((row) => control(row)!));
-    return {
-      config: part.config,
-      rows: paired.length,
-      ours,
-      control: controlMean,
-      delta: Math.round((ours - controlMean) * 10000) / 10000,
-    };
-  });
+  return parts.map((part) => ({ config: part.config, ...pairedMeans(part.rows, control) }));
 }

@@ -32,162 +32,48 @@
 // whatever differs between the two arms is the formula and nothing else. It is also one of the paper's own rows
 // (`TF-IDF` 0.27), which is why it is the one worth adding rather than a scorer this project invented to lose.
 
-import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { averagePrecision, firstRelevantRank } from './lca-instrument.js';
+import { readHead } from '../search/file-head.js';
+import {
+  BM25_B,
+  BM25_K1,
+  bm25Idf,
+  bm25Weight,
+  tfidfIdf,
+  tfidfWeight,
+  tokenize,
+} from '../search/lexical.js';
 
-/** The rank-frequency saturation the BM25 literature fixes at 1.2 for short documents. **Stated, not tuned.** */
-export const BM25_K1 = 1.2;
-
-/** The length-normalisation weight: 0.75 is the standard midpoint between "ignore length" and "divide by length". */
-export const BM25_B = 0.75;
+/**
+ * **The tokeniser, the saturation and the length normalisation are the product's**, not this control's: they live in
+ * `search/lexical.ts` and are re-exported here because this module's tests and the artefact's configuration block have
+ * always named them at this address. The one definition is what lets the fallback in `search/path-imports.ts` differ
+ * from this control **in the document alone**.
+ */
+export { BM25_B, BM25_K1, tokenize };
 
 /**
  * How much of one file the index reads.
  *
  * **A cap, because the index runs in the parent process and the parent is the thing that must survive.** The instance
  * whose analysis the supervisor kills is exactly the instance this control has to measure, so the control cannot read
- * a 6 MB minified bundle into memory to count it. Truncation is published per instance as `truncatedFiles` rather than
+ * a 6 MB minified bundle into memory to count it. Truncation is published per instance as `skippedFiles` rather than
  * applied quietly.
  */
 export const BM25_MAX_FILE_BYTES = 65_536;
 
-/** How many documents the index may hold. **A second cap for the same reason, and the answer space is far below it.** */
+/**
+ * How many documents the index may hold. **A second cap for the same reason.**
+ *
+ * **The fallback has no such cap and that is the difference between the two instruments** (`search/path-imports.ts`):
+ * this index keeps a term map per document, which costs an object and a bucket array per term, so four thousand
+ * documents of a whole file's text is the largest number the parent can hold while it is also holding the analysis of
+ * the next instance. The fallback keeps a token array per file and can therefore rank the twenty-thousand-file checkout
+ * the analyser refused - which is why it is the only arm with a figure on every attempted instance.
+ */
 export const BM25_MAX_DOCUMENTS = 4_000;
-
-/**
- * Terms carrying no information about which file to change.
- *
- * **A short list, and deliberately not a linguistic one.** It removes the words that appear in every issue of every
- * repository ("the", "error", "when") and nothing else: a longer list is a tuning knob, and a control with a tuning knob
- * is a control that can be made to lose.
- */
-const STOPWORDS: ReadonlySet<string> = new Set([
-  'a',
-  'an',
-  'and',
-  'are',
-  'as',
-  'at',
-  'be',
-  'been',
-  'but',
-  'by',
-  'can',
-  'do',
-  'does',
-  'for',
-  'from',
-  'had',
-  'has',
-  'have',
-  'how',
-  'if',
-  'in',
-  'into',
-  'is',
-  'it',
-  'its',
-  'not',
-  'of',
-  'on',
-  'or',
-  'should',
-  'so',
-  'than',
-  'that',
-  'the',
-  'their',
-  'then',
-  'there',
-  'these',
-  'they',
-  'this',
-  'to',
-  'was',
-  'were',
-  'what',
-  'when',
-  'which',
-  'while',
-  'will',
-  'with',
-  'would',
-]);
-
-/** A lower-case letter, **by case and not by code point**, so a digit is neither. */
-function isLower(character: string): boolean {
-  return character !== character.toUpperCase() && character === character.toLowerCase();
-}
-
-/** An upper-case letter, by the same test. */
-function isUpper(character: string): boolean {
-  return character !== character.toLowerCase() && character === character.toUpperCase();
-}
-
-/**
- * Split an identifier at its camel-case boundaries: `getUserById` → `get`, `user`, `by`, `id`.
- *
- * **Acronyms split once, at the end of the run.** `HTTPServer` is `http` and `server`, not `h`, `t`, `t`, `p` and
- * `server`: the boundary is an upper-case letter that follows a lower-case one, **or** one that is followed by a
- * lower-case letter while itself following an upper-case one. Without the second clause every acronym in a Java
- * repository becomes single letters, and single letters are dropped - which would make the control quietly blind to
- * `HttpClient` while looking like it was not.
- */
-function camelParts(token: string): string[] {
-  const parts: string[] = [];
-  let current = '';
-  for (let index = 0; index < token.length; index += 1) {
-    const character = token[index]!;
-    const previous = index === 0 ? '' : token[index - 1]!;
-    const next = token[index + 1] ?? '';
-    const boundary =
-      isUpper(character) &&
-      current.length > 0 &&
-      (isLower(previous) || (isUpper(previous) && isLower(next)));
-    if (boundary) {
-      parts.push(current);
-      current = '';
-    }
-    current += character.toLowerCase();
-  }
-  // **No guard on `current` here.** `camelParts` is called only for a tokenised run, and `tokenize` skips an empty one
-  // before calling - so the tail is always non-empty, and a guard that can never fire is a branch the coverage report
-  // has to excuse rather than a defence.
-  parts.push(current);
-  return parts;
-}
-
-/**
- * The index's terms for a piece of text.
- *
- * **Both the whole token and its camel-case parts**, because an issue says "login" and the declaration says
- * `handleLogin` - a tokeniser that keeps only whole identifiers would score the control lower than the baseline it is
- * standing in for, and a control that is weaker than the published row makes our own figure look better than it is.
- * **Erasure in the direction that is hard on us is the only erasure worth having.**
- *
- * **Camel case is read before the text is lower-cased**, which is the defect this function shipped with for one commit:
- * the split ran on an already-folded string, where no character is upper-case, so the clause never fired and the
- * tokeniser looked correct while doing nothing.
- */
-export function tokenize(text: string): string[] {
-  const tokens: string[] = [];
-  // **Split on anything that is not a letter or a digit, keeping the case** - the case is the information the next step
-  // reads, and lower-casing first is exactly how it gets thrown away.
-  for (const raw of text.split(/[^A-Za-z0-9]+/)) {
-    if (raw.length === 0) continue;
-    const whole = raw.toLowerCase();
-    if (whole.length >= 2 && !STOPWORDS.has(whole)) tokens.push(whole);
-    const parts = camelParts(raw);
-    if (parts.length <= 1) continue;
-    for (const part of parts) {
-      if (part.length < 2 || part === whole || STOPWORDS.has(part)) continue;
-      tokens.push(part);
-    }
-  }
-  return tokens;
-}
 
 /** One document: its term counts, and how many terms it held. */
 export interface TermDocument {
@@ -208,33 +94,6 @@ export interface TermIndex {
   readonly skippedFiles: number;
   /** Files that could not be read at all. */
   readonly unreadableFiles: number;
-}
-
-/** Read at most `cap` bytes of a file, or `null` when it cannot be read. **Bounded by the cap, not by the file.** */
-function readPrefix(absolute: string, cap: number): string | null {
-  let handle: number | null = null;
-  try {
-    const size = statSync(absolute).size;
-    const wanted = Math.min(size, cap);
-    const buffer = Buffer.allocUnsafe(wanted);
-    handle = openSync(absolute, 'r');
-    let filled = 0;
-    while (filled < wanted) {
-      const read = readSync(handle, buffer, filled, wanted - filled, filled);
-      // **The one branch in this module no test reaches, and it is stated rather than excused.** A regular file returns
-      // everything it was asked for; a short read here means the file shrank between the `stat` and the `read`, which
-      // is a race with another process and not a case a fixture can construct. It stays because without it a file that
-      // *did* shrink would spin the loop forever, and an unreachable guard against an unbounded loop is cheaper than
-      // the alternative.
-      if (read === 0) break;
-      filled += read;
-    }
-    return buffer.subarray(0, filled).toString('utf8');
-  } catch {
-    return null;
-  } finally {
-    if (handle !== null) closeSync(handle);
-  }
 }
 
 /** Options for {@link buildTermIndex}. **Stated at the call site so the artifact can print them.** */
@@ -272,7 +131,7 @@ export function buildTermIndex(
       skippedFiles += 1;
       continue;
     }
-    const text = readPrefix(join(checkout, path), cap);
+    const text = readHead(join(checkout, path), cap);
     if (text === null) {
       unreadableFiles += 1;
       continue;
@@ -306,9 +165,7 @@ function bm25Score(
 ): number {
   const frequency = document.termFrequency.get(term);
   if (frequency === undefined) return 0;
-  const normaliser =
-    BM25_K1 * (1 - BM25_B + (BM25_B * document.length) / Math.max(averageLength, 1));
-  return (idf * (frequency * (BM25_K1 + 1))) / (frequency + normaliser);
+  return bm25Weight(frequency, document.length, idf, averageLength);
 }
 
 /**
@@ -326,13 +183,12 @@ export function rankBm25(index: TermIndex, query: string, limit: number): string
   const terms = [...new Set(tokenize(query))];
   if (terms.length === 0 || index.documents.length === 0) return [];
   const total = index.documents.length;
-  const weighted = terms.map((term) => {
-    const frequency = index.documentFrequency.get(term) ?? 0;
-    // **The BM25+ style smoothed inverse document frequency**, which stays positive for a term in every document:
-    // `ln(1 + (N - df + 0.5) / (df + 0.5))` is never negative, and a negative weight would let a matching term push a
-    // file down the list.
-    return { term, idf: Math.log(1 + (total - frequency + 0.5) / (frequency + 0.5)) };
-  });
+  // **The BM25+ style smoothed inverse document frequency**, shared with the fallback: it stays positive for a term in
+  // every document, and a negative weight would let a matching term push a file down the list.
+  const weighted = terms.map((term) => ({
+    term,
+    idf: bm25Idf(index.documentFrequency.get(term) ?? 0, total),
+  }));
 
   return rankScored(
     index,
@@ -368,28 +224,6 @@ function rankScored(
     left.score === right.score ? left.path.localeCompare(right.path) : right.score - left.score,
   );
   return scored.slice(0, Math.max(0, limit)).map((entry) => entry.path);
-}
-
-/**
- * The smoothed inverse document frequency of TF-IDF: `ln((1 + N) / (1 + df)) + 1`.
- *
- * **Smoothed for the same reason BM25's is**: a term that appears in every document must weigh something rather than
- * nothing, and a weight of zero would make a whole class of matches invisible instead of weak.
- */
-function tfidfIdf(documentFrequency: number, total: number): number {
-  return Math.log((1 + total) / (1 + documentFrequency)) + 1;
-}
-
-/**
- * The term's weight in one document: **sublinear** term frequency times the smoothed idf.
- *
- * **`1 + ln(tf)` rather than `tf`**, because a file that mentions a word forty times is not forty times more about it -
- * the same reason BM25 saturates, arrived at without a parameter. And **the document vector is L2 normalised** by
- * {@link rankTfidf} rather than by a length parameter, which is the other half of what makes this a different weighting
- * and not a different configuration of the same one.
- */
-function tfidfWeight(frequency: number, idf: number): number {
-  return (1 + Math.log(frequency)) * idf;
 }
 
 /**
@@ -441,7 +275,7 @@ export function rankTfidf(index: TermIndex, query: string, limit: number): strin
       }
       // **`normSquared` needs no zero guard**: a non-zero dot product means the document holds a query term, which means
       // it holds at least one term, which means its norm is positive. A guard there would be a branch no fixture can
-      // reach and the coverage report would have to excuse - the same reason `readPrefix` states its own.
+      // reach and the coverage report would have to excuse - the same reason `readHead` states its own.
       if (dot === 0) return 0;
       return dot / (Math.sqrt(normSquared) * queryNorm);
     },

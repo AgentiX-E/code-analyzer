@@ -387,6 +387,96 @@ function main() {
     );
   }
 
+  // **The eighth invariant: the fallback, which is the only column with a figure on every attempted instance.**
+  //
+  // The comparison this artifact publishes is a mean over a sample, and the sample is what the bounds let through. A
+  // fallback that ranks a file by its path and its imports needs no analysis, so it produces a ranking on the instances
+  // the analysis refused - **which makes its denominator the run rather than the rankings**, and that is the property
+  // the gate has to hold it to. A fallback block whose `overall.rows` were smaller than its `coverage.rows` would be a
+  // second mean over a favourable subset wearing the name of a mean over the protocol.
+  //
+  // **Per row as well**, and the rule is stated in the direction that is hard on us: an instance that had an answer
+  // space to rank but carries no fallback figure is a hole the mean would not show.
+  const fallbackBlock = at(record, ['fallback']);
+  const fallbackCoverage = at(record, ['fallback', 'coverage']);
+  const fallbackOverall = at(record, ['fallback', 'overall']);
+  guard(
+    fallbackBlock !== null &&
+      typeof fallbackBlock?.configuration?.document === 'string' &&
+      typeof fallbackCoverage?.rows === 'number' &&
+      fallbackCoverage.rows > 0,
+    'fallback: absent, empty, or silent about the document it ranks - a fallback described as "path and imports" ' +
+      'without saying what a document is is a name rather than a method',
+  );
+  guard(
+    fallbackOverall?.rows === fallbackCoverage?.rows,
+    `fallback: overall is a mean over ${String(fallbackOverall?.rows)} rows while coverage claims ` +
+      `${String(fallbackCoverage?.rows)} - a mean over fewer rows than it claims is a favourable subset`,
+  );
+  guard(
+    typeof fallbackCoverage?.rows === 'number' &&
+      typeof sample?.measured === 'number' &&
+      fallbackCoverage.rows >= sample.measured,
+    `fallback: ${String(fallbackCoverage?.rows)} rows against ${String(sample?.measured)} measured - the fallback ` +
+      'exists on the instances the analysis refused, so its coverage cannot be the measured count',
+  );
+  let rowsWithAnswerSpace = 0;
+  let rowsWithoutFallback = 0;
+  let rowsWithFallback = 0;
+  for (const row of rowsOf) {
+    if (typeof row?.fallbackMap === 'number') rowsWithFallback += 1;
+    if (typeof row?.corpusFiles !== 'number' || row.corpusFiles <= 0) continue;
+    rowsWithAnswerSpace += 1;
+    if (typeof row?.fallbackMap !== 'number') rowsWithoutFallback += 1;
+  }
+  guard(
+    rowsWithoutFallback === 0,
+    `rows: ${String(rowsWithoutFallback)} of ${String(rowsWithAnswerSpace)} rows had an answer space and no fallback ` +
+      'figure - the one column with full coverage is the one a hole is least visible in',
+  );
+  guard(
+    fallbackCoverage?.rows === rowsWithFallback,
+    `fallback: coverage claims ${String(fallbackCoverage?.rows)} rows against the ${String(rowsWithFallback)} rows ` +
+      'that carry a fallback figure - the two must be the same count, or the coverage is a claim',
+  );
+  const fallbackVsOurs = at(record, ['fallback', 'pairedVsOurs']);
+  guard(
+    typeof fallbackVsOurs?.rows === 'number' && fallbackVsOurs.rows === paired?.rows,
+    `fallback.pairedVsOurs: ${String(fallbackVsOurs?.rows)} rows against ${String(paired?.rows)} on the figure - the ` +
+      'mechanism test has to be over the instances both instruments ranked',
+  );
+
+  // **The ninth invariant: no band may publish two means over two samples on one line.**
+  //
+  // The per-language table was repaired for exactly this in iteration 73 and the per-band table was left as it was:
+  // `stratified` printed our mean over the rows we measured beside the control's over every row of the band, refused
+  // rows included. A band is where that subtraction looks most innocent, because the two numbers sit in one row and the
+  // bands are what a reader uses to decide whether the sample is easier. So every band now carries a **paired** object
+  // with its own row count, and the gate requires the delta to be the difference of the means beside it.
+  const strata = Array.isArray(at(record, ['stratified'])) ? at(record, ['stratified']) : [];
+  for (const stratum of strata) {
+    const label = String(stratum?.label);
+    const vsBm25 = stratum?.vsBm25;
+    if (typeof stratum?.measured === 'number' && stratum.measured > 0) {
+      guard(
+        vsBm25?.rows === stratum.measured,
+        `stratified.${label}: ${String(vsBm25?.rows)} paired rows against ${String(stratum.measured)} measured - the ` +
+          'control ran on every measured row, so a gap is a row the band dropped',
+      );
+    }
+    if (typeof vsBm25?.delta !== 'number') continue;
+    guard(
+      Math.abs(vsBm25.delta - (vsBm25.ours - vsBm25.control)) < 1e-3,
+      `stratified.${label}: delta ${String(vsBm25.delta)} is not ours minus control on the paired rows ` +
+        `(${String(vsBm25.ours)} - ${String(vsBm25.control)})`,
+    );
+    guard(
+      typeof stratum?.fallbackRows === 'number' && stratum.fallbackRows >= stratum.measured,
+      `stratified.${label}: ${String(stratum?.fallbackRows)} fallback rows against ${String(stratum?.measured)} ` +
+        'measured - a band where the fallback covered less than the analysis did',
+    );
+  }
+
   const sampleLine =
     typeof sample?.measured === 'number'
       ? `| sample | ${String(sample.measured)} measured of ${String(sample.attempted)} attempted of ` +
@@ -422,7 +512,26 @@ function main() {
   const failures = [...invariants];
   rows.push(fitLine.line);
   if (fitLine.failure) failures.push(fitLine.failure);
-  rows.push(sampleLine, pairedLine, crossPairedLine, diagnosisLine);
+  const fallbackLine =
+    typeof fallbackOverall?.value === 'number'
+      ? `| fallback: path + imports | ${fallbackOverall.value.toFixed(4)} · ` +
+        `${String(fallbackCoverage?.rows)}/${String(sample?.attempted)} instances · vs ours ` +
+        `${typeof fallbackVsOurs?.delta === 'number' ? fallbackVsOurs.delta.toFixed(4) : 'none'} | ` +
+        `a figure on every attempted row | ${fallbackOverall?.rows === fallbackCoverage?.rows ? '✓' : '✗'} |`
+      : '| fallback: path + imports | not measured | a figure on every attempted row | ✗ |';
+  rows.push(sampleLine, pairedLine, crossPairedLine, diagnosisLine, fallbackLine);
+  for (const stratum of strata) {
+    const vsBm25 = stratum?.vsBm25 ?? {};
+    rows.push(
+      `| band: ${String(stratum?.label)} | ours ` +
+        `${typeof stratum?.ours === 'number' ? stratum.ours.toFixed(4) : 'none'} · BM25 ` +
+        `${typeof vsBm25.control === 'number' ? vsBm25.control.toFixed(4) : 'none'} · Δ ` +
+        `${typeof vsBm25.delta === 'number' ? vsBm25.delta.toFixed(4) : 'none'} · fallback ` +
+        `${typeof stratum?.fallback === 'number' ? stratum.fallback.toFixed(4) : 'none'} | ` +
+        `${String(stratum?.measured)} measured of ${String(stratum?.attempted)} attempted | ` +
+        `${typeof vsBm25.delta === 'number' || stratum?.measured === 0 ? '✓' : '✗'} |`,
+    );
+  }
   // **One line per reading of the pool**, because the block is a comparison and a comparison a reader cannot see is a
   // number with a name. The shipped arm is marked, since it is the control rather than a candidate - and a candidate
   // that loses is a ✓ here, because losing is a finding rather than a failure of the gate.
