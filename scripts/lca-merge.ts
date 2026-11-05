@@ -27,8 +27,10 @@ import { combineParts, costModels } from '../packages/intelligence/src/benchmark
 import {
   BOOTSTRAP_RESAMPLES,
   BOOTSTRAP_SEED,
+  pairedByLanguage,
   pairedComparison,
   publishedRank,
+  rankDiagnosis,
   sampleCoverage,
   standardisedMap,
   stratify,
@@ -175,23 +177,21 @@ function main(): void {
   const controlRows = allRows
     .map((row) => row.bm25?.map)
     .filter((value): value is number => typeof value === 'number');
+  // **One pair of means per language, over one set of rows.** This used to take ours over the measured rows and the
+  // control's over every row that carried one, refused rows included - and refused rows are the large repositories,
+  // which are the ones the control scores worst on. The Java leg of iteration 71 published **a 0.0037 win** from that
+  // subtraction; over the same rows it is **a 0.102 loss**. `pairedByLanguage` is the repair, and the two figures it
+  // returns are subtracted by the code rather than by the reader.
+  const pairing = pairedByLanguage(parts);
   const controlByLanguage = Object.fromEntries(
-    parts.map((part) => {
-      const values = part.rows
-        .map((row) => row.bm25?.map)
-        .filter((value): value is number => typeof value === 'number');
-      const ours = part.rows.filter((row) => row.skipped === null).map((row) => row.map);
-      return [
-        part.config,
-        {
-          rows: values.length,
-          map: values.length === 0 ? null : mean(values),
-          ours: ours.length === 0 ? null : mean(ours),
-          oursRows: ours.length,
-        },
-      ];
-    }),
+    pairing.map((entry) => [
+      entry.config,
+      { rows: entry.rows, map: entry.control, ours: entry.ours, delta: entry.delta },
+    ]),
   );
+  // **Whether a small figure is a ranking problem or a missing answer.** Published for the same intersection the
+  // pairing uses, because the two defects need different repairs and a MAP column reports them identically.
+  const diagnosis = rankDiagnosis(allRows);
   const worst = worstCaseMap(allRows);
   // **Our mean restricted to the rows the control also scored**, because a paired difference printed beside an unpaired
   // mean invites the reader to subtract two numbers measured on different sets.
@@ -355,6 +355,7 @@ function main(): void {
      * for a bounded, skewed, twenty-four-point sample that no t-test should be pointed at.
      */
     paired,
+    diagnosis,
     /** The same comparison, split by how large a repository the instance was. **This is the table that answers
      * "is our sample easier than theirs".** */
     stratified: strata,
@@ -386,6 +387,10 @@ function main(): void {
         offered: row.offered,
         outside: row.outside,
         offeredPaths: row.offeredPaths,
+        /** Where the first fixing file sits in our list, and in the control's. **One number each, same instance.** */
+        answerRank: row.answerRank,
+        bm25Rank: row.bm25 === null ? null : row.bm25.rank,
+        bm25Top: row.bm25 === null ? null : row.bm25.ranked,
         corpusBytes: row.corpusBytes,
         corpusUnreadable: row.corpusUnreadable,
         checkoutBytes: row.checkoutBytes,
@@ -430,6 +435,24 @@ function main(): void {
         `bestPublished=${best.name}@${String(best.map)} of=${String(PUBLISHED_BASELINES.rows.length)}`,
     );
   }
+  // **The per-language pairing and the rank diagnosis on their own lines**, because these are the two figures the next
+  // iteration is planned from: a language whose paired delta is negative has a ranking defect, and a language whose
+  // medians are both deep has a corpus the text does not reach.
+  for (const entry of pairing) {
+    console.log(
+      `LCA-PAIR ${entry.config} rows=${String(entry.rows)} ` +
+        `ours=${entry.ours === null ? 'none' : entry.ours.toFixed(4)} ` +
+        `control=${entry.control === null ? 'none' : entry.control.toFixed(4)} ` +
+        `delta=${entry.delta === null ? 'none' : entry.delta.toFixed(4)}`,
+    );
+  }
+  console.log(
+    `LCA-RANK rows=${String(diagnosis.rows)} oursFound=${String(diagnosis.oursFound)} ` +
+      `controlFound=${String(diagnosis.controlFound)} oursFirst=${String(diagnosis.oursFirst)} ` +
+      `controlFirst=${String(diagnosis.controlFirst)} ` +
+      `oursMedian=${diagnosis.oursMedian === null ? 'none' : String(diagnosis.oursMedian)} ` +
+      `controlMedian=${diagnosis.controlMedian === null ? 'none' : String(diagnosis.controlMedian)}`,
+  );
   // **The cost model on its own line**, because a fit nobody reads is a fit nobody can act on: the slope, the residual
   // that says whether the ceiling can be trusted, and the spread that condemns the constant.
   for (const [name, fit] of [

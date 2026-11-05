@@ -488,6 +488,28 @@ export function averagePrecision(
   return sum / relevant.size;
 }
 
+/**
+ * Where the first answer sits in a ranking, counting from one, or `null` when the ranking does not contain one.
+ *
+ * **Average precision already says the rank, but not which way to repair it.** A row that scores 0.03 because the answer
+ * is at position 31 and a row that scores 0.03 because six of eight answers are missing are the same number and
+ * different defects, and a report that publishes only MAP invites the reader to treat them as one. Measured side by
+ * side with the control's own rank, this is the column that says **the ranking is the problem rather than the corpus**.
+ */
+export function firstRelevantRank(
+  ranked: readonly string[],
+  expected: readonly string[],
+): number | null {
+  const relevant = new Set(expected);
+  if (relevant.size === 0) return null;
+  for (let index = 0; index < ranked.length; index += 1) {
+    const file = ranked[index];
+    if (file === undefined) return null;
+    if (relevant.has(file)) return index + 1;
+  }
+  return null;
+}
+
 /** Mean of a numeric field over the rows that produced one. **Rounded to four places, as the corpus's tables are.** */
 export function mean(values: number[]): number {
   if (values.length === 0) return 0;

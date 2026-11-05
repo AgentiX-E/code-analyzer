@@ -91,6 +91,13 @@ export async function retrieveContext(
   let compacted = rankCandidates(
     fused.map((hit) => ({ node: hit.node, score: hit.combinedScore })),
   );
+
+  // **A directory is a node, and it is not a file.** The graph holds one per directory with the directory as its path,
+  // and a question that matches the directory's name ranks it: measured on `netflix/dgs-framework` over the Long Code
+  // Arena corpus, **three of the first ten entries were directories**. Nothing downstream can repair that - a slot
+  // spent on a directory is a position the answer lost, and the answer arm spends a prompt block on a name no reader
+  // can open - so the exclusion belongs where the candidates are made rather than in each consumer.
+  compacted = compacted.filter((candidate) => candidate.node.label !== 'Folder');
   let rerankApplied = false;
   let rerankReason: string | null = null;
 

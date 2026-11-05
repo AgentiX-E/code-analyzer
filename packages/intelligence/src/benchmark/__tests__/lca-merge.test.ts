@@ -46,6 +46,7 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     expectedOutside: 0,
     offered: 10,
     outside: 0,
+    answerRank: 1,
     offeredPaths: [],
     corpusBytes: 1_000,
     corpusUnreadable: 0,

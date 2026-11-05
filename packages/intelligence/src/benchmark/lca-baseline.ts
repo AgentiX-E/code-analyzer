@@ -26,7 +26,7 @@
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { averagePrecision } from './lca-instrument.js';
+import { averagePrecision, firstRelevantRank } from './lca-instrument.js';
 
 /** The rank-frequency saturation the BM25 literature fixes at 1.2 for short documents. **Stated, not tuned.** */
 export const BM25_K1 = 1.2;
@@ -336,6 +336,14 @@ export function rankBm25(index: Bm25Index, query: string, limit: number): string
 export interface Bm25Result {
   /** Average precision against the fixing commit, over the same depth the product's MAP column reads. */
   readonly map: number;
+  /**
+   * Where the first fixing file sits in the control's ranking, counting from one, or `null` when it is not there.
+   *
+   * **The column that separates two kinds of zero.** The product's own `answerRank` is published beside it, and a row
+   * where the control's rank is 1 and ours is 31 is a ranking defect while a row where both are `null` is a corpus the
+   * text cannot reach. MAP alone reports both as the same small number.
+   */
+  readonly rank: number | null;
   /** How many documents the index held. */
   readonly documents: number;
   /** Files the caps kept out of the index. */
@@ -365,6 +373,7 @@ export function bm25Map(input: {
   const ranked = rankBm25(index, input.query, input.depth);
   return {
     map: averagePrecision(ranked, input.expected, input.depth),
+    rank: firstRelevantRank(ranked, input.expected),
     documents: index.documents.length,
     skippedFiles: index.skippedFiles,
     unreadableFiles: index.unreadableFiles,

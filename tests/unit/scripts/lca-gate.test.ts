@@ -79,6 +79,18 @@ function baseRecord(): Record<string, unknown> {
     baseline: {
       name: 'BM25',
       overall: { rows: 3, map: 0.22, oursPaired: 0.4, oursPairedRows: 2 },
+      byLanguage: {
+        kt: { rows: 2, map: 0.22, ours: 0.4, delta: 0.18 },
+      },
+    },
+    diagnosis: {
+      rows: 2,
+      oursFound: 2,
+      controlFound: 2,
+      oursFirst: 1,
+      controlFirst: 2,
+      oursMedian: 2,
+      controlMedian: 1,
     },
     paired: {
       rows: 2,
@@ -161,6 +173,44 @@ describe('lca gate', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('paired');
+  });
+
+  it('refuses a per-language delta that is not the difference of the two means beside it', () => {
+    // **The defect of iteration 71 stated as an invariant.** The Java leg printed a 0.0037 win because our mean and the
+    // control's were averaged over different rows; a reader subtracts what is on the line, so the line has to add up.
+    const run = runGate(
+      mutated((record) => {
+        const languages = (record['baseline'] as Record<string, unknown>)['byLanguage'] as Record<
+          string,
+          Record<string, unknown>
+        >;
+        languages['kt']!['delta'] = 0.01;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('byLanguage');
+  });
+
+  it('refuses a rank diagnosis computed over more rows than the pairing', () => {
+    // **Two figures about the same instances have to be about the same instances.** The diagnosis says which defect a
+    // low MAP means, and one computed over a wider sample would be describing a different one.
+    const run = runGate(
+      mutated((record) => {
+        (record['diagnosis'] as Record<string, unknown>)['rows'] = 3;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('diagnosis');
+  });
+
+  it('refuses a diagnosis that found the answer in more rows than exist', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['diagnosis'] as Record<string, unknown>)['oursFound'] = 9;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('diagnosis');
   });
 
   it('refuses a record with no stratification', () => {

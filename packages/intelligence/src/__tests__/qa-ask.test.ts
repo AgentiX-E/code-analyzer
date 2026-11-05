@@ -197,6 +197,47 @@ describe('retrieveContext', () => {
     expect(new Set(context.rankedFiles).size).toBe(context.rankedFiles.length);
   });
 
+  it('never ranks a directory as a file', async () => {
+    // **A folder is a node and a directory is not a file.** The graph holds one per directory, its `filePath` is the
+    // directory, and a query that matches the directory's name put it in the ranking - measured on
+    // `netflix/dgs-framework`, three of the first ten entries were directories. **Nothing downstream can filter it
+    // usefully**: a slot spent on a directory is a position the answer lost, and the answer arm spends a prompt block
+    // on a name no reader can open.
+    const store = new InMemoryGraphStore();
+    const ids: Record<string, number> = {};
+    const add = (key: string, label: string, name: string, file: string, body: string): void => {
+      ids[key] = store.insertNode({
+        projectId: 'qa',
+        label,
+        name,
+        qualifiedName: `${label.toLowerCase()}:${file}`,
+        filePath: file,
+        startLine: 1,
+        endLine: 3,
+        language: 'python',
+        properties: { name, body },
+        signature: null,
+        complexity: null,
+        isExported: false,
+      } as never);
+    };
+    add('folder', 'Folder', 'token', '/repo/token', '');
+    add(
+      'file',
+      'Function',
+      'parse_token',
+      '/repo/auth.py',
+      'def parse_token(raw):\n  return raw\n',
+    );
+
+    const search = new HybridSearchEngine(store);
+    search.initialize();
+    const context = await retrieveContext({ question: 'token', store, search });
+
+    expect(context.rankedFiles).toEqual(['/repo/auth.py']);
+    expect(context.blocks.every((block) => block.label !== 'Folder')).toBe(true);
+  });
+
   it('records that no rerank happened when there is no provider', async () => {
     const { store, search } = buildFixture();
     const result = await retrieveContext({ question: 'parse token', store, search });

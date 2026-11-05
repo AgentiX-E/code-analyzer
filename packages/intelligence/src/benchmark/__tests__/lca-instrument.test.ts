@@ -30,6 +30,7 @@ import {
   corpusBytes,
   corpusFiles,
   decideInstance,
+  firstRelevantRank,
   dedupePreservingOrder,
   isTestPath,
   lcaQualityMetrics,
@@ -594,5 +595,30 @@ describe('averagePrecision', () => {
   it('answers zero for an empty ranking and for a depth of zero', () => {
     expect(averagePrecision([], ['a'], 200)).toBe(0);
     expect(averagePrecision(['a'], ['a'], 0)).toBe(0);
+  });
+});
+
+describe('firstRelevantRank', () => {
+  it('counts from one, because a rank is a position and not an offset', () => {
+    expect(firstRelevantRank(['a', 'b', 'c'], ['c'])).toBe(3);
+  });
+
+  it('is one when the answer leads', () => {
+    expect(firstRelevantRank(['a', 'b'], ['a'])).toBe(1);
+  });
+
+  it('answers null when the ranking never reaches an answer', () => {
+    // **The difference this function exists to express**: a list that does not contain the answer and a list that
+    // contains it in last place are both "a low average precision", and only one of them is a ranking problem.
+    expect(firstRelevantRank(['a', 'b'], ['c'])).toBeNull();
+  });
+
+  it('answers null for an empty ranking or an instance with no relevant file', () => {
+    expect(firstRelevantRank([], ['a'])).toBeNull();
+    expect(firstRelevantRank(['a'], [])).toBeNull();
+  });
+
+  it('takes the earliest of several answers', () => {
+    expect(firstRelevantRank(['a', 'b', 'c', 'd'], ['d', 'b'])).toBe(2);
   });
 });

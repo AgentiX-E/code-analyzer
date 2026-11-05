@@ -186,16 +186,26 @@ published beside the control:
 p = 0.0003.** Plain BM25 — no parser, no graph, no model — beats the product on the same files of the same repositories.
 That is the figure this project now optimises against, and it is published in the artifact as `paired`.
 
-| split  | measured | MAP        | BM25       |
-| ------ | -------- | ---------- | ---------- |
-| Python | 34 / 50  | **0.4629** | 0.4571     |
-| Java   | 30 / 50  | **0.4097** | 0.4060     |
-| Kotlin | 38 / 50  | **0.3228** | **0.4127** |
+| split  | measured | MAP        | BM25, same rows | Δ           |
+| ------ | -------- | ---------- | --------------- | ----------- |
+| Python | 34 / 50  | **0.4629** | 0.4553          | **+0.0076** |
+| Java   | 30 / 50  | 0.4097     | **0.5115**      | **−0.1018** |
+| Kotlin | 38 / 50  | 0.3228     | **0.4428**      | **−0.1200** |
 
-**The gap is one language.** The product beats the control on Python by 0.0058 and on Java by 0.0037, and loses to it on
-Kotlin by **0.0899**. A single combined figure averages a narrow win and a large loss into a moderate loss, which is why
-the split is published beside it. **Kotlin is the next iteration's target, and the reason is now a number rather than an
-impression.**
+**The gap is two languages, and the earlier version of this table said one because its columns were not averaged over
+the same rows.** The per-language pair used to take ours over the rows the child measured and the control's over every
+row that carried one — refused rows included, and refused rows are the large repositories where the control scores
+worst. Two means over two different samples were printed on one line, and subtracting them produced a **0.0037 Java
+win** that does not survive the same-rows comparison: on the 30 instances both lists were computed on, Java is a
+**0.1018 loss**. The repair is `pairedByLanguage` in `lca-sample.ts`, the merge publishes `delta` rather than leaving
+the subtraction to the reader, and `scripts/lca-gate.js` now refuses a record whose `delta` is not `ours − control`.
+
+**And the two losses have different causes, which the artifact now states as two numbers.** `diagnosis` in the artifact
+counts, over the same intersection, how often each list contains at least one fixing file and how deep the first one
+sits. The answers are in **both** lists: our median first-answer position is deeper than the control's, and the rows
+where we score near zero while the control scores 1.000 are ranking failures rather than retrieval failures —
+`netflix/dgs-framework` has every expected file in our list and none of them first. **A retriever that finds the answer
+at position 31 is a ranking defect, and this iteration's job was to make that visible instead of inferred.**
 
 **The sample, stated rather than implied.** 150 instances were intended, 141 reached, 102 measured, 39 refused, 9 never
 reached — so **68.0 % of the protocol**. Every refusal carries its sentence in `sample.refusals`: fifteen the 2 000-file
@@ -206,20 +216,38 @@ eight 2 000+-file instances against **0.6897** on the smallest, so the bounds re
 do worst. The mean reweighted to the attempted population is **0.4046** against a raw **0.3951**, over 94.4 % of the
 weight, and the floor with every refusal scored zero is **0.2858**.
 
-**Two defects this corpus found in its own instrument, both now fixed.** The retrieval arm was scored on
+**One defect this corpus found in its instrument, and one change it refused.** The refused change is the interesting
+one. Roughly half of every Kotlin checkout — **98 candidate files over 184 corpus files** — never entered our candidate
+list at all, because a document is indexed through a declaration's name, path, signature and body and a file whose only
+match is an import or a top-level comment produces none of them; the control reads whole files. The obvious repair is to
+index each File node's own text, and it was built, tested and **rejected on measurement**: on the frozen paraphrase
+corpus the same change took **recall@20 from a floor of 0.45 to 0.2626**, and on the questions that share no name word
+from 0.15 to 0.0426, because a whole-file document contains every term of a question and outranks the one declaration
+that answers it. The blind spot is real and is recorded here rather than papered over; what it is worth is bounded by
+`diagnosis`, which says the Kotlin losses are ranking failures — the answers are in the list — so a visibility fix would
+not have paid for what it cost.
+
+**Three defects this corpus found in its own instrument, all now fixed.** The retrieval arm was scored on
 `retrievedFiles` — the files of the blocks that survived a **prompt** budget of forty — so `offered` averaged **6.61** before that fix and **50.95** after it
 against a retrieval depth of 200; `retrieveContext` now returns `rankedFiles`, the fused ranking before any budget, and
 the Kotlin split's `offered` went from **5.21 to 53.74** and its MAP from **0.2670 to 0.3228** on the same instances,
 and Java's from **9.00 to 50.70** and **0.3612 to 0.4097**.
-And `comparison.rank` held the _number of rows beaten_ under the name of a _position_; it is `publishedRank` in
-`lca-sample.ts` now, with a table of known size in its tests.
-Four things about this corpus are worth stating plainly rather than leaving to a footnote:
+`comparison.rank` held the _number of rows beaten_ under the name of a _position_; it is `publishedRank` in
+`lca-sample.ts` now, with a table of known size in its tests. And the per-language pair compared two different row sets,
+which is the 0.0037 Java win above. Four things about this corpus are worth stating plainly rather than leaving to a
+footnote:
 
 1. **It showed that the product reports absolute paths while every corpus records repository-relative ones.** The
    conversion lives in `packages/intelligence/src/benchmark/lca-instrument.ts` with its own tests, and the acceptance
    suite asserts both coordinate systems, because a measurement that assumes one form silently scores zero.
 2. **The retrieval arm needs no model** — it is the fused list cut at k — so its figure is a property of the retriever
-   and is reproducible to the digit. The model's arm (`LCA_ANSWER_ARM=1`) is reported separately and has not been run
+   and is reproducible to the digit. **That sentence was false until this iteration, in a way the corpus could not see
+   and an end-to-end case caught**: a file's `name` field and a symbol's embedding text both carried the _absolute_
+   path, so the same repository analysed at two checkout paths indexed two different vocabularies and ranked its files
+   in two different orders. The names are the file's own now and an embedding is built from the path **relative to the
+   checkout**, which keeps the topical directories the paraphrase corpus measured as worth 9.1 points of recall@20 and
+   drops the runner's. `tests/e2e/issue-to-ranked-files.test.ts` asserts the property through the MCP tool: two
+   checkouts, one ranking. The model's arm (`LCA_ANSWER_ARM=1`) is reported separately and has not been run
    at scale, so the comparison to the chat baselines is a comparison of two different amounts of context.
 3. **It is measured one instance per process, because the first eleven architectures produced no figure at all.** Each
    dispatch ended in a runner shutdown signal and `exit 143`. The cause was measured on four real checkouts rather than

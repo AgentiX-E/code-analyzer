@@ -170,6 +170,14 @@ describe('ParallelScanPhase', () => {
       // Nodes should include File entries
       const fileNodes = [...graph.nodes.values()].filter((n) => n.label === 'File');
       expect(fileNodes.length).toBeGreaterThan(0);
+
+      // **A file's name is its own name, not where the repository happens to live.** The node is added with the path as
+      // its identity and the basename as its name, and the two were passed in each other's place: every File node in
+      // every graph carried `/home/runner/work/...` in the `name` field, which is the field a search index weighs most.
+      for (const node of fileNodes) {
+        expect(node.name).toBe(basename(node.filePath ?? ''));
+        expect(node.name.includes('/')).toBe(false);
+      }
     });
   });
 

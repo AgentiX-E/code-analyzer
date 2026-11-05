@@ -20,6 +20,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   averagePrecision,
   checkoutBytes,
+  firstRelevantRank,
   corpusBytes,
   dedupePreservingOrder,
   lcaQualityMetrics,
@@ -209,6 +210,10 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     expectedFiles: input.row.changed_files.length,
     expectedOutside: input.row.changed_files.filter((file) => !universe.has(file)).length,
     offered: candidates.length,
+    // **Where the answer actually sits**, on the same list and to the same depth as the MAP column, so that a row whose
+    // figure is small because the ranking is bad can be told from one whose figure is small because the answer is not
+    // in the text at all. The control's own rank is published beside it by the orchestrator.
+    answerRank: firstRelevantRank(candidates.slice(0, MAP_DEPTH), input.row.changed_files),
     outside: outsideUniverse(offeredRaw, universe),
     offeredPaths: offeredRaw.slice(0, 10),
     corpusBytes: size.bytes,

@@ -65,10 +65,13 @@ export class ScanPhase implements ExecutablePhase {
           for (const dir of dirs) {
             folderPath = join(folderPath, dir);
             if (!ctx.graph.fileIndex.has(folderPath)) {
+              // **A folder's name is the folder's, not the path to it.** The node's identity is the absolute path in
+              // `qualifiedName`; the `name` field is what a search index weighs, and passing the path there put the
+              // checkout's directory names into the vocabulary of every analysis.
               builder.addNode(
                 ctx.graph,
                 'Folder',
-                folderPath,
+                dir,
                 {
                   name: dir,
                   filePath: folderPath,
@@ -97,10 +100,16 @@ export class ScanPhase implements ExecutablePhase {
           }
 
           // Create File node
+          //
+          // **The name is the file's, and it used to be the machine's.** `addNode` takes the name as its own argument
+          // and this call passed `file.filePath` for it while the properties carried `basename(...)`, so a File node
+          // held `/home/runner/work/<repo>/...` in the field the search index weighs most. The same mistake was in
+          // `parallel-phases.ts`; both are fixed, and the end-to-end case in `tests/e2e/issue-to-ranked-files.test.ts`
+          // asserts that moving a checkout does not change a ranking.
           const fileNode = builder.addNode(
             ctx.graph,
             'File',
-            file.filePath,
+            basename(file.filePath),
             {
               name: basename(file.filePath),
               filePath: file.filePath,

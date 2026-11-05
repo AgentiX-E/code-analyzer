@@ -209,6 +209,37 @@ function main() {
     Array.isArray(at(record, ['stratified'])) && at(record, ['stratified']).length > 0,
     'stratified: absent - the sample’s difficulty cannot be read without it',
   );
+
+  // **The fourth and fifth invariants, and the reason they are equalities too.**
+  //
+  // `baseline.byLanguage` used to print our mean and the control's from two different row sets - ours over the measured
+  // rows, the control's over every row that carried one - so the Java leg published a 0.0037 win that was the
+  // denominators rather than the ranking. A per-language pair is a subtraction a reader will perform, so the gate
+  // requires that the two means were averaged over the same rows and that the delta is what they give.
+  //
+  // And `diagnosis` is a count over that same intersection: a diagnosis over more rows than the pairing would be a
+  // statement about a sample the figure it diagnoses was not computed on.
+  const diagnosis = at(record, ['diagnosis']);
+  const byLanguage = at(record, ['baseline', 'byLanguage']);
+  guard(
+    typeof diagnosis?.rows === 'number' && diagnosis.rows === paired?.rows,
+    `diagnosis: ${String(diagnosis?.rows)} rows against ${String(paired?.rows)} paired - the rank diagnosis and the ` +
+      'paired comparison must be about the same instances',
+  );
+  guard(
+    typeof diagnosis?.oursFound === 'number' &&
+      typeof diagnosis?.rows === 'number' &&
+      diagnosis.oursFound <= diagnosis.rows,
+    'diagnosis: more rows contain the answer than there are rows',
+  );
+  for (const [config, entry] of Object.entries(byLanguage ?? {})) {
+    if (typeof entry?.rows !== 'number' || typeof entry?.delta !== 'number') continue;
+    guard(
+      Math.abs(entry.delta - (entry.ours - entry.map)) < 1e-4,
+      `baseline.byLanguage.${config}: delta ${String(entry.delta)} is not ours minus control ` +
+        `(${String(entry.ours)} - ${String(entry.map)})`,
+    );
+  }
   const sampleLine =
     typeof sample?.measured === 'number'
       ? `| sample | ${String(sample.measured)} measured of ${String(sample.attempted)} attempted of ` +
@@ -225,11 +256,19 @@ function main() {
         `${paired.rows === sample?.measured ? '✓' : '✗'} |`
       : '| paired vs BM25 | not measured | every measured row paired | ✗ |';
 
+  const diagnosisLine =
+    typeof diagnosis?.rows === 'number'
+      ? `| answer rank | ours ${String(diagnosis.oursFound)}/${String(diagnosis.rows)} found · median ` +
+        `${String(diagnosis.oursMedian ?? 'none')} · first ${String(diagnosis.oursFirst)} | BM25 ` +
+        `${String(diagnosis.controlFound)}/${String(diagnosis.rows)} found · median ` +
+        `${String(diagnosis.controlMedian ?? 'none')} · first ${String(diagnosis.controlFirst)} | ` +
+        `${diagnosis.rows === paired?.rows ? '✓' : '✗'} |`
+      : '| answer rank | absent | same rows as the pairing | ✗ |';
   const rows = [];
   const failures = [...invariants];
   rows.push(fitLine.line);
   if (fitLine.failure) failures.push(fitLine.failure);
-  rows.push(sampleLine, pairedLine);
+  rows.push(sampleLine, pairedLine, diagnosisLine);
   for (const [name, path, floor, ceiling, optional] of RULES) {
     const { row: line, failure } = row(name, at(record, path), floor, ceiling, optional);
     rows.push(line);

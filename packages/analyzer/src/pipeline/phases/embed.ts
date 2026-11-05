@@ -84,6 +84,18 @@ export interface EmbeddingTextOptions {
    * `paraphrase-search.test.ts` keeps the path-free composition as its control column.
    */
   includePath?: boolean;
+  /**
+   * The checkout the paths are relative to.
+   *
+   * **A vector is a property of the code, and a path is only half of one.** The directory names a symbol sits in are
+   * topical evidence — the comment above is a measurement that says so — but the prefix above the checkout is the
+   * machine's, and it is different on a laptop and a runner. With the deterministic hash backend that this repository
+   * actually runs, those prefix tokens are part of the text the vector is built from, so the same repository at two
+   * paths produced two different vectors: measured through the MCP search tool, two checkouts of one fixture ranked
+   * their files in two different orders. **Stated here rather than stripped inside the function**, because the caller
+   * is the only thing that knows where the checkout begins.
+   */
+  rootPath?: string;
 }
 
 /** The text one symbol's vector is built from. */
@@ -101,8 +113,19 @@ export function embeddingText(
 
   const textParts: string[] = [node.label, node.name];
   // **The path before the name**, so the topical signal is at the head of the string where a truncated input keeps it.
-  if (options.includePath !== false && node.filePath)
-    textParts.push(node.filePath.split('/').join(' '));
+  if (options.includePath !== false && node.filePath) {
+    const rootPath = options.rootPath;
+    const relative =
+      rootPath !== undefined && node.filePath.startsWith(`${rootPath}/`)
+        ? node.filePath.slice(rootPath.length + 1)
+        : node.filePath;
+    textParts.push(
+      relative
+        .split('/')
+        .filter((part) => part.length > 0)
+        .join(' '),
+    );
+  }
   const signature = node.properties.signature;
   if (signature) textParts.push(signature);
   // **The body before the doc comment**, because a question about behaviour is answered by what the code does - and
@@ -442,7 +465,9 @@ export class EmbedPhase implements ExecutablePhase {
         results: embeddings,
         backend,
         reason: backendReason,
-      } = await generateEmbeddings(ctx.graph.nodes, defaultEmbedderLoader);
+      } = await generateEmbeddings(ctx.graph.nodes, defaultEmbedderLoader, {
+        rootPath: ctx.rootPath,
+      });
 
       // Store embeddings in node properties, **with the name of the space they live in**.
       //

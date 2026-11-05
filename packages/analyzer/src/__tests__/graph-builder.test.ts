@@ -41,9 +41,14 @@ describe('GraphBuilder', () => {
       expect(projectNodes[0]!.name).toBe('test-project');
 
       // Check Folder node
+      //
+      // **The root folder is named after the directory, not after the route to it.** Its identity is the absolute path
+      // in `qualifiedName` and `filePath`; `name` is the field a search index weighs, and it used to hold the whole
+      // path - so two checkouts of one repository at two paths indexed two different vocabularies.
       const folderNodes = Array.from(graph.nodes.values()).filter((n) => n.label === 'Folder');
       expect(folderNodes).toHaveLength(1);
-      expect(folderNodes[0]!.name).toBe('/test/project');
+      expect(folderNodes[0]!.name).toBe('project');
+      expect(folderNodes[0]!.filePath).toBe('/test/project');
     });
 
     it('should create qname index for the project node', () => {

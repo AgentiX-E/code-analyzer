@@ -1,5 +1,7 @@
 // @code-analyzer/analyzer — Knowledge Graph Builder
 
+import { basename } from 'node:path';
+
 import { isDeclarationLabel, EDGE_CONTAINS } from '@code-analyzer/shared';
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -104,10 +106,13 @@ export class GraphBuilder {
     graph.qnameIndex.set(`project:${ctx.projectId}`, projectNode.id);
 
     // Add root path as a Folder node
+    // **The node is named after the directory it is, not after the route to it**, for the same reason every other
+    // node is: `qualifiedName` carries the location, and `name` is what a reader and a search index read. Two checkouts
+    // of one repository at two paths used to produce two different vocabularies because of this line.
     const rootFolder = this.createNode(
       'Folder',
-      ctx.rootPath,
-      { name: ctx.rootPath, filePath: ctx.rootPath },
+      basename(ctx.rootPath),
+      { name: basename(ctx.rootPath), filePath: ctx.rootPath },
       this.nextNodeId++,
     );
     graph.nodes.set(rootFolder.id, rootFolder);
@@ -318,7 +323,7 @@ export class GraphBuilder {
         const folderNode = this.addNode(
           graph,
           'Folder',
-          currentPath,
+          part,
           {
             name: part,
             filePath: currentPath,

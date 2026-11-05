@@ -181,6 +181,31 @@ describe("embeddingText — what one symbol's vector is built from", () => {
     expect(embeddingText(node, { includePath: false })).toBe('Function walk');
   });
 
+  it('keeps the topical directories and drops the machine prefix', () => {
+    // **A vector is a property of the code, not of where the checkout sits.** The path is the one field that carries
+    // the machine's own directory names into the text, and with the deterministic hash backend - which is the backend
+    // this repository actually runs, because the published ONNX package ships no model - every token of
+    // `/tmp/code-analyzer-issue-to-files/a-much-longer-directory-name/` is noise the vector is built from. Measured
+    // through the MCP tool: the same repository at two paths ranked its files in two different orders.
+    const { graph, builder } = buildGraph();
+    const node = builder.addNode(graph, 'Function', 'walk', { name: 'walk' });
+    node.filePath = '/home/runner/work/repo/repo/src/arkui/decorators.ts';
+
+    expect(embeddingText(node, { rootPath: '/home/runner/work/repo/repo' })).toBe(
+      'Function walk src arkui decorators.ts',
+    );
+  });
+
+  it('keeps the whole path when no root is given, or when the path is outside it', () => {
+    const { graph, builder } = buildGraph();
+    const node = builder.addNode(graph, 'Function', 'walk', { name: 'walk' });
+    node.filePath = '/elsewhere/src/walk.ts';
+
+    expect(embeddingText(node, { rootPath: '/home/runner/work/repo' })).toBe(
+      'Function walk elsewhere src walk.ts',
+    );
+  });
+
   it('bounds the body and the doc comment, and can be told the bound', () => {
     const { graph, builder } = buildGraph();
     const node = builder.addNode(graph, 'Function', 'long', {

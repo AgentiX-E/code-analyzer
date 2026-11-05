@@ -23,7 +23,7 @@
 
 import { mean } from './lca-instrument.js';
 
-import type { LcaRowScore } from './lca-merge.js';
+import type { LanguagePart, LcaRowScore } from './lca-merge.js';
 
 /** One refusal sentence, and how many instances it stopped. **The sentence is quoted, never paraphrased into a code.** */
 export interface RefusalCount {
@@ -410,4 +410,103 @@ export function publishedRank(ours: number, table: readonly PublishedRow[]): Pub
     beaten,
     notBeaten,
   };
+}
+
+/**
+ * How often each list contains the answer, and how deep it had to go.
+ *
+ * **The diagnosis that a mean cannot make.** Both halves of the comparison publish a MAP column, and on the Kotlin split
+ * the difference between them was **not** that the control found answers the product could not: the answers were in
+ * both lists, at different depths - `netflix/dgs-framework` 0.439 against 1.000, every fixing file present, one of them
+ * first for the control and fifth for us. A report that publishes the medians and the first-place counts can say which
+ * defect a low figure means, and a reader can check it from the rows.
+ *
+ * **Only rows that produced both a ranking and a control are counted**, which is the same intersection
+ * `pairedComparison` uses: a refused row has a control and no ranking, and including it here would rebuild the
+ * asymmetry this function exists to expose.
+ */
+export interface RankDiagnosis {
+  /** The intersection: measured rows that also carry a control. */
+  readonly rows: number;
+  /** Rows whose own list contains at least one fixing file. */
+  readonly oursFound: number;
+  /** Rows whose control list does. */
+  readonly controlFound: number;
+  /** Rows where the answer was our first entry. **The figure the corpus's `at1` column reads.** */
+  readonly oursFirst: number;
+  readonly controlFirst: number;
+  /** Median position of the first answer over the rows that have one, or `null` when none does. */
+  readonly oursMedian: number | null;
+  readonly controlMedian: number | null;
+}
+
+/** Median of the values, rounded to two places so that a half-integer does not read as precision. */
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  const value =
+    sorted.length % 2 === 0 ? (sorted[middle - 1]! + sorted[middle]!) / 2 : sorted[middle]!;
+  return Math.round(value * 100) / 100;
+}
+
+/** Both rankings' answer positions on the same instances. */
+export function rankDiagnosis(rows: readonly LcaRowScore[]): RankDiagnosis {
+  const ours: number[] = [];
+  const control: number[] = [];
+  for (const row of rows) {
+    if (row.skipped !== null) continue;
+    if (typeof row.bm25?.map !== 'number') continue;
+    if (row.answerRank !== null) ours.push(row.answerRank);
+    if (row.bm25.rank !== null) control.push(row.bm25.rank);
+  }
+  return {
+    rows: rows.filter((row) => row.skipped === null && typeof row.bm25?.map === 'number').length,
+    oursFound: ours.length,
+    controlFound: control.length,
+    oursFirst: ours.filter((rank) => rank === 1).length,
+    controlFirst: control.filter((rank) => rank === 1).length,
+    oursMedian: median(ours),
+    controlMedian: median(control),
+  };
+}
+
+/** One language split's paired means. **The same rows on both sides, or the difference is not a difference.** */
+export interface LanguagePairing {
+  readonly config: string;
+  /** Rows where both terms exist. */
+  readonly rows: number;
+  readonly ours: number | null;
+  readonly control: number | null;
+  readonly delta: number | null;
+}
+
+/**
+ * The per-language comparison, over the intersection rather than over each side's own coverage.
+ *
+ * **The bug this replaces published a win that was an artefact of subtraction.** The merge took ours as the mean over
+ * the rows the child measured and the control's as the mean over every row that carried one - refused rows included,
+ * and refused rows are the large repositories where the control scores worst. Printed on one line, the two figures
+ * invited `ours - control`, so the Java leg of iteration 71 reported **a 0.0037 win** and the paired difference on the
+ * same rows says **a 0.102 loss**. A per-language table can only subtract two numbers that were averaged over the same
+ * instances, which is what this function computes.
+ */
+export function pairedByLanguage(parts: readonly LanguagePart[]): LanguagePairing[] {
+  return parts.map((part) => {
+    const paired = part.rows.filter(
+      (row) => row.skipped === null && typeof row.bm25?.map === 'number',
+    );
+    if (paired.length === 0) {
+      return { config: part.config, rows: 0, ours: null, control: null, delta: null };
+    }
+    const ours = mean(paired.map((row) => row.map));
+    const control = mean(paired.map((row) => row.bm25!.map));
+    return {
+      config: part.config,
+      rows: paired.length,
+      ours,
+      control,
+      delta: Math.round((ours - control) * 10000) / 10000,
+    };
+  });
 }

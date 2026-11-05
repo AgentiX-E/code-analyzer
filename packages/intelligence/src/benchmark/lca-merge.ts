@@ -57,6 +57,14 @@ export interface LcaRowScore {
   readonly offered: number;
   /** How many of its candidates the answer space removed. **Published, never silently dropped.** */
   readonly outside: number;
+  /**
+   * Where the first fixing file sits in our own ranking, counting from one, or `null` when it is not in the list.
+   *
+   * **The diagnosis MAP cannot make.** `netflix/dgs-framework` scored 0.439 against a control at 1.000 with every
+   * answer inside our list: not a retrieval failure, a ranking failure, and only this column says so. `null` on a
+   * refused row, because a refused row produced no ranking to ask about.
+   */
+  readonly answerRank: number | null;
   /** The first ten of them, in the corpus's coordinate system. */
   readonly offeredPaths: readonly string[];
   /**
@@ -204,6 +212,7 @@ export function skippedRow(input: {
     expectedOutside: 0,
     offered: 0,
     outside: 0,
+    answerRank: null,
     offeredPaths: [],
     corpusBytes: input.corpusBytes ?? null,
     corpusUnreadable: input.corpusUnreadable ?? 0,

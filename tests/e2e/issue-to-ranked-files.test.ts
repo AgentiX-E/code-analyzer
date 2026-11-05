@@ -49,9 +49,7 @@ afterAll(() => {
  * `src/retry.py`. The issue names the request, the client and the 503, all of which live in `src/http.py`, so a
  * retriever that matches the words a user typed without reading what the code does will rank the decoy first.
  */
-function checkout(): string {
-  rmSync(SCRATCH, { recursive: true, force: true });
-  const root = join(SCRATCH, 'repo');
+function writeFixture(root: string): string {
   mkdirSync(root, { recursive: true });
   mkdirSync(join(root, 'src'), { recursive: true });
   writeFileSync(
@@ -92,6 +90,12 @@ function checkout(): string {
   );
   writeFileSync(join(root, 'README.md'), '# a fixture\n', 'utf8');
   return root;
+}
+
+/** The fixture, in a fresh tree. **Every case gets its own, because the analysis writes nothing but reads everything.** */
+function checkout(): string {
+  rmSync(SCRATCH, { recursive: true, force: true });
+  return writeFixture(join(SCRATCH, 'repo'));
 }
 
 /** The issue as a developer would paste it. **Prose, and it names the decoy's vocabulary, not the answer's.** */
@@ -221,4 +225,49 @@ describe('a developer pastes an issue and gets the file that must change', () =>
     },
     120_000,
   );
+});
+
+/**
+ * **The same source, in two places on disk, ranked the same way.**
+ *
+ * A developer runs the tool on their laptop and CI runs it on a runner, and the two checkouts live at different paths.
+ * That must not change the answer: the query is about code, and the directory the code sits in is not part of the code.
+ *
+ * **This is a user-visible property and it was quietly broken.** The index weighs a document's `name` field most
+ * heavily, the structure phase passed a File node's *absolute path* as that name, and `indexableName` - the function
+ * whose whole doctrine is that a name is never "the machine's" - only strips directories from a declaration's qualified
+ * name. A repository checked out at `/tmp/.../repo` and the same one at `/tmp/.../a-much-longer-directory-name/repo`
+ * therefore indexed two different vocabularies for every file, and a ranking that moved when a directory was renamed is
+ * a ranking no one can reproduce.
+ */
+describe('a checkout that moves does not change the ranking', () => {
+  /** A copy of the fixture under a directory whose name shares no token with the first. */
+  function relocatedFixture(): string {
+    const root = join(SCRATCH, 'a-much-longer-directory-name', 'repo');
+    rmSync(root, { recursive: true, force: true });
+    return writeFixture(root);
+  }
+
+  async function rankAt(root: string): Promise<string[]> {
+    const store = await analyse(root);
+    const registry = createToolRegistry();
+    const result = await registry.execute(
+      'search_code',
+      { query: ISSUE, projectId: 'issue-to-files', limit: 5 },
+      new ToolContextImpl(store),
+    );
+    expect(result.isError).toBeFalsy();
+    // **Relative to the checkout**, which is the only coordinate system two checkouts share.
+    return rankedFiles((result.content[0] as { text: string }).text).map((file) =>
+      file.startsWith(root) ? file.slice(root.length) : file,
+    );
+  }
+
+  it('ranks the same files in the same order from two different directories', async () => {
+    const first = await rankAt(join(SCRATCH, 'repo'));
+    const second = await rankAt(relocatedFixture());
+
+    expect(first.length).toBeGreaterThan(1);
+    expect(second).toEqual(first);
+  }, 240_000);
 });

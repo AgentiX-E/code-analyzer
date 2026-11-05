@@ -205,7 +205,7 @@ export class ParallelScanPhase implements ExecutablePhase {
               builder.addNode(
                 ctx.graph,
                 'Folder',
-                currentPath,
+                dir,
                 {
                   name: dir,
                   filePath: currentPath,
@@ -216,10 +216,15 @@ export class ParallelScanPhase implements ExecutablePhase {
           }
 
           // File node
+          //
+          // **The name is the file's, and it used to be the machine's.** `addNode` takes the name as its own argument
+          // and this call passed `file.filePath` for it while the properties carried `basename(...)`, so every File
+          // node in every graph held `/home/runner/work/<repo>/...` in the field a search index weighs most - the
+          // doctrine `indexableName` states and the structure phase silently broke.
           builder.addNode(
             ctx.graph,
             'File',
-            file.filePath,
+            basename(file.filePath),
             {
               name: basename(file.filePath),
               filePath: file.filePath,

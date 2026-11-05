@@ -12,7 +12,9 @@ import {
   BOOTSTRAP_SEED,
   DEFAULT_STRATA,
   publishedRank,
+  pairedByLanguage,
   pairedComparison,
+  rankDiagnosis,
   rowsInBand,
   sampleCoverage,
   signTest,
@@ -30,6 +32,8 @@ function row(input: {
   map?: number;
   bm25?: number | null;
   skipped?: string | null;
+  answerRank?: number | null;
+  bm25Rank?: number | null;
 }): LcaRowScore {
   return {
     id: input.id,
@@ -52,11 +56,13 @@ function row(input: {
         ? null
         : {
             map: input.bm25,
+            rank: input.bm25Rank ?? null,
             documents: 10,
             skippedFiles: 0,
             unreadableFiles: 0,
             ranked: [],
           },
+    answerRank: input.answerRank ?? null,
     skipped: input.skipped ?? null,
     retrieval: {},
     map: input.map ?? 0,
@@ -426,5 +432,141 @@ describe('publishedRank', () => {
     const placed = publishedRank(0.5, []);
     expect(placed.rank).toBe(1);
     expect(placed.of).toBe(1);
+  });
+});
+
+describe('rankDiagnosis', () => {
+  it('separates a ranking defect from an answer the text never had', () => {
+    // **Two rows, the same MAP, two different problems.** On the left the control finds the answer first and we find it
+    // thirty-first: our ranking is wrong. On the right neither list contains it: no ranking would have helped, and the
+    // repair is the index rather than the ordering.
+    const diagnosis = rankDiagnosis([
+      row({ id: 1, corpusFiles: 100, map: 0.03, bm25: 1, answerRank: 31, bm25Rank: 1 }),
+      row({ id: 2, corpusFiles: 100, map: 0, bm25: 0, answerRank: null, bm25Rank: null }),
+    ]);
+
+    expect(diagnosis.rows).toBe(2);
+    expect(diagnosis.oursFound).toBe(1);
+    expect(diagnosis.controlFound).toBe(1);
+    expect(diagnosis.oursFirst).toBe(0);
+    expect(diagnosis.controlFirst).toBe(1);
+  });
+
+  it('counts only the rows that produced both a ranking and a control', () => {
+    const diagnosis = rankDiagnosis([
+      row({ id: 1, corpusFiles: 100, map: 0.5, bm25: 0.5, answerRank: 1, bm25Rank: 2 }),
+      row({ id: 2, corpusFiles: 9_000, skipped: 'above the stated cap', bm25: 0.2 }),
+      row({ id: 3, corpusFiles: 100, map: 0.5, bm25: null, answerRank: 1 }),
+    ]);
+
+    expect(diagnosis.rows).toBe(1);
+    expect(diagnosis.oursFirst).toBe(1);
+  });
+
+  it('reports the median rank of the answers each list does contain', () => {
+    const diagnosis = rankDiagnosis([
+      row({ id: 1, corpusFiles: 100, map: 0.5, bm25: 1, answerRank: 10, bm25Rank: 1 }),
+      row({ id: 2, corpusFiles: 100, map: 0.5, bm25: 1, answerRank: 20, bm25Rank: 1 }),
+      row({ id: 3, corpusFiles: 100, map: 0.5, bm25: 1, answerRank: 60, bm25Rank: 1 }),
+    ]);
+
+    expect(diagnosis.oursMedian).toBe(20);
+    expect(diagnosis.controlMedian).toBe(1);
+  });
+
+  it('averages the two middle ranks when the sample is even', () => {
+    // **A median over an even count is the mean of two positions**, and reporting the lower one would make a four-row
+    // language leg look shallower than it is.
+    const diagnosis = rankDiagnosis([
+      row({ id: 1, corpusFiles: 100, map: 0.5, bm25: 1, answerRank: 10, bm25Rank: 1 }),
+      row({ id: 2, corpusFiles: 100, map: 0.5, bm25: 1, answerRank: 20, bm25Rank: 3 }),
+    ]);
+
+    expect(diagnosis.oursMedian).toBe(15);
+    expect(diagnosis.controlMedian).toBe(2);
+  });
+
+  it('answers null medians when neither list contains an answer', () => {
+    const diagnosis = rankDiagnosis([
+      row({ id: 1, corpusFiles: 100, map: 0, bm25: 0, answerRank: null, bm25Rank: null }),
+    ]);
+
+    expect(diagnosis.oursMedian).toBeNull();
+    expect(diagnosis.controlMedian).toBeNull();
+  });
+});
+
+describe('pairedByLanguage', () => {
+  it('averages the same rows on both sides', () => {
+    // **The defect this replaces compared two different sets.** `controlByLanguage` took our mean over the *measured*
+    // rows and the control's over *every row that had one*, refused rows included, and the two means were printed on one
+    // line as if they could be subtracted: the Java leg reported a 0.0037 win that was entirely the denominators.
+    const parts = [
+      {
+        config: 'java',
+        measuredAt: '2026-11-05T00:00:00Z',
+        rowLimit: 50,
+        planned: 50,
+        answerArm: false,
+        bounds: {
+          capFiles: 2_000,
+          memoryFiles: 1_000,
+          mbPerFile: 3.7,
+          reserveMb: 1_024,
+          budgetMs: 1,
+          instanceRssCapMb: 4_096,
+          instanceHeapMb: 3_072,
+          instanceTimeoutMs: 600_000,
+        },
+        space: { semantic: false, reason: 'no embedding key in this leg' },
+        configuration: {},
+        rows: [
+          row({ id: 1, corpusFiles: 100, map: 0.2, bm25: 0.1, answerRank: 2, bm25Rank: 4 }),
+          row({ id: 2, corpusFiles: 100, map: 0.4, bm25: 0.3, answerRank: 1, bm25Rank: 1 }),
+          // A refused row carries a control and no ranking of ours: counting it on one side only is the bug.
+          row({ id: 3, corpusFiles: 9_000, skipped: 'above the stated cap', bm25: 0 }),
+        ],
+      },
+    ];
+
+    const paired = pairedByLanguage(parts);
+
+    expect(paired).toHaveLength(1);
+    expect(paired[0]?.rows).toBe(2);
+    expect(paired[0]?.ours).toBeCloseTo(0.3, 6);
+    expect(paired[0]?.control).toBeCloseTo(0.2, 6);
+    expect(paired[0]?.delta).toBeCloseTo(0.1, 6);
+  });
+
+  it('reports a part whose rows never paired, rather than a mean over nothing', () => {
+    const parts = [
+      {
+        config: 'kt',
+        measuredAt: '2026-11-05T00:00:00Z',
+        rowLimit: 50,
+        planned: 50,
+        answerArm: false,
+        bounds: {
+          capFiles: 2_000,
+          memoryFiles: 1_000,
+          mbPerFile: 3.7,
+          reserveMb: 1_024,
+          budgetMs: 1,
+          instanceRssCapMb: 4_096,
+          instanceHeapMb: 3_072,
+          instanceTimeoutMs: 600_000,
+        },
+        space: { semantic: false, reason: 'no embedding key in this leg' },
+        configuration: {},
+        rows: [row({ id: 1, corpusFiles: 9_000, skipped: 'above the stated cap', bm25: 0.1 })],
+      },
+    ];
+
+    const paired = pairedByLanguage(parts);
+
+    expect(paired[0]?.rows).toBe(0);
+    expect(paired[0]?.ours).toBeNull();
+    expect(paired[0]?.control).toBeNull();
+    expect(paired[0]?.delta).toBeNull();
   });
 });
