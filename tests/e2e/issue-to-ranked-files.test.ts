@@ -228,11 +228,24 @@ describe('a developer pastes an issue and gets the file that must change', () =>
     // prompt budget let through, so it can only ever be a prefix of the ranking.
     expect(answer.rankedFiles?.some((file) => file.endsWith('src/retry.py'))).toBe(true);
     expect(answer.rankedFiles?.length).toBeGreaterThanOrEqual(answer.retrievedFiles?.length ?? 0);
-    // **The ranking is explainable from the response alone**: its first file is the file of the pool's first entry,
-    // and the pool holds at least one entry per ranked file - so a user who asks "why is that file first" reads the
-    // declaration that put it there rather than a number with no provenance.
-    expect(answer.rankedPool?.[0]?.filePath).toBe(answer.rankedFiles?.[0]);
-    expect((answer.rankedPool?.length ?? 0) >= (answer.rankedFiles?.length ?? 0)).toBe(true);
+    // **The ranking is explainable from the response alone, and the explanation is the pool's *grouping* rather than
+    // its first line.** Every file in the list holds at least one declaration the retriever scored, the list is a
+    // permutation of the pool's files rather than a subset of them, and no file occupies two positions - so a user who
+    // asks "why is that file first" reads the declarations that put it there.
+    //
+    // **The assertion this replaces was `rankedPool[0].filePath === rankedFiles[0]`, and it was true only while the
+    // shipped reading was `max`.** Under `top2` a file's second declaration is allowed to lift it above the pool's
+    // head, which is exactly what the Long Code Arena armature measured as worth +0.0290 MAP - so the old assertion
+    // encoded the old rule and this one asserts the property that survives a change of rule. It failed on the runner
+    // and passed on the machine that wrote it, because the two ranked `src/http.py` and `src/retry.py` in a different
+    // order once vectors were present, and neither order is a defect.
+    const poolFiles = new Set((answer.rankedPool ?? []).map((entry) => entry.filePath));
+    const ranked = answer.rankedFiles ?? [];
+    expect(ranked.every((file) => poolFiles.has(file))).toBe(true);
+    expect(new Set(ranked).size).toBe(ranked.length);
+    expect(new Set(ranked)).toEqual(poolFiles);
+    // The retriever's own head is one of the files it ranked, whichever reading turns declarations into positions.
+    expect(poolFiles.has(answer.rankedPool?.[0]?.filePath ?? '')).toBe(true);
   }, 120_000);
 });
 

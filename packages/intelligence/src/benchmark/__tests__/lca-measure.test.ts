@@ -17,8 +17,8 @@ import { join } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { MAP_DEPTH, insertGraph, measureInstance } from '../lca-measure.js';
 import { FILE_AGGREGATION } from '../../search/file-ranking.js';
+import { MAP_DEPTH, insertGraph, measureInstance } from '../lca-measure.js';
 
 import type { LLMProvider } from '../../review/llm/provider.js';
 import type { LcaCorpusRow } from '../lca-measure.js';
