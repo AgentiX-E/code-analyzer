@@ -178,43 +178,53 @@ published beside the control:
 
 |                                    | rows    | MAP        |
 | ---------------------------------- | ------- | ---------- |
-| this harness                       | 102     | **0.3951** |
+| this harness                       | 102     | **0.3953** |
 | **BM25, same harness, same ruler** | **141** | **0.4232** |
-| BM25 on the 102 we measured        | 102     | 0.4672     |
+| BM25 on the 102 we measured        | 102     | 0.4671     |
 
-**Paired: 23 wins, 56 losses, 23 ties, mean Δ −0.0721, 95 % bootstrap interval [−0.1221, −0.0220], exact sign test
-p = 0.0003.** Plain BM25 — no parser, no graph, no model — beats the product on the same files of the same repositories.
+**Paired: 23 wins, 54 losses, 25 ties, mean Δ −0.0718, 95 % bootstrap interval [−0.1167, −0.0251], exact sign test
+p = 0.0005.** Plain BM25 — no parser, no graph, no model — beats the product on the same files of the same repositories.
 That is the figure this project now optimises against, and it is published in the artifact as `paired`.
 
-| split  | measured | MAP        | BM25, same rows | Δ           |
-| ------ | -------- | ---------- | --------------- | ----------- |
-| Python | 34 / 50  | **0.4629** | 0.4553          | **+0.0076** |
-| Java   | 30 / 50  | 0.4097     | **0.5115**      | **−0.1018** |
-| Kotlin | 38 / 50  | 0.3228     | **0.4428**      | **−0.1200** |
+| split  | measured | MAP    | BM25, same rows | Δ           |
+| ------ | -------- | ------ | --------------- | ----------- |
+| Python | 34 / 50  | 0.4280 | **0.4553**      | **−0.0273** |
+| Java   | 30 / 50  | 0.4200 | **0.5115**      | **−0.0915** |
+| Kotlin | 38 / 50  | 0.3467 | **0.4428**      | **−0.0961** |
 
-**The gap is two languages, and the earlier version of this table said one because its columns were not averaged over
-the same rows.** The per-language pair used to take ours over the rows the child measured and the control's over every
-row that carried one — refused rows included, and refused rows are the large repositories where the control scores
-worst. Two means over two different samples were printed on one line, and subtracting them produced a **0.0037 Java
-win** that does not survive the same-rows comparison: on the 30 instances both lists were computed on, Java is a
-**0.1018 loss**. The repair is `pairedByLanguage` in `lca-sample.ts`, the merge publishes `delta` rather than leaving
-the subtraction to the reader, and `scripts/lca-gate.js` now refuses a record whose `delta` is not `ours − control`.
+**All three splits lose, and the earlier version of this table said one because its columns were not averaged over the
+same rows.** The per-language pair used to take ours over the rows the child measured and the control's over every row
+that carried one — refused rows included, and refused rows are the large repositories where the control scores worst.
+Two means over two different samples were printed on one line, and subtracting them produced a **0.0037 Java win** that
+does not survive the same-rows comparison: on the 30 instances both lists were computed on, Java is a **0.0915 loss**.
+The repair is `pairedByLanguage` in `lca-sample.ts`, the merge publishes `delta` rather than leaving the subtraction to
+the reader, and `scripts/lca-gate.js` refuses a record whose `delta` is not `ours − control`. Weighted by their row
+counts the three deltas reconcile exactly with the pooled −0.0718.
 
-**And the two losses have different causes, which the artifact now states as two numbers.** `diagnosis` in the artifact
-counts, over the same intersection, how often each list contains at least one fixing file and how deep the first one
-sits. The answers are in **both** lists: our median first-answer position is deeper than the control's, and the rows
-where we score near zero while the control scores 1.000 are ranking failures rather than retrieval failures —
-`netflix/dgs-framework` has every expected file in our list and none of them first. **A retriever that finds the answer
-at position 31 is a ranking defect, and this iteration's job was to make that visible instead of inferred.**
+**And the gap is ordering rather than recall, which the artifact now states as two counts.** `diagnosis` publishes, over
+the same intersection, how often each list contains a fixing file and where the first one sits:
+
+| figure                       | ours   | BM25    |
+| ---------------------------- | ------ | ------- |
+| rows that contain an answer  | **93** | **102** |
+| rows whose first entry is it | **48** | **61**  |
+| median position of the first | 1      | 1       |
+
+**Nine instances where our list does not contain the answer at all are worth 0.0051 of the 0.0718 gap.** The other
+0.0667 is the order of a list that already holds the answer: on the 93 rows we did find, the control leads with it
+**61** times and we lead **48**. A retriever that has the answer at position 31 is not a retriever that could not see
+the file, and the difference decides what to repair.
 
 **The sample, stated rather than implied.** 150 instances were intended, 141 reached, 102 measured, 39 refused, 9 never
 reached — so **68.0 % of the protocol**. Every refusal carries its sentence in `sample.refusals`: fifteen the 2 000-file
 cap, nine the `3.7 MB per file` estimate, two the 900-second clock, two the 6 144 MB ceiling, one a `SIGABRT`.
 
 **And the sample was not easier than the corpus.** Measured per band of repository size, BM25 scores **0.1808** on the
-eight 2 000+-file instances against **0.6897** on the smallest, so the bounds removed the band where **both** retrievers
-do worst. The mean reweighted to the attempted population is **0.4046** against a raw **0.3951**, over 94.4 % of the
-weight, and the floor with every refusal scored zero is **0.2858**.
+eight 2 000+-file instances against **0.7068** on the smallest, so the bounds removed the band where **both** retrievers
+do worst. The mean reweighted to the attempted population is **0.3966** against a raw **0.3953**, over 94.3 % of the
+weight, and the floor with every refusal scored zero is **0.2860**. Per band, ours against the control: **0.5637 /
+0.7068** (0–50 files), **0.3850 / 0.4223** (50–200), **0.2903 / 0.4601** (200–500), **0.4396 / 0.2763** (500–2 000, nine
+rows) — so the loss is not a property of one size of repository.
 
 **One defect this corpus found in its instrument, and one change it refused.** The refused change is the interesting
 one. Roughly half of every Kotlin checkout — **98 candidate files over 184 corpus files** — never entered our candidate
@@ -229,9 +239,11 @@ not have paid for what it cost.
 
 **Three defects this corpus found in its own instrument, all now fixed.** The retrieval arm was scored on
 `retrievedFiles` — the files of the blocks that survived a **prompt** budget of forty — so `offered` averaged **6.61** before that fix and **50.95** after it
-against a retrieval depth of 200; `retrieveContext` now returns `rankedFiles`, the fused ranking before any budget, and
+against a retrieval depth of 200; it reads **37.1** today, because a directory is no longer a candidate and roughly a
+quarter of that earlier count was one; `retrieveContext` now returns `rankedFiles`, the fused ranking before any budget, and
 the Kotlin split's `offered` went from **5.21 to 53.74** and its MAP from **0.2670 to 0.3228** on the same instances,
-and Java's from **9.00 to 50.70** and **0.3612 to 0.4097**.
+and Java's from **9.00 to 50.70** and **0.3612 to 0.4097** — figures measured in iteration 72 and re-measured here at
+**0.3467** Kotlin and **0.4200** Java after the directory exclusion and the path fix described below.
 `comparison.rank` held the _number of rows beaten_ under the name of a _position_; it is `publishedRank` in
 `lca-sample.ts` now, with a table of known size in its tests. And the per-language pair compared two different row sets,
 which is the 0.0037 Java win above. Four things about this corpus are worth stating plainly rather than leaving to a
