@@ -91,12 +91,14 @@ describe('locate on a checkout the analysis refuses', () => {
     expect(output.importLines).toBeGreaterThan(0);
   });
 
-  it('reports the answer space in the corpus’s own coordinate system', () => {
-    // A ranking the benchmark can score has to be a ranking of the same universe the corpus counts, or the figure is
-    // about a different question. `corpusFiles` is that universe for the `java` configuration.
+  it('reports paths in the coordinate system a corpus counts in', () => {
+    // **The coordinate system, not the same set.** `corpusFiles` is the `java` configuration's universe: one extension,
+    // test paths removed. `locate`'s universe is every source extension, so the two coincide here only because this
+    // checkout holds nothing else - and the property worth pinning is the one that makes a benchmark able to score a
+    // locate at all: every path it returns is repository-relative POSIX and is a member of the corpus's universe.
     const universe = corpusFiles(root, '.java');
     const output = locateRepository({ question: 'retry policy', directory: root, limit: 5 });
-    expect(output.answerSpace).toBe(universe.length);
     for (const file of output.files) expect(universe).toContain(file);
+    expect(output.files.every((file) => !file.startsWith('/') && !file.includes('\\'))).toBe(true);
   });
 });
