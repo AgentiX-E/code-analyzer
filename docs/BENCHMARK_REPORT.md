@@ -213,6 +213,44 @@ longer loses. **Kotlin carries the gap** (−0.0838) and Java most of the rest (
 problems: Kotlin is the split whose checkouts the caps refuse most often, Java the split where the control's advantage
 is largest on the rows both could read.
 
+**A second control, and the sentence it retires.** BM25 has been the only comparator this project ever measured
+against, and a gain measured against one comparator can be a fit to it — the reading shipped in iteration 74 was chosen
+because _its_ interval against BM25 excluded zero. So the artifact now ranks the identical index with a second formula:
+same documents, same tokeniser, same caps, same tie-break, and **TF-IDF's weighting instead of BM25's** (sublinear
+`1 + ln tf`, smoothed `ln((1 + N) / (1 + df)) + 1`, L2 normalised, cosine). Same run, same paired rows:
+
+| control             | rows | control's mean on those rows | ours   | Δ           | 95 % interval      | W / L / T    | sign test  |
+| ------------------- | ---- | ---------------------------- | ------ | ----------- | ------------------ | ------------ | ---------- |
+| BM25                | 105  | 0.4697                       | 0.4248 | **−0.0448** | [−0.0895, −0.0001] | 26 / 50 / 29 | p = 0.0079 |
+| **TF-IDF (cosine)** | 105  | 0.4274                       | 0.4248 | **−0.0025** | [−0.0597, +0.0503] | 37 / 45 / 23 | p = 0.4397 |
+
+**BM25 beats this product and TF-IDF does not.** The second interval contains zero, its sign test is p = 0.44, and the
+per-split table says it with more resolution — ours against each control on the rows both scored:
+
+| split  | rows | ours       | BM25       | vs BM25     | TF-IDF     | vs TF-IDF   |
+| ------ | ---- | ---------- | ---------- | ----------- | ---------- | ----------- |
+| Python | 37   | **0.4654** | 0.4635     | **+0.0019** | 0.4480     | **+0.0174** |
+| Java   | 30   | 0.4582     | **0.5115** | **−0.0533** | 0.4511     | **+0.0071** |
+| Kotlin | 38   | 0.3590     | **0.4428** | **−0.0838** | **0.3885** | **−0.0295** |
+
+**So the claim is narrower than every earlier version of this section made it, and the narrowing is the finding.**
+_Plain lexical retrieval beats this product_ is not what two controls say. **One BM25 configuration beats it by 0.045 and
+a second lexical formula is level with it**, with the product ahead on two of the three splits. The gap is a property of
+the formula rather than of the family, which is why the next iterations target the formula's mechanism — the file as a
+document with a length prior — instead of "lexical retrieval" as a whole.
+
+**The two controls also disagree about which bands are hard**, which is a reason to stop reading a band table as the
+corpus's own difficulty: on 200–500 files TF-IDF scores **0.4716** where BM25 scores **0.4445**, and on 500–2 000 it
+scores **0.1588** where BM25 scores **0.2765**. And BM25's mean over the paired rows (**0.4697**) is well above TF-IDF's
+(**0.4274**), so the formula this project has been losing to is the strong one — which is why our own BM25 scoring 0.4242
+where the paper's row says "below 0.25" was never a curiosity.
+
+**This run measured 105 rows rather than the 109 quoted above, and the difference is stated rather than smoothed.**
+**Six instances were refused because the job's fifty-minute budget ran out**, four of them Python — the split where this
+product is strongest. The raw mean therefore reads 0.4248 against 0.4179 with no product change between the commits,
+while the paired BM25 delta moved from −0.0437 to −0.0448. **Only the paired column is comparable across samples**, and
+that is the third iteration in a row whose headline number moved for a reason that was not the product.
+
 **And the gap is ordering rather than recall, which the artifact now states as two counts.** `diagnosis` publishes, over
 the same intersection, how often each list contains a fixing file and where the first one sits:
 
