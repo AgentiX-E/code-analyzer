@@ -18,7 +18,7 @@ import { MEASURED_MB_PER_FILE, mean } from './lca-instrument.js';
 
 import type { ControlResult } from './lca-baseline.js';
 import type { FallbackResult } from './lca-fallback.js';
-import type { FusionResult } from './lca-fusion.js';
+import type { FusionAtK, FusionResult } from './lca-fusion.js';
 
 /** The seven figures the authors' `get_quality_metrics` produces, for one instance or as a mean. */
 export interface ArmMetrics {
@@ -163,6 +163,18 @@ export interface LcaRowScore {
    * about which file comes first. This is the armature's second half, and it is the row's own column for the pool.
    */
   readonly declarationRank: number | null;
+  /**
+   * **The same two arms fused at every constant the ladder states**, on this instance.
+   *
+   * The figure the product publishes is one point on this curve. Publishing the curve costs four more reciprocal-rank
+   * passes over a list of a couple of hundred paths - against an analysis measured in minutes - and it answers the one
+   * question the shipped constant cannot: whether `k = 60` sits on a plateau or on a slope. **A constant chosen by the
+   * best row of this corpus would be a constant fitted to it**, so the ladder is fixed in advance and the artifact
+   * publishes every rung of it rather than the winner.
+   *
+   * Empty on a refused row, like every other column that needs a pool.
+   */
+  readonly fusionByK: readonly FusionAtK[];
   /**
    * The fused ranking, in full and to the metric's depth, **in the corpus's coordinate system**.
    *
@@ -325,6 +337,7 @@ export function skippedRow(input: {
     fusion: input.fusion ?? null,
     declarationMap: null,
     declarationRank: null,
+    fusionByK: [],
     rankedPaths: [],
     skipped: input.because,
     fileArms: null,

@@ -18,6 +18,8 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { FILE_AGGREGATION } from '../../search/file-ranking.js';
+import { RRF_K } from '../../search/fusion.js';
+import { FUSION_K_LADDER } from '../lca-fusion.js';
 import { MAP_DEPTH, insertGraph, measureInstance } from '../lca-measure.js';
 
 import type { LLMProvider } from '../../review/llm/provider.js';
@@ -341,6 +343,33 @@ describe('measureInstance — the fused arm', () => {
     }
     expect(scored.map).toBe(scored.declarationMap);
     expect(scored.answerRank).toBe(scored.declarationRank);
+  });
+
+  it('**sweeps the constant on every measured row, with the shipped rung equal to the row’s own figure**', async () => {
+    // **The ladder is not a second experiment.** `k = 60` is the constant the product ships and it is one rung of the
+    // ladder rather than a point beside it, so the artifact can say whether the shipped value sits on a plateau - the
+    // only statement that makes it a choice rather than an inheritance. The equality checked here is what keeps the
+    // sweep and the column from describing two different rankings.
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      fileSignals: ['src/http.py'],
+    });
+    expect(scored.fusionByK.map((at) => at.k)).toEqual([...FUSION_K_LADDER]);
+    const shipped = scored.fusionByK.find((at) => at.k === RRF_K);
+    expect(shipped?.map).toBe(scored.map);
+    expect(shipped?.rank).toBe(scored.answerRank);
+    // **Every rung is a figure on this row**, and the ladder is not silently the same computation repeated: each rung
+    // reads the constant it names. A ladder of five identical means is a legitimate outcome on a two-file fixture -
+    // whether the order actually moves with `k` is a property of the ranking, measured on the corpus rather than
+    // asserted here, and `search/fusion.ts` has its own case for the crossing.
+    for (const at of scored.fusionByK) {
+      expect(at.map).toBeGreaterThanOrEqual(0);
+      expect(at.map).toBeLessThanOrEqual(1);
+      expect(at.k).toBeGreaterThan(0);
+    }
   });
 
   it('**leaves the fused column to the parent**, because a row does not know whether its own analysis survived', async () => {

@@ -15,6 +15,8 @@ import {
   DEFAULT_STRATA,
   fallbackMapOf,
   fallbackOf,
+  fusedAtK,
+  fusedByKOf,
   pairedBetween,
   publishedRank,
   pairedByLanguage,
@@ -106,6 +108,7 @@ function row(input: {
           },
     declarationMap: input.declarationMap ?? null,
     declarationRank: input.declarationRank ?? null,
+    fusionByK: [],
     rankedPaths: [],
     tfidf:
       input.tfidf === undefined || input.tfidf === null
@@ -1019,5 +1022,44 @@ describe('the file aggregation armature on the fused ranking', () => {
     expect(sum.rows).toBe(1);
     expect(sum.found).toBe(1);
     expect(sum.map).toBe(0.4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The constant sweep
+// ---------------------------------------------------------------------------
+
+describe('the fusion constant, aggregated', () => {
+  const rung = (k: number, map: number) => ({ k, map, rank: 1 });
+
+  it('averages each rung over the rows that carry it and sorts by constant', () => {
+    const rows = [
+      { ...row({ id: 1, corpusFiles: 10 }), fusionByK: [rung(300, 0.5), rung(10, 0.3)] },
+      { ...row({ id: 2, corpusFiles: 10 }), fusionByK: [rung(300, 0.4), rung(10, 0.2)] },
+    ];
+    expect(fusedByKOf(rows)).toEqual([
+      { k: 10, map: 0.25, rows: 2 },
+      { k: 300, map: 0.45, rows: 2 },
+    ]);
+  });
+
+  it('publishes no rung at all rather than a null mean for a constant no row carries', () => {
+    const rows = [{ ...row({ id: 1, corpusFiles: 10 }), fusionByK: [rung(60, 0.4)] }];
+    expect(fusedByKOf(rows)).toEqual([{ k: 60, map: 0.4, rows: 1 }]);
+    expect(fusedByKOf([])).toEqual([]);
+    // **A refused row has no ladder**, and its emptiness must not become a rung of zero.
+    const refused = { ...row({ id: 9, corpusFiles: 10, skipped: 'cap' }), fusionByK: [] };
+    expect(fusedByKOf([refused])).toEqual([]);
+  });
+
+  it('reads one constant off a row for a pairing, and nothing where the row has no such rung', () => {
+    const reading = fusedAtK(120);
+    expect(reading({ ...row({ id: 1, corpusFiles: 10 }), fusionByK: [rung(120, 0.33)] })).toBe(
+      0.33,
+    );
+    expect(
+      reading({ ...row({ id: 1, corpusFiles: 10 }), fusionByK: [rung(60, 0.4)] }),
+    ).toBeUndefined();
+    expect(reading(row({ id: 1, corpusFiles: 10 }))).toBeUndefined();
   });
 });

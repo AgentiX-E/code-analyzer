@@ -530,6 +530,7 @@ function main() {
   let declinedRows = 0;
   let fusionMapMismatch = 0;
   let fusionFlagMismatch = 0;
+  let fusionRungMismatch = 0;
   for (const row of rowsOf) {
     if (typeof row?.fusionMap !== 'number') continue;
     rowsWithFusion += 1;
@@ -541,6 +542,14 @@ function main() {
     // **And the flag has to match the sentence.** A row that was refused cannot claim two arms: the declaration arm is
     // the analysis that was refused, so a `fused: true` on it would be a claim about a ranking that never existed.
     if ((row?.skipped === null) !== (row?.fusionFused === true)) fusionFlagMismatch += 1;
+    // **And the rung the product ships is the row's own figure**, which is the same equality as the block's one level
+    // down: a per-row ladder whose shipped rung disagrees with the row's fused figure is a sweep of a different ranking.
+    if (row?.skipped === null && Array.isArray(row?.fusionByK)) {
+      const rung = row.fusionByK.find(
+        (at_) => at_?.k === at(record, ['fusion', 'configuration', 'k']),
+      );
+      if (rung === undefined || rung.map !== row.fusionMap) fusionRungMismatch += 1;
+    }
   }
   guard(
     rowsWithFusion === fusionCoverage?.rows,
@@ -556,6 +565,11 @@ function main() {
     fusionMapMismatch === 0,
     `rows: ${String(fusionMapMismatch)} measured rows publish a fused figure that is not the row's own - the child ` +
       'computed one ranking and the parent transcribed another',
+  );
+  guard(
+    fusionRungMismatch === 0,
+    `rows: ${String(fusionRungMismatch)} measured rows carry a ladder whose shipped rung is not the row's own fused ` +
+      'figure - the sweep and the column are two rankings',
   );
   guard(
     fusionFlagMismatch === 0,
@@ -581,6 +595,63 @@ function main() {
       ) < 1e-3,
       `fusion.pairedVsDeclarations: delta ${String(fusionVsDeclarations.delta)} is not the difference of its own ` +
         `two means (${String(fusionVsDeclarations.ours)} - ${String(fusionVsDeclarations.control)})`,
+    );
+  }
+  // **The sweep, and the one equality that makes it a sweep rather than five numbers.**
+  //
+  // `k = 60` is the constant the product ships, taken from the literature rather than fitted here, and a constant
+  // inherited without measurement is a parameter nobody has looked at - Bruch, Gai and Ingber (2022) report that
+  // reciprocal rank fusion is more sensitive to it than the folklore assumes. The artifact publishes a fixed ladder
+  // rather than a search, because the best rung of this corpus is a value fitted to this corpus. Three things are
+  // required before any rung is read:
+  //
+  //   * the ladder has at least two rungs, each with a constant, a mean and a row count;
+  //   * **the shipped constant is one of them**, and its mean is the fused figure the ablation already published over the
+  //     same rows - two names for one number have to be the same number, which is how a ladder computed over a different
+  //     ranking than the column would be caught;
+  //   * a rung's pairing against the shipped rung is on that rung's own rows, and the shipped rung pairs with itself at
+  //     zero.
+  const fusionByK = at(record, ['fusion', 'byK']);
+  const rungs = Array.isArray(fusionByK) ? fusionByK : [];
+  const shippedK = at(record, ['fusion', 'configuration', 'k']);
+  guard(
+    rungs.length >= 2 &&
+      rungs.every(
+        (rung) =>
+          typeof rung?.k === 'number' &&
+          typeof rung?.map === 'number' &&
+          typeof rung?.rows === 'number',
+      ),
+    `fusion.byK: ${String(rungs.length)} rungs, or a rung without its constant, its mean or its row count - a sweep ` +
+      'of one constant measures nothing',
+  );
+  const shippedRung = rungs.find((rung) => rung?.k === shippedK);
+  guard(
+    shippedRung !== undefined,
+    `fusion.byK: the shipped constant k = ${String(shippedK)} is not on the ladder, so no rung of this sweep is the ` +
+      'product',
+  );
+  if (shippedRung !== undefined) {
+    guard(
+      shippedRung.map === fusionVsDeclarations?.ours &&
+        shippedRung.rows === fusionVsDeclarations?.rows,
+      `fusion.byK[k = ${String(shippedK)}]: ${String(shippedRung.map)} over ${String(shippedRung.rows)} rows against ` +
+        `${String(fusionVsDeclarations?.ours)} over ${String(fusionVsDeclarations?.rows)} in the ablation - the ` +
+        'shipped rung and the fused figure over the measured rows are one number with two names',
+    );
+    guard(
+      shippedRung.vsShipped?.delta === 0 &&
+        shippedRung.vsShipped?.ours === shippedRung.vsShipped?.control,
+      `fusion.byK[k = ${String(shippedK)}]: compared with itself it reports delta ` +
+        `${String(shippedRung.vsShipped?.delta)} - the shipped rung is this sweep's control`,
+    );
+  }
+  for (const rung of rungs) {
+    guard(
+      rung?.vsShipped?.rows === rung?.rows,
+      `fusion.byK[k = ${String(rung?.k)}]: ${String(rung?.vsShipped?.rows)} paired rows against the ${String(
+        rung?.rows,
+      )} it averaged - a rung compared over a different sample than its own mean`,
     );
   }
   const fallbackDegraded = at(record, ['fallback', 'degraded']);
@@ -682,7 +753,32 @@ function main() {
         "the product's own ranking, on every attempted row | " +
         `${fusionOverall?.rows === fusionCoverage?.rows && fusionMapMismatch === 0 ? '✓' : '✗'} |`
       : "| fused: declarations + path/imports | not measured | the product's own ranking | ✗ |";
-  rows.push(sampleLine, pairedLine, crossPairedLine, diagnosisLine, fallbackLine, fusionLine);
+  // **One line for the whole ladder**, because a sweep is read as a shape rather than as five figures, and the shape is
+  // what says whether the shipped constant sits on a plateau.
+  const ladderAgrees =
+    shippedRung !== undefined &&
+    shippedRung.map === fusionVsDeclarations?.ours &&
+    rungs.every((rung) => rung?.vsShipped?.rows === rung?.rows) &&
+    fusionRungMismatch === 0;
+  const ladderLine =
+    rungs.length > 0
+      ? `| fusion constant | ${rungs
+          .map(
+            (rung) =>
+              `k${String(rung?.k)} ${typeof rung?.map === 'number' ? rung.map.toFixed(4) : 'none'}`,
+          )
+          .join(' · ')} | shipped k = ${String(shippedK)}, one rung of the ladder | ` +
+        `${ladderAgrees ? '✓' : '✗'} |`
+      : '| fusion constant | not swept | a ladder with two rungs at least | ✗ |';
+  rows.push(
+    sampleLine,
+    pairedLine,
+    crossPairedLine,
+    diagnosisLine,
+    fallbackLine,
+    fusionLine,
+    ladderLine,
+  );
   for (const stratum of strata) {
     const vsBm25 = stratum?.vsBm25 ?? {};
     rows.push(

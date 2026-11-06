@@ -30,6 +30,8 @@ import {
   BOOTSTRAP_SEED,
   DECLARATIONS,
   TFIDF_MAP,
+  fusedAtK,
+  fusedByKOf,
   fusionMapOf,
   fusionOf,
   fallbackMapOf,
@@ -46,6 +48,7 @@ import {
   worstCaseMap,
 } from '../packages/intelligence/src/benchmark/lca-sample.js';
 import { FILE_AGGREGATION } from '../packages/intelligence/src/search/file-ranking.js';
+import { RRF_K } from '../packages/intelligence/src/search/fusion.js';
 import { IMPORT_HEAD_BYTES } from '../packages/intelligence/src/search/path-imports.js';
 import { recordArtifact } from '../packages/shared/src/benchmark/artifact.js';
 
@@ -713,6 +716,20 @@ function main(): void {
       byLanguage: fusionByLanguage,
       /** **The fusion's own contribution**, paired inside one run: the same pool, with and without the second arm. */
       pairedVsDeclarations: fusionVsDeclarations,
+      /**
+       * **The constant swept rather than trusted.** One mean per rung of `FUSION_K_LADDER`, each paired against the rung
+       * the product ships, on the rows that carry both - so the question "does 60 sit on a plateau" is answered by
+       * differences on the same instances rather than by three means a reader would have to subtract.
+       *
+       * The middle rung **is** the product's figure over the measured rows: `k = 60` is the shipped constant, and the
+       * gate refuses an artifact where that rung disagrees with `pairedVsDeclarations.ours`.
+       */
+      byK: fusedByKOf(allRows).map((rung) => ({
+        k: rung.k,
+        map: rung.map,
+        rows: rung.rows,
+        vsShipped: pairedBetween(allRows, fusedAtK(rung.k), fusedAtK(RRF_K)),
+      })),
       pairedVsControl: { bm25: fusionVsBm25, tfidf: fusionVsTfidf },
       note:
         'On the rows where the analysis ran, `pairedVsDeclarations` is the fusion’s net contribution and is the only ' +

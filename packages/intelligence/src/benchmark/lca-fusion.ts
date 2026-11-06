@@ -21,6 +21,30 @@ import { RRF_K } from '../search/fusion.js';
 /** The two arms, in the order the fusion reads them. **Published, because a contribution without a source is a number.** */
 export const FUSION_ARMS = ['declarations', 'file-level'] as const;
 
+/**
+ * The constants the sweep reads, **stated rather than searched**.
+ *
+ * `k = 60` is the value the fusion ships with, taken from the literature rather than fitted here. Bruch, Gai and Ingber
+ * (Pinecone, 2022) report that reciprocal rank fusion is **more sensitive to `k` than the folklore assumes**, so the
+ * constant is a parameter whose shape has to be measured even though the shipped value may not move: a ladder over two
+ * orders of magnitude says whether 60 sits on a plateau or on a knife edge, and it says it on every row of the same run
+ * rather than in a second experiment.
+ *
+ * **A ladder and not a search**, because a value chosen by the best row of this corpus is a value fitted to this
+ * corpus. The ladder is a fixed list, published in the artifact before any figure is read.
+ */
+export const FUSION_K_LADDER = [10, 30, 60, 120, 300] as const;
+
+/** One constant's figure on one instance. **What the sweep is made of.** */
+export interface FusionAtK {
+  /** The rank constant this figure was computed with. */
+  readonly k: number;
+  /** Average precision of the same two arms fused at this constant. */
+  readonly map: number;
+  /** Where the first fixing file sits in it, or `null` when no answer is in the list. */
+  readonly rank: number | null;
+}
+
 /** One instance's fused ranking: what it scored, how deep, and whether both arms took part. */
 export interface FusionResult {
   /** Average precision of the fused ranking, at the depth every other column reads. */

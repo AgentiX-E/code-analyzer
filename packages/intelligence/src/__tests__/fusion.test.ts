@@ -94,6 +94,28 @@ describe('reciprocalRankFusion', () => {
     expect(fused.k).toBe(RRF_K);
   });
 
+  it('**the constant decides whether a file both arms ranked outranks a file one arm ranked first**', () => {
+    // **Why the shipped constant is a parameter rather than a detail.** A path at rank 5 of *both* arms scores
+    // `2 / (k + 5)`; a path at rank 1 of one arm and absent from the other scores `1 / (k + 1)`. The first beats the
+    // second exactly when `k > 3` - so at `k = 1` the single top hit wins, at `k = 4` and above the agreement wins - and
+    // the shipped value of 60 sits deep inside the region where agreement wins. Bruch, Gai and Ingber (2022) report
+    // that reciprocal rank fusion is more sensitive to this constant than the folklore assumes; this is the shape of
+    // that sensitivity, in two lines of arithmetic.
+    const arms = (k: number) =>
+      reciprocalRankFusion(
+        [
+          { name: 'a', ranked: ['first.py', 'a2.py', 'a3.py', 'a4.py', 'p.py'] },
+          { name: 'b', ranked: ['z1.py', 'z2.py', 'z3.py', 'z4.py', 'p.py'] },
+        ],
+        { k },
+      ).ranked;
+    // At `k = 1` the one-armed path that leads an arm outranks the path both arms placed fifth.
+    expect(arms(1)[0]).toBe('first.py');
+    // At `k = 4` the inequality turns over, and it stays turned over at the shipped constant.
+    expect(arms(4)[0]).toBe('p.py');
+    expect(arms(RRF_K)[0]).toBe('p.py');
+  });
+
   it('**the constant is published and passed through**, so an ablation cannot run an unpublished `k`', () => {
     const fused = reciprocalRankFusion([{ name: 'x', ranked: ['a.py'] }], { k: 10 });
     expect(fused.k).toBe(10);

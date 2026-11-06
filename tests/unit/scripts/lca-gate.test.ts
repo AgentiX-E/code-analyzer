@@ -195,6 +195,36 @@ function baseRecord(): Record<string, unknown> {
       overall: { value: 0.3333, rows: 3 },
       byLanguage: { kt: { attempted: 3, fused: 2, value: 0.3333, rows: 3 } },
       pairedVsDeclarations: { rows: 2, ours: 0.4, control: 0.35, delta: 0.05 },
+      // **The constant swept, with the shipped rung equal to the fused figure over the measured rows.** The numbers here
+      // are the fixture's own: the fused mean over the two measured rows is (0.5 + 0.3) / 2 = 0.4, which is what
+      // `pairedVsDeclarations.ours` states, so the shipped rung has to be 0.4 as well.
+      byK: [
+        {
+          k: 10,
+          map: 0.37,
+          rows: 2,
+          vsShipped: { rows: 2, ours: 0.37, control: 0.4, delta: -0.03 },
+        },
+        {
+          k: 30,
+          map: 0.39,
+          rows: 2,
+          vsShipped: { rows: 2, ours: 0.39, control: 0.4, delta: -0.01 },
+        },
+        { k: 60, map: 0.4, rows: 2, vsShipped: { rows: 2, ours: 0.4, control: 0.4, delta: 0 } },
+        {
+          k: 120,
+          map: 0.41,
+          rows: 2,
+          vsShipped: { rows: 2, ours: 0.41, control: 0.4, delta: 0.01 },
+        },
+        {
+          k: 300,
+          map: 0.42,
+          rows: 2,
+          vsShipped: { rows: 2, ours: 0.42, control: 0.4, delta: 0.02 },
+        },
+      ],
       pairedVsControl: {
         bm25: { rows: 3, ours: 0.3333, control: 0.1833, delta: 0.15 },
         tfidf: { rows: 3, ours: 0.3333, control: 0.2067, delta: 0.1267 },
@@ -273,6 +303,13 @@ function baseRecord(): Record<string, unknown> {
           { aggregation: 'sum', map: 0.6, answerRank: 1, fusedMap: 0.7, fusedAnswerRank: 1 },
           { aggregation: 'top2', map: 0.45, answerRank: 1, fusedMap: 0.45, fusedAnswerRank: 1 },
         ],
+        fusionByK: [
+          { k: 10, map: 0.47, rank: 1 },
+          { k: 30, map: 0.49, rank: 1 },
+          { k: 60, map: 0.5, rank: 1 },
+          { k: 120, map: 0.51, rank: 1 },
+          { k: 300, map: 0.52, rank: 1 },
+        ],
       },
       {
         config: 'kt',
@@ -294,6 +331,13 @@ function baseRecord(): Record<string, unknown> {
           { aggregation: 'sum', map: 0.2, answerRank: 4, fusedMap: 0.2, fusedAnswerRank: 4 },
           { aggregation: 'top2', map: 0.25, answerRank: 3, fusedMap: 0.25, fusedAnswerRank: 3 },
         ],
+        fusionByK: [
+          { k: 10, map: 0.27, rank: 3 },
+          { k: 30, map: 0.29, rank: 3 },
+          { k: 60, map: 0.3, rank: 3 },
+          { k: 120, map: 0.31, rank: 3 },
+          { k: 300, map: 0.32, rank: 3 },
+        ],
       },
       {
         config: 'kt',
@@ -310,6 +354,7 @@ function baseRecord(): Record<string, unknown> {
         fusionFused: false,
         declarationMap: null,
         declarationRank: null,
+        fusionByK: [],
         fileArms: null,
       },
     ],
@@ -601,6 +646,73 @@ describe('lca gate', () => {
     expect(sampleLine).toBeDefined();
     expect(sampleLine).toContain('measured + refused = attempted');
     expect(sampleLine?.endsWith('✓ |')).toBe(true);
+  });
+
+  it('refuses a record whose shipped constant is not on the ladder', () => {
+    // **A sweep that does not contain the product's own value measures four other constants and reports them beside a
+    // figure nobody can locate.** The gate requires `k = 60` to be one of the rungs.
+    const run = runGate(
+      mutated((record) => {
+        const fusion = record['fusion'] as Record<string, unknown>;
+        fusion['byK'] = (fusion['byK'] as Record<string, unknown>[]).filter(
+          (rung) => rung['k'] !== 60,
+        );
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('is not on the ladder');
+  });
+
+  it('refuses a ladder of one rung', () => {
+    const run = runGate(
+      mutated((record) => {
+        const fusion = record['fusion'] as Record<string, unknown>;
+        fusion['byK'] = (fusion['byK'] as Record<string, unknown>[]).filter(
+          (rung) => rung['k'] === 60,
+        );
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a sweep of one constant measures nothing');
+  });
+
+  it('refuses a shipped rung that disagrees with the fused figure beside it', () => {
+    // **Two names for one number.** The rung at the shipped constant averages the same rows the ablation does, so a
+    // disagreement means the ladder was computed over a different ranking than the column.
+    const run = runGate(
+      mutated((record) => {
+        const fusion = record['fusion'] as Record<string, unknown>;
+        const rungs = fusion['byK'] as Record<string, unknown>[];
+        rungs.find((rung) => rung['k'] === 60)!['map'] = 0.44;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('one number with two names');
+  });
+
+  it('refuses a rung compared over a different sample than its own mean', () => {
+    const run = runGate(
+      mutated((record) => {
+        const fusion = record['fusion'] as Record<string, unknown>;
+        const rungs = fusion['byK'] as Record<string, unknown>[];
+        (rungs.find((rung) => rung['k'] === 10)!['vsShipped'] as Record<string, unknown>)['rows'] =
+          1;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a rung compared over a different sample');
+  });
+
+  it('refuses a row whose shipped rung is not the row’s own fused figure', () => {
+    const run = runGate(
+      mutated((record) => {
+        const rows = record['rows'] as Record<string, unknown>[];
+        const ladder = rows[0]!['fusionByK'] as Record<string, unknown>[];
+        ladder.find((rung) => rung['k'] === 60)!['map'] = 0.49;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('the sweep and the column are two rankings');
   });
 
   it('refuses a record whose attempted count is not measured plus refused', () => {

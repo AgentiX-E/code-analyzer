@@ -255,6 +255,42 @@ export function fusionOf(rows: readonly LcaRowScore[]): { value: number | null; 
   return { value: values.length === 0 ? null : mean(values), rows: values.length };
 }
 
+/** One rung of the constant sweep: the figure at one `k`, and how many rows stand behind it. */
+export interface FusionRung {
+  /** The rank constant, from `lca-fusion.ts`'s ladder. */
+  readonly k: number;
+  /** Mean average precision over the rows that carry this rung, or `null` when none does. */
+  readonly map: number | null;
+  readonly rows: number;
+}
+
+/** A row's figure at one constant, or `undefined` when the row has no rung there. **The general form of the sweep.** */
+export function fusedAtK(k: number): RowReading {
+  return (row) => row.fusionByK?.find((at) => at.k === k)?.map;
+}
+
+/**
+ * **The sweep, aggregated.** One mean per constant over the instances the analysis measured.
+ *
+ * The rungs are sorted by constant rather than by the order the ladder was written in, so a figure read off this list is
+ * in a coordinate a reader already has. A rung with no rows is dropped rather than published as a `null` mean: the
+ * ladder is fixed in advance, but a part written before the ladder existed has no rung to average, and an empty rung
+ * would read as a constant that scored nothing.
+ */
+export function fusedByKOf(rows: readonly LcaRowScore[]): FusionRung[] {
+  const rungs = new Map<number, number[]>();
+  for (const row of rows) {
+    for (const at of row.fusionByK ?? []) {
+      const values = rungs.get(at.k) ?? [];
+      values.push(at.map);
+      rungs.set(at.k, values);
+    }
+  }
+  return [...rungs.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .map(([k, values]) => ({ k, map: mean(values), rows: values.length }));
+}
+
 /** The declaration arm alone, **which exists only where the analysis produced a pool**. */
 export const DECLARATIONS: RowReading = (row) => row.declarationMap;
 

@@ -19,6 +19,7 @@ import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
+import { FUSION_K_LADDER } from './lca-fusion.js';
 import {
   averagePrecision,
   checkoutBytes,
@@ -31,13 +32,14 @@ import {
   toCorpusPath,
 } from './lca-instrument.js';
 import { askCodebase } from '../qa/ask.js';
-import { FILE_AGGREGATIONS, rankFiles } from '../search/file-ranking.js';
-import { reciprocalRankFusion } from '../search/fusion.js';
+import { FILE_AGGREGATION, FILE_AGGREGATIONS, rankFiles } from '../search/file-ranking.js';
+import { RRF_K, reciprocalRankFusion } from '../search/fusion.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
+import type { FusionAtK } from './lca-fusion.js';
 import type { ArmMetrics, FileArmScore, LcaRowScore } from './lca-merge.js';
 import type { LLMProvider } from '../review/llm/provider.js';
-import type { PoolEntry } from '../search/file-ranking.js';
+import type { FileAggregation, PoolEntry } from '../search/file-ranking.js';
 import type { GraphEdge, GraphNode, PipelineContext } from '@code-analyzer/shared';
 
 /** One row of the corpus's test split, as the harness reads it. */
@@ -250,24 +252,49 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     score: entry.score,
   }));
   const fileLevelArm = (input.fileSignals ?? []).map((file) => toCorpusPath(input.checkout, file));
-  const fileArms: FileArmScore[] = FILE_AGGREGATIONS.map((aggregation) => {
-    const ranked = rankFiles(pool, aggregation).map((file) => file.filePath);
-    const throughTheWholePool = rankFiles(armaturePool, aggregation).map((file) => file.filePath);
-    const fused = restrictToUniverse(
+  /**
+   * The two arms fused at one constant, **over the pool as the retriever ranked it and cut to the answer space after**.
+   *
+   * One function for the armature and for the sweep, because the sweep's `k = 60` rung has to be the figure the product
+   * publishes: two implementations of the same fusion would be two rulers, and the ladder's middle rung disagreeing
+   * with the column beside it is exactly the defect the gate exists to catch one level up.
+   */
+  const fuse = (aggregation: FileAggregation, k: number): string[] =>
+    restrictToUniverse(
       [
-        ...reciprocalRankFusion([
-          { name: 'declarations', ranked: throughTheWholePool },
-          { name: 'file-level', ranked: fileLevelArm },
-        ]).ranked,
+        ...reciprocalRankFusion(
+          [
+            {
+              name: 'declarations',
+              ranked: rankFiles(armaturePool, aggregation).map((file) => file.filePath),
+            },
+            { name: 'file-level', ranked: fileLevelArm },
+          ],
+          { k },
+        ).ranked,
       ],
       universe,
     );
+  const fileArms: FileArmScore[] = FILE_AGGREGATIONS.map((aggregation) => {
+    const ranked = rankFiles(pool, aggregation).map((file) => file.filePath);
+    const fused = fuse(aggregation, RRF_K);
     return {
       aggregation,
       map: averagePrecision(ranked, input.row.changed_files, MAP_DEPTH),
       answerRank: firstRelevantRank(ranked.slice(0, MAP_DEPTH), input.row.changed_files),
       fusedMap: averagePrecision(fused, input.row.changed_files, MAP_DEPTH),
       fusedAnswerRank: firstRelevantRank(fused.slice(0, MAP_DEPTH), input.row.changed_files),
+    };
+  });
+  // **The constant swept on this instance, and it costs four more passes over a list of a couple of hundred paths.** The
+  // shipped value is one rung of the ladder rather than a point outside it, so the artifact can say whether it sits on a
+  // plateau - which is the only statement that makes `k = 60` a choice rather than an inheritance.
+  const fusionByK: FusionAtK[] = FUSION_K_LADDER.map((k) => {
+    const ranked = fuse(FILE_AGGREGATION, k);
+    return {
+      k,
+      map: averagePrecision(ranked, input.row.changed_files, MAP_DEPTH),
+      rank: firstRelevantRank(ranked.slice(0, MAP_DEPTH), input.row.changed_files),
     };
   });
 
@@ -313,6 +340,7 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     // than a comparison between two runs of two commits.
     declarationMap: averagePrecision(declarations, input.row.changed_files, MAP_DEPTH),
     declarationRank: firstRelevantRank(declarations.slice(0, MAP_DEPTH), input.row.changed_files),
+    fusionByK,
     corpusBytes: size.bytes,
     corpusUnreadable: size.unreadable,
     checkoutBytes: walked.bytes,
