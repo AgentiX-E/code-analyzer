@@ -192,6 +192,15 @@ ours.** That is the figure this project now optimises against, and it is publish
 interval's upper bound touching zero is the honest state of it: **the gap has closed from −0.0709 to −0.0437 in one
 iteration and a 109-row sample can no longer rule out parity.**
 
+**Two runs are quoted in this section, and they are named wherever a figure comes from one of them.** The paragraphs
+above and the tables below the fallback are run `42004065020` (150 attempted, 109 measured, run over commit `c4ba2bc`);
+the fallback section and its tables are run **`42126693328`** (150 planned, 141 attempted, 102 measured, 39 refused,
+**nine never reached**). On that second run the analysis scores **0.4235 over 102 rows**, the paired difference against
+BM25 is **−0.0436, [−0.0873, +0.0005], p = 0.0095** (25 wins, 48 losses, 29 ties), and `diagnosis` reads **93 of 102
+rows containing an answer for us against 102 of 102 for the control**, first-placed 55 against 61. **The figures agree
+with the run before it to within the sample, which is the point of quoting both rather than replacing one with the
+other.**
+
 | split  | measured | MAP    | BM25, same rows | Δ           |
 | ------ | -------- | ------ | --------------- | ----------- |
 | Python | 41 / 50  | 0.4430 | 0.4426          | **+0.0004** |
@@ -279,6 +288,55 @@ weight, and the floor with every refusal scored zero is **0.3037**. Per band, ou
 0.6922** (0–50 files, 21 measured), **0.4042 / 0.4218** (50–200, 49), **0.2912 / 0.4445** (200–500, 30), **0.4529 /
 0.2765** (500–2 000, nine rows) — so the loss is not a property of one size of repository, and the band where we lead is
 the one the control finds hardest.
+
+**Every mean above is over the rows that fitted, and the artifact now carries one that is not.** The bounds refuse
+whole instances, the refusals are concentrated in the bands where both retrievers do worst, and reweighting a mean over
+the survivors estimates a population that was never measured. So the product gained a **file-level fallback**: a
+document made of a file's repository-relative path and the module names of its import statements, the body never read,
+scored with the control's own tokeniser, saturation, length normalisation and tie-break (`search/lexical.ts`, shared by
+both arms so the only difference between them is which text a document is). It needs no parser, no graph and no model,
+so it ranks the checkouts the analysis was killed on — and `code-analyzer locate <question>` exposes it to a reader.
+
+| what is being measured                                                        | rows    | MAP        |
+| ----------------------------------------------------------------------------- | ------- | ---------- |
+| **the product as shipped: the analysis where it ran, the fallback elsewhere** | **141** | **0.3538** |
+| the analysis alone, over the rows it could run                                | 102     | **0.4235** |
+| the fallback alone, over every attempted instance                             | 141     | 0.3327     |
+| every refusal scored zero                                                     | 141     | 0.3064     |
+| BM25, same rows                                                               | 141     | 0.4232     |
+| TF-IDF, same rows                                                             | 141     | 0.3771     |
+
+**The first row is the only one that describes the product, and it is the row that goes in a published table.** It is
+0.12 below the figure the artifact used to quote, and it moves this product from first of six to **second, level with
+the embedding baselines and behind GPT-4's 0.39** — which is what an honest comparison with a table measured over fifty
+instances per split looks like when our own sample stops being the part of the corpus that fitted. The other three rows
+are published beside it because each of them answers a different question and none of them is the product: 0.4235 is
+what the analyser does when it can run, 0.3327 is what a name and an import block do with no analysis at all, and
+0.3064 is the floor a reader would have been given before this iteration.
+
+**The fallback is a real ranking, not a padded zero.** Paired against the analysis on the 102 instances both ranked it
+loses **−0.0291** (0.3944 against 0.4235) — the bodies the analyser reads are worth 0.03 — and on the 39 it alone could
+rank it scores **0.1714**. Per band it is the strongest where the analyser is weakest:
+
+| band       | attempted | measured | the analysis | BM25 on the same rows | the fallback |
+| ---------- | --------- | -------- | ------------ | --------------------- | ------------ |
+| 0–50 files | 18        | 18       | **0.6465**   | 0.7068                | 0.5010       |
+| 50–200     | 50        | 47       | **0.4106**   | 0.4057                | 0.3601       |
+| 200–500    | 35        | 28       | 0.2925       | **0.4414**            | **0.4130**   |
+| 500–2 000  | 30        | 9        | **0.4529**   | 0.3892                | 0.1451       |
+| 2 000+     | 8         | 0        | —            | —                     | 0.1346       |
+
+**In the 200–500 band a path and an import block score 0.4130 where the whole analyser scores 0.2925**, which is the
+largest single figure in this section and the next iteration's target: it says the declaration-level pool loses
+information the file's own name carries, exactly where the pool is worst. The fallback collapses above 500 files
+(0.1451, 0.1346) because at that size every file's imports look like every other's, so the two instruments are
+complementary rather than ranked.
+
+**And the fallback costs something, which the artifact says rather than hides.** It runs in the parent process, before
+the bound is decided, so that a refused instance still has a figure; one head read per file over the whole answer space
+is **80 137 files** on this run. The run reached **141 of the 150 planned instances — nine were never examined** because
+the job's own clock ran out, against zero unreached in the previous run. That is the price of the column, and the next
+iteration moves the fallback into its own pass, with its cost published per row.
 
 **The rank of a file used to be the rank of its first declaration, and that is a choice nobody had measured.** The
 retriever scores declarations; the corpus asks which _files_ must change; the product took a file's position to be the
