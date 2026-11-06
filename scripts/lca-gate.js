@@ -689,6 +689,18 @@ function main() {
     `fusion.byK: the shipped constant k = ${String(shippedK)} is not on the ladder, so no rung of this sweep is the ` +
       'product',
   );
+  // **And the ladder has to bracket what it ships.** A sweep whose shipped constant sits on its edge can say that a
+  // smaller one is no worse and cannot say how much worse a larger one is - which is what the first ladder could not
+  // say about 60, and what left the constant at the literature's value for four iterations. `FUSION_K_LADDER` is
+  // `[3, 5, 10, 30, 60]` around a shipped 10 for exactly this reason, and a future change that flattened it to a
+  // one-sided list would fail here.
+  const below = rungs.filter((rung) => typeof rung?.k === 'number' && rung.k < shippedK);
+  const above = rungs.filter((rung) => typeof rung?.k === 'number' && rung.k > shippedK);
+  guard(
+    below.length >= 1 && above.length >= 1,
+    `fusion.byK: ${String(below.length)} rung(s) below k = ${String(shippedK)} and ${String(above.length)} above - a ` +
+      'ladder that does not bracket the constant it ships cannot say whether the constant is on a plateau',
+  );
   if (shippedRung !== undefined) {
     guard(
       shippedRung.map === fusionVsDeclarations?.ours &&

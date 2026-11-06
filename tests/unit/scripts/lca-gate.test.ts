@@ -719,6 +719,21 @@ describe('lca gate', () => {
     expect(run.stderr).toContain('is not on the ladder');
   });
 
+  it('**refuses a ladder that does not bracket the constant it ships**', () => {
+    // A one-sided ladder can say that a smaller constant is no worse and cannot say how much worse a larger one is. The
+    // first ladder had 10 as its edge rung, which is why the move to 10 arrived without a measurement above it.
+    const run = runGate(
+      mutated((record) => {
+        const fusion = record['fusion'] as Record<string, unknown>;
+        fusion['byK'] = (fusion['byK'] as Record<string, unknown>[]).filter(
+          (rung) => Number(rung['k']) <= 10,
+        );
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('does not bracket the constant it ships');
+  });
+
   it('refuses a ladder of one rung', () => {
     const run = runGate(
       mutated((record) => {
