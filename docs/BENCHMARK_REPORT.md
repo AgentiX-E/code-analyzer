@@ -287,10 +287,12 @@ control.** Two iterations ago this table read 100 against 109 with 58 against 64
 a change in _ordering_ rather than in coverage — which is what a second arm can buy and what a retriever alone could not.
 
 **The sample, stated rather than implied.** 150 instances were intended, **all 150 reached**, 115 measured, 35 refused,
-**none unreached** — so **76.7 % of the protocol**. Every refusal carries its sentence in `sample.refusals`: **thirteen**
-the 4 000-file cap, **fourteen** the declaration model's own file bound, **three** the 900-second clock, **three** the
-6 144 MB ceiling, one a duplicate-node crash in the graph builder (`project:dagger/dagger:Container.Build`, repaired this
-iteration) and one a native `exit code 7` inside the parser's allocator.
+**none unreached** — so **76.7 % of the protocol**. Every refusal carries its sentence in `sample.refusals`, and **the
+taxonomy below is the run's own, under the rule that was in force for it**: **thirteen** the 4 000-file cap,
+**fourteen** the declaration model's file bound (an arm iteration 80 removed, so the next run's list is shorter by
+whatever the guard now admits), **three** the 900-second clock, **three** the 6 144 MB ceiling, one a duplicate-node crash
+in the graph builder (`project:dagger/dagger:Container.Build`, repaired this iteration) and one a native `exit code 7`
+inside the parser's allocator.
 
 **And the sample was not easier than the corpus.** Measured per band of repository size, BM25 scores **0.1808** on the
 eight 2 000+-file instances against **0.6922** on the smallest, so the bounds removed the band where **both** retrievers
@@ -314,13 +316,37 @@ fits peak resident memory against three candidate predictors over its own measur
 
 **A rate with a negative R² is worse than predicting the sample mean**, and the spread it hides is a factor of 1 400 —
 because memory grows with what the analysis _produced_, and two checkouts of the same file count can differ by two
-orders of magnitude in declarations. So admission is charged at the fitted model: **516 MB fixed, a residual margin, and
-22 KB per declaration**, converted to a file bound at a stated density (**120 declarations per file**). The same 6 144 MB
-ceiling affords **1 999 files** at that density and **7 998** at 30, so the cap is 4 000 and the two
-bounds swap roles: the cap states what will be attempted, the model refuses what will not fit, and every refusal quotes
-the density and the arithmetic behind it. The gate refuses an artifact whose rule is charged per file, whose units are
-unstated, whose ladder is not monotone, whose published bound is not its own division, whose margin does not say which
-quantile it is, or whose recommended fit does not beat the rate it replaced.
+orders of magnitude in declarations.
+
+**So the bound moved to the quantity the memory is paid in, and then out of admission altogether.** The round that
+replaced the rate charged admission at the fitted model — **516 MB fixed, a residual margin, and 22 KB per
+declaration** — converted to a file bound at a stated density (**120 declarations per file**), which on a 6 144 MB
+ceiling affords **1 999 files** and on the same ceiling at 30 declarations per file affords **7 998**. That conversion is
+a prediction, and the sample it was calibrated on refutes it in the direction that matters: **43 of the 115 measured rows
+cost more declarations than the charge**, the density spans four orders of magnitude across the corpus (20.5 to 118 888),
+and the two instances the ceiling killed were under-covered by **4.9 and 4.1 GB** — a factor of three that no additive
+margin reaches without refusing the corpus.
+
+**Iteration 80 stopped predicting.** Admission now applies the two bounds that are honest before a process starts — the
+stated **4 000-file cap** and the job's remaining **clock** — and the memory bound is enforced **inside the child
+process**, by a node map that refuses to grow past a **measured** declaration count:
+`MEASURED_DECLARATION_CEILING` is **237 796**, the densest graph any completed row has held (109 rows, `wekan/wekan`,
+under the same 6 144 MB ceiling). It is deliberately **not** the model's own budget of 229 999: `wekan/wekan` produced
+237 796 declarations and completed, so a guard set at the model would have refused a row that ran, and the gap between
+the two numbers is published as the model's error rather than smoothed into a budget nobody can check. A checkout that
+crosses the guard is refused **at the declaration where it crossed**, with that declaration in its sentence, instead of
+being killed at the ceiling several gigabytes later. The file figures the model converts to are still published — as a
+derived quantity a reader can check, not as the rule the run obeyed.
+
+**And the gate keeps the replacement from becoming the thing it replaced.** It requires the artifact to state which of
+the two shapes applied (`cap-and-declaration-guard` or the superseded `cap-and-memory-model`), to publish the guard's
+count, its row count, its repository and its runner, and to **fail when a measured row is denser than the guard** —
+because a row that produced more declarations and still completed is evidence the guard is too tight, and the repair is
+to raise the constant rather than to refuse the instance.
+
+**Refusals quote a rate that describes no instance, and the artifact carries the numbers that condemn it.** The
+superseded memory bound was charged at **3.7 MB per file** — a figure fitted by hand on four checkouts. The same artifact
+fits peak resident memory against three candidate predictors over its own measured rows and publishes all three:
 
 **And the density that conversion uses is published as a distribution, because the constant it replaced was a statistic
 over the shards that happened to have finished.** The report used to state "120 declarations per file, the rung a

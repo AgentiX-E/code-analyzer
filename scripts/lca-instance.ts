@@ -27,7 +27,11 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import {
   CONFIG_EXTENSION,
+  DeclarationCeilingExceeded,
   corpusFiles,
+  FIXED_MB,
+  MB_PER_DECLARATION,
+  MODEL_MARGIN_MB,
 } from '../packages/intelligence/src/benchmark/lca-instrument.js';
 import { measureInstance } from '../packages/intelligence/src/benchmark/lca-measure.js';
 import { skippedRow } from '../packages/intelligence/src/benchmark/lca-merge.js';
@@ -49,6 +53,7 @@ const checkout = flagOf('--checkout');
 const rowFile = flagOf('--row');
 const out = flagOf('--out');
 const fileRanking = flagOf('--file-ranking');
+const budgetFlag = flagOf('--declaration-budget');
 
 if (config === undefined || checkout === undefined || rowFile === undefined || out === undefined) {
   console.error(
@@ -57,6 +62,26 @@ if (config === undefined || checkout === undefined || rowFile === undefined || o
   );
   process.exit(2);
 }
+
+/**
+ * The declaration budget, **or `null` when the parent stated none**.
+ *
+ * **A malformed budget stops the run rather than being read as zero.** `Number.parseInt('12x')` answers 12 and
+ * `Number.parseInt('none')` answers `NaN`, and a child that treated the second as "no guard" would run an unbounded
+ * analysis under a parent that believed it had set one. So the flag is parsed strictly here, where the mistake can still
+ * be told to the caller, and the exit code says it was a specification error rather than a measurement.
+ */
+const declarationBudget: number | null = (() => {
+  if (budgetFlag === undefined) return null;
+  const parsed = Number(budgetFlag);
+  if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+    console.error(
+      `lca-instance: --declaration-budget ${budgetFlag} is not a positive integer; the guard it names cannot be built`,
+    );
+    process.exit(2);
+  }
+  return parsed;
+})();
 
 if (!existsSync(rowFile)) {
   console.error(`lca-instance: the row file ${rowFile} does not exist`);
@@ -91,6 +116,7 @@ async function main(): Promise<void> {
       allFiles,
       provider,
       ...(signals === undefined ? {} : { fileSignals: signals }),
+      ...(declarationBudget === null ? {} : { declarationBudget }),
     });
     emit({ row: scored });
     console.log(
@@ -99,6 +125,11 @@ async function main(): Promise<void> {
         `outside=${String(scored.outside)}`,
     );
   } catch (error) {
+    // **The guard's refusal is a measurement of the run, not a defect of the repository**, so it is published as a row
+    // with the arithmetic that produced it: the declaration the analysis had reached, the budget it was allowed, and the
+    // model those two numbers come from. A reader can then check the ceiling against the row's own count instead of
+    // trusting a rate fitted on four checkouts.
+    const guarded = error instanceof DeclarationCeilingExceeded ? error : null;
     // **A repository the analyser cannot read is a fact about the repository**, and it is published as a refused row
     // rather than as a missing one: the difference between "this instance scored nothing" and "this instance was never
     // examined" is the difference between a figure and a hole.
@@ -109,10 +140,20 @@ async function main(): Promise<void> {
         repo: `${row.repo_owner}/${row.repo_name}`,
         corpusFiles: allFiles.length,
         expectedFiles: row.changed_files.length,
-        because: `the analysis failed: ${String(message)}`,
+        because:
+          guarded === null
+            ? `the analysis failed: ${String(message)}`
+            : `the analysis reached ${String(guarded.declarations)} declarations, above the ` +
+              `${String(guarded.budget)} this runner can pay for (${String(FIXED_MB)} MB fixed, ` +
+              `${String(MODEL_MARGIN_MB)} MB of model margin and ${String(MB_PER_DECLARATION)} MB per declaration ` +
+              'against the instance ceiling), and the graph was stopped there rather than grown until the ceiling ' +
+              'killed the process',
       }),
     });
-    console.log(`LCA-INSTANCE ${config!} id=${String(row.id)} analysis failed: ${String(message)}`);
+    console.log(
+      `LCA-INSTANCE ${config!} id=${String(row.id)} ${guarded === null ? 'analysis failed' : 'declaration ceiling'}: ` +
+        `${String(message)}`,
+    );
   }
 }
 

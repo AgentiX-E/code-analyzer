@@ -21,6 +21,8 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import { FUSION_K_LADDER } from './lca-fusion.js';
 import {
+  BoundedNodes,
+  DeclarationCeilingExceeded,
   averagePrecision,
   checkoutBytes,
   firstRelevantRank,
@@ -87,6 +89,20 @@ export interface MeasureInput {
    * fallback column is scored from, so the two cannot disagree about what a file's name and imports are.
    */
   readonly fileSignals?: readonly string[];
+  /**
+   * Declarations this analysis may produce before it stops itself, **counted where they are added**.
+   *
+   * **The bound moved here from the parent because the parent cannot know the number.** Admission used to charge the
+   * memory as `files × density`, and on the 6 November 2026 sample 43 of 115 rows cost more declarations than that
+   * charge. The quantity the memory pays for is counted by the analysis itself, so the fence that charges for it belongs
+   * where the count exists: this process, at the moment the graph crosses it (see `BoundedNodes`). An instance that
+   * crosses is not measured and not killed - it is refused with the declaration it reached, which the artifact can be
+   * checked against.
+   *
+   * `null` or absent means no guard, which is what a run with no stated ceiling deserves; a non-positive number is a
+   * caller mistake and `BoundedNodes` throws for it rather than guarding nothing.
+   */
+  readonly declarationBudget?: number | null;
 }
 
 /** The seven figures the authors' metric produces, for one instance. */
@@ -174,15 +190,45 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   const provider = input.provider ?? null;
   const maxBlocks = input.maxBlocks ?? 40;
   const retrieveLimit = input.retrieveLimit ?? MAP_DEPTH;
+  // **The guard is built before the analysis and given to it**, because a count that is checked after the graph exists
+  // is checked after the memory has been spent. `BoundedNodes` throws a `DeclarationCeilingExceeded` the moment a new
+  // declaration does not fit, so the parse stops at the declaration where the runner's memory would have run out rather
+  // than at the ceiling kill that follows it.
+  const bounded =
+    input.declarationBudget === undefined || input.declarationBudget === null
+      ? null
+      : new BoundedNodes(input.declarationBudget);
+  const projectId = `${input.row.repo_owner}/${input.row.repo_name}`;
   const ctx = {
-    projectId: `${input.row.repo_owner}/${input.row.repo_name}`,
+    projectId,
     rootPath: input.checkout,
     config: getDefaultConfig(),
     signal: new AbortController().signal,
     metadata: {},
+    // **The graph is handed in rather than created by the orchestrator**, which honours `ctx.graph` when it is there and
+    // builds an unbounded one when it is not. An empty graph with a bounded node map and ordinary indexes is exactly
+    // what `createEmptyGraph` produces, one field aside.
+    ...(bounded === null
+      ? {}
+      : {
+          graph: {
+            projectId,
+            rootPath: input.checkout,
+            nodes: bounded,
+            edges: new Map(),
+            qnameIndex: new Map(),
+            fileIndex: new Map(),
+          },
+        }),
   } as unknown as PipelineContext;
 
   const pipeline = await new PipelineOrchestrator(createAllPhases()).execute(ctx);
+  // **A crossing the phases swallowed is still a crossing.** A phase that catches a per-file error and continues leaves a
+  // graph that stopped growing at the budget - correct for memory, and a truncated graph for the measurement - so the
+  // row is refused here rather than scored against the declarations that fitted.
+  if (bounded !== null && bounded.crossedAt !== null) {
+    throw new DeclarationCeilingExceeded(bounded.crossedAt, bounded.budget);
+  }
   // **What the analysis produced, counted before the graph is copied into a store.** Resident memory holds objects -
   // one per declaration, one per edge - so the count of them is the first predictor that names the thing the ceiling is
   // actually bounding. The two byte totals measured before this were proxies, and both failed: the checkout's bytes are

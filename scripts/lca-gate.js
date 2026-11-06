@@ -297,6 +297,75 @@ function main() {
   })();
 
   //
+  // **The memory bound is a count, so the artifact has to say where it is enforced and how dense its evidence is.**
+  //
+  // Iteration 80 removed the file-count conversion from admission: it multiplied a checkout's file count by a rung to
+  // predict declarations, and on the sample of 6 November 2026 **43 of 115 rows cost more than the prediction** while the
+  // two ceiling kills were under-covered by 4.1 and 4.9 GB. What replaced it is a guard inside the child process that
+  // stops the graph at a measured declaration count. Three things are invariants here, and each one is a way the
+  // replacement can quietly become the thing it replaced:
+  //
+  //   * `appliedTo` names one of the two shapes, because a bound that is published and not applied is a promise kept only
+  //     in the artifact;
+  //   * when the shape is the guard, the guard travels with the sample that calibrated it - a maximum whose denominator
+  //     and runner are unstated is a rumour, which is the defect iteration 79 found in the density median;
+  //   * **the guard is a floor on the evidence**: no measured row may exceed it. A row that produced more declarations and
+  //     still completed is a row the guard would have refused, so the constant is too tight and the gate says so rather
+  //     than letting a policy refuse an instance the runner could have measured.
+  const guardBlock = at(record, ['fileCap', 'memory', 'guard']);
+  const appliedTo = at(record, ['fileCap', 'memory', 'appliedTo']);
+  const guardLine = (() => {
+    const shapes = ['cap-and-declaration-guard', 'cap-and-memory-model'];
+    const shapeStated = shapes.includes(appliedTo);
+    const measuredRows = (Array.isArray(at(record, ['rows'])) ? at(record, ['rows']) : []).filter(
+      (row) => row?.skipped === null || row?.skipped === undefined,
+    );
+    const counted = measuredRows
+      .map((row) => row?.graphNodes)
+      .filter((value) => typeof value === 'number');
+    const densest = counted.length === 0 ? null : Math.max(...counted);
+    if (appliedTo !== 'cap-and-declaration-guard') {
+      // **The superseded shape is not a failure** - an artifact from an older run is a record of an older rule, and a gate
+      // that refused it would make the archive unpublishable. What it does require is that the shape is *stated*.
+      return {
+        line:
+          `| memory bound | applied to ${String(appliedTo ?? 'unstated')} | one of two stated shapes | ` +
+          `${shapeStated ? '✓' : '✗'} |`,
+        failure: shapeStated
+          ? null
+          : 'fileCap.memory.appliedTo: the artifact must say whether the memory bound was applied to a file count ' +
+            'before admission or to a declaration count inside the child process',
+      };
+    }
+    const stated =
+      guardBlock !== null &&
+      typeof guardBlock === 'object' &&
+      typeof guardBlock.declarations === 'number' &&
+      guardBlock.declarations > 0 &&
+      typeof guardBlock.rows === 'number' &&
+      guardBlock.rows > 0 &&
+      typeof guardBlock.ceilingMb === 'number' &&
+      guardBlock.ceilingMb > 0 &&
+      typeof guardBlock.repo === 'string' &&
+      guardBlock.repo.length > 0;
+    const floorHolds = !stated || densest === null || densest <= guardBlock.declarations;
+    const ok = shapeStated && stated && floorHolds;
+    return {
+      line:
+        `| memory bound | guard at ${String(guardBlock?.declarations ?? '—')} declarations ` +
+        `(calibrated on ${String(guardBlock?.rows ?? '—')} rows of ${String(guardBlock?.repo ?? '—')} under ` +
+        `${String(guardBlock?.ceilingMb ?? '—')} MB) · densest measured row ${String(densest ?? '—')} | ` +
+        'guard ≤ ceiling · sample stated · the guard refuses none of the rows this run measured | ' +
+        `${ok ? '✓' : '✗'} |`,
+      failure: ok
+        ? null
+        : 'fileCap.memory.guard: the declaration guard must state the count, the rows it was calibrated on and the ' +
+          'ceiling it was measured under, and no measured row may exceed it - a denser row that completed is evidence ' +
+          'the guard is too tight',
+    };
+  })();
+
+  //
   // A floor on `paired.meanDelta` would be an aspiration - the number has never been measured, and a floor invented
   // before the first measurement can only be a guess wearing a gate's clothes. What *can* be required before any figure
   // is read is that the sample adds up and that the comparison is actually paired:
@@ -911,6 +980,8 @@ function main() {
   if (admissionLine.failure) failures.push(admissionLine.failure);
   rows.push(densityLine.line);
   if (densityLine.failure) failures.push(densityLine.failure);
+  rows.push(guardLine.line);
+  if (guardLine.failure) failures.push(guardLine.failure);
   const fallbackLine =
     typeof fallbackOverall?.value === 'number'
       ? `| fallback: path + imports | ${fallbackOverall.value.toFixed(4)} · ` +

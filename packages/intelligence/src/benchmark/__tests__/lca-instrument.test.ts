@@ -19,16 +19,18 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_EXTENSION,
   averagePrecision,
+  BoundedNodes,
   DECLARATIONS_PER_FILE,
   DECLARATIONS_PER_FILE_LADDER,
+  DeclarationCeilingExceeded,
   FIXED_MB,
   LCA_CONFIGS,
   MB_PER_DECLARATION,
+  MEASURED_DECLARATION_CEILING,
   MEASURED_DECLARATIONS_PER_FILE,
   MEASURED_MB_PER_FILE,
   MODEL_MARGIN_MB,
   MS_PER_FILE,
-  RUNNER_RESERVE_MB,
   analysableDeclarationBudget,
   checkoutBytes,
   checkoutFileCount,
@@ -52,6 +54,7 @@ import {
 } from '../lca-instrument.js';
 
 import type { InstanceBounds } from '../lca-instrument.js';
+import type { GraphNode } from '@code-analyzer/shared';
 
 describe('toCorpusPath', () => {
   it('reduces an absolute path to the corpus’s own form', () => {
@@ -591,15 +594,11 @@ describe('modelledAnalysisMb', () => {
 describe('decideInstance', () => {
   const roomy: InstanceBounds = {
     capFiles: 4000,
-    budgetFiles: 1500,
     elapsedMs: 0,
     budgetMs: 45 * 60_000,
-    residentMb: 400,
-    reserveMb: RUNNER_RESERVE_MB,
-    declarationsPerFile: DECLARATIONS_PER_FILE,
   };
 
-  it('measures what fits inside all three bounds', () => {
+  it('measures what fits inside both bounds', () => {
     expect(decideInstance(568, roomy)).toEqual({ analyse: true });
   });
 
@@ -611,33 +610,17 @@ describe('decideInstance', () => {
     );
   });
 
-  it('refuses what the remaining memory cannot afford, **in the units the memory is paid in**', () => {
-    const verdict = decideInstance(1200, {
-      ...roomy,
-      residentMb: 3072,
-      budgetFiles: 830,
-    });
-    expect(verdict.analyse ? '' : verdict.because).toBe(
-      'an analysis of 1200 files at 120 declarations per file is estimated at 4243 MB resident (515 MB fixed plus ' +
-        '546 MB of model margin plus 0.0221 MB per declaration) and only 830 files of room remain above a 1024 MB ' +
-        'reserve, with 3072 MB resident',
-    );
-  });
-
-  it('omits the reserve clause when no reserve was subtracted', () => {
-    // **A sentence may not name a number the arithmetic did not use.** The bound the run applies subtracts the parent's
-    // resident set from a ceiling that already excludes the runner's reserve, so the clause is dropped rather than
-    // printed as `above a 0 MB reserve`.
-    const verdict = decideInstance(1200, {
-      ...roomy,
-      residentMb: 3072,
-      budgetFiles: 830,
-      reserveMb: 0,
-    });
-    expect(verdict.analyse ? '' : verdict.because).toContain(
-      'only 830 files of room remain with 3072 MB resident',
-    );
-    expect(verdict.analyse ? '' : verdict.because).not.toContain('reserve, with');
+  it('**admits a checkout the density conversion would have refused**, because the count is not a prediction', () => {
+    // **This is the iteration.** Admission used to divide the memory budget by a density and compare the result with a
+    // file count; 43 of the 115 rows of the 6 November 2026 run cost more declarations than that charge, and the two
+    // instances the ceiling killed were under-covered by 4.1 and 4.9 GB. A file count converted at a density the
+    // checkout's own contents decide is a prediction, and the density spans four orders of magnitude.
+    //
+    // So a 2 600-file checkout - above the 1 916 the model's budget converted to at 120 declarations per file - is now
+    // admitted, and the guard in the child process is what decides whether it can be measured.
+    expect(decideInstance(2600, roomy)).toEqual({ analyse: true });
+    // **And it is still a bound**: the cap is applied before anything is started.
+    expect(decideInstance(4001, roomy).analyse).toBe(false);
   });
 
   it('refuses what would end past the job’s own budget', () => {
@@ -653,11 +636,6 @@ describe('decideInstance', () => {
     );
   });
 
-  it('applies the cap before the memory bound, so a reader is told the bound somebody chose', () => {
-    const verdict = decideInstance(5000, { ...roomy, budgetFiles: 100 });
-    expect(verdict.analyse ? '' : verdict.because).toContain('above the stated cap');
-  });
-
   it('uses the measured per-file costs rather than a second copy of them', () => {
     const verdict = decideInstance(100, {
       ...roomy,
@@ -668,6 +646,82 @@ describe('decideInstance', () => {
       `estimated at ${String(100 * MS_PER_FILE)} ms`,
     );
     expect(MEASURED_MB_PER_FILE).toBe(3.7);
+  });
+});
+
+describe('BoundedNodes', () => {
+  const node = (id: number, qualifiedName: string): GraphNode =>
+    ({ id, qualifiedName }) as unknown as GraphNode;
+
+  it('holds exactly the budget and refuses the declaration past it', () => {
+    const nodes = new BoundedNodes(3);
+    for (let index = 1; index <= 3; index += 1) nodes.set(index, node(index, `a${String(index)}`));
+    expect(nodes.size).toBe(3);
+    expect(nodes.crossedAt).toBeNull();
+    expect(() => nodes.set(4, node(4, 'a4'))).toThrow(DeclarationCeilingExceeded);
+    expect(nodes.size).toBe(3);
+    expect(nodes.crossedAt).toBe(4);
+  });
+
+  it('reports the crossing as the declaration that was refused, not as the budget', () => {
+    const nodes = new BoundedNodes(2);
+    nodes.set(1, node(1, 'a'));
+    nodes.set(2, node(2, 'b'));
+    expect(() => nodes.set(9, node(9, 'c'))).toThrow(/reached 3 declarations/);
+    expect(nodes.crossedAt).toBe(3);
+  });
+
+  it('does not charge an update to a declaration it already holds', () => {
+    // **A graph that rewrites a node is not a graph that grew.** Several phases replace a node in place - a resolution
+    // pass that fills in a parent, a prune that rewrites a property - and charging those would stop an analysis that was
+    // not costing any memory.
+    const nodes = new BoundedNodes(1);
+    nodes.set(1, node(1, 'a'));
+    nodes.set(1, node(1, 'a'));
+    expect(nodes.size).toBe(1);
+    expect(nodes.crossedAt).toBeNull();
+  });
+
+  it('refuses a budget that is not a budget, rather than guarding nothing', () => {
+    // **A guard of zero refuses the first declaration**, which looks like a working guard and is a missing one; a guard
+    // of `NaN` compares false against everything and stops nothing. Both are caller mistakes that would be invisible in
+    // an artifact, so they are thrown where the caller can see them.
+    expect(() => new BoundedNodes(0)).toThrow(RangeError);
+    expect(() => new BoundedNodes(-1)).toThrow(RangeError);
+    expect(() => new BoundedNodes(Number.NaN)).toThrow(RangeError);
+  });
+
+  it('carries the sentence the artifact publishes, with both numbers in it', () => {
+    const error = new DeclarationCeilingExceeded(237_797, 237_796);
+    expect(error.declarations).toBe(237_797);
+    expect(error.budget).toBe(237_796);
+    expect(error.message).toContain('237797');
+    expect(error.message).toContain('237796');
+  });
+});
+
+describe('the measured declaration ceiling', () => {
+  it('is a record of a sample, so it states the rows and the runner it was taken on', () => {
+    expect(MEASURED_DECLARATION_CEILING.rows).toBeGreaterThan(0);
+    expect(MEASURED_DECLARATION_CEILING.declarations).toBeGreaterThan(0);
+    expect(MEASURED_DECLARATION_CEILING.ceilingMb).toBeGreaterThan(0);
+    expect(MEASURED_DECLARATION_CEILING.repo).toMatch(/\S+\/\S+/);
+  });
+
+  it('is the largest count the sample produced and completed, **not the count the model affords**', () => {
+    // The two disagree, and the disagreement is the finding: the budget the 6 144 MB ceiling affords under the fitted
+    // model is 229 999 declarations, while a `wekan/wekan` row of 237 796 declarations **completed** - so the model
+    // under-charges by at least 8 000 declarations, and a guard set at the model would have refused a row that ran.
+    const affordable = analysableDeclarationBudget({
+      totalMb: 6144,
+      residentMb: 0,
+      reserveMb: 0,
+      mbPerDeclaration: MB_PER_DECLARATION,
+      fixedMb: FIXED_MB,
+      marginMb: MODEL_MARGIN_MB,
+    });
+    expect(affordable).toBe(229_999);
+    expect(MEASURED_DECLARATION_CEILING.declarations).toBeGreaterThan(affordable);
   });
 });
 

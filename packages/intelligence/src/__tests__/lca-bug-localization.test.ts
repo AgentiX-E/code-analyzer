@@ -59,6 +59,7 @@ import {
   DECLARATIONS_PER_FILE_LADDER,
   FIXED_MB,
   MB_PER_DECLARATION,
+  MEASURED_DECLARATION_CEILING,
   MEASURED_MB_PER_FILE,
   MODEL_MARGIN_MB,
   MODEL_MARGIN_QUANTILE,
@@ -353,6 +354,11 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             fixedMb: FIXED_MB,
             marginMb: MODEL_MARGIN_MB,
             marginQuantile: MODEL_MARGIN_QUANTILE,
+            // **Where the memory bound is enforced**, because a bound that is published but not applied is a promise the
+            // run does not keep. The file bound is now a *derived figure* the artifact publishes; the child's
+            // declaration guard is what refuses an instance too dense for the runner.
+            admission: 'cap-and-declaration-guard',
+            guard: MEASURED_DECLARATION_CEILING,
             fileLadder: MEMORY_BUDGET.ladder,
             mbPerFile: MEASURED_MB_PER_FILE,
             reserveMb: RUNNER_RESERVE_MB,
@@ -452,26 +458,14 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           // directory is what took the runner down six minutes later.
           const walked = checkoutFileCount(checkout);
           const resident = residentMb();
+          // **Two bounds, and the density conversion is no longer one of them.** A file count multiplied by a rung was
+          // a prediction about a quantity the checkout's own contents decide, and on the run that produced this
+          // iteration's figures 43 of 115 rows cost more declarations than it charged. What is left is what is known
+          // before the process starts: the cap somebody chose, and the time left in the job.
           const bounds = {
             capFiles: FILE_CAP,
-            // **The parent's resident set is subtracted, because it is memory the child cannot have** - and it is the
-            // figure the old bound passed as `residentMb: 0` while printing it on the line beside.
-            budgetFiles: fileBudgetAtDensity({
-              declarations: analysableDeclarationBudget({
-                totalMb: INSTANCE_RSS_CAP_MB,
-                residentMb: resident,
-                reserveMb: 0,
-                mbPerDeclaration: MB_PER_DECLARATION,
-                fixedMb: FIXED_MB,
-                marginMb: MODEL_MARGIN_MB,
-              }),
-              declarationsPerFile: DECLARATIONS_PER_FILE,
-            }),
             elapsedMs: Date.now() - startedAt,
             budgetMs: BUDGET_MS,
-            residentMb: resident,
-            reserveMb: 0,
-            declarationsPerFile: DECLARATIONS_PER_FILE,
           };
           const verdict = decideInstance(walked, bounds);
           const repo = `${row.repo_owner}/${row.repo_name}`;
@@ -483,7 +477,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           console.log(
             `LCA-INSTANCE ${config} id=${String(row.id)} ${repo} files=${String(allFiles.length)} ` +
               `walked=${String(walked)} parentRss=${String(resident)}MB ceiling=${String(INSTANCE_RSS_CAP_MB)}MB ` +
-              `room=${String(bounds.budgetFiles)} underCap=${String(FILE_CAP)} ` +
+              `guard=${String(MEASURED_DECLARATION_CEILING.declarations)} underCap=${String(FILE_CAP)} ` +
               `density=${String(DECLARATIONS_PER_FILE)} ` +
               `estimate=${String(walked * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
               `${verdict.analyse ? 'measuring' : 'skipped'}`,
@@ -548,6 +542,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               outFile,
               '--file-ranking',
               rankingFile,
+              '--declaration-budget',
+              String(MEASURED_DECLARATION_CEILING.declarations),
               ...(answerArm ? ['--answer-arm'] : []),
             ],
             outFile,

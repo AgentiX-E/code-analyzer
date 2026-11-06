@@ -99,6 +99,11 @@ function baseRecord(): Record<string, unknown> {
       appliedTo: 'every file in the checkout except .git',
       memory: {
         model: 'declarations',
+        // **Where the model is enforced**, and the guard that carries its evidence. Iteration 80 moved the memory bound
+        // out of admission and into the child process, because the file count it converted was a prediction about a
+        // quantity the checkout's own contents decide.
+        appliedTo: 'cap-and-declaration-guard',
+        guard: { declarations: 237_796, rows: 109, repo: 'wekan/wekan', ceilingMb: 6144 },
         mbPerDeclaration: 0.0221,
         fixedMb: 515,
         marginMb: 546,
@@ -348,6 +353,7 @@ function baseRecord(): Record<string, unknown> {
         repo: 'owner/one',
         corpusFiles: 20,
         skipped: null,
+        graphNodes: 24_000,
         map: 0.5,
         answerRank: 1,
         bm25Map: 0.3,
@@ -1309,5 +1315,79 @@ describe('lca gate — the density the bound converts at', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('must be charged at the fitted declaration model');
+  });
+});
+
+/**
+ * The memory bound, **which is now enforced inside the child and not against a prediction**.
+ *
+ * Iteration 80 removed the file-count conversion from admission: it multiplied a checkout's file count by a rung, 43 of
+ * the 115 rows of the 6 November 2026 run cost more declarations than it charged, and the two ceiling kills were
+ * under-covered by 4.1 and 4.9 GB. What replaced it is a guard that counts declarations where they are added. These
+ * cases are the three ways the replacement can quietly become the thing it replaced: an artifact that does not say where
+ * the bound applies, a guard whose evidence is unstated, and a guard so tight that it refuses rows the runner measurably
+ * completed.
+ */
+describe('lca gate — the declaration guard', () => {
+  function mutatedGuard(
+    change: (memory: Record<string, unknown>) => void,
+  ): Record<string, unknown> {
+    return mutated((record) => {
+      const cap = record['fileCap'] as Record<string, unknown>;
+      change(cap['memory'] as Record<string, unknown>);
+    });
+  }
+
+  it('**passes a record whose bound states where it is applied and the evidence behind it**', () => {
+    const run = runGate(baseRecord());
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('| memory bound | guard at 237796 declarations');
+    expect(run.stdout).toContain('densest measured row 24000');
+  });
+
+  it('**refuses an artifact that does not say where the bound applies**', () => {
+    // A published bound that is not applied is a promise kept only in the artifact - which is the shape of the defect
+    // this whole block exists to make impossible: the fit condemned the rate while the rate kept refusing instances.
+    const run = runGate(mutatedGuard((memory) => delete memory['appliedTo']));
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('must say whether the memory bound was applied');
+  });
+
+  it('**refuses a guard with no sample behind it**', () => {
+    for (const field of ['declarations', 'rows', 'ceilingMb', 'repo']) {
+      const run = runGate(
+        mutatedGuard((memory) => {
+          (memory['guard'] as Record<string, unknown>)[field] = 0;
+        }),
+      );
+      expect(run.status, field).toBe(1);
+      expect(run.stderr).toContain('the declaration guard must state the count');
+    }
+  });
+
+  it('**refuses a guard that is tighter than a row this run measured**', () => {
+    // A row that produced more declarations and still completed is evidence the guard is too tight; the repair is to
+    // raise the constant, not to refuse the instance. This is the direction that matters, and it is a floor rather than
+    // an equality for the reason the density rung's floor is: the guard is a decision taken once on a recorded sample.
+    const run = runGate(
+      mutatedGuard((memory) => {
+        (memory['guard'] as Record<string, unknown>)['declarations'] = 20_000;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('the guard is too tight');
+  });
+
+  it('**accepts the superseded shape as a record of a rule that was in force**', () => {
+    // The archive has to stay publishable: an artifact from before the move is a measurement under the old rule, and
+    // what the gate requires of it is that the shape is stated, not that it be the current one.
+    const run = runGate(
+      mutatedGuard((memory) => {
+        memory['appliedTo'] = 'cap-and-memory-model';
+        delete memory['guard'];
+      }),
+    );
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('| memory bound | applied to cap-and-memory-model');
   });
 });

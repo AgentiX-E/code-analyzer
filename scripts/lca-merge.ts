@@ -473,6 +473,20 @@ function main(): void {
       memory: {
         /** **The model admission is charged at**, which is the fit the block below recommends rather than a constant. */
         model: 'declarations',
+        /**
+         * **Where the model is enforced**, and the field exists because iteration 80 moved it.
+         *
+         * Until then the model's declaration budget was converted to a file count at a rung and compared with a
+         * checkout's file count *before* the process started - `'cap-and-memory-model'`. On the sample that produced this
+         * block **43 of 115 rows cost more declarations than that conversion charged**, the two instances the ceiling
+         * killed were under-covered by 4.1 and 4.9 GB, and the density the conversion rests on spans four orders of
+         * magnitude. So the bound is no longer applied to a prediction: the child counts its own declarations and stops
+         * at `guard.declarations`, and the file figures below are published as a **derived** quantity a reader can check
+         * rather than as the rule the run obeyed.
+         */
+        appliedTo: first.bounds.admission ?? 'cap-and-memory-model',
+        /** **The declaration count the child stops itself at**, with the sample that calibrated it. */
+        guard: first.bounds.guard ?? null,
         mbPerDeclaration: first.bounds.mbPerDeclaration ?? null,
         fixedMb: first.bounds.fixedMb ?? null,
         marginMb: first.bounds.marginMb ?? null,
@@ -495,10 +509,11 @@ function main(): void {
         instanceHeapMb: first.bounds.instanceHeapMb,
         instanceTimeoutMs: first.bounds.instanceTimeoutMs,
         note:
-          'An instance is skipped when its checkout is above the stated cap, above what the remaining memory allows, ' +
-          "or would end past the job's time budget; the row records which of the three refused it. **A measured " +
-          'instance ran in its own process**, which is killed at `instanceRssCapMb` and `instanceTimeoutMs`, so a ' +
-          'refusal names the ceiling that fired rather than the runner disappearing.',
+          'An instance is skipped when its checkout is above the stated cap or would end past the job’s time budget, ' +
+          'and an instance whose analysis crosses the declaration guard is refused **inside the child process**, at the ' +
+          'declaration where the graph would have grown past what the runner can pay for. **A measured instance ran in ' +
+          'its own process**, which is killed at `instanceRssCapMb` and `instanceTimeoutMs`, so a refusal names the ' +
+          'ceiling that fired rather than the runner disappearing.',
       },
     },
     /** **The bound's own accuracy, measured rather than assumed.** Peak resident memory and wall clock, fitted against

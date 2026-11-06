@@ -22,6 +22,8 @@
 import { readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 
+import type { GraphNode } from '@code-analyzer/shared';
+
 /** The three language configurations the corpus publishes. **`mixed` is a fourth and is not measured here.** */
 export const LCA_CONFIGS = ['py', 'java', 'kt'] as const;
 
@@ -425,60 +427,43 @@ export function parseLanguages(spec: string | undefined): LcaConfigName[] {
 export interface InstanceBounds {
   /** The bound stated in the artifact, from `LCA_MAX_FILES`. */
   readonly capFiles: number;
-  /** The bound the remaining memory allows, **converted from declarations to files at the operating density**. */
-  readonly budgetFiles: number;
   /** Milliseconds this job has already spent. */
   readonly elapsedMs: number;
   /** Milliseconds this job may spend in total. */
   readonly budgetMs: number;
-  /** The resident figure the memory bound was computed from, so a skip can quote it. */
-  readonly residentMb: number;
-  /** The reserve that was subtracted, for the same reason. */
-  readonly reserveMb: number;
-  /** The density `budgetFiles` was converted at. **A file bound whose density is unstated is a count of nothing.** */
-  readonly declarationsPerFile?: number;
 }
 
-/** Whether an instance is measured, and if not, **which of the three bounds refused it**. */
+/** Whether an instance is measured, and if not, **which of the two bounds refused it**. */
 export type InstanceVerdict =
   { readonly analyse: true } | { readonly analyse: false; readonly because: string };
 
 /**
  * Decide whether one instance is measurable, **before any of it is analysed**.
  *
- * **Three bounds rather than one, because the job has three ways to die and only one of them is a number somebody
- * chose.** A stated cap is a promise to the reader; the memory bound is what the machine can currently afford, which
- * shrinks as the run accumulates resident pages; the time bound is what is left of the job's own budget. **A skip is a
- * row in the artifact with the sentence that produced it**, so the sample's size is explainable without the log.
+ * **Two bounds, and the third one left.** A stated cap is a promise to the reader and the time bound is what is left of
+ * the job's own budget, so both are facts about the run. The third - the memory bound, charged as a file count converted
+ * at a density - has been removed, and the reason is the artifact's own numbers: **43 of the 115 rows the 6 November 2026
+ * run measured cost more declarations than the conversion charged them**, the density spans four orders of magnitude
+ * across the corpus (20.5 to 118 898 declarations per file), and the two instances the ceiling killed were under-covered
+ * by **4.1 and 4.9 GB** - a factor of three, which no additive margin reaches without refusing the corpus.
  *
- * **The memory sentence used to quote a rate that described no instance.** It said "estimated at 6 553 MB resident
- * (3.7 MB per file)" about a checkout whose measured peers cost 350-4 141 MB, on a fit that explains none of their
- * variance; the substitution is now the fitted one, and the sentence names the density it was converted at so a reader
- * can check the conversion against the row's own declaration count. **The estimate is a statement about the model**, and
- * the sentence says which model, because the previous one could not be falsified from the artifact.
+ * **A bound computed from a prediction is not a bound on anything.** The quantity the memory actually pays for is the
+ * number of declarations the analysis produces, and that number does not exist until the analysis has produced it. So the
+ * fence that charges for it moves to where the count exists: {@link BoundedNodes} stops the graph at
+ * {@link MEASURED_DECLARATION_CEILING} inside the child process, which is enforced rather than forecast. What is left
+ * here is what can be honestly known before the process starts - whether the checkout is too big to promise, and whether
+ * there is time left - and the row records which of the two refused it.
+ *
+ * **The refusal that went with the removed arm is not missed, because a sentence that quotes a false charge is worse than
+ * no sentence.** It said "an analysis of 3 026 files at 120 declarations per file is estimated at 9 086 MB resident", and
+ * on the sample that produced it 37.4 % of the rows cost more than that estimate. The guarded refusal says what actually
+ * happened - how many declarations the analysis had reached - which the artifact can be checked against.
  */
 export function decideInstance(files: number, bounds: InstanceBounds): InstanceVerdict {
   if (files > bounds.capFiles) {
     return {
       analyse: false,
       because: `the checkout holds ${String(files)} files, above the stated cap of ${String(bounds.capFiles)}`,
-    };
-  }
-  if (files > bounds.budgetFiles) {
-    const density = bounds.declarationsPerFile ?? DECLARATIONS_PER_FILE;
-    const estimatedMb = modelledAnalysisMb({ files, declarationsPerFile: density });
-    // **The reserve clause is printed only when a reserve was actually subtracted.** The sentence used to say "above a
-    // 1 024 MB reserve" while the arithmetic passed `reserveMb: 0`, so the one number a reader would use to check the
-    // division was the one the division had not used.
-    const reserve = bounds.reserveMb > 0 ? `above a ${String(bounds.reserveMb)} MB reserve, ` : '';
-    return {
-      analyse: false,
-      because:
-        `an analysis of ${String(files)} files at ${String(density)} declarations per file is estimated ` +
-        `at ${String(estimatedMb)} MB resident (${String(FIXED_MB)} MB fixed plus ` +
-        `${String(MODEL_MARGIN_MB)} MB of model margin plus ${String(MB_PER_DECLARATION)} MB per declaration) and only ` +
-        `${String(bounds.budgetFiles)} files of room remain ${reserve}with ` +
-        `${String(Math.round(bounds.residentMb))} MB resident`,
     };
   }
   const projectedMs = bounds.elapsedMs + files * MS_PER_FILE;
@@ -491,6 +476,113 @@ export function decideInstance(files: number, bounds: InstanceBounds): InstanceV
     };
   }
   return { analyse: true };
+}
+
+/**
+ * The declaration count beyond which no instance has been observed to complete, **and the sample that says so**.
+ *
+ * **This is a measurement of the past, not a prediction of the future**, and the distinction is the whole point: the
+ * fence it replaces multiplied a file count by a density, and on the sample that produced this number 43 of 115 rows cost
+ * more than that product. What is recorded here is a maximum over rows that **ran to completion under the same resident
+ * ceiling** - the densest graph the instrument has ever held and still written a row for - so a checkout that crosses it
+ * is being stopped on evidence that something like it has been stopped before.
+ *
+ * **Why the number is not the model's own budget.** The fitted model says a 6 144 MB ceiling affords **229 999**
+ * declarations (5 083 MB of room after the 515 MB intercept and the 546 MB margin, at 22 KB per declaration), and the
+ * `wekan/wekan` row of the 109-row sample produced **237 796** and completed - so a guard set at the model would have
+ * refused a row that ran, and the model under-charges by at least 3.3 %. The gap between this figure and the model's is
+ * therefore published as the model's own error rather than smoothed into a budget nobody can check.
+ *
+ * **It is a floor, and the gate enforces the floor rather than an equality.** `lca-merge.ts` publishes the same statistic
+ * over the rows of the run that produced it, and `scripts/lca-gate.js` fails an artifact whose measured maximum exceeds
+ * this constant: an instance that produced more declarations than the guard and completed is evidence that the guard is
+ * too tight, and the repair is to raise it to the new maximum, not to refuse the row.
+ */
+export const MEASURED_DECLARATION_CEILING = {
+  /** The largest declaration count a row has produced and still completed under {@link ceilingMb}. */
+  declarations: 237_796,
+  /** The measured rows that maximum was taken over. **A maximum whose denominator is unstated is a rumour.** */
+  rows: 109,
+  /** The instance that set it, so a reader can look the row up. */
+  repo: 'wekan/wekan',
+  /** The resident ceiling those rows ran under. The same count on a smaller runner is a different claim. */
+  ceilingMb: 6144,
+} as const;
+
+/**
+ * Thrown when an analysis crosses the declaration ceiling, **at the declaration where it crossed**.
+ *
+ * The numbers are on the error rather than only in its message because the row that publishes the refusal quotes them
+ * separately, and a sentence parsed with a regular expression to recover two integers is a sentence that will one day be
+ * reformatted.
+ */
+export class DeclarationCeilingExceeded extends Error {
+  readonly declarations: number;
+  readonly budget: number;
+
+  constructor(declarations: number, budget: number) {
+    super(
+      `the analysis reached ${String(declarations)} declarations, above the ${String(budget)} this runner can pay for, ` +
+        'and was stopped there',
+    );
+    this.name = 'DeclarationCeilingExceeded';
+    this.declarations = declarations;
+    this.budget = budget;
+  }
+}
+
+/**
+ * A node map that **stops growing** at a stated declaration budget, and remembers the declaration that stopped it.
+ *
+ * **The guard has to sit on the map, not beside it.** A check after `pipeline.execute` reads the count once the whole
+ * graph exists, which is the moment the memory has already been spent - and the ceiling kill happens *during* the parse,
+ * not after it. Counting where the declarations are added is the only placement where the guard can fire before the
+ * ceilings it exists to anticipate.
+ *
+ * **Three behaviours are deliberate and each has a case in `lca-instrument.test.ts`:**
+ *
+ *   1. **An update is not a growth.** Several phases rewrite a node it already holds - a resolution pass that fills in a
+ *      parent, a prune that rewrites properties - and charging those would stop an analysis for costing nothing.
+ *   2. **A budget that is not a budget throws.** Zero refuses the first declaration and `NaN` compares false against
+ *      everything, so both look like a working guard while guarding nothing; a caller that passes either has a bug that
+ *      must be visible at construction rather than as an artifact full of refusals.
+ *   3. **The first crossing is the one reported.** A phase that catches the throw per file will try again for every later
+ *      file, and `crossedAt` keeps the declaration where the map first refused to grow - the fact a reader wants - rather
+ *      than the last attempt.
+ */
+export class BoundedNodes extends Map<number, GraphNode> {
+  readonly #budget: number;
+  #crossedAt: number | null = null;
+
+  constructor(budget: number) {
+    super();
+    if (!Number.isFinite(budget) || budget <= 0) {
+      throw new RangeError(
+        `a declaration budget of ${String(budget)} is not a budget: the guard would stop the first declaration ` +
+          '(zero) or never fire at all (a non-finite value)',
+      );
+    }
+    this.#budget = Math.floor(budget);
+  }
+
+  /** The declaration that first did not fit, counting from one, or `null` while the map has never been stopped. */
+  get crossedAt(): number | null {
+    return this.#crossedAt;
+  }
+
+  /** The budget this map was built with, **so a refusal can quote the number it was refused by**. */
+  get budget(): number {
+    return this.#budget;
+  }
+
+  override set(id: number, node: GraphNode): this {
+    if (!this.has(id) && this.size >= this.#budget) {
+      const declarations = this.size + 1;
+      this.#crossedAt ??= declarations;
+      throw new DeclarationCeilingExceeded(declarations, this.#budget);
+    }
+    return super.set(id, node);
+  }
 }
 
 /**

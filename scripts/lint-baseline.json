@@ -98,7 +98,6 @@
     "packages/analyzer/src/pipeline/phases/processes.ts": 1,
     "packages/analyzer/src/pipeline/phases/routes.ts": 1,
     "packages/analyzer/src/pipeline/phases/scan.ts": 1,
-    "packages/analyzer/src/pipeline/phases/scope-resolution.ts": 1,
     "packages/analyzer/src/pipeline/phases/semantic.ts": 1,
     "packages/analyzer/src/pipeline/phases/similarity.ts": 2,
     "packages/analyzer/src/pipeline/phases/tests.ts": 1,

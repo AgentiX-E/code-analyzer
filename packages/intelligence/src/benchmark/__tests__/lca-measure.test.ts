@@ -20,6 +20,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { FILE_AGGREGATION } from '../../search/file-ranking.js';
 import { RRF_K } from '../../search/fusion.js';
 import { FUSION_K_LADDER } from '../lca-fusion.js';
+import { DeclarationCeilingExceeded } from '../lca-instrument.js';
 import { MAP_DEPTH, insertGraph, measureInstance } from '../lca-measure.js';
 
 import type { LLMProvider } from '../../review/llm/provider.js';
@@ -165,6 +166,41 @@ describe('measureInstance', () => {
     expect(scored.answer).not.toBeNull();
     expect(scored.answer?.recall).toBe(1);
     expect(scored.answer?.precision).toBe(1);
+  });
+
+  it('measures a checkout whose declarations fit the guard', async () => {
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      declarationBudget: 1_000_000,
+    });
+    expect(scored.skipped).toBeNull();
+    expect(scored.graphNodes).toBeGreaterThan(0);
+    expect(scored.graphNodes).toBeLessThanOrEqual(1_000_000);
+  });
+
+  it('**stops the analysis at the declaration the guard refuses**, rather than growing to a ceiling', async () => {
+    // **This is the bound admission used to compute and the child now enforces.** The parent cannot know this number -
+    // it is a property of what the analysis produces - so the refusal is thrown from inside `measureInstance`, at the
+    // declaration where the graph would have crossed. A row that is refused this way is never copied into a store and
+    // never indexed, so the peak the ceiling would have killed is never spent.
+    const { root, allFiles } = checkout();
+    const attempt = measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      declarationBudget: 1,
+    });
+    await expect(attempt).rejects.toBeInstanceOf(DeclarationCeilingExceeded);
+    await expect(attempt).rejects.toMatchObject({ budget: 1, declarations: 2 });
+  });
+
+  it('runs unguarded when no budget is stated, which is what a run with no ceiling deserves', async () => {
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({ row: row(['src/retry.py']), checkout: root, allFiles });
+    expect(scored.skipped).toBeNull();
   });
 
   it('drops a pool entry outside the answer space instead of ranking a file the corpus never counted', async () => {

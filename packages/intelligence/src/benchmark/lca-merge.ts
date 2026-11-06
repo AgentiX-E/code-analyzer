@@ -307,6 +307,28 @@ export interface LanguagePart {
     readonly instanceHeapMb: number;
     /** How long one instance may run. */
     readonly instanceTimeoutMs: number;
+    /**
+     * Which bounds admission actually applied, **because a published bound that is not applied is a promise not kept**.
+     *
+     * `'cap-and-declaration-guard'` is the shape since iteration 80: the cap and the clock refuse before a process is
+     * started, and the memory bound is enforced *inside* the child at the declaration where the graph would cross it.
+     * `'cap-and-memory-model'` is the shape it replaced, where the bound was a file count converted at a density - a
+     * prediction about a quantity the checkout's own contents decide.
+     */
+    readonly admission?: string;
+    /**
+     * The declaration count past which the child stops itself, **with the sample that produced it**.
+     *
+     * A maximum over rows that ran to completion under {@link instanceRssCapMb}, not a prediction: the gate refuses an
+     * artifact whose measured maximum exceeds it, because a row that produced more and still completed is evidence the
+     * guard is too tight.
+     */
+    readonly guard?: {
+      readonly declarations: number;
+      readonly rows: number;
+      readonly repo: string;
+      readonly ceilingMb: number;
+    };
   };
   readonly space: { readonly semantic: boolean; readonly reason: string };
   readonly configuration: Record<string, unknown>;

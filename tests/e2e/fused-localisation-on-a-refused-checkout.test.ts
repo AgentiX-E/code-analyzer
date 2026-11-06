@@ -76,11 +76,8 @@ describe('an agent’s list, fused with the file-level arm, on a checkout the an
   it('**the analysis path still refuses this checkout**, which is what makes the story the story', () => {
     const verdict = decideInstance(checkoutFileCount(root), {
       capFiles: STATED_CAP_FILES,
-      budgetFiles: Number.MAX_SAFE_INTEGER,
       elapsedMs: 0,
       budgetMs: Number.MAX_SAFE_INTEGER,
-      residentMb: 0,
-      reserveMb: 0,
     });
     expect(verdict.analyse).toBe(false);
   });

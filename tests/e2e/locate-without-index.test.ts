@@ -63,11 +63,8 @@ describe('locate on a checkout the analysis refuses', () => {
     expect(files).toBeGreaterThan(STATED_CAP_FILES);
     const verdict = decideInstance(files, {
       capFiles: STATED_CAP_FILES,
-      budgetFiles: Number.MAX_SAFE_INTEGER,
       elapsedMs: 0,
       budgetMs: Number.MAX_SAFE_INTEGER,
-      residentMb: 0,
-      reserveMb: 0,
     });
     expect(verdict.analyse).toBe(false);
     // The sentence is what the artifact publishes on a refused row; a refusal without one is a hole.
