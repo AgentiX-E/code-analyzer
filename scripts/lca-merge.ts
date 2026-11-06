@@ -776,9 +776,9 @@ function main(): void {
      * honest about the denominator and wrong about the product: the product does not degrade to a path-and-imports
      * ranking when the analysis succeeds, it uses the analysis **and** fuses the file-level arm into it.
      *
-     * `overall` here is that: the declaration arm and the file-level arm fused by `reciprocalRankFusion` (`k = 60`,
-     * unweighted) on every instance the analysis produced a pool for, and the file-level arm alone on the ones it did
-     * not. **`coverage.fused` says how many rows were the first kind and `coverage.declined` how many were the second**,
+     * `overall` here is that: the declaration pool, the path-and-imports arm and the whole-body arm fused by
+     * `reciprocalRankFusion` (`k = 10`, weights `equal`) on every instance the analysis produced a pool for, and the two
+     * file-level arms alone on the ones it did not. **`coverage.fused` says how many rows were the first kind and `coverage.declined` how many were the second**,
      * because a mean over a mixture that does not state the mixture is the defect this whole artifact exists to remove.
      */
     /**
@@ -843,11 +843,19 @@ function main(): void {
     fusion: {
       name: 'declarations + path/imports + whole body (reciprocal rank fusion)',
       configuration: {
+        // **Built from the constants rather than written beside them.** This string said "unweighted, k = 60" long
+        // after the product shipped a weighted fusion at `k = 10`, which is a published configuration that describes a
+        // run nobody performed: the row's own `fusion.k` disagreed with it on every line of the artifact.
         fusion:
-          'reciprocal rank fusion, unweighted, k = 60 (Cormack, Clarke and Büttcher, SIGIR 2009)',
+          `reciprocal rank fusion, weights "${FUSION_WEIGHTING.name}" ` +
+          `(declarations ${String(FUSION_WEIGHTING.declarations)}, ` +
+          `path/imports ${String(FUSION_WEIGHTING.fileLevel)}, ` +
+          `body ${String(FUSION_WEIGHTING.fileBody)}), k = ${String(RRF_K)} ` +
+          '(Cormack, Clarke and Büttcher, SIGIR 2009)',
         arms: [
           'the declaration pool, collapsed to files by the shipped aggregation',
-          'the file-level arm of `fallback`',
+          'the file-level arm of `fallback` (path and import statements)',
+          'the whole-body arm of `fileBody`, built by the parent and handed to the child',
         ],
         k: allRows.find((row) => row.fusion !== null)?.fusion?.k ?? null,
         order:
@@ -870,11 +878,11 @@ function main(): void {
       pairedVsDeclarations: fusionVsDeclarations,
       /**
        * **The constant swept rather than trusted.** One mean per rung of `FUSION_K_LADDER`, each paired against the rung
-       * the product ships, on the rows that carry both - so the question "does 60 sit on a plateau" is answered by
+       * the product ships, on the rows that carry both - so the question "does 10 sit on a plateau" is answered by
        * differences on the same instances rather than by three means a reader would have to subtract.
        *
-       * The middle rung **is** the product's figure over the measured rows: `k = 60` is the shipped constant, and the
-       * gate refuses an artifact where that rung disagrees with `pairedVsDeclarations.ours`.
+       * **The rung that is the shipped constant is the product's figure over the measured rows** (`k = 10`, the value of
+       * `RRF_K`), and the gate refuses an artifact where that rung disagrees with `pairedVsDeclarations.ours`.
        */
       byK: fusedByKOf(allRows).map((rung) => ({
         k: rung.k,

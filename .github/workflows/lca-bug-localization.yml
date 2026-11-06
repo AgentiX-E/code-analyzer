@@ -75,6 +75,14 @@ on:
       - 'packages/intelligence/src/benchmark/lca-*.ts'
       - 'packages/intelligence/src/qa/**'
       - 'packages/intelligence/src/search/hybrid-search.ts'
+      # **The arms the retrieval column is made of, and the reason they are listed by name.** A change to a file-level
+      # arm is a change in the figure this job publishes, and until iteration 81 the trigger named one search file out of
+      # fourteen - so an arm could be rewritten with the measurement that exists to check it staying green and stale.
+      - 'packages/intelligence/src/search/file-body.ts'
+      - 'packages/intelligence/src/search/path-imports.ts'
+      - 'packages/intelligence/src/search/lexical.ts'
+      - 'packages/intelligence/src/search/file-ranking.ts'
+      - 'packages/intelligence/src/search/fusion.ts'
       - 'scripts/lca-*.js'
       - 'scripts/lca-*.ts'
       - '.github/workflows/lca-bug-localization.yml'
