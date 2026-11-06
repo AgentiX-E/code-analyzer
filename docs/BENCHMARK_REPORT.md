@@ -328,8 +328,9 @@ and the two instances the ceiling killed were under-covered by **4.9 and 4.1 GB*
 margin reaches without refusing the corpus.
 
 **Iteration 80 stopped predicting.** Admission now applies the two bounds that are honest before a process starts — the
-stated **4 000-file cap** and the job's remaining **clock** — and the memory bound is enforced **inside the child
-process**, by a node map that refuses to grow past a **measured** declaration count:
+stated file cap (4 000, or the guard's own division at the charged density, whichever is smaller) and the job's
+remaining **clock** — and the memory bound is enforced **inside the child process**, by a node map that refuses to grow
+past a **measured** declaration count:
 `MEASURED_DECLARATION_CEILING` is **237 796**, the densest graph any completed row has held (109 rows, `wekan/wekan`,
 under the same 6 144 MB ceiling). It is deliberately **not** the model's own budget of 229 999: `wekan/wekan` produced
 237 796 declarations and completed, so a guard set at the model would have refused a row that ran, and the gap between
@@ -354,13 +355,31 @@ sample median of 117.7 sits under"; 117.7 is the median of the **68 Java and Kot
 109 rows the artifact publishes is **164.6** — the Python part was still running when the number was taken. The artifact
 now carries `density`, computed from its own rows, with the row count beside every figure:
 
-| rung              | files admitted on the 6 144 MB ceiling | rows of this run it would refuse | rows whose declarations it covers |
-| ----------------- | -------------------------------------- | -------------------------------- | --------------------------------- |
-| 20                | 11 997                                 | 0                                | 0 of 115 (0.0 %)                  |
-| 60                | 3 999                                  | 0                                | 18 of 115 (15.7 %)                |
-| **120 (shipped)** | **1 999**                              | **0**                            | **45 of 115 (39.1 %)**            |
-| 300               | 799                                    | 5                                | 79 of 115 (68.7 %)                |
-| 600               | 399                                    | 17                               | 97 of 115 (84.3 %)                |
+| rung                          | files admitted on the 6 144 MB ceiling | rows of this run it would refuse | rows whose declarations it covers |
+| ----------------------------- | -------------------------------------- | -------------------------------- | --------------------------------- |
+| 20                            | 11 997                                 | 0                                | 0 of 115 (0.0 %)                  |
+| 60                            | 3 999                                  | 0                                | 18 of 115 (15.7 %)                |
+| **120 (shipped at the time)** | **1 999**                              | **0**                            | **45 of 115 (39.1 %)**            |
+| 300                           | 799                                    | 5                                | 79 of 115 (68.7 %)                |
+| 600                           | 399                                    | 17                               | 97 of 115 (84.3 %)                |
+
+**The rung has since moved to 60, and the reason is the population the density describes.** Scoping the analysis to the
+extension the corpus scores (`includePatterns`) made the numerator and the denominator of that figure describe one
+population instead of two, and over the run's **139** measured rows the median fell to **70.8** (p75 128.8, p90 205.0).
+At that point a charge of 120 published a file bound of **1 916** beside the **4 000**-file cap the same artifact
+published, and `pinpoint-apm/pinpoint` was measured at **2 482** answer-space files: a row the charge said could not be
+paid for, admitted by the cap and completed inside the 6 144 MB ceiling. **A cap and a charge that disagree are two
+answers to one question and a run can only apply one of them**, so the run now applies the smaller and the gate divides
+one by the other — an artifact whose cap exceeds `floor(guard / charged density)` is refused. The same run's ladder, from
+the artifact's own `density` block:
+
+| rung             | files admitted on the 6 144 MB ceiling | rows of this run it would refuse | rows whose declarations it covers |
+| ---------------- | -------------------------------------- | -------------------------------- | --------------------------------- |
+| 20               | 11 889                                 | 0                                | 17 of 139 (12.2 %)                |
+| **60 (shipped)** | **3 963**                              | **0**                            | **65 of 139 (46.8 %)**            |
+| 120              | 1 981                                  | 1                                | 101 of 139 (72.7 %)               |
+| 300              | 792                                    | 17                               | 130 of 139 (93.5 %)               |
+| 600              | 396                                    | 33                               | 139 of 139 (100 %)                |
 
 **Forty-three of the 115 rows cost more than the rule charged them**, which is the arithmetic behind the three instances
 the 6 144 MB ceiling killed (`mlflow/mlflow` charged 1 430 MB and stopped at 6 381, `plotly/plotly.py` 1 893 and 6 270,

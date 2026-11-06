@@ -479,10 +479,12 @@ describe('analysableDeclarationBudget', () => {
     expect(declarations * MB_PER_DECLARATION + FIXED_MB + MODEL_MARGIN_MB).toBeLessThanOrEqual(
       6144,
     );
-    // And it is still a usable bound: the same ceiling affords 1 916 files at the operating density. **The margin
-    // moved this number by 83**, from 1 999 at the mean residual to here at the ninetieth percentile, which is the
+    // And it is still a usable bound: the same ceiling affords **3 833 files** at the operating density. **The margin
+    // moved this number by 83**, from 1 999 at the mean residual to 1 916 at the ninetieth percentile, which is the
     // whole price of the tail: a tenth of the corpus's error is no longer charged to the instances that do not make it.
-    expect(files).toBe(1916);
+    // **And iteration 83 moved the rung from 120 to 60**, so the same declarations now convert to 3 833 files:
+    // 1 916 was a cap the artifact published beside a 4 000-file cap, and the two disagreed about the same run.
+    expect(files).toBe(3833);
   });
 
   it('shrinks as the run accumulates resident pages', () => {

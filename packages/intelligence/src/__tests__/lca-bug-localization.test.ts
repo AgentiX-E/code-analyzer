@@ -126,11 +126,13 @@ const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '50', 10);
  * **The cap doubled, and the reason is the bound beside it rather than a wish for more rows.** It was 2 000, chosen when
  * the memory bound charged 3.7 MB per file from the first byte: at that rate a 2 000-file checkout was charged 7 400 MB
  * against a 6 144 MB ceiling, so the *cap* admitted instances the *ceiling* would kill, and the memory bound refused
- * 1 700-file checkouts before the cap could ever bite. Charged at the fitted model - 515 MB fixed, 326 MB of margin,
- * 22 KB per declaration at the operating density of 120 - the ceiling affords **1 999 files**, and at 30 declarations
- * per file it affords **7 998**. **So the two bounds have swapped roles**: the cap is now the promise that
- * no instance above 4 000 files is measured even on a huge runner, and the memory model is what refuses a dense
- * checkout of any size, with arithmetic a reader can check against the row's own declaration count. The reference to
+ * 1 700-file checkouts before the cap could ever bite. Charged at the fitted model - 515 MB fixed, 546 MB of margin
+ * at the ninth decile of its residual, 22 KB per declaration at the operating density of 60 - the ceiling affords
+ * **3 833 files**, and at 30 declarations per file it affords **7 666**. **So the two bounds swap roles as the density
+ * moves**: the cap is the promise that no instance above 4 000 files is measured even on a huge runner, and the memory
+ * model is what refuses a dense checkout of any size, with arithmetic a reader can check against the row's own
+ * declaration count. **The run applies the smaller of the two** (`ADMISSION_FILES`), because publishing both and
+ * applying one is how the artifact came to promise 4 000 files and charge for 1 916. The reference to
  * `analysableFileBudget` that used to be here pointed at the arithmetic this iteration replaced.
  */
 const FILE_CAP = Number.parseInt(process.env['LCA_MAX_FILES'] ?? '4000', 10);
@@ -250,6 +252,17 @@ function memoryBudget(): {
 /** The bound one job states in its part, **computed from the ceiling this job actually has**. */
 const MEMORY_BUDGET = memoryBudget();
 
+/**
+ * **The file cap the run obeys: the stated cap and the memory bound, whichever bites first.**
+ *
+ * The two were independent until iteration 83, and the artifact published both: a cap of 4 000 files and a charge of
+ * 120 declarations per file, which affords 1 916. A checkout between the two - `pinpoint-apm/pinpoint`, 2 482 files -
+ * was admitted by the cap, ran inside the 6 144 MB ceiling, and was a row the charge said could not be paid for. A
+ * reader holding both numbers cannot tell which one the run applied, which is why the smaller of them is the one this
+ * run applies and publishes.
+ */
+const ADMISSION_FILES = Math.min(FILE_CAP, MEMORY_BUDGET.files);
+
 // ---------------------------------------------------------------------------
 // Checkouts
 // ---------------------------------------------------------------------------
@@ -346,7 +359,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           planned: rows.length,
           answerArm,
           bounds: {
-            capFiles: FILE_CAP,
+            capFiles: ADMISSION_FILES,
             memoryFiles: MEMORY_BUDGET.files,
             memoryDeclarations: MEMORY_BUDGET.declarations,
             declarationsPerFile: DECLARATIONS_PER_FILE,
@@ -493,7 +506,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           // refusal: charging the cap for files the analysis no longer reads refuses a question whose answer space is
           // small.
           const bounds = {
-            capFiles: FILE_CAP,
+            capFiles: ADMISSION_FILES,
             elapsedMs: Date.now() - startedAt,
             budgetMs: BUDGET_MS,
           };
@@ -507,7 +520,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           console.log(
             `LCA-INSTANCE ${config} id=${String(row.id)} ${repo} files=${String(allFiles.length)} ` +
               `walked=${String(walked)} parentRss=${String(resident)}MB ceiling=${String(INSTANCE_RSS_CAP_MB)}MB ` +
-              `guard=${String(MEASURED_DECLARATION_CEILING.declarations)} underCap=${String(FILE_CAP)} ` +
+              `guard=${String(MEASURED_DECLARATION_CEILING.declarations)} underCap=${String(ADMISSION_FILES)} ` +
               `density=${String(DECLARATIONS_PER_FILE)} scope=${scope[0]!} ` +
               `estimate=${String(allFiles.length * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
               `${verdict.analyse ? 'measuring' : 'skipped'}`,

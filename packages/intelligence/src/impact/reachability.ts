@@ -36,6 +36,7 @@ import {
   EDGE_INSTANTIATES,
   EDGE_METHOD_IMPLEMENTS,
   EDGE_METHOD_OVERRIDES,
+  EDGE_USES_TYPE,
   isDeclarationLabel,
 } from '@code-analyzer/shared';
 
@@ -115,6 +116,10 @@ const REACHING_EDGES: ReadonlySet<string> = new Set([
   EDGE_HAS_METHOD,
   EDGE_EXTENDS,
   EDGE_IMPLEMENTS,
+  // **A type a live declaration names is a type the code cannot be read without.** The edge exists because a name in
+  // a type position is a dependency - `abstract class Class` in `colinhacks/zod@3.23.8` is named once, inside
+  // `<T extends typeof Class>` - and a reader that stops at calls and accesses reports it as dead.
+  EDGE_USES_TYPE,
   EDGE_METHOD_IMPLEMENTS,
   EDGE_METHOD_OVERRIDES,
 ]);

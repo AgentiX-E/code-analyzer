@@ -254,26 +254,31 @@ export const MODEL_MARGIN_QUANTILE = 0.9;
 export const MODEL_MARGIN_MB = 546;
 
 /**
- * Declarations per file, **the operating rung of the ladder below** - 120.
+ * Declarations per file, **the operating rung of the ladder below** - 60.
  *
  * A bound has to be computed before the analysis that would count the declarations, so the file count is converted at a
  * stated density. **The rung is chosen for admission coverage and its calibration is published, not the other way
  * round.** It is the ladder's highest rung whose file bound still admits every instance the recorded sample measured:
- * on the 6 144 MB instance ceiling it affords **1 916 files**, and the largest checkout any measured row of that sample
- * holds is 932. The rung above it - 300, worth 766 files - would refuse three of the 109 rows in exchange for covering
- * 69 % of them instead of 39 %. **A decision taken once on a sample, not a constraint re-evaluated per run**: the gate
- * requires that the shipped rung refuses none of the rows a run measured, which is the direction that matters and not
- * the same statement.
+ * on the 6 144 MB instance ceiling it affords **3 833 files**, and the largest answer space any measured row of that
+ * sample holds is 2 482 (`pinpoint-apm/pinpoint`). The rung above it - 120, worth 1 916 files - would refuse that row
+ * in exchange for covering 73 % of the rows instead of 47 %.
  *
- * **The sentence this doubles replaces said the opposite and was false.** Until iteration 79 this comment claimed the
- * rung sat *above* "the measured median of 117.7 over the 109 measured rows". It did not: 117.7 is the median of the
- * **68 Java and Kotlin rows alone**, computed from a partial artifact while the Python part was still running - a
- * median over the shards that happened to be there - and the 109-row median is **164.6**. The rung 120 therefore sits
- * *below* the sample's median and the bound is *more generous* than the sample implies, which is why the coverage matter
- * is published rather than asserted. {@link MEASURED_DECLARATIONS_PER_FILE} carries both figures and
- * `density` in the artifact republishes them from the rows of the run that produced it.
+ * **The rung was 120 until iteration 83, and the evidence that moved it is the answer space.** Until the analysis was
+ * restricted to the extension the corpus scores (`includePatterns`), the numerator of this density was the whole
+ * checkout and the denominator was one extension, so the figure described a conversion between two populations and its
+ * median over 125 rows was 153.5. With the analysis scoped, the numerator and denominator describe the same
+ * population: the median over 139 rows is **70.8**, the p75 128.8 and the p90 205.0. A charge of 120 is then no longer
+ * "the rung below the median" - it is 1.7x the median - and it published a file bound (**1 916**) that contradicted
+ * the file cap the same artifact published (**4 000**): one measured row held 2 482 files, was admitted by the cap,
+ * ran inside the memory ceiling, and was a row the charge said could not be paid for. **Two bounds that disagree are
+ * one bound and one claim**, and the gate now refuses the artifact that publishes both.
+ * {@link MEASURED_DECLARATIONS_PER_FILE} carries the wider sample this replaced, and `density` in the artifact
+ * republishes the current one from the rows of the run that produced it.
+ *
+ * **A decision taken once on a sample, not a constraint re-evaluated per run**: the gate requires that the shipped
+ * rung refuses none of the rows a run measured, which is the direction that matters and not the same statement.
  */
-export const DECLARATIONS_PER_FILE = 120;
+export const DECLARATIONS_PER_FILE = 60;
 
 /** What one measured sample's declaration density was, **with the number of rows each figure was taken over**. */
 export interface MeasuredDensity {

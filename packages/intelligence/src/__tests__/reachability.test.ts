@@ -215,6 +215,48 @@ describe('a symbol is dead only when neither surface reaches it', () => {
     // disappear.**
     expect(report.dead).toEqual([]);
   });
+
+  it('treats a name written in a type position as a dependency, because the code cannot be read without it', () => {
+    // **The shape `colinhacks/zod@3.23.8` writes once and nothing else names.** `abstract class Class` is mentioned
+    // only in `<T extends typeof Class>`, so the graph held a `DEFINES` edge from its file and nothing else and the
+    // pass reported a published library's own declaration as dead. The edge is `USES_TYPE` rather than `ACCESSES`
+    // because no value is read at the site — and it has to be in the reaching set, or the arm that produces it
+    // changes nothing a reader can see.
+    const main = makeNode({ name: 'main', file: 'types.ts', language: 'typescript' });
+    const factory = makeNode({ name: 'instanceOfType', file: 'types.ts', language: 'typescript' });
+    const usedAsType = makeNode({
+      name: 'Class',
+      file: 'types.ts',
+      label: 'Class',
+      language: 'typescript',
+    });
+    const report = computeReachability(
+      makeGraph(
+        [main, factory, usedAsType],
+        [
+          { from: main.id, to: factory.id, type: 'CALLS' },
+          { from: factory.id, to: usedAsType.id, type: 'USES_TYPE' },
+        ],
+      ),
+    );
+    expect(report.dead).toEqual([]);
+  });
+
+  it('still reports a type nothing live names, so the edge is evidence and not an exemption', () => {
+    const main = makeNode({ name: 'main', file: 'app.py' });
+    const deadCaller = makeNode({ name: '_unused', file: 'app.py', line: 40 });
+    const namedOnlyByDead = makeNode({ name: 'Payload', file: 'app.py', label: 'Class', line: 50 });
+    const report = computeReachability(
+      makeGraph(
+        [main, deadCaller, namedOnlyByDead],
+        [
+          { from: main.id, to: main.id, type: 'CALLS' },
+          { from: deadCaller.id, to: namedOnlyByDead.id, type: 'USES_TYPE' },
+        ],
+      ),
+    );
+    expect(report.dead.map((symbol) => symbol.name)).toEqual(['_unused', 'Payload']);
+  });
 });
 
 describe('the executed surface', () => {

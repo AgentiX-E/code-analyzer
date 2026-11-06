@@ -1265,3 +1265,91 @@ describe('the refusals each new rule makes', () => {
     expect(filed).not.toContain('leaf');
   });
 });
+
+/**
+ * **The reference kind no provider ever wrote.**
+ *
+ * `captureTagToReferenceKind` maps `type.reference` to the reference kind `type`, and the mapping was correct and
+ * unused: a 3,479-reference TypeScript file (`colinhacks/zod`'s `src/types.ts`) produced **zero** type references, so
+ * no consumer of the fact could exist. `colinhacks/zod@3.23.8` is where it surfaced - `abstract class Class` is named
+ * once, in `<T extends typeof Class>`, and a dead-code pass reading only calls and accesses reported it as dead on a
+ * library that publishes every name it declares.
+ */
+describe('a name a type position writes', () => {
+  const reader = new TypeScriptProvider();
+  const typeReferences = (source: string): string[] =>
+    reader
+      .parse(source, 'types.ts')
+      .filter((c) => c.tag === CAPTURE_TAGS.TYPE_REFERENCE)
+      .map((c) => String(c.name));
+
+  it('is a reference when an annotation writes it', () => {
+    expect(typeReferences('function f(a: Widget): Result {\n  return a;\n}')).toEqual([
+      'Widget',
+      'Result',
+    ]);
+  });
+
+  it('includes every name a generic argument holds, and no predefined type', () => {
+    // **`string` is not a name**, and a reference to it would be a mention of a declaration no file makes. The
+    // grammar spells it `predefined_type`, so the walk skips the subtree rather than the text.
+    expect(typeReferences('const m: Map<string, Widget> = new Map();')).toEqual(['Map', 'Widget']);
+  });
+
+  it('reads `typeof X` as the value X, which is the only thing keeping X alive', () => {
+    // **The zod case.** `typeof Class` is a value read written in a type position: nothing else in the file names
+    // `Class`, and a reader that ignores the position reports a published library's own declaration as dead.
+    const source = 'abstract class Box {}\nconst isBox = <T extends typeof Box>(v: T) => v;\n';
+    expect(typeReferences(source)).toEqual(['Box']);
+  });
+
+  it('reads the right-hand side of a type alias', () => {
+    expect(typeReferences('type Alias = Widget;\nexport type Other = Alias;')).toEqual([
+      'Widget',
+      'Alias',
+    ]);
+  });
+
+  it('records a name once when an annotation sits inside a type alias', () => {
+    // **One name, one reference.** The alias anchors the whole right-hand side and the property signature anchors its
+    // own annotation, so a walk without the byte-range set would file `Widget` twice and the graph would carry two
+    // `USES_TYPE` edges for one mention.
+    expect(typeReferences('type Obj = { w: Widget };')).toEqual(['Widget']);
+  });
+
+  it('does not record the binder of a function type, which declares a name rather than using one', () => {
+    expect(typeReferences('type Cb = (handler: Widget) => void;')).toEqual(['Widget']);
+  });
+
+  it('names the member of a qualified type, not the module it is written behind', () => {
+    // `z.ZodTypeAny` names a declaration called `ZodTypeAny`; `z` is an import binding that the import statement
+    // already records, and filing it here would be a second answer to a question that has one.
+    expect(typeReferences('function f(a: z.ZodTypeAny) {}')).toEqual(['ZodTypeAny']);
+  });
+
+  it('records nothing for an annotation that names no declaration', () => {
+    expect(typeReferences('const n: number = 1;\nlet v: void;\nconst u: unknown = null;')).toEqual(
+      [],
+    );
+  });
+
+  it('does not record the binder an optional parameter of a function type declares', () => {
+    expect(typeReferences('type Cb = (handler?: Widget) => void;')).toEqual(['Widget']);
+  });
+
+  it('does not record the key of an index signature, which the signature declares', () => {
+    // `{ [key: string]: Widget }` declares `key` and reads `Widget`; the key is spelled `identifier`, exactly like a
+    // use, so position is the only thing that separates them.
+    expect(typeReferences('const registry: { [key: string]: Widget } = {};')).toEqual(['Widget']);
+  });
+
+  it('does not record the binder of a mapped type, which the mapped type declares', () => {
+    // `{ [K in keyof T]: Widget }` declares `K`, reads `T` through `keyof`, and reads `Widget`. **`T` is read and not
+    // filed**, because it is the type parameter the line above declares - the one suppression the walk makes by name.
+    expect(typeReferences('type M<T> = { [K in keyof T]: Widget };')).toEqual(['Widget']);
+  });
+
+  it('records the parameter types of a generic declaration, and no binder', () => {
+    expect(typeReferences('function pick<T, U>(a: Widget): void {}')).toEqual(['Widget']);
+  });
+});

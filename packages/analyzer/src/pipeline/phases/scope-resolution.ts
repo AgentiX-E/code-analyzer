@@ -11,6 +11,7 @@ import {
   EDGE_CALLS,
   EDGE_EXTENDS,
   EDGE_IMPLEMENTS,
+  EDGE_USES_TYPE,
 } from '@code-analyzer/shared';
 
 import { GraphBuilder } from '../../graph/graph-builder.js';
@@ -1745,6 +1746,34 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                     EDGE_ACCESSES,
                     ctx.projectId,
                   ).properties = { sourceLine: ref.sourceLine, resolution: 'mention' };
+                }
+              }
+            }
+          } else if (ref.referenceKind === 'type') {
+            // **A name written in a type position is a name the code depends on, and this arm is the only reader of it.**
+            //
+            // `abstract class Class` in `colinhacks/zod@3.23.8` is named exactly once, in `<T extends typeof Class>`,
+            // and nothing else in the checkout mentions it. The kind arrived here as `type` - the classification was
+            // written and correct - and this phase had arms for `call` and `access` and none for it, so the reference
+            // was dropped and a dead-code pass reading the graph reported a published library's own declaration as
+            // dead.
+            //
+            // **`USES_TYPE` and not `ACCESSES`**: no value is read at this site and the call graph must not learn
+            // that one is. What the edge says is what the source says - this declaration depends on that type - which
+            // is exactly what reachability asks of an edge.
+            const targets = mentionOf(ref.targetName, ref.sourceLine);
+            if (targets.length > 0) {
+              const sourceNode = mentionSourceOf(ref);
+              if (sourceNode !== undefined) {
+                for (const target of targets) {
+                  if (target.nodeId === sourceNode) continue;
+                  builder.addEdge(
+                    ctx.graph,
+                    sourceNode,
+                    target.nodeId,
+                    EDGE_USES_TYPE,
+                    ctx.projectId,
+                  ).properties = { sourceLine: ref.sourceLine, resolution: 'type-mention' };
                 }
               }
             }

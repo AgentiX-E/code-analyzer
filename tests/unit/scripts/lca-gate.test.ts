@@ -95,7 +95,11 @@ function baseRecord(): Record<string, unknown> {
     // found charging a per-file rate the run's own regression scores at `R² = -0.02` while publishing a declaration fit
     // at `R² = 0.77` beside it: the gate reads the rule, not only the fit, so the two can no longer disagree.
     fileCap: {
-      files: 4_000,
+      // **The cap is the file count the guard buys at the charged density**, and these are the figures of the run that
+      // first scoped the analysis: 229 999 declarations at start divided by 60 per file is 3 833 files, which is
+      // below floor(237 796 / 60) = 3 963 and therefore a cap the charge can pay for. **It was 4 000 against a charge
+      // of 120 - a budget of 1 916 - and `pinpoint-apm/pinpoint` was measured at 2 482 answer-space files under it.**
+      files: 3_833,
       appliedTo: 'every file in the checkout except .git',
       memory: {
         model: 'declarations',
@@ -108,18 +112,18 @@ function baseRecord(): Record<string, unknown> {
         fixedMb: 515,
         marginMb: 546,
         marginQuantile: 0.9,
-        declarationsPerFile: 120,
-        declarationsAtStart: { kt: 239_954 },
+        declarationsPerFile: 60,
+        declarationsAtStart: { kt: 229_999 },
         fileLadder: [
-          { declarationsPerFile: 20, files: 11_997 },
-          { declarationsPerFile: 60, files: 3_999 },
-          { declarationsPerFile: 120, files: 1_999 },
-          { declarationsPerFile: 300, files: 799 },
-          { declarationsPerFile: 600, files: 399 },
+          { declarationsPerFile: 20, files: 11_499 },
+          { declarationsPerFile: 60, files: 3_833 },
+          { declarationsPerFile: 120, files: 1_916 },
+          { declarationsPerFile: 300, files: 766 },
+          { declarationsPerFile: 600, files: 383 },
         ],
         mbPerFile: 3.7,
         reserveMb: 1_024,
-        budgetFilesAtStart: { kt: 1_999 },
+        budgetFilesAtStart: { kt: 3_833 },
       },
     },
     sample: {
@@ -1124,6 +1128,64 @@ describe('lca gate — the admission rule', () => {
     const run = runGate(baseRecord());
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('| admission model | declarations');
+  });
+
+  /**
+   * **The cap and the charge are one bound stated twice.**
+   *
+   * Until iteration 83 the artifact published a cap of 4 000 files and a charge of 120 declarations per file, which
+   * affords 1 916, and nothing compared them: `pinpoint-apm/pinpoint` was admitted at 2 482 answer-space files, ran
+   * inside the 6 144 MB ceiling, and was a row the published charge said could not be paid for. **A reader holding both
+   * numbers could not tell which one the run applied**, so the artifact passed a gate whose whole subject is figures
+   * that agree with each other.
+   */
+  it('**refuses a cap larger than the charge at the guard buys**', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['fileCap'] as Record<string, unknown>)['files'] = 4_000;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain(
+      'the cap on a checkout must be the file count the declaration guard buys',
+    );
+  });
+
+  it('**prices the cap against the guard, not against the model at start**', () => {
+    // **The two declaration counts are different numbers and both are published.** `declarationsAtStart` is the fitted
+    // prediction the file ladder divides; the guard is what the child actually stops at, and it is the one a cap must
+    // fit inside. Charging the cap against the smaller prediction would admit checkouts the guard then refuses inside
+    // the child - a refusal a reader was told could not happen.
+    const run = runGate(
+      mutated((record) => {
+        const memory = (record['fileCap'] as Record<string, unknown>)['memory'] as Record<
+          string,
+          unknown
+        >;
+        memory['declarationsPerFile'] = 120;
+        memory['budgetFilesAtStart'] = { kt: 1_916 };
+        (record['fileCap'] as Record<string, unknown>)['files'] = 1_916;
+      }),
+    );
+    // 1 916 ≤ floor(237 796 / 120) = 1 981, so a charge of 120 is a coherent bound even though it is not the shipped
+    // one: the gate is about arithmetic, and the rung is chosen on another page.
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain(
+      '1916 files against floor(237796 declarations / 120 per file) = 1981',
+    );
+  });
+
+  it('**refuses a superseded artifact only for its shape, not for a division it never published**', () => {
+    // An artifact from before the guard existed cannot be divided by it. What the gate asks of it is that the shape is
+    // stated - the same allowance the memory-bound row makes - and the row says so in words a reader can see.
+    const run = runGate(
+      mutatedMemory((memory) => {
+        memory['appliedTo'] = 'cap-and-memory-model';
+        delete memory['guard'];
+      }),
+    );
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('no guard published, superseded shape');
   });
 
   it('**refuses a bound that is still charged per file**', () => {

@@ -217,6 +217,41 @@ function main() {
     };
   })();
 
+  // **The cap and the charge are one bound stated twice, so the gate divides one by the other.**
+  //
+  // The artifact publishes a cap on the number of files an instance may hold and a charge of declarations per file, and
+  // the two are the same promise: `cap × charge` declarations is what the runner will pay for. Until iteration 83
+  // nothing compared them and they disagreed by a factor of two - a cap of 4 000 against a charge of 120, which affords
+  // 1 916 - so `pinpoint-apm/pinpoint` was admitted at 2 482 answer-space files, ran inside the 6 144 MB ceiling, and
+  // was a row the published charge said could not be paid for. **A reader holding both numbers could not tell which one
+  // the run applied**, which is the defect this row exists to make impossible rather than merely absent.
+  const fileCapLine = (() => {
+    const files = at(record, ['fileCap', 'files']);
+    const guard = at(record, ['fileCap', 'memory', 'guard', 'declarations']);
+    const density = at(record, ['fileCap', 'memory', 'declarationsPerFile']);
+    const stated = typeof files === 'number' && files > 0;
+    const derivable =
+      typeof guard === 'number' && guard > 0 && typeof density === 'number' && density > 0;
+    const affordable = derivable ? Math.floor(guard / density) : null;
+    // **An artifact from before the guard existed is a measurement under the rule that was in force**, and what the
+    // gate requires of it is that the shape is stated - the same allowance the memory-bound row makes for
+    // `cap-and-memory-model`. An artifact that *names* the current shape and publishes no guard is refused by that row.
+    const superseded = guard === undefined || guard === null;
+    const ok = stated && (superseded || (derivable && files <= affordable));
+    return {
+      line:
+        `| file cap | ${String(files ?? '—')} files against floor(${String(guard ?? '—')} declarations / ` +
+        `${String(density ?? '—')} per file) = ${String(affordable ?? '—')} | the cap is the file count the guard ` +
+        `buys at the charged density${superseded ? ' · no guard published, superseded shape' : ''} | ` +
+        `${ok ? '✓' : '✗'} |`,
+      failure: ok
+        ? null
+        : 'fileCap.files: the cap on a checkout must be the file count the declaration guard buys at the charged ' +
+          'density, because a cap and a charge that disagree are two answers to one question and a run can only ' +
+          'apply one of them',
+    };
+  })();
+
   //
   // **The density is a statistic, so its denominator is an invariant.**
   //
@@ -1151,6 +1186,9 @@ function main() {
   if (fitLine.failure) failures.push(fitLine.failure);
   rows.push(admissionLine.line);
   if (admissionLine.failure) failures.push(admissionLine.failure);
+
+  rows.push(fileCapLine.line);
+  if (fileCapLine.failure) failures.push(fileCapLine.failure);
   rows.push(densityLine.line);
   if (densityLine.failure) failures.push(densityLine.failure);
   rows.push(guardLine.line);

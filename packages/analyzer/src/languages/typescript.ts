@@ -127,7 +127,70 @@ function writesField(parameter: TreeSitterSyntaxNode): boolean {
   );
 }
 
+/**
+ * The node types a type is written inside, and the only places this walk looks for a type reference.
+ *
+ * **Three anchors and not every type production.** A type is written after a `:` (`type_annotation`), on the right of
+ * an alias (`type_alias_declaration`), or in the list a declaration is generic over (`type_parameters`); every other
+ * spelling - a return type, a generic argument, a union - is inside one of the three, so anchoring on the compositions
+ * instead would both miss `Map<string, Widget>` and read the same name twice.
+ */
+const TYPE_REFERENCE_ANCHORS: readonly string[] = [
+  'type_annotation',
+  'type_alias_declaration',
+  'type_parameters',
+];
+
+/**
+ * The node types whose **first named child is written rather than used**.
+ *
+ * **A type position both uses names and makes them.** `<T extends Widget>` reads `Widget` and declares `T`;
+ * `type A = B` reads `B` and declares `A`; `{ [K in keyof T]: U }` declares `K`. A walk that collected every identifier
+ * under a type would file each of those binders as a reference to a declaration nothing declares - and the grammar
+ * spells a binder with exactly the node type a use has (`type_identifier`), so position is the only thing that tells
+ * them apart.
+ *
+ * **And one member that is not a binder but is recorded elsewhere already**: `z.ZodTypeAny` is a
+ * `nested_type_identifier` whose first child is the module the file imported. The import statement is the fact about
+ * `z`; a reference to it here would be a second answer to a question that has one, and would file every qualified type
+ * in a checkout against any symbol that happens to share the module's name.
+ */
+const FIRST_NAMED_CHILD_IS_NOT_A_USE: ReadonlySet<string> = new Set([
+  'required_parameter',
+  'optional_parameter',
+  'type_parameter',
+  'type_alias_declaration',
+  'index_signature',
+  'mapped_type_clause',
+  'nested_type_identifier',
+]);
+
 export class TypeScriptProvider extends TreeSitterBaseProvider {
+  /**
+   * The byte offsets already filed as a type reference during the current parse.
+   *
+   * **A name written once is one reference, and the anchors nest.** `type Obj = { w: Widget }` is anchored at the
+   * alias *and* at the property's annotation, so the second visit would file `Widget` twice and the graph would carry
+   * two `USES_TYPE` edges for one mention. The walk is pre-order, so the outer anchor always wins and the inner one is
+   * dropped by identity rather than by text - two distinct `Widget`s on two lines share the text and not the offset.
+   */
+  private readonly emittedTypeReferences = new Set<number>();
+
+  /**
+   * The type parameters this file declares, by name.
+   *
+   * **A type parameter is a declaration and the walk is pre-order, so the declaration arrives first.** `(v: T)` in
+   * `<T extends typeof Box>(v: T)` names the `T` declared three tokens to its left, which is not a symbol in any graph
+   * and resolves to nothing - a reference that is only a lookup. **The cost of keeping it is a false edge**: a file
+   * that also declares `class T` would have every mention of the type parameter filed against it.
+   *
+   * **Name-scoped and not lexically scoped, deliberately.** Following the annotation's ancestors to find the owner
+   * that declares the name is an ancestor walk per reference with child materialisation at every step; on a 3,479
+   * reference file that is the cost of the file, spent to avoid a lookup. The set is cleared per file for the same
+   * reason the offsets are.
+   */
+  private readonly typeParameterNames = new Set<string>();
+
   /** The field types recorded during the current parse, by class name. **Cleared at the end of every parse.** */
   private readonly classFieldTypes = new Map<string, Map<string, string>>();
 
@@ -231,6 +294,50 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   }
 
   /**
+   * Every name a type position writes, as a `type.reference` capture.
+   *
+   * **The grammar spells a use and a declaration with the same node type**, so this walk follows the structure rather
+   * than the text: an identifier under a type is a use unless it is the first named child of a production that writes
+   * one (`FIRST_NAMED_CHILD_IS_NOT_A_USE`), and what has already been filed is remembered by byte offset so a nested
+   * anchor cannot file the same name twice.
+   *
+   * **A `predefined_type` names nothing and is skipped as a subtree**, which is why `string` is absent from the edges:
+   * a reference to it would be a mention of a declaration no file makes, and every consumer of a mention would have to
+   * learn to ignore the same eleven words.
+   */
+  private captureTypeReferences(anchor: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const visit = (node: TreeSitterSyntaxNode): void => {
+      const type = node.type;
+      if (type === 'predefined_type') return;
+      if (type === 'type_identifier' || type === 'identifier') {
+        this.emitTypeReference(node, captures);
+        return;
+      }
+      const written = FIRST_NAMED_CHILD_IS_NOT_A_USE.has(type)
+        ? namedChildrenOf(node)[0]
+        : undefined;
+      for (const child of childrenOf(node)) {
+        if (written !== undefined && child.startIndex === written.startIndex) {
+          // **The one written name that is remembered rather than only skipped**, because it is what keeps a reference
+          // to it out of the graph: see `typeParameterNames`.
+          if (type === 'type_parameter') this.typeParameterNames.add(child.text);
+          continue;
+        }
+        visit(child);
+      }
+    };
+    visit(anchor);
+  }
+
+  /** One name, once, as the reference the kind `type` was declared for. */
+  private emitTypeReference(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    if (this.typeParameterNames.has(node.text)) return;
+    if (this.emittedTypeReferences.has(node.startIndex)) return;
+    this.emittedTypeReferences.add(node.startIndex);
+    captures.push(this.buildCapture(node, CAPTURE_TAGS.TYPE_REFERENCE, node));
+  }
+
+  /**
    * Every capture this language emits, from **one cursor pass**.
    *
    * **The walk this replaced materialised every node in the file in order to compare its type against a mapping
@@ -288,6 +395,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       // starts with has the same node type and no name at all, so a `nodeType → nameChildType` row captures both and
       // names the second one `class`. The arm below reads the field and skips the token.
       'class',
+      // **And the three anchors a type is written inside.** `type.reference` was a reference kind with no producer:
+      // the mapping in `captureTagToReferenceKind` was right and nothing ever emitted the tag, so a 3,479-reference
+      // TypeScript file held **zero** type references and no edge could follow from one.
+      ...TYPE_REFERENCE_ANCHORS,
     ]);
   }
 
@@ -375,6 +486,14 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       // **No early return**: the mapping table below already emits the declaration, and this pass only adds the fact
       // that the name stands for another type.
       this.captureTypeAlias(node);
+    }
+
+    // **A name a type writes is a name the code depends on, and nothing in the graph said so.** `abstract class Class`
+    // in `colinhacks/zod@3.23.8` is named exactly once, inside `<T extends typeof Class>`, and the dead-code pass -
+    // which reads call edges and mention edges - reported it as dead on a library that publishes every name it
+    // declares. The position is a type position; the dependency is not different from a call's.
+    if (TYPE_REFERENCE_ANCHORS.includes(nodeType)) {
+      this.captureTypeReferences(node, captures);
     }
 
     // **A local declares a type the same way a field does, and nothing recorded it.** `const _this = this`,
@@ -1218,6 +1337,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     this.classFieldTypes.clear();
     this.localTypes.clear();
     this.typeAliases.clear();
+    // **And the offsets, or the next file would inherit this one's.** The set is keyed by byte offset, which is not
+    // unique across files: the second file of a checkout would drop every type reference whose position matched a
+    // position the first file had already filed.
+    this.emittedTypeReferences.clear();
+    this.typeParameterNames.clear();
     // **The returns and arities this walk read are attached here, and until iteration 60 they were not attached at
     // all.** `recordDeclaredReturn` was called for every TypeScript method and `decorateCaptures` never read the map
     // back, so **the declared return type was recorded for every TypeScript file and reached no capture** - the fact

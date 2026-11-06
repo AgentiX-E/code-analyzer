@@ -39,6 +39,11 @@ on:
       - 'packages/mcp/src/__tests__/dead-code-e2e.test.ts'
       - 'packages/analyzer/src/pipeline/phases/scope-resolution.ts'
       - 'packages/analyzer/src/pipeline/phase-helpers.ts'
+      # **The producers, not only the consumer.** The measurement reads edges this repository builds, and half of them
+      # are built by a language provider: iteration 83's fix to a published library's false finding was a change to
+      # `languages/typescript.ts`, and a trigger list that named only the phase would have measured the fix for the
+      # first time on somebody else's push.
+      - 'packages/analyzer/src/languages/**'
       - 'scripts/dead-code-quality.ts'
       - 'scripts/deadcode-oracle.py'
       - 'scripts/deadcode-oracle-ts.mjs'

@@ -55,11 +55,11 @@ on:
         required: false
         default: '50'
       max_files:
-        # **The stated cap, and it is no longer the bound that bites.** Since iteration 78 the memory bound is charged
-        # at the model the run itself fits (511 MB fixed + 325 MB of margin + 22 KB per declaration, converted to files
-        # at 120 declarations per file), so a dense 3 500-file checkout is refused by arithmetic before a process starts
-        # and a sparse one is admitted. The cap is the promise to the reader that nothing above it is attempted at all,
-        # and it doubled to 4 000 because at the old per-file rate the cap promised instances the ceiling would kill.
+        # **The stated cap, and it is no longer the bound that bites.** The memory bound is charged at the model the run
+        # itself fits (515 MB fixed + 546 MB of margin at the ninth decile + 22 KB per declaration, converted to files at
+        # **60** declarations per file since iteration 83), so a dense checkout is refused by arithmetic before a process
+        # starts and a sparse one is admitted. **The run applies the smaller of this cap and that division**, because
+        # publishing both and applying one is how the artifact came to promise 4 000 files while charging for 1 916.
         description: 'Skip instances whose checkout holds more than this many files'
         required: false
         default: '4000'
