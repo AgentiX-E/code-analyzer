@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { declinedFusion, FUSION_ARMS, fusedResult } from '../lca-fusion.js';
+import { declinedFusion, FUSION_ARMS, fusedResult, fusionFor } from '../lca-fusion.js';
 
 describe('fusedResult', () => {
   it('**names both arms and the constant**, so the figure can be reproduced', () => {
@@ -41,5 +41,70 @@ describe('declinedFusion', () => {
   it('**publishes the constant even though nothing was fused**, so the column has one `k` throughout', () => {
     expect(declinedFusion({ map: 0.2, rank: null, ranked: [] }).k).toBe(60);
     expect(declinedFusion({ map: 0.2, rank: null, ranked: [], k: 15 }).k).toBe(15);
+  });
+});
+
+describe('fusionFor', () => {
+  const fallback = { map: 0.31, rank: 4, ranked: ['x.py', 'y.py'] };
+
+  it('transcribes a measured row, because the child already fused it', () => {
+    const fused = fusionFor({
+      skipped: null,
+      map: 0.42,
+      rank: 2,
+      ranked: ['a.py', 'b.py'],
+      fallback,
+    });
+    expect(fused).toEqual({
+      map: 0.42,
+      rank: 2,
+      fused: true,
+      arms: ['declarations', 'file-level'],
+      k: 60,
+      ranked: ['a.py', 'b.py'],
+    });
+  });
+
+  it('declines to the file-level arm when the row is refused, whatever produced the refusal', () => {
+    // **The defect this case was written for.** The parent chose this on "did the child write a row", so a child whose
+    // analysis threw - a refusal through the measured branch - published `fused: true` beside
+    // `skipped: "the analysis failed: ..."`. The flag has to follow the row's refusal sentence, not the process's exit.
+    const analysisFailed = fusionFor({
+      skipped: 'the analysis failed: heap out of memory',
+      map: 0,
+      rank: null,
+      ranked: [],
+      fallback,
+    });
+    expect(analysisFailed?.fused).toBe(false);
+    expect(analysisFailed?.arms).toEqual(['file-level']);
+    expect(analysisFailed?.map).toBe(0.31);
+    expect(analysisFailed?.rank).toBe(4);
+  });
+
+  it('publishes no fused figure at all when even the file-level arm is missing', () => {
+    // A zero here would be a ranking that found nothing, which is a different claim from "no ranking exists".
+    expect(
+      fusionFor({
+        skipped: 'above the stated cap',
+        map: 0,
+        rank: null,
+        ranked: [],
+        fallback: null,
+      }),
+    ).toBeNull();
+    // And a measured row never needs the fallback, so its absence changes nothing.
+    expect(
+      fusionFor({ skipped: null, map: 0.5, rank: 1, ranked: ['a.py'], fallback: null })?.fused,
+    ).toBe(true);
+  });
+
+  it('carries the constant it was given into both readings', () => {
+    expect(fusionFor({ skipped: null, map: 0.5, rank: 1, ranked: [], fallback, k: 10 })?.k).toBe(
+      10,
+    );
+    expect(fusionFor({ skipped: 'cap', map: 0, rank: null, ranked: [], fallback, k: 10 })?.k).toBe(
+      10,
+    );
   });
 });

@@ -52,7 +52,7 @@ import { describe, expect, it } from 'vitest';
 
 import { lexicalControls } from '../benchmark/lca-baseline.js';
 import { fallbackArm } from '../benchmark/lca-fallback.js';
-import { declinedFusion, fusedResult } from '../benchmark/lca-fusion.js';
+import { fusionFor } from '../benchmark/lca-fusion.js';
 import {
   CONFIG_EXTENSION,
   MEASURED_MB_PER_FILE,
@@ -258,335 +258,360 @@ function configurationOf(answerArm: boolean): Record<string, unknown> {
 
 describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
   for (const config of LANGUAGES) {
-    it(`measures the ${config} split and writes its part`, async () => {
-      const root = CORPUS_DIR!;
-      const cacheRoot = join(root, 'checkouts');
-      mkdirSync(cacheRoot, { recursive: true });
-      // **Rows live outside the artifact directory**: they are the interface between this file and the child, not a
-      // published figure, and the workflow uploads `benchmarks/lca-parts/` whole.
-      const rowsDir = mkdtempSync(join(tmpdir(), 'lca-rows-'));
+    it(
+      `measures the ${config} split and writes its part`,
+      async () => {
+        const root = CORPUS_DIR!;
+        const cacheRoot = join(root, 'checkouts');
+        mkdirSync(cacheRoot, { recursive: true });
+        // **Rows live outside the artifact directory**: they are the interface between this file and the child, not a
+        // published figure, and the workflow uploads `benchmarks/lca-parts/` whole.
+        const rowsDir = mkdtempSync(join(tmpdir(), 'lca-rows-'));
 
-      const startedAt = Date.now();
-      const answerArm = CAN_ASK_A_MODEL && ANSWER_ARM;
-      const splitFile = join(root, config, 'test.jsonl');
-      const rows: LcaCorpusRow[] = existsSync(splitFile)
-        ? readFileSync(splitFile, 'utf8')
-            .split('\n')
-            .filter((line) => line.trim().length > 0)
-            .map((line) => JSON.parse(line) as LcaCorpusRow)
-            .slice(0, ROW_LIMIT)
-        : [];
+        const startedAt = Date.now();
+        const answerArm = CAN_ASK_A_MODEL && ANSWER_ARM;
+        const splitFile = join(root, config, 'test.jsonl');
+        const rows: LcaCorpusRow[] = existsSync(splitFile)
+          ? readFileSync(splitFile, 'utf8')
+              .split('\n')
+              .filter((line) => line.trim().length > 0)
+              .map((line) => JSON.parse(line) as LcaCorpusRow)
+              .slice(0, ROW_LIMIT)
+          : [];
 
-      const scores: LcaRowScore[] = [];
+        const scores: LcaRowScore[] = [];
 
-      const partOf = (): LanguagePart => ({
-        config,
-        measuredAt: new Date().toISOString(),
-        rowLimit: ROW_LIMIT,
-        planned: rows.length,
-        answerArm,
-        bounds: {
-          capFiles: FILE_CAP,
-          memoryFiles: analysableFileBudget({
-            totalMb: INSTANCE_RSS_CAP_MB,
-            residentMb: 0,
-            reserveMb: 0,
+        const partOf = (): LanguagePart => ({
+          config,
+          measuredAt: new Date().toISOString(),
+          rowLimit: ROW_LIMIT,
+          planned: rows.length,
+          answerArm,
+          bounds: {
+            capFiles: FILE_CAP,
+            memoryFiles: analysableFileBudget({
+              totalMb: INSTANCE_RSS_CAP_MB,
+              residentMb: 0,
+              reserveMb: 0,
+              mbPerFile: MEASURED_MB_PER_FILE,
+            }),
             mbPerFile: MEASURED_MB_PER_FILE,
-          }),
-          mbPerFile: MEASURED_MB_PER_FILE,
-          reserveMb: RUNNER_RESERVE_MB,
-          budgetMs: BUDGET_MS,
-          instanceRssCapMb: INSTANCE_RSS_CAP_MB,
-          instanceHeapMb: INSTANCE_HEAP_MB,
-          instanceTimeoutMs: INSTANCE_TIMEOUT_MS,
-        },
-        space: {
-          semantic: false,
-          reason:
-            'the indexing pipeline was run without an embedding backend in this job, so the fused list is the lexical list',
-        },
-        configuration: configurationOf(answerArm),
-        rows: [...scores],
-      });
-
-      // **Written after every instance rather than at the end, because the end is what a killed process does not
-      // reach.** A part that only exists once the loop finishes is a part that eleven runs of this job never wrote; a
-      // part that exists after each row survives a child that is killed at its ceiling.
-      const writePart = (): void => {
-        const recorded = recordArtifact(`benchmarks/lca-parts/${config}.json`, partOf());
-        if (!recorded.written) {
-          // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
-          console.log(`LCA-PART ${config} artifact ${recorded.because}`);
-        }
-      };
-
-      for (const row of rows) {
-        // **A spent budget stops the run rather than being re-decided per row.** `decideInstance` would refuse the
-        // analysis, but the loop would still fetch twenty more checkouts at up to four minutes each to learn that - and
-        // a job that spends its last half hour in `git fetch` writes the same part as one that stopped. The rows that
-        // were never examined produce no row at all: `planned` records how many were intended, and the difference is
-        // the number this run did not see. **Inventing a zero-file row for each of them would corrupt the very
-        // stratification this iteration exists to publish.**
-        if (Date.now() - startedAt >= BUDGET_MS) break;
-        const checkout = ensureCheckout(cacheRoot, row);
-        if (checkout === null || !existsSync(join(checkout, '.git'))) {
-          scores.push(
-            skippedRow({
-              id: row.id,
-              repo: `${row.repo_owner}/${row.repo_name}`,
-              corpusFiles: 0,
-              expectedFiles: row.changed_files.length,
-              because: 'the commit could not be fetched',
-            }),
-          );
-          continue;
-        }
-        if (statSync(checkout).size === 0) {
-          scores.push(
-            skippedRow({
-              id: row.id,
-              repo: `${row.repo_owner}/${row.repo_name}`,
-              corpusFiles: 0,
-              expectedFiles: row.changed_files.length,
-              because: 'the checkout is empty',
-            }),
-          );
-          continue;
-        }
-
-        const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
-
-        // **The controls run before the bound does, and that ordering is the iteration.** A lexical control reads the
-        // answer space as text - no parser, no graph, no model - so it fits inside the parent that has to survive
-        // whatever the child does. Running it *before* `decideInstance` is what gives a refused instance a figure: the
-        // thirteen rows the caps removed are the large repositories, and a control that only existed on the easy rows
-        // would reproduce the bias it is meant to measure.
-        //
-        // **Two controls, one index.** BM25 is the comparator the shipped reading was chosen against; TF-IDF reads the
-        // same documents with a different weighting, so the gap can be told from a fit to one formula. Building the
-        // index once is what makes "same documents, same terms, same tie-break" a structural fact rather than a claim.
-        const question = `${row.issue_title}\n\n${row.issue_body}`.trim();
-        const controls = lexicalControls({
-          checkout,
-          files: allFiles,
-          query: question,
-          expected: row.changed_files,
-          depth: MAP_DEPTH,
-        });
-        const control = controls.bm25;
-        const secondControl = controls.tfidf;
-        // **The product's own answer for the instances the analysis cannot run, and it is computed here for the same
-        // reason the controls are**: the child that would have ranked them is the child the supervisor kills, so a
-        // figure produced there would exist only for the instances that did not need it. This is the only column whose
-        // denominator is *every* instance the run reached, which is what makes it the one comparable level.
-        const fallback = fallbackArm({
-          checkout,
-          files: allFiles,
-          query: question,
-          expected: row.changed_files,
-          depth: MAP_DEPTH,
-        });
-        // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
-        // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
-        // directory is what took the runner down six minutes later.
-        const walked = checkoutFileCount(checkout);
-        const resident = residentMb();
-        const bounds = {
-          capFiles: FILE_CAP,
-          budgetFiles: analysableFileBudget({
-            totalMb: INSTANCE_RSS_CAP_MB,
-            residentMb: 0,
-            reserveMb: 0,
-            mbPerFile: MEASURED_MB_PER_FILE,
-          }),
-          elapsedMs: Date.now() - startedAt,
-          budgetMs: BUDGET_MS,
-          residentMb: resident,
-          reserveMb: RUNNER_RESERVE_MB,
-        };
-        const verdict = decideInstance(walked, bounds);
-        const repo = `${row.repo_owner}/${row.repo_name}`;
-
-        // **One line per instance, and it carries the numbers that decide the next one** - the parent's resident set,
-        // the ceiling a child may reach, and the time spent. A killed process leaves this line written (`stdbuf -oL`
-        // in the workflow), so the next failure is a location rather than a mystery.
-        // eslint-disable-next-line no-console -- the workflow greps this, and a killed process needs it written.
-        console.log(
-          `LCA-INSTANCE ${config} id=${String(row.id)} ${repo} files=${String(allFiles.length)} ` +
-            `walked=${String(walked)} parentRss=${String(resident)}MB ceiling=${String(INSTANCE_RSS_CAP_MB)}MB ` +
-            `room=${String(bounds.budgetFiles)} underCap=${String(FILE_CAP)} ` +
-            `estimate=${String(walked * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
-            `${verdict.analyse ? 'measuring' : 'skipped'}`,
-        );
-
-        if (!verdict.analyse) {
-          // **The size of the answer space travels with the refusal**, because the rule that produced it is about to be
-          // replaced by a fit against exactly this number: a refusal that does not record what the instance would have
-          // cost leaves the next iteration arguing about the rule instead of computing a better one.
-          const refusedSize = corpusBytes(checkout, allFiles);
-          const refusedWalked = checkoutBytes(checkout);
-          scores.push(
-            skippedRow({
-              id: row.id,
-              repo,
-              corpusFiles: allFiles.length,
-              expectedFiles: row.changed_files.length,
-              because: verdict.because,
-              corpusBytes: refusedSize.bytes,
-              corpusUnreadable: refusedSize.unreadable,
-              checkoutBytes: refusedWalked.bytes,
-              checkoutUnreadable: refusedWalked.unreadable,
-              bm25: control,
-              tfidf: secondControl,
-              fallback,
-              // **The fused column on an instance the analysis was refused**, and it is the file-level arm alone:
-              // the declaration arm is the analysis that was refused, so there is nothing to fuse it with. `fused:
-              // false` is what makes that a stated fact per row rather than an average over two different kinds.
-              fusion: declinedFusion({
-                map: fallback.map,
-                rank: fallback.rank,
-                ranked: fallback.ranked,
-              }),
-            }),
-          );
-          continue;
-        }
-
-        const rowFile = join(rowsDir, `${config}-${String(row.id)}.json`);
-        const outFile = join(rowsDir, `${config}-${String(row.id)}.row.json`);
-        writeFileSync(rowFile, JSON.stringify(row), 'utf8');
-        // **The arm the parent already built, handed to the child rather than rebuilt there.** The fallback was scored
-        // from one head read per file of this answer space; reading them a second time inside the child would charge
-        // the job twice for the same bytes - which is exactly how the nine instances of iteration 76 were lost.
-        const rankingFile = join(rowsDir, `${config}-${String(row.id)}.ranking.json`);
-        writeFileSync(rankingFile, JSON.stringify(fallback.candidates), 'utf8');
-
-        const outcome = await superviseInstance({
-          command: 'npx',
-          args: [
-            'tsx',
-            'scripts/lca-instance.ts',
-            '--config',
-            config,
-            '--checkout',
-            checkout,
-            '--row',
-            rowFile,
-            '--out',
-            outFile,
-            '--file-ranking',
-            rankingFile,
-            ...(answerArm ? ['--answer-arm'] : []),
-          ],
-          outFile,
-          rssCapMb: INSTANCE_RSS_CAP_MB,
-          timeoutMs: INSTANCE_TIMEOUT_MS,
-          // **The workspace imports resolve through a tsconfig, and the child is told which one.** Without it tsx reads
-          // each package's `main`, which points at a `dist/` this job does not build: the harness would then measure a
-          // build older than the commit that triggered it. The heap flag is the child's own ceiling, stated so that a
-          // heap exhaustion names itself before the supervisor's kill.
-          env: {
-            NODE_OPTIONS: `--max-old-space-size=${String(INSTANCE_HEAP_MB)}`,
-            TSX_TSCONFIG_PATH: 'tsconfig.tests.json',
+            reserveMb: RUNNER_RESERVE_MB,
+            budgetMs: BUDGET_MS,
+            instanceRssCapMb: INSTANCE_RSS_CAP_MB,
+            instanceHeapMb: INSTANCE_HEAP_MB,
+            instanceTimeoutMs: INSTANCE_TIMEOUT_MS,
           },
+          space: {
+            semantic: false,
+            reason:
+              'the indexing pipeline was run without an embedding backend in this job, so the fused list is the lexical list',
+          },
+          configuration: configurationOf(answerArm),
+          rows: [...scores],
         });
 
-        // **What the instance cost is the supervisor's observation**, so it is attached to the row after the process
-        // has closed - a row written by the child cannot know what it will peak at later, and a figure the child
-        // reported about itself would be a child's opinion rather than a measurement.
-        const cost = { peakRssMb: outcome.peakRssMb, elapsedMs: outcome.ms };
-        if (outcome.kind === 'row') {
-          // **The child ran the fusion; the parent records it.** `map` and `answerRank` are already the fused
-          // figures, so this is a transcription rather than a second computation - and the gate refuses an artifact
-          // where the transcription and the row disagree, which is how a wiring mistake is told from a result.
-          const fused = fusedResult({
-            map: outcome.row.map,
-            rank: outcome.row.answerRank,
-            ranked: outcome.row.rankedPaths,
+        // **Written after every instance rather than at the end, because the end is what a killed process does not
+        // reach.** A part that only exists once the loop finishes is a part that eleven runs of this job never wrote; a
+        // part that exists after each row survives a child that is killed at its ceiling.
+        const writePart = (): void => {
+          const recorded = recordArtifact(`benchmarks/lca-parts/${config}.json`, partOf());
+          if (!recorded.written) {
+            // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
+            console.log(`LCA-PART ${config} artifact ${recorded.because}`);
+          }
+        };
+
+        for (const row of rows) {
+          // **A spent budget stops the run rather than being re-decided per row.** `decideInstance` would refuse the
+          // analysis, but the loop would still fetch twenty more checkouts at up to four minutes each to learn that - and
+          // a job that spends its last half hour in `git fetch` writes the same part as one that stopped. The rows that
+          // were never examined produce no row at all: `planned` records how many were intended, and the difference is
+          // the number this run did not see. **Inventing a zero-file row for each of them would corrupt the very
+          // stratification this iteration exists to publish.**
+          if (Date.now() - startedAt >= BUDGET_MS) break;
+          const checkout = ensureCheckout(cacheRoot, row);
+          if (checkout === null || !existsSync(join(checkout, '.git'))) {
+            scores.push(
+              skippedRow({
+                id: row.id,
+                repo: `${row.repo_owner}/${row.repo_name}`,
+                corpusFiles: 0,
+                expectedFiles: row.changed_files.length,
+                because: 'the commit could not be fetched',
+              }),
+            );
+            continue;
+          }
+          if (statSync(checkout).size === 0) {
+            scores.push(
+              skippedRow({
+                id: row.id,
+                repo: `${row.repo_owner}/${row.repo_name}`,
+                corpusFiles: 0,
+                expectedFiles: row.changed_files.length,
+                because: 'the checkout is empty',
+              }),
+            );
+            continue;
+          }
+
+          const allFiles = corpusFiles(checkout, CONFIG_EXTENSION[config]);
+
+          // **The controls run before the bound does, and that ordering is the iteration.** A lexical control reads the
+          // answer space as text - no parser, no graph, no model - so it fits inside the parent that has to survive
+          // whatever the child does. Running it *before* `decideInstance` is what gives a refused instance a figure: the
+          // thirteen rows the caps removed are the large repositories, and a control that only existed on the easy rows
+          // would reproduce the bias it is meant to measure.
+          //
+          // **Two controls, one index.** BM25 is the comparator the shipped reading was chosen against; TF-IDF reads the
+          // same documents with a different weighting, so the gap can be told from a fit to one formula. Building the
+          // index once is what makes "same documents, same terms, same tie-break" a structural fact rather than a claim.
+          const question = `${row.issue_title}\n\n${row.issue_body}`.trim();
+          const controls = lexicalControls({
+            checkout,
+            files: allFiles,
+            query: question,
+            expected: row.changed_files,
+            depth: MAP_DEPTH,
           });
-          scores.push({
-            ...outcome.row,
-            cost,
-            bm25: control,
-            tfidf: secondControl,
-            fallback,
-            fusion: fused,
+          const control = controls.bm25;
+          const secondControl = controls.tfidf;
+          // **The product's own answer for the instances the analysis cannot run, and it is computed here for the same
+          // reason the controls are**: the child that would have ranked them is the child the supervisor kills, so a
+          // figure produced there would exist only for the instances that did not need it. This is the only column whose
+          // denominator is *every* instance the run reached, which is what makes it the one comparable level.
+          const fallback = fallbackArm({
+            checkout,
+            files: allFiles,
+            query: question,
+            expected: row.changed_files,
+            depth: MAP_DEPTH,
           });
-        } else {
-          // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
-          // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
-          scores.push(
-            skippedRow({
-              id: row.id,
-              repo,
-              corpusFiles: allFiles.length,
-              expectedFiles: row.changed_files.length,
-              because: outcome.because,
+          // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
+          // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
+          // directory is what took the runner down six minutes later.
+          const walked = checkoutFileCount(checkout);
+          const resident = residentMb();
+          const bounds = {
+            capFiles: FILE_CAP,
+            budgetFiles: analysableFileBudget({
+              totalMb: INSTANCE_RSS_CAP_MB,
+              residentMb: 0,
+              reserveMb: 0,
+              mbPerFile: MEASURED_MB_PER_FILE,
+            }),
+            elapsedMs: Date.now() - startedAt,
+            budgetMs: BUDGET_MS,
+            residentMb: resident,
+            reserveMb: RUNNER_RESERVE_MB,
+          };
+          const verdict = decideInstance(walked, bounds);
+          const repo = `${row.repo_owner}/${row.repo_name}`;
+
+          // **One line per instance, and it carries the numbers that decide the next one** - the parent's resident set,
+          // the ceiling a child may reach, and the time spent. A killed process leaves this line written (`stdbuf -oL`
+          // in the workflow), so the next failure is a location rather than a mystery.
+          // eslint-disable-next-line no-console -- the workflow greps this, and a killed process needs it written.
+          console.log(
+            `LCA-INSTANCE ${config} id=${String(row.id)} ${repo} files=${String(allFiles.length)} ` +
+              `walked=${String(walked)} parentRss=${String(resident)}MB ceiling=${String(INSTANCE_RSS_CAP_MB)}MB ` +
+              `room=${String(bounds.budgetFiles)} underCap=${String(FILE_CAP)} ` +
+              `estimate=${String(walked * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
+              `${verdict.analyse ? 'measuring' : 'skipped'}`,
+          );
+
+          if (!verdict.analyse) {
+            // **The size of the answer space travels with the refusal**, because the rule that produced it is about to be
+            // replaced by a fit against exactly this number: a refusal that does not record what the instance would have
+            // cost leaves the next iteration arguing about the rule instead of computing a better one.
+            const refusedSize = corpusBytes(checkout, allFiles);
+            const refusedWalked = checkoutBytes(checkout);
+            scores.push(
+              skippedRow({
+                id: row.id,
+                repo,
+                corpusFiles: allFiles.length,
+                expectedFiles: row.changed_files.length,
+                because: verdict.because,
+                corpusBytes: refusedSize.bytes,
+                corpusUnreadable: refusedSize.unreadable,
+                checkoutBytes: refusedWalked.bytes,
+                checkoutUnreadable: refusedWalked.unreadable,
+                bm25: control,
+                tfidf: secondControl,
+                fallback,
+                // **The fused column on an instance the analysis was refused**, and it is the file-level arm alone:
+                // the declaration arm is the analysis that was refused, so there is nothing to fuse it with. `fused:
+                // false` is what makes that a stated fact per row rather than an average over two different kinds.
+                fusion: fusionFor({
+                  skipped: verdict.because,
+                  map: 0,
+                  rank: null,
+                  ranked: [],
+                  fallback,
+                }),
+              }),
+            );
+            continue;
+          }
+
+          const rowFile = join(rowsDir, `${config}-${String(row.id)}.json`);
+          const outFile = join(rowsDir, `${config}-${String(row.id)}.row.json`);
+          writeFileSync(rowFile, JSON.stringify(row), 'utf8');
+          // **The arm the parent already built, handed to the child rather than rebuilt there.** The fallback was scored
+          // from one head read per file of this answer space; reading them a second time inside the child would charge
+          // the job twice for the same bytes - which is exactly how the nine instances of iteration 76 were lost.
+          const rankingFile = join(rowsDir, `${config}-${String(row.id)}.ranking.json`);
+          writeFileSync(rankingFile, JSON.stringify(fallback.candidates), 'utf8');
+
+          const outcome = await superviseInstance({
+            command: 'npx',
+            args: [
+              'tsx',
+              'scripts/lca-instance.ts',
+              '--config',
+              config,
+              '--checkout',
+              checkout,
+              '--row',
+              rowFile,
+              '--out',
+              outFile,
+              '--file-ranking',
+              rankingFile,
+              ...(answerArm ? ['--answer-arm'] : []),
+            ],
+            outFile,
+            rssCapMb: INSTANCE_RSS_CAP_MB,
+            timeoutMs: INSTANCE_TIMEOUT_MS,
+            // **The workspace imports resolve through a tsconfig, and the child is told which one.** Without it tsx reads
+            // each package's `main`, which points at a `dist/` this job does not build: the harness would then measure a
+            // build older than the commit that triggered it. The heap flag is the child's own ceiling, stated so that a
+            // heap exhaustion names itself before the supervisor's kill.
+            env: {
+              NODE_OPTIONS: `--max-old-space-size=${String(INSTANCE_HEAP_MB)}`,
+              TSX_TSCONFIG_PATH: 'tsconfig.tests.json',
+            },
+          });
+
+          // **What the instance cost is the supervisor's observation**, so it is attached to the row after the process
+          // has closed - a row written by the child cannot know what it will peak at later, and a figure the child
+          // reported about itself would be a child's opinion rather than a measurement.
+          const cost = { peakRssMb: outcome.peakRssMb, elapsedMs: outcome.ms };
+          if (outcome.kind === 'row') {
+            // **The child ran the fusion; the parent records it.** `map` and `answerRank` are already the fused
+            // figures, so this is a transcription rather than a second computation - and the gate refuses an artifact
+            // where the transcription and the row disagree, which is how a wiring mistake is told from a result.
+            //
+            // **And a row is not a measurement.** This branch used to mean "both arms ran" because it is the branch where
+            // the child wrote a row - but a child whose analysis threw writes a *refused* row here, so one row of a real
+            // run published `fused: true` beside its own refusal sentence and the gate refused the artifact. `fusionFor`
+            // reads the row's refusal rather than the process's outcome, which is the fact the flag is about.
+            const fused = fusionFor({
+              skipped: outcome.row.skipped,
+              map: outcome.row.map,
+              rank: outcome.row.answerRank,
+              ranked: outcome.row.rankedPaths,
+              fallback,
+            });
+            scores.push({
+              ...outcome.row,
               cost,
               bm25: control,
               tfidf: secondControl,
               fallback,
-              fusion: declinedFusion({
-                map: fallback.map,
-                rank: fallback.rank,
-                ranked: fallback.ranked,
+              fusion: fused,
+            });
+          } else {
+            // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
+            // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
+            scores.push(
+              skippedRow({
+                id: row.id,
+                repo,
+                corpusFiles: allFiles.length,
+                expectedFiles: row.changed_files.length,
+                because: outcome.because,
+                cost,
+                bm25: control,
+                tfidf: secondControl,
+                fallback,
+                fusion: fusionFor({
+                  skipped: outcome.because,
+                  map: 0,
+                  rank: null,
+                  ranked: [],
+                  fallback,
+                }),
               }),
-            }),
+            );
+          }
+
+          // eslint-disable-next-line no-console -- per-instance cost, so a slow instance is visible before it is killed.
+          console.log(
+            `LCA-INSTANCE ${config} id=${String(row.id)} ${outcome.kind} in ${String(outcome.ms)}ms ` +
+              `peakRss=${String(outcome.peakRssMb)}MB parentRss=${String(residentMb())}MB`,
+          );
+          writePart();
+        }
+
+        // **And once more after the loop, because the loop can now leave early.** The budget stops the run instead of
+        // being re-decided per row, and a run whose first instance is already past its budget never reached the
+        // `writePart()` inside the loop - so the one call that makes an empty part exist is this one.
+        writePart();
+
+        const summary = summarisePart(partOf(), [1, 3, 5, 10]);
+        const at10 = summary.retrieval['at10']!;
+        // **A part that examined nothing has no `at10` arm to print**, and `summary.retrieval['at10']!` on an empty sample
+        // would be a crash standing in for a fact. The sentence below is the fact.
+        if (at10 === undefined) {
+          // eslint-disable-next-line no-console -- the workflow greps this, and an empty part has to say so.
+          console.log(
+            `LCA-PART ${config} measured=0/${String(summary.rows)} attempted=0/${String(rows.length)} ` +
+              `budget=${String(BUDGET_MS)}ms used=${String(Date.now() - startedAt)}ms - the budget was spent before ` +
+              'the first instance was examined, so the part exists and measures nothing',
+          );
+        }
+        // The summary line **is** the interface: the workflow greps it into the job summary.
+        if (at10 !== undefined) {
+          // eslint-disable-next-line no-console -- the workflow greps this, and it is the only interface there is.
+          console.log(
+            `LCA-PART ${config} measured=${String(summary.measured)}/${String(summary.rows)} ` +
+              `retrieval@10 P=${String(at10.precision)} R=${String(at10.recall)} F1=${String(at10.f1)} ` +
+              `retrieval@1 R=${String(summary.retrieval['at1']!.recall)} ` +
+              `map=${summary.map === null ? 'none' : String(summary.map.value)} ` +
+              `offered=${String(
+                mean(
+                  scores.filter((score) => score.skipped === null).map((score) => score.offered),
+                ),
+              )} ` +
+              `outside=${String(
+                mean(
+                  scores.filter((score) => score.skipped === null).map((score) => score.outside),
+                ),
+              )} answer=${summary.answer === null ? 'none' : String(summary.answer.f1)} ` +
+              `budget=${String(BUDGET_MS)}ms used=${String(Date.now() - startedAt)}ms`,
           );
         }
 
-        // eslint-disable-next-line no-console -- per-instance cost, so a slow instance is visible before it is killed.
-        console.log(
-          `LCA-INSTANCE ${config} id=${String(row.id)} ${outcome.kind} in ${String(outcome.ms)}ms ` +
-            `peakRss=${String(outcome.peakRssMb)}MB parentRss=${String(residentMb())}MB`,
-        );
-        writePart();
-      }
-
-      // **And once more after the loop, because the loop can now leave early.** The budget stops the run instead of
-      // being re-decided per row, and a run whose first instance is already past its budget never reached the
-      // `writePart()` inside the loop - so the one call that makes an empty part exist is this one.
-      writePart();
-
-      const summary = summarisePart(partOf(), [1, 3, 5, 10]);
-      const at10 = summary.retrieval['at10']!;
-      // **A part that examined nothing has no `at10` arm to print**, and `summary.retrieval['at10']!` on an empty sample
-      // would be a crash standing in for a fact. The sentence below is the fact.
-      if (at10 === undefined) {
-        // eslint-disable-next-line no-console -- the workflow greps this, and an empty part has to say so.
-        console.log(
-          `LCA-PART ${config} measured=0/${String(summary.rows)} attempted=0/${String(rows.length)} ` +
-            `budget=${String(BUDGET_MS)}ms used=${String(Date.now() - startedAt)}ms - the budget was spent before ` +
-            'the first instance was examined, so the part exists and measures nothing',
-        );
-      }
-      // The summary line **is** the interface: the workflow greps it into the job summary.
-      if (at10 !== undefined) {
-        // eslint-disable-next-line no-console -- the workflow greps this, and it is the only interface there is.
-        console.log(
-          `LCA-PART ${config} measured=${String(summary.measured)}/${String(summary.rows)} ` +
-            `retrieval@10 P=${String(at10.precision)} R=${String(at10.recall)} F1=${String(at10.f1)} ` +
-            `retrieval@1 R=${String(summary.retrieval['at1']!.recall)} ` +
-            `map=${summary.map === null ? 'none' : String(summary.map.value)} ` +
-            `offered=${String(
-              mean(scores.filter((score) => score.skipped === null).map((score) => score.offered)),
-            )} ` +
-            `outside=${String(
-              mean(scores.filter((score) => score.skipped === null).map((score) => score.outside)),
-            )} answer=${summary.answer === null ? 'none' : String(summary.answer.f1)} ` +
-            `budget=${String(BUDGET_MS)}ms used=${String(Date.now() - startedAt)}ms`,
-        );
-      }
-
-      // **What this file can claim on its own**: it examined the split's rows and wrote a part that says what it
-      // measured and what the bounds refused. **Whether the figure is good, and whether one exists at all, is the
-      // gate's question** - `scripts/lca-gate.js` requires a measured instance and refuses a mean over none.
-      expect(scores.length).toBeGreaterThan(0);
-      expect(summary.rows).toBe(scores.length);
-      // **The parent must not be where the memory went.** A child per instance is only worth its cost if the process
-      // that orchestrates stays small; this is the assertion that says the architecture did what it claims.
-      expect(residentMb()).toBeLessThan(INSTANCE_RSS_CAP_MB);
-      expect(readResidentMb(process.pid)).toBeGreaterThan(0);
-    }, 3_600_000);
+        // **What this file can claim on its own**: it examined the split's rows and wrote a part that says what it
+        // measured and what the bounds refused. **Whether the figure is good, and whether one exists at all, is the
+        // gate's question** - `scripts/lca-gate.js` requires a measured instance and refuses a mean over none.
+        expect(scores.length).toBeGreaterThan(0);
+        expect(summary.rows).toBe(scores.length);
+        // **The parent must not be where the memory went.** A child per instance is only worth its cost if the process
+        // that orchestrates stays small; this is the assertion that says the architecture did what it claims.
+        expect(residentMb()).toBeLessThan(INSTANCE_RSS_CAP_MB);
+        expect(readResidentMb(process.pid)).toBeGreaterThan(0);
+        // **The outer guard outlasts the inner stop condition, and that ordering is a measured fact rather than a
+        // style.** The timeout used to be a literal sixty minutes while the workflow sets `LCA_BUDGET_MS` to seventy:
+        // the Python leg of run `42158819636` was killed mid-instance by this timeout at 60:00 having spent its budget
+        // on nothing it could record, and the part it had already written arrived one instance short. A budget larger
+        // than the timeout it runs inside is not a budget - it is a sentence about a stop that cannot happen.
+        // Ten minutes of margin, because a language leg's last instance is still running when the budget check happens.
+      },
+      BUDGET_MS + 600_000,
+    );
   }
 });

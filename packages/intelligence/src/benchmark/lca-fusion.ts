@@ -75,3 +75,49 @@ export function declinedFusion(input: {
     ranked: input.ranked.slice(0, 10),
   };
 }
+
+/**
+ * The fused column for one finished row, **decided by the row rather than by the process that produced it**.
+ *
+ * **This function exists because the branch that called it was wrong, and the gate said so.** The parent used to choose
+ * between the two constructors above on `outcome.kind === 'row'` - did the child write a row - which is a fact about
+ * the process and not about the instance. A child whose analysis threw writes a **refused** row, so a refusal arrived
+ * through the branch that means "both arms ran": one row of a real run published `fused: true` beside
+ * `skipped: "the analysis failed: ..."`, `coverage.fused` came to 110 against 109 measured, and the gate refused the
+ * artifact twice - once for the split not adding up and once for a flag contradicting its own refusal sentence.
+ *
+ * **One call site per row, one decision, taken from the row's own refusal.** A row that measured nothing has no
+ * declaration arm to fuse with, whatever produced the silence, so it declines to the file-level arm - and a row whose
+ * fallback is missing entirely publishes no fused figure rather than a zero standing in for one.
+ */
+export function fusionFor(input: {
+  /** The row's refusal sentence, or `null` when it was measured. **The only thing that decides which arm ran.** */
+  readonly skipped: string | null;
+  /** The row's own figure, which is the fused one when the row is measured. */
+  readonly map: number;
+  readonly rank: number | null;
+  readonly ranked: readonly string[];
+  /** The file-level arm on this instance, which the parent computed before the child started. */
+  readonly fallback: {
+    readonly map: number;
+    readonly rank: number | null;
+    readonly ranked: readonly string[];
+  } | null;
+  readonly k?: number;
+}): FusionResult | null {
+  if (input.skipped === null) {
+    return fusedResult({
+      map: input.map,
+      rank: input.rank,
+      ranked: input.ranked,
+      ...(input.k === undefined ? {} : { k: input.k }),
+    });
+  }
+  if (input.fallback === null) return null;
+  return declinedFusion({
+    map: input.fallback.map,
+    rank: input.fallback.rank,
+    ranked: input.fallback.ranked,
+    ...(input.k === undefined ? {} : { k: input.k }),
+  });
+}
