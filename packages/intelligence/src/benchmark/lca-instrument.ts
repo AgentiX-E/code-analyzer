@@ -256,9 +256,12 @@ export const MODEL_MARGIN_MB = 546;
  *
  * A bound has to be computed before the analysis that would count the declarations, so the file count is converted at a
  * stated density. **The rung is chosen for admission coverage and its calibration is published, not the other way
- * round.** It is the ladder's highest rung whose file bound still admits every instance the sample measured: on the
- * 6 144 MB instance ceiling it affords **1 916 files**, and the largest checkout any measured row holds is 932. The
- * rung above it - 300 - would refuse three of the 109 rows in exchange for covering 69 % of them instead of 39 %.
+ * round.** It is the ladder's highest rung whose file bound still admits every instance the recorded sample measured:
+ * on the 6 144 MB instance ceiling it affords **1 916 files**, and the largest checkout any measured row of that sample
+ * holds is 932. The rung above it - 300, worth 766 files - would refuse three of the 109 rows in exchange for covering
+ * 69 % of them instead of 39 %. **A decision taken once on a sample, not a constraint re-evaluated per run**: the gate
+ * requires that the shipped rung refuses none of the rows a run measured, which is the direction that matters and not
+ * the same statement.
  *
  * **The sentence this doubles replaces said the opposite and was false.** Until iteration 79 this comment claimed the
  * rung sat *above* "the measured median of 117.7 over the 109 measured rows". It did not: 117.7 is the median of the

@@ -230,8 +230,13 @@ function main() {
   //   * `density.rows` equals `sample.measured`, because a median over the shards that finished is the defect itself;
   //   * the quantiles are ordered and the median is among them, because a distribution that is not ordered is not one;
   //   * every combined part appears in `byLanguage`, because the three medians differ by more than a factor of two;
-  //   * the shipped rung is the **highest rung that refuses none of the rows this run measured**, which is the rule the
-  //     constant's own comment states - a rung chosen for any other reason has to change that comment to pass.
+  //   * the shipped rung **refuses none of the rows this run measured**, which is the direction that matters: a rule
+  //     tighter than the evidence would have thrown away instances it could have measured.
+  //
+  // **The last one is a floor and not an equality, and that is deliberate.** An earlier version of this row required the
+  // shipped rung to be the *highest* rung that refused none - and that turns a decision taken once on a recorded sample
+  // into a constraint re-evaluated per run, so a run whose large checkouts happened to be refused for other reasons
+  // would fail a rule it never broke. A gate that reports a defect where there is none is worse than no gate at all.
   const density = at(record, ['density']);
   const densityLine = (() => {
     const measured = at(record, ['sample', 'measured']);
@@ -264,12 +269,10 @@ function main() {
           (typeof entry?.files === 'number' || entry?.files === null),
       ) &&
       ladder.every((entry, index) => index === 0 || entry.covered >= ladder[index - 1].covered);
-    const admissible = ladder
-      .filter((entry) => entry.refusedByBound === 0)
-      .map((entry) => entry.declarationsPerFile);
-    const highestAdmissible = admissible.length === 0 ? null : Math.max(...admissible);
-    const rungFollowsTheRule =
-      highestAdmissible === null || density?.chargedAt === highestAdmissible;
+    const charged = ladder.find((entry) => entry.declarationsPerFile === density?.chargedAt) ?? null;
+    // **The charged rung is on the ladder and refuses none of these rows.** `null` for a rung the ladder does not state
+    // means the artifact charges at a density nobody published, which is the failure the ladder exists to prevent.
+    const rungFollowsTheRule = charged !== null && charged.refusedByBound === 0;
     const countsAddUp =
       typeof density?.chargedAtCovered === 'number' &&
       typeof density?.chargedAtMissed === 'number' &&
@@ -287,13 +290,13 @@ function main() {
         `| density | median ${String(density?.median ?? '—')} over ${String(rows ?? '—')} rows · ` +
         `${languages.map((config) => `${config}:${String(density.byLanguage[config]?.median ?? '—')}`).join(' ') || '—'} · ` +
         `charged at ${String(density?.chargedAt ?? '—')} covers ${String(density?.chargedAtCovered ?? '—')}/` +
-        `${String(rows ?? '—')} | rows = measured · quantiles ordered · every language · rung = highest that refuses none | ` +
+        `${String(rows ?? '—')} | rows = measured · quantiles ordered · every language · the rung refuses none of them | ` +
         `${ok ? '✓' : '✗'} |`,
       failure: ok
         ? null
         : 'density: the declaration density behind the file bound must be computed over the rows the artifact ' +
-          'publishes, its quantiles ordered, every combined language present, its ladder priced, its charged rung the ' +
-          'highest that refuses none of those rows, and its covered and missed counts summing to `rows`',
+          'publishes, its quantiles ordered, every combined language present, its ladder priced, its charged rung one ' +
+          'that refuses none of those rows, and its covered and missed counts summing to `rows`',
     };
   })();
 

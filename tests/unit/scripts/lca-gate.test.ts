@@ -1251,12 +1251,33 @@ describe('lca gate — the density the bound converts at', () => {
     expect(run.stderr).toContain('every combined language present');
   });
 
-  it('**refuses a charged rung that is not the highest one refusing none of the rows**', () => {
-    // The constant's own comment says the rung is chosen for admission coverage: the ladder's highest rung whose bound
-    // still admits every instance the run measured. A rung chosen any other way has to change that comment to pass.
-    const run = runGate(mutatedDensity((density) => (density['chargedAt'] = 60)));
+  it('**refuses a charged rung that would have thrown away a row this run measured**', () => {
+    // The direction that matters: a rule tighter than the evidence refuses instances the run could have measured. At
+    // 600 declarations per file the fixture's bound is 399 files, which is below two of the rows recorded.
+    const run = runGate(mutatedDensity((density) => (density['chargedAt'] = 600)));
     expect(run.status).toBe(1);
-    expect(run.stderr).toContain('highest that refuses none of those rows');
+    expect(run.stderr).toContain('refuses none of those rows');
+  });
+
+  it('**accepts a charged rung that is looser than a higher one would be**', () => {
+    // **An earlier version of the invariant demanded the *highest* rung that refused none**, which turned a decision
+    // taken once on a recorded sample into a constraint re-evaluated on every run: a run whose large checkouts were
+    // refused for other reasons would have failed a rule it never broke. The ladder here refuses nothing at 60, 120 or
+    // 300 and the artifact charges at 120, so it must pass.
+    const run = runGate(
+      mutatedDensity((density) => {
+        (density['ladder'] as Array<Record<string, number>>).forEach((entry) => {
+          entry['refusedByBound'] = 0;
+        });
+      }),
+    );
+    expect(run.status).toBe(0);
+  });
+
+  it('**refuses a charged rung that is not on the ladder at all**', () => {
+    const run = runGate(mutatedDensity((density) => (density['chargedAt'] = 137)));
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('refuses none of those rows');
   });
 
   it('**refuses a block whose covered and missed counts do not add up**', () => {
