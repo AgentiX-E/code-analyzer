@@ -589,6 +589,24 @@ describe('publishedRow', () => {
   function loaded(): LcaRowScore {
     return {
       ...row(7, 0.5, 0.5),
+      // **Both controls present**, because the projection reads `bm25` and `tfidf` under six separate keys and a
+      // fixture with neither would leave the branches that publish them unexercised.
+      bm25: {
+        map: 0.42,
+        rank: 3,
+        documents: 120,
+        skippedFiles: 0,
+        unreadableFiles: 0,
+        ranked: ['c.py'],
+      },
+      tfidf: {
+        map: 0.38,
+        rank: 4,
+        documents: 120,
+        skippedFiles: 1,
+        unreadableFiles: 0,
+        ranked: ['d.py'],
+      },
       body: {
         map: 0.44,
         rank: 1,
@@ -662,6 +680,32 @@ describe('publishedRow', () => {
     expect(projected['bodyMap']).toBeNull();
     expect('fusionByWeighting' in projected).toBe(true);
     expect(projected['fusionByWeighting']).toEqual([]);
+  });
+
+  it('**publishes a row that never ran as `null`s rather than as zeros**', () => {
+    // **The row a refusal produces.** A refused instance has no cost, no pool and no answer, and every one of those is
+    // `null` rather than `0` - a zero would enter the means as a measurement of nothing, and the three facts are not the
+    // same fact. This is also the branch pair the coverage floor caught: the projection's `cost === null` arm had no
+    // fixture, because every fixture so far had a cost.
+    const refused: LcaRowScore = {
+      ...row(9, 0, 0),
+      cost: null,
+      retrieval: {},
+      answer: null,
+      map: 0,
+      skipped: 'the checkout holds 9000 files, above the stated cap of 4000',
+    };
+    const projected = publishedRow(refused, 'kt');
+    expect(projected['peakRssMb']).toBeNull();
+    expect(projected['elapsedMs']).toBeNull();
+    expect(projected['answer']).toBeNull();
+    expect(projected['bodyMap']).toBeNull();
+    expect(projected['fusionMap']).toBeNull();
+    expect(projected['fallbackMap']).toBeNull();
+    expect(projected['tfidfMap']).toBeNull();
+    expect(projected['importLines']).toBeNull();
+    // **And the refusal itself travels**, because a zero in the table is explained by this sentence or by nothing.
+    expect(projected['skipped']).toBe(refused.skipped);
   });
 
   it('**publishes the cut metrics and the answer figures at the addresses the documentation quotes**', () => {
