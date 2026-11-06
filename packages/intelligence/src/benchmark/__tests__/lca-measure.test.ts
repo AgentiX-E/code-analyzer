@@ -17,10 +17,15 @@ import { join } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { rankByFileBody } from '../../search/file-body.js';
 import { FILE_AGGREGATION } from '../../search/file-ranking.js';
 import { RRF_K } from '../../search/fusion.js';
-import { FUSION_K_LADDER } from '../lca-fusion.js';
-import { DeclarationCeilingExceeded } from '../lca-instrument.js';
+import { FUSION_K_LADDER, FUSION_WEIGHT_LADDER } from '../lca-fusion.js';
+import {
+  DeclarationCeilingExceeded,
+  averagePrecision,
+  restrictToUniverse,
+} from '../lca-instrument.js';
 import { MAP_DEPTH, insertGraph, measureInstance } from '../lca-measure.js';
 
 import type { LLMProvider } from '../../review/llm/provider.js';
@@ -440,5 +445,78 @@ describe('measureInstance — the fused arm', () => {
     const { root, allFiles } = checkout();
     const scored = await measureInstance({ row: row(['src/retry.py']), checkout: root, allFiles });
     expect(scored.fusion).toBeNull();
+  });
+});
+
+describe('the whole-body arm, as the fusion’s third input', () => {
+  /**
+   * **Iteration 81's wiring, and the three things that make it a `body-alone` rung rather than a decoration.**
+   *
+   * The arm arrives from the parent as a list of paths, is fused beside the declaration pool and the path-and-imports
+   * reading, and appears in the weight ladder as a rung whose weights zero the other two arms. That rung has to
+   * **reproduce the arm's own column exactly** - it is the mechanism test the gate checks per row on a real artifact -
+   * so it is checked here on a fixture where the two could not agree by accident.
+   */
+  it('**carries the body arm into the product’s fusion and into the ladder**', async () => {
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      fileSignals: ['src/http.py'],
+      // The parent's full body ranking: the answer first, then the file the declaration pool likes.
+      bodySignals: ['src/retry.py', 'src/http.py'],
+    });
+    expect(scored.fusionByWeighting.map((at) => at.weighting)).toEqual(
+      FUSION_WEIGHT_LADDER.map((rung) => rung.name),
+    );
+    const bodyAlone = scored.fusionByWeighting.find((at) => at.weighting === 'body-alone');
+    // **The equality, and it is the whole point of the rung.** `body-alone` zeroes the other two weights, so the fused
+    // list it produces *is* the arm's list; if this disagreed, the weights would be recorded rather than applied.
+    const armOnly = rankByFileBody({
+      checkout: root,
+      files: allFiles,
+      query: `${row(['src/retry.py']).issue_title}\n\n${row(['src/retry.py']).issue_body}`.trim(),
+      limit: 200,
+    });
+    expect(bodyAlone?.map).toBe(
+      averagePrecision(
+        restrictToUniverse([...armOnly.ranked], new Set(allFiles)),
+        ['src/retry.py'],
+        200,
+      ),
+    );
+    expect(scored.body).toBeNull();
+  });
+
+  it('**takes the body arm on its own when the parent could not build the other one**, so an arm is not a pair', async () => {
+    // **The refused row's shape.** The parent builds the file-level ranking by reading each file's head; a checkout it
+    // could not produce that for still has a body ranking, and the child has to fuse the one arm it was given rather
+    // than treat a missing `fileSignals` as "no arms at all" - which would silently drop the only reading the row has.
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      bodySignals: ['src/retry.py', 'src/http.py'],
+    });
+    // **The arm's own order is the fused order**, because it is the only arm in the fusion.
+    expect(scored.rankedPaths[0]).toBe('src/retry.py');
+    expect(scored.map).toBe(scored.declarationMap);
+    const bodyAlone = scored.fusionByWeighting.find((at) => at.weighting === 'body-alone');
+    const armOnly = rankByFileBody({
+      checkout: root,
+      files: allFiles,
+      query: `${row(['src/retry.py']).issue_title}\n\n${row(['src/retry.py']).issue_body}`.trim(),
+      limit: 200,
+    });
+    // **And the rung is still the arm alone**, which is what makes this a wiring test rather than a smoke test.
+    expect(bodyAlone?.map).toBe(
+      averagePrecision(
+        restrictToUniverse([...armOnly.ranked], new Set(allFiles)),
+        ['src/retry.py'],
+        200,
+      ),
+    );
   });
 });

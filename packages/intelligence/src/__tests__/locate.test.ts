@@ -202,3 +202,61 @@ describe('locateFiles with an arm to fuse', () => {
     );
   });
 });
+
+describe('locateFiles — the whole-body arm', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'locate-body-'));
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(
+      join(root, 'src', 'transport.py'),
+      'def release(conn):\n    # the release callback never returns the socket to the pool\n    pass\n',
+    );
+    writeFileSync(join(root, 'src', 'pool.py'), 'class Pool:\n    pass\n');
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('**fuses the body arm by default** and reports it beside the path-and-imports arm', () => {
+    const result = locateFiles(root, 'the release callback never returns the socket', { limit: 5 });
+    expect(result.fileLevel).toBeDefined();
+    expect(result.bodyRanked[0]).toBe('src/transport.py');
+    expect(result.fusion).toBeNull();
+    expect(result.fileFusion.ranked[0]).toBe('src/transport.py');
+  });
+
+  it('**reads no body when the caller switches it off**, and the arm reports nothing rather than an empty guess', () => {
+    const result = locateFiles(root, 'the release callback never returns the socket', {
+      limit: 5,
+      body: false,
+    });
+    expect(result.bodyRanked).toEqual([]);
+    // With one arm left the fusion has nothing to fuse, and the ranking is that arm's own order.
+    expect(result.fileFusion.ranked).toEqual(result.fileLevel);
+  });
+
+  it('**honours a stated body cap**, because the read is charged to the caller’s clock', () => {
+    const wide = locateFiles(root, 'socket pool', { limit: 5 });
+    expect(wide.bodyRanked).toContain('src/transport.py');
+    // **Sixteen bytes of `transport.py` are `def release(conn`**, which holds neither query term - so the arm cannot
+    // rank it, while `pool.py`'s first line still does. The cap is therefore visible as a difference in the ranking and
+    // not only in the byte count.
+    const narrow = locateFiles(root, 'socket pool', { limit: 5, bodyBytes: 16 });
+    expect(narrow.bodyRanked).not.toContain('src/transport.py');
+    expect(narrow.bodyRanked).toContain('src/pool.py');
+  });
+
+  it('**fuses a declaration ranking over the file fusion** rather than beside the arms separately', () => {
+    const result = locateFiles(root, 'the release callback never returns the socket', {
+      limit: 5,
+      declarations: ['src/pool.py'],
+    });
+    expect(result.fusion).not.toBeNull();
+    expect(result.fusion?.ranked).toContain('src/pool.py');
+    // Every path the file fusion ranked is still reachable: a fusion is a union, not a filter.
+    expect(result.fusion?.ranked).toContain('src/transport.py');
+  });
+});

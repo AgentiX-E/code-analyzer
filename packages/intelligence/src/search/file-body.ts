@@ -120,7 +120,10 @@ export function rankByFileBody(input: {
     lengths[index] = tokens.length;
     for (const token of tokens) {
       const position = positionOfTerm.get(token);
-      if (position !== undefined) perFile[position] = (perFile[position] ?? 0) + 1;
+      // **`perFile[position]!` rather than `?? 0`.** The vector was created one line above with one slot per query
+      // term and `position` comes from the map that built it, so the read is always defined - a `?? 0` here would be
+      // a branch no fixture can reach, and the coverage report would have to excuse it. The assertion says why.
+      if (position !== undefined) perFile[position] = perFile[position]! + 1;
     }
     counts.push(perFile);
   }
@@ -130,7 +133,8 @@ export function rankByFileBody(input: {
   const documentFrequency: number[] = [];
   for (let position = 0; position < terms.length; position += 1) {
     let frequency = 0;
-    for (const perFile of counts) if ((perFile[position] ?? 0) > 0) frequency += 1;
+    // Every vector holds `terms.length` slots, so this index is in range for every element of `counts`.
+    for (const perFile of counts) if (perFile[position]! > 0) frequency += 1;
     documentFrequency.push(frequency);
   }
 
@@ -138,15 +142,15 @@ export function rankByFileBody(input: {
   for (const length of lengths) totalLength += length;
   const averageLength = totalLength / documents;
 
-  const idf = terms.map((_, position) => bm25Idf(documentFrequency[position] ?? 0, documents));
+  const idf = terms.map((_, position) => bm25Idf(documentFrequency[position]!, documents));
 
   const scored: { path: string; score: number }[] = [];
   for (const [index, perFile] of counts.entries()) {
     let score = 0;
     for (let position = 0; position < terms.length; position += 1) {
-      const frequency = perFile[position] ?? 0;
+      const frequency = perFile[position]!;
       if (frequency === 0) continue;
-      score += bm25Weight(frequency, lengths[index] ?? 0, idf[position] ?? 0, averageLength);
+      score += bm25Weight(frequency, lengths[index]!, idf[position]!, averageLength);
     }
     // **A zero is not a weak ranking, it is the absence of one**, which is the rule every ranking in this package keeps:
     // returning the answer space in path order would give credit for a match that never happened.

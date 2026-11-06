@@ -27,7 +27,7 @@ import {
   rankByPathImports,
 } from '../../search/path-imports.js';
 import { buildTermIndex, rankBm25 } from '../lca-baseline.js';
-import { fallbackArm } from '../lca-fallback.js';
+import { bodyArm, fallbackArm } from '../lca-fallback.js';
 
 /** A checkout holding the named files, each with the content given. **Real files, because the head cap is about bytes.** */
 function checkout(files: Record<string, string>): string {
@@ -281,5 +281,106 @@ describe('fallbackArm', () => {
       depth: 200,
     });
     expect(arm.importLines).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The third arm: the same ruler over a document the other arm never sees
+// ---------------------------------------------------------------------------
+
+describe('bodyArm', () => {
+  it('scores a perfect first place at one on a word that is only in the body', () => {
+    // **The word is in no path and no import**, which is the whole point of the arm: the fallback cannot see it.
+    const root = checkout({
+      'src/RetryPolicy.java': 'class RetryPolicy {\n  int backoff;\n}\n',
+      'src/Unrelated.java': 'class Unrelated {}\n',
+    });
+    const arm = bodyArm({
+      checkout: root,
+      files: ['src/RetryPolicy.java', 'src/Unrelated.java'],
+      query: 'backoff',
+      expected: ['src/RetryPolicy.java'],
+      depth: 200,
+    });
+    expect(arm.map).toBe(1);
+    expect(arm.rank).toBe(1);
+    expect(arm.documents).toBe(2);
+  });
+
+  it('agrees with the path-and-imports arm where the two documents coincide, so the columns are comparable', () => {
+    // **The equivalence that makes the column a second reading rather than a second instrument**: on a checkout whose
+    // bodies hold no query term, both arms see the same text and must score the same figure.
+    const root = checkout({
+      'src/Alpha.java': 'class Alpha {}\n',
+      'src/Beta.java': 'class Beta {}\n',
+    });
+    const shared = {
+      checkout: root,
+      files: ['src/Alpha.java', 'src/Beta.java'],
+      query: 'alpha',
+      expected: ['src/Alpha.java'],
+      depth: 200,
+    };
+    expect(bodyArm(shared).map).toBe(fallbackArm(shared).map);
+  });
+
+  it('scores zero and says the answer was absent when no body holds a term', () => {
+    const root = checkout({ 'src/One.java': 'class One {}\n' });
+    const arm = bodyArm({
+      checkout: root,
+      files: ['src/One.java'],
+      query: 'unrelated wording entirely',
+      expected: ['src/One.java'],
+      depth: 200,
+    });
+    expect(arm.map).toBe(0);
+    expect(arm.rank).toBeNull();
+    expect(arm.documents).toBe(1);
+  });
+
+  it('publishes the first ten of the ranking and keeps the whole one for the fusion', () => {
+    const files: Record<string, string> = {};
+    for (let index = 0; index < 20; index += 1) files[`src/Alpha_${String(index)}.java`] = '';
+    const root = checkout(files);
+    const arm = bodyArm({
+      checkout: root,
+      files: Object.keys(files),
+      query: 'alpha',
+      expected: [],
+      depth: 200,
+    });
+    expect(arm.ranked).toHaveLength(10);
+    // **The fusion reads `candidates`**, and a fusion against ten paths would put the cut in charge of the order.
+    expect(arm.candidates).toHaveLength(20);
+    expect(arm.documents).toBe(20);
+  });
+
+  it('counts the bytes it read and the files it could not read, because both are the arm’s cost', () => {
+    const root = checkout({ 'src/Present.java': 'class Present { int backoff; }\n' });
+    const arm = bodyArm({
+      // **A file the answer space names and the disk does not hold.** It stays in the denominator and out of the
+      // ranking: dropping it would shrink the universe the mean is over, and scoring it would invent a match.
+      checkout: root,
+      files: ['src/Present.java', 'src/Missing.java'],
+      query: 'backoff',
+      expected: ['src/Present.java'],
+      depth: 200,
+    });
+    expect(arm.unreadableFiles).toBe(1);
+    expect(arm.bytesRead).toBeGreaterThan(0);
+    expect(arm.documents).toBe(2);
+    expect(arm.map).toBe(1);
+  });
+
+  it('reports a duration, so a slow instance is a number in the row rather than an anecdote', () => {
+    const root = checkout({ 'src/One.java': 'class One { int backoff; }\n' });
+    const arm = bodyArm({
+      checkout: root,
+      files: ['src/One.java'],
+      query: 'backoff',
+      expected: ['src/One.java'],
+      depth: 200,
+    });
+    expect(arm.durationMs).toBeGreaterThanOrEqual(0);
   });
 });

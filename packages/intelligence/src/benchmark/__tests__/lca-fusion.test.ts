@@ -67,6 +67,14 @@ describe('the weight ladder', () => {
   });
 });
 
+describe('fuseFileRankings', () => {
+  it('**truncates to a stated limit without reordering**, which is what a caller with a fixed page size asks for', () => {
+    const arms = { fileBody: ['a.py', 'b.py', 'c.py', 'd.py'] };
+    const full = fuseFileRankings({ arms });
+    expect(fuseFileRankings({ arms, limit: 2 })).toEqual(full.slice(0, 2));
+  });
+});
+
 describe('fusionFor', () => {
   // **A coherent fixture**: `map` is `1/rank` for a one-file answer, so a row that publishes 0.5 and a rank of 2
   // is a row whose own numbers agree. A fixture that does not is a fixture that cannot catch a wiring defect.
@@ -162,6 +170,49 @@ describe('fusionFor', () => {
         depth: 200,
       })?.fused,
     ).toBe(true);
+  });
+
+  it('**applies the weighting it was given**, so an ablation can ask for a rung other than the shipped one', () => {
+    // `body-alone` zeroes the two other arms; if the argument were recorded and not applied, this row would still be the
+    // three-arm fusion and the ladder would be a table about itself.
+    const bodyAlone = FUSION_WEIGHT_LADDER.find((rung) => rung.name === 'body-alone')!;
+    const fused = fusionFor({
+      skipped: 'above the stated cap',
+      map: 0,
+      rank: null,
+      ranked: [],
+      fallback,
+      body,
+      expected,
+      depth: 200,
+      weighting: bodyAlone,
+    });
+    expect(fused?.weighting).toBe('body-alone');
+    // The body arm ranks `y.py` first, so the rung that keeps only the body arm puts it first - and earns exactly the
+    // body arm's own average precision on this fixture.
+    expect(fused?.ranked[0]).toBe('y.py');
+    expect(fused?.map).toBe(1);
+    expect(fused?.arms).toEqual(['file-level', 'file-body']);
+  });
+
+  it('**fuses the body arm alone when the parent built no path-and-imports ranking**', () => {
+    // **The refused row where only one arm exists.** `fallback: null` is not "no arms": the body arm still ran, and a
+    // fusion that treated a missing first arm as a missing row would publish an empty list on exactly the instances this
+    // arm was built for. The arm list is what says which arms took part, so it is the assertion.
+    const fused = fusionFor({
+      skipped: 'above the stated cap',
+      map: 0,
+      rank: null,
+      ranked: [],
+      fallback: null,
+      body,
+      expected,
+      depth: 200,
+    });
+    expect(fused?.arms).toEqual(['file-body']);
+    // **And the figure is the arm's own**, because a fusion of one list is that list.
+    expect(fused?.ranked[0]).toBe('y.py');
+    expect(fused?.map).toBe(1);
   });
 
   it('carries the constant it was given into both readings', () => {

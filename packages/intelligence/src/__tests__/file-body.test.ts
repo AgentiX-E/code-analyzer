@@ -173,3 +173,49 @@ describe('rankByFileBody', () => {
     expect(cut).toEqual(full.slice(0, 2));
   });
 });
+
+describe('rankByFileBody options', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'file-body-opt-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('**honours a stated cap**, so the same text can be read to two depths and the difference is the arm’s budget', () => {
+    // The cap is a parameter because a caller paying for the I/O has to be able to say how much: a body arm that read
+    // 64 KB unconditionally would be a fixed cost a twenty-thousand-file checkout cannot afford, and one that read
+    // eight kilobytes would be the path-and-imports arm with a longer head.
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, 'a.py'), `${'x'.repeat(64)}\nalpha\n`);
+    writeFileSync(join(root, 'b.py'), 'alpha\n');
+    const narrow = rankByFileBody({
+      checkout: root,
+      files: ['a.py', 'b.py'],
+      query: 'alpha',
+      limit: 10,
+      options: { maxBytes: 32 },
+    });
+    // `a.py`'s only occurrence of the term lies past the thirty-two byte cap, so the narrow read cannot see it.
+    expect(narrow.ranked).toEqual(['b.py']);
+    const wide = rankByFileBody({
+      checkout: root,
+      files: ['a.py', 'b.py'],
+      query: 'alpha',
+      limit: 10,
+      options: { maxBytes: 4_096 },
+    });
+    expect([...wide.ranked].sort()).toEqual(['a.py', 'b.py']);
+    expect(wide.bytesRead).toBeGreaterThan(narrow.bytesRead);
+  });
+
+  it('**answers nothing for a limit of zero**, rather than the deepest ranking', () => {
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, 'a.py'), 'alpha\n');
+    const result = rankByFileBody({ checkout: root, files: ['a.py'], query: 'alpha', limit: 0 });
+    expect(result.ranked).toEqual([]);
+  });
+});
