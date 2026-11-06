@@ -346,7 +346,7 @@ describe('measureInstance — the fused arm', () => {
   });
 
   it('**sweeps the constant on every measured row, with the shipped rung equal to the row’s own figure**', async () => {
-    // **The ladder is not a second experiment.** `k = 60` is the constant the product ships and it is one rung of the
+    // **The ladder is not a second experiment.** `RRF_K` is the constant the product ships and it is one rung of the
     // ladder rather than a point beside it, so the artifact can say whether the shipped value sits on a plateau - the
     // only statement that makes it a choice rather than an inheritance. The equality checked here is what keeps the
     // sweep and the column from describing two different rankings.

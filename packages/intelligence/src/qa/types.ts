@@ -249,7 +249,7 @@ export interface AskOptions extends ContextOptions {
    *
    * What a caller supplies is a list it already has: `locate` produces one from a checkout too large to index, an agent
    * that has just run `search` produces one from the paths it was shown, and a caller running this product on two
-   * revisions produces one from the other revision. The fusion is `reciprocalRankFusion` - unweighted, `k = 60`
+   * revisions produces one from the other revision. The fusion is `reciprocalRankFusion` - unweighted, `k = 10`
    * (`search/fusion.ts` states why) - so this option chooses **whether** to fuse and not how.
    */
   fileSignals?: {

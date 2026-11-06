@@ -155,9 +155,17 @@ export function checkoutBytes(root: string): CorpusSize {
 // ---------------------------------------------------------------------------
 
 /**
- * Resident megabytes one analysed file costs, **measured rather than guessed**.
+ * Resident megabytes one analysed file costs, **measured on four checkouts and refuted by a hundred and nine**.
  *
- * **The measurement.** Four real checkouts were analysed in one process, three rounds each, recording
+ * **This constant is retained as the comparator, not as the bound.** The run of 6 November 2026 measured 109 instances
+ * and published the fit of every candidate predictor against their peak resident sets: regressing on the *file count*
+ * with this rate explains **nothing** - `R² = -0.015`, a line worse than predicting the mean of the sample - because the
+ * measured cost per file spans **1.5 MB to 2 158.5 MB**, a factor of 1 400. The same run fitted resident memory against
+ * the number of declarations the analysis actually produced and got `R² = 0.77` at **22 KB per declaration plus a 515 MB
+ * intercept**. Admission is now charged at that model ({@link MB_PER_DECLARATION}); this rate survives because a report
+ * that replaces a model has to publish what it replaced, and `lca-merge.ts` still scores it every run.
+ *
+ * **The measurement it came from.** Four real checkouts were analysed in one process, three rounds each, recording
  * `process.memoryUsage()` around every analysis (`flask` 249 files, `zod` 226, `commons-lang` 568, `gson` 303):
  *
  *   | checkout | files | nodes | resident after | heap after | analysis |
@@ -173,11 +181,69 @@ export function checkoutBytes(root: string): CorpusSize {
  * **A run over N instances therefore costs the high-water mark of all of them, not the largest one**: the job that has
  * never finished was not killed by one enormous repository, it was killed by the sixth medium one.
  *
- * 2 088 MB of resident growth over 568 files is **3.7 MB per file**, and that is the number this bound uses. It is
- * deliberately the Java figure: Kotlin is the same compiler front end and no Kotlin checkout was measured, and a bound
- * that is too generous is the failure mode this module exists to remove.
+ * 2 088 MB of resident growth over 568 files is **3.7 MB per file**, and that is the number this bound used to charge.
+ * It is deliberately the Java figure: Kotlin is the same compiler front end and no Kotlin checkout was measured, and a
+ * bound that is too generous is the failure mode this module exists to remove. **The failure mode it did not remove is
+ * the opposite one: a rate fitted to four points and charged to a hundred and nine turned out to be false, and every
+ * instance it refused was refused by a guess.** See {@link MB_PER_DECLARATION} for what replaced it.
  */
 export const MEASURED_MB_PER_FILE = 3.7;
+
+/**
+ * Resident megabytes one declaration costs, **fitted on the sample the instrument itself measured**.
+ *
+ * **The fit.** `scripts/lca-merge.ts` regresses each finished row's peak resident set on three candidate predictors and
+ * publishes all three with their `R²`. Over the 109 measured rows of the 6 November 2026 run:
+ *
+ *   | predictor | slope | intercept | R² | mean residual |
+ *   |---|---|---|---|---|
+ *   | graph nodes (declarations) | 22 KB per node | 515 MB | **0.77** | 326 MB |
+ *   | bytes of the answer space | 0.5 MB per MB | 820 MB | 0.46 | 597 MB |
+ *   | bytes of the checkout | 0.003 MB per MB | 1 376 MB | 0.01 | 906 MB |
+ *   | **3.7 MB per file (the bound in force)** | - | - | **-0.02** | - |
+ *
+ * **Why this shape and not a per-file rate.** The intercept is the part that a per-file rate cannot express and that the
+ * measurement insists on: the pipeline's own floor is about half a gigabyte before it has read anything, so a rate
+ * charged from zero over-states a small checkout and under-states a large one. Memory grows with what the analysis
+ * *produced* - declarations and the edges between them - and two checkouts of the same size can differ by a factor of a
+ * hundred in that quantity, which is exactly what the observed 1.5-2 158.5 MB per file spread is.
+ *
+ * **The number is a floor on precision, and the margin says so.** The mean absolute residual is 326 MB with a worst miss
+ * of 3 906 MB, so an admission bound charged at the bare line would admit instances the ceiling then kills.
+ * {@link MODEL_MARGIN_MB} is charged on top for that reason: the model's own error sets the safety margin, rather than
+ * a second guess set beside the first.
+ */
+export const MB_PER_DECLARATION = 0.0221;
+
+/** The fixed cost of an analysis in megabytes, **the fitted intercept**: 515 MB over 109 rows. */
+export const FIXED_MB = 515;
+
+/** The model's mean absolute residual, **charged as margin rather than ignored**: 326 MB over the same rows. */
+export const MODEL_MARGIN_MB = 326;
+
+/**
+ * Declarations per file, **the operating rung of the ladder below** - 120, which the sample's median sits just under.
+ *
+ * A bound has to be computed before the analysis that would count the declarations, so the file count is converted at a
+ * stated density. **Three things keep this from being the guess the per-file rate was**: it is a rung of a ladder
+ * published before any figure is read, it is the rung *above* the measured median of 117.7 over the 109 measured rows
+ * (so the bound is never more generous than the sample implies), and every row publishes the density it actually
+ * reached, so the conversion is checked against its outcome on every instance rather than once. The gate refuses an
+ * artifact whose operating density is not on the ladder, because a rung nobody published is a number nobody can check.
+ */
+export const DECLARATIONS_PER_FILE = 120;
+
+/** The sample's median density, **published beside the rung that rounds it**, over the 109 measured rows of the sample. */
+export const MEASURED_MEDIAN_DECLARATIONS_PER_FILE = 117.7;
+
+/**
+ * The densities the file bound is published at, **stated rather than searched**.
+ *
+ * The measured sample spans 20.5 to 2 185.8 declarations per file, so a single density cannot be right for every
+ * instance and no density is chosen by looking at which one admits the most. The ladder is fixed and published in the
+ * artifact before any figure is read, and the operating rung is the one the sample's median sits under.
+ */
+export const DECLARATIONS_PER_FILE_LADDER = [20, 60, 120, 300, 600] as const;
 
 /**
  * What the rest of the runner needs, in megabytes, **kept back from the analysis**.
@@ -192,16 +258,51 @@ export const RUNNER_RESERVE_MB = 1024;
 /** Milliseconds one analysed file costs, from the same table: 44 ms/file at 568 files, 34 at 303, 9 at 249. */
 export const MS_PER_FILE = 50;
 
-/** How large an analysis the remaining memory allows, in files. **Zero when there is no room, never negative.** */
-export function analysableFileBudget(input: {
+/**
+ * How many declarations the remaining memory allows, **after the fixed cost and the margin are paid**.
+ *
+ * The order of subtraction is the whole of the change this function makes. The arithmetic it replaces divided the
+ * available megabytes by a per-file rate *as though an analysis cost nothing until its first file*: with a 6 144 MB
+ * ceiling it promised 1 660 files, which is 6 142 MB at the old rate - every megabyte of the ceiling, with no room for
+ * the half gigabyte the pipeline spends before it reads anything. **Zero when there is no room, never negative**,
+ * because a budget of minus forty files is a budget that will be compared with a count.
+ */
+export function analysableDeclarationBudget(input: {
   totalMb: number;
   residentMb: number;
   reserveMb: number;
-  mbPerFile: number;
+  mbPerDeclaration: number;
+  fixedMb: number;
+  marginMb: number;
 }): number {
-  const available = input.totalMb - input.residentMb - input.reserveMb;
-  if (available <= 0 || input.mbPerFile <= 0) return 0;
-  return Math.floor(available / input.mbPerFile);
+  const available =
+    input.totalMb - input.residentMb - input.reserveMb - input.fixedMb - input.marginMb;
+  if (available <= 0 || input.mbPerDeclaration <= 0) return 0;
+  return Math.floor(available / input.mbPerDeclaration);
+}
+
+/** How many files that budget is worth **at one stated density**. Zero when the density is not a density. */
+export function fileBudgetAtDensity(input: {
+  declarations: number;
+  declarationsPerFile: number;
+}): number {
+  if (!(input.declarationsPerFile > 0) || input.declarations <= 0) return 0;
+  return Math.floor(input.declarations / input.declarationsPerFile);
+}
+
+/** The megabytes an analysis of `files` files is expected to cost at one density, **margin included**. */
+export function modelledAnalysisMb(input: {
+  files: number;
+  declarationsPerFile: number;
+  mbPerDeclaration?: number;
+  fixedMb?: number;
+  marginMb?: number;
+}): number {
+  const fixed = (input.fixedMb ?? FIXED_MB) + (input.marginMb ?? MODEL_MARGIN_MB);
+  const slope = input.mbPerDeclaration ?? MB_PER_DECLARATION;
+  return Math.round(
+    fixed + slope * Math.max(input.files, 0) * Math.max(input.declarationsPerFile, 0),
+  );
 }
 
 /**
@@ -247,7 +348,7 @@ export function parseLanguages(spec: string | undefined): LcaConfigName[] {
 export interface InstanceBounds {
   /** The bound stated in the artifact, from `LCA_MAX_FILES`. */
   readonly capFiles: number;
-  /** The bound the remaining memory allows, from {@link analysableFileBudget}. */
+  /** The bound the remaining memory allows, **converted from declarations to files at the operating density**. */
   readonly budgetFiles: number;
   /** Milliseconds this job has already spent. */
   readonly elapsedMs: number;
@@ -257,6 +358,8 @@ export interface InstanceBounds {
   readonly residentMb: number;
   /** The reserve that was subtracted, for the same reason. */
   readonly reserveMb: number;
+  /** The density `budgetFiles` was converted at. **A file bound whose density is unstated is a count of nothing.** */
+  readonly declarationsPerFile?: number;
 }
 
 /** Whether an instance is measured, and if not, **which of the three bounds refused it**. */
@@ -270,6 +373,12 @@ export type InstanceVerdict =
  * chose.** A stated cap is a promise to the reader; the memory bound is what the machine can currently afford, which
  * shrinks as the run accumulates resident pages; the time bound is what is left of the job's own budget. **A skip is a
  * row in the artifact with the sentence that produced it**, so the sample's size is explainable without the log.
+ *
+ * **The memory sentence used to quote a rate that described no instance.** It said "estimated at 6 553 MB resident
+ * (3.7 MB per file)" about a checkout whose measured peers cost 350-4 141 MB, on a fit that explains none of their
+ * variance; the substitution is now the fitted one, and the sentence names the density it was converted at so a reader
+ * can check the conversion against the row's own declaration count. **The estimate is a statement about the model**, and
+ * the sentence says which model, because the previous one could not be falsified from the artifact.
  */
 export function decideInstance(files: number, bounds: InstanceBounds): InstanceVerdict {
   if (files > bounds.capFiles) {
@@ -279,13 +388,20 @@ export function decideInstance(files: number, bounds: InstanceBounds): InstanceV
     };
   }
   if (files > bounds.budgetFiles) {
-    const estimatedMb = Math.round(files * MEASURED_MB_PER_FILE);
+    const density = bounds.declarationsPerFile ?? DECLARATIONS_PER_FILE;
+    const estimatedMb = modelledAnalysisMb({ files, declarationsPerFile: density });
+    // **The reserve clause is printed only when a reserve was actually subtracted.** The sentence used to say "above a
+    // 1 024 MB reserve" while the arithmetic passed `reserveMb: 0`, so the one number a reader would use to check the
+    // division was the one the division had not used.
+    const reserve = bounds.reserveMb > 0 ? `above a ${String(bounds.reserveMb)} MB reserve, ` : '';
     return {
       analyse: false,
       because:
-        `an analysis of ${String(files)} files is estimated at ${String(estimatedMb)} MB resident ` +
-        `(${String(MEASURED_MB_PER_FILE)} MB per file) and only ${String(bounds.budgetFiles)} files of room remain ` +
-        `above a ${String(bounds.reserveMb)} MB reserve, with ${String(Math.round(bounds.residentMb))} MB resident`,
+        `an analysis of ${String(files)} files at ${String(density)} declarations per file is estimated ` +
+        `at ${String(estimatedMb)} MB resident (${String(FIXED_MB)} MB fixed plus ` +
+        `${String(MODEL_MARGIN_MB)} MB of model margin plus ${String(MB_PER_DECLARATION)} MB per declaration) and only ` +
+        `${String(bounds.budgetFiles)} files of room remain ${reserve}with ` +
+        `${String(Math.round(bounds.residentMb))} MB resident`,
     };
   }
   const projectedMs = bounds.elapsedMs + files * MS_PER_FILE;

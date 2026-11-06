@@ -55,15 +55,21 @@ import { fallbackArm } from '../benchmark/lca-fallback.js';
 import { fusionFor } from '../benchmark/lca-fusion.js';
 import {
   CONFIG_EXTENSION,
+  DECLARATIONS_PER_FILE,
+  DECLARATIONS_PER_FILE_LADDER,
+  FIXED_MB,
+  MB_PER_DECLARATION,
   MEASURED_MB_PER_FILE,
+  MODEL_MARGIN_MB,
   MS_PER_FILE,
   RUNNER_RESERVE_MB,
-  analysableFileBudget,
+  analysableDeclarationBudget,
   checkoutFileCount,
   checkoutBytes,
   corpusBytes,
   corpusFiles,
   decideInstance,
+  fileBudgetAtDensity,
   limitedTotalMb,
   mean,
   parseLanguages,
@@ -115,11 +121,17 @@ const ROW_LIMIT = Number.parseInt(process.env['LCA_MAX_ROWS'] ?? '50', 10);
 /**
  * The hard ceiling on a checkout, in files. **A stated cap, because an unbounded instrument measures nothing.**
  *
- * The bound that actually bites is the memory one ({@link analysableFileBudget}), computed from the ceiling a single
- * instance may reach; this number is the promise to the reader that no instance above it is measured even on a huge
- * runner. Both are recorded in the part, and a skipped row quotes whichever refused it.
+ * **The cap doubled, and the reason is the bound beside it rather than a wish for more rows.** It was 2 000, chosen when
+ * the memory bound charged 3.7 MB per file from the first byte: at that rate a 2 000-file checkout was charged 7 400 MB
+ * against a 6 144 MB ceiling, so the *cap* admitted instances the *ceiling* would kill, and the memory bound refused
+ * 1 700-file checkouts before the cap could ever bite. Charged at the fitted model - 515 MB fixed, 326 MB of margin,
+ * 22 KB per declaration at the operating density of 120 - the ceiling affords **1 999 files**, and at 30 declarations
+ * per file it affords **7 998**. **So the two bounds have swapped roles**: the cap is now the promise that
+ * no instance above 4 000 files is measured even on a huge runner, and the memory model is what refuses a dense
+ * checkout of any size, with arithmetic a reader can check against the row's own declaration count. The reference to
+ * `analysableFileBudget` that used to be here pointed at the arithmetic this iteration replaced.
  */
-const FILE_CAP = Number.parseInt(process.env['LCA_MAX_FILES'] ?? '2000', 10);
+const FILE_CAP = Number.parseInt(process.env['LCA_MAX_FILES'] ?? '4000', 10);
 
 /**
  * How long one language job may spend analysing, in milliseconds. **Stated rather than inherited from the job's own
@@ -191,6 +203,50 @@ const INSTANCE_HEAP_MB = Number.parseInt(process.env['LCA_INSTANCE_HEAP_MB'] ?? 
 
 /** How long one instance may run. **A job with twelve instances cannot spend the whole budget on one.** */
 const INSTANCE_TIMEOUT_MS = Number.parseInt(process.env['LCA_INSTANCE_TIMEOUT_MS'] ?? '900000', 10);
+
+/**
+ * What the ceiling affords, **in declarations first and in files second**.
+ *
+ * **One conversion, computed once, because the two places that need it must not disagree.** The part records the bound
+ * the job started with and every instance is admitted against it, so a part whose number was computed by one arithmetic
+ * and an admission decided by another would publish a promise it did not keep - which is the shape of the defect this
+ * whole section just left.
+ *
+ * **`reserveMb` is zero here and the reason is the ceiling's own definition.** `INSTANCE_RSS_CAP_MB` is already
+ * `min(machine - reserve, stated ceiling)`, so it is the memory one *child* may reach; subtracting the parent's reserve
+ * again would charge the same gigabyte twice and refuse an instance the machine can afford. What the parent actually
+ * spends is subtracted instead, per instance, from its measured resident set.
+ *
+ * The ladder is published beside the operating point so the decision's sensitivity is in the artifact rather than in a
+ * sentence: at the operating density the ceiling affords **1 999 files**, and at 30 declarations per file it affords
+ * **7 998** - the same ceiling, the same model, a factor of four depending on a density the job cannot know
+ * before it runs.
+ */
+function memoryBudget(): {
+  declarations: number;
+  files: number;
+  ladder: Array<{ declarationsPerFile: number; files: number }>;
+} {
+  const declarations = analysableDeclarationBudget({
+    totalMb: INSTANCE_RSS_CAP_MB,
+    residentMb: 0,
+    reserveMb: 0,
+    mbPerDeclaration: MB_PER_DECLARATION,
+    fixedMb: FIXED_MB,
+    marginMb: MODEL_MARGIN_MB,
+  });
+  return {
+    declarations,
+    files: fileBudgetAtDensity({ declarations, declarationsPerFile: DECLARATIONS_PER_FILE }),
+    ladder: DECLARATIONS_PER_FILE_LADDER.map((declarationsPerFile) => ({
+      declarationsPerFile,
+      files: fileBudgetAtDensity({ declarations, declarationsPerFile }),
+    })),
+  };
+}
+
+/** The bound one job states in its part, **computed from the ceiling this job actually has**. */
+const MEMORY_BUDGET = memoryBudget();
 
 // ---------------------------------------------------------------------------
 // Checkouts
@@ -289,12 +345,13 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           answerArm,
           bounds: {
             capFiles: FILE_CAP,
-            memoryFiles: analysableFileBudget({
-              totalMb: INSTANCE_RSS_CAP_MB,
-              residentMb: 0,
-              reserveMb: 0,
-              mbPerFile: MEASURED_MB_PER_FILE,
-            }),
+            memoryFiles: MEMORY_BUDGET.files,
+            memoryDeclarations: MEMORY_BUDGET.declarations,
+            declarationsPerFile: DECLARATIONS_PER_FILE,
+            mbPerDeclaration: MB_PER_DECLARATION,
+            fixedMb: FIXED_MB,
+            marginMb: MODEL_MARGIN_MB,
+            fileLadder: MEMORY_BUDGET.ladder,
             mbPerFile: MEASURED_MB_PER_FILE,
             reserveMb: RUNNER_RESERVE_MB,
             budgetMs: BUDGET_MS,
@@ -395,16 +452,24 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           const resident = residentMb();
           const bounds = {
             capFiles: FILE_CAP,
-            budgetFiles: analysableFileBudget({
-              totalMb: INSTANCE_RSS_CAP_MB,
-              residentMb: 0,
-              reserveMb: 0,
-              mbPerFile: MEASURED_MB_PER_FILE,
+            // **The parent's resident set is subtracted, because it is memory the child cannot have** - and it is the
+            // figure the old bound passed as `residentMb: 0` while printing it on the line beside.
+            budgetFiles: fileBudgetAtDensity({
+              declarations: analysableDeclarationBudget({
+                totalMb: INSTANCE_RSS_CAP_MB,
+                residentMb: resident,
+                reserveMb: 0,
+                mbPerDeclaration: MB_PER_DECLARATION,
+                fixedMb: FIXED_MB,
+                marginMb: MODEL_MARGIN_MB,
+              }),
+              declarationsPerFile: DECLARATIONS_PER_FILE,
             }),
             elapsedMs: Date.now() - startedAt,
             budgetMs: BUDGET_MS,
             residentMb: resident,
-            reserveMb: RUNNER_RESERVE_MB,
+            reserveMb: 0,
+            declarationsPerFile: DECLARATIONS_PER_FILE,
           };
           const verdict = decideInstance(walked, bounds);
           const repo = `${row.repo_owner}/${row.repo_name}`;
@@ -417,6 +482,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             `LCA-INSTANCE ${config} id=${String(row.id)} ${repo} files=${String(allFiles.length)} ` +
               `walked=${String(walked)} parentRss=${String(resident)}MB ceiling=${String(INSTANCE_RSS_CAP_MB)}MB ` +
               `room=${String(bounds.budgetFiles)} underCap=${String(FILE_CAP)} ` +
+              `density=${String(DECLARATIONS_PER_FILE)} ` +
               `estimate=${String(walked * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
               `${verdict.analyse ? 'measuring' : 'skipped'}`,
           );

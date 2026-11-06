@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { locateRepository, readDeclarations } from '../../packages/cli/src/commands/locate.js';
+import { RRF_K } from '../../packages/intelligence/src/search/fusion.js';
 import {
   checkoutFileCount,
   corpusFiles,
@@ -25,7 +26,7 @@ import {
 } from '../../packages/intelligence/src/benchmark/lca-instrument.js';
 
 /** The stated cap the harness applies to one instance. **The same number the workflow passes as `LCA_MAX_FILES`.** */
-const STATED_CAP_FILES = 2_000;
+const STATED_CAP_FILES = 4_000;
 
 describe('an agent’s list, fused with the file-level arm, on a checkout the analysis refuses', () => {
   let root: string;
@@ -49,7 +50,7 @@ describe('an agent’s list, fused with the file-level arm, on a checkout the an
       'package io\nclass TimeoutDefaults\n',
     );
     // ...and enough generated files that the checkout is one the harness refuses for its own size.
-    for (let index = 0; index < 2_150; index += 1) {
+    for (let index = 0; index < STATED_CAP_FILES + 150; index += 1) {
       const shard = join(root, 'src', 'main', 'kotlin', 'gen', `d${String(index % 40)}`);
       mkdirSync(shard, { recursive: true });
       writeFileSync(join(shard, `Generated${String(index)}.kt`), 'package gen\nclass G\n');
@@ -104,7 +105,7 @@ describe('an agent’s list, fused with the file-level arm, on a checkout the an
     });
     expect(output.success).toBe(true);
     expect(output.fused).toBe(true);
-    expect(output.k).toBe(60);
+    expect(output.k).toBe(RRF_K);
     // **Every path either arm ranked is in the result**, so a caller does not lose the evidence it brought - which is
     // the difference between a fusion and an intersection.
     for (const path of readDeclarations(armFile)) expect(output.files).toContain(path);

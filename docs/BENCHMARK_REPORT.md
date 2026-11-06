@@ -289,6 +289,28 @@ weight, and the floor with every refusal scored zero is **0.3037**. Per band, ou
 0.2765** (500–2 000, nine rows) — so the loss is not a property of one size of repository, and the band where we lead is
 the one the control finds hardest.
 
+**Seven of those refusals quoted a rate that describes no instance, and the artifact carried the numbers that condemn
+it.** The memory bound was charged at **3.7 MB per file** — a figure fitted by hand on four checkouts. The same run
+fits peak resident memory against three candidate predictors over its own 109 measured rows and publishes all three:
+
+| predictor                      | slope              | intercept | R²        | mean residual | observed spread               |
+| ------------------------------ | ------------------ | --------- | --------- | ------------- | ----------------------------- |
+| **declarations in the graph**  | **22 KB per node** | 511 MB    | **0.77**  | 325 MB        | —                             |
+| bytes of the answer space      | 0.5 MB per MB      | 820 MB    | 0.46      | 597 MB        | —                             |
+| bytes of the checkout          | 0.003 MB per MB    | 1 376 MB  | 0.01      | 906 MB        | —                             |
+| **3.7 MB per file (in force)** | —                  | —         | **−0.01** | —             | **1.5 – 2 165.5 MB per file** |
+
+**A rate with a negative R² is worse than predicting the sample mean**, and the spread it hides is a factor of 1 400 —
+because memory grows with what the analysis _produced_, and two checkouts of the same file count can differ by two
+orders of magnitude in declarations. So admission is now charged at the fitted model: **511 MB fixed, 325 MB of margin
+for the model's own error, and 22 KB per declaration**, converted to a file bound at a stated density
+(**120 declarations per file**, the rung of a published ladder the sample's median of 117.7 sits under). The same 6 144 MB
+ceiling now affords **1 999 files** at that density and **7 998** at 30, so the cap rises from 2 000 to 4 000 and the two
+bounds swap roles: the cap states what will be attempted, the model refuses what will not fit, and every refusal quotes
+the density and the arithmetic behind it. The gate refuses an artifact whose rule is charged per file, whose units are
+unstated, whose ladder is not monotone, whose published bound is not its own division, or whose recommended fit does not
+beat the rate it replaced — **the last of which the previous artifact would have failed**.
+
 **Every mean above is over the rows that fitted, and the artifact now carries one that is not.** The bounds refuse
 whole instances, the refusals are concentrated in the bands where both retrievers do worst, and reweighting a mean over
 the survivors estimates a population that was never measured. So the product gained a **file-level fallback**: a
@@ -345,11 +367,12 @@ because the analysis column inside it is now fused rather than the pool alone.)_
 says it in one line: on 0–50 files the declaration pool scores **0.6465** where a path and its imports score **0.5010**,
 and on 200–500 files the pool scores **0.2925** where the same path-and-imports reading scores **0.4130**. A product
 that shipped either one would be publishing a figure about the quarter of the corpus it was wrong about. So the file
-ranking the product returns is **reciprocal rank fusion** of the two — unweighted, `k = 60` (Cormack, Clarke and
-Büttcher, SIGIR 2009), with the constant stated rather than tuned, because a fusion whose `k` was chosen on this split
-is a fusion the next split would not have. `search/fusion.ts` is the arithmetic; `AskOptions.fileSignals` and
+ranking the product returns is **reciprocal rank fusion** of the two — unweighted, `k = 10` (Cormack, Clarke and
+Büttcher, SIGIR 2009, whose constant is 60; the section below says why this product's is 10, and how it was chosen
+without fitting it to the split it is reported on). `search/fusion.ts` is the arithmetic; `AskOptions.fileSignals` and
 `code-analyzer locate -D <file>` are the two ways a caller supplies a second arm, and `retrieval.rankedFiles` keeps the
-declaration-only order beside `fusedFiles` so the two can be told apart.
+declaration-only order beside `fusedFiles` so the two can be told apart. **The table below is the `k = 60` run**; the
+ladder that moved the constant is measured inside it.
 
 | what is being measured                                  | rows                                   | MAP        |
 | ------------------------------------------------------- | -------------------------------------- | ---------- |
@@ -375,6 +398,44 @@ arm differs — and it is what decided that the fusion ships.
 scores 0.3880, so the fusion costs 0.0022 on the one band where both instruments are individually good. Reciprocal rank
 fusion sums positions rather than choosing between them, and summing two opinions is a gain only where the arms are
 wrong about different files. The band table in the artifact is what says so, per band, on paired rows.
+
+### The rank constant was on a slope, not a plateau, and the ladder is what said so
+
+The constant above is **`k = 10`**, not the `k = 60` this report published until now. The literature's 60 (Cormack,
+Clarke and Büttcher, SIGIR 2009) was inherited and defended on the ground that "a fusion whose `k` was tuned on this
+split is a fusion the next split would not have". That argument is correct, and it is an argument about _how_ to choose
+a constant rather than about which constant. So the choice was made the way the argument demands: five constants stated
+in the code before any figure was read, measured on **every** row of one run, and then decided **out of fold**.
+
+| rung                  | `k = 10`           | `k = 30`           | `k = 60` (shipped until now) | `k = 120`          | `k = 300`          |
+| --------------------- | ------------------ | ------------------ | ---------------------------- | ------------------ | ------------------ |
+| MAP, 109 rows         | **0.4734**         | 0.4599             | 0.4598                       | 0.4494             | 0.4482             |
+| Δ vs 60               | **+0.0136**        | +0.0001            | —                            | −0.0104            | −0.0117            |
+| 95 % interval         | [−0.0007, +0.0320] | [−0.0027, +0.0027] | —                            | [−0.0228, −0.0019] | [−0.0272, −0.0013] |
+| rows up / down / flat | 30 / 24 / 55       | 22 / 17 / 70       | —                            | 8 / 24 / 77        | 13 / 24 / 72       |
+
+**The full-sample interval straddles zero, which is why the full sample is not what decided it.** Leave one language out at
+a time — tune on two splits, read the third, which the tuning never saw:
+
+| held-out split | tuning rows | `k` chosen on the tuning splits | held-out at that `k` | held-out at 60 | Δ       |
+| -------------- | ----------- | ------------------------------- | -------------------- | -------------- | ------- |
+| Python         | 68          | **10**                          | **0.4899**           | 0.4583         | +0.0316 |
+| Java           | 79          | **10**                          | **0.5470**           | 0.5445         | +0.0025 |
+| Kotlin         | 71          | **10**                          | **0.3975**           | 0.3947         | +0.0028 |
+
+**Three folds, three times the same constant, three held-out gains in the same direction** — mean out-of-fold `+0.0123`.
+And the direction is not flat: `k = 120` and `k = 300` lose with intervals that exclude zero, so 60 was neither a peak
+nor a plateau but the start of a decline. What a smaller `k` means is stated rather than implied: a rank's contribution
+falls off faster, so the fusion trusts each arm's **head** more and its tail less — which is the right shape for a second
+arm whose evidence is a path and an import list, and whose precision collapses with depth. The ladder now brackets the
+shipped value (`3, 5, 10, 30, 60`) because a sweep whose shipped constant sits on its edge can say that a smaller one is
+no worse and cannot say how much worse a larger one is; the per-band cost of the change is published with it (**−0.0034**
+on 50–200 files, **−0.0064** on 500–2 000, against **+0.0259** on 0–50 and **+0.0377** on 200–500).
+
+**The 150-row composite above is the `k = 60` figure** — 0.3806 — because that is the run this section reads. The same
+run's ladder measures the fused column at **0.4734 over the 109 measured rows** at `k = 10`, and the next artifact
+republishes the composite with the new constant and the new ladder around it. No number in this table is extrapolated to
+the 41 refused rows: their figure is the file-level arm's, which the constant does not touch.
 
 **The rank of a file used to be the rank of its first declaration, and that is a choice nobody had measured.** The
 retriever scores declarations; the corpus asks which _files_ must change; the product took a file's position to be the

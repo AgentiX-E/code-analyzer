@@ -55,11 +55,14 @@ on:
         required: false
         default: '50'
       max_files:
-        # **The stated cap.** The bound that actually bites is the memory one, which is computed from what the runner
-        # has left; this is the promise to the reader that nothing above it is ever measured. Both are in the artifact.
+        # **The stated cap, and it is no longer the bound that bites.** Since iteration 78 the memory bound is charged
+        # at the model the run itself fits (511 MB fixed + 325 MB of margin + 22 KB per declaration, converted to files
+        # at 120 declarations per file), so a dense 3 500-file checkout is refused by arithmetic before a process starts
+        # and a sparse one is admitted. The cap is the promise to the reader that nothing above it is attempted at all,
+        # and it doubled to 4 000 because at the old per-file rate the cap promised instances the ceiling would kill.
         description: 'Skip instances whose checkout holds more than this many files'
         required: false
-        default: '2000'
+        default: '4000'
       answer_arm:
         # **The model arm, off by default.** One completion per instance, on the slower half of the same measurement.
         description: 'Run the answer arm as well (1) or the deterministic retrieval arm alone (0)'
@@ -216,7 +219,13 @@ jobs:
           LCA_DIR: ${{ github.workspace }}/benchmarks/corpora/lca
           LCA_LANGUAGES: ${{ matrix.language }}
           LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '50' }}
-          LCA_MAX_FILES: ${{ github.event.inputs.max_files || '2000' }}
+          # **Four thousand, raised from two thousand because the memory bound is now a model rather than a rate.** At
+          # the superseded 3.7 MB per file the cap promised instances the 6 144 MB ceiling would kill - a 2 000-file
+          # checkout was charged 7 400 MB - while the honest memory bond refused 1 700-file checkouts first. Charged at
+          # the fitted 22 KB per declaration plus the fixed cost, the ceiling affords 2 038 files at the sample's median
+          # density and 7 998 at 30 declarations per file, so the cap now bounds what will be *attempted* and the model
+          # refuses what will not fit, per instance and with its arithmetic in the row.
+          LCA_MAX_FILES: ${{ github.event.inputs.max_files || '4000' }}
           # **Fifty minutes, stated by the harness rather than discovered by the job's own timeout.** The bounds module
           # projects 50 ms per file; this is the other half of the arithmetic, and a run that reaches it writes a part
           # whose unmeasured rows say so.

@@ -10,6 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { RRF_K } from '@code-analyzer/intelligence';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { formatLocateOutput, locateRepository, readDeclarations } from '../commands/locate.js';
@@ -237,10 +238,14 @@ describe('locateRepository with a declaration arm', () => {
       declarations: ['src/Cache.java'],
     });
     expect(output.fused).toBe(true);
-    expect(output.k).toBe(60);
+    expect(output.k).toBe(RRF_K);
     expect(output.fileLevel?.[0]).toBe('src/Retry.java');
     expect(output.files).toContain('src/Cache.java');
-    expect(formatLocateOutput(output, 'text')).toContain('fused with the declaration arm (k = 60)');
+    // **The constant is printed from the value, not typed into the sentence**: a header that says 60 while the ranking
+    // used another constant is a report about a different run.
+    expect(formatLocateOutput(output, 'text')).toContain(
+      `fused with the declaration arm (k = ${String(RRF_K)})`,
+    );
   });
 
   it('**reads the arm from a file as well as from a value**', () => {

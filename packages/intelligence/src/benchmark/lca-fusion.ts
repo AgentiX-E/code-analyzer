@@ -7,7 +7,7 @@
 // was wrong about.
 //
 // **So the product fuses them, and this module is the column.** `search/fusion.ts` is the arithmetic - unweighted
-// reciprocal rank, `k = 60` - and it runs inside the child process as part of `askCodebase`; this module is how the row
+// reciprocal rank, `k = RRF_K` - and it runs inside the child process as part of `askCodebase`; this module is how the row
 // records what came out, and how a refused instance still gets a figure.
 //
 // **The asymmetry is the honest part.** A measured instance ran both arms, so its row says `fused: true` and its
@@ -22,18 +22,24 @@ import { RRF_K } from '../search/fusion.js';
 export const FUSION_ARMS = ['declarations', 'file-level'] as const;
 
 /**
- * The constants the sweep reads, **stated rather than searched**.
+ * The constants the sweep reads, **stated rather than searched, and bracketing the one that ships**.
  *
- * `k = 60` is the value the fusion ships with, taken from the literature rather than fitted here. Bruch, Gai and Ingber
+ * `k = 60` was the value the fusion shipped with, taken from the literature rather than fitted: Bruch, Gai and Ingber
  * (Pinecone, 2022) report that reciprocal rank fusion is **more sensitive to `k` than the folklore assumes**, so the
- * constant is a parameter whose shape has to be measured even though the shipped value may not move: a ladder over two
- * orders of magnitude says whether 60 sits on a plateau or on a knife edge, and it says it on every row of the same run
- * rather than in a second experiment.
+ * constant is a parameter whose shape has to be measured even though the shipped value may not move.
  *
- * **A ladder and not a search**, because a value chosen by the best row of this corpus is a value fitted to this
- * corpus. The ladder is a fixed list, published in the artifact before any figure is read.
+ * **The first measurement of the ladder moved it.** Over the 109 measured rows of the 6 November 2026 run the five rungs
+ * scored `k10 0.4734 · k30 0.4599 · k60 0.4598 · k120 0.4494 · k300 0.4482`, and leaving one language out at a time
+ * selected `k = 10` in all three folds, with held-out gains of `+0.0316` (Python), `+0.0025` (Java) and `+0.0028`
+ * (Kotlin). So the shipped constant is **10**, and the ladder now brackets it - two rungs below, two above - because a
+ * sweep whose shipped value sits on its edge can say that a smaller constant is no worse and cannot say how much worse a
+ * larger one is.
+ *
+ * **A ladder and not a search**, because a value chosen by the best row of this corpus is a value fitted to this corpus.
+ * The ladder is a fixed list, published in the artifact before any figure is read; the constant that moved was moved by
+ * a split the figure was not read on, and the fold that decided it is in the artifact beside it.
  */
-export const FUSION_K_LADDER = [10, 30, 60, 120, 300] as const;
+export const FUSION_K_LADDER = [3, 5, 10, 30, 60] as const;
 
 /** One constant's figure on one instance. **What the sweep is made of.** */
 export interface FusionAtK {

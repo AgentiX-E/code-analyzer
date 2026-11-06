@@ -19,23 +19,31 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_EXTENSION,
   averagePrecision,
+  DECLARATIONS_PER_FILE,
+  DECLARATIONS_PER_FILE_LADDER,
+  FIXED_MB,
   LCA_CONFIGS,
+  MB_PER_DECLARATION,
+  MEASURED_MEDIAN_DECLARATIONS_PER_FILE,
   MEASURED_MB_PER_FILE,
+  MODEL_MARGIN_MB,
   MS_PER_FILE,
   RUNNER_RESERVE_MB,
-  analysableFileBudget,
+  analysableDeclarationBudget,
   checkoutBytes,
   checkoutFileCount,
   checkoutFiles,
   corpusBytes,
   corpusFiles,
   decideInstance,
+  fileBudgetAtDensity,
   firstRelevantRank,
   dedupePreservingOrder,
   isTestPath,
   lcaQualityMetrics,
   limitedTotalMb,
   mean,
+  modelledAnalysisMb,
   outsideUniverse,
   parseLanguages,
   restrictToUniverse,
@@ -410,62 +418,160 @@ describe('the configuration table', () => {
 // what was missing was an arithmetic statement of what the machine can afford and of what the job has left to spend, so
 // that an instance which would not finish is a recorded skip rather than a dead job.
 
-describe('analysableFileBudget', () => {
-  it('turns the machine’s remaining memory into a file count', () => {
-    // 7 GB runner, 400 MB resident, a gigabyte of reserve, and the measured 3.7 MB per file.
+it('converts files at a rung of a ladder the sample was measured against', () => {
+  // **The operating density is a published rung, and it is the one the sample's median sits under.** A conversion rate
+  // that is neither is a number a reader cannot check: the gate refuses an artifact whose operating density is off the
+  // ladder for the same reason.
+  expect(DECLARATIONS_PER_FILE_LADDER).toContain(DECLARATIONS_PER_FILE);
+  expect(DECLARATIONS_PER_FILE).toBeGreaterThanOrEqual(MEASURED_MEDIAN_DECLARATIONS_PER_FILE);
+  expect(DECLARATIONS_PER_FILE).toBeLessThan(MEASURED_MEDIAN_DECLARATIONS_PER_FILE * 1.1);
+});
+
+describe('analysableDeclarationBudget', () => {
+  /** The model the run of 6 November 2026 fitted over 109 measured instances. */
+  const MODEL = {
+    mbPerDeclaration: MB_PER_DECLARATION,
+    fixedMb: FIXED_MB,
+    marginMb: MODEL_MARGIN_MB,
+  };
+
+  it('pays the fixed cost and the margin before it counts a single declaration', () => {
+    // 6 144 MB ceiling, nothing resident, an analysis that costs 515 MB before it reads a file plus 326 MB of margin:
+    // 5 303 MB left, at 22 KB per declaration.
     expect(
-      analysableFileBudget({
-        totalMb: 7168,
-        residentMb: 400,
-        reserveMb: RUNNER_RESERVE_MB,
-        mbPerFile: MEASURED_MB_PER_FILE,
-      }),
-    ).toBe(1552);
+      analysableDeclarationBudget({ totalMb: 6144, residentMb: 0, reserveMb: 0, ...MODEL }),
+    ).toBe(239_954);
+  });
+
+  it('is smaller than the per-file arithmetic it replaced, on the same ceiling', () => {
+    // **The defect this replaces, as an inequality.** The old arithmetic divided the whole ceiling by 3.7 MB per file
+    // and promised 1 660 files - 6 142 MB of the 6 144 MB available, with nothing set aside for the half gigabyte the
+    // pipeline spends before it reads anything. The fitted model answers with fewer declarations at the *median* density
+    // than that promise, and with the margin it needs.
+    const declarations = analysableDeclarationBudget({
+      totalMb: 6144,
+      residentMb: 0,
+      reserveMb: 0,
+      ...MODEL,
+    });
+    const files = fileBudgetAtDensity({ declarations, declarationsPerFile: DECLARATIONS_PER_FILE });
+    expect(declarations * MB_PER_DECLARATION + FIXED_MB + MODEL_MARGIN_MB).toBeLessThanOrEqual(
+      6144,
+    );
+    // And it is still a usable bound: the same ceiling affords two thousand files at the operating density.
+    expect(files).toBe(1999);
   });
 
   it('shrinks as the run accumulates resident pages', () => {
     const of = (residentMb: number): number =>
-      analysableFileBudget({
-        totalMb: 7168,
-        residentMb,
-        reserveMb: RUNNER_RESERVE_MB,
-        mbPerFile: MEASURED_MB_PER_FILE,
-      });
+      analysableDeclarationBudget({ totalMb: 6144, residentMb, reserveMb: 0, ...MODEL });
     // The measurement that explains the sharding: V8 keeps reclaimed pages, so a run's resident figure is the
     // high-water mark of every instance it has analysed and the next instance's allowance is smaller than the first's.
-    expect(of(400)).toBeGreaterThan(of(3072));
-    expect(of(3072)).toBeGreaterThan(of(5120));
+    expect(of(0)).toBeGreaterThan(of(1024));
+    expect(of(1024)).toBeGreaterThan(of(3072));
+    expect(of(5120)).toBeGreaterThan(0);
   });
 
-  it('is zero rather than negative when there is no room', () => {
+  it('is zero rather than negative when the fixed cost alone exceeds the room', () => {
     expect(
-      analysableFileBudget({
-        totalMb: 4096,
-        residentMb: 4000,
-        reserveMb: RUNNER_RESERVE_MB,
-        mbPerFile: 3.7,
+      analysableDeclarationBudget({ totalMb: 800, residentMb: 0, reserveMb: 0, ...MODEL }),
+    ).toBe(0);
+    expect(
+      analysableDeclarationBudget({ totalMb: 4096, residentMb: 9000, reserveMb: 0, ...MODEL }),
+    ).toBe(0);
+  });
+
+  it('refuses to divide by a cost of zero declarations', () => {
+    expect(
+      analysableDeclarationBudget({
+        totalMb: 6144,
+        residentMb: 0,
+        reserveMb: 0,
+        ...MODEL,
+        mbPerDeclaration: 0,
       }),
     ).toBe(0);
-    expect(
-      analysableFileBudget({ totalMb: 4096, residentMb: 9000, reserveMb: 0, mbPerFile: 3.7 }),
-    ).toBe(0);
+  });
+});
+
+describe('fileBudgetAtDensity', () => {
+  it('converts the declaration budget at the density it is given', () => {
+    expect(fileBudgetAtDensity({ declarations: 239_954, declarationsPerFile: 120 })).toBe(1999);
+    expect(fileBudgetAtDensity({ declarations: 239_954, declarationsPerFile: 20 })).toBe(11_997);
+    expect(fileBudgetAtDensity({ declarations: 239_954, declarationsPerFile: 600 })).toBe(399);
   });
 
-  it('refuses to divide by a cost of zero files', () => {
-    expect(analysableFileBudget({ totalMb: 7168, residentMb: 0, reserveMb: 0, mbPerFile: 0 })).toBe(
-      0,
+  it('is monotone: a denser checkout affords no more files at the same ceiling', () => {
+    const files = DECLARATIONS_PER_FILE_LADDER.map((declarationsPerFile) =>
+      fileBudgetAtDensity({ declarations: 239_954, declarationsPerFile }),
     );
+    for (const [index, value] of files.entries()) {
+      if (index === 0) continue;
+      expect(value).toBeLessThan(files[index - 1]!);
+    }
+    // **A factor of thirty across one stated ladder, on one ceiling and one model**: which is why the density is
+    // published beside the bound rather than folded into it.
+    expect(files[0]! / files.at(-1)!).toBeGreaterThan(20);
+  });
+
+  it('answers zero for a density that is not a density', () => {
+    expect(fileBudgetAtDensity({ declarations: 1000, declarationsPerFile: 0 })).toBe(0);
+    expect(fileBudgetAtDensity({ declarations: 1000, declarationsPerFile: -1 })).toBe(0);
+    expect(fileBudgetAtDensity({ declarations: 0, declarationsPerFile: 100 })).toBe(0);
+  });
+});
+
+describe('modelledAnalysisMb', () => {
+  it('charges the fixed cost, the margin and the declarations a checkout is expected to produce', () => {
+    // 100 files at the operating density: 12 000 declarations at 22 KB is 265 MB, plus 515 and 326.
+    expect(modelledAnalysisMb({ files: 100, declarationsPerFile: DECLARATIONS_PER_FILE })).toBe(
+      1106,
+    );
+    expect(modelledAnalysisMb({ files: 0, declarationsPerFile: DECLARATIONS_PER_FILE })).toBe(
+      FIXED_MB + MODEL_MARGIN_MB,
+    );
+  });
+
+  it('never charges a negative analysis', () => {
+    expect(modelledAnalysisMb({ files: -5, declarationsPerFile: 100 })).toBe(
+      FIXED_MB + MODEL_MARGIN_MB,
+    );
+  });
+
+  it('agrees with the budget it is inverted from', () => {
+    // **The two functions are one model read in two directions**, so a checkout the budget admits must be estimated
+    // inside the ceiling and one it refuses must be estimated outside it.
+    const ceiling = 6144;
+    const declarations = analysableDeclarationBudget({
+      totalMb: ceiling,
+      residentMb: 0,
+      reserveMb: 0,
+      mbPerDeclaration: MB_PER_DECLARATION,
+      fixedMb: FIXED_MB,
+      marginMb: MODEL_MARGIN_MB,
+    });
+    const admitted = fileBudgetAtDensity({
+      declarations,
+      declarationsPerFile: DECLARATIONS_PER_FILE,
+    });
+    expect(
+      modelledAnalysisMb({ files: admitted, declarationsPerFile: DECLARATIONS_PER_FILE }),
+    ).toBeLessThanOrEqual(ceiling);
+    expect(
+      modelledAnalysisMb({ files: admitted + 1, declarationsPerFile: DECLARATIONS_PER_FILE }),
+    ).toBeGreaterThan(ceiling);
   });
 });
 
 describe('decideInstance', () => {
   const roomy: InstanceBounds = {
-    capFiles: 2000,
+    capFiles: 4000,
     budgetFiles: 1500,
     elapsedMs: 0,
     budgetMs: 45 * 60_000,
     residentMb: 400,
     reserveMb: RUNNER_RESERVE_MB,
+    declarationsPerFile: DECLARATIONS_PER_FILE,
   };
 
   it('measures what fits inside all three bounds', () => {
@@ -473,23 +579,40 @@ describe('decideInstance', () => {
   });
 
   it('refuses what is above the stated cap, and says which cap', () => {
-    const verdict = decideInstance(2001, roomy);
+    const verdict = decideInstance(4001, roomy);
     expect(verdict.analyse).toBe(false);
     expect(verdict.analyse ? '' : verdict.because).toBe(
-      'the checkout holds 2001 files, above the stated cap of 2000',
+      'the checkout holds 4001 files, above the stated cap of 4000',
     );
   });
 
-  it('refuses what the remaining memory cannot afford, in megabytes and in files', () => {
+  it('refuses what the remaining memory cannot afford, **in the units the memory is paid in**', () => {
     const verdict = decideInstance(1200, {
       ...roomy,
       residentMb: 3072,
       budgetFiles: 830,
     });
     expect(verdict.analyse ? '' : verdict.because).toBe(
-      'an analysis of 1200 files is estimated at 4440 MB resident (3.7 MB per file) and only 830 files of room remain ' +
-        'above a 1024 MB reserve, with 3072 MB resident',
+      'an analysis of 1200 files at 120 declarations per file is estimated at 4023 MB resident (515 MB fixed plus ' +
+        '326 MB of model margin plus 0.0221 MB per declaration) and only 830 files of room remain above a 1024 MB ' +
+        'reserve, with 3072 MB resident',
     );
+  });
+
+  it('omits the reserve clause when no reserve was subtracted', () => {
+    // **A sentence may not name a number the arithmetic did not use.** The bound the run applies subtracts the parent's
+    // resident set from a ceiling that already excludes the runner's reserve, so the clause is dropped rather than
+    // printed as `above a 0 MB reserve`.
+    const verdict = decideInstance(1200, {
+      ...roomy,
+      residentMb: 3072,
+      budgetFiles: 830,
+      reserveMb: 0,
+    });
+    expect(verdict.analyse ? '' : verdict.because).toContain(
+      'only 830 files of room remain with 3072 MB resident',
+    );
+    expect(verdict.analyse ? '' : verdict.because).not.toContain('reserve, with');
   });
 
   it('refuses what would end past the job’s own budget', () => {

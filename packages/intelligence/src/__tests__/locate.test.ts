@@ -9,6 +9,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { RRF_K } from '../search/fusion.js';
 import { locateFiles } from '../search/locate.js';
 
 describe('locateFiles', () => {
@@ -142,7 +143,7 @@ describe('locateFiles with an arm to fuse', () => {
     });
     expect(result.ranked).toContain('src/Nowhere.java');
     expect(result.ranked).toContain('src/Retry.java');
-    expect(result.fusion?.k).toBe(60);
+    expect(result.fusion?.k).toBe(RRF_K);
   });
 
   it('**two arms that agree outrank one arm that does not**, which is what reciprocal rank buys', () => {
@@ -165,7 +166,7 @@ describe('locateFiles with an arm to fuse', () => {
     });
     expect(result.fileLevel[0]).toBe('src/Alpha.java');
     expect(result.fusion?.scores.find((entry) => entry.path === 'src/Beta.java')?.arms).toEqual({
-      declarations: 1 / 61,
+      declarations: 1 / (RRF_K + 1),
     });
   });
 

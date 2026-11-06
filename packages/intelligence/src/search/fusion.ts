@@ -6,12 +6,25 @@
 // that chose between them would be choosing which quarter of the corpus to be wrong about. Fusing is the alternative,
 // and this module is the fusion.
 //
-// **Reciprocal rank fusion, because it has no parameter to fit.** The two arms score on scales that are not comparable -
+// **Reciprocal rank fusion, because it has no weight to fit.** The two arms score on scales that are not comparable -
 // a BM25 weight over a bag of words and a fused graph score over declarations - and every alternative to RRF needs a
 // normalisation chosen on the corpus being measured. RRF reads only **positions**: a path at rank *r* of an arm
-// contributes `1 / (k + r)` with `k = 60`, the value the information-retrieval literature settled on (Cormack, Clarke
-// and Büttcher, SIGIR 2009) and the one this project states rather than tunes. **A fusion with a tuned `k` is a fusion
-// fitted to the split it was measured on**, and the next split would not have it.
+// contributes `1 / (k + r)`.
+//
+// **`k` was 60 - the literature's value for two arms of comparable quality (Cormack, Clarke and Büttcher, SIGIR 2009) -
+// and a hundred and nine measured instances said otherwise.** The constant used to be stated rather than tuned, on the
+// argument that "a fusion with a tuned `k` is a fusion fitted to the split it was measured on". The argument is right
+// and the conclusion was wrong: the ladder of five constants was measured on every instance of one run, and
+// **leave-one-language-out cross-validation chose `k = 10` in all three folds** - tuning on Java and Kotlin and reading
+// Python, tuning on Python and Kotlin and reading Java, tuning on Python and Java and reading Kotlin - with held-out
+// gains of `+0.0316`, `+0.0025` and `+0.0028` over 60. The neighbours are not interchangeable either: on the full sample
+// `k = 120` scores `-0.0104` and `k = 300` scores `-0.0117` against 60, with intervals that exclude zero. **60 was not
+// on a plateau; it was on a slope, and the slope points down.**
+//
+// What a smaller `k` means, stated rather than implied: the contribution of a rank falls off faster, so the fusion
+// trusts each arm's *head* more and its tail less. That is the right shape here because the file-level arm is a
+// path-and-import heuristic whose precision collapses with depth - and it is why the constant travels with the figure,
+// `FUSION_K_LADDER` publishes the rungs around it on every row, and `lca-merge.ts` re-scores the alternatives every run.
 //
 // **Equal weight, and the absence of a weight is a decision.** A weighted fusion would need the weights, the weights
 // would come from this corpus, and the ablation that produced them would be indistinguishable from the result it
@@ -22,8 +35,8 @@
 // implementation that treated "not in the pool" as "last" would double the penalty for every file the pool did not
 // reach, which is exactly the failure the fusion exists to repair.
 
-/** The rank constant the fusion literature fixes at 60 for two arms of comparable quality. **Stated, not tuned.** */
-export const RRF_K = 60;
+/** The rank constant the fusion ships. **Selected out of fold on 109 instances, and published beside every figure.** */
+export const RRF_K = 10;
 
 /** One ranked list taking part in a fusion. **The name is published, because a contribution without a source is a number.** */
 export interface RankedArm {

@@ -5,14 +5,21 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { declinedFusion, FUSION_ARMS, fusedResult, fusionFor } from '../lca-fusion.js';
+import { RRF_K } from '../../search/fusion.js';
+import {
+  declinedFusion,
+  FUSION_ARMS,
+  FUSION_K_LADDER,
+  fusedResult,
+  fusionFor,
+} from '../lca-fusion.js';
 
 describe('fusedResult', () => {
   it('**names both arms and the constant**, so the figure can be reproduced', () => {
     const result = fusedResult({ map: 0.4, rank: 2, ranked: ['a.py', 'b.py'] });
     expect(result.fused).toBe(true);
     expect(result.arms).toEqual([...FUSION_ARMS]);
-    expect(result.k).toBe(60);
+    expect(result.k).toBe(RRF_K);
     expect(result.map).toBe(0.4);
     expect(result.rank).toBe(2);
   });
@@ -39,7 +46,7 @@ describe('declinedFusion', () => {
   });
 
   it('**publishes the constant even though nothing was fused**, so the column has one `k` throughout', () => {
-    expect(declinedFusion({ map: 0.2, rank: null, ranked: [] }).k).toBe(60);
+    expect(declinedFusion({ map: 0.2, rank: null, ranked: [] }).k).toBe(RRF_K);
     expect(declinedFusion({ map: 0.2, rank: null, ranked: [], k: 15 }).k).toBe(15);
   });
 });
@@ -60,7 +67,7 @@ describe('fusionFor', () => {
       rank: 2,
       fused: true,
       arms: ['declarations', 'file-level'],
-      k: 60,
+      k: RRF_K,
       ranked: ['a.py', 'b.py'],
     });
   });
@@ -100,11 +107,13 @@ describe('fusionFor', () => {
   });
 
   it('carries the constant it was given into both readings', () => {
-    expect(fusionFor({ skipped: null, map: 0.5, rank: 1, ranked: [], fallback, k: 10 })?.k).toBe(
-      10,
-    );
-    expect(fusionFor({ skipped: 'cap', map: 0, rank: null, ranked: [], fallback, k: 10 })?.k).toBe(
-      10,
-    );
+    // Off the shipped constant on purpose: a test that passes `RRF_K` would pass whether or not the argument is read.
+    const offRung = FUSION_K_LADDER.find((k) => k !== RRF_K)!;
+    expect(
+      fusionFor({ skipped: null, map: 0.5, rank: 1, ranked: [], fallback, k: offRung })?.k,
+    ).toBe(offRung);
+    expect(
+      fusionFor({ skipped: 'cap', map: 0, rank: null, ranked: [], fallback, k: offRung })?.k,
+    ).toBe(offRung);
   });
 });

@@ -460,6 +460,18 @@ function main(): void {
       files: first.bounds.capFiles,
       appliedTo: 'every file in the checkout except .git',
       memory: {
+        /** **The model admission is charged at**, which is the fit the block below recommends rather than a constant. */
+        model: 'declarations',
+        mbPerDeclaration: first.bounds.mbPerDeclaration ?? null,
+        fixedMb: first.bounds.fixedMb ?? null,
+        marginMb: first.bounds.marginMb ?? null,
+        declarationsPerFile: first.bounds.declarationsPerFile ?? null,
+        declarationsAtStart: Object.fromEntries(
+          parts.map((part) => [part.config, part.bounds.memoryDeclarations ?? null]),
+        ),
+        /** The file bound at every rung of the stated density ladder - the same ceiling, a factor of four apart. */
+        fileLadder: first.bounds.fileLadder ?? [],
+        /** The rate this replaced, kept because the cost model below still scores it. */
         mbPerFile: first.bounds.mbPerFile,
         reserveMb: first.bounds.reserveMb,
         budgetFilesAtStart: Object.fromEntries(

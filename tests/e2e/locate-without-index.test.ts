@@ -21,8 +21,8 @@ import {
   decideInstance,
 } from '../../packages/intelligence/src/benchmark/lca-instrument.js';
 
-/** The stated cap the harness applies to one instance. **Read from the artifact's own bound, not from the code.** */
-const STATED_CAP_FILES = 2_000;
+/** The stated cap the harness applies to one instance. **The same number the workflow passes as `LCA_MAX_FILES`.** */
+const STATED_CAP_FILES = 4_000;
 
 describe('locate on a checkout the analysis refuses', () => {
   let root: string;
@@ -44,7 +44,7 @@ describe('locate on a checkout the analysis refuses', () => {
     );
     // ...and enough files under a skipped directory that the answer space is still refused for its *own* size. The
     // noise lives in `src/`, so the count below is the count the harness would see.
-    for (let index = 0; index < 2_150; index += 1) {
+    for (let index = 0; index < STATED_CAP_FILES + 150; index += 1) {
       const shard = join(root, 'src', 'main', 'java', 'gen', `d${String(index % 40)}`);
       mkdirSync(shard, { recursive: true });
       writeFileSync(
@@ -72,7 +72,7 @@ describe('locate on a checkout the analysis refuses', () => {
     expect(verdict.analyse).toBe(false);
     // The sentence is what the artifact publishes on a refused row; a refusal without one is a hole.
     expect(verdict.analyse === false ? verdict.because : '').toContain(
-      'above the stated cap of 2000',
+      `above the stated cap of ${String(STATED_CAP_FILES)}`,
     );
   });
 

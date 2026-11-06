@@ -8,7 +8,7 @@
 // **And it takes the list the caller already has.** `--declarations <file>` is a ranking from an earlier `search`, an
 // editor's symbol list, or another revision - paths, best first, one per line or as a JSON array. Measured on Long Code
 // Arena, the two readings win on different bands (the declaration pool by 0.15 on the smallest checkouts, this one by
-// 0.12 on the 200-500-file ones), so the command fuses them (`reciprocalRankFusion`, `k = 60`) rather than choosing.
+// 0.12 on the 200-500-file ones), so the command fuses them (`reciprocalRankFusion`, `k = 10`) rather than choosing.
 
 import { readFileSync } from 'node:fs';
 import { EOL } from 'node:os';

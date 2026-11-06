@@ -168,7 +168,7 @@ export interface LcaRowScore {
    *
    * The figure the product publishes is one point on this curve. Publishing the curve costs four more reciprocal-rank
    * passes over a list of a couple of hundred paths - against an analysis measured in minutes - and it answers the one
-   * question the shipped constant cannot: whether `k = 60` sits on a plateau or on a slope. **A constant chosen by the
+   * question the shipped constant cannot: whether the shipped constant sits on a plateau or on a slope. **A constant chosen by the
    * best row of this corpus would be a constant fitted to it**, so the ladder is fixed in advance and the artifact
    * publishes every rung of it rather than the winner.
    *
@@ -258,8 +258,27 @@ export interface LanguagePart {
   /** The bounds the run applied, carried through to the merged artifact. */
   readonly bounds: {
     readonly capFiles: number;
-    /** The largest instance the remaining memory allowed when the part started. */
+    /** The largest instance the remaining memory allowed when the part started, **at {@link declarationsPerFile}**. */
     readonly memoryFiles: number;
+    /**
+     * The same bound in declarations, **which is what the memory actually pays for**.
+     *
+     * The round that added this had to: the artifact published a file bound computed at 3.7 MB per file, the run's own
+     * regression scored that rate at `R² = -0.02`, and nothing in the part stated the quantity the fit found
+     * (`R² = 0.77`, 22 KB per declaration, 515 MB fixed). A part that publishes a bound has to publish its units.
+     */
+    readonly memoryDeclarations?: number;
+    /** The density the file bound was converted at. **A conversion whose rate is unstated cannot be rechecked.** */
+    readonly declarationsPerFile?: number;
+    readonly mbPerDeclaration?: number;
+    readonly fixedMb?: number;
+    readonly marginMb?: number;
+    /** The file bound at every rung of the stated density ladder, **so the decision's sensitivity travels with it**. */
+    readonly fileLadder?: ReadonlyArray<{
+      readonly declarationsPerFile: number;
+      readonly files: number;
+    }>;
+    /** The superseded rate, **retained because the report still scores it against the model that replaced it**. */
     readonly mbPerFile: number;
     readonly reserveMb: number;
     readonly budgetMs: number;

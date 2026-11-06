@@ -62,6 +62,31 @@ function baseRecord(): Record<string, unknown> {
         constantR2: -0.393,
       },
     },
+    // **The bound the run was admitted under, in the units the memory is paid in.** Added when the admission rule was
+    // found charging a per-file rate the run's own regression scores at `R² = -0.02` while publishing a declaration fit
+    // at `R² = 0.77` beside it: the gate reads the rule, not only the fit, so the two can no longer disagree.
+    fileCap: {
+      files: 4_000,
+      appliedTo: 'every file in the checkout except .git',
+      memory: {
+        model: 'declarations',
+        mbPerDeclaration: 0.0221,
+        fixedMb: 515,
+        marginMb: 326,
+        declarationsPerFile: 120,
+        declarationsAtStart: { kt: 239_954 },
+        fileLadder: [
+          { declarationsPerFile: 20, files: 11_997 },
+          { declarationsPerFile: 60, files: 3_999 },
+          { declarationsPerFile: 120, files: 1_999 },
+          { declarationsPerFile: 300, files: 799 },
+          { declarationsPerFile: 600, files: 399 },
+        ],
+        mbPerFile: 3.7,
+        reserveMb: 1_024,
+        budgetFilesAtStart: { kt: 1_999 },
+      },
+    },
     sample: {
       planned: 50,
       attempted: 3,
@@ -187,9 +212,9 @@ function baseRecord(): Record<string, unknown> {
     fusion: {
       name: 'declarations + path/imports (reciprocal rank fusion)',
       configuration: {
-        fusion: 'reciprocal rank fusion, unweighted, k = 60',
+        fusion: 'reciprocal rank fusion, unweighted, k = 10',
         arms: ['declarations', 'file-level'],
-        k: 60,
+        k: 10,
       },
       coverage: { rows: 3, attempted: 3, share: 1, fused: 2, declined: 1 },
       overall: { value: 0.3333, rows: 3 },
@@ -200,26 +225,26 @@ function baseRecord(): Record<string, unknown> {
       // `pairedVsDeclarations.ours` states, so the shipped rung has to be 0.4 as well.
       byK: [
         {
-          k: 10,
+          k: 3,
           map: 0.37,
           rows: 2,
           vsShipped: { rows: 2, ours: 0.37, control: 0.4, delta: -0.03 },
         },
         {
-          k: 30,
+          k: 5,
           map: 0.39,
           rows: 2,
           vsShipped: { rows: 2, ours: 0.39, control: 0.4, delta: -0.01 },
         },
-        { k: 60, map: 0.4, rows: 2, vsShipped: { rows: 2, ours: 0.4, control: 0.4, delta: 0 } },
+        { k: 10, map: 0.4, rows: 2, vsShipped: { rows: 2, ours: 0.4, control: 0.4, delta: 0 } },
         {
-          k: 120,
+          k: 30,
           map: 0.41,
           rows: 2,
           vsShipped: { rows: 2, ours: 0.41, control: 0.4, delta: 0.01 },
         },
         {
-          k: 300,
+          k: 60,
           map: 0.42,
           rows: 2,
           vsShipped: { rows: 2, ours: 0.42, control: 0.4, delta: 0.02 },
@@ -304,11 +329,11 @@ function baseRecord(): Record<string, unknown> {
           { aggregation: 'top2', map: 0.45, answerRank: 1, fusedMap: 0.45, fusedAnswerRank: 1 },
         ],
         fusionByK: [
-          { k: 10, map: 0.47, rank: 1 },
-          { k: 30, map: 0.49, rank: 1 },
-          { k: 60, map: 0.5, rank: 1 },
-          { k: 120, map: 0.51, rank: 1 },
-          { k: 300, map: 0.52, rank: 1 },
+          { k: 3, map: 0.47, rank: 1 },
+          { k: 5, map: 0.49, rank: 1 },
+          { k: 10, map: 0.5, rank: 1 },
+          { k: 30, map: 0.51, rank: 1 },
+          { k: 60, map: 0.52, rank: 1 },
         ],
       },
       {
@@ -332,11 +357,11 @@ function baseRecord(): Record<string, unknown> {
           { aggregation: 'top2', map: 0.25, answerRank: 3, fusedMap: 0.25, fusedAnswerRank: 3 },
         ],
         fusionByK: [
-          { k: 10, map: 0.27, rank: 3 },
-          { k: 30, map: 0.29, rank: 3 },
-          { k: 60, map: 0.3, rank: 3 },
-          { k: 120, map: 0.31, rank: 3 },
-          { k: 300, map: 0.32, rank: 3 },
+          { k: 3, map: 0.27, rank: 3 },
+          { k: 5, map: 0.29, rank: 3 },
+          { k: 10, map: 0.3, rank: 3 },
+          { k: 30, map: 0.31, rank: 3 },
+          { k: 60, map: 0.32, rank: 3 },
         ],
       },
       {
@@ -650,12 +675,13 @@ describe('lca gate', () => {
 
   it('refuses a record whose shipped constant is not on the ladder', () => {
     // **A sweep that does not contain the product's own value measures four other constants and reports them beside a
-    // figure nobody can locate.** The gate requires `k = 60` to be one of the rungs.
+    // figure nobody can locate.** The gate requires the shipped constant - 10 since the cross-validation moved it - to
+    // be one of the rungs.
     const run = runGate(
       mutated((record) => {
         const fusion = record['fusion'] as Record<string, unknown>;
         fusion['byK'] = (fusion['byK'] as Record<string, unknown>[]).filter(
-          (rung) => rung['k'] !== 60,
+          (rung) => rung['k'] !== 10,
         );
       }),
     );
@@ -668,7 +694,7 @@ describe('lca gate', () => {
       mutated((record) => {
         const fusion = record['fusion'] as Record<string, unknown>;
         fusion['byK'] = (fusion['byK'] as Record<string, unknown>[]).filter(
-          (rung) => rung['k'] === 60,
+          (rung) => rung['k'] === 10,
         );
       }),
     );
@@ -683,7 +709,7 @@ describe('lca gate', () => {
       mutated((record) => {
         const fusion = record['fusion'] as Record<string, unknown>;
         const rungs = fusion['byK'] as Record<string, unknown>[];
-        rungs.find((rung) => rung['k'] === 60)!['map'] = 0.44;
+        rungs.find((rung) => rung['k'] === 10)!['map'] = 0.44;
       }),
     );
     expect(run.status).toBe(1);
@@ -695,7 +721,7 @@ describe('lca gate', () => {
       mutated((record) => {
         const fusion = record['fusion'] as Record<string, unknown>;
         const rungs = fusion['byK'] as Record<string, unknown>[];
-        (rungs.find((rung) => rung['k'] === 10)!['vsShipped'] as Record<string, unknown>)['rows'] =
+        (rungs.find((rung) => rung['k'] === 30)!['vsShipped'] as Record<string, unknown>)['rows'] =
           1;
       }),
     );
@@ -708,7 +734,7 @@ describe('lca gate', () => {
       mutated((record) => {
         const rows = record['rows'] as Record<string, unknown>[];
         const ladder = rows[0]!['fusionByK'] as Record<string, unknown>[];
-        ladder.find((rung) => rung['k'] === 60)!['map'] = 0.49;
+        ladder.find((rung) => rung['k'] === 10)!['map'] = 0.49;
       }),
     );
     expect(run.status).toBe(1);
@@ -924,6 +950,90 @@ describe('lca gate', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('without a TF-IDF');
+  });
+});
+
+/**
+ * The admission rule, **which the gate now reads rather than trusting**.
+ *
+ * The iteration that added these cases found the harness refusing instances with `3.7 MB per file` while the same
+ * artifact published a regression that scores that rate at `R² = -0.02` - worse than the mean of the sample - beside a
+ * declaration fit at `0.77`. **Both numbers were in the artifact and nothing compared them.** Each case below doctors
+ * one way that gap can reopen, and the first asserts the record with the corrected rule passes.
+ */
+describe('lca gate — the admission rule', () => {
+  /** Apply one mutation to the memory block of a fresh copy of the baseline. */
+  function mutatedMemory(
+    change: (memory: Record<string, unknown>) => void,
+  ): Record<string, unknown> {
+    return mutated((record) => {
+      const cap = record['fileCap'] as Record<string, unknown>;
+      change(cap['memory'] as Record<string, unknown>);
+    });
+  }
+
+  it('**passes a record whose bound is charged in the units the run fitted**', () => {
+    const run = runGate(baseRecord());
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('| admission model | declarations');
+  });
+
+  it('**refuses a bound that is still charged per file**', () => {
+    // The rule in force before this iteration. A per-file rate is not a model of the work: the sample's own per-file
+    // cost spans 1.5 to 2 158.5 MB, so the refusal it produces is a statement about nothing.
+    const run = runGate(mutatedMemory((memory) => (memory['model'] = 'files')));
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('must be charged at the fitted declaration model');
+  });
+
+  it('**refuses a bound whose units are unstated**', () => {
+    for (const field of ['mbPerDeclaration', 'fixedMb', 'marginMb', 'declarationsPerFile']) {
+      const run = runGate(mutatedMemory((memory) => delete memory[field]));
+      expect(run.status, field).toBe(1);
+    }
+  });
+
+  it('**refuses a ladder that is not a ladder**', () => {
+    // Monotone because a denser checkout cannot afford more files at the same ceiling. A ladder whose rungs cross is a
+    // table nobody read.
+    const run = runGate(
+      mutatedMemory((memory) => {
+        const ladder = memory['fileLadder'] as Array<Record<string, number>>;
+        memory['fileLadder'] = [ladder[0], ladder[2]];
+        ladder[1]!['files'] = 99_999;
+        memory['fileLadder'] = [ladder[0], ladder[1], ladder[2]];
+      }),
+    );
+    expect(run.status).toBe(1);
+  });
+
+  it('**refuses an operating density that is not one of the ladder’s rungs**', () => {
+    // A conversion rate nobody published is a number nobody can check, which is the whole reason the ladder is stated.
+    const run = runGate(mutatedMemory((memory) => (memory['declarationsPerFile'] = 117.7)));
+    expect(run.status).toBe(1);
+  });
+
+  it('**refuses a published file bound that is not the rung’s own division**', () => {
+    const run = runGate(
+      mutatedMemory((memory) => {
+        memory['budgetFilesAtStart'] = { kt: 2_038 };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('divide its published bound consistently');
+  });
+
+  it('**refuses a fit that does not beat the rate it replaced**', () => {
+    // The invariant the old rule violated: a model no better than the constant it replaces cannot be used to refuse
+    // instances, whatever shape it has. The fixture's rate scores -0.393, so a recommendation at -0.5 loses to it.
+    const run = runGate(
+      mutated((record) => {
+        const costModel = record['costModel'] as Record<string, Record<string, unknown>>;
+        costModel['recommended']!['r2'] = -0.5;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('beat the per-file rate it replaced');
   });
 });
 

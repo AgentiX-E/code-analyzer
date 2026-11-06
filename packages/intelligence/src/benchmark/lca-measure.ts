@@ -255,7 +255,7 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   /**
    * The two arms fused at one constant, **over the pool as the retriever ranked it and cut to the answer space after**.
    *
-   * One function for the armature and for the sweep, because the sweep's `k = 60` rung has to be the figure the product
+   * One function for the armature and for the sweep, because the sweep's `RRF_K` rung has to be the figure the product
    * publishes: two implementations of the same fusion would be two rulers, and the ladder's middle rung disagreeing
    * with the column beside it is exactly the defect the gate exists to catch one level up.
    */
@@ -288,7 +288,7 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   });
   // **The constant swept on this instance, and it costs four more passes over a list of a couple of hundred paths.** The
   // shipped value is one rung of the ladder rather than a point outside it, so the artifact can say whether it sits on a
-  // plateau - which is the only statement that makes `k = 60` a choice rather than an inheritance.
+  // slope, which is what moved the constant to 10 - and the rung at the shipped value is the figure the product publishes.
   const fusionByK: FusionAtK[] = FUSION_K_LADDER.map((k) => {
     const ranked = fuse(FILE_AGGREGATION, k);
     return {

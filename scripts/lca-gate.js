@@ -152,7 +152,65 @@ function main() {
     };
   })();
 
-  // **The sample and the control, as invariants rather than as aspirations.**
+  // **The admission rule is a published model, and the gate now checks that it is the model rather than a rate.**
+  //
+  // The iteration this block was added in found the rule charging 3.7 MB per file against a sample whose own regression
+  // scores that rate at `R² = -0.02` - a line worse than the mean - while the fit it publishes recommends declarations
+  // at `R² = 0.77`. **A gate that reads the fit and not the rule lets the two disagree forever**: the artifact would keep
+  // publishing the model that condemns the bound while the bound kept refusing instances. So the rule's own units are
+  // invariants here: an artifact whose admission is still charged per file fails this row, whatever its fit says.
+  //
+  // The ladder check is the fusion's ladder check, one level over: the operating density is a rung of a stated ladder,
+  // the rung's file bound is the published bound divided by the rung, and every rung above it must be no more generous.
+  const admission = at(record, ['fileCap', 'memory']);
+  const admissionLine = (() => {
+    const ladder = Array.isArray(admission?.fileLadder) ? admission.fileLadder : [];
+    const rung = (density) =>
+      ladder.find((entry) => entry?.declarationsPerFile === density) ?? null;
+    const perPart = Object.entries(admission?.declarationsAtStart ?? {});
+    const perFiles = Object.entries(admission?.budgetFilesAtStart ?? {});
+    const declared = [admission?.mbPerDeclaration, admission?.fixedMb, admission?.marginMb];
+    const unitsStated =
+      admission?.model === 'declarations' &&
+      declared.every((value) => typeof value === 'number' && value > 0) &&
+      typeof admission?.declarationsPerFile === 'number' &&
+      admission.declarationsPerFile > 0;
+    const ladderHolds =
+      ladder.length >= 3 &&
+      ladder.every((entry) => typeof entry?.files === 'number' && entry.files >= 0) &&
+      ladder.every((entry, index) => index === 0 || entry.files <= ladder[index - 1].files) &&
+      rung(admission?.declarationsPerFile) !== null;
+    // **The published file bound is the rung's own division**, for every part: a bound and a ladder that disagree are
+    // two answers, and the one a reader can check is the one that has to be right.
+    const transcribed =
+      perPart.length > 0 &&
+      perPart.length === perFiles.length &&
+      perPart.every(([config, declarations]) => {
+        const files = perFiles.find(([name]) => name === config)?.[1];
+        return (
+          typeof declarations === 'number' &&
+          typeof files === 'number' &&
+          files === Math.floor(declarations / admission.declarationsPerFile)
+        );
+      });
+    const beatsRate =
+      typeof fit?.r2 === 'number' && typeof fit?.constantR2 === 'number' && fit.r2 > fit.constantR2;
+    const ok = unitsStated && ladderHolds && transcribed && beatsRate;
+    return {
+      line:
+        `| admission model | ${String(admission?.model ?? 'unstated')} · ` +
+        `${Number(admission?.mbPerDeclaration ?? 0).toFixed(4)} MB/declaration + ` +
+        `${String(admission?.fixedMb ?? '—')} MB + ${String(admission?.marginMb ?? '—')} MB margin at ` +
+        `${String(admission?.declarationsPerFile ?? '—')} decl/file · ladder ` +
+        `${ladder.map((entry) => `${String(entry.declarationsPerFile)}:${String(entry.files)}`).join(' ') || '—'} | ` +
+        `units · ladder · transcription · fit beats the rate it replaced | ${ok ? '✓' : '✗'} |`,
+      failure: ok
+        ? null
+        : 'fileCap.memory: the admission rule must be charged at the fitted declaration model, publish its units and ' +
+          'ladder, divide its published bound consistently, and its fit must beat the per-file rate it replaced',
+    };
+  })();
+
   //
   // A floor on `paired.meanDelta` would be an aspiration - the number has never been measured, and a floor invented
   // before the first measurement can only be a guess wearing a gate's clothes. What *can* be required before any figure
@@ -736,6 +794,8 @@ function main() {
   const failures = [...sampleFailures, ...invariants];
   rows.push(fitLine.line);
   if (fitLine.failure) failures.push(fitLine.failure);
+  rows.push(admissionLine.line);
+  if (admissionLine.failure) failures.push(admissionLine.failure);
   const fallbackLine =
     typeof fallbackOverall?.value === 'number'
       ? `| fallback: path + imports | ${fallbackOverall.value.toFixed(4)} · ` +
