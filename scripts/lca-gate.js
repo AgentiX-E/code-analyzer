@@ -756,6 +756,22 @@ function main() {
       `stratified.${label}: ${String(stratum?.fusionRows)} fused rows against ${String(stratum?.measured)} measured ` +
         '- the fused column exists on every attempted row, so a band cannot have fewer than it measured',
     );
+    // **And the fusion's partner: the arm it was built from, measured over the same rows.**
+    //
+    // `ours` is a mean over the band's measured rows and `fusion` over every attempted one, and the report subtracted
+    // them: on 200-500 files 0.3880 against 0.3858 was published as "the fusion costs 0.0022 on the band it was built
+    // for", when both numbers are the fused column and the difference is a denominator. The declaration arm on the same
+    // rows scores 0.2912 there, so the fusion gains 0.0968. **A band that publishes `ours` without the arm it was built
+    // from invites exactly that subtraction**, so the column is required on every band that measured anything.
+    if (typeof stratum?.measured === 'number' && stratum.measured > 0) {
+      guard(
+        typeof stratum?.declaration === 'number' && stratum.declarationRows === stratum.measured,
+        `stratified.${label}: the declaration arm is ${String(stratum?.declaration)} over ` +
+          `${String(stratum?.declarationRows)} rows against ${String(stratum?.measured)} measured - the arm \`ours\` ` +
+          'is built from has to be published over the same rows, or the fusion’s contribution is a subtraction of two ' +
+          'samples',
+      );
+    }
   }
 
   const sampleLine =
@@ -841,12 +857,17 @@ function main() {
   );
   for (const stratum of strata) {
     const vsBm25 = stratum?.vsBm25 ?? {};
+    // **Three figures, three denominators, printed side by side.** `ours` and `declaration` are both over the band's
+    // measured rows, so their difference is the fusion's contribution; `fused` is over every attempted row of the band,
+    // so it is not. The row used to print `ours` beside `fused` with one denominator label and the report subtracted
+    // them.
     rows.push(
       `| band: ${String(stratum?.label)} | ours ` +
-        `${typeof stratum?.ours === 'number' ? stratum.ours.toFixed(4) : 'none'} · BM25 ` +
+        `${typeof stratum?.ours === 'number' ? stratum.ours.toFixed(4) : 'none'} · declaration ` +
+        `${typeof stratum?.declaration === 'number' ? stratum.declaration.toFixed(4) : 'none'} · BM25 ` +
         `${typeof vsBm25.control === 'number' ? vsBm25.control.toFixed(4) : 'none'} · Δ ` +
         `${typeof vsBm25.delta === 'number' ? vsBm25.delta.toFixed(4) : 'none'} · fallback ` +
-        `${typeof stratum?.fallback === 'number' ? stratum.fallback.toFixed(4) : 'none'} · fused ` +
+        `${typeof stratum?.fallback === 'number' ? stratum.fallback.toFixed(4) : 'none'} · fused (all attempted) ` +
         `${typeof stratum?.fusion === 'number' ? stratum.fusion.toFixed(4) : 'none'} | ` +
         `${String(stratum?.measured)} measured of ${String(stratum?.attempted)} attempted | ` +
         `${typeof vsBm25.delta === 'number' || stratum?.measured === 0 ? '✓' : '✗'} |`,

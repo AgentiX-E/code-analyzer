@@ -218,6 +218,31 @@ describe('stratify', () => {
     expect(strata[4]).toMatchObject({ bm25: null, bm25Rows: 0, tfidf: null, tfidfRows: 0 });
   });
 
+  it('**publishes the arm the fused column was built from, over the same rows**', () => {
+    // The subtraction that published a 0.0022 cost on the band the fusion was built for: `ours` is over the band's
+    // measured rows and `fusion` over every attempted one, so their difference is a denominator before it is anything
+    // else. The declaration arm is the only partner `ours` has, and it has to be over the identical rows.
+    const strata = stratify(
+      [
+        row({ id: 1, corpusFiles: 10, map: 0.5, declarationMap: 0.4, fusion: 0.5, bm25: 0.25 }),
+        row({ id: 2, corpusFiles: 10, map: 0.3, declarationMap: 0.2, fusion: 0.3, bm25: 0.25 }),
+        row({ id: 3, corpusFiles: 10, skipped: 'too large', fusion: 0.2, bm25: 0.1 }),
+      ],
+      DEFAULT_STRATA,
+    );
+    expect(strata[0]).toMatchObject({
+      ours: 0.4,
+      declaration: 0.3,
+      declarationRows: 2,
+      measured: 2,
+      attempted: 3,
+    });
+    // And the refusal contributes to `fusion` only - the column whose denominator is the band, not the sample. **Three
+    // rows carry a fused figure and two carry a declaration one**, which is the asymmetry the two fields exist to show.
+    expect(strata[0]).toMatchObject({ fusionRows: 3, declarationRows: 2 });
+    expect(strata[4]).toMatchObject({ declaration: null, declarationRows: 0 });
+  });
+
   it('reports both rankings per band', () => {
     const strata = stratify(
       [

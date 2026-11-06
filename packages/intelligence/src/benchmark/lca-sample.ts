@@ -141,6 +141,20 @@ export interface Stratum {
   readonly refused: number;
   /** Our retriever's mean average precision over the measured rows of this band, or `null` when none was measured. */
   readonly ours: number | null;
+  /**
+   * The same rows, read with the declaration pool alone - **the arm `ours` was built from**, and the only figure on this
+   * band that can be subtracted from `ours` to get the fusion's contribution.
+   *
+   * **This field exists because the report subtracted the wrong pair.** `ours` is a mean over the band's *measured* rows
+   * and `fusion` is a mean over *every attempted* row of the band, so the difference between them is mostly the
+   * difference between two denominators: on 200-500 files the two read 0.3880 and 0.3858, and that 0.0022 was published
+   * as the fusion costing something on the band it was built for. The declaration arm on the same rows scores 0.2912,
+   * so the fusion was gaining 0.0968 there. **A column whose partner is measured over other rows is a column nobody can
+   * subtract.**
+   */
+  readonly declaration: number | null;
+  /** How many of the band's measured rows carry a declaration-only figure. **`declaration` is a mean over these.** */
+  readonly declarationRows: number;
   /** Our figure against the primary control, **on the rows both produced one**. */
   readonly vsBm25: PairedMeans;
   /** And against the second control, on the same rule. */
@@ -158,9 +172,10 @@ export interface Stratum {
    * **The product's fused ranking over every attempted row of the band**, and how many rows carried one.
    *
    * The column `fallback` cannot be: a fallback is what the product does *instead of* the analysis, while this is what
-   * it does *with the file-level arm alongside* the analysis on the rows that ran. On a band where both exist the
-   * difference between this and `ours` is the fusion's contribution, and on a band nothing measured it declines to
-   * `fallback` by construction - which is why the two counts are published rather than one.
+   * it does *with the file-level arm alongside* the analysis on the rows that ran. **`fusion` is not comparable with
+   * `ours`**: `ours` is over the band's measured rows and this is over every attempted one, so their difference is a
+   * denominator before it is anything else. The fusion's contribution is `ours - declaration`, which is why the
+   * declaration arm publishes its own column on the same rows.
    */
   readonly fusion: number | null;
   readonly fusionRows: number;
@@ -369,6 +384,9 @@ export function stratify(
     const second = controlOf(band, TFIDF_MAP);
     const fallback = fallbackOf(band);
     const fused = fusionOf(band);
+    const declarations = measured
+      .map((row) => row.declarationMap)
+      .filter((value): value is number => typeof value === 'number');
     return {
       label: to === null ? `${String(from)}+ files` : `${String(from)}-${String(to)} files`,
       from,
@@ -377,6 +395,8 @@ export function stratify(
       measured: measured.length,
       refused: band.length - measured.length,
       ours: measured.length === 0 ? null : mean(measured.map((row) => row.map)),
+      declaration: declarations.length === 0 ? null : mean(declarations),
+      declarationRows: declarations.length,
       vsBm25: pairedMeans(band, BM25_MAP),
       vsTfidf: pairedMeans(band, TFIDF_MAP),
       fallback: fallback.value,

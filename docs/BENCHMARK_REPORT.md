@@ -393,11 +393,32 @@ publishes both counts beside the mean. **`+0.0419`** is the fusion's net contrib
 declaration arm on the same rows inside one run — the only comparison in this artifact in which nothing but the second
 arm differs — and it is what decided that the fusion ships.
 
-**And it gains where the analysis cannot run, not where it can.** On 500–2 000-file checkouts the fused column scores
-**0.2181** where the file-level arm alone scores 0.1413; on 200–500 files it scores **0.3858** where the analyser alone
-scores 0.3880, so the fusion costs 0.0022 on the one band where both instruments are individually good. Reciprocal rank
-fusion sums positions rather than choosing between them, and summing two opinions is a gain only where the arms are
-wrong about different files. The band table in the artifact is what says so, per band, on paired rows.
+**And it gains on four bands of five, most on the band it was built for.** _(This paragraph is a correction: the run
+before this one published "on 200–500 files it scores 0.3858 where the analyser alone scores 0.3880, so the fusion costs
+0.0022 on the band where both instruments are good". **Both of those numbers are the fused column** — 0.3880 is the fused
+mean over the band's 30 measured rows and 0.3858 the fused mean over its 37 attempted ones — so the 0.0022 was a
+denominator, not a fusion effect. The artifact now publishes the declaration arm per band over the identical rows, and
+the gate refuses a band that omits it.)_ Read on the same rows:
+
+| band (files)        | fused, measured rows | declaration arm, same rows | the fusion's contribution | file-level arm, all attempted |
+| ------------------- | -------------------- | -------------------------- | ------------------------- | ----------------------------- |
+| 0–50 (21 measured)  | 0.5999               | **0.6032**                 | **−0.0033**               | 0.4527                        |
+| 50–200 (49)         | **0.4332**           | 0.4056                     | **+0.0276**               | 0.3481                        |
+| 200–500 (30)        | **0.3880**           | 0.2912                     | **+0.0968**               | 0.4056                        |
+| 500–2 000 (9)       | **0.5175**           | 0.4529                     | **+0.0646**               | 0.1413                        |
+| 2 000+ (0 measured) | —                    | —                          | —                         | 0.1346                        |
+
+**The fusion is worth 0.10 on 200–500 files, not a cost of 0.002** — the band where the analyser alone is weakest is
+where the second arm earns the most, which is the opposite of what this report said one run ago. **The only band it costs
+anything is the smallest** (−0.0033 on 21 rows, where the declaration pool is already the better instrument), and that is
+now the only place a conditional fusion could pay. Reciprocal rank fusion sums positions rather than choosing between
+them, and summing two opinions is a gain where the arms are wrong about different files — which the table says is almost
+everywhere above 50 files.
+
+**And it still pays where the analysis cannot run at all**, which is a comparison of two figures over one denominator:
+on 500–2 000-file checkouts the fused column scores **0.2181 over all 31 attempted rows** where the file-level arm alone
+scores 0.1413 on the same 31, and on 2 000+ files 0.1346 against 0.1346 — identical by construction, because every row in
+that band was refused and the fused column is the file-level arm there.
 
 ### The rank constant was on a slope, not a plateau, and the ladder is what said so
 

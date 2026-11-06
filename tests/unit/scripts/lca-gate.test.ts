@@ -263,6 +263,8 @@ function baseRecord(): Record<string, unknown> {
         attempted: 2,
         measured: 2,
         ours: 0.4,
+        declaration: 0.35,
+        declarationRows: 2,
         bm25: 0.22,
         bm25Rows: 2,
         tfidf: 0.25,
@@ -279,6 +281,8 @@ function baseRecord(): Record<string, unknown> {
         attempted: 1,
         measured: 0,
         ours: null,
+        declaration: null,
+        declarationRows: 0,
         bm25: 0.11,
         bm25Rows: 1,
         tfidf: 0.12,
@@ -520,6 +524,32 @@ describe('lca gate', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('is not ours minus control on the paired rows');
+  });
+
+  it('**refuses a band that publishes the fusion without the arm it was built from**', () => {
+    // The subtraction that published a 0.0022 "cost" on the band the fusion was built for: `ours` is over the band's
+    // measured rows and `fusion` over every attempted one, so the difference between them is a denominator. The
+    // declaration arm on the same rows is the only partner `ours` has.
+    const run = runGate(
+      mutated((record) => {
+        const strata = record['stratified'] as Array<Record<string, unknown>>;
+        delete strata[0]!['declaration'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain(
+      'the arm `ours` is built from has to be published over the same rows',
+    );
+  });
+
+  it('refuses a band whose declaration arm ran on fewer rows than the band measured', () => {
+    const run = runGate(
+      mutated((record) => {
+        const strata = record['stratified'] as Array<Record<string, unknown>>;
+        strata[0]!['declarationRows'] = 1;
+      }),
+    );
+    expect(run.status).toBe(1);
   });
 
   it('refuses a band whose control ran on fewer rows than the band measured', () => {

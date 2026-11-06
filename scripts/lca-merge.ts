@@ -935,6 +935,8 @@ function main(): void {
     console.log(
       `LCA-STRATUM ${stratum.label} attempted=${String(stratum.attempted)} measured=${String(stratum.measured)} ` +
         `ours=${stratum.ours === null ? 'none' : stratum.ours.toFixed(4)} ` +
+        `declaration=${stratum.declaration === null ? 'none' : stratum.declaration.toFixed(4)} ` +
+        `declarationRows=${String(stratum.declarationRows)} ` +
         `bm25Paired=${pairedBm25.control === null ? 'none' : pairedBm25.control.toFixed(4)} ` +
         `deltaBm25=${pairedBm25.delta === null ? 'none' : pairedBm25.delta.toFixed(4)} ` +
         `pairedRows=${String(pairedBm25.rows)} ` +
