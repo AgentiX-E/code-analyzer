@@ -669,8 +669,7 @@ export function declarationDensity(
           ? 0
           : usable.filter(
               (row) =>
-                row.corpusFiles >
-                fileBudgetAtDensity({ declarations, declarationsPerFile: rung }),
+                row.corpusFiles > fileBudgetAtDensity({ declarations, declarationsPerFile: rung }),
             ).length,
       covered: usable.filter((row) => chargeCovers(row, rung)).length,
     })),

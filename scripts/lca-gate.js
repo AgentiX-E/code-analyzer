@@ -269,7 +269,8 @@ function main() {
           (typeof entry?.files === 'number' || entry?.files === null),
       ) &&
       ladder.every((entry, index) => index === 0 || entry.covered >= ladder[index - 1].covered);
-    const charged = ladder.find((entry) => entry.declarationsPerFile === density?.chargedAt) ?? null;
+    const charged =
+      ladder.find((entry) => entry.declarationsPerFile === density?.chargedAt) ?? null;
     // **The charged rung is on the ladder and refuses none of these rows.** `null` for a rung the ladder does not state
     // means the artifact charges at a density nobody published, which is the failure the ladder exists to prevent.
     const rungFollowsTheRule = charged !== null && charged.refusedByBound === 0;
@@ -279,12 +280,7 @@ function main() {
       rows !== null &&
       density.chargedAtCovered + density.chargedAtMissed === rows;
     const ok =
-      denominator &&
-      ordered &&
-      everyLanguage &&
-      priced &&
-      rungFollowsTheRule &&
-      countsAddUp;
+      denominator && ordered && everyLanguage && priced && rungFollowsTheRule && countsAddUp;
     return {
       line:
         `| density | median ${String(density?.median ?? '—')} over ${String(rows ?? '—')} rows · ` +

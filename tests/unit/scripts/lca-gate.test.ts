@@ -1215,7 +1215,9 @@ describe('lca gate — the fused column', () => {
  */
 describe('lca gate — the density the bound converts at', () => {
   /** Apply one mutation to the density block of a fresh copy of the baseline. */
-  function mutatedDensity(change: (density: Record<string, unknown>) => void): Record<string, unknown> {
+  function mutatedDensity(
+    change: (density: Record<string, unknown>) => void,
+  ): Record<string, unknown> {
     return mutated((record) => {
       change(record['density'] as Record<string, unknown>);
     });

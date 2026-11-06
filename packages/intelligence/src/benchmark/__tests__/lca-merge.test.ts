@@ -536,18 +536,16 @@ describe('declarationDensity', () => {
   it('prices every rung of the ladder, not only the one that ships', () => {
     // **The trade-off is the decision**, so it is published: a tighter rung covers more of the declarations it charges
     // for and refuses more checkouts outright.
-    const rows = [
-      withDensity(1, 10, 200),
-      withDensity(2, 100, 20_000),
-      withDensity(3, 900, 300),
-    ];
+    const rows = [withDensity(1, 10, 200), withDensity(2, 100, 20_000), withDensity(3, 900, 300)];
     const density = declarationDensity(rows, { chargedAt: 120, declarations: 240_000 });
     expect(density.ladder.map((entry) => entry.declarationsPerFile)).toEqual([
       20, 60, 120, 300, 600,
     ]);
     // The bound on this ceiling: 240 000 declarations at 120 per file is 2 000 files, which admits all three.
     expect(density.ladder.find((entry) => entry.declarationsPerFile === 120)?.files).toBe(2_000);
-    expect(density.ladder.find((entry) => entry.declarationsPerFile === 120)?.refusedByBound).toBe(0);
+    expect(density.ladder.find((entry) => entry.declarationsPerFile === 120)?.refusedByBound).toBe(
+      0,
+    );
     // At 600 the same budget affords 400 files, so the 900-file checkout would be refused.
     expect(density.ladder.find((entry) => entry.declarationsPerFile === 600)?.files).toBe(400);
     expect(density.ladder.find((entry) => entry.declarationsPerFile === 600)?.refusedByBound).toBe(

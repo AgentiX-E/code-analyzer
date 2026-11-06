@@ -201,11 +201,11 @@ rows containing an answer for us against 102 of 102 for the control**, first-pla
 with the run before it to within the sample, which is the point of quoting both rather than replacing one with the
 other.**
 
-| split  | measured | MAP    | BM25, same rows | Δ           |
-| ------ | -------- | ------ | --------------- | ----------- |
-| Python | 41 / 50  | **0.4899** | 0.4426      | **+0.0473** |
-| Java   | 31 / 50  | **0.5455** | 0.5057      | **+0.0398** |
-| Kotlin | 43 / 50  | 0.3893 | **0.4239**      | **−0.0346** |
+| split  | measured | MAP        | BM25, same rows | Δ           |
+| ------ | -------- | ---------- | --------------- | ----------- |
+| Python | 41 / 50  | **0.4899** | 0.4426          | **+0.0473** |
+| Java   | 31 / 50  | **0.5455** | 0.5057          | **+0.0398** |
+| Kotlin | 43 / 50  | 0.3893     | **0.4239**      | **−0.0346** |
 
 **Two splits now win and one loses, which is the first time this table has read that way.** The split that carries the
 gap is **Kotlin** (−0.0346, down from −0.0838), and the two that used to lose now lead: **Python +0.0473** (from
@@ -255,12 +255,12 @@ checkable rather than rhetorical.
 **The two controls also disagree about which bands are hard**, which is a reason to stop reading a band table as the
 corpus's own difficulty. On the same rows, per band:
 
-| band (files) | ours       | BM25       | vs BM25     | TF-IDF     | vs TF-IDF   |
-| ------------ | ---------- | ---------- | ----------- | ---------- | ----------- |
-| 0–50 (21)    | 0.6271     | **0.6775** | **−0.0504** | 0.6152     | +0.0119     |
-| 50–200 (49)  | **0.4299** | 0.4058     | **+0.0241** | 0.3363     | **+0.0936** |
-| 200–500 (32) | **0.4374** | 0.4342     | **+0.0032** | **0.4649** | **−0.0275** |
-| 500–2 000 (13) | **0.4235** | 0.3111   | **+0.1124** | 0.2260     | **+0.1975** |
+| band (files)   | ours       | BM25       | vs BM25     | TF-IDF     | vs TF-IDF   |
+| -------------- | ---------- | ---------- | ----------- | ---------- | ----------- |
+| 0–50 (21)      | 0.6271     | **0.6775** | **−0.0504** | 0.6152     | +0.0119     |
+| 50–200 (49)    | **0.4299** | 0.4058     | **+0.0241** | 0.3363     | **+0.0936** |
+| 200–500 (32)   | **0.4374** | 0.4342     | **+0.0032** | **0.4649** | **−0.0275** |
+| 500–2 000 (13) | **0.4235** | 0.3111     | **+0.1124** | 0.2260     | **+0.1975** |
 
 **The pair of formulas swaps places twice across the bands** — TF-IDF is ahead on 200–500 where BM25 is not, and behind
 by three tenths on 500–2 000 — so a single "lexical retrieval" comparator does not exist, and the product's own row
@@ -284,7 +284,7 @@ the same intersection, how often each list contains a fixing file and where the 
 
 **Neither list misses an answer on more than one row, and the product leads with it one time more often than the
 control.** Two iterations ago this table read 100 against 109 with 58 against 64; the change is the fused arm, and it is
-a change in *ordering* rather than in coverage — which is what a second arm can buy and what a retriever alone could not.
+a change in _ordering_ rather than in coverage — which is what a second arm can buy and what a retriever alone could not.
 
 **The sample, stated rather than implied.** 150 instances were intended, **all 150 reached**, 115 measured, 35 refused,
 **none unreached** — so **76.7 % of the protocol**. Every refusal carries its sentence in `sample.refusals`: **thirteen**
@@ -305,12 +305,12 @@ band above it.
 superseded memory bound was charged at **3.7 MB per file** — a figure fitted by hand on four checkouts. The same artifact
 fits peak resident memory against three candidate predictors over its own measured rows and publishes all three:
 
-| predictor                      | slope              | intercept | R²        | residual (mean · p90 · max) | observed spread               |
-| ------------------------------ | ------------------ | --------- | --------- | --------------------------- | ----------------------------- |
-| **declarations in the graph**  | **22 KB per node** | 516 MB    | **0.79**  | 329 · 581 · 3 906 MB        | —                             |
-| bytes of the answer space      | 0.5 MB per MB      | 820 MB    | 0.46      | 597 MB                      | —                             |
-| bytes of the checkout          | 0.003 MB per MB    | 1 376 MB  | 0.01      | 906 MB                      | —                             |
-| **3.7 MB per file (superseded)** | —                | —         | **−0.01** | —                           | **1.5 – 2 165.5 MB per file** |
+| predictor                        | slope              | intercept | R²        | residual (mean · p90 · max) | observed spread               |
+| -------------------------------- | ------------------ | --------- | --------- | --------------------------- | ----------------------------- |
+| **declarations in the graph**    | **22 KB per node** | 516 MB    | **0.79**  | 329 · 581 · 3 906 MB        | —                             |
+| bytes of the answer space        | 0.5 MB per MB      | 820 MB    | 0.46      | 597 MB                      | —                             |
+| bytes of the checkout            | 0.003 MB per MB    | 1 376 MB  | 0.01      | 906 MB                      | —                             |
+| **3.7 MB per file (superseded)** | —                  | —         | **−0.01** | —                           | **1.5 – 2 165.5 MB per file** |
 
 **A rate with a negative R² is worse than predicting the sample mean**, and the spread it hides is a factor of 1 400 —
 because memory grows with what the analysis _produced_, and two checkouts of the same file count can differ by two
@@ -328,13 +328,13 @@ sample median of 117.7 sits under"; 117.7 is the median of the **68 Java and Kot
 109 rows the artifact publishes is **164.6** — the Python part was still running when the number was taken. The artifact
 now carries `density`, computed from its own rows, with the row count beside every figure:
 
-| rung | files admitted on the 6 144 MB ceiling | rows of this run it would refuse | rows whose declarations it covers |
-| ---- | -------------------------------------- | -------------------------------- | --------------------------------- |
-| 20   | 11 997                                 | 0                                | 0 of 115 (0.0 %)                  |
-| 60   | 3 999                                  | 0                                | 18 of 115 (15.7 %)                |
-| **120 (shipped)** | **1 999**                   | **0**                            | **45 of 115 (39.1 %)**            |
-| 300  | 799                                    | 5                                | 79 of 115 (68.7 %)                |
-| 600  | 399                                    | 17                               | 97 of 115 (84.3 %)                |
+| rung              | files admitted on the 6 144 MB ceiling | rows of this run it would refuse | rows whose declarations it covers |
+| ----------------- | -------------------------------------- | -------------------------------- | --------------------------------- |
+| 20                | 11 997                                 | 0                                | 0 of 115 (0.0 %)                  |
+| 60                | 3 999                                  | 0                                | 18 of 115 (15.7 %)                |
+| **120 (shipped)** | **1 999**                              | **0**                            | **45 of 115 (39.1 %)**            |
+| 300               | 799                                    | 5                                | 79 of 115 (68.7 %)                |
+| 600               | 399                                    | 17                               | 97 of 115 (84.3 %)                |
 
 **Forty-three of the 115 rows cost more than the rule charged them**, which is the arithmetic behind the three instances
 the 6 144 MB ceiling killed (`mlflow/mlflow` charged 1 430 MB and stopped at 6 381, `plotly/plotly.py` 1 893 and 6 270,
@@ -461,10 +461,10 @@ split is a fusion the next split would not have". That argument is correct, and 
 a constant rather than about which constant. So the choice was made the way the argument demands: five constants stated
 in the code before any figure was read, measured on **every** row of one run, and then decided **out of fold**.
 
-| rung                  | `k = 3`    | `k = 5`    | **`k = 10` (shipped)** | `k = 30`   | `k = 60` (shipped until now) |
-| --------------------- | ---------- | ---------- | ---------------------- | ---------- | ---------------------------- |
-| MAP, 115 rows         | 0.4633     | 0.4667     | **0.4673**             | 0.4589     | 0.4588                       |
-| Δ vs the shipped rung | −0.0040    | −0.0006    | —                      | −0.0084    | −0.0085                      |
+| rung                  | `k = 3` | `k = 5` | **`k = 10` (shipped)** | `k = 30` | `k = 60` (shipped until now) |
+| --------------------- | ------- | ------- | ---------------------- | -------- | ---------------------------- |
+| MAP, 115 rows         | 0.4633  | 0.4667  | **0.4673**             | 0.4589   | 0.4588                       |
+| Δ vs the shipped rung | −0.0040 | −0.0006 | —                      | −0.0084  | −0.0085                      |
 
 **The ladder now brackets the shipped value — two rungs below it and two above — and the shipped value is its maximum.**
 The earlier sweep (`10, 30, 60, 120, 300`) had the chosen constant on its edge, so it could say that a smaller one was no
