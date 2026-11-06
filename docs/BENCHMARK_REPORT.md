@@ -338,6 +338,44 @@ is **80 137 files** on this run. The run reached **141 of the 150 planned instan
 the job's own clock ran out, against zero unreached in the previous run. That is the price of the column, and the next
 iteration moves the fallback into its own pass, with its cost published per row.
 
+**The two instruments are complementary, so the product fuses them rather than choosing.** _(This section and its two
+tables are run `42166473302`: 150 of 150 attempted, 109 measured, 41 refused, none unreached. The composite row in the
+table above is the same quantity from the run before it — 0.3538 over 141 — and it has moved to **0.3806 over 150**
+because the analysis column inside it is now fused rather than the pool alone.)_ The band table above
+says it in one line: on 0–50 files the declaration pool scores **0.6465** where a path and its imports score **0.5010**,
+and on 200–500 files the pool scores **0.2925** where the same path-and-imports reading scores **0.4130**. A product
+that shipped either one would be publishing a figure about the quarter of the corpus it was wrong about. So the file
+ranking the product returns is **reciprocal rank fusion** of the two — unweighted, `k = 60` (Cormack, Clarke and
+Büttcher, SIGIR 2009), with the constant stated rather than tuned, because a fusion whose `k` was chosen on this split
+is a fusion the next split would not have. `search/fusion.ts` is the arithmetic; `AskOptions.fileSignals` and
+`code-analyzer locate -D <file>` are the two ways a caller supplies a second arm, and `retrieval.rankedFiles` keeps the
+declaration-only order beside `fusedFiles` so the two can be told apart.
+
+| what is being measured                                  | rows                                   | MAP        |
+| ------------------------------------------------------- | -------------------------------------- | ---------- |
+| **the fused ranking — the product's own order**         | **150 / 150** (109 fused, 41 declined) | **0.3806** |
+| the declaration arm alone, on the same measured rows    | 109                                    | 0.4179     |
+| the file-level arm alone, over every attempted instance | 150                                    | 0.3235     |
+| the analysis where it ran, unchanged                    | 109                                    | 0.4598     |
+
+**Every cut in `retrieval` reads the fused list**, which is the list the product returns: `at1`, `at3`, `at5` and
+`at10` are precision and recall at a cut of the same ranking `map` is computed over, so the two columns cannot disagree
+about which list they describe. `rankedFiles` (the declaration arm alone) is kept on the answer object and in the
+per-row record for the ablation, and it is not what any published cut reads.
+
+**The fused column is the one that goes in a published table**, because it is the only one that is both the product's
+actual output and present on every attempted instance: `coverage.fused` counts the rows where both arms ran and
+`coverage.declined` the rows where the analysis was refused and the file-level arm stood alone, and the artifact
+publishes both counts beside the mean. **`+0.0419`** is the fusion's net contribution, paired against the
+declaration arm on the same rows inside one run — the only comparison in this artifact in which nothing but the second
+arm differs — and it is what decided that the fusion ships.
+
+**And it gains where the analysis cannot run, not where it can.** On 500–2 000-file checkouts the fused column scores
+**0.2181** where the file-level arm alone scores 0.1413; on 200–500 files it scores **0.3858** where the analyser alone
+scores 0.3880, so the fusion costs 0.0022 on the one band where both instruments are individually good. Reciprocal rank
+fusion sums positions rather than choosing between them, and summing two opinions is a gain only where the arms are
+wrong about different files. The band table in the artifact is what says so, per band, on paired rows.
+
 **The rank of a file used to be the rank of its first declaration, and that is a choice nobody had measured.** The
 retriever scores declarations; the corpus asks which _files_ must change; the product took a file's position to be the
 position of its earliest declaration — the `max` of its scores and nothing else about the file. An armature publishes
@@ -370,6 +408,13 @@ before the run that shipped it: the next run must publish `overall.map = 0.4181`
 `max` arm at −0.0290, or the armature and the product are two code paths. It published **0.4179**, **58** and
 **−0.0291** over 109 rows, with the shipped arm's own delta **0** on every one of them — the 0.0002 is the extra row the
 run reached, and both statistics that identify the _ranking_ are unmoved.
+
+**The same armature on the fused ranking reverses one of those rows, which is why it is published twice.** With the
+file-level arm fused in, `blend50` scores **0.4619** against the shipped `top2`'s 0.4598 — **+0.0020**, where on the pool
+alone it was −0.0049 — and `blend75`, the neighbour that agreed with `top2` on 92 of 109 rows, is now −0.0006. A rule
+chosen before the second arm existed is not necessarily the rule that is best after it, and a single-column armature
+could not have said so: `fileRanking.poolOnly` is the comparison in which the aggregation is the sole difference, and
+`fileRanking.arms` is the comparison on the ranking a user is handed.
 
 **One defect this corpus found in its instrument, and one change it refused.** The refused change is the interesting
 one. Roughly half of every Kotlin checkout — **98 candidate files over 184 corpus files** — never entered our candidate
