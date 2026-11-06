@@ -391,6 +391,7 @@ describe('toResponse', () => {
     // **The ranking before the context budget**, which on this fixture is the same two files: the budget did not bite,
     // so the two fields agree and the case is about the response shape rather than about the truncation.
     rankedFiles: ['app/auth.py', 'app/views.py'],
+    fusedFiles: ['app/auth.py', 'app/views.py'],
     rankedPool: [
       { filePath: 'app/auth.py', score: 0.033 },
       { filePath: 'app/views.py', score: 0.016 },

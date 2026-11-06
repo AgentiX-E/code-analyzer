@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { formatLocateOutput, locateRepository } from '../commands/locate.js';
+import { formatLocateOutput, locateRepository, readDeclarations } from '../commands/locate.js';
 
 describe('locateRepository', () => {
   let root: string;
@@ -97,6 +97,8 @@ describe('formatLocateOutput', () => {
         answerSpace: 2,
         truncated: true,
         importLines: 0,
+        fused: false,
+        k: null,
         unreadableFiles: 0,
         durationMs: 1,
       },
@@ -115,6 +117,8 @@ describe('formatLocateOutput', () => {
         answerSpace: 3,
         truncated: false,
         importLines: 0,
+        fused: false,
+        k: null,
         unreadableFiles: 0,
         durationMs: 1,
       },
@@ -133,6 +137,8 @@ describe('formatLocateOutput', () => {
         answerSpace: 0,
         truncated: false,
         importLines: 0,
+        fused: false,
+        k: null,
         unreadableFiles: 0,
         durationMs: 1,
         error: 'ENOENT',
@@ -153,6 +159,8 @@ describe('formatLocateOutput', () => {
         answerSpace: 0,
         truncated: false,
         importLines: 0,
+        fused: false,
+        k: null,
         unreadableFiles: 0,
         durationMs: 1,
       },
@@ -165,5 +173,119 @@ describe('formatLocateOutput', () => {
     const output = locateRepository({ question: 'cache', directory: process.cwd() });
     const parsed: unknown = JSON.parse(formatLocateOutput(output, 'json'));
     expect(parsed).toMatchObject({ success: true, question: 'cache' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The arm the caller already holds
+// ---------------------------------------------------------------------------
+
+describe('readDeclarations', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'locate-decl-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('**reads a JSON array**, which is what a program writes', () => {
+    const file = join(root, 'arms.json');
+    writeFileSync(file, '["a/A.java", "b/B.java"]\n');
+    expect(readDeclarations(file)).toEqual(['a/A.java', 'b/B.java']);
+  });
+
+  it('**reads one path per line**, which is what a shell pipeline writes', () => {
+    const file = join(root, 'arms.txt');
+    writeFileSync(file, '# the pool, best first\na/A.java\n\n  b/B.java  \n');
+    expect(readDeclarations(file)).toEqual(['a/A.java', 'b/B.java']);
+  });
+
+  it('**an empty file is an empty arm, not an error**', () => {
+    const file = join(root, 'empty.txt');
+    writeFileSync(file, '   \n\n');
+    expect(readDeclarations(file)).toEqual([]);
+  });
+
+  it('**a JSON array of something else is refused by name**, because it would fuse paths that do not exist', () => {
+    const file = join(root, 'numbers.json');
+    writeFileSync(file, '[1, 2, 3]');
+    expect(() => readDeclarations(file)).toThrow(/not an array of strings/u);
+  });
+});
+
+describe('locateRepository with a declaration arm', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'locate-fuse-cli-'));
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'Retry.java'), 'import a.core.Clock;\nclass Retry {}\n');
+    writeFileSync(join(root, 'src', 'Cache.java'), 'class Cache {}\n');
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('**fuses the two arms, reports the file-level one, and says the order is fused**', () => {
+    const output = locateRepository({
+      question: 'retry clock',
+      directory: root,
+      declarations: ['src/Cache.java'],
+    });
+    expect(output.fused).toBe(true);
+    expect(output.k).toBe(60);
+    expect(output.fileLevel?.[0]).toBe('src/Retry.java');
+    expect(output.files).toContain('src/Cache.java');
+    expect(formatLocateOutput(output, 'text')).toContain('fused with the declaration arm (k = 60)');
+  });
+
+  it('**reads the arm from a file as well as from a value**', () => {
+    const file = mkdtempSync(join(tmpdir(), 'locate-arms-'));
+    const armFile = join(file, 'arm.txt');
+    writeFileSync(armFile, 'src/Cache.java\n');
+    const output = locateRepository({
+      question: 'retry clock',
+      directory: root,
+      declarationsFile: armFile,
+    });
+    expect(output.fused).toBe(true);
+    expect(output.files).toContain('src/Cache.java');
+    rmSync(file, { recursive: true, force: true });
+  });
+
+  it('**an explicitly passed list wins over the file**, because a caller that passed both has one list', () => {
+    const armFile = join(root, 'arm.txt');
+    writeFileSync(armFile, 'src/Cache.java\n');
+    const output = locateRepository({
+      question: 'retry clock',
+      directory: root,
+      declarations: ['src/Nowhere.java'],
+      declarationsFile: armFile,
+    });
+    expect(output.files).toContain('src/Nowhere.java');
+    expect(output.files).not.toContain('src/Cache.java');
+  });
+
+  it('**a file that cannot be read is a stated failure**, not a ranking with a silent empty arm', () => {
+    const output = locateRepository({
+      question: 'retry',
+      directory: root,
+      declarationsFile: join(root, 'does-not-exist.txt'),
+    });
+    expect(output.success).toBe(false);
+    expect(output.error).toContain('does-not-exist.txt');
+    expect(output.fused).toBe(false);
+    expect(output.k).toBeNull();
+  });
+
+  it('**no arm means no fusion claim at all** in the text output', () => {
+    const output = locateRepository({ question: 'retry', directory: root });
+    expect(output.fused).toBe(false);
+    expect(output.fileLevel).toBeUndefined();
+    expect(formatLocateOutput(output, 'text')).not.toContain('fused with');
   });
 });

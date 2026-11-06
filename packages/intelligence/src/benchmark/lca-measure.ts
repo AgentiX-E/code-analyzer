@@ -17,6 +17,8 @@ import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
+import { join } from 'node:path';
+
 import {
   averagePrecision,
   checkoutBytes,
@@ -73,6 +75,15 @@ export interface MeasureInput {
   readonly maxBlocks?: number;
   /** Candidates retrieval returns before the cuts are taken. */
   readonly retrieveLimit?: number;
+  /**
+   * A file-level ranking to fuse into the product's file ranking, **repository-relative and already computed**.
+   *
+   * **Computed by the parent and handed in, because the parent is the process that survives.** The file-level arm reads
+   * one eight-kilobyte head per file and needs no parser, so it ranks the checkout the analysis is about to be killed
+   * on; computing it here would restrict it to the instances that did not need it. It is also the same reading the
+   * fallback column is scored from, so the two cannot disagree about what a file's name and imports are.
+   */
+  readonly fileSignals?: readonly string[];
 }
 
 /** The seven figures the authors' metric produces, for one instance. */
@@ -158,7 +169,18 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     store,
     search,
     ...(provider ? { provider } : {}),
-    options: { generate: Boolean(provider), rerank: Boolean(provider), maxBlocks, retrieveLimit },
+    options: {
+      generate: Boolean(provider),
+      rerank: Boolean(provider),
+      maxBlocks,
+      retrieveLimit,
+      // **The fusion is the product's, not the harness's.** `askCodebase` returns `fusedFiles` beside `rankedFiles`,
+      // so a row carries both readings and the ablation of the fusion is a subtraction of two columns rather than a
+      // second run. The arm is given in the graph's own coordinate system, which is what the store's `filePath` holds.
+      ...(input.fileSignals === undefined
+        ? {}
+        : { fileSignals: { ranked: input.fileSignals.map((file) => join(input.checkout, file)) } }),
+    },
   });
 
   // **The two halves of this comparison are recorded in different coordinate systems**, and the first published run of
@@ -179,7 +201,14 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   const offeredRaw = dedupePreservingOrder(
     result.rankedFiles.map((file) => toCorpusPath(input.checkout, file)),
   );
-  const candidates = restrictToUniverse(offeredRaw, universe);
+  // **The fused list, converted the same way**, so the two differ in the ranking and not in the coordinate system. Both
+  // are cut to the answer space by the same filter, in the same order, which is what makes the difference between their
+  // figures a difference the fusion produced.
+  const fusedRaw = dedupePreservingOrder(
+    result.fusedFiles.map((file) => toCorpusPath(input.checkout, file)),
+  );
+  const candidates = restrictToUniverse(fusedRaw, universe);
+  const declarations = restrictToUniverse(offeredRaw, universe);
   const answered = restrictToUniverse(
     result.files.map((file) => toCorpusPath(input.checkout, file)),
     universe,
@@ -245,6 +274,14 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     answerRank: firstRelevantRank(candidates.slice(0, MAP_DEPTH), input.row.changed_files),
     outside: outsideUniverse(offeredRaw, universe),
     offeredPaths: offeredRaw.slice(0, 10),
+    // **The ranking the fusion produced, in full and to the metric's depth.** The parent needs it for two things a
+    // ten-entry preview cannot support: the row's own `fusion` block, and an audit of whether a gain came from the
+    // file-level arm promoting a path the pool never ranked. Two hundred entries of a relative path is a few kilobytes
+    // on a row that already carries two byte totals and a graph count.
+    rankedPaths: candidates.slice(0, MAP_DEPTH),
+    // **The declaration arm alone**, so the fusion's net contribution is a paired subtraction on the same rows rather
+    // than a comparison between two runs of two commits.
+    declarationMap: averagePrecision(declarations, input.row.changed_files, MAP_DEPTH),
     corpusBytes: size.bytes,
     corpusUnreadable: size.unreadable,
     checkoutBytes: walked.bytes,
@@ -263,6 +300,9 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     // **The fallback, like the controls, is the parent's** - the process that survives the analysis is the only one that
     // can rank a checkout the analysis was killed on, and this rows' own instance is exactly such a checkout.
     fallback: null,
+    // **And the fused ranking is transcribed by the parent on a measured row and built by it on a refused one**, which
+    // is why it arrives as `null` here: a row does not know whether its own analysis survived it.
+    fusion: null,
     skipped: null,
     fileArms,
     retrieval,

@@ -13,8 +13,10 @@ export {
   walkSourceFiles,
 } from './search/file-tree.js';
 export type { FileTree, FileTreeOptions } from './search/file-tree.js';
-export { locateFiles } from './search/locate.js';
+export { locateFiles, FUSION_DEPTH } from './search/locate.js';
 export type { LocateOptions, LocateResult } from './search/locate.js';
+export { RRF_K, reciprocalRankFusion } from './search/fusion.js';
+export type { FusedRanking, FusedScore, FusionOptions, RankedArm } from './search/fusion.js';
 export {
   buildPathImportsIndex,
   extractImports,

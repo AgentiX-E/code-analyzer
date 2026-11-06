@@ -4,7 +4,13 @@
 // and the graph is the thing that costs memory and time; on a checkout of twenty thousand files that cost is a refusal.
 // `locate` reads a path and an import block per file and nothing else, so it answers on exactly the checkouts where the
 // rest of the product declines - and it says in its own output which of the two it did.
+//
+// **And it takes the list the caller already has.** `--declarations <file>` is a ranking from an earlier `search`, an
+// editor's symbol list, or another revision - paths, best first, one per line or as a JSON array. Measured on Long Code
+// Arena, the two readings win on different bands (the declaration pool by 0.15 on the smallest checkouts, this one by
+// 0.12 on the 200-500-file ones), so the command fuses them (`reciprocalRankFusion`, `k = 60`) rather than choosing.
 
+import { readFileSync } from 'node:fs';
 import { EOL } from 'node:os';
 
 import { locateFiles } from '@code-analyzer/intelligence';
@@ -20,6 +26,42 @@ export interface LocateCommandOptions {
   readonly format?: 'text' | 'json';
   /** Restrict the extensions, when the reader knows the answer's shape. **An empty value means the defaults.** */
   readonly extensions?: readonly string[];
+  /**
+   * A declaration ranking to fuse in, **as the caller holds it**: paths, best first.
+   *
+   * The command does not check that these paths exist in the checkout. A ranking from another revision names files this
+   * one may have deleted, and dropping them would quietly turn a fusion into an intersection.
+   */
+  readonly declarations?: readonly string[];
+  /** The same ranking, **as a file**: a JSON array of paths or one path per line, which is what a shell can produce. */
+  readonly declarationsFile?: string;
+}
+
+/**
+ * Read a declaration ranking from a file.
+ *
+ * **Two forms, because two callers produce one.** A JSON array is what a program writes; one path per line is what
+ * `git`, `grep` and a terminal pipeline write. Blank lines and `#` comments are skipped, since both forms are hand-edited
+ * often enough that a trailing newline should not become an entry named `''`.
+ *
+ * **It does not check that the paths exist.** A ranking from another revision names files this one may have deleted;
+ * filtering them would turn the fusion into an intersection, which is the opposite of what the second arm is for.
+ */
+export function readDeclarations(path: string): string[] {
+  const text = readFileSync(path, 'utf8').trim();
+  if (text === '') return [];
+  if (text.startsWith('[')) {
+    const parsed: unknown = JSON.parse(text);
+    // **Checked rather than cast**, because this file is an interface a caller writes by hand: an array of numbers
+    // would fuse as `1`, `2`, `3` and produce a ranking of paths that do not exist.
+    if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== 'string'))
+      throw new Error(`${path} is a JSON array that is not an array of strings`);
+    return parsed as string[];
+  }
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
 }
 
 export interface LocateOutput {
@@ -34,6 +76,12 @@ export interface LocateOutput {
   readonly truncated: boolean;
   /** Import statements the extraction found. **Zero means it missed the language, not that files have no imports.** */
   readonly importLines: number;
+  /** The file-level arm alone, **before any fusion** - present only when `declarations` was supplied. */
+  readonly fileLevel?: readonly string[];
+  /** Whether the printed order is a fusion of two arms. **A reader has to be able to tell.** */
+  readonly fused: boolean;
+  /** The rank constant the fusion used, or `null` when nothing was fused. */
+  readonly k: number | null;
   /** Files whose head could not be read. */
   readonly unreadableFiles: number;
   readonly durationMs: number;
@@ -49,10 +97,16 @@ export interface LocateOutput {
 export function locateRepository(options: LocateCommandOptions): LocateOutput {
   const started = Date.now();
   try {
+    // **`declarations` wins over `declarationsFile`**, because a caller that passed both has one list and one copy of it.
+    const declarations =
+      options.declarations ??
+      (options.declarationsFile === undefined ? undefined : readDeclarations(options.declarationsFile));
     const result = locateFiles(options.directory, options.question, {
       limit: options.limit ?? 10,
       extensions: options.extensions,
+      ...(declarations === undefined ? {} : { declarations }),
     });
+    const fused = result.fusion !== null;
     return {
       success: true,
       question: options.question,
@@ -61,6 +115,9 @@ export function locateRepository(options: LocateCommandOptions): LocateOutput {
       answerSpace: result.answerSpace,
       truncated: result.truncated,
       importLines: result.importLines,
+      ...(fused ? { fileLevel: result.fileLevel } : {}),
+      fused,
+      k: result.fusion === null ? null : result.fusion.k,
       unreadableFiles: result.unreadableFiles,
       durationMs: Date.now() - started,
     };
@@ -73,6 +130,8 @@ export function locateRepository(options: LocateCommandOptions): LocateOutput {
       answerSpace: 0,
       truncated: false,
       importLines: 0,
+      fused: false,
+      k: null,
       unreadableFiles: 0,
       durationMs: Date.now() - started,
       error: error instanceof Error ? error.message : String(error),
@@ -93,7 +152,8 @@ export function formatLocateOutput(output: LocateOutput, format: 'text' | 'json'
     `Answer space: ${String(output.answerSpace)} files` +
       (output.truncated ? ' (walk capped, the ranking is a lower bound)' : '') +
       ` · ${String(output.importLines)} import statements · ${String(output.unreadableFiles)} unreadable · ` +
-      `${String(output.durationMs)}ms`,
+      `${String(output.durationMs)}ms` +
+      (output.fused ? ` · fused with the declaration arm (k = ${String(output.k ?? 0)})` : ''),
     EOL,
   ];
   if (output.files.length === 0) {

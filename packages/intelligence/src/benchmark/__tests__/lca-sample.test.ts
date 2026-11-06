@@ -43,6 +43,9 @@ function row(input: {
   bm25Rank?: number | null;
   fallback?: number | null;
   fileArms?: LcaRowScore['fileArms'];
+  /** The fused figure. **Absent by default, because a fixture that invented one would test its own arithmetic.** */
+  fusion?: number | null;
+  declarationMap?: number | null;
 }): LcaRowScore {
   return {
     id: input.id,
@@ -82,7 +85,26 @@ function row(input: {
             unreadableFiles: 0,
             importLines: 0,
             ranked: [],
+            candidates: [],
+            durationMs: 5,
+            filesRead: 10,
           },
+    fusion:
+      input.fusion === undefined || input.fusion === null
+        ? null
+        : {
+            map: input.fusion,
+            rank: null,
+            fused: input.skipped === undefined || input.skipped === null,
+            arms:
+              input.skipped === undefined || input.skipped === null
+                ? ['declarations', 'file-level']
+                : ['file-level'],
+            k: 60,
+            ranked: [],
+          },
+    declarationMap: input.declarationMap ?? null,
+    rankedPaths: [],
     tfidf:
       input.tfidf === undefined || input.tfidf === null
         ? null

@@ -109,3 +109,95 @@ describe('locateFiles', () => {
     expect(result.ranked).toEqual(['a/Deleted.java']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The second arm: a declaration ranking the caller already holds
+// ---------------------------------------------------------------------------
+
+describe('locateFiles with an arm to fuse', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'locate-fuse-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function write(path: string, content: string): void {
+    mkdirSync(join(root, path, '..'), { recursive: true });
+    writeFileSync(join(root, path), content);
+  }
+
+  it('**a file only the declaration arm ranked still appears**, which is a fusion and not a filter', () => {
+    // The pool's two hundred candidates do not cover every file of a three-thousand-file checkout; the arm the caller
+    // supplies is the part of the answer the pool never reached. A result that dropped it would be an intersection
+    // wearing the name of a fusion.
+    write('src/Retry.java', 'class Retry {}\n');
+    write('src/Unrelated.java', 'class Unrelated {}\n');
+    const result = locateFiles(root, 'retry policy', {
+      declarations: ['src/Unrelated.java', 'src/Nowhere.java'],
+      limit: 5,
+    });
+    expect(result.ranked).toContain('src/Nowhere.java');
+    expect(result.ranked).toContain('src/Retry.java');
+    expect(result.fusion?.k).toBe(60);
+  });
+
+  it('**two arms that agree outrank one arm that does not**, which is what reciprocal rank buys', () => {
+    write('src/Alpha.java', 'import a.beta.Beta;\nclass Alpha {}\n');
+    write('src/Beta.java', 'class Beta {}\n');
+    const result = locateFiles(root, 'alpha', {
+      // `Beta` is second in the only arm that reaches it, so `Alpha` - first in both - wins even though the
+      // declaration arm's first entry is a file the file-level arm never saw.
+      declarations: ['src/Gamma.java', 'src/Beta.java'],
+      limit: 5,
+    });
+    expect(result.ranked[0]).toBe('src/Alpha.java');
+  });
+
+  it('**publishes the file-level arm alone beside the fusion**, so the two can be told apart', () => {
+    write('src/Alpha.java', 'class Alpha {}\n');
+    const result = locateFiles(root, 'alpha', {
+      declarations: ['src/Beta.java'],
+      limit: 5,
+    });
+    expect(result.fileLevel[0]).toBe('src/Alpha.java');
+    expect(result.fusion?.scores.find((entry) => entry.path === 'src/Beta.java')?.arms).toEqual({
+      declarations: 1 / 61,
+    });
+  });
+
+  it('**reads the file-level arm deeper than the answer it returns**, so the fused order is not decided by a cut', () => {
+    // A caller asking for one path and supplying a two-hundred-entry declaration list needs the file-level arm read to
+    // the same depth: fusing a two-hundred-long list against a one-long one makes the order depend on how many paths
+    // the reader asked to see.
+    for (let index = 0; index < 5; index += 1)
+      write(`pkg/S${String(index)}.java`, 'import a.core.Common;\nclass Holder {}\n');
+    const result = locateFiles(root, 'common core', {
+      declarations: ['pkg/S4.java'],
+      limit: 1,
+      fusionDepth: 5,
+    });
+    expect(result.ranked).toHaveLength(1);
+    expect(result.fileLevel.length).toBeGreaterThan(1);
+  });
+
+  it('**reports no fusion when no arm was given**, and says so rather than returning an empty one', () => {
+    write('pkg/A.java', 'class A {}\n');
+    const result = locateFiles(root, 'a');
+    expect(result.fusion).toBeNull();
+    expect(result.fileLevel).toEqual(result.ranked);
+  });
+
+  it('**honours a supplied rank constant**, because an ablation has to be able to run another one', () => {
+    write('pkg/A.java', 'class A {}\n');
+    const result = locateFiles(root, 'a', { declarations: ['pkg/B.java'], limit: 3, k: 10 });
+    expect(result.fusion?.k).toBe(10);
+    expect(result.fusion?.scores.find((entry) => entry.path === 'pkg/B.java')?.score).toBeCloseTo(
+      1 / 11,
+      12,
+    );
+  });
+});

@@ -48,6 +48,7 @@ const config = flagOf('--config') as LcaConfigName | undefined;
 const checkout = flagOf('--checkout');
 const rowFile = flagOf('--row');
 const out = flagOf('--out');
+const fileRanking = flagOf('--file-ranking');
 
 if (config === undefined || checkout === undefined || rowFile === undefined || out === undefined) {
   console.error(
@@ -75,13 +76,27 @@ async function main(): Promise<void> {
     process.argv.includes('--answer-arm') && process.env['DEEPSEEK_API_KEY']
       ? new DeepSeekProvider({ timeout: 45_000 })
       : null;
+  // **The parent's file-level ranking, when it produced one.** Read rather than recomputed: the parent has already read
+  // one head per file of this answer space to score the fallback column, and reading them again here would charge the
+  // same files to the job twice - which is what the nine instances iteration 76 never reached were spent on.
+  const signals =
+    fileRanking !== undefined && existsSync(fileRanking)
+      ? (JSON.parse(readFileSync(fileRanking, 'utf8')) as string[])
+      : undefined;
 
   try {
-    const scored = await measureInstance({ row, checkout: checkout!, allFiles, provider });
+    const scored = await measureInstance({
+      row,
+      checkout: checkout!,
+      allFiles,
+      provider,
+      ...(signals === undefined ? {} : { fileSignals: signals }),
+    });
     emit({ row: scored });
     console.log(
       `LCA-INSTANCE ${config!} id=${String(row.id)} measured offered=${String(scored.offered)} ` +
-        `map=${scored.map.toFixed(4)} outside=${String(scored.outside)}`,
+        `map=${scored.map.toFixed(4)} declarations=${(scored.declarationMap ?? 0).toFixed(4)} ` +
+        `outside=${String(scored.outside)}`,
     );
   } catch (error) {
     // **A repository the analyser cannot read is a fact about the repository**, and it is published as a refused row

@@ -83,6 +83,14 @@ export interface AskCodebaseResponse {
    */
   rankedFiles: string[];
   /**
+   * **The ranking after any file-level arm was fused in**, or `rankedFiles` when the caller supplied none.
+   *
+   * A separate field from `rankedFiles` because the two are different claims: one is what the declaration pool
+   * produced, the other is what the product returns when a caller also has a file-level reading. A client that shows
+   * the second while reporting the first would be describing a ranking that was never given to it.
+   */
+  fusedFiles: string[];
+  /**
    * **The declarations the ranking was read from**, one entry per candidate, in rank order.
    *
    * A file's position is a function of the declarations that live in it, so a caller holding only `rankedFiles` cannot
@@ -124,6 +132,7 @@ export function toResponse(result: AnswerResult): AskCodebaseResponse {
     })),
     files: result.files,
     rankedFiles: result.rankedFiles,
+    fusedFiles: result.fusedFiles,
     rankedPool: result.rankedPool.map((entry) => ({
       filePath: entry.filePath,
       score: entry.score,

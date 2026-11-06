@@ -24,6 +24,7 @@ import { assembleContext, contextChars, filesOf, rankCandidates } from './contex
 import { answerPrompt } from './prompt.js';
 import { resolveScope } from './scope.js';
 import { FILE_AGGREGATION, rankFiles } from '../search/file-ranking.js';
+import { reciprocalRankFusion } from '../search/fusion.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { rerankCandidates } from '../search/rerank.js';
 
@@ -64,6 +65,8 @@ export interface RetrievalOnly {
   blocks: ContextBlock[];
   /** The fused list's files in rank order, **before `maxBlocks` truncates it** - see `AnswerResult.rankedFiles`. */
   rankedFiles: string[];
+  /** The same ranking after `AskOptions.fileSignals` was fused in, or `rankedFiles` when no arm was supplied. */
+  fusedFiles: string[];
   /** The file each candidate came from, with its fused score, **one entry per declaration**. */
   rankedPool: PoolEntry[];
   candidates: number;
@@ -161,9 +164,30 @@ export async function retrieveContext(
     rankedPool.push({ filePath: file, score: candidate.score });
   }
   const rankedFiles = rankFiles(rankedPool, FILE_AGGREGATION).map((file) => file.filePath);
+  // **The second arm, fused in after the collapse.** Measured on Long Code Arena, the declaration pool and a ranking
+  // built from file paths and imports win on different bands - the pool by 0.15 on the smallest checkouts, the
+  // file-level reading by 0.12 on the 200-500-file ones - so the product does not choose between them when a caller can
+  // offer both. **Fused after the collapse rather than inside it**, because the collapse is a rule over declarations and
+  // a file-level ranking has no declarations to collapse: fusing before it would put a path with no pool score into a
+  // pool it does not belong to.
+  const fusedFiles =
+    options.fileSignals === undefined
+      ? rankedFiles
+      : [...reciprocalRankFusion(
+          [
+            { name: 'declarations', ranked: rankedFiles },
+            { name: 'file-level', ranked: options.fileSignals.ranked },
+          ],
+          // **No cut.** The union of the two arms is the ranking, and truncating it to the declaration list's length
+          // would discard exactly the files the second arm was supplied to promote - on a checkout where the pool
+          // reaches eight files and the file-level arm reaches a hundred, a cut at eight restores the recall the
+          // fusion exists to repair. The caller's own depth (`retrieveLimit`) already bounded both arms.
+          options.fileSignals.k === undefined ? {} : { k: options.fileSignals.k },
+        ).ranked];
   return {
     blocks,
     rankedFiles,
+    fusedFiles,
     rankedPool,
     candidates: fused.length,
     rerankApplied,
@@ -211,7 +235,7 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
   const options = input.options ?? {};
   const notes: string[] = [];
 
-  const { blocks, rankedFiles, rankedPool, candidates, rerankApplied, rerankReason, scope } =
+  const { blocks, rankedFiles, fusedFiles, rankedPool, candidates, rerankApplied, rerankReason, scope } =
     await retrieveContext(input);
   if (rerankApplied) notes.push('the fused list was reordered by a listwise rerank');
   else if (rerankReason) notes.push(`the fused list kept its order: ${rerankReason}`);
@@ -228,6 +252,7 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
     context: blocks,
     retrievedFiles: filesOf(blocks),
     rankedFiles,
+    fusedFiles,
     rankedPool,
     scope,
   };

@@ -924,3 +924,97 @@ describe('the scope a question implies', () => {
     expect(context.scope?.projectId).toBe('expressjs/express');
   });
 });
+
+// ---------------------------------------------------------------------------
+// The second arm, fused in
+// ---------------------------------------------------------------------------
+
+describe('file signals as a second arm', () => {
+  it('**returns the declaration ranking unchanged when no arm is supplied**', async () => {
+    // `fusedFiles` is read unconditionally by callers, so its no-arm behaviour has to be exactly `rankedFiles` rather
+    // than a re-derivation that could drift from it.
+    const fixture = buildFixture();
+    const context = await retrieveContext({
+      question: 'parse the token, then set the cookie on login',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, retrieveLimit: 50 },
+    });
+    expect(context.fusedFiles).toEqual(context.rankedFiles);
+  });
+
+  it('**a file the pool never ranked is admitted by the second arm**, and is not treated as a miss', async () => {
+    // The failure this repairs: on checkouts of 200-500 files the file-level reading scores 0.12 above the pool, and
+    // the files it promotes are the ones whose *names* the issue used and whose declarations the pool did not reach.
+    // A fusion that penalised their absence would leave them where the pool left them - nowhere.
+    const fixture = buildFixture();
+    const question = 'parse the token, then set the cookie on login';
+    const context = await retrieveContext({
+      question,
+      store: fixture.store,
+      search: fixture.search,
+      options: {
+        generate: false,
+        retrieveLimit: 50,
+        fileSignals: { ranked: ['/repo/payments/refund.py', '/repo/auth.py'] },
+      },
+    });
+    expect(context.fusedFiles[0]).toBe('/repo/payments/refund.py');
+    expect(context.fusedFiles).toContain('/repo/auth.py');
+    expect(context.fusedFiles.length).toBeGreaterThan(context.rankedFiles.length);
+  });
+
+  it('**the declaration ranking itself is not rewritten**, so a measurement can tell the two arms apart', async () => {
+    // One field holding two readings would make an ablation of the fusion impossible to compute: the artifact would
+    // have the fused order and no way to subtract the pool from it.
+    const fixture = buildFixture();
+    const { store, search } = fixture;
+    const question = 'parse the token';
+    const withoutArm = await retrieveContext({
+      question,
+      store,
+      search,
+      options: { generate: false, retrieveLimit: 50 },
+    });
+    const withArm = await retrieveContext({
+      question,
+      store,
+      search,
+      options: { generate: false, retrieveLimit: 50, fileSignals: { ranked: ['/repo/other.py'] } },
+    });
+    expect(withArm.rankedFiles).toEqual(withoutArm.rankedFiles);
+    expect(withArm.fusedFiles).not.toEqual(withoutArm.fusedFiles);
+  });
+
+  it('**the arm goes through to the answer path as well**, not only to the retrieval half', async () => {
+    const fixture = buildFixture();
+    const result = await askCodebase({
+      question: 'parse the token',
+      store: fixture.store,
+      search: fixture.search,
+      options: { generate: false, retrieveLimit: 50, fileSignals: { ranked: ['/repo/zzz.py'] } },
+    });
+    expect(result.fusedFiles[0]).toBe('/repo/zzz.py');
+  });
+
+  it('**the fused list is the union of the two arms**, and is not cut back to the pool\u2019s length', async () => {
+    // A cut at the declaration list's length would discard exactly the files the second arm was supplied to promote:
+    // on a checkout where the pool reaches two files and the file-level arm reaches four, a cut at two restores the
+    // recall the fusion exists to repair.
+    const fixture = buildFixture();
+    const context = await retrieveContext({
+      question: 'parse the token',
+      store: fixture.store,
+      search: fixture.search,
+      options: {
+        generate: false,
+        retrieveLimit: 50,
+        fileSignals: { ranked: ['/repo/a.py', '/repo/b.py', '/repo/c.py', '/repo/d.py'] },
+      },
+    });
+    expect(context.fusedFiles.length).toBe(
+      new Set([...context.rankedFiles, '/repo/a.py', '/repo/b.py', '/repo/c.py', '/repo/d.py']).size,
+    );
+    expect(context.fusedFiles.length).toBe(new Set([...context.fusedFiles]).size);
+  });
+});

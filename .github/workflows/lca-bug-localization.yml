@@ -87,10 +87,10 @@ jobs:
   measure:
     name: Measure ${{ matrix.language }} bug localisation
     runs-on: ubuntu-latest
-    # **Ninety minutes per language, and the harness states its own budget inside it** (`LCA_BUDGET_MS`): a job that
+    # **A hundred minutes per language, and the harness states its own budget inside it** (`LCA_BUDGET_MS`): a job that
     # runs out of time writes the part it has, with the rows it never reached recorded as skipped. A job cancelled from
     # outside writes nothing, which is how eleven runs produced no figure at all.
-    timeout-minutes: 90
+    timeout-minutes: 100
     strategy:
       # **One language failing must not cancel the others**, because the whole point of the shard is that a language
       # that dies costs its own column rather than the measurement.
@@ -220,7 +220,11 @@ jobs:
           # **Fifty minutes, stated by the harness rather than discovered by the job's own timeout.** The bounds module
           # projects 50 ms per file; this is the other half of the arithmetic, and a run that reaches it writes a part
           # whose unmeasured rows say so.
-          LCA_BUDGET_MS: '3000000'
+          # **Seventy minutes, raised from fifty because the previous run lost nine instances to it.** Iteration 76
+          # added a file-level arm that the parent reads before each child starts, and the fifty-minute budget that had
+          # covered 150 instances covered 141: the nine were not refused by a bound, they were never examined. The job
+          # timeout is a hundred minutes, so this leaves thirty for the merge and the gates.
+          LCA_BUDGET_MS: '4200000'
           LCA_ANSWER_ARM: ${{ github.event.inputs.answer_arm || '0' }}
           # **The ceiling one instance may reach, enforced by the supervisor rather than promised by the harness.**
           # Every earlier bound was a statement about the machine: `room` was computed from the runner's sixteen

@@ -154,6 +154,16 @@ export interface Stratum {
    */
   readonly fallback: number | null;
   readonly fallbackRows: number;
+  /**
+   * **The product's fused ranking over every attempted row of the band**, and how many rows carried one.
+   *
+   * The column `fallback` cannot be: a fallback is what the product does *instead of* the analysis, while this is what
+   * it does *with the file-level arm alongside* the analysis on the rows that ran. On a band where both exist the
+   * difference between this and `ours` is the fusion's contribution, and on a band nothing measured it declines to
+   * `fallback` by construction - which is why the two counts are published rather than one.
+   */
+  readonly fusion: number | null;
+  readonly fusionRows: number;
   /** The primary control's mean average precision over **every** row of this band that has one. */
   readonly bm25: number | null;
   /** How many rows in this band carry a primary-control figure. */
@@ -224,6 +234,29 @@ export function fallbackOf(rows: readonly LcaRowScore[]): { value: number | null
     .filter((value): value is number => typeof value === 'number');
   return { value: values.length === 0 ? null : mean(values), rows: values.length };
 }
+
+/**
+ * The product's fused ranking for a row: **the declaration arm and the file-level arm where both ran, the file-level
+ * arm alone where the analysis was refused.**
+ *
+ * Not `row.map`, which is zero on a refused row because there is no ranking to report - a zero that means "no ranking"
+ * and a zero that means "ranked everything wrong" are the same number and different facts, and this selector is the one
+ * that keeps them apart.
+ */
+export function fusionMapOf(row: LcaRowScore): number | undefined {
+  return row.fusion?.map;
+}
+
+/** The fused figure's mean over the rows that carry one. **Every attempted row carries one**, which is its point. */
+export function fusionOf(rows: readonly LcaRowScore[]): { value: number | null; rows: number } {
+  const values = rows
+    .map(fusionMapOf)
+    .filter((value): value is number => typeof value === 'number');
+  return { value: values.length === 0 ? null : mean(values), rows: values.length };
+}
+
+/** The declaration arm alone, **which exists only where the analysis produced a pool**. */
+export const DECLARATIONS: RowReading = (row) => row.declarationMap;
 
 /**
  * Two rankings over **the same rows**, which is what makes their difference a difference.
@@ -299,6 +332,7 @@ export function stratify(
     const control = controlOf(band, BM25_MAP);
     const second = controlOf(band, TFIDF_MAP);
     const fallback = fallbackOf(band);
+    const fused = fusionOf(band);
     return {
       label: to === null ? `${String(from)}+ files` : `${String(from)}-${String(to)} files`,
       from,
@@ -311,6 +345,8 @@ export function stratify(
       vsTfidf: pairedMeans(band, TFIDF_MAP),
       fallback: fallback.value,
       fallbackRows: fallback.rows,
+      fusion: fused.value,
+      fusionRows: fused.rows,
       bm25: control.value,
       bm25Rows: control.rows,
       tfidf: second.value,

@@ -28,6 +28,24 @@ export interface FallbackResult {
   readonly importLines: number;
   /** The first ten of the ranking, so a reader can see why the number is what it is. */
   readonly ranked: readonly string[];
+  /**
+   * The ranking at the full depth the arm was scored at, **which is the list the child fuses with**.
+   *
+   * Published rather than kept for one reason: the fusion that the product runs inside the child needs this arm, and the
+   * parent is the only process that can build it before the child is killed. Handing over the ten paths a reader sees
+   * would fuse against a truncated arm and put the cut in charge of the order.
+   */
+  readonly candidates: readonly string[];
+  /**
+   * How long the arm took, in milliseconds, **and how many files it read to produce this figure**.
+   *
+   * Published per row because the column is paid for out of the same clock as the instances: on the run that added it,
+   * 80 137 head reads came out of a fifty-minute budget and nine instances were never examined. A cost published as a
+   * total says that happened; a cost published per row says which instances it happened on.
+   */
+  readonly durationMs: number;
+  /** Files whose head was opened, **which is the answer space and not the checkout**. */
+  readonly filesRead: number;
 }
 
 /** Score one checkout's path-and-imports ranking against the fixing commit. */
@@ -38,6 +56,7 @@ export function fallbackArm(input: {
   readonly expected: readonly string[];
   readonly depth: number;
 }): FallbackResult {
+  const started = Date.now();
   const result = pathImportsRanking({
     checkout: input.checkout,
     files: input.files,
@@ -51,5 +70,8 @@ export function fallbackArm(input: {
     unreadableFiles: result.unreadableFiles,
     importLines: result.importLines,
     ranked: result.ranked.slice(0, 10),
+    candidates: result.ranked,
+    durationMs: Date.now() - started,
+    filesRead: input.files.length,
   };
 }

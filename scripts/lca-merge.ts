@@ -28,7 +28,10 @@ import {
   armComparison,
   BOOTSTRAP_RESAMPLES,
   BOOTSTRAP_SEED,
+  DECLARATIONS,
   TFIDF_MAP,
+  fusionMapOf,
+  fusionOf,
   fallbackMapOf,
   fallbackOf,
   pairedBetween,
@@ -349,6 +352,27 @@ function main(): void {
   // competitor: if a path and its imports outrank the whole analyser's pool on the same instances, the pool is losing
   // information the file's own name carried.
   const fallbackVsOurs = pairedBetween(allRows, fallbackMapOf, OURS);
+  // **The fused column**, which is the product's ranking as it actually returns it: both arms where the analysis ran,
+  // the file-level arm alone where it was refused. Its denominator is the run, like the fallback's - the difference is
+  // that on a measured instance it is a fusion rather than a substitute.
+  const fusionOverall = fusionOf(allRows);
+  const fusionByLanguage = Object.fromEntries(
+    parts.map((part) => [
+      part.config,
+      {
+        attempted: part.rows.length,
+        fused: part.rows.filter((row) => row.fusion?.fused === true).length,
+        ...fusionOf(part.rows),
+      },
+    ]),
+  );
+  // **The fusion's own contribution**, which is a paired subtraction inside one run rather than a comparison between
+  // two commits: the same pool, the same aggregation, with and without the file-level arm.
+  const fusionVsDeclarations = pairedBetween(allRows, fusionMapOf, DECLARATIONS);
+  // **And against the competitor on the same instances**, because the fused figure is what a reader would quote.
+  const fusionVsBm25 = pairedBetween(allRows, fusionMapOf, (row) => row.bm25?.map);
+  const fusionVsTfidf = pairedBetween(allRows, fusionMapOf, (row) => row.tfidf?.map);
+  const fusedRowCount = allRows.filter((row) => row.fusion?.fused === true).length;
   const pairsBm25 = allRows
     .filter((row) => row.skipped === null && typeof row.bm25?.map === 'number')
     .map((row) => ({ ours: row.map, control: row.bm25!.map }));
@@ -593,7 +617,41 @@ function main(): void {
         share: allRows.length === 0 ? 0 : fallbackOverall.rows / allRows.length,
         importLines: allRows.reduce((sum, row) => sum + (row.fallback?.importLines ?? 0), 0),
       },
+      /**
+       * **What the column cost, in the two currencies the run is spent in.** The fallback reads one head per file of
+       * every answer space before the child is started, so its bytes come out of the same clock and the same runner as
+       * the instances - and on the run that added the column, that was nine instances nobody examined. A cost published
+       * as a total says it happened; a cost published here, per row and summed, says where.
+       */
+      cost: {
+        rows: allRows.filter((row) => row.fallback !== null).length,
+        totalMs: allRows.reduce((sum, row) => sum + (row.fallback?.durationMs ?? 0), 0),
+        meanMs:
+          allRows.filter((row) => row.fallback !== null).length === 0
+            ? null
+            : Math.round(
+                allRows.reduce((sum, row) => sum + (row.fallback?.durationMs ?? 0), 0) /
+                  allRows.filter((row) => row.fallback !== null).length,
+              ),
+        filesRead: allRows.reduce((sum, row) => sum + (row.fallback?.filesRead ?? 0), 0),
+      },
       overall: fallbackOverall,
+      /**
+       * **The composite the previous iteration left to arithmetic**: a measured row's analysis figure where one exists,
+       * this fallback's where the analysis was refused.
+       *
+       * Published as a field because a figure published as a rule is a figure the reader has to compute - and a reader
+       * who computes it differently publishes a different one. `rows` is the number of instances in it, so a reader can
+       * see that its denominator is the run. **It equals `fusion.overall` by construction** and the gate refuses an
+       * artifact where the two disagree, which is how a drift between the two blocks is told from a coincidence.
+       */
+      degraded: {
+        map: fusionOverall.value,
+        rows: fusionOverall.rows,
+        because:
+          'a measured instance contributes its analysis figure, a refused one contributes this fallback’s, and the ' +
+          'mean is taken over the union - which is the only reading whose denominator is the protocol',
+      },
       byLanguage: fallbackByLanguage,
       pairedVsControl: { bm25: fallbackVsBm25, tfidf: fallbackVsTfidf },
       /** **The mechanism test**: the fallback against our own analysis, on the instances both ranked. */
@@ -603,6 +661,49 @@ function main(): void {
         'space to rank, so a mean in `overall` is a mean over the protocol rather than over the part of it that fitted. ' +
         '`pairedVsControl` is a difference of two rankings of the same files; the one asymmetry is the control’s ' +
         'document cap, stated in its own block and in every row as `skippedFiles`.',
+    },
+    /**
+     * **The product's ranking as it actually returns it**, and the first column whose figure is the product's own.
+     *
+     * Two iterations ago this project published the analysis's mean over the rows that fitted and called it the
+     * product's. The iteration before this one added a fallback and published *that* over the whole run, which was
+     * honest about the denominator and wrong about the product: the product does not degrade to a path-and-imports
+     * ranking when the analysis succeeds, it uses the analysis **and** fuses the file-level arm into it.
+     *
+     * `overall` here is that: the declaration arm and the file-level arm fused by `reciprocalRankFusion` (`k = 60`,
+     * unweighted) on every instance the analysis produced a pool for, and the file-level arm alone on the ones it did
+     * not. **`coverage.fused` says how many rows were the first kind and `coverage.declined` how many were the second**,
+     * because a mean over a mixture that does not state the mixture is the defect this whole artifact exists to remove.
+     */
+    fusion: {
+      name: 'declarations + path/imports (reciprocal rank fusion)',
+      configuration: {
+        fusion: 'reciprocal rank fusion, unweighted, k = 60 (Cormack, Clarke and Büttcher, SIGIR 2009)',
+        arms: ['the declaration pool, collapsed to files by the shipped aggregation', 'the file-level arm of `fallback`'],
+        k: allRows.find((row) => row.fusion !== null)?.fusion?.k ?? null,
+        order:
+          'fused after the collapse, because the collapse is a rule over declarations and a file-level ranking has no ' +
+          'declarations to collapse',
+        declined:
+          'a refused instance fuses one arm, because the declaration arm is the analysis that was refused; the row ' +
+          'says `fused: false` and the count is in `coverage.declined`',
+      },
+      coverage: {
+        rows: fusionOverall.rows,
+        attempted: allRows.length,
+        share: allRows.length === 0 ? 0 : fusionOverall.rows / allRows.length,
+        fused: fusedRowCount,
+        declined: fusionOverall.rows - fusedRowCount,
+      },
+      overall: fusionOverall,
+      byLanguage: fusionByLanguage,
+      /** **The fusion's own contribution**, paired inside one run: the same pool, with and without the second arm. */
+      pairedVsDeclarations: fusionVsDeclarations,
+      pairedVsControl: { bm25: fusionVsBm25, tfidf: fusionVsTfidf },
+      note:
+        'On the rows where the analysis ran, `pairedVsDeclarations` is the fusion’s net contribution and is the only ' +
+        'figure here in which nothing but the second arm differs. On the rows where it did not, this column declines ' +
+        'to the file-level arm and says so per row; the two kinds are never averaged without `coverage` beside them.',
     },
     /**
      * **The paired comparison**, which is the only figure here in which repository size cannot be the explanation.
@@ -672,6 +773,14 @@ function main(): void {
         fallbackRank: row.fallback === null ? null : row.fallback.rank,
         fallbackDocuments: row.fallback === null ? null : row.fallback.documents,
         importLines: row.fallback === null ? null : row.fallback.importLines,
+        /** **The product's own ranking on this instance**, fused or declined, and whether both arms took part. */
+        fusionMap: row.fusion === null ? null : row.fusion.map,
+        fusionRank: row.fusion === null ? null : row.fusion.rank,
+        fusionFused: row.fusion === null ? null : row.fusion.fused,
+        /** The declaration arm alone, **so the fusion's contribution is a subtraction inside this row**. */
+        declarationMap: row.declarationMap,
+        /** The fused list itself, to the metric's depth: a figure whose order a reader cannot check is an assertion. */
+        rankedPaths: row.rankedPaths,
         peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
         elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
         map: row.map,
@@ -787,6 +896,8 @@ function main(): void {
         `pairedRows=${String(pairedBm25.rows)} ` +
         `fallback=${stratum.fallback === null ? 'none' : stratum.fallback.toFixed(4)} ` +
         `fallbackRows=${String(stratum.fallbackRows)} ` +
+        `fusion=${stratum.fusion === null ? 'none' : stratum.fusion.toFixed(4)} ` +
+        `fusionRows=${String(stratum.fusionRows)} ` +
         `bm25Band=${stratum.bm25 === null ? 'none' : stratum.bm25.toFixed(4)} ` +
         `tfidfBand=${stratum.tfidf === null ? 'none' : stratum.tfidf.toFixed(4)}`,
     );
@@ -797,6 +908,15 @@ function main(): void {
       `vsBm25=${fallbackVsBm25.delta === null ? 'none' : fallbackVsBm25.delta.toFixed(4)} ` +
       `vsTfidf=${fallbackVsTfidf.delta === null ? 'none' : fallbackVsTfidf.delta.toFixed(4)} ` +
       `vsOurs=${fallbackVsOurs.delta === null ? 'none' : fallbackVsOurs.delta.toFixed(4)}`,
+  );
+  console.log(
+    `LCA-FUSION rows=${String(fusionOverall.rows)}/${String(allRows.length)} ` +
+      `fused=${String(fusedRowCount)} declined=${String(fusionOverall.rows - fusedRowCount)} ` +
+      `map=${fusionOverall.value === null ? 'none' : fusionOverall.value.toFixed(4)} ` +
+      `vsDeclarations=${fusionVsDeclarations.delta === null ? 'none' : fusionVsDeclarations.delta.toFixed(4)} ` +
+      `declarationRows=${String(fusionVsDeclarations.rows)} ` +
+      `vsBm25=${fusionVsBm25.delta === null ? 'none' : fusionVsBm25.delta.toFixed(4)} ` +
+      `vsTfidf=${fusionVsTfidf.delta === null ? 'none' : fusionVsTfidf.delta.toFixed(4)}`,
   );
   // **The two controls one line each**, so the gap can be attributed to a formula or to lexical retrieval before the
   // headline pairing is read. `delta` is `ours - control` on the rows the two share; a reader who wants only the primary

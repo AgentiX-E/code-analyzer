@@ -439,11 +439,121 @@ function main() {
     `fallback: coverage claims ${String(fallbackCoverage?.rows)} rows against the ${String(rowsWithFallback)} rows ` +
       'that carry a fallback figure - the two must be the same count, or the coverage is a claim',
   );
+  // **The cost of the column, which is the one number that explains a sample smaller than the protocol.** A fallback
+  // that reads one head per file before every child is started is paid for out of the instances' clock; publishing the
+  // total and the files it read is what turns "nine instances were not examined" into an arithmetic the next run can act
+  // on. A block that described the column and not its cost would be a column that appeared to be free.
+  const fallbackCost = at(record, ['fallback', 'cost']);
+  guard(
+    typeof fallbackCost?.totalMs === 'number' && typeof fallbackCost?.filesRead === 'number',
+    'fallback.cost: absent - a column that reads a head per file per instance has a cost, and a block that does not ' +
+      'publish it is describing a free instrument',
+  );
   const fallbackVsOurs = at(record, ['fallback', 'pairedVsOurs']);
   guard(
     typeof fallbackVsOurs?.rows === 'number' && fallbackVsOurs.rows === paired?.rows,
     `fallback.pairedVsOurs: ${String(fallbackVsOurs?.rows)} rows against ${String(paired?.rows)} on the figure - the ` +
       'mechanism test has to be over the instances both instruments ranked',
+  );
+
+  // **The ninth invariant: the fused column, which is the product's ranking as it actually returns it.**
+  //
+  // The fallback above is what the product does *instead of* the analysis on the instances it refuses. This is what it
+  // does *with* the file-level arm available: the declaration arm and the file-level arm fused by reciprocal rank on
+  // every instance the analysis ran, and the file-level arm alone on the ones it did not. **Three things can go wrong
+  // and each has a check**: a mean over fewer rows than the column claims, a mixture whose split is not published, and
+  // a row whose `fused` flag contradicts its own `skipped` sentence.
+  const fusionCoverage = at(record, ['fusion', 'coverage']);
+  const fusionOverall = at(record, ['fusion', 'overall']);
+  const fusionBlock = at(record, ['fusion']);
+  guard(
+    fusionBlock !== null &&
+      typeof fusionBlock?.configuration?.fusion === 'string' &&
+      /reciprocal rank/u.test(String(fusionBlock?.configuration?.fusion)) &&
+      typeof fusionCoverage?.rows === 'number' &&
+      fusionCoverage.rows > 0,
+    'fusion: absent, empty, or silent about the arithmetic - a fused column that does not name its fusion is a name ' +
+      'rather than a method',
+  );
+  guard(
+    fusionOverall?.rows === fusionCoverage?.rows,
+    `fusion: overall is a mean over ${String(fusionOverall?.rows)} rows while coverage claims ` +
+      `${String(fusionCoverage?.rows)} - the same defect the fallback block was built to prevent`,
+  );
+  guard(
+    typeof fusionCoverage?.rows === 'number' &&
+      typeof fusionCoverage?.fused === 'number' &&
+      typeof fusionCoverage?.declined === 'number' &&
+      fusionCoverage.fused + fusionCoverage.declined === fusionCoverage.rows,
+    `fusion: ${String(fusionCoverage?.fused)} fused + ${String(fusionCoverage?.declined)} declined is not ` +
+      `${String(fusionCoverage?.rows)} - a mean over a mixture whose split is not published is a mixture`,
+  );
+  let rowsWithFusion = 0;
+  let fusedRows = 0;
+  let declinedRows = 0;
+  let fusionMapMismatch = 0;
+  let fusionFlagMismatch = 0;
+  for (const row of rowsOf) {
+    if (typeof row?.fusionMap !== 'number') continue;
+    rowsWithFusion += 1;
+    if (row?.fusionFused === true) fusedRows += 1;
+    else declinedRows += 1;
+    // **A measured row's fused figure *is* the row's figure.** They are written by two processes - the child computes
+    // the ranking, the parent transcribes it - and a disagreement means one of them is describing a different run.
+    if (row?.skipped === null && row?.fusionMap !== row?.map) fusionMapMismatch += 1;
+    // **And the flag has to match the sentence.** A row that was refused cannot claim two arms: the declaration arm is
+    // the analysis that was refused, so a `fused: true` on it would be a claim about a ranking that never existed.
+    if ((row?.skipped === null) !== (row?.fusionFused === true)) fusionFlagMismatch += 1;
+  }
+  guard(
+    rowsWithFusion === fusionCoverage?.rows,
+    `fusion: coverage claims ${String(fusionCoverage?.rows)} rows against the ${String(rowsWithFusion)} rows that ` +
+      'carry a fused figure',
+  );
+  guard(
+    fusedRows === fusionCoverage?.fused && declinedRows === fusionCoverage?.declined,
+    `fusion: the rows say ${String(fusedRows)} fused and ${String(declinedRows)} declined where the block says ` +
+      `${String(fusionCoverage?.fused)} and ${String(fusionCoverage?.declined)}`,
+  );
+  guard(
+    fusionMapMismatch === 0,
+    `rows: ${String(fusionMapMismatch)} measured rows publish a fused figure that is not the row's own - the child ` +
+      'computed one ranking and the parent transcribed another',
+  );
+  guard(
+    fusionFlagMismatch === 0,
+    `rows: ${String(fusionFlagMismatch)} rows have a fused flag that contradicts their skipped sentence`,
+  );
+  guard(
+    typeof fusionCoverage?.fused === 'number' &&
+      typeof sample?.measured === 'number' &&
+      fusionCoverage.fused === sample.measured,
+    `fusion: ${String(fusionCoverage?.fused)} fused rows against ${String(sample?.measured)} measured - a measured ` +
+      'row ran both arms by construction, so the two counts cannot differ',
+  );
+  const fusionVsDeclarations = at(record, ['fusion', 'pairedVsDeclarations']);
+  guard(
+    typeof fusionVsDeclarations?.rows === 'number' && fusionVsDeclarations.rows === paired?.rows,
+    `fusion.pairedVsDeclarations: ${String(fusionVsDeclarations?.rows)} rows against ${String(paired?.rows)} on the ` +
+      'figure - the ablation has to be over the rows the analysis ran',
+  );
+  if (typeof fusionVsDeclarations?.delta === 'number') {
+    guard(
+      Math.abs(
+        fusionVsDeclarations.delta - (fusionVsDeclarations.ours - fusionVsDeclarations.control),
+      ) < 1e-3,
+      `fusion.pairedVsDeclarations: delta ${String(fusionVsDeclarations.delta)} is not the difference of its own ` +
+        `two means (${String(fusionVsDeclarations.ours)} - ${String(fusionVsDeclarations.control)})`,
+    );
+  }
+  const fallbackDegraded = at(record, ['fallback', 'degraded']);
+  guard(
+    typeof fallbackDegraded?.map === 'number' &&
+      fallbackDegraded.map === fusionOverall?.value &&
+      fallbackDegraded?.rows === fusionOverall?.rows,
+    `fallback.degraded: ${String(fallbackDegraded?.map)} over ${String(fallbackDegraded?.rows)} rows against the ` +
+      `fused column's ${String(fusionOverall?.value)} over ${String(fusionOverall?.rows)} - one composite described ` +
+      'twice has to be the same number twice',
   );
 
   // **The ninth invariant: no band may publish two means over two samples on one line.**
@@ -474,6 +584,11 @@ function main() {
       typeof stratum?.fallbackRows === 'number' && stratum.fallbackRows >= stratum.measured,
       `stratified.${label}: ${String(stratum?.fallbackRows)} fallback rows against ${String(stratum?.measured)} ` +
         'measured - a band where the fallback covered less than the analysis did',
+    );
+    guard(
+      typeof stratum?.fusionRows === 'number' && stratum.fusionRows >= stratum.measured,
+      `stratified.${label}: ${String(stratum?.fusionRows)} fused rows against ${String(stratum?.measured)} measured ` +
+        '- the fused column exists on every attempted row, so a band cannot have fewer than it measured',
     );
   }
 
@@ -519,7 +634,17 @@ function main() {
         `${typeof fallbackVsOurs?.delta === 'number' ? fallbackVsOurs.delta.toFixed(4) : 'none'} | ` +
         `a figure on every attempted row | ${fallbackOverall?.rows === fallbackCoverage?.rows ? '✓' : '✗'} |`
       : '| fallback: path + imports | not measured | a figure on every attempted row | ✗ |';
-  rows.push(sampleLine, pairedLine, crossPairedLine, diagnosisLine, fallbackLine);
+  const fusionVsDeclarationsLine = at(record, ['fusion', 'pairedVsDeclarations']);
+  const fusionLine =
+    typeof fusionOverall?.value === 'number'
+      ? `| fused: declarations + path/imports | ${fusionOverall.value.toFixed(4)} · ` +
+        `${String(fusionCoverage?.rows)}/${String(sample?.attempted)} instances ` +
+        `(${String(fusionCoverage?.fused)} fused, ${String(fusionCoverage?.declined)} declined) · vs declarations ` +
+        `${typeof fusionVsDeclarationsLine?.delta === 'number' ? fusionVsDeclarationsLine.delta.toFixed(4) : 'none'} | ` +
+        "the product's own ranking, on every attempted row | " +
+        `${fusionOverall?.rows === fusionCoverage?.rows && fusionMapMismatch === 0 ? '✓' : '✗'} |`
+      : "| fused: declarations + path/imports | not measured | the product's own ranking | ✗ |";
+  rows.push(sampleLine, pairedLine, crossPairedLine, diagnosisLine, fallbackLine, fusionLine);
   for (const stratum of strata) {
     const vsBm25 = stratum?.vsBm25 ?? {};
     rows.push(
@@ -527,7 +652,8 @@ function main() {
         `${typeof stratum?.ours === 'number' ? stratum.ours.toFixed(4) : 'none'} · BM25 ` +
         `${typeof vsBm25.control === 'number' ? vsBm25.control.toFixed(4) : 'none'} · Δ ` +
         `${typeof vsBm25.delta === 'number' ? vsBm25.delta.toFixed(4) : 'none'} · fallback ` +
-        `${typeof stratum?.fallback === 'number' ? stratum.fallback.toFixed(4) : 'none'} | ` +
+        `${typeof stratum?.fallback === 'number' ? stratum.fallback.toFixed(4) : 'none'} · fused ` +
+        `${typeof stratum?.fusion === 'number' ? stratum.fusion.toFixed(4) : 'none'} | ` +
         `${String(stratum?.measured)} measured of ${String(stratum?.attempted)} attempted | ` +
         `${typeof vsBm25.delta === 'number' || stratum?.measured === 0 ? '✓' : '✗'} |`,
     );

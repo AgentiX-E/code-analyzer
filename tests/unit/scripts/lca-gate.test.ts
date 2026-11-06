@@ -169,12 +169,32 @@ function baseRecord(): Record<string, unknown> {
       configuration: { document: 'the path followed by the module names of its import statements' },
       coverage: { rows: 3, attempted: 3, share: 1, importLines: 12 },
       overall: { value: 0.3, rows: 3 },
+      degraded: { map: 0.3333, rows: 3, because: 'a measured row contributes its analysis figure, a refused one this' },
+      cost: { rows: 3, totalMs: 1_200, meanMs: 400, filesRead: 5_020 },
       byLanguage: { kt: { attempted: 3, value: 0.3, rows: 3 } },
       pairedVsControl: {
         bm25: { rows: 3, ours: 0.3, control: 0.2, delta: 0.1 },
         tfidf: { rows: 3, ours: 0.3, control: 0.21, delta: 0.09 },
       },
       pairedVsOurs: { rows: 2, ours: 0.3, control: 0.4, delta: -0.1 },
+    },
+    // **The fused column: the product's ranking as it actually returns it.** Two rows ran both arms and one was
+    // refused, so the mixture's split is published beside its mean - the defect this block exists to make impossible.
+    fusion: {
+      name: 'declarations + path/imports (reciprocal rank fusion)',
+      configuration: {
+        fusion: 'reciprocal rank fusion, unweighted, k = 60',
+        arms: ['declarations', 'file-level'],
+        k: 60,
+      },
+      coverage: { rows: 3, attempted: 3, share: 1, fused: 2, declined: 1 },
+      overall: { value: 0.3333, rows: 3 },
+      byLanguage: { kt: { attempted: 3, fused: 2, value: 0.3333, rows: 3 } },
+      pairedVsDeclarations: { rows: 2, ours: 0.4, control: 0.35, delta: 0.05 },
+      pairedVsControl: {
+        bm25: { rows: 3, ours: 0.3333, control: 0.1833, delta: 0.15 },
+        tfidf: { rows: 3, ours: 0.3333, control: 0.2067, delta: 0.1267 },
+      },
     },
     // **Every band carries a paired object with its own row count**, so the reader cannot subtract our mean over the
     // measured rows from the control's over the whole band - the subtraction that published a 0.0037 Java win.
@@ -192,6 +212,8 @@ function baseRecord(): Record<string, unknown> {
         vsTfidf: { rows: 2, ours: 0.4, control: 0.25, delta: 0.15 },
         fallback: 0.35,
         fallbackRows: 2,
+        fusion: 0.4,
+        fusionRows: 2,
       },
       {
         label: '2000+ files',
@@ -206,6 +228,8 @@ function baseRecord(): Record<string, unknown> {
         vsTfidf: { rows: 0, ours: null, control: null, delta: null },
         fallback: 0.2,
         fallbackRows: 1,
+        fusion: 0.2,
+        fusionRows: 1,
       },
     ],
     // **The armature, with two measured rows behind it.** The shipped arm repeats each row's own figures, which is
@@ -227,6 +251,9 @@ function baseRecord(): Record<string, unknown> {
         bm25Map: 0.3,
         fallbackMap: 0.4,
         tfidfMap: 0.35,
+        fusionMap: 0.5,
+        fusionFused: true,
+        declarationMap: 0.4,
         fileArms: [
           { aggregation: 'max', map: 0.5, answerRank: 1 },
           { aggregation: 'sum', map: 0.6, answerRank: 1 },
@@ -244,6 +271,9 @@ function baseRecord(): Record<string, unknown> {
         bm25Map: 0.14,
         fallbackMap: 0.2,
         tfidfMap: 0.15,
+        fusionMap: 0.3,
+        fusionFused: true,
+        declarationMap: 0.3,
         fileArms: [
           { aggregation: 'max', map: 0.3, answerRank: 3 },
           { aggregation: 'sum', map: 0.2, answerRank: 4 },
@@ -261,6 +291,9 @@ function baseRecord(): Record<string, unknown> {
         bm25Map: 0.11,
         fallbackMap: 0.2,
         tfidfMap: 0.12,
+        fusionMap: 0.2,
+        fusionFused: false,
+        declarationMap: null,
         fileArms: null,
       },
     ],
@@ -353,6 +386,19 @@ describe('lca gate', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('a mean over fewer rows than it claims is a favourable subset');
+  });
+
+  it('**refuses a column that describes itself and not what it cost**', () => {
+    // The fallback reads a head per file of every answer space before each child starts, out of the same clock - which
+    // is why nine instances of the run that added it were never examined. A block that omits the cost describes a free
+    // instrument.
+    const run = runGate(
+      mutated((record) => {
+        delete (record['fallback'] as Record<string, unknown>)['cost'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('fallback.cost: absent');
   });
 
   it('refuses a row that had an answer space and produced no fallback figure', () => {
@@ -690,5 +736,97 @@ describe('lca gate', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('without a TF-IDF');
+  });
+});
+
+describe('lca gate — the fused column', () => {
+  it('**passes a record that publishes the mixture it averaged**', () => {
+    const run = runGate(baseRecord());
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('fused: declarations + path/imports');
+  });
+
+  it('**refuses a fused column that does not name its fusion**, because a name is not a method', () => {
+    const run = runGate(
+      mutated((record) => {
+        delete (record['fusion'] as Record<string, unknown>)['configuration'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('fusion: absent, empty, or silent about the arithmetic');
+  });
+
+  it('**refuses a mixture whose split does not add up to its rows**', () => {
+    // A mean over a mixture that does not publish the mixture is the defect the whole artifact exists to remove: the
+    // figure is over rows that ran two arms and rows that ran one, and a reader cannot weigh it without the counts.
+    const run = runGate(
+      mutated((record) => {
+        (record['fusion'] as Record<string, unknown>)['coverage'] = {
+          rows: 3,
+          attempted: 3,
+          share: 1,
+          fused: 3,
+          declined: 1,
+        };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a mean over a mixture whose split is not published');
+  });
+
+  it('**refuses a row whose fused flag contradicts its skipped sentence**', () => {
+    // A refused row cannot claim two arms: the declaration arm *is* the analysis that was refused, so `fused: true` on
+    // it is a claim about a ranking that never existed.
+    const run = runGate(
+      mutated((record) => {
+        const rowsList = record['rows'] as Record<string, unknown>[];
+        rowsList[2]!['fusionFused'] = true;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('contradicts their skipped sentence');
+  });
+
+  it('**refuses a measured row whose fused figure is not the row’s own**', () => {
+    // Two processes write this row - the child computes the ranking, the parent transcribes it - so a disagreement
+    // means one of them is describing a different run.
+    const run = runGate(
+      mutated((record) => {
+        const rowsList = record['rows'] as Record<string, unknown>[];
+        rowsList[0]!['fusionMap'] = 0.4999;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('publish a fused figure that is not the row');
+  });
+
+  it('**refuses a fused coverage whose count of two-armed rows is not the measured count**', () => {
+    const run = runGate(
+      mutated((record) => {
+        (record['fusion'] as Record<string, unknown>)['coverage'] = {
+          rows: 3,
+          attempted: 3,
+          share: 1,
+          fused: 1,
+          declined: 2,
+        };
+        const rowsList = record['rows'] as Record<string, unknown>[];
+        rowsList[1]!['fusionFused'] = false;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a measured row ran both arms by construction');
+  });
+
+  it('**refuses two descriptions of one composite that disagree**', () => {
+    // `fallback.degraded` and `fusion.overall` are the same arithmetic written twice, and the gate is what keeps the
+    // two blocks from drifting into two published figures for one quantity.
+    const run = runGate(
+      mutated((record) => {
+        (record['fallback'] as Record<string, unknown>)['degraded'] = { map: 0.34, rows: 3 };
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('one composite described');
   });
 });

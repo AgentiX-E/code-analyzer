@@ -1,0 +1,110 @@
+// @code-analyzer/intelligence — fusing a declaration ranking with a file-level one
+//
+// **Two instruments were measured and each wins where the other loses.** On Long Code Arena's 200-500-file band the
+// analyser's declaration pool scores **0.2925** while a ranking built from a file's path and its import statements
+// scores **0.4130**; on the 0-50-file band the pool scores **0.6465** and the file-level reading **0.5010**. A product
+// that chose between them would be choosing which quarter of the corpus to be wrong about. Fusing is the alternative,
+// and this module is the fusion.
+//
+// **Reciprocal rank fusion, because it has no parameter to fit.** The two arms score on scales that are not comparable -
+// a BM25 weight over a bag of words and a fused graph score over declarations - and every alternative to RRF needs a
+// normalisation chosen on the corpus being measured. RRF reads only **positions**: a path at rank *r* of an arm
+// contributes `1 / (k + r)` with `k = 60`, the value the information-retrieval literature settled on (Cormack, Clarke
+// and Büttcher, SIGIR 2009) and the one this project states rather than tunes. **A fusion with a tuned `k` is a fusion
+// fitted to the split it was measured on**, and the next split would not have it.
+//
+// **Equal weight, and the absence of a weight is a decision.** A weighted fusion would need the weights, the weights
+// would come from this corpus, and the ablation that produced them would be indistinguishable from the result it
+// explains. What this module publishes instead is each path's contribution **per arm**, so the artifact can show that a
+// fusion gain came from the file-level arm carrying a path the pool never ranked rather than from arithmetic.
+//
+// **A path absent from an arm contributes nothing rather than a penalty.** The pool returns two hundred declarations; an
+// implementation that treated "not in the pool" as "last" would double the penalty for every file the pool did not
+// reach, which is exactly the failure the fusion exists to repair.
+
+/** The rank constant the fusion literature fixes at 60 for two arms of comparable quality. **Stated, not tuned.** */
+export const RRF_K = 60;
+
+/** One ranked list taking part in a fusion. **The name is published, because a contribution without a source is a number.** */
+export interface RankedArm {
+  /** What produced this ranking, e.g. `declarations` or `file-level`. */
+  readonly name: string;
+  /** Paths, best first, **in one coordinate system across every arm**. */
+  readonly ranked: readonly string[];
+}
+
+/** What one arm contributed to one path. */
+export interface FusedScore {
+  /** Repository-relative POSIX path, in whichever coordinate system the arms were given. */
+  readonly path: string;
+  /** The sum of the arms' contributions. **The quantity the ranking sorts on.** */
+  readonly score: number;
+  /** Each arm's contribution, keyed by arm name. **A zero is not stored**: an arm that did not rank a path gave it nothing. */
+  readonly arms: Readonly<Record<string, number>>;
+}
+
+/** A fused ranking: the order, the constant it was computed with, and every contribution behind it. */
+export interface FusedRanking {
+  /** Paths, best first, cut to `limit`. */
+  readonly ranked: readonly string[];
+  /** The `k` the contributions were computed with. **Published beside the figure rather than in a comment.** */
+  readonly k: number;
+  /** Every path any arm ranked, with its contributions, in fused order. **Before the cut**, so a reader can recompute. */
+  readonly scores: readonly FusedScore[];
+}
+
+/** Options for {@link reciprocalRankFusion}. */
+export interface FusionOptions {
+  /** The rank constant. **Supplied only by an ablation**, never by the product. */
+  readonly k?: number;
+  /** How many paths to return. **The full list is still in `scores`**, so a cut is a view and not a loss. */
+  readonly limit?: number;
+}
+
+/**
+ * Fuse several rankings by reciprocal rank.
+ *
+ * **A path repeated inside one arm keeps its best position and is not counted twice.** A ranking that names the same
+ * file at positions three and eleven is not evidence of two matches: counting both would let one arm outvote another by
+ * repeating itself, and repetition inside an arm is an artefact of whatever produced it rather than a signal.
+ *
+ * **Ties are broken by path, ascending**, for the same reason every other ranking in this package is: a fused order
+ * that moved between two runs of the same input would be an order about the sort's stability.
+ */
+export function reciprocalRankFusion(
+  arms: readonly RankedArm[],
+  options: FusionOptions = {},
+): FusedRanking {
+  const k = options.k ?? RRF_K;
+  const contributions = new Map<string, Record<string, number>>();
+  for (const arm of arms) {
+    const seen = new Set<string>();
+    let position = 0;
+    for (const path of arm.ranked) {
+      if (seen.has(path)) continue;
+      seen.add(path);
+      position += 1;
+      const entries = contributions.get(path) ?? {};
+      entries[arm.name] = (entries[arm.name] ?? 0) + 1 / (k + position);
+      contributions.set(path, entries);
+    }
+  }
+
+  const scores: FusedScore[] = [];
+  for (const [path, byArm] of contributions) {
+    let score = 0;
+    for (const value of Object.values(byArm)) score += value;
+    scores.push({ path, score, arms: byArm });
+  }
+  // **Score descending, then path ascending**: a total, not a rounded one, and a tie-break that does not depend on the
+  // order the map happened to iterate in.
+  scores.sort((left, right) =>
+    left.score === right.score ? left.path.localeCompare(right.path) : right.score - left.score,
+  );
+  const limit = options.limit ?? Number.POSITIVE_INFINITY;
+  return {
+    ranked: scores.slice(0, Math.max(0, limit)).map((entry) => entry.path),
+    k,
+    scores,
+  };
+}

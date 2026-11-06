@@ -18,6 +18,7 @@ import { MEASURED_MB_PER_FILE, mean } from './lca-instrument.js';
 
 import type { ControlResult } from './lca-baseline.js';
 import type { FallbackResult } from './lca-fallback.js';
+import type { FusionResult } from './lca-fusion.js';
 
 /** The seven figures the authors' `get_quality_metrics` produces, for one instance or as a mean. */
 export interface ArmMetrics {
@@ -137,6 +138,31 @@ export interface LcaRowScore {
    * fact from a fallback that scored zero.
    */
   readonly fallback: FallbackResult | null;
+  /**
+   * **The product's ranking as it actually returns it: the declaration arm fused with the file-level one.**
+   *
+   * `map` is the fused figure on a measured row and `0` on a refused one, because a refused row produced no ranking at
+   * all; this field is the same quantity **on every instance the run reached**, obtained by declining to the file-level
+   * arm where the analysis was refused. `fused` says which of the two produced it, per row, because a column that
+   * averaged the two kinds together without saying so could be quoted as something it is not.
+   */
+  readonly fusion: FusionResult | null;
+  /**
+   * **The declaration arm alone**, on a measured row: the same pool and the same aggregation, with no second arm fused.
+   *
+   * The ablation of the fusion is this column subtracted from `map` on the same rows - a paired difference over one run
+   * rather than a comparison between two commits, which is the only form in which "the fusion helped" is a measurement.
+   * `null` on a refused row, like every other column that needs a pool.
+   */
+  readonly declarationMap: number | null;
+  /**
+   * The fused ranking, in full and to the metric's depth, **in the corpus's coordinate system**.
+   *
+   * Published rather than kept because two questions the artifact asks cannot be answered from a ten-entry preview: does
+   * the fusion's gain come from the file-level arm promoting paths the pool never ranked, and does the answer sit in the
+   * fused list at all. Empty on a refused row.
+   */
+  readonly rankedPaths: readonly string[];
   /** The sentence that refused this instance, or `null` when it was measured. */
   readonly skipped: string | null;
   /**
@@ -250,6 +276,8 @@ export function skippedRow(input: {
   tfidf?: ControlResult | null;
   /** The product's fallback ranking, **which a refused instance has by construction**. */
   fallback?: FallbackResult | null;
+  /** The product's ranking on these instances: **the file-level arm alone, because the declaration arm was refused**. */
+  fusion?: FusionResult | null;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
 }): LcaRowScore {
@@ -273,6 +301,9 @@ export function skippedRow(input: {
     bm25: input.bm25 ?? null,
     tfidf: input.tfidf ?? null,
     fallback: input.fallback ?? null,
+    fusion: input.fusion ?? null,
+    declarationMap: null,
+    rankedPaths: [],
     skipped: input.because,
     fileArms: null,
     retrieval: {},

@@ -265,3 +265,50 @@ describe('insertGraph', () => {
     store.close();
   });
 });
+
+describe('measureInstance — the fused arm', () => {
+  it('**fuses the file-level arm the parent handed in**, and keeps the declaration figure beside it', async () => {
+    // The parent computes the file-level ranking before the child starts, because the child is the process that gets
+    // killed; this asserts the child uses it and that the row carries both readings, so the fusion's contribution is a
+    // subtraction inside one row rather than a comparison between two runs.
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      fileSignals: ['src/http.py'],
+    });
+
+    // **The declaration arm alone is perfect here**, and the fused ranking is not: the supplied arm outranks the
+    // answer, which is exactly the case a measurement has to be able to see rather than average away.
+    expect(scored.declarationMap).toBe(1);
+    expect(scored.map).toBe(0.5);
+    expect(scored.rankedPaths[0]).toBe('src/http.py');
+    expect(scored.answerRank).toBe(2);
+  });
+
+  it('**publishes the fused list in the corpus’s coordinate system**, to the depth the metric reads', async () => {
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      fileSignals: ['src/http.py'],
+    });
+    expect(scored.rankedPaths.length).toBeGreaterThan(0);
+    expect(scored.rankedPaths.length).toBeLessThanOrEqual(MAP_DEPTH);
+    for (const path of scored.rankedPaths) expect(path.startsWith('/')).toBe(false);
+  });
+
+  it('**no arm means the two figures agree**, which is how a caller can tell a fusion from a coincidence', async () => {
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({ row: row(['src/retry.py']), checkout: root, allFiles });
+    expect(scored.declarationMap).toBe(scored.map);
+  });
+
+  it('**leaves the fused column to the parent**, because a row does not know whether its own analysis survived', async () => {
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({ row: row(['src/retry.py']), checkout: root, allFiles });
+    expect(scored.fusion).toBeNull();
+  });
+});

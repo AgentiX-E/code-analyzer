@@ -142,6 +142,19 @@ export interface AnswerResult {
    */
   rankedFiles: string[];
   /**
+   * **The ranking after the file-level arm was fused in**, or the same list when no arm was supplied.
+   *
+   * A fourth field rather than a fourth meaning for `rankedFiles`, and the distinction is the point of it: `rankedFiles`
+   * is what the declaration pool produced, `fusedFiles` is what the product returns when the caller also has a
+   * file-level reading. Measured on Long Code Arena, the two instruments win on different bands - the pool on the
+   * smallest checkouts, a path and its imports on the 200-500-file ones - so a caller that has both should not have to
+   * choose, and a measurement has to be able to tell which of the two a figure came from.
+   *
+   * **Equal to `rankedFiles` when `AskOptions.fileSignals` is absent**, which is what makes it safe to read
+   * unconditionally: a caller that supplies no arm gets the list it always got.
+   */
+  fusedFiles: string[];
+  /**
    * **The pool `rankedFiles` was read from**, one entry per candidate declaration, in rank order.
    *
    * `rankedFiles` is a collapse, and a collapse is a rule: a file's position is derived from the declarations that live
@@ -231,6 +244,20 @@ export interface AskOptions extends ContextOptions {
    * question which happens to mention a repository should ask for.
    */
   scope?: 'auto' | 'workspace';
+  /**
+   * **A file-level ranking to fuse with the declaration one**, in the same coordinate system as the graph's `filePath`.
+   *
+   * What a caller supplies is a list it already has: `locate` produces one from a checkout too large to index, an agent
+   * that has just run `search` produces one from the paths it was shown, and a caller running this product on two
+   * revisions produces one from the other revision. The fusion is `reciprocalRankFusion` - unweighted, `k = 60`
+   * (`search/fusion.ts` states why) - so this option chooses **whether** to fuse and not how.
+   */
+  fileSignals?: {
+    /** Paths, best first. **A path the pool did not rank is admitted rather than penalised.** */
+    readonly ranked: readonly string[];
+    /** The rank constant. **Supplied only by an ablation.** */
+    readonly k?: number;
+  };
 }
 
 /** A decision about which repository a question is about. */

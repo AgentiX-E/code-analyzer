@@ -61,6 +61,9 @@ code-analyzer review src/
 # Rank the files an issue is about, with no index at all - works on a checkout too large to analyse
 code-analyzer locate "the retry policy drops the timeout" -d .
 
+# ...and fuse that reading with a ranking you already have (a search result, an editor's symbol list)
+code-analyzer locate "the retry policy drops the timeout" -d . -D candidates.txt
+
 # Auto-detect and configure your AI agent
 code-analyzer agent detect
 code-analyzer agent configure

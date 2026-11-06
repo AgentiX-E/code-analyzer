@@ -152,6 +152,10 @@ program
     '-e, --extensions <list>',
     'Comma-separated extensions to consider, e.g. .java,.kt (defaults to every supported language)',
   )
+  .option(
+    '-D, --declarations <file>',
+    'A ranking to fuse in - paths best first, as JSON or one per line - e.g. from an earlier search',
+  )
   .action((question: string, opts: Record<string, string | undefined>) => {
     const extensions = (opts['extensions'] ?? '')
       .split(',')
@@ -163,6 +167,7 @@ program
       directory: opts['directory'] ?? process.cwd(),
       limit: parseInt(opts['limit'] ?? '10', 10) || 10,
       extensions: extensions.length === 0 ? undefined : extensions,
+      ...(opts['declarations'] === undefined ? {} : { declarationsFile: opts['declarations'] }),
     };
     const result = locateRepository(options);
     // `process.stdout.write` rather than `console.log`: the ranking is the command's whole output and its trailing

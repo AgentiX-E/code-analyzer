@@ -52,6 +52,7 @@ import { describe, expect, it } from 'vitest';
 
 import { lexicalControls } from '../benchmark/lca-baseline.js';
 import { fallbackArm } from '../benchmark/lca-fallback.js';
+import { declinedFusion, fusedResult } from '../benchmark/lca-fusion.js';
 import {
   CONFIG_EXTENSION,
   MEASURED_MB_PER_FILE,
@@ -438,6 +439,14 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               bm25: control,
               tfidf: secondControl,
               fallback,
+              // **The fused column on an instance the analysis was refused**, and it is the file-level arm alone:
+              // the declaration arm is the analysis that was refused, so there is nothing to fuse it with. `fused:
+              // false` is what makes that a stated fact per row rather than an average over two different kinds.
+              fusion: declinedFusion({
+                map: fallback.map,
+                rank: fallback.rank,
+                ranked: fallback.ranked,
+              }),
             }),
           );
           continue;
@@ -446,6 +455,11 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         const rowFile = join(rowsDir, `${config}-${String(row.id)}.json`);
         const outFile = join(rowsDir, `${config}-${String(row.id)}.row.json`);
         writeFileSync(rowFile, JSON.stringify(row), 'utf8');
+        // **The arm the parent already built, handed to the child rather than rebuilt there.** The fallback was scored
+        // from one head read per file of this answer space; reading them a second time inside the child would charge
+        // the job twice for the same bytes - which is exactly how the nine instances of iteration 76 were lost.
+        const rankingFile = join(rowsDir, `${config}-${String(row.id)}.ranking.json`);
+        writeFileSync(rankingFile, JSON.stringify(fallback.candidates), 'utf8');
 
         const outcome = await superviseInstance({
           command: 'npx',
@@ -460,6 +474,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             rowFile,
             '--out',
             outFile,
+            '--file-ranking',
+            rankingFile,
             ...(answerArm ? ['--answer-arm'] : []),
           ],
           outFile,
@@ -480,7 +496,22 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
         // reported about itself would be a child's opinion rather than a measurement.
         const cost = { peakRssMb: outcome.peakRssMb, elapsedMs: outcome.ms };
         if (outcome.kind === 'row') {
-          scores.push({ ...outcome.row, cost, bm25: control, tfidf: secondControl, fallback });
+          // **The child ran the fusion; the parent records it.** `map` and `answerRank` are already the fused
+          // figures, so this is a transcription rather than a second computation - and the gate refuses an artifact
+          // where the transcription and the row disagree, which is how a wiring mistake is told from a result.
+          const fused = fusedResult({
+            map: outcome.row.map,
+            rank: outcome.row.answerRank,
+            ranked: outcome.row.rankedPaths,
+          });
+          scores.push({
+            ...outcome.row,
+            cost,
+            bm25: control,
+            tfidf: secondControl,
+            fallback,
+            fusion: fused,
+          });
         } else {
           // **The refusal is the row.** An instance too large for the runner it ran on is a fact about the sample, and
           // publishing it as a skip with the sentence that produced it is how the sample's size stays explainable.
@@ -495,6 +526,11 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               bm25: control,
               tfidf: secondControl,
               fallback,
+              fusion: declinedFusion({
+                map: fallback.map,
+                rank: fallback.rank,
+                ranked: fallback.ranked,
+              }),
             }),
           );
         }
