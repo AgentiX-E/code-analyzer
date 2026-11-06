@@ -119,6 +119,19 @@ export interface MeasureInput {
    * caller mistake and `BoundedNodes` throws for it rather than guarding nothing.
    */
   readonly declarationBudget?: number | null;
+  /**
+   * Globs the analysis is restricted to, **which for this benchmark is the answer space itself**.
+   *
+   * **The pipeline parses the whole checkout, and on this corpus that is not the same thing as the question.** A
+   * Kotlin instance whose repository is mostly Java was analysed in full - `airbnb/lottie-android` cost 6 146 MB and was
+   * killed on a hundred and thirty-one Kotlin files - and a quarter of the protocol was refused for size. The product
+   * has carried `includePatterns` in its schema, its loader, its validator and its documentation since the schema was
+   * written, and **no phase read it**; `2026-11-06-the-scope-nobody-honoured.md` is the audit. This field is that list,
+   * wired: the corpus defines its answer space by extension, and the analysis is given the same definition.
+   *
+   * `undefined` means the whole checkout, which is what every run before this one measured.
+   */
+  readonly scope?: readonly string[];
 }
 
 /** The seven figures the authors' metric produces, for one instance. */
@@ -218,7 +231,11 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   const ctx = {
     projectId,
     rootPath: input.checkout,
-    config: getDefaultConfig(),
+    // **The scope travels on the configuration, which is the field the pipeline reads it from and did not.** Built
+    // from the defaults rather than beside them: a partial `config` is not replaced by the orchestrator (`if
+    // (!ctx.config)`), so a `maxFiles` of `undefined` here would be an unbounded walk behind a bound the artifact says
+    // it applied.
+    config: { ...getDefaultConfig(), includePatterns: [...(input.scope ?? [])] },
     signal: new AbortController().signal,
     metadata: {},
     // **The graph is handed in rather than created by the orchestrator**, which honours `ctx.graph` when it is there and
@@ -454,6 +471,7 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     id: input.row.id,
     repo: `${input.row.repo_owner}/${input.row.repo_name}`,
     corpusFiles: input.allFiles.length,
+    analysisScope: input.scope === undefined ? null : [...input.scope],
     expectedFiles: input.row.changed_files.length,
     expectedOutside: input.row.changed_files.filter((file) => !universe.has(file)).length,
     offered: candidates.length,

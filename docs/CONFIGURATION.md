@@ -241,7 +241,24 @@ Patterns support glob syntax:
 
 - `**` matches any number of directories
 - `*` matches any characters except `/`
-- Patterns are matched against relative file paths
+- `?` matches one character inside a segment
+- `**/` matches **zero or more** directories, so `**/*.kt` includes `build.kt` at the repository root
+- A trailing `/` makes a pattern about a directory's contents (`build/` is `build/**`)
+- Each pattern is tested against the repository-relative path **and** against the bare basename, so `*.kt` finds
+  `src/main/A.kt`
+- An empty `includePatterns` includes everything, which is the default
+
+`includePatterns` is what an analysis costs: the filter is applied **before** a file is read, so a checkout of fifteen
+thousand Java files that holds a hundred and twenty-eight Kotlin files costs the hundred and twenty-eight. The same list
+is available from the command line, once per glob:
+
+```bash
+code-analyzer analyze . --include "**/*.kt"
+code-analyzer analyze . --include "**/*.kt" --include "**/*.java"
+code-analyzer analyze . --exclude "vendor/**"
+```
+
+`--exclude` **adds** to the default exclusions rather than replacing them.
 
 ---
 

@@ -12,6 +12,7 @@ import {
   type PipelineResult,
   type PhaseResult,
 } from '@code-analyzer/analyzer';
+import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { PipelineContext } from '@code-analyzer/shared';
@@ -31,6 +32,17 @@ export interface AnalyzeOptions {
   projectId?: string;
   /** Timeout in ms */
   timeout?: number;
+  /**
+   * Globs a file must match to be analysed. **Empty means the whole checkout**, which is what every run did before
+   * the flag existed.
+   *
+   * **This is the flag that decides what an analysis costs.** A checkout of fifteen thousand Java files that holds a
+   * hundred and twenty-eight Kotlin files was analysed in full to rank those hundred and twenty-eight; `--include
+   * "**\/*.kt"` is the same question for the price of the files it is about.
+   */
+  include?: string[];
+  /** Extra exclusion globs, **added to the default ones rather than replacing them**. */
+  exclude?: string[];
 }
 
 export interface AnalyzeOutput {
@@ -104,10 +116,28 @@ export async function analyzeRepository(options: AnalyzeOptions): Promise<Analyz
       const store = new InMemoryGraphStore();
       const phases = await loadPhases();
 
+      // **The configuration is built from the defaults and then amended**, because a partial object handed to the
+      // orchestrator is *not* replaced by the defaults (`if (!ctx.config)`), and a `maxFiles` of `undefined` makes
+      // `results.length >= undefined` false - an unbounded walk behind a command that looks configured.
+      const defaults = getDefaultConfig();
+      const config: typeof defaults = {
+        ...defaults,
+        // **The root, said once more where the schema keeps it.** No phase of this pipeline reads it - they read
+        // `ctx.rootPath` - and a configuration whose own root disagrees with the run's is a trap left for the first
+        // phase that does.
+        rootPath: repoPath,
+        includePatterns: options.include ?? [],
+        excludePatterns:
+          options.exclude === undefined
+            ? defaults.excludePatterns
+            : [...defaults.excludePatterns, ...options.exclude],
+      };
+
       const ctx = {
         projectId,
         repoPath,
         rootDir: repoPath,
+        config,
         graph: undefined,
         signal: controller.signal,
         metadata: {},

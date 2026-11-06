@@ -606,8 +606,15 @@ describe('decideInstance', () => {
     const verdict = decideInstance(4001, roomy);
     expect(verdict.analyse).toBe(false);
     expect(verdict.analyse ? '' : verdict.because).toBe(
-      'the checkout holds 4001 files, above the stated cap of 4000',
+      'the analysis would read 4001 files, above the stated cap of 4000',
     );
+  });
+
+  it('charges the cap for what the analysis reads, not for what the checkout holds', () => {
+    // **The difference the scoping made.** `quarkusio/quarkus` holds a hundred and twenty-eight Kotlin files inside a
+    // fifteen-thousand-file checkout; charged for the checkout it was refused, and charged for what the analysis would
+    // read it is an ordinary instance. The bound is a promise about the reading, which is what the sentence says.
+    expect(decideInstance(128, roomy)).toEqual({ analyse: true });
   });
 
   it('**admits a checkout the density conversion would have refused**, because the count is not a prediction', () => {

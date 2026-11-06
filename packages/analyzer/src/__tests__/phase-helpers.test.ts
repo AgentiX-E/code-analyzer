@@ -299,6 +299,79 @@ describe('walkDirectory', () => {
     });
   });
 
+  // **The include list, which the configuration has carried since the schema was written and which no walk read.**
+  // `docs/CONFIGURATION.md` promised "glob patterns to restrict which files are analyzed"; a reader who wrote
+  // `["src/**"]` got the whole checkout, and on a fifteen-thousand-file repository the promise was worth minutes and
+  // gigabytes. `2026-11-06-the-scope-nobody-honoured.md` states the measurement.
+  it('discovers only the files the include list admits', async () => {
+    await withTempDir(async (dir) => {
+      mkdirSync(join(dir, 'src'));
+      mkdirSync(join(dir, 'docs'));
+      writeFileSync(join(dir, 'src', 'A.kt'), 'class A\n');
+      writeFileSync(join(dir, 'src', 'B.java'), 'class B {}\n');
+      writeFileSync(join(dir, 'docs', 'C.kt'), 'class C\n');
+      writeFileSync(join(dir, 'root.kt'), 'class Root\n');
+
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        includePatterns: ['**/*.kt'],
+      });
+      // **The root file is in it.** `**/*.kt` compiled to `^.*/[^/]*\.kt$` before the shared matcher, which needs a
+      // slash and therefore excluded the one file nearest the top of every Kotlin checkout.
+      expect(results.map((f) => f.filePath.split('/').pop()).sort()).toEqual([
+        'A.kt',
+        'C.kt',
+        'root.kt',
+      ]);
+    });
+  });
+
+  it('restricts the walk to a directory prefix', async () => {
+    await withTempDir(async (dir) => {
+      mkdirSync(join(dir, 'src', 'main'), { recursive: true });
+      mkdirSync(join(dir, 'lib'));
+      writeFileSync(join(dir, 'src', 'main', 'A.kt'), 'class A\n');
+      writeFileSync(join(dir, 'lib', 'B.kt'), 'class B\n');
+
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        includePatterns: ['src/**'],
+      });
+      expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['A.kt']);
+    });
+  });
+
+  it('never reads a file the include list excludes', async () => {
+    await withTempDir(async (dir) => {
+      writeFileSync(join(dir, 'keep.kt'), 'class Keep\n');
+      writeFileSync(join(dir, 'skip.java'), 'class Skip {}\n');
+
+      const read: string[] = [];
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        includePatterns: ['*.kt'],
+        readSource: async (filePath) => {
+          read.push(filePath.split('/').pop()!);
+          return readFileSync(filePath, 'utf-8');
+        },
+      });
+      // **The filter is before the read, and that is the whole benefit**: a file that is filtered after `readSource`
+      // costs exactly what an unfiltered walk costs.
+      expect(read).toEqual(['keep.kt']);
+      expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['keep.kt']);
+    });
+  });
+
+  it('discovering everything when no include list is given', async () => {
+    await withTempDir(async (dir) => {
+      writeFileSync(join(dir, 'a.kt'), 'class A\n');
+      writeFileSync(join(dir, 'b.py'), 'x = 1\n');
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000);
+      expect(results).toHaveLength(2);
+    });
+  });
+
   it('honors gitignore directory and file patterns', async () => {
     await withTempDir(async (dir) => {
       mkdirSync(join(dir, 'ignored-dir'));
@@ -372,9 +445,11 @@ describe('walkDirectory', () => {
       // subject, not the permission bits, so it comes from the reader seam and the EACCES the OS would have
       // produced is spelled out here.
       const results: DiscoveredFile[] = [];
-      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, async (filePath) => {
-        if (filePath.endsWith('locked.ts')) throw new Error('EACCES: permission denied');
-        return readFileSync(filePath, 'utf-8');
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        readSource: async (filePath) => {
+          if (filePath.endsWith('locked.ts')) throw new Error('EACCES: permission denied');
+          return readFileSync(filePath, 'utf-8');
+        },
       });
 
       expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['app.ts']);
@@ -388,9 +463,11 @@ describe('walkDirectory', () => {
 
       const read: string[] = [];
       const results: DiscoveredFile[] = [];
-      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, async (filePath, language) => {
-        read.push(`${language}:${filePath.split('/').pop()}`);
-        return language === 'pdf' ? '' : readFileSync(filePath, 'utf-8');
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        readSource: async (filePath, language) => {
+          read.push(`${language}:${filePath.split('/').pop()}`);
+          return language === 'pdf' ? '' : readFileSync(filePath, 'utf-8');
+        },
       });
 
       // The PDF was read as a document and contributed nothing; the TypeScript file still arrived.

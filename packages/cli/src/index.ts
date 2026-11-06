@@ -58,6 +58,16 @@ function setupGlobalErrorHandlers(): void {
 // Commander Program
 // ---------------------------------------------------------------------------
 
+/**
+ * Accumulate a repeatable option, `commander`'s shape for one flag stated several times.
+ *
+ * **A parser rather than a comma-split**, because a glob may contain a comma (`{a,b}.kt` is a brace expansion) and a
+ * split on that character would turn one pattern into two that match nothing.
+ */
+function collectValues(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
 const program = new Command();
 
 program
@@ -97,12 +107,31 @@ program
   .option('-f, --format <format>', 'Output format: text, json, or summary', 'text')
   .option('-p, --project-id <id>', 'Project identifier')
   .option('-t, --timeout <ms>', 'Timeout in milliseconds', '300000')
-  .action(async (repoPath: string, opts: Record<string, string>) => {
+  // **The scope flags, and they are the difference between an analysis and an analysis of the checkout.** Repeatable,
+  // because one glob rarely describes a repository: `--include "**/*.kt" --include "**/*.java"` is a Kotlin-and-Java
+  // question, and a list that replaced itself would answer only the second.
+  .option(
+    '-i, --include <glob>',
+    'Only analyze files matching this glob (repeatable; empty means everything)',
+    collectValues,
+    [] as string[],
+  )
+  .option(
+    '-x, --exclude <glob>',
+    'Skip files matching this glob (repeatable; added to the defaults)',
+    collectValues,
+    [] as string[],
+  )
+  .action(async (repoPath: string, opts: Record<string, string | string[]>) => {
+    const include = opts['include'] as string[];
+    const exclude = opts['exclude'] as string[];
     const options: AnalyzeOptions = {
       path: repoPath,
       format: (opts['format'] as AnalyzeOptions['format']) ?? 'text',
-      projectId: opts['projectId'],
-      timeout: parseInt(opts['timeout'] ?? '300000', 10) || 300_000,
+      projectId: opts['projectId'] as string,
+      timeout: parseInt(opts['timeout'] as string, 10) || 300_000,
+      ...(include.length === 0 ? {} : { include }),
+      ...(exclude.length === 0 ? {} : { exclude }),
     };
 
     process.stdout.write(`Analyzing ${repoPath}...${EOL}`);

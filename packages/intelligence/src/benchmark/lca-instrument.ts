@@ -440,6 +440,13 @@ export type InstanceVerdict =
 /**
  * Decide whether one instance is measurable, **before any of it is analysed**.
  *
+ * **`files` is the size of the universe the analysis will read, not the size of the checkout.** Those were the same
+ * number until the analysis was scoped, and the sentence below said "the checkout holds" because of it. On Long Code
+ * Arena the difference is the whole refusal rate: `quarkusio/quarkus` holds a hundred and twenty-eight Kotlin files in
+ * a fifteen-thousand-file checkout, and charging the cap for the checkout refused a question whose answer space is
+ * small. The cap is still a promise about *what will be read*, which is the quantity the time bound multiplies and the
+ * quantity a reader is being asked to believe.
+ *
  * **Two bounds, and the third one left.** A stated cap is a promise to the reader and the time bound is what is left of
  * the job's own budget, so both are facts about the run. The third - the memory bound, charged as a file count converted
  * at a density - has been removed, and the reason is the artifact's own numbers: **43 of the 115 rows the 6 November 2026
@@ -451,7 +458,7 @@ export type InstanceVerdict =
  * number of declarations the analysis produces, and that number does not exist until the analysis has produced it. So the
  * fence that charges for it moves to where the count exists: {@link BoundedNodes} stops the graph at
  * {@link MEASURED_DECLARATION_CEILING} inside the child process, which is enforced rather than forecast. What is left
- * here is what can be honestly known before the process starts - whether the checkout is too big to promise, and whether
+ * here is what can be honestly known before the process starts - whether the universe is too big to promise, and whether
  * there is time left - and the row records which of the two refused it.
  *
  * **The refusal that went with the removed arm is not missed, because a sentence that quotes a false charge is worse than
@@ -463,7 +470,7 @@ export function decideInstance(files: number, bounds: InstanceBounds): InstanceV
   if (files > bounds.capFiles) {
     return {
       analyse: false,
-      because: `the checkout holds ${String(files)} files, above the stated cap of ${String(bounds.capFiles)}`,
+      because: `the analysis would read ${String(files)} files, above the stated cap of ${String(bounds.capFiles)}`,
     };
   }
   const projectedMs = bounds.elapsedMs + files * MS_PER_FILE;

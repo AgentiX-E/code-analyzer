@@ -179,6 +179,9 @@ export class ParallelScanPhase implements ExecutablePhase {
           'coverage/**',
           '__pycache__/**',
         ],
+        // **The same list the sequential scan honours**, because a configuration that scopes one pipeline and not the
+        // other makes the analysis depend on which orchestrator ran it.
+        includePatterns: ctx.config.includePatterns,
         maxFileSize: ctx.config.maxFileSize,
         respectGitignore: true,
       });

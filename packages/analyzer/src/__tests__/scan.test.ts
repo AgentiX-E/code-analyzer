@@ -104,3 +104,64 @@ describe('ScanPhase — graph population branches', () => {
     expect(result.error).toBeDefined();
   });
 });
+
+// **The scope the configuration states and the pipeline used to ignore.**
+//
+// `includePatterns` has been in the schema, in the loader, in the validator and in `docs/CONFIGURATION.md` since the
+// configuration was written, and every phase discovered the repository the excludes left behind. These two cases pin
+// the wiring at the phase, which is the only place that can go wrong: the matcher has its own suite, the walk has
+// its own, and what was missing was a caller.
+describe('ScanPhase — the include list', () => {
+  let rootPath: string;
+
+  beforeEach(() => {
+    rootPath = join(tmpdir(), `scan-include-${randomUUID()}`);
+    mkdirSync(join(rootPath, 'kotlin'), { recursive: true });
+    mkdirSync(join(rootPath, 'java'), { recursive: true });
+    writeFileSync(join(rootPath, 'kotlin', 'A.kt'), 'class A\n');
+    writeFileSync(join(rootPath, 'java', 'B.java'), 'class B {}\n');
+    writeFileSync(join(rootPath, 'Root.kt'), 'class Root\n');
+  });
+
+  afterEach(() => {
+    rmSync(rootPath, { recursive: true, force: true });
+  });
+
+  function context(includePatterns: string[]): PipelineContext {
+    return {
+      projectId: 'test-proj',
+      rootPath,
+      phaseData: new Map(),
+      config: { ...makeConfig('test-proj', rootPath), includePatterns },
+      graph: undefined,
+    };
+  }
+
+  it('discovers only the files the list admits, and leaves the rest out of the graph', async () => {
+    const ctx = context(['**/*.kt']);
+    ctx.graph = new GraphBuilder(new InMemoryGraphStore()).build(ctx);
+
+    const result = await new ScanPhase().execute(ctx);
+
+    expect(result.status).toBe('success');
+    const discovered = (ctx.phaseData.get('scan') as { files: { filePath: string }[] }).files;
+    expect(discovered.map((file) => file.filePath.split('/').pop()).sort()).toEqual([
+      'A.kt',
+      'Root.kt',
+    ]);
+    // **The graph is the same universe as the walk**, because a File node for a file the analysis never read is a
+    // node with no declarations behind it - which is exactly what a caller of `search` would then rank.
+    const names = [...ctx.graph.nodes.values()]
+      .filter((node) => node.label === 'File')
+      .map((node) => String(node.properties['name']))
+      .sort();
+    expect(names).toEqual(['A.kt', 'Root.kt']);
+  });
+
+  it('discovers everything when the list is empty', async () => {
+    const ctx = context([]);
+    await new ScanPhase().execute(ctx);
+    const discovered = (ctx.phaseData.get('scan') as { files: { filePath: string }[] }).files;
+    expect(discovered).toHaveLength(3);
+  });
+});

@@ -44,6 +44,7 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     id,
     repo: `owner/repo${String(id)}`,
     corpusFiles: 10,
+    analysisScope: null,
     expectedFiles: 1,
     expectedOutside: 0,
     offered: 10,

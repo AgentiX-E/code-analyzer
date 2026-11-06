@@ -58,6 +58,16 @@ export interface LcaRowScore {
   readonly repo: string;
   /** How many files of the configuration's extension the checkout holds. */
   readonly corpusFiles: number;
+  /**
+   * How many files the analysis was allowed to read, **which is the answer space when a scope was stated**.
+   *
+   * **The number the row's cost is proportional to, stated per row rather than implied by the run.** The pipeline used
+   * to parse every file the excludes left standing, so on a repository that is mostly another language the cost of
+   * ranking a hundred and twenty-eight Kotlin files was the cost of the whole checkout - and a quarter of the protocol
+   * was refused for size. A reader comparing two artifacts needs to see whether one of them was scoped, and this is
+   * the field that says so. `null` means the whole checkout, which is what every run before 6 November 2026 measured.
+   */
+  readonly analysisScope: readonly string[] | null;
   /** How many files the fixing commit changed. */
   readonly expectedFiles: number;
   /** How many of those fall outside the answer space - the ceiling the restriction puts on recall. */
@@ -392,11 +402,14 @@ export function skippedRow(input: {
   fusion?: FusionResult | null;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
+  /** The scope the analysis was given, **which a refused instance also had and must also publish**. */
+  scope?: readonly string[] | null;
 }): LcaRowScore {
   return {
     id: input.id,
     repo: input.repo,
     corpusFiles: input.corpusFiles,
+    analysisScope: input.scope ?? null,
     expectedFiles: input.expectedFiles,
     expectedOutside: 0,
     offered: 0,
@@ -889,6 +902,8 @@ export function publishedRow(row: LcaRowScore, config: string): Record<string, u
     id: row.id,
     repo: row.repo,
     corpusFiles: row.corpusFiles,
+    /** **What the analysis was allowed to read**, so two artifacts of the same corpus can be told apart by their rows. */
+    analysisScope: row.analysisScope,
     expectedFiles: row.expectedFiles,
     expectedOutside: row.expectedOutside,
     offered: row.offered,

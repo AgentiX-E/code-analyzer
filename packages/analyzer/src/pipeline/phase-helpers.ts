@@ -9,6 +9,7 @@ import {
   getLanguageFromFilename,
   isDeclarationLabel,
   CAPTURE_TAGS,
+  matchesIncludePattern,
   PhaseLogger,
 } from '@code-analyzer/shared';
 
@@ -194,6 +195,29 @@ export function computeHash(content: string): string {
 // Helper: Walk directory recursively
 // ---------------------------------------------------------------------------
 
+/**
+ * The knobs of one walk that are not about *where* it walks.
+ *
+ * **A record rather than six more positional arguments**, and `includePatterns` is the reason: it is a policy about
+ * which files exist as far as the analysis is concerned, exactly like the gitignore rules and the size cap beside it,
+ * and threading it through as the eighth positional argument would have put it one transposition away from the
+ * seventh - which is a function.
+ */
+export interface WalkOptions {
+  /** Reads one source file as text. **A seam with a production default**: see {@link walkDirectory}. */
+  readonly readSource?: SourceReader;
+  /**
+   * Globs a file must match to be discovered. **Empty means everything**, which is what every caller did before this
+   * existed.
+   *
+   * **This list is what makes an analysis cost what the question costs.** A checkout of fifteen thousand Java files
+   * that holds a hundred and twenty-eight Kotlin files was analysed in full to rank those hundred and twenty-eight,
+   * and on Long Code Arena that is why a quarter of the corpus was refused for size. The filter is applied **before**
+   * the file is read, so an excluded file is never opened at all.
+   */
+  readonly includePatterns?: readonly string[];
+}
+
 export async function walkDirectory(
   rootPath: string,
   currentPath: string,
@@ -201,8 +225,10 @@ export async function walkDirectory(
   gitignorePatterns: string[],
   maxFileSize: number,
   maxFiles: number,
-  readSource: SourceReader = readSourceFromDisk,
+  options: WalkOptions = {},
 ): Promise<void> {
+  const readSource = options.readSource ?? readSourceFromDisk;
+  const includePatterns = options.includePatterns ?? [];
   if (results.length >= maxFiles) return;
 
   const entries = await readdir(currentPath, { withFileTypes: true });
@@ -223,11 +249,14 @@ export async function walkDirectory(
         gitignorePatterns,
         maxFileSize,
         maxFiles,
-        readSource,
+        options,
       );
     } else if (entry.isFile()) {
       if (shouldSkipFile(fullPath, relPath)) continue;
       if (matchesGitignore(relPath, gitignorePatterns)) continue;
+      // **Before the language lookup and before the read**, because the point of the list is the file that is never
+      // opened: a filter applied after `readSource` would cost the same as no filter at all.
+      if (!matchesIncludePattern(relPath, includePatterns)) continue;
 
       const language = getLanguageFromFilename(fullPath);
       if (!language) continue; // Skip files with unknown language

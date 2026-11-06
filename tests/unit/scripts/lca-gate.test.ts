@@ -171,6 +171,14 @@ function baseRecord(): Record<string, unknown> {
     },
     // **The rank on the protocol's denominator**, which is the only one comparable with the published table.
     comparison: { metric: 'MAP', basis: 'measured', ours: 0.4, rank: 2, of: 6 },
+    analysisScope: {
+      byLanguage: { kt: ['**/*.kt'] },
+      distinct: 1,
+      rowsScoped: 3,
+      rowsAttempted: 3,
+      universeFiles: { min: 20, median: 30, max: 4_970 },
+      note: 'The globs the analysis was restricted to.',
+    },
     comparisonProtocol: {
       metric: 'MAP',
       basis: 'protocol',
@@ -394,6 +402,7 @@ function baseRecord(): Record<string, unknown> {
       {
         config: 'kt',
         id: 1,
+        analysisScope: ['**/*.kt'],
         repo: 'owner/one',
         corpusFiles: 20,
         skipped: null,
@@ -429,6 +438,7 @@ function baseRecord(): Record<string, unknown> {
       {
         config: 'kt',
         id: 2,
+        analysisScope: ['**/*.kt'],
         repo: 'owner/two',
         corpusFiles: 30,
         skipped: null,
@@ -463,6 +473,7 @@ function baseRecord(): Record<string, unknown> {
       {
         config: 'kt',
         id: 3,
+        analysisScope: ['**/*.kt'],
         repo: 'owner/three',
         corpusFiles: 4_970,
         skipped: 'the checkout holds 4970 files, above the stated cap of 2000',
@@ -1558,5 +1569,56 @@ describe('the whole-body arm and the weight ladder', () => {
     const run = runGate(record);
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('refused rows cannot raise a mean');
+  });
+
+  it('**refuses rows that do not say what the analysis was allowed to read**', () => {
+    // The projection that publishes a row has already dropped a field once, and the run that discovered it cost eighty
+    // minutes. A row that is silent about its scope is a figure whose cost nobody can attribute.
+    const record = baseRecord() as Record<string, unknown>;
+    const rows = record['rows'] as Record<string, unknown>[];
+    delete rows[1]!['analysisScope'];
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('do not state what the analysis read');
+  });
+
+  it('**refuses a row scoped to another answer space than its own**', () => {
+    // A narrower scope would rank a subset of the candidates every published baseline ranks, and the figure would read
+    // as a worse ranking rather than as a different question. A scope naming another extension is the same defect with
+    // a bigger gap.
+    const record = baseRecord() as Record<string, unknown>;
+    const rows = record['rows'] as Record<string, unknown>[];
+    rows[1]!['analysisScope'] = ['**/*.java'];
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('were not scoped to their own answer space');
+  });
+
+  it('**refuses a scope block that disagrees with the rows it summarises**', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    const block = record['analysisScope'] as Record<string, unknown>;
+    block['byLanguage'] = { kt: ['**/*.java'] };
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a summary written beside rows rather than from them');
+  });
+
+  it('**refuses a scope block whose counts contradict its own lists**', () => {
+    // `rowsScoped: 0` beside a populated `byLanguage` is a block assembled by hand, and it is the state the merge was
+    // actually in until a local rehearsal caught it.
+    const record = baseRecord() as Record<string, unknown>;
+    const block = record['analysisScope'] as Record<string, unknown>;
+    block['rowsScoped'] = 0;
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('the counts and the per-language lists contradict each other');
+  });
+
+  it('**refuses a distinct count that the rows do not support**', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    (record['analysisScope'] as Record<string, unknown>)['distinct'] = 2;
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('distinct scopes in the block against');
   });
 });

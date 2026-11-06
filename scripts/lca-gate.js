@@ -650,6 +650,80 @@ function main() {
       at(record, ['comparison', 'ours']),
     )} - refused rows cannot raise a mean, so a higher protocol figure is a wiring defect`,
   );
+  // **The tenth invariant: what the analysis was allowed to read, said per row and once per language.**
+  //
+  // The pipeline used to parse the whole checkout to answer a question about one language, and on Long Code Arena that
+  // is why a sixth of the protocol was refused for cost. The scope is now stated on every row - measured and refused -
+  // and this invariant holds four things together:
+  //
+  //   * **every row states one**, because a row silent about what its analysis read is a figure whose cost nobody can
+  //     attribute, and the projection that publishes rows has already dropped a field once;
+  //   * **it is the corpus's own answer space for that row's configuration**, because a narrower scope would rank a
+  //     subset of the candidates every published baseline ranks and the figure would look like a worse ranking rather
+  //     than like a different question;
+  //   * **the block agrees with the rows**, per language, because a summary written by hand beside rows written by a
+  //     loop is the shape of every "the artifact said one thing and the rows another" defect this project has
+  //     published;
+  //   * **the counts agree with themselves**, because `patterns: null` beside 150 scoped rows is a contradiction that
+  //     a rehearsal caught before a seventy-minute run did.
+  //
+  // **The extension map is the gate's own**, and that is deliberate: it is the reader's statement of what the corpus
+  // asks for, so a merge that scoped the analysis to something else fails here rather than in a comment.
+  const ANSWER_SPACE_EXTENSION = { py: '.py', java: '.java', kt: '.kt' };
+  const scopeBlock = at(record, ['analysisScope']);
+  const scopeRows = Array.isArray(record?.rows) ? record.rows : [];
+  const scopeOf = (row) =>
+    Array.isArray(row?.analysisScope) && row.analysisScope.length > 0 ? row.analysisScope : null;
+  const silentRows = scopeRows.filter((row) => scopeOf(row) === null);
+  guard(
+    silentRows.length === 0,
+    `analysisScope: ${String(silentRows.length)} of ${String(scopeRows.length)} rows do not state what the analysis ` +
+      'read - the row projection has dropped the field',
+  );
+  const wrongScope = scopeRows.filter((row) => {
+    const extension = ANSWER_SPACE_EXTENSION[row?.config];
+    if (extension === undefined) return true;
+    // **A silent row is the previous invariant's business**, and reaching into it here would make the gate crash on the
+    // artifact it exists to refuse: the message a reader gets has to be the sentence, not a stack trace.
+    const scope = scopeOf(row);
+    if (scope === null) return false;
+    return !scope.some((glob) => typeof glob === 'string' && glob.endsWith(`*${extension}`));
+  });
+  guard(
+    wrongScope.length === 0,
+    `analysisScope: ${String(wrongScope.length)} rows were not scoped to their own answer space - ` +
+      `${JSON.stringify(wrongScope[0]?.analysisScope ?? null)} for configuration ${String(wrongScope[0]?.config)}`,
+  );
+  for (const [config, extension] of Object.entries(ANSWER_SPACE_EXTENSION)) {
+    const ofLanguage = scopeRows.filter((row) => row?.config === config);
+    if (ofLanguage.length === 0) continue;
+    const stated = scopeOf(ofLanguage[0]);
+    guard(
+      JSON.stringify(scopeBlock?.byLanguage?.[config] ?? null) === JSON.stringify(stated),
+      `analysisScope: the block states ${JSON.stringify(scopeBlock?.byLanguage?.[config] ?? null)} for ${config} and ` +
+        `its rows state ${JSON.stringify(stated)} - a summary written beside rows rather than from them`,
+    );
+    guard(
+      stated.some((glob) => glob.endsWith(`*${extension}`)),
+      `analysisScope: ${config} rows were scoped to ${JSON.stringify(stated)}, which does not name a ${extension} file`,
+    );
+  }
+  guard(
+    new Set(scopeRows.map((row) => JSON.stringify(scopeOf(row)))).size === scopeBlock?.distinct,
+    `analysisScope: ${String(scopeBlock?.distinct)} distinct scopes in the block against ` +
+      `${String(new Set(scopeRows.map((row) => JSON.stringify(scopeOf(row)))).size)} in the rows`,
+  );
+  guard(
+    typeof scopeBlock?.rowsScoped === 'number' &&
+      typeof scopeBlock?.rowsAttempted === 'number' &&
+      scopeBlock.rowsScoped <= scopeBlock.rowsAttempted &&
+      scopeBlock.rowsAttempted === scopeRows.length &&
+      (scopeBlock.rowsScoped === 0) ===
+        Object.values(scopeBlock?.byLanguage ?? {}).every((globs) => globs === null),
+    `analysisScope: ${String(scopeBlock?.rowsScoped)} scoped of ${String(scopeBlock?.rowsAttempted)} against ` +
+      `${String(scopeRows.length)} rows - the counts and the per-language lists contradict each other`,
+  );
+
   // **The seventh invariant: the second control.** A paired difference against **one** comparator is a difference that
   // can be a fit to that comparator, so the artifact publishes a second scorer over the identical index - and the gate
   // requires it to be a control rather than a decoration:

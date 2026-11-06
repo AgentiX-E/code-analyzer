@@ -55,6 +55,7 @@ const out = flagOf('--out');
 const fileRanking = flagOf('--file-ranking');
 const bodyRanking = flagOf('--body-ranking');
 const budgetFlag = flagOf('--declaration-budget');
+const scopeFlag = flagOf('--scope');
 
 if (config === undefined || checkout === undefined || rowFile === undefined || out === undefined) {
   console.error(
@@ -91,12 +92,38 @@ if (!existsSync(rowFile)) {
 
 const row = JSON.parse(readFileSync(rowFile, 'utf8')) as LcaCorpusRow;
 
+/**
+ * The globs the analysis may read, **which the parent states and this process only carries**.
+ *
+ * **A flag rather than a derivation, because the row published the parent's value.** Deriving `**\/*.kt` here from
+ * `--config` would produce the same string today and two different ones the day the mapping changes - and the artifact
+ * would then describe an analysis nobody ran. The fallback exists so a hand-run instance still behaves like the job:
+ * absent means the configuration's own extension, which is the scope the corpus defines.
+ */
+const scope: string[] = (() => {
+  if (scopeFlag === undefined) return [`**/*${CONFIG_EXTENSION[config!]}`];
+  const globs = scopeFlag
+    .split(',')
+    .map((glob) => glob.trim())
+    .filter((glob) => glob.length > 0);
+  if (globs.length === 0) {
+    console.error(
+      `lca-instance: --scope ${scopeFlag} names no glob; an empty scope is not a scope`,
+    );
+    process.exit(2);
+  }
+  return globs;
+})();
+
 /** Write the row and stop. **The write is the contract**: the supervisor reads this file and nothing else. */
 function emit(value: unknown): void {
   writeFileSync(out!, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
 async function main(): Promise<void> {
+  // **The answer space, and the one place a scope that does not name it is caught.** A scope narrower than the corpus's
+  // own extension would rank a subset of the candidates every published baseline ranks, and the figure would look like a
+  // worse ranking rather than like a different question - so the count is printed and the row carries both numbers.
   const allFiles = corpusFiles(checkout!, CONFIG_EXTENSION[config!]);
   const provider =
     process.argv.includes('--answer-arm') && process.env['DEEPSEEK_API_KEY']
@@ -122,6 +149,7 @@ async function main(): Promise<void> {
       row,
       checkout: checkout!,
       allFiles,
+      scope,
       provider,
       ...(signals === undefined ? {} : { fileSignals: signals }),
       ...(bodySignals === undefined ? {} : { bodySignals }),
@@ -129,7 +157,7 @@ async function main(): Promise<void> {
     });
     emit({ row: scored });
     console.log(
-      `LCA-INSTANCE ${config!} id=${String(row.id)} measured offered=${String(scored.offered)} ` +
+      `LCA-INSTANCE ${config!} id=${String(row.id)} scope=${scope.join(',')} measured offered=${String(scored.offered)} ` +
         `map=${scored.map.toFixed(4)} declarations=${(scored.declarationMap ?? 0).toFixed(4)} ` +
         `outside=${String(scored.outside)}`,
     );
@@ -148,6 +176,7 @@ async function main(): Promise<void> {
         id: row.id,
         repo: `${row.repo_owner}/${row.repo_name}`,
         corpusFiles: allFiles.length,
+        scope,
         expectedFiles: row.changed_files.length,
         because:
           guarded === null

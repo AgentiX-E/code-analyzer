@@ -395,6 +395,10 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           // the number this run did not see. **Inventing a zero-file row for each of them would corrupt the very
           // stratification this iteration exists to publish.**
           if (Date.now() - startedAt >= BUDGET_MS) break;
+          // **The scope, declared before any row can be refused**, because a row refused for a missing checkout still has
+          // to publish what the analysis would have been allowed to read: a corpus whose rows disagree about their scope
+          // is two corpora, and the gate says so.
+          const scope = [`**/*${CONFIG_EXTENSION[config]}`];
           const checkout = ensureCheckout(cacheRoot, row);
           if (checkout === null || !existsSync(join(checkout, '.git'))) {
             scores.push(
@@ -402,6 +406,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
                 id: row.id,
                 repo: `${row.repo_owner}/${row.repo_name}`,
                 corpusFiles: 0,
+                scope,
                 expectedFiles: row.changed_files.length,
                 because: 'the commit could not be fetched',
               }),
@@ -414,6 +419,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
                 id: row.id,
                 repo: `${row.repo_owner}/${row.repo_name}`,
                 corpusFiles: 0,
+                scope,
                 expectedFiles: row.changed_files.length,
                 because: 'the checkout is empty',
               }),
@@ -464,21 +470,34 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             expected: row.changed_files,
             depth: MAP_DEPTH,
           });
-          // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
-          // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
-          // directory is what took the runner down six minutes later.
+          // **The scope the analysis is given, and the two things it changes at once.**
+          //
+          // The corpus defines its answer space by extension - `allFiles` is exactly "the non-test files of the
+          // configuration's extension" - and the analysis used to be handed the whole checkout anyway. On a repository
+          // that is mostly another language the difference is not a rounding: `airbnb/lottie-android` reached 6 146 MB
+          // on a hundred and thirty-one Kotlin files and was killed, `quarkusio/quarkus` was refused for holding
+          // fifteen thousand files around a hundred and twenty-eight Kotlin ones, and 25 of 150 instances were refused
+          // in total. **The scope is the corpus's own definition of the answer space**, which every baseline in the
+          // published table is also ranked over, and the product's default stays "the whole checkout" - this is the
+          // benchmark using a documented flag with the definition the benchmark is.
           const walked = checkoutFileCount(checkout);
           const resident = residentMb();
           // **Two bounds, and the density conversion is no longer one of them.** A file count multiplied by a rung was
           // a prediction about a quantity the checkout's own contents decide, and on the run that produced this
           // iteration's figures 43 of 115 rows cost more declarations than it charged. What is left is what is known
           // before the process starts: the cap somebody chose, and the time left in the job.
+          //
+          // **And the file count is the universe the analysis reads, not the checkout it sits in.** `ccxt/ccxt` once
+          // taught this harness the opposite lesson - 686 Python files inside tens of thousands of others, and the
+          // analysis of the whole directory took the runner down - and the answer to that is the scope above, not a
+          // refusal: charging the cap for files the analysis no longer reads refuses a question whose answer space is
+          // small.
           const bounds = {
             capFiles: FILE_CAP,
             elapsedMs: Date.now() - startedAt,
             budgetMs: BUDGET_MS,
           };
-          const verdict = decideInstance(walked, bounds);
+          const verdict = decideInstance(allFiles.length, bounds);
           const repo = `${row.repo_owner}/${row.repo_name}`;
 
           // **One line per instance, and it carries the numbers that decide the next one** - the parent's resident set,
@@ -489,8 +508,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             `LCA-INSTANCE ${config} id=${String(row.id)} ${repo} files=${String(allFiles.length)} ` +
               `walked=${String(walked)} parentRss=${String(resident)}MB ceiling=${String(INSTANCE_RSS_CAP_MB)}MB ` +
               `guard=${String(MEASURED_DECLARATION_CEILING.declarations)} underCap=${String(FILE_CAP)} ` +
-              `density=${String(DECLARATIONS_PER_FILE)} ` +
-              `estimate=${String(walked * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
+              `density=${String(DECLARATIONS_PER_FILE)} scope=${scope[0]!} ` +
+              `estimate=${String(allFiles.length * MS_PER_FILE)}ms elapsed=${String(bounds.elapsedMs)}ms ` +
               `${verdict.analyse ? 'measuring' : 'skipped'}`,
           );
 
@@ -505,6 +524,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
                 id: row.id,
                 repo,
                 corpusFiles: allFiles.length,
+                scope,
                 expectedFiles: row.changed_files.length,
                 because: verdict.because,
                 corpusBytes: refusedSize.bytes,
@@ -564,6 +584,11 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               rankingFile,
               '--body-ranking',
               bodyRankingFile,
+              // **The scope, stated by the process that published it on the row.** The child used to derive it from
+              // `--config`; a derivation that agrees today is a second source of truth, and the artifact records the
+              // parent's value.
+              '--scope',
+              scope.join(','),
               '--declaration-budget',
               String(MEASURED_DECLARATION_CEILING.declarations),
               ...(answerArm ? ['--answer-arm'] : []),
@@ -621,6 +646,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
                 id: row.id,
                 repo,
                 corpusFiles: allFiles.length,
+                scope,
                 expectedFiles: row.changed_files.length,
                 because: outcome.because,
                 cost,

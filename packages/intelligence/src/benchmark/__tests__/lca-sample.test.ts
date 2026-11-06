@@ -63,6 +63,7 @@ function row(input: {
     id: input.id,
     repo: `owner/repo${String(input.id)}`,
     corpusFiles: input.corpusFiles,
+    analysisScope: null,
     expectedFiles: 1,
     expectedOutside: 0,
     offered: 0,

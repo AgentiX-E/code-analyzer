@@ -163,6 +163,39 @@ describe('analyzeRepository', () => {
     expect(result.projectId).toBeTruthy();
   });
 
+  // **The two glob flags, asserted on the context the pipeline is handed** - which is the only place the answer can be
+  // checked without running an analysis, and the place where the previous version of this command was wrong in a way
+  // no test could see: it passed no `config` at all, so the orchestrator substituted the defaults rooted at the
+  // process's working directory.
+  it('passes the include list to the pipeline, and keeps every default beside it', async () => {
+    const executeMock = setupMockOrchestrator();
+    await analyzeRepository({ path: testDir, include: ['**/*.kt'] });
+
+    const ctx = executeMock.mock.calls[0]![0] as {
+      config: { includePatterns: string[]; maxFiles: number; excludePatterns: string[] };
+    };
+    expect(ctx.config.includePatterns).toEqual(['**/*.kt']);
+    // **A partial configuration is not a configuration**: `maxFiles` of `undefined` makes `results.length >= undefined`
+    // false, which is an unbounded walk behind a command that looks configured.
+    expect(ctx.config.maxFiles).toBeGreaterThan(0);
+    expect(ctx.config.excludePatterns.length).toBeGreaterThan(0);
+  });
+
+  it('adds the exclusion globs to the defaults rather than replacing them', async () => {
+    const executeMock = setupMockOrchestrator();
+    await analyzeRepository({ path: testDir, exclude: ['vendor/**'] });
+
+    const ctx = executeMock.mock.calls[0]![0] as {
+      config: { includePatterns: string[]; excludePatterns: string[] };
+    };
+    expect(ctx.config.excludePatterns).toContain('vendor/**');
+    // `node_modules` is a default, and a user who excludes one directory does not mean to analyse the other one.
+    expect(ctx.config.excludePatterns.some((pattern) => pattern.includes('node_modules'))).toBe(
+      true,
+    );
+    expect(ctx.config.includePatterns).toEqual([]);
+  });
+
   it('should abort the run when the timeout expires', async () => {
     const executeMock = setupMockOrchestrator();
     let aborted = false;

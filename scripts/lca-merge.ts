@@ -22,7 +22,11 @@ import {
   BM25_MAX_DOCUMENTS,
   BM25_MAX_FILE_BYTES,
 } from '../packages/intelligence/src/benchmark/lca-baseline.js';
-import { LCA_CONFIGS, mean } from '../packages/intelligence/src/benchmark/lca-instrument.js';
+import {
+  LCA_CONFIGS,
+  mean,
+  quantile,
+} from '../packages/intelligence/src/benchmark/lca-instrument.js';
 import {
   combineParts,
   costModels,
@@ -311,6 +315,48 @@ function main(): void {
   // examine, `attempted` is what it reached, `measured` is what produced a ranking - three different denominators and
   // the only honest way to say "MAP over 24 rows" is with the other two beside it.
   const coverage = sampleCoverage(allRows, combined.overall.planned);
+  // **One scope per artifact, or the artifact describes two different analyses.** Every row publishes what the analysis
+  // was allowed to read; a run whose rows disagree is a run whose parts were measured under different questions, and the
+  // figure over them is a mean of two corpora. The gate refuses that, and this block is what it reads.
+  const scopes = [...new Set(allRows.map((row) => JSON.stringify(row.analysisScope ?? null)))];
+  // **`undefined` is not `null`.** A row written before this field existed has no value at all, and `!== null` counted
+  // it as scoped - the rehearsal of this very block reported 150 of 150 rows scoped with `patterns: null`, which is the
+  // kind of self-contradiction the gate exists to catch and the kind a rehearsal catches first.
+  const scopeOf = (row: (typeof allRows)[number] | undefined): readonly string[] | null =>
+    row !== undefined && Array.isArray(row.analysisScope) && row.analysisScope.length > 0
+      ? row.analysisScope
+      : null;
+  // **One scope per language, not one per artifact**, because a run merges three parts and each was told its own
+  // answer space. A single value here would have been a lie about two thirds of the rows.
+  const scopesByLanguage: Record<string, readonly string[] | null> = {};
+  for (const part of parts) {
+    const first = part.rows.find((row) => scopeOf(row) !== null);
+    scopesByLanguage[part.config] = first === undefined ? null : scopeOf(first);
+  }
+  const analysisScope = {
+    byLanguage: scopesByLanguage,
+    distinct: scopes.length,
+    rowsScoped: allRows.filter((row) => scopeOf(row) !== null).length,
+    rowsAttempted: allRows.length,
+    /** The universe the analysis read, **which is the quantity the cap is charged for**. */
+    universeFiles: {
+      min: Math.min(...allRows.map((row) => row.corpusFiles)),
+      median: quantile(
+        allRows.map((row) => row.corpusFiles),
+        0.5,
+      ),
+      max: Math.max(...allRows.map((row) => row.corpusFiles)),
+    },
+    note:
+      'The globs the analysis was restricted to, published per row as `analysisScope`. The corpus defines its answer ' +
+      'space as the non-test files of the configuration’s extension, and until this run the pipeline parsed the whole ' +
+      'checkout to answer a question about that space: `airbnb/lottie-android` reached 6 146 MB on 131 Kotlin files and ' +
+      'was killed, and 25 of 150 instances were refused for cost. `includePatterns` is a configuration field the ' +
+      'product documents and no phase read; it is read now, and this run states the list it was given. **`null` means ' +
+      'the whole checkout**, which is what every artifact before this one measured, and a mix of the two is refused by ' +
+      '`lca-gate.js` rather than averaged here.',
+  };
+
   const strata = stratify(allRows);
   const standardised = standardisedMap(strata);
   const paired = pairedComparison(allRows);
@@ -918,6 +964,11 @@ function main(): void {
     answerArm: parts.some((part) => part.answerArm),
     cuts: CUTS.join(', '),
     configuration: first.configuration,
+    /**
+     * **What the analysis was allowed to read**, which is a different fact from what the checkout holds and the one the
+     * cost bound is charged for.
+     */
+    analysisScope,
     space: first.space,
     overall: combined.overall,
     byLanguage: combined.byLanguage,

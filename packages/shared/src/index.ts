@@ -8,6 +8,7 @@ export * from './validation/index.js';
 export * from './logging/phase-logger.js';
 export { LRUCache } from './utils/lru-cache.js';
 export type { CacheStats } from './utils/lru-cache.js';
+export { globToRegExp, matchesIncludePattern } from './utils/glob.js';
 export {
   ARTIFACT_WRITE_ENV,
   artifactRecordingEnabled,

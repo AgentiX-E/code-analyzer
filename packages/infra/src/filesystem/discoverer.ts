@@ -4,7 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { getLanguageFromFilename } from '@code-analyzer/shared';
+import { getLanguageFromFilename, matchesIncludePattern } from '@code-analyzer/shared';
 
 import type { SupportedLanguage, DiscoveredFile } from '@code-analyzer/shared';
 
@@ -113,14 +113,11 @@ export function createFileDiscoverer(): FileDiscoverer {
     return excluded;
   }
 
+  // **The include list is the shared matcher's job**, because this package had a second copy of it and the pipeline
+  // had a third: `**/*.kt` compiled to `^.*/[^/]*\.kt$` here and to the same elsewhere, and neither matched a file at
+  // the root of a checkout. `@code-analyzer/shared` states the syntax once (`utils/glob.ts`).
   function matchesInclude(relativePath: string, includePatterns: string[]): boolean {
-    if (includePatterns.length === 0) return true;
-    for (const pattern of includePatterns) {
-      if (minimatch(pattern, relativePath)) return true;
-      const basename = path.basename(relativePath);
-      if (minimatch(pattern, basename)) return true;
-    }
-    return false;
+    return matchesIncludePattern(relativePath, includePatterns);
   }
 
   function parseGitignore(rootPath: string): string[] {
