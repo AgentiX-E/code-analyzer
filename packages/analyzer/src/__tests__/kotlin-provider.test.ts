@@ -923,3 +923,206 @@ describe('a name a type position writes', () => {
     expect(typeReferences('class Foo : Base(), Runnable')).toEqual(['Base', 'Runnable']);
   });
 });
+
+/**
+ * What a declaration says about its own signature.
+ *
+ * **Kotlin published none of it.** The base provider's `recordDeclaredReturn`, `recordDeclaredArity` and
+ * `attachDeclaredFacts` are language-agnostic hooks, and this provider reached none of them: its `signature` property
+ * carried `fun send(p: RetryPolicy, rest: List<Widget>)` as **text**, while the resolver had no `returnType`, no
+ * `parameterCount`, no `parameterTypes` and no field types to read. A signature a resolver would have to parse is not a
+ * fact the graph holds - it is the source again, one layer up.
+ */
+describe('what a Kotlin declaration says about its own signature', () => {
+  const reader = new KotlinProvider();
+  const functionNamed = (source: string, name: string) =>
+    reader
+      .parse(source, 'Sig.kt')
+      .find((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF && capture.name === name);
+
+  it('publishes the return type', () => {
+    expect(functionNamed('fun send(): Outcome = TODO()', 'send')?.properties?.['returnType']).toBe(
+      'Outcome',
+    );
+  });
+
+  it('publishes how many arguments it takes and what they are', () => {
+    const fn = functionNamed('fun send(p: RetryPolicy, rest: List<Widget>) {}', 'send');
+    expect(fn?.properties?.['parameterCount']).toBe('2');
+    expect(fn?.properties?.['requiredParameters']).toBe('2');
+    // **Written as the source wrote them**, generic arguments included: the reader of this property reduces a name to
+    // its head, and doing that reduction there keeps one rule instead of two.
+    expect(JSON.parse(String(fn?.properties?.['parameterTypes']))).toEqual([
+      'RetryPolicy',
+      'List<Widget>',
+    ]);
+  });
+
+  it('does not count a parameter with a default as required', () => {
+    // A default is a statement that a call may omit this argument, which is a different fact from how many are
+    // written - the same distinction TypeScript's `?` and a rest parameter draw.
+    const fn = functionNamed('fun send(p: RetryPolicy = TODO()) {}', 'send');
+    expect(fn?.properties?.['parameterCount']).toBe('1');
+    expect(fn?.properties?.['requiredParameters']).toBe('0');
+  });
+
+  it('says nothing about the types of parameters a declaration does not type', () => {
+    // **An empty list would read as "stated, and matched nothing"**, the one reading a resolver must not make.
+    const fn = functionNamed('fun run() {}', 'run');
+    expect(fn?.properties?.['parameterCount']).toBe('0');
+    expect(fn?.properties?.['parameterTypes']).toBeUndefined();
+  });
+
+  it('publishes each parameter as a declaration a call site can name', () => {
+    // **The class is part of the key, because the call site knows the class and not the file.** `ownerKeyOf` builds
+    // `Service.send`, and the resolver looks a parameter up by exactly that.
+    const captures = reader.parse('class Service {\n  fun send(p: RetryPolicy) {}\n}', 'Sig.kt');
+    const parameter = captures.find(
+      (capture) => capture.tag === CAPTURE_TAGS.VARIABLE_DEF && capture.name === 'p',
+    );
+    expect(parameter?.properties?.['parameterIndex']).toBe('0');
+    expect(parameter?.properties?.['parameterType']).toBe('RetryPolicy');
+    expect(parameter?.properties?.['parameterOwner']).toBe('Service.send');
+  });
+
+  it('names the class a method is declared in', () => {
+    const captures = reader.parse('class Service {\n  fun send() {}\n}', 'Sig.kt');
+    const fn = captures.find((capture) => capture.tag === CAPTURE_TAGS.FUNCTION_DEF);
+    expect(fn?.properties?.['enclosingClass']).toBe('Service');
+  });
+
+  it('files the type of a property under its class', () => {
+    const source = 'class Service {\n  private val cache: Map<String, Widget> = TODO()\n}';
+    const cls = reader
+      .parse(source, 'Sig.kt')
+      .find((capture) => capture.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(JSON.parse(String(cls?.properties?.['fieldTypes']))).toEqual({
+      cache: 'Map<String, Widget>',
+    });
+  });
+
+  it('files a constructor property under its class too', () => {
+    // **`class Service(val policy: RetryPolicy)` declares a field and a parameter at once**, which is the Kotlin idiom
+    // for dependency injection - the same position the type reference was added for.
+    const cls = reader
+      .parse('class Service(val policy: RetryPolicy)', 'Sig.kt')
+      .find((capture) => capture.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(JSON.parse(String(cls?.properties?.['fieldTypes']))).toEqual({ policy: 'RetryPolicy' });
+  });
+
+  it('reads the return type of a declaration that writes no body', () => {
+    // **A body is where the search for the return type stops, and an interface method has none.** `fun send(): Outcome`
+    // writes the type and nothing after it, so a walk that stopped only at a body would never reach the end of this list.
+    expect(
+      functionNamed('interface Port {\n  fun send(): Outcome\n}', 'send')?.properties?.[
+        'returnType'
+      ],
+    ).toBe('Outcome');
+  });
+
+  it('says nothing about fields for a class that declares none', () => {
+    const cls = reader
+      .parse('class Empty', 'Sig.kt')
+      .find((capture) => capture.tag === CAPTURE_TAGS.CLASS_DEF);
+    // **No empty object either.** `{}` would read as "stated, and there are none" on a class whose properties this walk
+    // could not read, which is a claim rather than a fact.
+    expect(cls?.properties?.['fieldTypes']).toBeUndefined();
+  });
+
+  it('drops a name two declarations disagree about', () => {
+    // The resolver's own rule: a field two declarations type differently has no type, and keeping the first would answer
+    // every read of it with the declaration that happens to come first.
+    const cls = reader
+      .parse(
+        'class Service {\n  val cache: Cache = TODO()\n  val cache: Archive = TODO()\n}',
+        'Sig.kt',
+      )
+      .find((capture) => capture.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(cls?.properties?.['fieldTypes']).toBeUndefined();
+  });
+
+  it('does not treat a constructor argument as a field unless it says val or var', () => {
+    const cls = reader
+      .parse('class Service(registry: Registry)', 'Sig.kt')
+      .find((capture) => capture.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(cls?.properties?.['fieldTypes']).toBeUndefined();
+  });
+
+  it('does not file a property declared inside a function body as a field of the class', () => {
+    // **`fun run() { val x: Widget = … }` is a local**, and the upward walk stops at the function so the class is not
+    // handed a type it never declared - the same distinction `localTypes` draws from `fieldTypes` elsewhere.
+    const cls = reader
+      .parse('class Service {\n  fun run() {\n    val x: Widget = TODO()\n  }\n}', 'Sig.kt')
+      .find((capture) => capture.tag === CAPTURE_TAGS.CLASS_DEF);
+    expect(cls?.properties?.['fieldTypes']).toBeUndefined();
+  });
+});
+
+/**
+ * The call sites this provider never emitted.
+ *
+ * **`Function Calls` was `✅` for Kotlin in `docs/language-support.md` and the graph held zero of them.** The provider
+ * overrode `walkAndCapture` and handled classes, functions and imports; a `call_expression` reached no branch, so
+ * `p.refresh()` was parsed and dropped. That is the shape of defect this repository keeps finding - a capability the
+ * documentation states, the infrastructure supports, and one walk forgets to produce - and it is why this language
+ * reads 0.3934 on the Long Code Arena sample while Python reads 0.5405.
+ */
+describe('a Kotlin call site', () => {
+  const reader = new KotlinProvider();
+  const calls = (source: string) =>
+    reader
+      .parse(source, 'Calls.kt')
+      .filter(
+        (capture) =>
+          capture.tag === CAPTURE_TAGS.FUNCTION_CALL || capture.tag === CAPTURE_TAGS.METHOD_CALL,
+      );
+
+  it('is a method call when the callee is written as a member', () => {
+    const [call] = calls('fun run() { p.refresh() }');
+    expect(call?.tag).toBe(CAPTURE_TAGS.METHOD_CALL);
+    // **The receiver is the text and the name is the last segment**, which is the split `receiverOf` reads and the one
+    // a lookup is keyed by.
+    expect(call?.text).toBe('p.refresh');
+    expect(call?.name).toBe('refresh');
+  });
+
+  it('is a function call when the callee is a bare name', () => {
+    const [call] = calls('fun run() { refresh() }');
+    expect(call?.tag).toBe(CAPTURE_TAGS.FUNCTION_CALL);
+    expect(call?.name).toBe('refresh');
+  });
+
+  it('records the inner call of a chained one', () => {
+    // **`Builder().build()` is two call sites.** The callee of the outer is a call expression; a walk that stopped at
+    // the outer one would lose the constructor, and with it the type the receiver has. **The outer comes first**,
+    // because the walk visits a node before the children it is written on.
+    const recorded = calls('fun run() { Builder().build() }').map((call) => call.name);
+    expect(recorded).toEqual(['build', 'Builder']);
+  });
+
+  it('counts the arguments a call passes', () => {
+    expect(calls('fun run() { service.refresh(1, 2) }')[0]?.properties?.['argumentCount']).toBe(
+      '2',
+    );
+  });
+
+  it('states no count for a call that spreads a list', () => {
+    // A spread stands for a list whose length is a runtime fact, so the honest answer is no answer rather than a
+    // wrong one - the same rule `String... parts` and `*args` follow.
+    expect(calls('fun run() { service.refresh(*args) }')[0]?.properties?.['argumentCount']).toBe(
+      undefined,
+    );
+  });
+
+  it('states no count for a call whose only argument is a trailing lambda', () => {
+    // **`list.forEach { … }` passes no argument list at all** - the suffix holds the lambda and nothing else - so a
+    // count of zero would say the call takes no arguments when it takes one.
+    expect(calls('fun run() { list.forEach { it.refresh() } }').map((call) => call.name)).toEqual([
+      'forEach',
+      'refresh',
+    ]);
+    expect(
+      calls('fun run() { list.forEach { it.refresh() } }')[0]?.properties?.['argumentCount'],
+    ).toBe(undefined);
+  });
+});

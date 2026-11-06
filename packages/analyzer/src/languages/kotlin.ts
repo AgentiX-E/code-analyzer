@@ -4,6 +4,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { ownerKeyOf } from '../resolution/receiver-types.js';
 
 import type { ParsedImport } from './provider.js';
 import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
@@ -11,6 +12,16 @@ import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const KOTLIN_EXTENSIONS = ['.kt', '.kts'];
 const KOTLIN_GLOBS = ['**/*.kt', '**/*.kts'];
+
+/** The node types a Kotlin declaration writes a type into, which is what its signature is made of. */
+const WRITTEN_TYPE_NODES: ReadonlySet<string> = new Set([
+  'user_type',
+  'nullable_type',
+  'function_type',
+]);
+
+/** Kotlin spells a call - of a function, a method or a constructor - with one node type. */
+const KOTLIN_CALL_NODE_TYPES: ReadonlySet<string> = new Set(['call_expression']);
 
 export class KotlinProvider extends TreeSitterBaseProvider {
   readonly language = 'kotlin';
@@ -30,14 +41,26 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   private readonly typeParameterNames = new Set<string>();
 
   /**
+   * `Class` → the declared type of each property, attached to the class capture afterwards.
+   *
+   * **A field's type is a fact about its class and not a symbol of its own**, which is the measurement iteration 45
+   * recorded on TypeScript: a `Property` node per field cost this product's own docstring search 0.0145 MRR, for a fact
+   * the resolver reads off the class anyway. Kotlin published **none** of them - `val cache: Map<String, Widget>` was a
+   * string in a `signature` property and nothing else.
+   */
+  private readonly classFieldTypes = new Map<string | undefined, Map<string, string>>();
+
+  /**
    * The parse, with the type parameters of the previous file forgotten.
    *
-   * **Per file, and stated here rather than in `decorateCaptures`** because this provider has no decoration of its own:
-   * a name declared in one file would otherwise suppress a genuine type reference in the next, and the file the walk
-   * runs on is the only thing that decides which names are bound.
+   * **Per file, and stated here rather than in `decorateCaptures`** because a name declared in one file would otherwise
+   * suppress a genuine type reference in the next, and the file the walk runs on is the only thing that decides which
+   * names are bound. **The field types are cleared for the same reason**: a class called `Service` in two files would
+   * otherwise inherit the second file's properties in the first one's capture.
    */
   override parse(source: string, filePath: string): UnifiedCapture[] {
     this.typeParameterNames.clear();
+    this.classFieldTypes.clear();
     return super.parse(source, filePath);
   }
 
@@ -46,6 +69,56 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     // never throws in the bundled runtime.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require('tree-sitter-kotlin') as TreeSitterLanguage;
+  }
+
+  /** One node type spells every call: `p.refresh()`, `refresh()` and `Builder()` are all `call_expression`. */
+  protected override callNodeTypes(): ReadonlySet<string> {
+    return KOTLIN_CALL_NODE_TYPES;
+  }
+
+  /**
+   * The name a call is filed under: the last segment of its callee.
+   *
+   * **`p.refresh()` names `refresh`**, and `service.policy.refresh()` too. The receiver is the *text* of the callee,
+   * which the base implementation already takes from the first named child; the name is what a lookup is keyed by, and
+   * a dotted name resolves to nothing.
+   */
+  protected override extractCallName(node: TreeSitterSyntaxNode): string | undefined {
+    // **A `call_expression` always writes its callee** - the grammar is `(expression) call_suffix` - so the first named
+    // child exists and the `!` states the production rather than a hope.
+    const text = namedChildrenOf(node)[0]!.text;
+    const lastDot = text.lastIndexOf('.');
+    return lastDot < 0 ? text : text.slice(lastDot + 1);
+  }
+
+  /**
+   * Whether the callee is written as a member, which is what selects `METHOD_CALL` over `FUNCTION_CALL`.
+   *
+   * **The tag is what carries the receiver** - `receiverOf` reads it - so this is not a label. A callee that is itself
+   * a call (`Builder().build()`) is a member of what that call returned.
+   */
+  protected override isMethodCall(node: TreeSitterSyntaxNode): boolean {
+    const callee = namedChildrenOf(node)[0];
+    return callee?.type === 'navigation_expression' || callee?.type === 'call_expression';
+  }
+
+  /**
+   * How many arguments a call passes.
+   *
+   * **Kotlin writes the list inside `call_suffix`, not in an `arguments` field**, so the base implementation's field
+   * lookup answers nothing here. A spread (`*array`) stands for a list whose length is a runtime fact, and a call that
+   * passes one has no count rather than a count that is wrong.
+   */
+  protected override argumentCountOf(node: TreeSitterSyntaxNode): number | undefined {
+    // **A `call_expression` always carries a `call_suffix`** - it is what makes it a call rather than a reference to a
+    // function - so this lookup cannot come back empty.
+    const suffix = namedChildrenOf(node).find((child) => child.type === 'call_suffix')!;
+    // **A trailing lambda passes no list at all.** `list.forEach { … }` is a call whose suffix holds only the lambda,
+    // and a count of zero would say it takes no arguments when it takes one.
+    const list = namedChildrenOf(suffix).find((child) => child.type === 'value_arguments');
+    if (list === undefined) return undefined;
+    const passed = namedChildrenOf(list).filter((child) => child.type === 'value_argument');
+    return passed.some((argument) => argument.text.startsWith('*')) ? undefined : passed.length;
   }
 
   // When tree-sitter grammar is available, use AST walking
@@ -74,6 +147,18 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       // so the lookup cannot come back empty and the `!` states the production rather than a hope.
       const written = namedChildrenOf(node).find((child) => child.type === 'type_identifier')!;
       this.typeParameterNames.add(written.text);
+    }
+
+    // **Kotlin recorded no call sites at all, and the matrix said it did.** `walkAndCapture` overrode the base walk and
+    // handled classes, functions and imports; `p.refresh()` was parsed, was never emitted, and the graph held **zero**
+    // `CALLS` edges for a Kotlin checkout - which is why this language reads 0.3934 on the Long Code Arena sample while
+    // Python reads 0.5405 and Java 0.5156. A provider that emits no call has no call graph, and retrieval over it can
+    // only match names.
+    //
+    // **No early return**: the callee of `Builder().build()` is itself a call, and the arguments of a call contain
+    // calls. The walk continues into both, which is what makes the inner sites reachable at all.
+    if (this.isCallNodeType(nodeType)) {
+      this.emitCallCapture(node, captures);
     }
 
     if (nodeType === 'class_declaration' || nodeType === 'object_declaration') {
@@ -133,6 +218,10 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       // `simple_identifier` child, for the same reason and by the same measurement: `fun () {}` is an
       // `anonymous_function` and never reaches this branch.
       const nameNode = this.findChild(node, 'simple_identifier')!;
+      // **The class a method is declared in, which the graph did not record for Kotlin.** `nameByContainment` files a
+      // member under the class that encloses it, and this provider emitted no container at all, so a Kotlin method's
+      // qualified name was `file:<path>:<name>` and a parameter could not be keyed by `Service.send`.
+      const enclosingClass = this.enclosingClassNameOf(node);
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: nameNode.text,
@@ -141,8 +230,20 @@ export class KotlinProvider extends TreeSitterBaseProvider {
         startByte: nameNode.startIndex,
         endByte: nameNode.endIndex,
         name: nameNode.text,
-        properties: { filePath: this.filePath },
+        properties: {
+          filePath: this.filePath,
+          ...(enclosingClass === undefined ? {} : { enclosingClass }),
+        },
       });
+      // **What the declaration says it returns and how many arguments it takes.** Both were written in the source and
+      // neither reached the graph: the `signature` property carried `fun send(p: RetryPolicy): Outcome` as text, and a
+      // resolver reading it would be parsing the source again one layer up.
+      this.recordSignature(node, nameNode.text);
+      this.emitParameterDefs(node, nameNode.text, enclosingClass, captures);
+    } else if (nodeType === 'property_declaration') {
+      this.recordPropertyType(node);
+    } else if (nodeType === 'class_parameter') {
+      this.recordConstructorPropertyType(node);
     }
 
     // Capture import statements in the unified capture stream
@@ -166,6 +267,32 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     for (const child of childrenOf(node)) {
       this.walkAndCapture(child, captures);
     }
+  }
+
+  /**
+   * File the facts that belong to more than the node they were read from.
+   *
+   * **A property's type is a fact about its class, and the graph stores it there** - one property, no node per property,
+   * for the reason recorded on `classFieldTypes`. The declared returns and arities the walk collected are attached here
+   * too, by the base implementation, which is the only place that can see both the fact and the capture it belongs to.
+   */
+  protected override decorateCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
+    const decorated = captures.map((capture) => {
+      if (capture.tag !== CAPTURE_TAGS.CLASS_DEF) return capture;
+      // **The map is keyed by `string` and read with whatever the capture carries.** A capture with no name is a class
+      // this parse could not identify, and asking the map for `undefined` is a miss - which is the answer.
+      const fields = this.classFieldTypes.get(capture.name);
+      if (fields === undefined || fields.size === 0) return capture;
+      return {
+        ...capture,
+        properties: {
+          ...capture.properties,
+          fieldTypes: JSON.stringify(Object.fromEntries(fields)),
+        },
+      };
+    });
+    this.classFieldTypes.clear();
+    return this.attachDeclaredFacts(decorated);
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
@@ -479,6 +606,221 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   }
 
   // ---- Utility helpers ----
+
+  /**
+   * The class or object a declaration is written in, or `undefined` when it is in no container.
+   *
+   * **A declaration inside a function body is a local and not a field**, and the walk upward stops there: filing
+   * `fun run() { val x: Widget = … }` under the class would answer `this.x` with a type it never had. **An `object` is
+   * a container** for the same reason a class is - `object Registry { val cache: Cache }` declares one instance of a
+   * type and its members belong to it.
+   */
+  private enclosingClassNameOf(node: TreeSitterSyntaxNode): string | undefined {
+    let current = node.parent;
+    while (current !== null) {
+      if (
+        current.type === 'function_declaration' ||
+        current.type === 'anonymous_function' ||
+        current.type === 'lambda_literal'
+      ) {
+        return undefined;
+      }
+      if (current.type === 'class_declaration' || current.type === 'object_declaration') {
+        return this.findChild(current, 'type_identifier')?.text;
+      }
+      current = current.parent;
+    }
+    return undefined;
+  }
+
+  /** The type a node writes directly, whether plain, nullable or a function type. */
+  private writtenTypeOf(node: TreeSitterSyntaxNode): string | undefined {
+    return namedChildrenOf(node).find((child) => WRITTEN_TYPE_NODES.has(child.type))?.text;
+  }
+
+  /**
+   * The parameters a declaration writes, in the order a caller passes them.
+   *
+   * **A `parameter` is not the whole of one.** Kotlin writes a default value and a `vararg` modifier as **siblings** of
+   * the `parameter` inside `function_value_parameters`:
+   *
+   * ```
+   * function_value_parameters
+   *   parameter            (p: RetryPolicy)
+   *   "="                  ← the default, one sibling to the right
+   *   call_expression      (TODO())
+   *   parameter_modifiers  (vararg)   ← the modifier, one sibling to the left
+   *   parameter            (rest: Widget)
+   * ```
+   *
+   * So a walk that read a `parameter` node and nothing else saw neither, and reported `fun send(p: X = …)` as requiring
+   * `p` — which is a call the type checker refuses and the resolver would then answer.
+   */
+  private parametersOf(node: TreeSitterSyntaxNode): Array<{
+    nameNode: TreeSitterSyntaxNode;
+    type: string;
+    optional: boolean;
+    variadic: boolean;
+  }> {
+    // **A Kotlin function always writes its parameter list** - the grammar is
+    // `fun type_parameters? (receiver_type '.')? simple_identifier function_value_parameters (':' type)? body?` - so the
+    // lookup cannot come back empty.
+    const list = namedChildrenOf(node).find((child) => child.type === 'function_value_parameters')!;
+    const parameters: Array<{
+      nameNode: TreeSitterSyntaxNode;
+      type: string;
+      optional: boolean;
+      variadic: boolean;
+    }> = [];
+    let modifiers = '';
+    for (const child of childrenOf(list)) {
+      if (child.type === 'parameter_modifiers') {
+        modifiers = child.text;
+        continue;
+      }
+      if (child.type !== 'parameter') {
+        // **`=` is the default marker and it is one sibling to the right of the parameter it defaults.** It is a token
+        // of the list and not of the declaration, so this is the only place the fact exists.
+        if (child.type === '=' && parameters.length > 0)
+          parameters[parameters.length - 1]!.optional = true;
+        continue;
+      }
+      // **A `parameter` always writes its name and its type** - `simple_identifier ':' user_type` - so both lookups
+      // state the production rather than guard against a shape the parser cannot produce. A lambda's parameters are
+      // written without either and are not `parameter` nodes.
+      const nameNode = namedChildrenOf(child).find(
+        (grandchild) => grandchild.type === 'simple_identifier',
+      )!;
+      parameters.push({
+        nameNode,
+        type: this.writtenTypeOf(child)!,
+        optional: false,
+        variadic: /\bvararg\b/.test(modifiers),
+      });
+      modifiers = '';
+    }
+    return parameters;
+  }
+
+  /**
+   * What a declaration says it returns, from the type written after its parameter list.
+   *
+   * **Kotlin writes no `return_type` field**, unlike every other grammar this base serves: the return type is a
+   * `user_type` (or a `nullable_type`, or a `function_type`) sitting between `function_value_parameters` and
+   * `function_body`. So the position in the child list is the fact, and the body is where the search stops - a
+   * `user_type` inside the body is a local's type and not this declaration's return.
+   */
+  private returnTypeOf(node: TreeSitterSyntaxNode): string | undefined {
+    const children = namedChildrenOf(node);
+    // **A Kotlin function always writes its parameter list** - the grammar is
+    // `fun type_parameters? (receiver_type '.')? simple_identifier function_value_parameters (':' type)? body?` - so the
+    // lookup cannot come back empty and the `!` states the production rather than a hope.
+    const parameters = children.find((child) => child.type === 'function_value_parameters')!;
+    const body = children.findIndex((child) => child.type === 'function_body');
+    const end = body < 0 ? children.length : body;
+    for (let index = children.indexOf(parameters) + 1; index < end; index++) {
+      const child = children[index]!;
+      if (WRITTEN_TYPE_NODES.has(child.type)) return child.text;
+    }
+    return undefined;
+  }
+
+  /** File what a declaration says it returns and how many arguments it takes, keyed the way a capture is. */
+  private recordSignature(node: TreeSitterSyntaxNode, name: string): void {
+    const key = `${node.startPosition.row + 1}\u0000${name}`;
+    const written = this.returnTypeOf(node);
+    if (written !== undefined) this.declaredReturns.set(key, written);
+    const parameters = this.parametersOf(node);
+    this.declaredArities.set(key, {
+      parameters: parameters.length,
+      // **A variadic parameter may receive nothing at all**, so it is never required - the rule the base provider states
+      // for `String... parts` and `*args`.
+      required: parameters.filter((parameter) => !parameter.optional && !parameter.variadic).length,
+      variadic: parameters.some((parameter) => parameter.variadic),
+      types: parameters.map((parameter) => parameter.type),
+    });
+  }
+
+  /**
+   * File each parameter as a declaration a call site can name.
+   *
+   * **The position is the only handle a call site has on a parameter.** A caller passes argument 1 and the callee's
+   * argument 1 is whatever it declared first; without the ordinal the two cannot be matched. **The owner is the class
+   * and the function** - `Service.send` - because the call site knows the class and not the file the declaration lives
+   * in, which is the key `ownerKeyOf` builds and `containerOf` reads back.
+   */
+  private emitParameterDefs(
+    node: TreeSitterSyntaxNode,
+    name: string,
+    enclosingClass: string | undefined,
+    captures: UnifiedCapture[],
+  ): void {
+    const owner = ownerKeyOf(enclosingClass, name);
+    for (const [parameterIndex, parameter] of this.parametersOf(node).entries()) {
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: parameter.nameNode.text,
+        startLine: parameter.nameNode.startPosition.row + 1,
+        endLine: parameter.nameNode.endPosition.row + 1,
+        startByte: parameter.nameNode.startIndex,
+        endByte: parameter.nameNode.endIndex,
+        name: parameter.nameNode.text,
+        properties: {
+          filePath: this.filePath,
+          parameterIndex: String(parameterIndex),
+          // **A parameter at the top level of a `.kt` file has no class to be keyed by**, and the property is then
+          // absent rather than empty - a key built from nothing answers nothing.
+          ...(enclosingClass === undefined ? {} : { parameterOwner: owner }),
+          parameterType: parameter.type,
+        },
+      });
+    }
+  }
+
+  /** File a property's declared type under its class. */
+  private recordPropertyType(node: TreeSitterSyntaxNode): void {
+    const className = this.enclosingClassNameOf(node);
+    if (className === undefined) return;
+    const declaration = namedChildrenOf(node).find(
+      (child) => child.type === 'variable_declaration',
+    );
+    if (declaration === undefined) return;
+    const field = namedChildrenOf(declaration).find((child) => child.type === 'simple_identifier');
+    const type = this.writtenTypeOf(declaration);
+    if (field === undefined || type === undefined) return;
+    this.fileFieldType(className, field.text, type);
+  }
+
+  /**
+   * File a constructor parameter that also declares a property under its class.
+   *
+   * **A `class_parameter` is a field only when it says `val` or `var`.** `class Service(registry: Registry)` receives an
+   * argument and declares nothing; `class Service(val policy: RetryPolicy)` declares both, which is the Kotlin idiom for
+   * constructor injection - the same position this iteration's type reference was added for.
+   */
+  private recordConstructorPropertyType(node: TreeSitterSyntaxNode): void {
+    if (namedChildrenOf(node).every((child) => child.type !== 'binding_pattern_kind')) return;
+    const className = this.enclosingClassNameOf(node);
+    if (className === undefined) return;
+    const field = namedChildrenOf(node).find((child) => child.type === 'simple_identifier');
+    const type = this.writtenTypeOf(node);
+    if (field === undefined || type === undefined) return;
+    this.fileFieldType(className, field.text, type);
+  }
+
+  /** One field, on its class. **A name two declarations disagree about has no type**, the resolver's own rule. */
+  private fileFieldType(className: string, field: string, type: string): void {
+    let fields = this.classFieldTypes.get(className);
+    if (fields === undefined) {
+      fields = new Map();
+      this.classFieldTypes.set(className, fields);
+    }
+    if (fields.has(field) && fields.get(field) !== type) {
+      fields.delete(field);
+      return;
+    }
+    fields.set(field, type);
+  }
 
   /**
    * One reference for a type a Kotlin declaration writes.

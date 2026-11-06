@@ -24,9 +24,9 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Constructor Detection**    |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |
 | **Docstrings/JSDoc**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
 | **Function Calls**           |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |
-| **Declared Type Facts**      |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
-| **Declared Return Types**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
-| **Parameter Arity**          |     ✅     |     —      |   ✅   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Declared Type Facts**      |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Declared Return Types**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Parameter Arity**          |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Package-Qualified Names**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Abstract Classes**         |     ✅     |    N/A     |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Class Expressions**        |     ✅     |     ✅     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
@@ -58,15 +58,17 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Impl Block Detection**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
 | **Object Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |
 
-**Only three providers read a declared type**, and that row is the reason the call graph can resolve a receiver at
-all: `fieldTypes`, `localTypes` and `parameterOwner`/`parameterType` are emitted by **TypeScript**, **Python** and
-**Java** — TypeScript and Java file fields, locals and parameters, Python files fields and parameters. Those are also
-exactly the three languages with an independent accuracy oracle, which is not a coincidence: a language whose
-declarations are not facts has nothing for an oracle to disagree with. The other fourteen parse every declaration the
-matrix rows above record and resolve no receiver, so `this.builder.append(…)` in Kotlin or `widget.draw(…)` in C# is an
-unclaimed edge — **stated here rather than claimed as support.** Java spent four iterations "supported" at **50 `CALLS`
-edges** on a Spring application because nobody had asked whether the arm that reads a type had anything to read
-(iteration 56; the same checkout now yields 285, of which 235 come from that arm).
+**Four providers read a declared type**, and that row is the reason the call graph can resolve a receiver at all:
+`fieldTypes`, `localTypes` and `parameterOwner`/`parameterType` are emitted by **TypeScript**, **Python**, **Java** and —
+since iteration 85 — **Kotlin** (TypeScript and Java file fields, locals and parameters; Python and Kotlin file fields
+and parameters). Those are also exactly the four languages with an independent accuracy oracle, which is not a
+coincidence: a language whose declarations are not facts has nothing for an oracle to disagree with. The other thirteen
+parse every declaration the matrix rows above record and resolve no receiver, so `widget.draw(…)` in C# or
+`value.render()` in Rust is an unclaimed edge — **stated here rather than claimed as support.** Java spent four
+iterations "supported" at **50 `CALLS` edges** on a Spring application because nobody had asked whether the arm that
+reads a type had anything to read (iteration 56; the same checkout now yields 285, of which 235 come from that arm).
+**Kotlin was the second instance of the same mistake and a worse one**: it emitted no call sites at all, which the
+`Function Calls` row claimed it did — see the Kotlin section below.
 
 **A declaration states a signature, and the call graph reads it as a fact rather than as a hint.** `parameterCount`,
 `requiredParameters` and `variadic` are what a declaration writes; `argumentCount` is what a call site passes. A name
@@ -358,19 +360,19 @@ the capture tag `type.reference` to the reference kind `type`, and until iterati
 was not invisible. `abstract class Class` in `colinhacks/zod@3.23.8` is named exactly once, inside
 `<T extends typeof Class>`, and the dead-code pass — which reads call edges and mention edges — reported it as dead on a
 library that publishes every name it declares. Iteration 84 gave the same producer to the three languages where the
-position is the *only* place a dependency is written: `private final Registry registry;`, `val policy: RetryPolicy` and
+position is the _only_ place a dependency is written: `private final Registry registry;`, `val policy: RetryPolicy` and
 `def send(p: RetryPolicy)` are how constructor injection is spelled in each, and the class named there is read through
 the annotation and never mentioned again.
 
 **Each language asks the question its own grammar makes answerable, and none of them reads text to decide.** The four
 walks differ because the four grammars differ:
 
-| Language   | What decides "this is a type position"                                                                                    | What is deliberately not filed                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| TypeScript | Three anchors: `type_annotation`, `type_alias_declaration`, `type_parameters`                                              | `predefined_type` as a subtree; the first named child of a binder production; `T` a file declares, by name       |
-| Java       | The node type: every `type_identifier` / `scoped_type_identifier` outside a `type_parameter`                                | primitives (they are `integral_type` / `void_type`); `var`; the member's own name in `a.b.C`                     |
-| Kotlin     | The `user_type` boundary: every type a declaration writes is inside one, every `type_identifier` outside one is a name being declared | the packages in `kotlinx.coroutines.Flow`; `R` a file declares, by name                                          |
-| Python     | Four productions: `typed_parameter`, `typed_default_parameter`, `function_definition.return_type`, `assignment`              | the module in `typing.List`; a string forward reference (`"Later"` is text, not code)                            |
+| Language   | What decides "this is a type position"                                                                                                | What is deliberately not filed                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| TypeScript | Three anchors: `type_annotation`, `type_alias_declaration`, `type_parameters`                                                         | `predefined_type` as a subtree; the first named child of a binder production; `T` a file declares, by name |
+| Java       | The node type: every `type_identifier` / `scoped_type_identifier` outside a `type_parameter`                                          | primitives (they are `integral_type` / `void_type`); `var`; the member's own name in `a.b.C`               |
+| Kotlin     | The `user_type` boundary: every type a declaration writes is inside one, every `type_identifier` outside one is a name being declared | the packages in `kotlinx.coroutines.Flow`; `R` a file declares, by name                                    |
+| Python     | Four productions: `typed_parameter`, `typed_default_parameter`, `function_definition.return_type`, `assignment`                       | the module in `typing.List`; a string forward reference (`"Later"` is text, not code)                      |
 
 **Java is the clearest case of a boundary the grammar already drew.** `int` is an `integral_type` node and `void` a
 `void_type`, so the primitives fall out structurally rather than by a list of words; every remaining type position —
@@ -378,7 +380,7 @@ a field, a local, a parameter, a return, a cast, an `instanceof`, a `catch`, a `
 one declaration is spelled with the node type a use has: `type_parameter`, whose name is suppressed by name, because
 `<T extends Widget> T pick(T a)` declares `T` once and writes it twice at three different offsets. **Kotlin is the
 cleanest**: `user_type` is the wall, `class Widget` and `typealias Alias` are outside it, and a qualified type is
-*three* sibling `type_identifier` nodes, so a walk that collected identifiers would file `kotlinx` and `coroutines` as
+_three_ sibling `type_identifier` nodes, so a walk that collected identifiers would file `kotlinx` and `coroutines` as
 types. **Python is the only one that needs an anchor list**, because it spells a type with the same nodes an expression
 has — `identifier`, `subscript`, `attribute` — and nothing in a type's own shape says it is one.
 
@@ -404,6 +406,56 @@ corpora: `colinhacks/zod` **1 finding → 0** (its ceiling is 0), `redis/ioredis
 only in a type position is still reported dead in C#, Rust, Go, Swift, Scala and the rest. The corpora that hold the
 dead-code gate are Python and TypeScript, which is why the gate is green; the JVM and Python providers closing it is a
 claim about those four languages and this table's other thirteen columns say `—` for exactly that reason.
+
+## Kotlin: the calls and the signatures one walk forgot
+
+**`Function Calls` was `✅` for Kotlin and the graph held zero of them.** `KotlinProvider` overrides `walkAndCapture`,
+and that override handled classes, objects, functions and imports: a `call_expression` reached no branch, so
+`p.refresh()` was parsed, matched nothing, and was dropped. The matrix said otherwise because the row was written from
+the language's capabilities rather than from the provider's emissions — **the same defect class as the reference kind
+nobody wrote, one level up: a row in a table is a promise, and a promise needs a producer.**
+
+**What it cost.** The Long Code Arena sample reads **0.3934** on Kotlin against **0.5405** on Python and **0.5156** on
+Java, and the gap is not the retriever: with no `CALLS` edges a Kotlin checkout has no call graph, so retrieval can only
+match names. A language with no call graph is a language the rest of the product cannot reason about — reachability,
+change impact and dead code all read edges that did not exist.
+
+**One node type spells every call.** `p.refresh()`, `refresh()` and `Builder()` are all `call_expression`, and the first
+named child is the callee — which is what the base implementation already takes the _text_ from (`p.refresh`). Three
+small overrides make the rest Kotlin's own:
+
+| What               | Kotlin's answer                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| the reference name | the **last segment** of the callee: `p.refresh` → `refresh`, because a dotted name resolves to nothing                           |
+| method or function | the callee is a `navigation_expression` (or a `call_expression`, for `Builder().build()`) — the tag is what carries the receiver |
+| the argument count | `call_suffix > value_arguments`, not an `arguments` field; a `*spread` states no count rather than a wrong one                   |
+
+**The walk does not stop at a call**, because the callee of `Builder().build()` is itself a call and an argument list can
+hold calls: both are visited, so the constructor and the callback are recorded as the sites they are.
+
+**The declarations published nothing either, and the grammar had two surprises.** `returnType`, `parameterCount`,
+`requiredParameters`, `parameterTypes`, `fieldTypes` and the `parameterOwner`/`parameterType` pair are emitted now. Two
+facts about tree-sitter-kotlin are worth stating because both are counter-intuitive:
+
+1. **There is no `return_type` field.** The return type is a `user_type` (or `nullable_type`, or `function_type`) sitting
+   between `function_value_parameters` and `function_body`, so its _position_ is the fact and the body is where the
+   search stops — a `user_type` inside the body is a local's type.
+2. **A default value and a `vararg` are siblings of the parameter, not children of it.**
+   `fun send(p: RetryPolicy = TODO(), vararg rest: Widget)` parses as `parameter`, `"="`, `call_expression`,
+   `parameter_modifiers`, `parameter` — so a walk that read a `parameter` node and nothing else reported `p` as
+   _required_, which is a call the type checker refuses. The `=` to the right and the modifiers to the left are the
+   whole of that fact.
+
+**A property is only a property when it says `val` or `var`.** `class Service(val policy: RetryPolicy)` declares a field
+and a parameter at once, and `class Service(registry: Registry)` declares only an argument; the `binding_pattern_kind`
+child is what separates them. `fun run() { val x: Widget = … }` is a local, and the upward walk stops at a
+`function_declaration` so it is not filed as a field of the class.
+
+**The end-to-end test is the call the parameter type answers**:
+`tests/e2e/a-kotlin-parameter-type-resolves-the-call.test.ts` declares **two** classes with a `refresh` of their own —
+the wrong one first — and asserts that `p.refresh()` inside `fun send(p: RetryPolicy)` resolves to
+`RetryPolicy.refresh` and not to the other. A name-only resolver picks the first and fails; reverting `kotlin.ts` makes
+it fail by finding no edge at all.
 
 ## Adding a New Language
 
