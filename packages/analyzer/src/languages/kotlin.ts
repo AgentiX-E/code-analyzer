@@ -19,6 +19,28 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   readonly globs = KOTLIN_GLOBS;
   readonly importSemantics = 'named' as const;
 
+  /**
+   * The type parameters this file declares, by name.
+   *
+   * **`fun <R : Outcome> map(f: (T) -> R): Map<String, R>` declares `R` once and writes it twice**, and each of those
+   * writes sits inside a `user_type` exactly like a real type does - they are `type_identifier` nodes of the same shape,
+   * so position cannot tell them apart. The name is what suppresses them, and a file that also declares `class R`
+   * would otherwise answer every mention of the type parameter with that class.
+   */
+  private readonly typeParameterNames = new Set<string>();
+
+  /**
+   * The parse, with the type parameters of the previous file forgotten.
+   *
+   * **Per file, and stated here rather than in `decorateCaptures`** because this provider has no decoration of its own:
+   * a name declared in one file would otherwise suppress a genuine type reference in the next, and the file the walk
+   * runs on is the only thing that decides which names are bound.
+   */
+  override parse(source: string, filePath: string): UnifiedCapture[] {
+    this.typeParameterNames.clear();
+    return super.parse(source, filePath);
+  }
+
   protected override loadGrammar(): TreeSitterLanguage | null {
     // tree-sitter-kotlin is a direct dependency of the analyzer, so this require
     // never throws in the bundled runtime.
@@ -30,6 +52,29 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     // Only used when grammar is loaded — fallback handles otherwise
     const nodeType = node.type;
+
+    // **A name a type position writes is a name the code depends on, and Kotlin produced none of them.**
+    //
+    // `val policy: RetryPolicy` and `fun send(p: RetryPolicy): Outcome` name `RetryPolicy` twice and `Outcome` once,
+    // and nothing else in such a file mentions either: the body calls `policy.refresh()`, which the resolver answers
+    // from the declared type without naming the class. So a reachability pass reading calls and value mentions reports
+    // both dead - on a language where constructor injection is the idiom.
+    //
+    // **The grammar draws the boundary, and it draws it cleanly.** Every type a declaration writes is inside a
+    // `user_type` - a property, a parameter, a return, a type argument, a type alias's right-hand side, a delegation
+    // specifier - and every `type_identifier` outside one is a name being declared (`class Widget`, `typealias Alias`,
+    // `<T : Widget>`). So this walk reads `user_type` and nothing else, which is why it needs no binder set for the
+    // declarations themselves.
+    if (nodeType === 'user_type') {
+      this.captureUserType(node, captures);
+      return;
+    }
+    if (nodeType === 'type_parameter') {
+      // **A `type_parameter` always writes its name** - `type_parameter_modifiers? type_identifier (':' user_type)?` -
+      // so the lookup cannot come back empty and the `!` states the production rather than a hope.
+      const written = namedChildrenOf(node).find((child) => child.type === 'type_identifier')!;
+      this.typeParameterNames.add(written.text);
+    }
 
     if (nodeType === 'class_declaration' || nodeType === 'object_declaration') {
       // A class/object declaration always carries its name as a direct
@@ -434,6 +479,50 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   }
 
   // ---- Utility helpers ----
+
+  /**
+   * One reference for a type a Kotlin declaration writes.
+   *
+   * **A qualified type is several `type_identifier` siblings joined by dots** - `kotlinx.coroutines.Flow` parses as
+   * three nodes, not one token - so the member is the last node in that run and the packages in front of it name no
+   * declaration. A package is not a symbol in any graph, and filing it would make every `kotlinx` token in a checkout a
+   * mention of anything called `kotlinx`.
+   *
+   * **The run ends at the first child that is not a segment, which is the type-argument list.** `List<Widget>` writes
+   * `List` here and `Widget` one level down, and recursing from where the run stopped is what keeps the argument - the
+   * half that carries the information.
+   */
+  private captureUserType(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const children = namedChildrenOf(node);
+    // **A `user_type` always begins with a `type_identifier`** - the grammar is
+    // `type_identifier ('.' type_identifier)* type_arguments?` - so the run below is never empty and `member` is always
+    // assigned. The definite-assignment assertion states the production rather than a hope, and it keeps the loop
+    // honest: if the grammar ever changed, the compiler would not let this compile.
+    let member!: TreeSitterSyntaxNode;
+    let index = 0;
+    while (index < children.length && children[index]!.type === 'type_identifier') {
+      member = children[index]!;
+      index++;
+    }
+    this.emitTypeReference(member, captures);
+    for (; index < children.length; index++) this.walkAndCapture(children[index]!, captures);
+  }
+
+  /** One name, as the reference the kind `type` was declared for. */
+  private emitTypeReference(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const name = node.text;
+    if (this.typeParameterNames.has(name)) return;
+    captures.push({
+      tag: CAPTURE_TAGS.TYPE_REFERENCE,
+      text: name,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: node.startIndex,
+      endByte: node.endIndex,
+      name,
+      properties: { filePath: this.filePath },
+    });
+  }
 
   /**
    * The superclass and the interfaces a Kotlin declaration names - the properties the resolver's class chain reads.

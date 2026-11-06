@@ -726,3 +726,62 @@ describe('PythonProvider statements', () => {
     expect(calls.map((c) => String(c.name))).toEqual(['commit']);
   });
 });
+
+/**
+ * The other half of "a name is written and nothing recorded it".
+ *
+ * **Python spells a type in three places and Python is where this matters most**: `def send(p: RetryPolicy)` is how a
+ * dependency-injected service is written, and `p` is used through the annotation alone - nothing in the body names
+ * `RetryPolicy`, so a graph built from calls and value mentions reports it dead.
+ */
+describe('a name a type position writes', () => {
+  const reader = new PythonProvider();
+  const typeReferences = (source: string): string[] =>
+    reader
+      .parse(source, 'types.py')
+      .filter((capture) => capture.tag === CAPTURE_TAGS.TYPE_REFERENCE)
+      .map((capture) => String(capture.name));
+
+  it('is a reference when a parameter annotation writes it', () => {
+    expect(typeReferences('def send(p: RetryPolicy):\n    return p\n')).toEqual(['RetryPolicy']);
+  });
+
+  it('reads the return annotation', () => {
+    expect(typeReferences('def send() -> Outcome:\n    return None\n')).toEqual(['Outcome']);
+  });
+
+  it('reads the annotation a local assignment declares', () => {
+    // `x: Registry = make()` is an annotation and not a call, so the name is written exactly once and nothing else in
+    // the file mentions it.
+    expect(typeReferences('x: Registry = make()\n')).toEqual(['Registry']);
+  });
+
+  it('includes every name a subscripted annotation holds', () => {
+    // **`typing.List[Widget]` names two declarations**, and the member is `List` rather than `typing` - a module is an
+    // import binding, which the import statement already records.
+    expect(typeReferences('def send(q: typing.List[Widget] = None):\n    pass\n')).toEqual([
+      'List',
+      'Widget',
+    ]);
+  });
+
+  it('reads a default parameter that carries an annotation', () => {
+    expect(typeReferences('def send(r: RetryPolicy = None):\n    pass\n')).toEqual(['RetryPolicy']);
+  });
+
+  it('records nothing for a forward reference written as a string', () => {
+    // `"Later"` is a `string` node whose content the grammar does not parse, and reading the text between the quotes
+    // would be reading a comment as code.
+    expect(typeReferences('def send(r: "Later" = 1):\n    pass\n')).toEqual([]);
+  });
+
+  it('records nothing for `None`, which names no declaration', () => {
+    expect(typeReferences('def send() -> None:\n    return None\n')).toEqual([]);
+  });
+
+  it('records nothing for a name the code only calls', () => {
+    // **The control for this whole describe block**: a call is not a type position, and a walk that recorded every
+    // identifier it saw would file `Widget` here and inflate the graph with a reference nothing depends on.
+    expect(typeReferences('x = Widget()\n')).toEqual([]);
+  });
+});

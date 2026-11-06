@@ -26,6 +26,21 @@ const PYTHON_TAINT_NODES = {
   argumentContainer: ['argument_list'],
 };
 
+/**
+ * The productions that carry a type annotation, and the field each one carries it in.
+ *
+ * **Four places, because Python spells an annotation in four places** and there is no fifth: a parameter
+ * (`typed_parameter`), a parameter with a default (`typed_default_parameter`), a declaration (`assignment`) and a
+ * return (`function_definition`). **The field names are not uniform** - a return annotation is `return_type` and the
+ * other three are `type` - which is why this is a map from production to field rather than one constant.
+ */
+const ANNOTATION_FIELD_OF: ReadonlyMap<string, string> = new Map([
+  ['typed_parameter', 'type'],
+  ['typed_default_parameter', 'type'],
+  ['function_definition', 'return_type'],
+  ['assignment', 'type'],
+]);
+
 export class PythonProvider extends TreeSitterBaseProvider {
   /**
    * The field annotations read during the current parse, by class name.
@@ -318,6 +333,48 @@ export class PythonProvider extends TreeSitterBaseProvider {
     return this.findNamedChild(call, 'identifier')?.text;
   }
 
+  /**
+   * Every name an annotation writes, as a `type.reference` capture.
+   *
+   * **`identifier` is the name and `attribute` is one name and not two.** `typing.List` parses as
+   * `attribute(identifier, '.', identifier)`, and the module in front of the dot is an import binding the import
+   * statement already records - the resolver's trailing-segment rule answers with `List`. **Not recursing into an
+   * `attribute`** is what keeps `typing` out of the graph.
+   *
+   * **A string is a forward reference and is skipped as a subtree**, because the grammar does not parse the content of
+   * a string literal: `def send(r: "Later")` names a class this module has not written yet, and reading between the
+   * quotes would be reading text as a declaration.
+   *
+   * **`None` needs no line of its own** - it is a `none` node with no named child, so it contributes nothing.
+   */
+  private captureTypeNames(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const visit = (current: TreeSitterSyntaxNode): void => {
+      const type = current.type;
+      if (type === 'identifier' || type === 'attribute') {
+        // **The member, not the module in front of it.** `typing.List` is one annotation whose text is the whole path
+        // and whose name is `List`; a lookup is keyed by the name, and the same split TypeScript makes for
+        // `z.ZodTypeAny`. **An `attribute` always names its member in the `attribute` field** - the production is
+        // `object '.' attribute` - so the lookup cannot come back empty.
+        const name =
+          type === 'attribute' ? current.childForFieldName('attribute')!.text : current.text;
+        captures.push({
+          tag: CAPTURE_TAGS.TYPE_REFERENCE,
+          text: current.text,
+          startLine: current.startPosition.row + 1,
+          endLine: current.endPosition.row + 1,
+          startByte: current.startIndex,
+          endByte: current.endIndex,
+          name,
+          properties: { filePath: this.filePath },
+        });
+        return;
+      }
+      if (type === 'string') return;
+      for (const child of namedChildrenOf(current)) visit(child);
+    };
+    visit(node);
+  }
+
   /** Record the annotation an assignment declares, on the class it belongs to. */
   private captureFieldAnnotation(node: TreeSitterSyntaxNode): void {
     const declared = this.declaredFieldOf(node);
@@ -365,6 +422,22 @@ export class PythonProvider extends TreeSitterBaseProvider {
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
+
+    // **A name a type position writes is a name the code depends on, and Python produced none of them.**
+    //
+    // `def send(p: RetryPolicy) -> Outcome` is how a dependency-injected Python service is written, and `RetryPolicy`
+    // and `Outcome` are named there and nowhere else: the body calls `p.refresh()`, and the resolver answers that call
+    // from the annotation without ever filing the class it names. So a reachability pass reading calls and value
+    // mentions reports both dead.
+    //
+    // **Anchored on the four productions rather than on every type node**, because Python spells a type with the same
+    // node an expression has - `identifier`, `subscript`, `attribute` - so nothing in a type's own shape says it is one
+    // and the production that holds it is the only thing that does.
+    const annotationField = ANNOTATION_FIELD_OF.get(nodeType);
+    if (annotationField !== undefined) {
+      const annotated = node.childForFieldName(annotationField);
+      if (annotated !== null) this.captureTypeNames(annotated, captures);
+    }
 
     if (nodeType === 'function_definition') {
       this.emitParameterDefs(node, captures);

@@ -865,3 +865,61 @@ describe('KotlinProvider', () => {
     });
   });
 });
+
+/**
+ * The other half of "a name is written and nothing recorded it".
+ *
+ * **Kotlin's grammar makes this the easiest of the three to get right and the easiest to get wrong.** Every type a
+ * declaration writes is inside a `user_type`, so the boundary between a use and a declaration is structural rather
+ * than positional - but a qualified type (`kotlinx.coroutines.Flow`) is *three* `type_identifier` siblings joined by
+ * dots, so a walk that collected identifiers would file `kotlinx` and `coroutines` as types.
+ */
+describe('a name a type position writes', () => {
+  const reader = new KotlinProvider();
+  const typeReferences = (source: string): string[] =>
+    reader
+      .parse(source, 'Types.kt')
+      .filter((capture) => capture.tag === CAPTURE_TAGS.TYPE_REFERENCE)
+      .map((capture) => String(capture.name));
+
+  it('is a reference when a property declares it', () => {
+    expect(typeReferences('class Foo {\n  val policy: RetryPolicy = TODO()\n}')).toEqual([
+      'RetryPolicy',
+    ]);
+  });
+
+  it('reads the parameter types and the return type', () => {
+    expect(typeReferences('fun send(p: RetryPolicy): Outcome = TODO()')).toEqual([
+      'RetryPolicy',
+      'Outcome',
+    ]);
+  });
+
+  it('includes every name a type argument holds', () => {
+    expect(typeReferences('fun send(rest: List<Widget>) {}')).toEqual(['List', 'Widget']);
+  });
+
+  it('names the member of a qualified type, not the packages in front of it', () => {
+    expect(typeReferences('class Foo {\n  val dep: kotlinx.coroutines.Flow? = null\n}')).toEqual([
+      'Flow',
+    ]);
+  });
+
+  it('does not record the name a class declares', () => {
+    // **A Kotlin class names itself with a `type_identifier`**, which is the same node type a use has - so this is the
+    // assertion that pins the boundary the `user_type` rule draws.
+    expect(typeReferences('class Widget')).toEqual([]);
+  });
+
+  it('does not record a type parameter it declares, only the bound it names', () => {
+    expect(typeReferences('class Box<T : Widget>')).toEqual(['Widget']);
+  });
+
+  it('reads the right-hand side of a type alias', () => {
+    expect(typeReferences('typealias Alias = RetryPolicy')).toEqual(['RetryPolicy']);
+  });
+
+  it('reads the superclass and the interfaces a declaration names', () => {
+    expect(typeReferences('class Foo : Base(), Runnable')).toEqual(['Base', 'Runnable']);
+  });
+});

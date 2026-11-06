@@ -114,6 +114,17 @@ export class JavaProvider extends TreeSitterBaseProvider {
   private readonly classFieldTypes = new Map<string, Map<string, string>>();
   private readonly localTypes = new Map<string, Map<string, string>>();
 
+  /**
+   * The type parameters this file declares, by name.
+   *
+   * **`T` is not a symbol in any graph, and `<T extends Widget> T pick(T a)` declares it once and writes it twice.**
+   * The two writes are separate nodes at separate offsets, so position cannot suppress them - and a file that also
+   * declares `class T` would have every one of them filed against that class. **Name-scoped for the reason the
+   * TypeScript provider states**: following each write to the declaration that binds it is an ancestor walk per
+   * reference, spent to avoid a lookup the resolver answers with nothing anyway.
+   */
+  private readonly typeParameterNames = new Set<string>();
+
   protected override loadGrammar(): TreeSitterLanguage | null {
     // tree-sitter-java is a direct dependency of the analyzer, so this
     // require never throws in the bundled runtime.
@@ -786,7 +797,38 @@ export class JavaProvider extends TreeSitterBaseProvider {
     }
     this.classFieldTypes.clear();
     this.localTypes.clear();
+    this.typeParameterNames.clear();
     return this.attachDeclaredFacts(captures);
+  }
+
+  /**
+   * One name a type position writes, as the reference the kind `type` was declared for.
+   *
+   * **`var` is the one place this reads text rather than structure.** `var w = new Widget()` writes a type, and the
+   * grammar spells it as a `type_identifier` because that is what the language says it is - a type whose value is
+   * inferred - so there is no node type to skip and no declaration for it to name. `int` needs no such line: it is an
+   * `integral_type`, and the primitives are skipped structurally.
+   */
+  private emitTypeReference(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    // **The member of a qualified type, which is the only segment that names a declaration.** `java.util.List` parses
+    // as nested nodes whose last one is `List`, and a `scoped_type_identifier` always carries at least two names -
+    // `a.B` is the shortest qualified type the grammar accepts - so the last element exists. The text keeps the whole
+    // path and the name is what a lookup is keyed by, which is the same split TypeScript's `nested_type_identifier` arm
+    // makes for `z.ZodTypeAny`.
+    const member = node.type === 'scoped_type_identifier' ? namedChildrenOf(node).at(-1)! : node;
+    const name = member.text;
+    if (name === 'var') return;
+    if (this.typeParameterNames.has(name)) return;
+    captures.push({
+      tag: CAPTURE_TAGS.TYPE_REFERENCE,
+      text: node.text,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: node.startIndex,
+      endByte: node.endIndex,
+      name,
+      properties: { filePath: this.filePath },
+    });
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
@@ -794,6 +836,36 @@ export class JavaProvider extends TreeSitterBaseProvider {
     // The statement's first line, which is the key its facts are filed under. Every name this node reads is recorded
     // there rather than on the line the name happens to sit on; see `captureAccesses`.
     const line = node.startPosition.row + 1;
+
+    // **A name a type position writes is a name the code depends on, and Java produced none of them.**
+    //
+    // `private final Registry registry;` is how a dependency-injected Java service is written, and `Registry` is named
+    // there and nowhere else: the field is *read* as `registry.find(...)`, and the resolver answers that call from the
+    // field's declared type without ever naming the class. So a reachability pass reading calls and value mentions
+    // reports the injected class dead on a codebase that cannot run without it.
+    //
+    // **Java needs no anchor set, because the grammar already drew the boundary.** `int` is an `integral_type` and
+    // `void` a `void_type`, so the primitives are skipped structurally; every remaining type position holds a
+    // `type_identifier` - a field, a local, a parameter, a return, a cast, an `instanceof`, a `catch`, a `new` - which
+    // is why this asks about the node rather than about the statement that contains it. The one declaration the
+    // grammar spells with the node type a use has is `type_parameter`, and it is suppressed by name.
+    if (nodeType === 'type_parameter') {
+      // **A `type_parameter` always writes its name** - the grammar is `type_identifier (type_bound)?` - so the lookup
+      // cannot come back empty and the `!` states the production rather than a hope. The bound is the half that is a
+      // use, and it is visited as an ordinary `type_identifier` when the walk reaches it.
+      const written = namedChildrenOf(node).find((child) => child.type === 'type_identifier')!;
+      this.typeParameterNames.add(written.text);
+    } else if (nodeType === 'scoped_type_identifier') {
+      // **One reference for the whole path.** `java.util.List` parses as three nested nodes and only the last names a
+      // declaration: a package is not a symbol in any graph, and filing it would make every `java` token in a checkout
+      // a mention of anything called `java`. The resolver's trailing-segment rule already answers with `List`.
+      // **No recursion** - everything under this node is a path segment.
+      this.emitTypeReference(node, captures);
+      return;
+    } else if (nodeType === 'type_identifier') {
+      this.emitTypeReference(node, captures);
+      return;
+    }
 
     if (nodeType === 'method_declaration' || nodeType === 'constructor_declaration') {
       this.emitParameterDefs(node, captures);

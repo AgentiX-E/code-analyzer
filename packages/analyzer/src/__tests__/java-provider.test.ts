@@ -1200,3 +1200,90 @@ describe('a class written inside another class', () => {
     expect(classOf('class Alone { }', 'Alone')?.properties?.['outerClass']).toBeUndefined();
   });
 });
+
+/**
+ * The other half of "a name is written and nothing recorded it".
+ *
+ * **Java had no producer for the reference kind `type` either**, and it is the language where a field's type is the
+ * only place a class is named: `private final Registry registry;` occurs in every dependency-injection codebase, and a
+ * reachability pass reading only calls and value mentions reports `Registry` dead.
+ */
+describe('a name a type position writes', () => {
+  const reader = new JavaProvider();
+  const typeReferences = (source: string): string[] =>
+    reader
+      .parse(source, 'Types.java')
+      .filter((capture) => capture.tag === CAPTURE_TAGS.TYPE_REFERENCE)
+      .map((capture) => String(capture.name));
+
+  it('is a reference when a field declaration writes it', () => {
+    expect(typeReferences('class Foo { private final Registry registry; }')).toEqual(['Registry']);
+  });
+
+  it('includes every name a generic argument holds', () => {
+    // **The four names are four declarations**: `Map` and `String` and `Widget` are all written here, and a walk that
+    // stopped at the outer type would leave the argument - the half that carries the information - unrecorded.
+    expect(typeReferences('class Foo { Map<String, Widget> items; }')).toEqual([
+      'Map',
+      'String',
+      'Widget',
+    ]);
+  });
+
+  it('names the member of a qualified type, not the packages in front of it', () => {
+    // `java.util.List` names a declaration called `List`. The packages are not declarations in any graph, and filing
+    // them would make every `java` token in the checkout a mention of anything called `java`.
+    expect(typeReferences('class Foo { java.util.List<Widget> items; }')).toEqual([
+      'List',
+      'Widget',
+    ]);
+  });
+
+  it('reads the return type, the parameters and the throws clause', () => {
+    expect(
+      typeReferences('class Foo { Widget find(RetryPolicy p) throws Retryable { return null; } }'),
+    ).toEqual(['Widget', 'RetryPolicy', 'Retryable']);
+  });
+
+  it('reads the type an instanceof names, a local declares and a cast converts to', () => {
+    expect(
+      typeReferences(
+        'class Foo { void f(Object o) { if (o instanceof Widget) { Widget w = (Widget) o; } } }',
+      ),
+    ).toEqual(['Object', 'Widget', 'Widget', 'Widget']);
+  });
+
+  it('reads a catch type', () => {
+    expect(typeReferences('class Foo { void f() { try { } catch (Retryable e) { } } }')).toEqual([
+      'Retryable',
+    ]);
+  });
+
+  it('does not record the name a class declares', () => {
+    // A class names itself with an `identifier`, so this asserts the rule rather than a special case - and it is the
+    // assertion that fails first if that ever changes, because a self-reference would be a cycle in every graph.
+    expect(typeReferences('class Widget { }')).toEqual([]);
+  });
+
+  it('does not record a type parameter it declares, only the bound it names', () => {
+    // **`T` is not a symbol in any graph.** Filing it would make a file that also declares `class T` answer every
+    // mention of the type parameter with that class.
+    expect(typeReferences('class Foo { <T extends Widget> T pick(T a) { return a; } }')).toEqual([
+      'Widget',
+    ]);
+  });
+
+  it('records nothing for a primitive type', () => {
+    expect(typeReferences('class Foo { int a; boolean b; void f() { } }')).toEqual([]);
+  });
+
+  it('records nothing for `var`, which is a keyword the grammar spells as a type name', () => {
+    // **The one place this walk reads text.** `var` is a reserved type name and not a declaration, and the grammar has
+    // no node type that says so - unlike `int`, which is an `integral_type` and skipped structurally.
+    expect(typeReferences('class Foo { void f() { var w = new Widget(); } }')).toEqual(['Widget']);
+  });
+
+  it('reads the element type of an array', () => {
+    expect(typeReferences('class Foo { Widget[] items; }')).toEqual(['Widget']);
+  });
+});

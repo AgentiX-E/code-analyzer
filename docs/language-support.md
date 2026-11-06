@@ -31,7 +31,7 @@ that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 | **Abstract Classes**         |     ✅     |    N/A     |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Class Expressions**        |     ✅     |     ✅     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Type Aliases**             |     ✅     |    N/A     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
-| **Type-Position References** |     ✅     |     —      |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
+| **Type-Position References** |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Member Alias Bindings**    |     ✅     |     ✅     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Lexical `this`**           |     ✅     |     ✅     |  N/A   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
 | **Deferred Calls (`::`)**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |
@@ -350,26 +350,42 @@ held at 99 %. **The 34 pairs still missing are named in `missedSamples`**, and t
 own `__tests__` helpers (`bad`, `checkErrors`) and ioredis's `cluster/index.ts`, which calls `disconnect`, `on`, `quit`
 and `cluster` on a receiver whose type is a namespace rather than a class.
 
-### TypeScript: a name a type position writes
+### A name a type position writes: TypeScript, Java, Kotlin, Python
 
 **A reference kind with a mapping and no producer is a classification, not a feature.** `captureTagToReferenceKind` maps
 the capture tag `type.reference` to the reference kind `type`, and until iteration 83 nothing emitted it: `zod`'s
 `src/types.ts` — a real file, counted — holds **3,479 references and zero of them type references**. The consequence
 was not invisible. `abstract class Class` in `colinhacks/zod@3.23.8` is named exactly once, inside
 `<T extends typeof Class>`, and the dead-code pass — which reads call edges and mention edges — reported it as dead on a
-library that publishes every name it declares.
+library that publishes every name it declares. Iteration 84 gave the same producer to the three languages where the
+position is the *only* place a dependency is written: `private final Registry registry;`, `val policy: RetryPolicy` and
+`def send(p: RetryPolicy)` are how constructor injection is spelled in each, and the class named there is read through
+the annotation and never mentioned again.
 
-**The walk anchors on three positions and follows structure rather than text.** A type is written after a `:`
-(`type_annotation`), on the right of an alias (`type_alias_declaration`), or in the list a declaration is generic over
-(`type_parameters`); every other spelling sits inside one of the three. Within an anchor, an identifier is a use unless
-it is the **first named child** of a production that writes one — a parameter's `pattern`, a type parameter's name, an
-alias's name, an index signature's key, a mapped type's binder — because the grammar spells `<T extends Widget>`'s
-declaration and its use with the same node type (`type_identifier`). Two names are deliberately not filed: a
-**`predefined_type`** is skipped as a subtree (`string` names no declaration, and every consumer of a mention would have
-to learn to ignore the same eleven words), and a **type parameter** the file declares is dropped by name, because
-`(v: T)` in `<T extends typeof Box>(v: T)` names nothing a graph holds and would be a false edge against any symbol
-called `T`. A qualified type reads as its member: `z.ZodTypeAny` names `ZodTypeAny`, and `z` is a binding the import
-statement already recorded.
+**Each language asks the question its own grammar makes answerable, and none of them reads text to decide.** The four
+walks differ because the four grammars differ:
+
+| Language   | What decides "this is a type position"                                                                                    | What is deliberately not filed                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| TypeScript | Three anchors: `type_annotation`, `type_alias_declaration`, `type_parameters`                                              | `predefined_type` as a subtree; the first named child of a binder production; `T` a file declares, by name       |
+| Java       | The node type: every `type_identifier` / `scoped_type_identifier` outside a `type_parameter`                                | primitives (they are `integral_type` / `void_type`); `var`; the member's own name in `a.b.C`                     |
+| Kotlin     | The `user_type` boundary: every type a declaration writes is inside one, every `type_identifier` outside one is a name being declared | the packages in `kotlinx.coroutines.Flow`; `R` a file declares, by name                                          |
+| Python     | Four productions: `typed_parameter`, `typed_default_parameter`, `function_definition.return_type`, `assignment`              | the module in `typing.List`; a string forward reference (`"Later"` is text, not code)                            |
+
+**Java is the clearest case of a boundary the grammar already drew.** `int` is an `integral_type` node and `void` a
+`void_type`, so the primitives fall out structurally rather than by a list of words; every remaining type position —
+a field, a local, a parameter, a return, a cast, an `instanceof`, a `catch`, a `new` — holds a `type_identifier`. Only
+one declaration is spelled with the node type a use has: `type_parameter`, whose name is suppressed by name, because
+`<T extends Widget> T pick(T a)` declares `T` once and writes it twice at three different offsets. **Kotlin is the
+cleanest**: `user_type` is the wall, `class Widget` and `typealias Alias` are outside it, and a qualified type is
+*three* sibling `type_identifier` nodes, so a walk that collected identifiers would file `kotlinx` and `coroutines` as
+types. **Python is the only one that needs an anchor list**, because it spells a type with the same nodes an expression
+has — `identifier`, `subscript`, `attribute` — and nothing in a type's own shape says it is one.
+
+**A qualified name reads as its member.** `java.util.List` names `List`, `kotlinx.coroutines.Flow` names `Flow`,
+`typing.List` names `List` — the same split TypeScript makes for `z.ZodTypeAny`. A package is not a symbol in any
+graph, and filing it would make every `java` or `kotlinx` token in a checkout a mention of anything that happened to
+share the name.
 
 **What the reference becomes is a dependency and not a call.** Scope resolution turns a resolved `type` reference into a
 `USES_TYPE` edge carrying `resolution: 'type-mention'`, and `reachability` counts that edge among the ones along which
@@ -378,12 +394,16 @@ sites the oracle scores as wrong; recording it as nothing is what produced the f
 corpora: `colinhacks/zod` **1 finding → 0** (its ceiling is 0), `redis/ioredis` 0, `pallets/flask` 3, `pallets/werkzeug`
 2 — `dead-code-gate: 4 corpora held to their floors`.
 
-**The gap this leaves is stated rather than implied: only TypeScript emits type references.** A Java field typed
-`private final Registry registry;`, a Kotlin parameter typed `policy: RetryPolicy` and a Python annotation
-`def send(policy: RetryPolicy)` are all positions where a name is used and no reference is recorded, so a class named
-only there is still reported dead in those languages. The dead-code corpora are Python and TypeScript and the Python
-half has no annotation in the symbols it scores, which is why the gate is green; closing it for the JVM providers is
-the next item on the roadmap, not a claim this table makes.
+**The end-to-end test is one checkout in three languages**, because the question a user asks is about their repository:
+`tests/e2e/a-name-in-a-type-position-java-python-kotlin.test.ts` asserts the edge for `Registry`, `_RetryPolicy` and
+`Outcome`, asserts that none of the three reaches the dead report, and asserts that the two decoys — `Orphan` and
+`_Orphan`, named by nothing — stay in it. Reverting the three providers makes it fail on `expected 0 to be greater than
+0`; that is what keeps it from being a test of the fixtures.
+
+**What is still not covered** is stated rather than implied: no other provider emits type references, so a class named
+only in a type position is still reported dead in C#, Rust, Go, Swift, Scala and the rest. The corpora that hold the
+dead-code gate are Python and TypeScript, which is why the gate is green; the JVM and Python providers closing it is a
+claim about those four languages and this table's other thirteen columns say `—` for exactly that reason.
 
 ## Adding a New Language
 
