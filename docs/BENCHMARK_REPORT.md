@@ -309,7 +309,8 @@ ceiling now affords **1 999 files** at that density and **7 998** at 30, so the 
 bounds swap roles: the cap states what will be attempted, the model refuses what will not fit, and every refusal quotes
 the density and the arithmetic behind it. The gate refuses an artifact whose rule is charged per file, whose units are
 unstated, whose ladder is not monotone, whose published bound is not its own division, or whose recommended fit does not
-beat the rate it replaced — **the last of which the previous artifact would have failed**.
+beat the rate it replaced — **the first four of which the previous artifact would have failed**, since it published no
+model, no units and no ladder at all.
 
 **Every mean above is over the rows that fitted, and the artifact now carries one that is not.** The bounds refuse
 whole instances, the refusals are concentrated in the bands where both retrievers do worst, and reweighting a mean over
