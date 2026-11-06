@@ -12,6 +12,7 @@ import {
   armScore,
   combineParts,
   costModels,
+  declarationDensity,
   fitCost,
   mapScore,
   skippedRow,
@@ -488,5 +489,92 @@ describe('costModels', () => {
       withBytes(3, 3_000, 3_000, 500),
     ]);
     expect(fit!.r2).toBe(0);
+  });
+});
+
+/**
+ * The density the file bound converts at, **published as a distribution with its denominator**.
+ *
+ * The defect these cases exist for is not arithmetic, it is provenance: the report stated "the sample's median of
+ * 117.7" and 117.7 was the median of the 68 Java and Kotlin rows alone, computed while the Python part was still
+ * running. The median of the 109 rows the artifact publishes is 164.6. **A figure whose denominator is not in the
+ * artifact cannot be caught by reading the artifact**, so the denominator is now a field.
+ */
+describe('declarationDensity', () => {
+  /** A measured row with a file count and a declaration count. **What the density is computed from.** */
+  const withDensity = (id: number, corpusFiles: number, graphNodes: number): LcaRowScore => ({
+    ...row(id, 0.5, 0.5),
+    corpusFiles,
+    graphNodes,
+  });
+
+  it('publishes the quantiles in order and the number of rows they were taken over', () => {
+    const density = declarationDensity([
+      withDensity(1, 10, 200),
+      withDensity(2, 10, 1_000),
+      withDensity(3, 10, 3_000),
+      withDensity(4, 10, 60_000),
+    ]);
+    expect(density.rows).toBe(4);
+    expect(density.min).toBe(20);
+    expect(density.median).toBeGreaterThan(density.p25);
+    expect(density.p90).toBeGreaterThan(density.median);
+    expect(density.max).toBe(6_000);
+  });
+
+  it('**counts a refused row out of the sample rather than scoring it zero**', () => {
+    // A refused row produced no declaration count, so it is not a row whose density is zero - it is a row with no
+    // density, and a mean that included it would report a corpus four times sparser than the one measured.
+    const density = declarationDensity([
+      withDensity(1, 10, 2_000),
+      { ...withDensity(2, 10, 0), skipped: 'the checkout holds 9 000 files, above the stated cap' },
+    ]);
+    expect(density.rows).toBe(1);
+    expect(density.median).toBe(200);
+  });
+
+  it('prices every rung of the ladder, not only the one that ships', () => {
+    // **The trade-off is the decision**, so it is published: a tighter rung covers more of the declarations it charges
+    // for and refuses more checkouts outright.
+    const rows = [
+      withDensity(1, 10, 200),
+      withDensity(2, 100, 20_000),
+      withDensity(3, 900, 300),
+    ];
+    const density = declarationDensity(rows, { chargedAt: 120, declarations: 240_000 });
+    expect(density.ladder.map((entry) => entry.declarationsPerFile)).toEqual([
+      20, 60, 120, 300, 600,
+    ]);
+    // The bound on this ceiling: 240 000 declarations at 120 per file is 2 000 files, which admits all three.
+    expect(density.ladder.find((entry) => entry.declarationsPerFile === 120)?.files).toBe(2_000);
+    expect(density.ladder.find((entry) => entry.declarationsPerFile === 120)?.refusedByBound).toBe(0);
+    // At 600 the same budget affords 400 files, so the 900-file checkout would be refused.
+    expect(density.ladder.find((entry) => entry.declarationsPerFile === 600)?.files).toBe(400);
+    expect(density.ladder.find((entry) => entry.declarationsPerFile === 600)?.refusedByBound).toBe(
+      1,
+    );
+    // Coverage rises with the rung: at 20 the 100-file/20 000-declaration row is charged a tenth of what it cost, and
+    // by 600 every row is covered. **That is the whole trade-off** - the same budget, one rung apart, and one of the
+    // three checkouts stops being admitted.
+    expect(density.ladder[0]!.covered).toBe(2);
+    expect(density.ladder.at(-1)!.covered).toBe(3);
+  });
+
+  it('**states which rows its own charge covers, because the rest are the ceiling\u2019s problem**', () => {
+    const rows = [withDensity(1, 10, 200), withDensity(2, 10, 60_000)];
+    const density = declarationDensity(rows, { chargedAt: 120 });
+    // 120 declarations per file on a 10-file checkout is 1 200: the first row is covered, the second is charged a
+    // fiftieth of what it cost. **That gap is what the process ceiling catches, and it is published rather than
+    // smoothed.**
+    expect(density.chargedAt).toBe(120);
+    expect(density.chargedAtCovered).toBe(1);
+    expect(density.chargedAtMissed).toBe(1);
+  });
+
+  it('prices no ladder when the run did not publish what it had to spend', () => {
+    // **A division by an absent budget is not a bound.** A part written before the model existed carries no declaration
+    // figure, and the ladder says so instead of inventing one from zero.
+    const density = declarationDensity([withDensity(1, 10, 200)], { chargedAt: 120 });
+    expect(density.ladder.every((entry) => entry.files === null)).toBe(true);
   });
 });

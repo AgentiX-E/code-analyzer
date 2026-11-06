@@ -108,13 +108,28 @@ function metricsOf(
 }
 
 /**
- * Copy an analysed graph into a store, **renumbering the nodes and skipping an edge whose endpoint is not there**.
+ * Copy an analysed graph into a store, **renumbering the nodes, re-pointing a repeated qualified name and skipping an
+ * edge whose endpoint is not there**.
  *
  * **The skip is not defensive noise, it is a resolver fact**: an edge can name a node the graph never registered (an
  * external symbol, a declaration the walk refused), and an edge pointing at a node id the store does not hold would
  * make every later query answer with a dangling target. It is a function rather than three lines inside
  * `measureInstance` so that the case has a test with a graph that really holds such an edge, rather than being a branch
  * the fixture never reaches.
+ *
+ * **The re-point is a fact about the analysis, and it cost a row before it was handled.** The store's `insertNode`
+ * refuses a second node with the same qualified name - correctly, since `findNodeByQualifiedName` answers with one -
+ * and this function used to pass that refusal up as the whole instance's failure: `dagger/dagger` (27 Python files) was
+ * published as *"the analysis failed: Node insert failed: node `project:dagger/dagger:Container.Build` already exists"*,
+ * one of 41 refusals in the 6 November 2026 artifact. **The product's own indexer does not refuse it**: `auto-indexer`
+ * inserts one by one and swallows the duplicate (`// Node already exists — skip`), so the harness was stricter than the
+ * product it measures and refused a checkout the product would have answered. A measurement whose copy is stricter than
+ * the thing it copies is measuring itself.
+ *
+ * So a second node with a qualified name already seen is **not inserted, and every edge that named it is re-pointed at
+ * the node that was**: the ranking then sees one declaration where the pipeline produced two, which is what the store's
+ * own invariant - one node per qualified name - has always meant. The count of re-pointed nodes is not returned because
+ * nothing publishes it; the row that proves it is the row that no longer fails.
  */
 export function insertGraph(
   store: InMemoryGraphStore,
@@ -122,8 +137,22 @@ export function insertGraph(
   edges: Iterable<GraphEdge>,
 ): void {
   const storeIdOf = new Map<number, number>();
+  const insertedByQualifiedName = new Map<string, number>();
   for (const node of nodes) {
-    storeIdOf.set(node.id, store.insertNode(node));
+    // **An empty qualified name is not a name.** The store indexes only a truthy one, so two nodes without a name
+    // coexist there and collapsing them here would merge two unrelated declarations - the opposite error, silently.
+    if (node.qualifiedName === '') {
+      storeIdOf.set(node.id, store.insertNode(node));
+      continue;
+    }
+    const alreadyInserted = insertedByQualifiedName.get(node.qualifiedName);
+    if (alreadyInserted !== undefined) {
+      storeIdOf.set(node.id, alreadyInserted);
+      continue;
+    }
+    const stored = store.insertNode(node);
+    storeIdOf.set(node.id, stored);
+    insertedByQualifiedName.set(node.qualifiedName, stored);
   }
   for (const edge of edges) {
     const source = storeIdOf.get(edge.sourceId);

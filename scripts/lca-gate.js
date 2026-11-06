@@ -174,7 +174,12 @@ function main() {
       admission?.model === 'declarations' &&
       declared.every((value) => typeof value === 'number' && value > 0) &&
       typeof admission?.declarationsPerFile === 'number' &&
-      admission.declarationsPerFile > 0;
+      admission.declarationsPerFile > 0 &&
+      // **A reserve is a policy, so the quantile it is charged at is published beside it.** The mean covers half the
+      // rows by construction; a margin whose quantile is unstated cannot be argued with, only obeyed.
+      typeof admission?.marginQuantile === 'number' &&
+      admission.marginQuantile > 0 &&
+      admission.marginQuantile < 1;
     const ladderHolds =
       ladder.length >= 3 &&
       ladder.every((entry) => typeof entry?.files === 'number' && entry.files >= 0) &&
@@ -200,14 +205,95 @@ function main() {
       line:
         `| admission model | ${String(admission?.model ?? 'unstated')} · ` +
         `${Number(admission?.mbPerDeclaration ?? 0).toFixed(4)} MB/declaration + ` +
-        `${String(admission?.fixedMb ?? '—')} MB + ${String(admission?.marginMb ?? '—')} MB margin at ` +
+        `${String(admission?.fixedMb ?? '—')} MB + ${String(admission?.marginMb ?? '—')} MB margin ` +
+        `(p${String(Math.round(Number(admission?.marginQuantile ?? 0) * 100))}) at ` +
         `${String(admission?.declarationsPerFile ?? '—')} decl/file · ladder ` +
         `${ladder.map((entry) => `${String(entry.declarationsPerFile)}:${String(entry.files)}`).join(' ') || '—'} | ` +
-        `units · ladder · transcription · fit beats the rate it replaced | ${ok ? '✓' : '✗'} |`,
+        `units · ladder · transcription · quantile · fit beats the rate it replaced | ${ok ? '✓' : '✗'} |`,
       failure: ok
         ? null
         : 'fileCap.memory: the admission rule must be charged at the fitted declaration model, publish its units and ' +
           'ladder, divide its published bound consistently, and its fit must beat the per-file rate it replaced',
+    };
+  })();
+
+  //
+  // **The density is a statistic, so its denominator is an invariant.**
+  //
+  // The admission rule multiplies a file count by a rung, and until this check existed the artifact published the rung
+  // and no evidence for it. The report stated "the sample's median of 117.7" and 117.7 was the median of the **68 Java
+  // and Kotlin rows alone** - the Python part had not finished when the number was computed - while the 109-row median
+  // is 164.6. **Nothing in the artifact said which rows the figure was over, so nothing could catch it**, and a test
+  // that compared one published constant with another published constant agreed with both. So the block is now
+  // computed from the rows, and this row checks four things a subset cannot fake:
+  //
+  //   * `density.rows` equals `sample.measured`, because a median over the shards that finished is the defect itself;
+  //   * the quantiles are ordered and the median is among them, because a distribution that is not ordered is not one;
+  //   * every combined part appears in `byLanguage`, because the three medians differ by more than a factor of two;
+  //   * the shipped rung is the **highest rung that refuses none of the rows this run measured**, which is the rule the
+  //     constant's own comment states - a rung chosen for any other reason has to change that comment to pass.
+  const density = at(record, ['density']);
+  const densityLine = (() => {
+    const measured = at(record, ['sample', 'measured']);
+    const ladder = Array.isArray(density?.ladder) ? density.ladder : [];
+    const rows = typeof density?.rows === 'number' ? density.rows : null;
+    const quantileNames = ['min', 'p25', 'median', 'p75', 'p90', 'max'];
+    const quantilesPublished = quantileNames.every(
+      (name) => typeof density?.[name] === 'number' && Number.isFinite(density[name]),
+    );
+    const ordered =
+      quantilesPublished &&
+      quantileNames.every(
+        (name, index) => index === 0 || density[name] >= density[quantileNames[index - 1]],
+      );
+    const denominator = rows !== null && typeof measured === 'number' && rows === measured;
+    const combined = at(record, ['parts', 'combined']);
+    const languages = Object.keys(density?.byLanguage ?? {});
+    const everyLanguage =
+      Array.isArray(combined) &&
+      combined.length > 0 &&
+      combined.every((config) => languages.includes(config)) &&
+      languages.every((config) => combined.includes(config));
+    const priced =
+      ladder.length >= 3 &&
+      ladder.every(
+        (entry) =>
+          typeof entry?.declarationsPerFile === 'number' &&
+          typeof entry?.covered === 'number' &&
+          typeof entry?.refusedByBound === 'number' &&
+          (typeof entry?.files === 'number' || entry?.files === null),
+      ) &&
+      ladder.every((entry, index) => index === 0 || entry.covered >= ladder[index - 1].covered);
+    const admissible = ladder
+      .filter((entry) => entry.refusedByBound === 0)
+      .map((entry) => entry.declarationsPerFile);
+    const highestAdmissible = admissible.length === 0 ? null : Math.max(...admissible);
+    const rungFollowsTheRule =
+      highestAdmissible === null || density?.chargedAt === highestAdmissible;
+    const countsAddUp =
+      typeof density?.chargedAtCovered === 'number' &&
+      typeof density?.chargedAtMissed === 'number' &&
+      rows !== null &&
+      density.chargedAtCovered + density.chargedAtMissed === rows;
+    const ok =
+      denominator &&
+      ordered &&
+      everyLanguage &&
+      priced &&
+      rungFollowsTheRule &&
+      countsAddUp;
+    return {
+      line:
+        `| density | median ${String(density?.median ?? '—')} over ${String(rows ?? '—')} rows · ` +
+        `${languages.map((config) => `${config}:${String(density.byLanguage[config]?.median ?? '—')}`).join(' ') || '—'} · ` +
+        `charged at ${String(density?.chargedAt ?? '—')} covers ${String(density?.chargedAtCovered ?? '—')}/` +
+        `${String(rows ?? '—')} | rows = measured · quantiles ordered · every language · rung = highest that refuses none | ` +
+        `${ok ? '✓' : '✗'} |`,
+      failure: ok
+        ? null
+        : 'density: the declaration density behind the file bound must be computed over the rows the artifact ' +
+          'publishes, its quantiles ordered, every combined language present, its ladder priced, its charged rung the ' +
+          'highest that refuses none of those rows, and its covered and missed counts summing to `rows`',
     };
   })();
 
@@ -824,6 +910,8 @@ function main() {
   if (fitLine.failure) failures.push(fitLine.failure);
   rows.push(admissionLine.line);
   if (admissionLine.failure) failures.push(admissionLine.failure);
+  rows.push(densityLine.line);
+  if (densityLine.failure) failures.push(densityLine.failure);
   const fallbackLine =
     typeof fallbackOverall?.value === 'number'
       ? `| fallback: path + imports | ${fallbackOverall.value.toFixed(4)} · ` +

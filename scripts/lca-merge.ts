@@ -23,7 +23,11 @@ import {
   BM25_MAX_FILE_BYTES,
 } from '../packages/intelligence/src/benchmark/lca-baseline.js';
 import { LCA_CONFIGS, mean } from '../packages/intelligence/src/benchmark/lca-instrument.js';
-import { combineParts, costModels } from '../packages/intelligence/src/benchmark/lca-merge.js';
+import {
+  combineParts,
+  costModels,
+  declarationDensity,
+} from '../packages/intelligence/src/benchmark/lca-merge.js';
 import {
   armComparison,
   BOOTSTRAP_RESAMPLES,
@@ -289,6 +293,13 @@ function main(): void {
   const first = parts[0]!;
   const rowLimit = Math.max(...parts.map((part) => part.rowLimit));
   const allRows = parts.flatMap((part) => part.rows);
+  // **The tightest declaration budget any part computed**, because the ladder is priced against one ceiling and a reader
+  // checking the block against a part's own `bounds` should find a number no part exceeds. A run whose parts did not
+  // publish one prices no ladder at all, which is a published absence rather than a division by nothing.
+  const declaredBudgets = parts
+    .map((part) => part.bounds.memoryDeclarations)
+    .filter((value): value is number => typeof value === 'number' && value > 0);
+  const tightestDeclarations = declaredBudgets.length === 0 ? null : Math.min(...declaredBudgets);
 
   // **The sample, described before any figure computed over it is published.** `planned` is what the run intended to
   // examine, `attempted` is what it reached, `measured` is what produced a ranking - three different denominators and
@@ -465,6 +476,8 @@ function main(): void {
         mbPerDeclaration: first.bounds.mbPerDeclaration ?? null,
         fixedMb: first.bounds.fixedMb ?? null,
         marginMb: first.bounds.marginMb ?? null,
+        /** **Which quantile of the fit's residual the margin is**, because a reserve is a policy and not a datum. */
+        marginQuantile: first.bounds.marginQuantile ?? null,
         declarationsPerFile: first.bounds.declarationsPerFile ?? null,
         declarationsAtStart: Object.fromEntries(
           parts.map((part) => [part.config, part.bounds.memoryDeclarations ?? null]),
@@ -493,6 +506,37 @@ function main(): void {
      * and this block exists because the instances that ran show that constant is wrong in both directions: memory per
      * corpus file spans two orders of magnitude, and the clock was eighteen times its own estimate on one repository.
      * **The fit is published before the rule is changed**, so the change can be argued from the artifact. */
+    /**
+     * **The density the bound converts at, as a distribution rather than as a constant.**
+     *
+     * The admission rule multiplies a checkout's file count by a rung to estimate its declarations, and until iteration
+     * 79 the artifact published that rung and no evidence for it: the report stated "the sample's median of 117.7" and
+     * 117.7 was the median of the **68 Java and Kotlin rows alone** - the Python part had not finished when the number
+     * was computed. Nothing said which rows the figure was over, so nothing could catch it. This block is computed from
+     * the rows the artifact publishes, its denominator travels with it, and the gate refuses a block whose `rows` is
+     * smaller than the sample it claims to describe.
+     *
+     * **And it prices the ladder rather than only the rung that ships**, because the trade-off is the decision: a
+     * tighter rung covers more of the declarations the rule charges for and refuses more checkouts outright. The
+     * shipped rung is the one that refuses none of the instances this run measured, and that property is now checked
+     * against the run's own rows instead of asserted in a comment.
+     */
+    density: {
+      ...declarationDensity(allRows, {
+        chargedAt: first.bounds.declarationsPerFile ?? null,
+        declarations: tightestDeclarations,
+      }),
+      /** **The same profile per language**, because the three medians differ by more than a factor of two. */
+      byLanguage: Object.fromEntries(
+        parts.map((part) => [
+          part.config,
+          declarationDensity(part.rows, {
+            chargedAt: part.bounds.declarationsPerFile ?? null,
+            declarations: part.bounds.memoryDeclarations ?? null,
+          }),
+        ]),
+      ),
+    },
     costModel: {
       /** **Which quantity the work tracks**, decided by `R²` rather than by preference: the answer space the corpus scores
        * or the checkout the pipeline reads. */

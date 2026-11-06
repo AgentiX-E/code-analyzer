@@ -221,10 +221,17 @@ jobs:
           LCA_MAX_ROWS: ${{ github.event.inputs.max_rows || '50' }}
           # **Four thousand, raised from two thousand because the memory bound is now a model rather than a rate.** At
           # the superseded 3.7 MB per file the cap promised instances the 6 144 MB ceiling would kill - a 2 000-file
-          # checkout was charged 7 400 MB - while the honest memory bond refused 1 700-file checkouts first. Charged at
-          # the fitted 22 KB per declaration plus the fixed cost, the ceiling affords 2 038 files at the sample's median
-          # density and 7 998 at 30 declarations per file, so the cap now bounds what will be *attempted* and the model
-          # refuses what will not fit, per instance and with its arithmetic in the row.
+          # checkout was charged 7 400 MB - while the honest memory bound refused 1 700-file checkouts first. Charged at
+          # the fitted 22 KB per declaration plus the fixed cost, the ceiling affords 1 916 files at the operating
+          # density, so this cap bounds what will be *attempted* and the model refuses what will not fit, per instance
+          # and with its arithmetic in the row.
+          #
+          # **And the raise bought nothing, which is published rather than quietly left standing.** Over the two runs
+          # that differ by it, the 27 refusals the old cap produced became **13 cap refusals and 14 refusals by the
+          # density model** - the model's own bound is 1 999 files, which is the old cap to within a rounding - while the
+          # six instances that did become rows were all under 2 000 files already and moved because the *rate* changed.
+          # A cap above the model's bound is a promise the model immediately withdraws; it stays at 4 000 because the
+          # model's bound moves with the runner's memory, and the artifact reports both numbers side by side.
           LCA_MAX_FILES: ${{ github.event.inputs.max_files || '4000' }}
           # **Fifty minutes, stated by the harness rather than discovered by the job's own timeout.** The bounds module
           # projects 50 ms per file; this is the other half of the arithmetic, and a run that reaches it writes a part

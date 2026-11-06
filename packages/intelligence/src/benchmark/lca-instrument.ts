@@ -208,40 +208,114 @@ export const MEASURED_MB_PER_FILE = 3.7;
  * *produced* - declarations and the edges between them - and two checkouts of the same size can differ by a factor of a
  * hundred in that quantity, which is exactly what the observed 1.5-2 158.5 MB per file spread is.
  *
- * **The number is a floor on precision, and the margin says so.** The mean absolute residual is 326 MB with a worst miss
- * of 3 906 MB, so an admission bound charged at the bare line would admit instances the ceiling then kills.
- * {@link MODEL_MARGIN_MB} is charged on top for that reason: the model's own error sets the safety margin, rather than
- * a second guess set beside the first.
+ * **The number is a floor on precision, and the margin says so.** The residuals are wide - a mean absolute of 326 MB,
+ * a worst miss of 3 898 MB - so an admission bound charged at the bare line would admit instances the ceiling then
+ * kills. {@link MODEL_MARGIN_MB} is charged on top for that reason: the model's own error sets the safety margin, rather
+ * than a second guess set beside the first.
  */
 export const MB_PER_DECLARATION = 0.0221;
 
 /** The fixed cost of an analysis in megabytes, **the fitted intercept**: 515 MB over 109 rows. */
 export const FIXED_MB = 515;
 
-/** The model's mean absolute residual, **charged as margin rather than ignored**: 326 MB over the same rows. */
-export const MODEL_MARGIN_MB = 326;
+/**
+ * Which quantile of the fit's residual the charge reserves, **stated because a reserve is a policy and not a datum**.
+ *
+ * Iteration 78 charged the **mean** absolute residual, and a mean is the one summary a reserve cannot use: by
+ * construction it covers half the rows, so the charge it produces is a coin flip on the question the reserve exists to
+ * answer. Measured on the 109 rows of the 6 November 2026 run, **14 of them (12.8 %) cost more than the model plus that
+ * margin**, and both instances the 6 144 MB ceiling killed were far outside it: `mlflow/mlflow` was charged 1 430 MB by
+ * the rule and stopped at **6 309 MB**, `airbnb/lottie-android` was charged 862 MB and stopped at **6 156 MB**.
+ *
+ * **The margin is the smaller half of that error and this constant does not pretend otherwise.** Of the 115 rows the
+ * next run measured, **43 (37.4 %) cost more than the rule charged them** - a gap the density conversion opens, not the
+ * margin: the two kills of that run were under-covered by 4.9 and 4.1 gigabytes, which is a factor of three or more and
+ * no additive reserve reaches it without refusing the corpus. What the quantile buys is that the reserve stops being a
+ * mean: it covers nine rows in ten of the error the *model* makes, and the artifact publishes the count it still misses.
+ *
+ * The quantile is published rather than chosen per run, and the artifact republishes it as `marginQuantile` beside the
+ * margin it produced, so a reader can see which policy a figure was measured under. **0.90 is the smallest round
+ * quantile whose margin still leaves the ceiling's file bound above every instance the sample measured**: on the
+ * 6 144 MB instance ceiling the bound falls from 1 999 files at the mean residual to 1 916 here - 83 files for a tenth
+ * of the corpus's error - while the next quantile that matters, the extreme, is the worst miss of 3 898 MB, which would
+ * leave 714 files and refuse the four largest instances in the sample.
+ */
+export const MODEL_MARGIN_QUANTILE = 0.9;
 
 /**
- * Declarations per file, **the operating rung of the ladder below** - 120, which the sample's median sits just under.
+ * The model's **ninetieth-percentile** residual, charged as margin: **546 MB** over the 109 rows of 6 November 2026.
+ *
+ * The next run measured 115 rows and its own ninetieth percentile was 581 MB, which is the reason the artifact
+ * republishes `marginQuantile` and the residual it produced rather than quoting this figure: **a quantile of a sample
+ * is a record of that sample**, and a bound charged at last run's quantile is a bound about last run.
+ */
+export const MODEL_MARGIN_MB = 546;
+
+/**
+ * Declarations per file, **the operating rung of the ladder below** - 120.
  *
  * A bound has to be computed before the analysis that would count the declarations, so the file count is converted at a
- * stated density. **Three things keep this from being the guess the per-file rate was**: it is a rung of a ladder
- * published before any figure is read, it is the rung *above* the measured median of 117.7 over the 109 measured rows
- * (so the bound is never more generous than the sample implies), and every row publishes the density it actually
- * reached, so the conversion is checked against its outcome on every instance rather than once. The gate refuses an
- * artifact whose operating density is not on the ladder, because a rung nobody published is a number nobody can check.
+ * stated density. **The rung is chosen for admission coverage and its calibration is published, not the other way
+ * round.** It is the ladder's highest rung whose file bound still admits every instance the sample measured: on the
+ * 6 144 MB instance ceiling it affords **1 916 files**, and the largest checkout any measured row holds is 932. The
+ * rung above it - 300 - would refuse three of the 109 rows in exchange for covering 69 % of them instead of 39 %.
+ *
+ * **The sentence this doubles replaces said the opposite and was false.** Until iteration 79 this comment claimed the
+ * rung sat *above* "the measured median of 117.7 over the 109 measured rows". It did not: 117.7 is the median of the
+ * **68 Java and Kotlin rows alone**, computed from a partial artifact while the Python part was still running - a
+ * median over the shards that happened to be there - and the 109-row median is **164.6**. The rung 120 therefore sits
+ * *below* the sample's median and the bound is *more generous* than the sample implies, which is why the coverage matter
+ * is published rather than asserted. {@link MEASURED_DECLARATIONS_PER_FILE} carries both figures and
+ * `density` in the artifact republishes them from the rows of the run that produced it.
  */
 export const DECLARATIONS_PER_FILE = 120;
 
-/** The sample's median density, **published beside the rung that rounds it**, over the 109 measured rows of the sample. */
-export const MEASURED_MEDIAN_DECLARATIONS_PER_FILE = 117.7;
+/** What one measured sample's declaration density was, **with the number of rows each figure was taken over**. */
+export interface MeasuredDensity {
+  /** The measured rows that produced a declaration count. **A median whose denominator is unstated is a rumour.** */
+  readonly rows: number;
+  readonly min: number;
+  readonly p25: number;
+  readonly median: number;
+  readonly p90: number;
+  readonly max: number;
+  /** The same median per language, **because the three differ by more than a factor of two**. */
+  readonly byLanguage: Readonly<Record<string, { readonly rows: number; readonly median: number }>>;
+}
+
+/**
+ * The declaration density of the 6 November 2026 sample, **over the 109 rows it measured**.
+ *
+ * The distribution is the argument against the conversion ever being exact, and it is published so nobody has to take
+ * the argument on trust: declarations per corpus file span **20.5 to 118 898**, with a ninetieth percentile of 841.6.
+ * The span is four orders of magnitude because the numerator is the whole checkout - `wekan/wekan` holds **2** Python
+ * files and produced **237 796** declarations, since the pipeline parses everything it can read - while the denominator
+ * is one extension. A single rung cannot convert between populations that differ by that much, and the per-language
+ * medians say the same thing more quietly: Python 197.5, Java 181.0, Kotlin 83.4.
+ */
+export const MEASURED_DECLARATIONS_PER_FILE: MeasuredDensity = {
+  // **A record of one run, not a constant of the corpus.** The run that followed measured 115 rows and its median was
+  // 166.9 (Python 197.5, Java 177.5, Kotlin 84.2), which is what the artifact's `density` block publishes every time.
+  rows: 109,
+  min: 20.5,
+  p25: 90.0,
+  median: 164.6,
+  p90: 841.6,
+  max: 118_898,
+  byLanguage: {
+    py: { rows: 41, median: 197.5 },
+    java: { rows: 30, median: 181.0 },
+    kt: { rows: 38, median: 83.4 },
+  },
+};
 
 /**
  * The densities the file bound is published at, **stated rather than searched**.
  *
- * The measured sample spans 20.5 to 2 185.8 declarations per file, so a single density cannot be right for every
- * instance and no density is chosen by looking at which one admits the most. The ladder is fixed and published in the
- * artifact before any figure is read, and the operating rung is the one the sample's median sits under.
+ * The ladder is fixed and published in the artifact before any figure is read, and every rung's cost is now published
+ * beside it: the artifact's `density.ladder` carries, for each rung, the file bound it produces on this runner and the
+ * share of the run's own rows whose declarations that bound covers. A rung chosen by the best figure of the corpus
+ * would be a rung fitted to the corpus; a rung published with its coverage is one a reader can reject.
  */
 export const DECLARATIONS_PER_FILE_LADDER = [20, 60, 120, 300, 600] as const;
 
@@ -632,4 +706,30 @@ export function mean(values: number[]): number {
   return (
     Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10000) / 10000
   );
+}
+
+/**
+ * One quantile of a sample, **by linear interpolation between the two order statistics that bracket it**.
+ *
+ * This exists because a density is published as a *distribution* and not as a mean: the mean of the sample's
+ * declarations per file is 1 545.6, which no checkout holds, while its median is 164.6 and its ninetieth percentile
+ * 841.6. A report that published the mean would be publishing a figure outside the range of 82 % of the rows it
+ * describes.
+ *
+ * **`p` outside `[0, 1]` is clamped rather than refused**, because the caller that gets it wrong is a constant written
+ * by hand and a bound computed from a clamped quantile is still a bound; and an empty sample answers `0` for the same
+ * reason {@link mean} does - the caller reports its row count beside the figure, so a zero with no rows is visible
+ * rather than silent. The interpolation matches `numpy.percentile`'s default, which is what a reader checking the
+ * artifact in a notebook will use.
+ */
+export function quantile(values: readonly number[], p: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const clamped = Math.min(1, Math.max(0, p));
+  const position = clamped * (sorted.length - 1);
+  const lower = Math.floor(position);
+  const upper = Math.min(sorted.length - 1, lower + 1);
+  const fraction = position - lower;
+  const value = sorted[lower]! * (1 - fraction) + sorted[upper]! * fraction;
+  return Math.round(value * 10000) / 10000;
 }

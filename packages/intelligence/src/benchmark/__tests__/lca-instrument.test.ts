@@ -24,7 +24,7 @@ import {
   FIXED_MB,
   LCA_CONFIGS,
   MB_PER_DECLARATION,
-  MEASURED_MEDIAN_DECLARATIONS_PER_FILE,
+  MEASURED_DECLARATIONS_PER_FILE,
   MEASURED_MB_PER_FILE,
   MODEL_MARGIN_MB,
   MS_PER_FILE,
@@ -46,6 +46,7 @@ import {
   modelledAnalysisMb,
   outsideUniverse,
   parseLanguages,
+  quantile,
   restrictToUniverse,
   toCorpusPath,
 } from '../lca-instrument.js';
@@ -419,12 +420,29 @@ describe('the configuration table', () => {
 // that an instance which would not finish is a recorded skip rather than a dead job.
 
 it('converts files at a rung of a ladder the sample was measured against', () => {
-  // **The operating density is a published rung, and it is the one the sample's median sits under.** A conversion rate
-  // that is neither is a number a reader cannot check: the gate refuses an artifact whose operating density is off the
-  // ladder for the same reason.
+  // **The operating density is a published rung, and the direction of its error is now stated rather than the
+  // reverse.** Until iteration 79 this case asserted that the rung sat *above* "the sample's median of 117.7", which was
+  // the median of the 68 Java and Kotlin rows alone: the 109-row median is 164.6, so the rung sits *below* the median
+  // and the bound is more generous than the sample implies. **A test that pinned one published constant to another
+  // published constant could not see that** - both were wrong together - so the invariant now names the direction and
+  // the coverage it costs is published by the artifact's `density` block instead.
   expect(DECLARATIONS_PER_FILE_LADDER).toContain(DECLARATIONS_PER_FILE);
-  expect(DECLARATIONS_PER_FILE).toBeGreaterThanOrEqual(MEASURED_MEDIAN_DECLARATIONS_PER_FILE);
-  expect(DECLARATIONS_PER_FILE).toBeLessThan(MEASURED_MEDIAN_DECLARATIONS_PER_FILE * 1.1);
+  expect(DECLARATIONS_PER_FILE).toBeLessThanOrEqual(MEASURED_DECLARATIONS_PER_FILE.median);
+});
+
+it('publishes the density it charges against with the rows it was taken over', () => {
+  // **A median whose denominator is unstated is a rumour**, and this sample's denominator was the shards that happened
+  // to have finished. The figures here are the 109-row ones; the artifact recomputes them from its own rows every run
+  // and the gate refuses a block whose row count is smaller than the sample it claims.
+  expect(MEASURED_DECLARATIONS_PER_FILE.rows).toBe(109);
+  expect(MEASURED_DECLARATIONS_PER_FILE.min).toBeLessThan(MEASURED_DECLARATIONS_PER_FILE.p25);
+  expect(MEASURED_DECLARATIONS_PER_FILE.median).toBeLessThan(MEASURED_DECLARATIONS_PER_FILE.p90);
+  expect(MEASURED_DECLARATIONS_PER_FILE.p90).toBeLessThan(MEASURED_DECLARATIONS_PER_FILE.max);
+  // The three languages do not share a density, **which is the argument against one rung being exact for any of them**.
+  const medians = Object.values(MEASURED_DECLARATIONS_PER_FILE.byLanguage).map(
+    (entry) => entry.median,
+  );
+  expect(Math.max(...medians) / Math.min(...medians)).toBeGreaterThan(2);
 });
 
 describe('analysableDeclarationBudget', () => {
@@ -436,11 +454,11 @@ describe('analysableDeclarationBudget', () => {
   };
 
   it('pays the fixed cost and the margin before it counts a single declaration', () => {
-    // 6 144 MB ceiling, nothing resident, an analysis that costs 515 MB before it reads a file plus 326 MB of margin:
-    // 5 303 MB left, at 22 KB per declaration.
+    // 6 144 MB ceiling, nothing resident, an analysis that costs 515 MB before it reads a file plus 546 MB of margin -
+    // the model's ninetieth-percentile residual - leaves 5 083 MB, at 22 KB per declaration.
     expect(
       analysableDeclarationBudget({ totalMb: 6144, residentMb: 0, reserveMb: 0, ...MODEL }),
-    ).toBe(239_954);
+    ).toBe(229_999);
   });
 
   it('is smaller than the per-file arithmetic it replaced, on the same ceiling', () => {
@@ -458,8 +476,10 @@ describe('analysableDeclarationBudget', () => {
     expect(declarations * MB_PER_DECLARATION + FIXED_MB + MODEL_MARGIN_MB).toBeLessThanOrEqual(
       6144,
     );
-    // And it is still a usable bound: the same ceiling affords two thousand files at the operating density.
-    expect(files).toBe(1999);
+    // And it is still a usable bound: the same ceiling affords 1 916 files at the operating density. **The margin
+    // moved this number by 83**, from 1 999 at the mean residual to here at the ninetieth percentile, which is the
+    // whole price of the tail: a tenth of the corpus's error is no longer charged to the instances that do not make it.
+    expect(files).toBe(1916);
   });
 
   it('shrinks as the run accumulates resident pages', () => {
@@ -469,7 +489,10 @@ describe('analysableDeclarationBudget', () => {
     // high-water mark of every instance it has analysed and the next instance's allowance is smaller than the first's.
     expect(of(0)).toBeGreaterThan(of(1024));
     expect(of(1024)).toBeGreaterThan(of(3072));
-    expect(of(5120)).toBeGreaterThan(0);
+    expect(of(3072)).toBeGreaterThan(0);
+    // **The margin is paid before the first declaration**, so a run whose resident set leaves less than the fixed cost
+    // plus the margin affords nothing at all rather than a negative count.
+    expect(of(6144 - FIXED_MB - MODEL_MARGIN_MB)).toBe(0);
   });
 
   it('is zero rather than negative when the fixed cost alone exceeds the room', () => {
@@ -523,9 +546,11 @@ describe('fileBudgetAtDensity', () => {
 
 describe('modelledAnalysisMb', () => {
   it('charges the fixed cost, the margin and the declarations a checkout is expected to produce', () => {
-    // 100 files at the operating density: 12 000 declarations at 22 KB is 265 MB, plus 515 and 326.
+    // 100 files at the operating density: 12 000 declarations at 22 KB is 265 MB, plus 515 fixed and 546 of margin.
+    // **The three terms are the model's, so the expectation is stated as their sum rather than as a number** - the
+    // literal 1 106 this replaces was the sum of a margin that has since become a quantile.
     expect(modelledAnalysisMb({ files: 100, declarationsPerFile: DECLARATIONS_PER_FILE })).toBe(
-      1106,
+      Math.round(FIXED_MB + MODEL_MARGIN_MB + MB_PER_DECLARATION * 100 * DECLARATIONS_PER_FILE),
     );
     expect(modelledAnalysisMb({ files: 0, declarationsPerFile: DECLARATIONS_PER_FILE })).toBe(
       FIXED_MB + MODEL_MARGIN_MB,
@@ -593,8 +618,8 @@ describe('decideInstance', () => {
       budgetFiles: 830,
     });
     expect(verdict.analyse ? '' : verdict.because).toBe(
-      'an analysis of 1200 files at 120 declarations per file is estimated at 4023 MB resident (515 MB fixed plus ' +
-        '326 MB of model margin plus 0.0221 MB per declaration) and only 830 files of room remain above a 1024 MB ' +
+      'an analysis of 1200 files at 120 declarations per file is estimated at 4243 MB resident (515 MB fixed plus ' +
+        '546 MB of model margin plus 0.0221 MB per declaration) and only 830 files of room remain above a 1024 MB ' +
         'reserve, with 3072 MB resident',
     );
   });
@@ -743,5 +768,26 @@ describe('firstRelevantRank', () => {
 
   it('takes the earliest of several answers', () => {
     expect(firstRelevantRank(['a', 'b', 'c', 'd'], ['d', 'b'])).toBe(2);
+  });
+});
+
+describe('quantile', () => {
+  it('interpolates between the order statistics that bracket the position', () => {
+    // **`numpy.percentile`'s default**, so a reader checking the artifact in a notebook gets the published figure.
+    expect(quantile([1, 2, 3, 4], 0.5)).toBe(2.5);
+    expect(quantile([1, 2, 3, 4], 0.25)).toBe(1.75);
+    expect(quantile([10], 0.9)).toBe(10);
+  });
+
+  it('answers the extremes exactly, and clamps a probability outside the unit interval', () => {
+    expect(quantile([4, 1, 3], 0)).toBe(1);
+    expect(quantile([4, 1, 3], 1)).toBe(4);
+    expect(quantile([4, 1, 3], 2)).toBe(4);
+    expect(quantile([4, 1, 3], -1)).toBe(1);
+  });
+
+  it('answers zero for an empty sample rather than throwing', () => {
+    // The caller publishes its row count beside the figure, so a zero with no rows is visible rather than silent.
+    expect(quantile([], 0.5)).toBe(0);
   });
 });

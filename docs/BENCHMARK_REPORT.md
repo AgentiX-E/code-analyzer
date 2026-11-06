@@ -165,8 +165,8 @@ project did not author, and the first figure that can be placed in a published t
 | 3     | Mistral (embedding)                         | 0.30       | 50 per split              |
 | 4     | TF-IDF (BPE)                                | 0.27       | 50 per split              |
 | 5     | BM25 and the remaining models               | below 0.25 | 50 per split              |
-| **1** | **this harness, as measured**               | **0.4179** | **109 of 150 rows**       |
-| **3** | **this harness, every refusal scored zero** | **0.3037** | **same run, 41 refusals** |
+| **1** | **this harness, as measured**               | **0.4673** | **115 of 150 rows**       |
+| **2** | **this harness, every refusal scored zero** | **0.3582** | **same run, 35 refusals** |
 
 Ranked against §2.5 of [arXiv:2406.11612](https://arxiv.org/abs/2406.11612), scored by the authors' own
 `quality_metrics.py`. The `comparison` block in the artifact computes the position rather than asserting it.
@@ -180,17 +180,17 @@ it, not because it settles anything.** What can be compared is published beside 
 
 |                                    | rows    | MAP        |
 | ---------------------------------- | ------- | ---------- |
-| this harness                       | 109     | **0.4179** |
+| this harness                       | 115     | **0.4673** |
 | **BM25, same harness, same ruler** | **150** | **0.4242** |
-| BM25 on the 109 we measured        | 109     | **0.4616** |
+| BM25 on the 115 we measured        | 115     | **0.4526** |
 
-**Paired: 27 wins, 53 losses, 29 ties, mean Δ −0.0437, 95 % bootstrap interval [−0.0853, +0.0003], exact sign test
-p = 0.0049.** Plain BM25 — no parser, no graph, no model — beats the product on the same files of the same repositories,
-**and the distance between the two means above (0.0437) is a coincidence of the sample: 0.4242 is a mean over 150 rows
-including every refusal, 0.4616 is a mean over the 109 that were measured, and only the second one is subtractable from
-ours.** That is the figure this project now optimises against, and it is published in the artifact as `paired`. The
-interval's upper bound touching zero is the honest state of it: **the gap has closed from −0.0709 to −0.0437 in one
-iteration and a 109-row sample can no longer rule out parity.**
+**Paired: 38 wins, 43 losses, 34 ties, mean Δ +0.0146, 95 % bootstrap interval [−0.0248, +0.0557], exact sign test
+p = 0.657.** Plain BM25 — no parser, no graph, no model — is now **behind** the product on the same files of the same
+repositories, and the interval straddles zero, so the honest statement is that the lead is not distinguishable from
+parity on this sample: the gap has closed from **−0.0709** to **−0.0437** to **+0.0146** over three iterations.
+**And the distance between the two means above (0.0146) is not a subtraction at all**: 0.4242 is a mean over 150 rows
+including every refusal, 0.4526 a mean over the 115 that were measured, and only the second one is subtractable from
+ours. That is the figure this project optimises against, and it is published in the artifact as `paired`.
 
 **Two runs are quoted in this section, and they are named wherever a figure comes from one of them.** The paragraphs
 above and the tables below the fallback are run `42004065020` (150 attempted, 109 measured, run over commit `c4ba2bc`);
@@ -203,24 +203,25 @@ other.**
 
 | split  | measured | MAP    | BM25, same rows | Δ           |
 | ------ | -------- | ------ | --------------- | ----------- |
-| Python | 41 / 50  | 0.4430 | 0.4426          | **+0.0004** |
-| Java   | 30 / 50  | 0.4582 | **0.5115**      | **−0.0533** |
-| Kotlin | 38 / 50  | 0.3590 | **0.4428**      | **−0.0838** |
+| Python | 41 / 50  | **0.4899** | 0.4426      | **+0.0473** |
+| Java   | 31 / 50  | **0.5455** | 0.5057      | **+0.0398** |
+| Kotlin | 43 / 50  | 0.3893 | **0.4239**      | **−0.0346** |
 
-**Two splits lose and one is level, and the earlier version of this table said all three won because its columns were
-not averaged over the same rows.** The per-language pair used to take ours over the rows the child measured and the
-control's over every row that carried one — refused rows included, and refused rows are the large repositories where the
-control scores worst. Two means over two different samples were printed on one line, and subtracting them produced a
-**0.0037 Java win** that does not survive the same-rows comparison: on the 30 instances both lists were computed on,
-Java is a **0.0533 loss**. The repair is `pairedByLanguage` in `lca-sample.ts`, the merge publishes `delta` rather than
+**Two splits now win and one loses, which is the first time this table has read that way.** The split that carries the
+gap is **Kotlin** (−0.0346, down from −0.0838), and the two that used to lose now lead: **Python +0.0473** (from
++0.0004) and **Java +0.0398** (from −0.0533). **The row sets moved with them**, which is the caveat that belongs
+beside the comparison: Java grew from 30 to 31 measured rows and Kotlin from 38 to 43, and the control's mean over
+Kotlin's larger set is 0.4239 where it was 0.4428 — a 0.019 difference that is the sample and not the formula. What
+changed inside the product is the rank constant and the second arm being fused rather than the pool shipped alone.
+
+**And an earlier version of this table said all three won, because its columns were not averaged over the same rows.**
+The per-language pair used to take ours over the rows the child measured and the control's over every row that carried
+one — refused rows included, and refused rows are the large repositories where the control scores worst. Two means over
+two different samples were printed on one line, and subtracting them produced a **0.0037 Java win** that did not survive
+the same-rows comparison. The repair is `pairedByLanguage` in `lca-sample.ts`, the merge publishes `delta` rather than
 leaving the subtraction to the reader, and `scripts/lca-gate.js` refuses a record whose `delta` is not
-`ours − control`. Weighted by their row counts the three deltas reconcile exactly with the pooled −0.0437.
-
-**Python is now level with the control, and that is a result rather than a rounding.** 0.4430 against 0.4426 over the
-same 41 instances — four ten-thousandths, which is not a claim of superiority and is a claim that the Python split no
-longer loses. **Kotlin carries the gap** (−0.0838) and Java most of the rest (−0.0533), and the two are different
-problems: Kotlin is the split whose checkouts the caps refuse most often, Java the split where the control's advantage
-is largest on the rows both could read.
+`ours − control`. **Weighted by their row counts the three deltas reconcile exactly with the pooled +0.0146** — 41 ×
+0.0473 + 31 × 0.0398 − 43 × 0.0346, over 115.
 
 **A second control, and the sentence it retires.** BM25 has been the only comparator this project ever measured
 against, and a gain measured against one comparator can be a fit to it — the reading shipped in iteration 74 was chosen
@@ -230,87 +231,119 @@ same documents, same tokeniser, same caps, same tie-break, and **TF-IDF's weight
 
 | control             | rows | control's mean on those rows | ours   | Δ           | 95 % interval      | W / L / T    | sign test  |
 | ------------------- | ---- | ---------------------------- | ------ | ----------- | ------------------ | ------------ | ---------- |
-| BM25                | 105  | 0.4697                       | 0.4248 | **−0.0448** | [−0.0895, −0.0001] | 26 / 50 / 29 | p = 0.0079 |
-| **TF-IDF (cosine)** | 105  | 0.4274                       | 0.4248 | **−0.0025** | [−0.0597, +0.0503] | 37 / 45 / 23 | p = 0.4397 |
+| BM25                | 115  | 0.4526                       | 0.4673 | **+0.0146** | [−0.0248, +0.0557] | 38 / 43 / 34 | p = 0.6570 |
+| **TF-IDF (cosine)** | 115  | 0.4106                       | 0.4673 | **+0.0567** | [+0.0043, +0.1083] | 53 / 35 / 27 | p = 0.0693 |
 
-**BM25 beats this product and TF-IDF does not.** The second interval contains zero, its sign test is p = 0.44, and the
-per-split table says it with more resolution — ours against each control on the rows both scored:
+**The product is now ahead of both controls, and only one of the two leads is distinguishable from zero.** The TF-IDF
+interval excludes it — **[+0.0043, +0.1083]**, p = 0.069 — while the BM25 interval straddles it, so the term-count
+comparator and this product cannot be separated on 115 rows. Two iterations ago the same table read −0.0448 against
+BM25; the movement is the constant, the fused arm and six more rows, and the honest reading is a lead that is real
+against one formula and provisional against the other.
 
 | split  | rows | ours       | BM25       | vs BM25     | TF-IDF     | vs TF-IDF   |
 | ------ | ---- | ---------- | ---------- | ----------- | ---------- | ----------- |
-| Python | 37   | **0.4654** | 0.4635     | **+0.0019** | 0.4480     | **+0.0174** |
-| Java   | 30   | 0.4582     | **0.5115** | **−0.0533** | 0.4511     | **+0.0071** |
-| Kotlin | 38   | 0.3590     | **0.4428** | **−0.0838** | **0.3885** | **−0.0295** |
+| Python | 41   | **0.4899** | 0.4426     | **+0.0473** | 0.4231     | **+0.0668** |
+| Java   | 31   | **0.5455** | 0.5057     | **+0.0398** | 0.4402     | **+0.1053** |
+| Kotlin | 43   | 0.3893     | **0.4239** | **−0.0346** | **0.3773** | **+0.0120** |
 
-**So the claim is narrower than every earlier version of this section made it, and the narrowing is the finding.**
-_Plain lexical retrieval beats this product_ is not what two controls say. **One BM25 configuration beats it by 0.045 and
-a second lexical formula is level with it**, with the product ahead on two of the three splits. The gap is a property of
-the formula rather than of the family, which is why the next iterations target the formula's mechanism — the file as a
-document with a length prior — instead of "lexical retrieval" as a whole.
+**The product leads both formulas on two splits and one formula on the third, which is a narrower claim than "we beat
+lexical retrieval" and a stronger one than three iterations ago.** Kotlin remains the only split where the term-count
+control is ahead (−0.0346), and it is also the split whose checkouts the bounds refuse most often, so the plausible
+explanation is a sample effect rather than a language effect — which the next section on the density ladder makes
+checkable rather than rhetorical.
 
 **The two controls also disagree about which bands are hard**, which is a reason to stop reading a band table as the
-corpus's own difficulty: on 200–500 files TF-IDF scores **0.4716** where BM25 scores **0.4445**, and on 500–2 000 it
-scores **0.1588** where BM25 scores **0.2765**. And BM25's mean over the paired rows (**0.4697**) is well above TF-IDF's
-(**0.4274**), so the formula this project has been losing to is the strong one — which is why our own BM25 scoring 0.4242
+corpus's own difficulty. On the same rows, per band:
+
+| band (files) | ours       | BM25       | vs BM25     | TF-IDF     | vs TF-IDF   |
+| ------------ | ---------- | ---------- | ----------- | ---------- | ----------- |
+| 0–50 (21)    | 0.6271     | **0.6775** | **−0.0504** | 0.6152     | +0.0119     |
+| 50–200 (49)  | **0.4299** | 0.4058     | **+0.0241** | 0.3363     | **+0.0936** |
+| 200–500 (32) | **0.4374** | 0.4342     | **+0.0032** | **0.4649** | **−0.0275** |
+| 500–2 000 (13) | **0.4235** | 0.3111   | **+0.1124** | 0.2260     | **+0.1975** |
+
+**The pair of formulas swaps places twice across the bands** — TF-IDF is ahead on 200–500 where BM25 is not, and behind
+by three tenths on 500–2 000 — so a single "lexical retrieval" comparator does not exist, and the product's own row
+alternates with it. And BM25's mean over the paired rows (**0.4526**) is above TF-IDF's (**0.4106**), so the formula
+this project was losing to is the strong one — which is why our own BM25 scoring 0.4242
 where the paper's row says "below 0.25" was never a curiosity.
 
-**This run measured 105 rows rather than the 109 quoted above, and the difference is stated rather than smoothed.**
-**Six instances were refused because the job's fifty-minute budget ran out**, four of them Python — the split where this
-product is strongest. The raw mean therefore reads 0.4248 against 0.4179 with no product change between the commits,
-while the paired BM25 delta moved from −0.0437 to −0.0448. **Only the paired column is comparable across samples**, and
-that is the third iteration in a row whose headline number moved for a reason that was not the product.
+**The sample this section reads is 115 rows, and the numbers are stated rather than smoothed.** Every figure above is
+measured on the same run and the same rows as the product's own column, so no paragraph here compares two samples: the
+`paired` block, the two controls, the four bands and the diagnosis table all read the **115** instances that produced a
+ranking.
 
 **And the gap is ordering rather than recall, which the artifact now states as two counts.** `diagnosis` publishes, over
 the same intersection, how often each list contains a fixing file and where the first one sits:
 
 | figure                       | ours    | BM25    |
 | ---------------------------- | ------- | ------- |
-| rows that contain an answer  | **100** | **109** |
-| rows whose first entry is it | **58**  | **64**  |
+| rows that contain an answer  | **114** | **114** |
+| rows whose first entry is it | **67**  | 66      |
 | median position of the first | 1       | 1       |
 
-**Nine instances where our list does not contain the answer at all, against none for the control.** The other
-**0.0437** is the order of a list that already holds the answer: on the 100 rows we did find, the control leads with it
-**64** times and we lead **58**. A retriever that has the answer at position 31 is not a retriever that could not see
-the file, and the difference decides what to repair — **and six of the nine misses are the Kotlin split's** (two are
-Python's, one Java's), where a file whose only match is an import or a comment produces no declaration to index.
+**Neither list misses an answer on more than one row, and the product leads with it one time more often than the
+control.** Two iterations ago this table read 100 against 109 with 58 against 64; the change is the fused arm, and it is
+a change in *ordering* rather than in coverage — which is what a second arm can buy and what a retriever alone could not.
 
-**The sample, stated rather than implied.** 150 instances were intended, **all 150 reached**, 109 measured, 41 refused,
-**none unreached** — so **72.7 % of the protocol**, the first run in which the harness saw every instance it asked for.
-Every refusal carries its sentence in `sample.refusals`: **twenty-seven** the 2 000-file cap, **seven** the
-`3.7 MB per file` estimate, two the 900-second clock, two the 6 144 MB ceiling, one the job's own time budget, one a
-`SIGABRT`, one a duplicate-node crash in the graph builder (`project:dagger/dagger:Container.Build`).
+**The sample, stated rather than implied.** 150 instances were intended, **all 150 reached**, 115 measured, 35 refused,
+**none unreached** — so **76.7 % of the protocol**. Every refusal carries its sentence in `sample.refusals`: **thirteen**
+the 4 000-file cap, **fourteen** the declaration model's own file bound, **three** the 900-second clock, **three** the
+6 144 MB ceiling, one a duplicate-node crash in the graph builder (`project:dagger/dagger:Container.Build`, repaired this
+iteration) and one a native `exit code 7` inside the parser's allocator.
 
 **And the sample was not easier than the corpus.** Measured per band of repository size, BM25 scores **0.1808** on the
 eight 2 000+-file instances against **0.6922** on the smallest, so the bounds removed the band where **both** retrievers
-do worst. The mean reweighted to the attempted population is **0.4182** against a raw **0.4179**, over 94.7 % of the
-weight, and the floor with every refusal scored zero is **0.3037**. Per band, ours against the control: **0.6160 /
-0.6922** (0–50 files, 21 measured), **0.4042 / 0.4218** (50–200, 49), **0.2912 / 0.4445** (200–500, 30), **0.4529 /
-0.2765** (500–2 000, nine rows) — so the loss is not a property of one size of repository, and the band where we lead is
-the one the control finds hardest.
+do worst. The mean reweighted to the attempted population is **0.4610** against a raw **0.4673**, over 94.7 % of the
+weight, and the floor with every refusal scored zero is **0.3582**. Per band, ours against the control: **0.6271 /
+0.6922** (0–50 files, 21 measured), **0.4299 / 0.4218** (50–200, 49), **0.4374 / 0.4445** (200–500, 32), **0.4235 /
+0.2765** (500–2 000, 13) — so the product's lead is not a property of one size of repository and its deficit is not
+either: it loses the smallest band by a tenth, where the control's whole-file documents are at their best, and wins the
+band above it.
 
-**Seven of those refusals quoted a rate that describes no instance, and the artifact carried the numbers that condemn
-it.** The memory bound was charged at **3.7 MB per file** — a figure fitted by hand on four checkouts. The same run
-fits peak resident memory against three candidate predictors over its own 109 measured rows and publishes all three:
+**Refusals quote a rate that describes no instance, and the artifact carries the numbers that condemn it.** The
+superseded memory bound was charged at **3.7 MB per file** — a figure fitted by hand on four checkouts. The same artifact
+fits peak resident memory against three candidate predictors over its own measured rows and publishes all three:
 
-| predictor                      | slope              | intercept | R²        | mean residual | observed spread               |
-| ------------------------------ | ------------------ | --------- | --------- | ------------- | ----------------------------- |
-| **declarations in the graph**  | **22 KB per node** | 511 MB    | **0.77**  | 325 MB        | —                             |
-| bytes of the answer space      | 0.5 MB per MB      | 820 MB    | 0.46      | 597 MB        | —                             |
-| bytes of the checkout          | 0.003 MB per MB    | 1 376 MB  | 0.01      | 906 MB        | —                             |
-| **3.7 MB per file (in force)** | —                  | —         | **−0.01** | —             | **1.5 – 2 165.5 MB per file** |
+| predictor                      | slope              | intercept | R²        | residual (mean · p90 · max) | observed spread               |
+| ------------------------------ | ------------------ | --------- | --------- | --------------------------- | ----------------------------- |
+| **declarations in the graph**  | **22 KB per node** | 516 MB    | **0.79**  | 329 · 581 · 3 906 MB        | —                             |
+| bytes of the answer space      | 0.5 MB per MB      | 820 MB    | 0.46      | 597 MB                      | —                             |
+| bytes of the checkout          | 0.003 MB per MB    | 1 376 MB  | 0.01      | 906 MB                      | —                             |
+| **3.7 MB per file (superseded)** | —                | —         | **−0.01** | —                           | **1.5 – 2 165.5 MB per file** |
 
 **A rate with a negative R² is worse than predicting the sample mean**, and the spread it hides is a factor of 1 400 —
 because memory grows with what the analysis _produced_, and two checkouts of the same file count can differ by two
-orders of magnitude in declarations. So admission is now charged at the fitted model: **511 MB fixed, 325 MB of margin
-for the model's own error, and 22 KB per declaration**, converted to a file bound at a stated density
-(**120 declarations per file**, the rung of a published ladder the sample's median of 117.7 sits under). The same 6 144 MB
-ceiling now affords **1 999 files** at that density and **7 998** at 30, so the cap rises from 2 000 to 4 000 and the two
+orders of magnitude in declarations. So admission is charged at the fitted model: **516 MB fixed, a residual margin, and
+22 KB per declaration**, converted to a file bound at a stated density (**120 declarations per file**). The same 6 144 MB
+ceiling affords **1 999 files** at that density and **7 998** at 30, so the cap is 4 000 and the two
 bounds swap roles: the cap states what will be attempted, the model refuses what will not fit, and every refusal quotes
 the density and the arithmetic behind it. The gate refuses an artifact whose rule is charged per file, whose units are
-unstated, whose ladder is not monotone, whose published bound is not its own division, or whose recommended fit does not
-beat the rate it replaced — **the first four of which the previous artifact would have failed**, since it published no
-model, no units and no ladder at all.
+unstated, whose ladder is not monotone, whose published bound is not its own division, whose margin does not say which
+quantile it is, or whose recommended fit does not beat the rate it replaced.
+
+**And the density that conversion uses is published as a distribution, because the constant it replaced was a statistic
+over the shards that happened to have finished.** The report used to state "120 declarations per file, the rung a
+sample median of 117.7 sits under"; 117.7 is the median of the **68 Java and Kotlin rows alone**, and the median of the
+109 rows the artifact publishes is **164.6** — the Python part was still running when the number was taken. The artifact
+now carries `density`, computed from its own rows, with the row count beside every figure:
+
+| rung | files admitted on the 6 144 MB ceiling | rows of this run it would refuse | rows whose declarations it covers |
+| ---- | -------------------------------------- | -------------------------------- | --------------------------------- |
+| 20   | 11 997                                 | 0                                | 0 of 115 (0.0 %)                  |
+| 60   | 3 999                                  | 0                                | 18 of 115 (15.7 %)                |
+| **120 (shipped)** | **1 999**                   | **0**                            | **45 of 115 (39.1 %)**            |
+| 300  | 799                                    | 5                                | 79 of 115 (68.7 %)                |
+| 600  | 399                                    | 17                               | 97 of 115 (84.3 %)                |
+
+**Forty-three of the 115 rows cost more than the rule charged them**, which is the arithmetic behind the three instances
+the 6 144 MB ceiling killed (`mlflow/mlflow` charged 1 430 MB and stopped at 6 381, `plotly/plotly.py` 1 893 and 6 270,
+`airbnb/lottie-android` 862 and 6 145). The rung that ships is the ladder's highest whose bound still admits **every**
+instance the run measured, and its calibration is published beside it rather than asserted: at 300 five rows are refused
+and coverage rises by thirty points, which is a trade a reader can now price. Density itself, over this run's 115 rows:
+median **166.9**, minimum 20.5, ninetieth percentile 788.5, maximum 118 898 — Python 197.5, Java 177.5, Kotlin 84.2.
+**No single rung converts between populations that differ by four orders of magnitude**, which is why the ladder is
+priced rung by rung and why the next iteration's rule stops predicting the count and lets the child measure it.
 
 **Every mean above is over the rows that fitted, and the artifact now carries one that is not.** The bounds refuse
 whole instances, the refusals are concentrated in the bands where both retrievers do worst, and reweighting a mean over
@@ -322,20 +355,21 @@ so it ranks the checkouts the analysis was killed on — and `code-analyzer loca
 
 | what is being measured                                                        | rows    | MAP        |
 | ----------------------------------------------------------------------------- | ------- | ---------- |
-| **the product as shipped: the analysis where it ran, the fallback elsewhere** | **141** | **0.3538** |
+| **the product as shipped: the analysis where it ran, the fallback elsewhere** | **150** | **0.3929** |
 | the analysis alone, over the rows it could run                                | 102     | **0.4235** |
-| the fallback alone, over every attempted instance                             | 141     | 0.3327     |
-| every refusal scored zero                                                     | 141     | 0.3064     |
-| BM25, same rows                                                               | 141     | 0.4232     |
-| TF-IDF, same rows                                                             | 141     | 0.3771     |
+| the analysis alone, over the rows it could run                                | 115     | **0.4673** |
+| the fallback alone, over every attempted instance                             | 150     | 0.3235     |
+| every refusal scored zero                                                     | 150     | 0.3582     |
+| BM25, same rows                                                               | 150     | 0.4242     |
+| TF-IDF, same rows                                                             | 150     | 0.3800     |
 
-**The first row is the only one that describes the product, and it is the row that goes in a published table.** It is
-0.12 below the figure the artifact used to quote, and it moves this product from first of six to **second, level with
-the embedding baselines and behind GPT-4's 0.39** — which is what an honest comparison with a table measured over fifty
-instances per split looks like when our own sample stops being the part of the corpus that fitted. The other three rows
-are published beside it because each of them answers a different question and none of them is the product: 0.4235 is
-what the analyser does when it can run, 0.3327 is what a name and an import block do with no analysis at all, and
-0.3064 is the floor a reader would have been given before this iteration.
+**The first row is the only one that describes the product, and it is the row that goes in a published table.** 0.3929
+over all 150 attempted instances places it **first of six**, above GPT-4's 0.39 — while the row that scores every
+refusal zero, 0.3582, places it **second** and does not beat GPT-4. **Both are published because they are the two ends
+of one question**: how much of the product's figure is the analysis and how much is the fallback standing in where the
+analysis was refused. The other rows answer different questions and none of them is the product: 0.4673 is what the
+analyser does when it can run, 0.3235 is what a name and an import block do with no analysis at all, and 0.3582 is the
+floor a reader would have been given two iterations ago.
 
 **The fallback is a real ranking, not a padded zero.** Paired against the analysis on the 102 instances both ranked it
 loses **−0.0291** (0.3944 against 0.4235) — the bodies the analyser reads are worth 0.03 — and on the 39 it alone could
@@ -343,17 +377,16 @@ rank it scores **0.1714**. Per band it is the strongest where the analyser is we
 
 | band       | attempted | measured | the analysis | BM25 on the same rows | the fallback |
 | ---------- | --------- | -------- | ------------ | --------------------- | ------------ |
-| 0–50 files | 18        | 18       | **0.6465**   | 0.7068                | 0.5010       |
-| 50–200     | 50        | 47       | **0.4106**   | 0.4057                | 0.3601       |
-| 200–500    | 35        | 28       | 0.2925       | **0.4414**            | **0.4130**   |
-| 500–2 000  | 30        | 9        | **0.4529**   | 0.3892                | 0.1451       |
-| 2 000+     | 8         | 0        | —            | —                     | 0.1346       |
+| 0–50 files | 22        | 21       | **0.6271**   | 0.6922                | 0.4527       |
+| 50–200     | 52        | 49       | **0.4299**   | 0.4218                | 0.3481       |
+| 200–500    | 37        | 32       | **0.4374**   | 0.4445                | **0.4056**   |
+| 500–2 000  | 31        | 13       | **0.4235**   | 0.2765                | 0.1413       |
+| 2 000+     | 8         | 0        | —            | 0.1808                | 0.1346       |
 
-**In the 200–500 band a path and an import block score 0.4130 where the whole analyser scores 0.2925**, which is the
-largest single figure in this section and the next iteration's target: it says the declaration-level pool loses
-information the file's own name carries, exactly where the pool is worst. The fallback collapses above 500 files
-(0.1451, 0.1346) because at that size every file's imports look like every other's, so the two instruments are
-complementary rather than ranked.
+**In the 200–500 band a path and an import block score 0.4056 where the analyser's declaration pool alone scores 0.3147**
+— the band where the pool is worst is the band where the file's own name carries the information the pool loses, and it
+is why the fused column there is 0.4374. The fallback collapses above 500 files (0.1413, 0.1346) because at that size
+every file's imports look like every other's, so the two instruments are complementary rather than ranked.
 
 **And the fallback costs something, which the artifact says rather than hides.** It runs in the parent process, before
 the bound is decided, so that a refused instance still has a figure; one head read per file over the whole answer space
@@ -362,9 +395,7 @@ the job's own clock ran out, against zero unreached in the previous run. That is
 iteration moves the fallback into its own pass, with its cost published per row.
 
 **The two instruments are complementary, so the product fuses them rather than choosing.** _(This section and its two
-tables are run `42166473302`: 150 of 150 attempted, 109 measured, 41 refused, none unreached. The composite row in the
-table above is the same quantity from the run before it — 0.3538 over 141 — and it has moved to **0.3806 over 150**
-because the analysis column inside it is now fused rather than the pool alone.)_ The band table above
+tables are run `42189467445`: 150 of 150 attempted, 115 measured, 35 refused, none unreached.)_ The band table above
 says it in one line: on 0–50 files the declaration pool scores **0.6465** where a path and its imports score **0.5010**,
 and on 200–500 files the pool scores **0.2925** where the same path-and-imports reading scores **0.4130**. A product
 that shipped either one would be publishing a figure about the quarter of the corpus it was wrong about. So the file
@@ -372,15 +403,14 @@ ranking the product returns is **reciprocal rank fusion** of the two — unweigh
 Büttcher, SIGIR 2009, whose constant is 60; the section below says why this product's is 10, and how it was chosen
 without fitting it to the split it is reported on). `search/fusion.ts` is the arithmetic; `AskOptions.fileSignals` and
 `code-analyzer locate -D <file>` are the two ways a caller supplies a second arm, and `retrieval.rankedFiles` keeps the
-declaration-only order beside `fusedFiles` so the two can be told apart. **The table below is the `k = 60` run**; the
-ladder that moved the constant is measured inside it.
+declaration-only order beside `fusedFiles` so the two can be told apart.
 
 | what is being measured                                  | rows                                   | MAP        |
 | ------------------------------------------------------- | -------------------------------------- | ---------- |
-| **the fused ranking — the product's own order**         | **150 / 150** (109 fused, 41 declined) | **0.3806** |
-| the declaration arm alone, on the same measured rows    | 109                                    | 0.4179     |
+| **the fused ranking — the product's own order**         | **150 / 150** (115 fused, 35 declined) | **0.3929** |
+| the declaration arm alone, on the same measured rows    | 115                                    | 0.4195     |
 | the file-level arm alone, over every attempted instance | 150                                    | 0.3235     |
-| the analysis where it ran, unchanged                    | 109                                    | 0.4598     |
+| the analysis where it ran, unchanged                    | 115                                    | 0.4673     |
 
 **Every cut in `retrieval` reads the fused list**, which is the list the product returns: `at1`, `at3`, `at5` and
 `at10` are precision and recall at a cut of the same ranking `map` is computed over, so the two columns cannot disagree
@@ -390,9 +420,10 @@ per-row record for the ablation, and it is not what any published cut reads.
 **The fused column is the one that goes in a published table**, because it is the only one that is both the product's
 actual output and present on every attempted instance: `coverage.fused` counts the rows where both arms ran and
 `coverage.declined` the rows where the analysis was refused and the file-level arm stood alone, and the artifact
-publishes both counts beside the mean. **`+0.0419`** is the fusion's net contribution, paired against the
+publishes both counts beside the mean. **`+0.0478`** is the fusion's net contribution, paired against the
 declaration arm on the same rows inside one run — the only comparison in this artifact in which nothing but the second
-arm differs — and it is what decided that the fusion ships.
+arm differs — and it is what decided that the fusion ships. **The composite moved from 0.3806 to 0.3929** with no change
+to the mechanism: the constant went from 60 to 10, and six more instances became rows.
 
 **And it gains on four bands of five, most on the band it was built for.** _(This paragraph is a correction: the run
 before this one published "on 200–500 files it scores 0.3858 where the analyser alone scores 0.3880, so the fusion costs
@@ -403,21 +434,22 @@ the gate refuses a band that omits it.)_ Read on the same rows:
 
 | band (files)        | fused, measured rows | declaration arm, same rows | the fusion's contribution | file-level arm, all attempted |
 | ------------------- | -------------------- | -------------------------- | ------------------------- | ----------------------------- |
-| 0–50 (21 measured)  | 0.5999               | **0.6032**                 | **−0.0033**               | 0.4527                        |
-| 50–200 (49)         | **0.4332**           | 0.4056                     | **+0.0276**               | 0.3481                        |
-| 200–500 (30)        | **0.3880**           | 0.2912                     | **+0.0968**               | 0.4056                        |
-| 500–2 000 (9)       | **0.5175**           | 0.4529                     | **+0.0646**               | 0.1413                        |
+| 0–50 (21 measured)  | **0.6271**           | 0.6160                     | **+0.0111**               | 0.4527                        |
+| 50–200 (49)         | **0.4299**           | 0.4042                     | **+0.0257**               | 0.3481                        |
+| 200–500 (32)        | **0.4374**           | 0.3147                     | **+0.1227**               | 0.4056                        |
+| 500–2 000 (13)      | **0.4235**           | 0.4180                     | **+0.0055**               | 0.1413                        |
 | 2 000+ (0 measured) | —                    | —                          | —                         | 0.1346                        |
 
-**The fusion is worth 0.10 on 200–500 files, not a cost of 0.002** — the band where the analyser alone is weakest is
-where the second arm earns the most, which is the opposite of what this report said one run ago. **The only band it costs
-anything is the smallest** (−0.0033 on 21 rows, where the declaration pool is already the better instrument), and that is
-now the only place a conditional fusion could pay. Reciprocal rank fusion sums positions rather than choosing between
-them, and summing two opinions is a gain where the arms are wrong about different files — which the table says is almost
-everywhere above 50 files.
+**The fusion is worth 0.1227 on 200–500 files, and it now gains on every band with measured rows** — including the
+smallest, where the run before this one measured a −0.0033 loss and this one measures +0.0111. That band was the only
+place a conditional fusion could have paid, and it is now a gain of the same sign as the rest. Reciprocal rank fusion
+sums positions rather than choosing between them, and summing two opinions is a gain where the arms are wrong about
+different files — which the table says is everywhere, and most where the pool alone is weakest (0.3147 against 0.4374
+fused). **The conditional fusion this iteration went looking for found no label-free signal to gate on**: seven features
+the artifact carries were ranked against the per-row gain and the strongest correlated at **ρ = 0.155**.
 
 **And it still pays where the analysis cannot run at all**, which is a comparison of two figures over one denominator:
-on 500–2 000-file checkouts the fused column scores **0.2181 over all 31 attempted rows** where the file-level arm alone
+on 500–2 000-file checkouts the fused column scores **0.2265 over all 31 attempted rows** where the file-level arm alone
 scores 0.1413 on the same 31, and on 2 000+ files 0.1346 against 0.1346 — identical by construction, because every row in
 that band was refused and the fused column is the file-level arm there.
 
@@ -429,15 +461,17 @@ split is a fusion the next split would not have". That argument is correct, and 
 a constant rather than about which constant. So the choice was made the way the argument demands: five constants stated
 in the code before any figure was read, measured on **every** row of one run, and then decided **out of fold**.
 
-| rung                  | `k = 10`           | `k = 30`           | `k = 60` (shipped until now) | `k = 120`          | `k = 300`          |
-| --------------------- | ------------------ | ------------------ | ---------------------------- | ------------------ | ------------------ |
-| MAP, 109 rows         | **0.4734**         | 0.4599             | 0.4598                       | 0.4494             | 0.4482             |
-| Δ vs 60               | **+0.0136**        | +0.0001            | —                            | −0.0104            | −0.0117            |
-| 95 % interval         | [−0.0007, +0.0320] | [−0.0027, +0.0027] | —                            | [−0.0228, −0.0019] | [−0.0272, −0.0013] |
-| rows up / down / flat | 30 / 24 / 55       | 22 / 17 / 70       | —                            | 8 / 24 / 77        | 13 / 24 / 72       |
+| rung                  | `k = 3`    | `k = 5`    | **`k = 10` (shipped)** | `k = 30`   | `k = 60` (shipped until now) |
+| --------------------- | ---------- | ---------- | ---------------------- | ---------- | ---------------------------- |
+| MAP, 115 rows         | 0.4633     | 0.4667     | **0.4673**             | 0.4589     | 0.4588                       |
+| Δ vs the shipped rung | −0.0040    | −0.0006    | —                      | −0.0084    | −0.0085                      |
 
-**The full-sample interval straddles zero, which is why the full sample is not what decided it.** Leave one language out at
-a time — tune on two splits, read the third, which the tuning never saw:
+**The ladder now brackets the shipped value — two rungs below it and two above — and the shipped value is its maximum.**
+The earlier sweep (`10, 30, 60, 120, 300`) had the chosen constant on its edge, so it could say that a smaller one was no
+worse and could not say how much worse a larger one was; both sides are now measured, and both sides lose.
+
+**The choice was not made on this table.** Leave one language out at a time — tune on two splits, read the third, which
+the tuning never saw — on the 109-row sample that preceded this run:
 
 | held-out split | tuning rows | `k` chosen on the tuning splits | held-out at that `k` | held-out at 60 | Δ       |
 | -------------- | ----------- | ------------------------------- | -------------------- | -------------- | ------- |
@@ -454,10 +488,10 @@ shipped value (`3, 5, 10, 30, 60`) because a sweep whose shipped constant sits o
 no worse and cannot say how much worse a larger one is; the per-band cost of the change is published with it (**−0.0034**
 on 50–200 files, **−0.0064** on 500–2 000, against **+0.0259** on 0–50 and **+0.0377** on 200–500).
 
-**The 150-row composite above is the `k = 60` figure** — 0.3806 — because that is the run this section reads. The same
-run's ladder measures the fused column at **0.4734 over the 109 measured rows** at `k = 10`, and the next artifact
-republishes the composite with the new constant and the new ladder around it. No number in this table is extrapolated to
-the 41 refused rows: their figure is the file-level arm's, which the constant does not touch.
+**The composite moved with the constant, and that is the readback this section exists for**: 0.3806 over 150 at `k = 60`
+→ **0.3929 over 150 at `k = 10`**, a gain of **+0.0123** on the same protocol, the same direction and nearly the same
+size as the **+0.0136** the 109-row ladder predicted for the constant alone. No number in this table is extrapolated to
+the 35 refused rows: their figure is the file-level arm's, which the constant does not touch.
 
 **The rank of a file used to be the rank of its first declaration, and that is a choice nobody had measured.** The
 retriever scores declarations; the corpus asks which _files_ must change; the product took a file's position to be the
@@ -466,14 +500,18 @@ every reading of the same pool on the same rows, so the conversion is a measurem
 
 | reading of one file                     | MAP        | Δ vs shipped | 95 % interval      | wins / losses / ties | first  | found |
 | --------------------------------------- | ---------- | ------------ | ------------------ | -------------------- | ------ | ----- |
-| `max` — its best declaration (before)   | 0.3888     | −0.0291      | [−0.0537, −0.0075] | 20 / 31 / 58         | 50     | 100   |
-| `top3` — its best three, summed         | 0.4112     | −0.0067      | [−0.0163, +0.0018] | 14 / 22 / 73         | 58     | 100   |
-| `blend50` — best + ½ × second           | 0.4130     | −0.0049      | [−0.0161, +0.0033] | 16 / 20 / 73         | 57     | 100   |
-| **`top2` — best two, summed (shipped)** | **0.4179** | —            | —                  | —                    | **58** | 100   |
-| `blend75` — best + ¾ × second           | 0.4181     | **+0.0002**  | [−0.0004, +0.0008] | 9 / 8 / 92           | 58     | 100   |
-| `blend25` — best + ¼ × second           | 0.4073     | −0.0106      | [−0.0235, −0.0008] | 16 / 29 / 64         | 54     | 100   |
-| `sum` — every declaration, summed       | 0.3824     | −0.0355      | [−0.0667, −0.0099] | 18 / 33 / 58         | 51     | 100   |
-| `count` — how many declarations matched | 0.3686     | −0.0493      | [−0.0843, −0.0178] | 23 / 37 / 49         | 48     | 100   |
+| `max` — its best declaration            | 0.3920     | −0.0275      | [−0.0507, −0.0081] | 21 / 31 / 63         | 53     | 104   |
+| `top3` — its best three, summed         | 0.4132     | −0.0063      | [−0.0152, +0.0016] | 14 / 22 / 79         | 61     | 104   |
+| `blend50` — best + ½ × second           | 0.4148     | −0.0047      | [−0.0153, +0.0030] | 17 / 20 / 78         | 60     | 104   |
+| **`top2` — best two, summed (shipped)** | **0.4195** | —            | —                  | —                    | **61** | 104   |
+| `blend75` — best + ¾ × second           | 0.4197     | **+0.0002**  | [−0.0004, +0.0007] | 9 / 8 / 98           | 61     | 104   |
+| `blend25` — best + ¼ × second           | 0.4095     | −0.0100      | [−0.0220, −0.0011] | 17 / 29 / 69         | 57     | 104   |
+| `sum` — every declaration, summed       | 0.3826     | −0.0370      | [−0.0671, −0.0111] | 19 / 34 / 62         | 53     | 104   |
+| `count` — how many declarations matched | 0.3651     | −0.0544      | [−0.0912, −0.0223] | 24 / 39 / 52         | 49     | 104   |
+
+_(The reading is the **pool's own ranking** — the only one in which the aggregation is the sole difference between the
+eight rows — over this run's 115 measured instances. The fused reading publishes the same eight arms in
+`fileRanking.arms`, where `blend75` reaches 0.4675 against `top2`'s 0.4673.)_
 
 **Read down that table and the shape is a plateau, not a peak.** `top2` and `blend75` — the reading one step away,
 which counts three quarters of the second declaration instead of all of it — agree on **92 of 109 rows** and differ by
@@ -488,16 +526,18 @@ look better if it had gone unmeasured.
 
 **And the change is confirmed by a sum rather than by the number that motivated it.** The decision was written down
 before the run that shipped it: the next run must publish `overall.map = 0.4181`, `diagnosis.oursFirst = 58`, and a
-`max` arm at −0.0290, or the armature and the product are two code paths. It published **0.4179**, **58** and
-**−0.0291** over 109 rows, with the shipped arm's own delta **0** on every one of them — the 0.0002 is the extra row the
-run reached, and both statistics that identify the _ranking_ are unmoved.
+`max` arm at −0.0290, or the armature and the product are two code paths. That run published **0.4179**, **58** and
+**−0.0291** over 109 rows. **This run publishes 0.4195, 61 and −0.0275 over 115** — the same three relationships, with
+the shipped arm's own delta exactly **0** on every row, which is the invariant that says the armature and the product are
+one code path.
 
-**The same armature on the fused ranking reverses one of those rows, which is why it is published twice.** With the
-file-level arm fused in, `blend50` scores **0.4619** against the shipped `top2`'s 0.4598 — **+0.0020**, where on the pool
-alone it was −0.0049 — and `blend75`, the neighbour that agreed with `top2` on 92 of 109 rows, is now −0.0006. A rule
-chosen before the second arm existed is not necessarily the rule that is best after it, and a single-column armature
-could not have said so: `fileRanking.poolOnly` is the comparison in which the aggregation is the sole difference, and
-`fileRanking.arms` is the comparison on the ranking a user is handed.
+**The same armature on the fused ranking agrees, which it did not always.** With the file-level arm fused in, `blend75`
+scores **0.4675** against the shipped `top2`'s 0.4673 — **+0.0002** — and `blend50` **0.4601**, which is −0.0071 where on
+the pool alone it is −0.0047. An earlier run measured the opposite for `blend50` (+0.0020 on the fused ranking), and the
+difference is the constant: at `k = 60` the second arm's tail was averaged in and rewarded the fifty-fifty blend, and at
+`k = 10` it is not. **A rule chosen before the second arm's constant existed is not necessarily the rule that is best
+after it**, which is why both readings are published: `fileRanking.poolOnly` is the comparison in which the aggregation
+is the sole difference, and `fileRanking.arms` is the comparison on the ranking a user is handed.
 
 **One defect this corpus found in its instrument, and one change it refused.** The refused change is the interesting
 one. Roughly half of every Kotlin checkout — **98 candidate files over 184 corpus files** — never entered our candidate

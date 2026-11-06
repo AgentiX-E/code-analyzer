@@ -266,6 +266,34 @@ describe('insertGraph', () => {
     expect(store.getEdgeCount()).toBe(0);
     store.close();
   });
+
+  it('**re-points a repeated qualified name instead of failing the instance**', () => {
+    // **The case that cost a row, taken from the artifact.** `dagger/dagger` was published as "the analysis failed:
+    // Node insert failed: node `project:dagger/dagger:Container.Build` already exists" - the store refusing a second
+    // node with one qualified name, thrown out of this function as the whole instance's failure. The product's own
+    // indexer skips the duplicate (`auto-indexer`: "Node already exists — skip"), so the harness was stricter than the
+    // product it measures. Both nodes are kept as one, and **an edge that named either of them still lands**.
+    const store = new InMemoryGraphStore();
+    const first = node(7, 'a');
+    const repeat = { ...node(9, 'a'), filePath: 'src/b.py' };
+    insertGraph(store, [first, repeat, node(11, 'b')], [edge(9, 11), edge(7, 11)]);
+
+    expect(store.getNodeCount()).toBe(2);
+    expect(store.getEdgeCount()).toBe(2);
+    // The survivor is the declaration the walk reached first, which is the one the ranking was built on.
+    expect(store.getNodeByQualifiedName('p.a')?.filePath).toBe('src/a.py');
+    store.close();
+  });
+
+  it('**keeps a node whose qualified name is empty distinct from every other**', () => {
+    // A resolver can produce nodes with no qualified name, and two of those are not the same declaration: collapsing
+    // them would merge unrelated files in the graph the ranking reads.
+    const store = new InMemoryGraphStore();
+    const orphan = (id: number): GraphNode => ({ ...node(id, 'x'), qualifiedName: '' });
+    insertGraph(store, [orphan(1), orphan(2)], []);
+    expect(store.getNodeCount()).toBe(2);
+    store.close();
+  });
 });
 
 describe('measureInstance — the fused arm', () => {

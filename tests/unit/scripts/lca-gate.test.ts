@@ -34,6 +34,9 @@ function baseRecord(): Record<string, unknown> {
   return {
     dataset: { name: 'JetBrains-Research/lca-bug-localization' },
     measuredAt: '2026-11-05',
+    // **Which parts this figure is made of**, because the density block below is published per language and a block that
+    // dropped a part would describe a sample it did not measure.
+    parts: { combined: ['kt'], absent: [], unreadable: [] },
     space: { semantic: false, reason: 'the retrieval arm is lexical by definition' },
     overall: {
       rows: 3,
@@ -48,6 +51,32 @@ function baseRecord(): Record<string, unknown> {
       },
       map: { rows: 2, value: 0.4 },
       answer: null,
+    },
+    // **The density behind the file bound, as a distribution with its denominator.** Added when the report's
+    // "median of 117.7" turned out to be the median of the 68 Java and Kotlin rows alone while the 109-row median is
+    // 164.6: the block is computed from the rows now, and the gate refuses one whose `rows` is not the sample.
+    density: {
+      rows: 2,
+      min: 20,
+      p25: 40,
+      median: 164.6,
+      p75: 300,
+      p90: 800,
+      max: 2_100,
+      chargedAt: 120,
+      chargedAtCovered: 2,
+      chargedAtMissed: 0,
+      ladder: [
+        { declarationsPerFile: 20, files: 11_997, covered: 0, refusedByBound: 0 },
+        { declarationsPerFile: 60, files: 3_999, covered: 1, refusedByBound: 0 },
+        { declarationsPerFile: 120, files: 1_999, covered: 2, refusedByBound: 0 },
+        { declarationsPerFile: 300, files: 799, covered: 2, refusedByBound: 1 },
+        { declarationsPerFile: 600, files: 399, covered: 2, refusedByBound: 1 },
+      ],
+      byLanguage: {
+        kt: { rows: 2, median: 83.4 },
+      },
+      note: 'declarations per corpus file',
     },
     costModel: {
       recommended: {
@@ -72,7 +101,8 @@ function baseRecord(): Record<string, unknown> {
         model: 'declarations',
         mbPerDeclaration: 0.0221,
         fixedMb: 515,
-        marginMb: 326,
+        marginMb: 546,
+        marginQuantile: 0.9,
         declarationsPerFile: 120,
         declarationsAtStart: { kt: 239_954 },
         fileLadder: [
@@ -1171,5 +1201,90 @@ describe('lca gate — the fused column', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('one composite described');
+  });
+});
+
+/**
+ * The density the file bound converts at, **whose denominator is the defect this block exists to catch**.
+ *
+ * The report of iteration 78 stated "120 declarations per file, the rung the sample's median of 117.7 sits under", and
+ * 117.7 is the median of the **68 Java and Kotlin rows alone** - the Python part was still running when the number was
+ * computed - while the median of the 109 rows the artifact publishes is **164.6**. Nothing in the artifact said which
+ * rows the figure was over, so nothing could catch it; and the test that did read the constant compared it with a
+ * second constant derived from it. Each case below doctors one way a statistic can stop describing its own sample.
+ */
+describe('lca gate — the density the bound converts at', () => {
+  /** Apply one mutation to the density block of a fresh copy of the baseline. */
+  function mutatedDensity(change: (density: Record<string, unknown>) => void): Record<string, unknown> {
+    return mutated((record) => {
+      change(record['density'] as Record<string, unknown>);
+    });
+  }
+
+  it('**passes a record whose density is computed over the rows it publishes**', () => {
+    const run = runGate(baseRecord());
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('| density |');
+  });
+
+  it('**refuses a median over fewer rows than the sample it claims**', () => {
+    // **This is the defect, exactly**: the median was taken over two shards of a three-shard run and published as the
+    // sample's. A block whose row count is smaller than `sample.measured` is a statistic about a subset.
+    const run = runGate(mutatedDensity((density) => (density['rows'] = 1)));
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('computed over the rows the artifact publishes');
+  });
+
+  it('**refuses quantiles that are not ordered**', () => {
+    const run = runGate(mutatedDensity((density) => (density['median'] = 9_000)));
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('its quantiles ordered');
+  });
+
+  it('**refuses a block that omits a language it measured**', () => {
+    const run = runGate(
+      mutatedDensity((density) => {
+        density['byLanguage'] = {};
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('every combined language present');
+  });
+
+  it('**refuses a charged rung that is not the highest one refusing none of the rows**', () => {
+    // The constant's own comment says the rung is chosen for admission coverage: the ladder's highest rung whose bound
+    // still admits every instance the run measured. A rung chosen any other way has to change that comment to pass.
+    const run = runGate(mutatedDensity((density) => (density['chargedAt'] = 60)));
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('highest that refuses none of those rows');
+  });
+
+  it('**refuses a block whose covered and missed counts do not add up**', () => {
+    const run = runGate(mutatedDensity((density) => (density['chargedAtCovered'] = 1)));
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('summing to `rows`');
+  });
+
+  it('**refuses an unpriced ladder**', () => {
+    const run = runGate(
+      mutatedDensity((density) => {
+        density['ladder'] = [{ declarationsPerFile: 120 }];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('its ladder priced');
+  });
+
+  it('**refuses a margin whose quantile is unstated**', () => {
+    // A reserve is a policy: the mean covers half the rows by construction, and a margin whose quantile is not
+    // published cannot be argued with, only obeyed.
+    const run = runGate(
+      mutated((record) => {
+        const cap = record['fileCap'] as Record<string, unknown>;
+        delete (cap['memory'] as Record<string, unknown>)['marginQuantile'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('must be charged at the fitted declaration model');
   });
 });

@@ -14,7 +14,14 @@
 // rounded averages a single-language artifact would have shown: the merged figure is computed from the rows, and every
 // figure in it is rounded once.
 
-import { MEASURED_MB_PER_FILE, mean } from './lca-instrument.js';
+import {
+  DECLARATIONS_PER_FILE,
+  DECLARATIONS_PER_FILE_LADDER,
+  MEASURED_MB_PER_FILE,
+  fileBudgetAtDensity,
+  mean,
+  quantile,
+} from './lca-instrument.js';
 
 import type { ControlResult } from './lca-baseline.js';
 import type { FallbackResult } from './lca-fallback.js';
@@ -273,6 +280,12 @@ export interface LanguagePart {
     readonly mbPerDeclaration?: number;
     readonly fixedMb?: number;
     readonly marginMb?: number;
+    /**
+     * **Which quantile of the fit's residual `marginMb` is.** Iteration 78 charged the mean, which covers half the rows
+     * by construction; a reserve is a policy, and a policy that is not published cannot be argued with. The gate
+     * requires this field beside the margin it qualifies.
+     */
+    readonly marginQuantile?: number;
     /** The file bound at every rung of the stated density ladder, **so the decision's sensitivity travels with it**. */
     readonly fileLadder?: ReadonlyArray<{
       readonly declarationsPerFile: number;
@@ -553,6 +566,121 @@ export function costModels(rows: readonly LcaRowScore[]): CostModels {
     if (recommended === null || fit.r2 >= recommended.r2) recommended = fit;
   }
   return { byAnswerSpace, byCheckout, byGraphNodes, recommended };
+}
+
+/**
+ * One rung of the density ladder, priced: **what it would have admitted, and what it would have charged**.
+ *
+ * `files` is the file bound this rung produces on the memory the run reported, and the two counts are the rung's
+ * two-sided cost over the run's own rows: `refusedByBound` rows hold more files than the bound allows, and
+ * `covered` rows hold no more declarations than the charge assumes. **A rung that refuses nothing and covers nothing is
+ * the rung 20, and a rung that covers everything refuses most of the corpus** - the table is the trade-off, published.
+ */
+export interface DensityLadderRung {
+  readonly declarationsPerFile: number;
+  /** The file bound at this rung, or `null` when the run did not publish the declarations it had to spend. */
+  readonly files: number | null;
+  /** Rows of this sample whose checkout holds more files than the bound allows. **What the rung costs.** */
+  readonly refusedByBound: number;
+  /** Rows whose declaration count the charge at this rung covers. **What the rung buys.** */
+  readonly covered: number;
+}
+
+/**
+ * The declaration density of a run, **as a distribution and as the charge it justified**.
+ *
+ * **This block exists because a median was published over the shards that had finished.** Iteration 78 stated that the
+ * file bound charged "120 declarations per file, the rung the sample's median of 117.7 sits under", and 117.7 is the
+ * median of the **68 Java and Kotlin rows alone**: the Python part was still running when the number was computed, and
+ * the median of the full 109 rows is **164.6**. Nothing in the artifact said which rows the figure was over, so nothing
+ * could catch it. So the figure is now computed by the merge from the rows it publishes, its denominator travels with
+ * it, and the gate refuses a `density.rows` that is smaller than `sample.measured` - a statistic over a subset can no
+ * longer be published as a statistic over the sample.
+ *
+ * **And the distribution is the more useful half.** Declarations per corpus file span four orders of magnitude because
+ * the numerator is the whole checkout while the denominator is one extension: `wekan/wekan` holds 2 Python files and
+ * produced 237 796 declarations. Charging a bound at one rung is therefore always an approximation, which is why every
+ * rung is priced here rather than only the one that ships.
+ */
+export interface DeclarationDensity {
+  /** Rows that produced both a declaration count and a file count. **The denominator of every figure below.** */
+  readonly rows: number;
+  readonly min: number;
+  readonly p25: number;
+  readonly median: number;
+  readonly p75: number;
+  readonly p90: number;
+  readonly max: number;
+  /** The rung the run charged its bound at, or `null` when the part did not publish one. */
+  readonly chargedAt: number | null;
+  /** Rows whose declaration count the charge at `chargedAt` covers. */
+  readonly chargedAtCovered: number;
+  /** Rows it does not cover - **the ones the process ceiling, and not the rule, has to catch**. */
+  readonly chargedAtMissed: number;
+  readonly ladder: readonly DensityLadderRung[];
+  readonly note: string;
+}
+
+/**
+ * Price the density ladder on one run's rows.
+ *
+ * `declarations` is the declaration budget the run computed for itself; the ladder's `files` column is that budget
+ * divided by each rung, which is the same division the admission rule performs - **the arithmetic is shared with the
+ * rule rather than restated here**, so a rung's published cost cannot disagree with the decision it would have made.
+ */
+export function declarationDensity(
+  rows: readonly LcaRowScore[],
+  options: {
+    readonly chargedAt?: number | null;
+    readonly declarations?: number | null;
+    readonly rungs?: readonly number[];
+  } = {},
+): DeclarationDensity {
+  const rungs = options.rungs ?? DECLARATIONS_PER_FILE_LADDER;
+  const chargedAt = options.chargedAt ?? DECLARATIONS_PER_FILE;
+  const usable = rows.filter(
+    (row) => row.skipped === null && typeof row.graphNodes === 'number' && row.corpusFiles > 0,
+  );
+  const densities = usable.map((row) => row.graphNodes! / row.corpusFiles);
+  const chargeCovers = (row: LcaRowScore, rung: number): boolean =>
+    row.graphNodes !== null && row.graphNodes <= rung * row.corpusFiles;
+  const covered = usable.filter((row) => chargeCovers(row, chargedAt)).length;
+  const declarations = options.declarations ?? null;
+
+  return {
+    rows: usable.length,
+    min: quantile(densities, 0),
+    p25: quantile(densities, 0.25),
+    median: quantile(densities, 0.5),
+    p75: quantile(densities, 0.75),
+    p90: quantile(densities, 0.9),
+    max: quantile(densities, 1),
+    chargedAt: options.chargedAt === undefined ? chargedAt : options.chargedAt,
+    chargedAtCovered: covered,
+    chargedAtMissed: usable.length - covered,
+    ladder: rungs.map((rung) => ({
+      declarationsPerFile: rung,
+      files:
+        declarations === null || declarations <= 0
+          ? null
+          : fileBudgetAtDensity({ declarations, declarationsPerFile: rung }),
+      refusedByBound:
+        declarations === null || declarations <= 0
+          ? 0
+          : usable.filter(
+              (row) =>
+                row.corpusFiles >
+                fileBudgetAtDensity({ declarations, declarationsPerFile: rung }),
+            ).length,
+      covered: usable.filter((row) => chargeCovers(row, rung)).length,
+    })),
+    note:
+      'Declarations per file, measured on this run\u2019s own measured rows: `median` and the quantiles are over ' +
+      '`rows`, which is why the denominator is published beside them. **The numerator is the whole checkout and the ' +
+      "denominator is one extension**, so the ladder's rungs price a conversion between two populations rather than " +
+      'between two estimates of one. `chargedAtCovered` counts the rows whose declarations the shipped charge covers: ' +
+      'the rest are charged less than they cost, and the process ceiling - not the rule - is what catches them.',
+  };
 }
 
 /** A cut's worth of an arm, plus what the sample size was. */
