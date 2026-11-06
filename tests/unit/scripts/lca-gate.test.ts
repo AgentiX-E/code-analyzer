@@ -136,6 +136,50 @@ function baseRecord(): Record<string, unknown> {
         { because: 'the checkout holds 4970 files, above the stated cap of 2000', count: 1 },
       ],
     },
+    // **The whole-body arm, whose denominator is the run.** Every attempted instance has one, because it needs no
+    // parser - which is the property the gate checks rather than the figure it produces.
+    fileBody: {
+      name: 'whole file body (BM25 over path and text)',
+      configuration: { maxBytesPerFile: 65_536, documentCap: null },
+      coverage: { rows: 3, attempted: 3, share: 1 },
+      overall: { rows: 3, value: 0.42 },
+      byLanguage: { kt: { attempted: 3, rows: 3, value: 0.42 } },
+      pairedVsControl: { bm25: { rows: 3, ours: 0.42, control: 0.31, delta: 0.11 } },
+      pairedVsFallback: { rows: 3, ours: 0.42, control: 0.4, delta: 0.02 },
+    },
+    // **The weight ladder, with the rung that has to reproduce the body arm.** `body-alone` is here as a mechanism
+    // test; the gate refuses an artifact where it disagrees with `fileBody` on any row.
+    fusionWeights: {
+      shipped: 'equal',
+      chosen: 'equal',
+      rungs: [
+        {
+          weighting: 'equal',
+          map: 0.4,
+          rows: 2,
+          vsShipped: { rows: 2, ours: 0.4, control: 0.4, delta: 0 },
+        },
+        {
+          weighting: 'body-alone',
+          map: 0.42,
+          rows: 2,
+          vsShipped: { rows: 2, ours: 0.42, control: 0.4, delta: 0.02 },
+        },
+      ],
+      folds: [{ heldOut: 'kt', chosen: 'equal', heldOutMap: 0.4, shippedMap: 0.4, gain: 0 }],
+      note: 'selected out of fold',
+    },
+    // **The rank on the protocol's denominator**, which is the only one comparable with the published table.
+    comparison: { metric: 'MAP', basis: 'measured', ours: 0.4, rank: 2, of: 6 },
+    comparisonProtocol: {
+      metric: 'MAP',
+      basis: 'protocol',
+      ours: 0.38,
+      rank: 3,
+      of: 6,
+      rows: 3,
+      attempted: 3,
+    },
     baseline: {
       name: 'BM25',
       overall: { rows: 3, map: 0.22, oursPaired: 0.4, oursPairedRows: 2 },
@@ -375,6 +419,11 @@ function baseRecord(): Record<string, unknown> {
           { k: 30, map: 0.51, rank: 1 },
           { k: 60, map: 0.52, rank: 1 },
         ],
+        body: { map: 0.5, rank: 1 },
+        fusionByWeighting: [
+          { weighting: 'equal', map: 0.5, rank: 1 },
+          { weighting: 'body-alone', map: 0.5, rank: 1 },
+        ],
       },
       {
         config: 'kt',
@@ -402,6 +451,11 @@ function baseRecord(): Record<string, unknown> {
           { k: 10, map: 0.3, rank: 3 },
           { k: 30, map: 0.31, rank: 3 },
           { k: 60, map: 0.32, rank: 3 },
+        ],
+        body: { map: 0.35, rank: 2 },
+        fusionByWeighting: [
+          { weighting: 'equal', map: 0.3, rank: 3 },
+          { weighting: 'body-alone', map: 0.35, rank: 2 },
         ],
       },
       {
@@ -1389,5 +1443,118 @@ describe('lca gate — the declaration guard', () => {
     );
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('| memory bound | applied to cap-and-memory-model');
+  });
+});
+
+/**
+ * **Iteration 81's invariants, and each case is a way the artifact could look right and be wrong.**
+ *
+ * The whole-body arm and the weight ladder are the first block in this artifact that publishes a *mechanism* rather
+ * than only a figure: one rung of the ladder is defined to reproduce one column exactly, so the equality is checkable
+ * and a weighting that never reached the arithmetic fails it. And the protocol-wide rank is the first figure whose
+ * whole point is to be **lower** than the one beside it - a reader comparing a 115-row mean with a 150-instance table is
+ * making an arithmetic error that no floor can catch.
+ */
+describe('the whole-body arm and the weight ladder', () => {
+  it('accepts the record as published', () => {
+    // The baseline every case below doctors, asserted to pass on its own: a gate that refuses everything proves nothing
+    // about the invariant being added.
+    const run = runGate(baseRecord());
+    expect(run.status).toBe(0);
+  });
+
+  it('**refuses an artifact with no whole-body column at all**', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    delete record['fileBody'];
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('fileBody: absent');
+  });
+
+  it('**refuses a body arm that ranked fewer rows than the run attempted**', () => {
+    // The arm exists for the instances the analysis refuses, so a denominator smaller than the run means the column has
+    // gone back to describing the part of the corpus that fitted - the exact bias the arm was added to remove.
+    const record = baseRecord() as Record<string, unknown>;
+    (record['fileBody'] as Record<string, unknown>)['overall'] = { rows: 2, value: 0.42 };
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('the whole-body arm needs no parser');
+  });
+
+  it('**refuses a body arm that does not state the cap it read**', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    delete (
+      (record['fileBody'] as Record<string, unknown>)['configuration'] as Record<string, unknown>
+    )['maxBytesPerFile'];
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('silent about the cap');
+  });
+
+  it('**refuses a `body-alone` rung that does not reproduce the body column**', () => {
+    // The mechanism test. A zero weight that still admitted the other arms would leave every rung of the ladder about a
+    // fusion of three lists wearing the name of one.
+    const record = baseRecord() as Record<string, unknown>;
+    const rows = record['rows'] as Record<string, unknown>[];
+    const rungs = rows[0]!['fusionByWeighting'] as Record<string, unknown>[];
+    rungs.find((rung) => rung['weighting'] === 'body-alone')!['map'] = 0.1;
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('a zero weight is not removing the other arms');
+  });
+
+  it('**refuses a ladder with no `body-alone` rung**, because the block then has no mechanism test', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    const weights = record['fusionWeights'] as Record<string, unknown>;
+    weights['rungs'] = (weights['rungs'] as Record<string, unknown>[]).filter(
+      (rung) => rung['weighting'] !== 'body-alone',
+    );
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('the `body-alone` rung is absent');
+  });
+
+  it('**refuses a shipped weighting that is not on the ladder**, so the column is not a point on its own curve', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    (record['fusionWeights'] as Record<string, unknown>)['shipped'] = 'equal-plus';
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('is not among the rungs');
+  });
+
+  it('**refuses a ladder with no folds**, because a weighting chosen on the rows it reports is fitted to them', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    (record['fusionWeights'] as Record<string, unknown>)['folds'] = [];
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('no folds');
+  });
+
+  it('**refuses an artifact with no protocol-wide rank**', () => {
+    // The published table is measured over all fifty instances per split. A mean over the rows the bounds admitted is a
+    // mean over the easier part of the corpus, and printing it beside the table is two numbers in one font.
+    const record = baseRecord() as Record<string, unknown>;
+    delete record['comparisonProtocol'];
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('comparisonProtocol: absent');
+  });
+
+  it('**refuses a protocol-wide rank computed over fewer rows than the run attempted**', () => {
+    const record = baseRecord() as Record<string, unknown>;
+    (record['comparisonProtocol'] as Record<string, unknown>)['rows'] = 2;
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('the point of this block is that its denominator is the protocol');
+  });
+
+  it('**refuses a protocol-wide figure above the measured one**', () => {
+    // A refused row contributes no more than a measured one can, so a protocol mean above the measured mean is a
+    // wiring defect rather than a good day.
+    const record = baseRecord() as Record<string, unknown>;
+    (record['comparisonProtocol'] as Record<string, unknown>)['ours'] = 0.95;
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('refused rows cannot raise a mean');
   });
 });

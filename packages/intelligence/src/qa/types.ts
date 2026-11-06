@@ -245,18 +245,31 @@ export interface AskOptions extends ContextOptions {
    */
   scope?: 'auto' | 'workspace';
   /**
-   * **A file-level ranking to fuse with the declaration one**, in the same coordinate system as the graph's `filePath`.
+   * **File-level rankings to fuse with the declaration one**, in the same coordinate system as the graph's `filePath`.
    *
    * What a caller supplies is a list it already has: `locate` produces one from a checkout too large to index, an agent
    * that has just run `search` produces one from the paths it was shown, and a caller running this product on two
-   * revisions produces one from the other revision. The fusion is `reciprocalRankFusion` - unweighted, `k = 10`
-   * (`search/fusion.ts` states why) - so this option chooses **whether** to fuse and not how.
+   * revisions produces one from the other revision. The fusion is `reciprocalRankFusion`, at the constant
+   * `search/fusion.ts` states and at the weighting the caller gives or the shipped one.
    */
   fileSignals?: {
     /** Paths, best first. **A path the pool did not rank is admitted rather than penalised.** */
     readonly ranked: readonly string[];
+    /**
+     * Further arms, fused beside `ranked`.
+     *
+     * **One arm was not enough, and the measurement said so before the code did.** A path-and-imports arm and a
+     * whole-body arm read the same checkout and rank its files differently - measured on Long Code Arena, the first
+     * beats the analyser's declaration pool by 0.12 on the 200-500-file band and loses to it by 0.15 on the smallest
+     * band, and the body arm is the one that runs where the analyser cannot. A caller that has both should not have to
+     * choose, so the interface takes a list. Each arm's `name` is what a weight is keyed by and what the contribution
+     * report quotes.
+     */
+    readonly arms?: readonly { readonly name: string; readonly ranked: readonly string[] }[];
     /** The rank constant. **Supplied only by an ablation.** */
     readonly k?: number;
+    /** How much each arm counts, keyed by name. **Absent means 1 for every arm.** */
+    readonly weights?: Readonly<Record<string, number>>;
   };
 }
 

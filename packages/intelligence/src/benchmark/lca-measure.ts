@@ -19,7 +19,12 @@ import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
-import { FUSION_K_LADDER } from './lca-fusion.js';
+import {
+  FUSION_K_LADDER,
+  FUSION_ARM_FILE_BODY,
+  FUSION_WEIGHT_LADDER,
+  fuseFileRankings,
+} from './lca-fusion.js';
 import {
   BoundedNodes,
   DeclarationCeilingExceeded,
@@ -35,10 +40,10 @@ import {
 } from './lca-instrument.js';
 import { askCodebase } from '../qa/ask.js';
 import { FILE_AGGREGATION, FILE_AGGREGATIONS, rankFiles } from '../search/file-ranking.js';
-import { RRF_K, reciprocalRankFusion } from '../search/fusion.js';
+import { RRF_K } from '../search/fusion.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
-import type { FusionAtK } from './lca-fusion.js';
+import type { FusionAtK, FusionAtWeighting, FusionWeighting } from './lca-fusion.js';
 import type { ArmMetrics, FileArmScore, LcaRowScore } from './lca-merge.js';
 import type { LLMProvider } from '../review/llm/provider.js';
 import type { FileAggregation, PoolEntry } from '../search/file-ranking.js';
@@ -89,6 +94,17 @@ export interface MeasureInput {
    * fallback column is scored from, so the two cannot disagree about what a file's name and imports are.
    */
   readonly fileSignals?: readonly string[];
+  /**
+   * A whole-body file ranking to fuse beside `fileSignals`, **repository-relative and computed by the parent**.
+   *
+   * **The second file-level arm, and the one that made the fused column a fair comparison.** `fileSignals` is a path
+   * and an import block and never reads a body, so on the instances the analyser refuses it scored 0.1441 against the
+   * lexical control's 0.3116 - and those instances are a quarter of the protocol. The body arm reads the words, runs in
+   * the same parent, and is handed in the same way and for the same reason: the parent is the process that survives.
+   *
+   * `undefined` means the arm did not run; an empty array means it ran and matched nothing. The difference is published.
+   */
+  readonly bodySignals?: readonly string[];
   /**
    * Declarations this analysis may produce before it stops itself, **counted where they are added**.
    *
@@ -255,9 +271,27 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
       // **The fusion is the product's, not the harness's.** `askCodebase` returns `fusedFiles` beside `rankedFiles`,
       // so a row carries both readings and the ablation of the fusion is a subtraction of two columns rather than a
       // second run. The arm is given in the graph's own coordinate system, which is what the store's `filePath` holds.
-      ...(input.fileSignals === undefined
+      // **Both file-level arms, or whichever of them the parent built.** The body arm travels as a second named arm
+      // rather than as a replacement, because the fusion reads each arm's *position* and two arms that agree are
+      // evidence while one arm alone is only a list. `fileSignals.ranked` keeps its name so a row's contribution
+      // report still says `file-level` for the path-and-imports reading.
+      ...(input.fileSignals === undefined && input.bodySignals === undefined
         ? {}
-        : { fileSignals: { ranked: input.fileSignals.map((file) => join(input.checkout, file)) } }),
+        : {
+            fileSignals: {
+              ranked: (input.fileSignals ?? []).map((file) => join(input.checkout, file)),
+              ...(input.bodySignals === undefined
+                ? {}
+                : {
+                    arms: [
+                      {
+                        name: FUSION_ARM_FILE_BODY,
+                        ranked: input.bodySignals.map((file) => join(input.checkout, file)),
+                      },
+                    ],
+                  }),
+            },
+          }),
     },
   });
 
@@ -334,25 +368,36 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
    * publishes: two implementations of the same fusion would be two rulers, and the ladder's middle rung disagreeing
    * with the column beside it is exactly the defect the gate exists to catch one level up.
    */
-  const fuse = (aggregation: FileAggregation, k: number): string[] =>
+  // **The body arm, in the same coordinate system and at its own full length.** `undefined` and `[]` mean different
+  // things - the arm did not run, versus it ran and matched nothing - and `fuseFileRankings` keeps them apart.
+  const bodyLevelArm =
+    input.bodySignals === undefined
+      ? undefined
+      : input.bodySignals.map((file) => toCorpusPath(input.checkout, file));
+  const fuse = (
+    aggregation: FileAggregation,
+    options: { readonly k?: number; readonly weighting?: FusionWeighting } = {},
+  ): string[] =>
     restrictToUniverse(
       [
-        ...reciprocalRankFusion(
-          [
-            {
-              name: 'declarations',
-              ranked: rankFiles(armaturePool, aggregation).map((file) => file.filePath),
-            },
-            { name: 'file-level', ranked: fileLevelArm },
-          ],
-          { k },
-        ).ranked,
+        // **One implementation, shared with the merge's refused-row fusion.** A second copy of this arithmetic would be a
+        // second ruler, and the ladder's `body-alone` rung would then be equal to the body arm's column in one module and
+        // approximately equal in the other - which is the kind of near-equality a gate cannot check.
+        ...fuseFileRankings({
+          arms: {
+            declarations: rankFiles(armaturePool, aggregation).map((file) => file.filePath),
+            fileLevel: fileLevelArm,
+            ...(bodyLevelArm === undefined ? {} : { fileBody: bodyLevelArm }),
+          },
+          k: options.k ?? RRF_K,
+          ...(options.weighting === undefined ? {} : { weighting: options.weighting }),
+        }),
       ],
       universe,
     );
   const fileArms: FileArmScore[] = FILE_AGGREGATIONS.map((aggregation) => {
     const ranked = rankFiles(pool, aggregation).map((file) => file.filePath);
-    const fused = fuse(aggregation, RRF_K);
+    const fused = fuse(aggregation, { k: RRF_K });
     return {
       aggregation,
       map: averagePrecision(ranked, input.row.changed_files, MAP_DEPTH),
@@ -365,9 +410,21 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
   // shipped value is one rung of the ladder rather than a point outside it, so the artifact can say whether it sits on a
   // slope, which is what moved the constant to 10 - and the rung at the shipped value is the figure the product publishes.
   const fusionByK: FusionAtK[] = FUSION_K_LADDER.map((k) => {
-    const ranked = fuse(FILE_AGGREGATION, k);
+    const ranked = fuse(FILE_AGGREGATION, { k });
     return {
       k,
+      map: averagePrecision(ranked, input.row.changed_files, MAP_DEPTH),
+      rank: firstRelevantRank(ranked.slice(0, MAP_DEPTH), input.row.changed_files),
+    };
+  });
+
+  // **The weight ladder on this instance, at the shipped constant.** Four rankings of the same three arms, so the merge
+  // can ask which weighting would have won on a fold it did not see - the same discipline the `k` ladder is under, and
+  // for the same reason: a weight chosen on the rows it is reported over is a weight fitted to the corpus.
+  const fusionByWeighting: FusionAtWeighting[] = FUSION_WEIGHT_LADDER.map((weighting) => {
+    const ranked = fuse(FILE_AGGREGATION, { weighting });
+    return {
+      weighting: weighting.name,
       map: averagePrecision(ranked, input.row.changed_files, MAP_DEPTH),
       rank: firstRelevantRank(ranked.slice(0, MAP_DEPTH), input.row.changed_files),
     };
@@ -416,6 +473,7 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     declarationMap: averagePrecision(declarations, input.row.changed_files, MAP_DEPTH),
     declarationRank: firstRelevantRank(declarations.slice(0, MAP_DEPTH), input.row.changed_files),
     fusionByK,
+    fusionByWeighting,
     corpusBytes: size.bytes,
     corpusUnreadable: size.unreadable,
     checkoutBytes: walked.bytes,
@@ -431,6 +489,9 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     // measured or refused, and attaches them here. A row that arrived from the child carries `null` until it does.
     bm25: null,
     tfidf: null,
+    // **The body arm, like the controls, is the parent's** - and for the identical reason: the process that survives the
+    // analysis is the only one that can rank a checkout the analysis was killed on.
+    body: null,
     // **The fallback, like the controls, is the parent's** - the process that survives the analysis is the only one that
     // can rank a checkout the analysis was killed on, and this rows' own instance is exactly such a checkout.
     fallback: null,

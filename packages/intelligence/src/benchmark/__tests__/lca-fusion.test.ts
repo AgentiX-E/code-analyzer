@@ -1,58 +1,78 @@
 // **The two ways a row records a fused ranking, and the asymmetry between them is the whole test.** A measured
-// instance ran both arms and its row says `fused: true`; a refused one ran only the file-level arm because the
-// declaration arm *is* the analysis that was refused, so it says `fused: false` and names one arm. A column over both
+// instance ran all three arms and its row says `fused: true`; a refused one ran the two file-level arms because the
+// declaration arm *is* the analysis that was refused, so it says `fused: false` and names those two. A column over both
 // kinds is only quotable if the split is stated, and this module is where the split is decided.
+//
+// **And the ladder's last rung is an equality, not a preference.** `body-alone` zeroes the other two weights, so the
+// fused list it produces has to be the body arm's own list - the property that proves the weights reach the arithmetic
+// rather than sitting in a record beside it.
 
 import { describe, expect, it } from 'vitest';
 
 import { RRF_K } from '../../search/fusion.js';
 import {
-  declinedFusion,
   FUSION_ARMS,
   FUSION_K_LADDER,
-  fusedResult,
+  FUSION_WEIGHTING,
+  FUSION_WEIGHT_LADDER,
+  armWeights,
+  fuseFileRankings,
   fusionFor,
 } from '../lca-fusion.js';
 
-describe('fusedResult', () => {
-  it('**names both arms and the constant**, so the figure can be reproduced', () => {
-    const result = fusedResult({ map: 0.4, rank: 2, ranked: ['a.py', 'b.py'] });
-    expect(result.fused).toBe(true);
-    expect(result.arms).toEqual([...FUSION_ARMS]);
-    expect(result.k).toBe(RRF_K);
-    expect(result.map).toBe(0.4);
-    expect(result.rank).toBe(2);
+describe('the weight ladder', () => {
+  it('**ships a rung that is on the ladder**, so the shipped weighting is one of the published alternatives', () => {
+    expect(FUSION_WEIGHT_LADDER).toContain(FUSION_WEIGHTING);
   });
 
-  it('**keeps the first ten paths and no more**, which is a preview and not the ranking', () => {
-    const ranked = Array.from({ length: 25 }, (_, index) => `f${String(index)}.py`);
-    expect(fusedResult({ map: 0.1, rank: null, ranked }).ranked).toHaveLength(10);
+  it('**has a rung that names each arm alone**, because a rung that reproduces one column is the mechanism test', () => {
+    const bodyAlone = FUSION_WEIGHT_LADDER.find((rung) => rung.name === 'body-alone');
+    expect(bodyAlone).toBeDefined();
+    expect(armWeights(bodyAlone!)).toEqual({
+      declarations: 0,
+      'file-level': 0,
+      'file-body': 1,
+    });
   });
 
-  it('**passes an ablation’s constant through** rather than relabelling it as sixty', () => {
-    expect(fusedResult({ map: 0.1, rank: null, ranked: [], k: 10 }).k).toBe(10);
-  });
-});
-
-describe('declinedFusion', () => {
-  it('**says one arm and says it is not fused**, which is the fact a mean over both kinds must carry', () => {
-    const result = declinedFusion({ map: 0.2, rank: 7, ranked: ['x.py'] });
-    expect(result.fused).toBe(false);
-    expect(result.arms).toEqual(['file-level']);
-    // **The figure is the fallback's own, restated rather than recomputed**: a second computation would be a second
-    // ruler, and the artifact's job is to say which arm produced which number.
-    expect(result.map).toBe(0.2);
-    expect(result.rank).toBe(7);
+  it('**reproduces the named arm’s list exactly**, which is what makes the rung a control rather than a candidate', () => {
+    const arms = {
+      declarations: ['d.py', 'shared.py'],
+      fileLevel: ['l.py', 'shared.py'],
+      fileBody: ['b.py', 'shared.py'],
+    };
+    const bodyAlone = FUSION_WEIGHT_LADDER.find((rung) => rung.name === 'body-alone')!;
+    expect(fuseFileRankings({ arms, weighting: bodyAlone })).toEqual(arms.fileBody);
   });
 
-  it('**publishes the constant even though nothing was fused**, so the column has one `k` throughout', () => {
-    expect(declinedFusion({ map: 0.2, rank: null, ranked: [] }).k).toBe(RRF_K);
-    expect(declinedFusion({ map: 0.2, rank: null, ranked: [], k: 15 }).k).toBe(15);
+  it('**skips an arm it was not given** rather than fusing an empty list', () => {
+    // A refused row has no declaration arm. The fusion reads the two it has and the result is the same as one computed
+    // from those two alone, which is the property that keeps "did not run" and "matched nothing" apart.
+    const withMissing = fuseFileRankings({
+      arms: { fileLevel: ['a.py'], fileBody: ['b.py'] },
+    });
+    expect(withMissing).toEqual(
+      fuseFileRankings({
+        arms: { declarations: undefined, fileLevel: ['a.py'], fileBody: ['b.py'] },
+      }),
+    );
+    expect(new Set(withMissing)).toEqual(new Set(['a.py', 'b.py']));
+  });
+
+  it('**puts a path both arms agree on above a path one arm put first**, which is what a fusion is for', () => {
+    const fused = fuseFileRankings({
+      arms: { fileLevel: ['wrong.py', 'right.py'], fileBody: ['also-wrong.py', 'right.py'] },
+    });
+    expect(fused[0]).toBe('right.py');
   });
 });
 
 describe('fusionFor', () => {
-  const fallback = { map: 0.31, rank: 4, ranked: ['x.py', 'y.py'] };
+  // **A coherent fixture**: `map` is `1/rank` for a one-file answer, so a row that publishes 0.5 and a rank of 2
+  // is a row whose own numbers agree. A fixture that does not is a fixture that cannot catch a wiring defect.
+  const fallback = { map: 0.5, rank: 2, candidates: ['x.py', 'y.py'] };
+  const body = { map: 0.44, rank: 1, candidates: ['y.py', 'z.py'] };
+  const expected = ['y.py'];
 
   it('transcribes a measured row, because the child already fused it', () => {
     const fused = fusionFor({
@@ -61,35 +81,63 @@ describe('fusionFor', () => {
       rank: 2,
       ranked: ['a.py', 'b.py'],
       fallback,
+      body,
+      expected,
+      depth: 200,
     });
     expect(fused).toEqual({
       map: 0.42,
       rank: 2,
       fused: true,
-      arms: ['declarations', 'file-level'],
+      arms: [...FUSION_ARMS],
       k: RRF_K,
+      weighting: FUSION_WEIGHTING.name,
       ranked: ['a.py', 'b.py'],
     });
   });
 
-  it('declines to the file-level arm when the row is refused, whatever produced the refusal', () => {
-    // **The defect this case was written for.** The parent chose this on "did the child write a row", so a child whose
-    // analysis threw - a refusal through the measured branch - published `fused: true` beside
-    // `skipped: "the analysis failed: ..."`. The flag has to follow the row's refusal sentence, not the process's exit.
+  it('**declines to the fusion of the two file-level arms** when the row is refused', () => {
+    // **The defect this case was written for, and the repair two iterations later.** The parent chose this on "did the
+    // child write a row", so a child whose analysis threw - a refusal through the measured branch - published
+    // `fused: true` beside `skipped: "the analysis failed: ..."`. The flag has to follow the row's refusal sentence, not
+    // the process's exit. And a refused row no longer declines to *one* arm: the body arm runs where the analyser
+    // cannot, so the row carries their fusion.
     const analysisFailed = fusionFor({
       skipped: 'the analysis failed: heap out of memory',
       map: 0,
       rank: null,
       ranked: [],
       fallback,
+      body,
+      expected,
+      depth: 200,
     });
     expect(analysisFailed?.fused).toBe(false);
-    expect(analysisFailed?.arms).toEqual(['file-level']);
-    expect(analysisFailed?.map).toBe(0.31);
-    expect(analysisFailed?.rank).toBe(4);
+    expect(analysisFailed?.arms).toEqual(['file-level', 'file-body']);
+    // `y.py` is the answer and both arms ranked it, so the fusion puts it first: 1/(10+2) + 1/(10+1).
+    expect(analysisFailed?.ranked[0]).toBe('y.py');
+    expect(analysisFailed?.map).toBe(1);
+    expect(analysisFailed?.rank).toBe(1);
   });
 
-  it('publishes no fused figure at all when even the file-level arm is missing', () => {
+  it('**fuses one arm when only one ran**, and still says so', () => {
+    // The body arm is computed in the parent, so a run that omits it - an older part, a local run - must still produce
+    // a figure rather than a null. The single arm's order survives, at any `k` and weighting that keeps it.
+    const single = fusionFor({
+      skipped: 'above the stated cap',
+      map: 0,
+      rank: null,
+      ranked: [],
+      fallback,
+      expected,
+      depth: 200,
+    });
+    expect(single?.arms).toEqual(['file-level']);
+    expect(single?.rank).toBe(2);
+    expect(single?.map).toBe(0.5);
+  });
+
+  it('publishes no fused figure at all when neither file-level arm is there', () => {
     // A zero here would be a ranking that found nothing, which is a different claim from "no ranking exists".
     expect(
       fusionFor({
@@ -98,11 +146,21 @@ describe('fusionFor', () => {
         rank: null,
         ranked: [],
         fallback: null,
+        expected,
+        depth: 200,
       }),
     ).toBeNull();
-    // And a measured row never needs the fallback, so its absence changes nothing.
+    // And a measured row never needs a file-level arm, so its absence changes nothing.
     expect(
-      fusionFor({ skipped: null, map: 0.5, rank: 1, ranked: ['a.py'], fallback: null })?.fused,
+      fusionFor({
+        skipped: null,
+        map: 0.5,
+        rank: 1,
+        ranked: ['a.py'],
+        fallback: null,
+        expected,
+        depth: 200,
+      })?.fused,
     ).toBe(true);
   });
 
@@ -110,10 +168,28 @@ describe('fusionFor', () => {
     // Off the shipped constant on purpose: a test that passes `RRF_K` would pass whether or not the argument is read.
     const offRung = FUSION_K_LADDER.find((k) => k !== RRF_K)!;
     expect(
-      fusionFor({ skipped: null, map: 0.5, rank: 1, ranked: [], fallback, k: offRung })?.k,
+      fusionFor({
+        skipped: null,
+        map: 0.5,
+        rank: 1,
+        ranked: [],
+        fallback,
+        expected,
+        depth: 200,
+        k: offRung,
+      })?.k,
     ).toBe(offRung);
     expect(
-      fusionFor({ skipped: 'cap', map: 0, rank: null, ranked: [], fallback, k: offRung })?.k,
+      fusionFor({
+        skipped: 'cap',
+        map: 0,
+        rank: null,
+        ranked: [],
+        fallback,
+        expected,
+        depth: 200,
+        k: offRung,
+      })?.k,
     ).toBe(offRung);
   });
 });

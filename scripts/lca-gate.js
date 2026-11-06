@@ -551,6 +551,105 @@ function main() {
     `fileRanking: ${String(checked)} rows carry an armature against ${String(sample?.measured)} measured - a row ` +
       'without one is an instance the comparison skipped silently',
   );
+
+  // **The eighth invariant: the third arm, and the rung that must reproduce it.**
+  //
+  // `fileBody` is the product's own whole-body reading and the only product column whose denominator is the run: it
+  // needs no parser, no graph and no model, so it ranks the checkouts the analyser refuses. Two things have to be true
+  // of it and neither is a preference:
+  //
+  //   * it ran on **every attempted instance** - the arm exists for the rows the bounds refuse, so an artifact where
+  //     its denominator is smaller than the run is an artifact where the column has gone back to describing the easy
+  //     part of the corpus;
+  //   * the ladder's `body-alone` rung **is** its column, per row and to the last digit. That rung zeroes the other two
+  //     weights, so if it disagrees with the arm it names, the weights are not reaching the arithmetic and every figure
+  //     in `fusionWeights` is a number about nothing. **An equality, not a floor**, for exactly that reason.
+  const fileBody = at(record, ['fileBody']);
+  const bodyOverallRows = at(record, ['fileBody', 'overall', 'rows']);
+  guard(
+    fileBody !== null &&
+      typeof bodyOverallRows === 'number' &&
+      typeof at(record, ['fileBody', 'overall', 'value']) === 'number' &&
+      typeof at(record, ['fileBody', 'configuration', 'maxBytesPerFile']) === 'number',
+    'fileBody: absent, empty, or silent about the cap it read - an arm whose document is not stated is a name',
+  );
+  guard(
+    bodyOverallRows === at(record, ['sample', 'attempted']),
+    `fileBody: ${String(bodyOverallRows)} rows against ${String(at(record, ['sample', 'attempted']))} attempted - the ` +
+      'whole-body arm needs no parser, so a row it did not rank is a row the product answered with nothing at all',
+  );
+  const fusionWeights = at(record, ['fusionWeights']);
+  const weightRungs = Array.isArray(fusionWeights?.rungs) ? fusionWeights.rungs : [];
+  guard(
+    fusionWeights !== null &&
+      typeof fusionWeights?.shipped === 'string' &&
+      weightRungs.some((rung) => rung?.weighting === fusionWeights.shipped),
+    `fusionWeights: the shipped weighting ${String(fusionWeights?.shipped)} is not among the rungs, so the column ` +
+      'cannot be placed in the ladder it is supposed to be a point on',
+  );
+  guard(
+    weightRungs.some((rung) => rung?.weighting === 'body-alone'),
+    'fusionWeights: the `body-alone` rung is absent - it is the mechanism test for the whole block, not a candidate',
+  );
+  guard(
+    Array.isArray(fusionWeights?.folds) && fusionWeights.folds.length > 0,
+    'fusionWeights: no folds - a weighting selected on the rows it is reported over is a weighting fitted to them',
+  );
+  let bodyAloneChecked = 0;
+  for (const row of rowsOf) {
+    if (typeof row?.body?.map !== 'number') continue;
+    const rung = Array.isArray(row?.fusionByWeighting)
+      ? row.fusionByWeighting.find((at_) => at_?.weighting === 'body-alone')
+      : undefined;
+    if (rung === undefined) {
+      guard(
+        row?.skipped !== null,
+        `rows[${String(row.id)}]: measured, carries a body figure, and has no \`body-alone\` rung - the ladder did ` +
+          'not run on an instance the analysis did',
+      );
+      continue;
+    }
+    bodyAloneChecked += 1;
+    guard(
+      Math.abs(rung.map - row.body.map) < 1e-9,
+      `rows[${String(row.id)}]: the \`body-alone\` rung reads ${String(rung.map)} where the body arm published ` +
+        `${String(row.body.map)} - a zero weight is not removing the other arms, so no rung of the ladder is a rung`,
+    );
+  }
+  guard(
+    bodyAloneChecked >= (sample?.measured ?? 0),
+    `fusionWeights: ${String(bodyAloneChecked)} rows carry a \`body-alone\` rung against ${String(sample?.measured)} ` +
+      'measured - the mechanism test skipped the instances it exists for',
+  );
+
+  // **The ninth invariant: the rank a reader should quote is computed on the protocol's denominator.**
+  //
+  // `comparison` places the measured-only mean beside a table measured over all fifty instances per split. That is the
+  // arithmetic of a comparison and not its argument: the rows the bounds refuse are the large repositories and the
+  // hardest ones, so a mean over the ones that fitted is a mean over the easier part of the corpus wearing the same
+  // font. `comparisonProtocol` is the same rank on the fused column, whose denominator **is** the run - and the gate
+  // requires it to exist, to be about the whole protocol, and to be no better than the measured figure it corrects.
+  const protocolComparison = at(record, ['comparisonProtocol']);
+  guard(
+    protocolComparison !== null &&
+      typeof protocolComparison?.ours === 'number' &&
+      typeof protocolComparison?.rank === 'number',
+    'comparisonProtocol: absent - the only rank comparable with a table measured over the whole protocol is missing',
+  );
+  guard(
+    protocolComparison?.rows === at(record, ['sample', 'attempted']),
+    `comparisonProtocol: ${String(protocolComparison?.rows)} rows against ` +
+      `${String(at(record, ['sample', 'attempted']))} attempted - the point of this block is that its denominator is ` +
+      'the protocol',
+  );
+  guard(
+    typeof at(record, ['comparison', 'ours']) !== 'number' ||
+      typeof protocolComparison?.ours !== 'number' ||
+      protocolComparison.ours <= at(record, ['comparison', 'ours']) + 1e-9,
+    `comparisonProtocol: ${String(protocolComparison?.ours)} is above the measured ${String(
+      at(record, ['comparison', 'ours']),
+    )} - refused rows cannot raise a mean, so a higher protocol figure is a wiring defect`,
+  );
   // **The seventh invariant: the second control.** A paired difference against **one** comparator is a difference that
   // can be a fit to that comparator, so the artifact publishes a second scorer over the identical index - and the gate
   // requires it to be a control rather than a decoration:

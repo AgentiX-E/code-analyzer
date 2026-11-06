@@ -36,8 +36,12 @@ import {
   TFIDF_MAP,
   fusedAtK,
   fusedByKOf,
+  bodyMapOf,
+  bodyOf,
+  fusedAtWeighting,
   fusionMapOf,
   fusionOf,
+  selectWeighting,
   fallbackMapOf,
   fallbackOf,
   pairedBetween,
@@ -52,6 +56,7 @@ import {
   worstCaseMap,
 } from '../packages/intelligence/src/benchmark/lca-sample.js';
 import { FILE_AGGREGATION } from '../packages/intelligence/src/search/file-ranking.js';
+import { FUSION_WEIGHTING } from '../packages/intelligence/src/benchmark/lca-fusion.js';
 import { RRF_K } from '../packages/intelligence/src/search/fusion.js';
 import { IMPORT_HEAD_BYTES } from '../packages/intelligence/src/search/path-imports.js';
 import { recordArtifact } from '../packages/shared/src/benchmark/artifact.js';
@@ -376,8 +381,25 @@ function main(): void {
   // competitor: if a path and its imports outrank the whole analyser's pool on the same instances, the pool is losing
   // information the file's own name carried.
   const fallbackVsOurs = pairedBetween(allRows, fallbackMapOf, OURS);
+  // **The third arm, whose denominator is the run.** It is not a control and it is not a competitor's row: it is the
+  // product's own whole-body reading, the one that works on a checkout too large to parse. On the instances the analyser
+  // refused it is *the* product figure, and that is why it is published on its own rather than folded into a mean.
+  const bodyOverall = bodyOf(allRows);
+  const bodyByLanguage = Object.fromEntries(
+    parts.map((part) => [part.config, { attempted: part.rows.length, ...bodyOf(part.rows) }]),
+  );
+  // **The body arm against the control, paired.** The two read the same text with the same arithmetic, so this difference
+  // is the cap and the document cap and nothing else - a mechanism test rather than a competition.
+  const bodyVsBm25 = pairedBetween(allRows, bodyMapOf, (row) => row.bm25?.map);
+  const bodyVsTfidf = pairedBetween(allRows, bodyMapOf, (row) => row.tfidf?.map);
+  // **The body arm against the path-and-imports arm**, both of which run on every instance: the question is whether a
+  // file's words are worth more than its imports, and the answer decides which arm the degraded reading should lean on.
+  const bodyVsFallback = pairedBetween(allRows, bodyMapOf, fallbackMapOf);
+  // **The weight ladder and the folds that would choose from it.** The shipped weighting is the bar; every fold is a
+  // selection made without the rows it is then measured on.
+  const weightingSelection = selectWeighting(parts, FUSION_WEIGHTING.name);
   // **The fused column**, which is the product's ranking as it actually returns it: both arms where the analysis ran,
-  // the file-level arm alone where it was refused. Its denominator is the run, like the fallback's - the difference is
+  // the file-level arms fused where it was refused. Its denominator is the run, like the fallback's - the difference is
   // that on a measured instance it is a fusion rather than a substitute.
   const fusionOverall = fusionOf(allRows);
   const fusionByLanguage = Object.fromEntries(
@@ -759,8 +781,67 @@ function main(): void {
      * not. **`coverage.fused` says how many rows were the first kind and `coverage.declined` how many were the second**,
      * because a mean over a mixture that does not state the mixture is the defect this whole artifact exists to remove.
      */
+    /**
+     * **The whole-body arm, which is the product's answer where the analyser has none.**
+     *
+     * Its denominator is the run: every attempted instance has one, because it needs no parser, no graph and no model.
+     * That is also why it is the column to read beside a published table measured over all fifty instances per split -
+     * and why its difference from `bm25` is a mechanism test rather than a competition, since the two read the same text.
+     */
+    fileBody: {
+      name: 'whole file body (BM25 over path and text)',
+      configuration: {
+        document:
+          'the answer space file as its repository-relative path followed by its first 64 KB of text',
+        scorer:
+          'BM25, k1 = 1.2, b = 0.75, the same arithmetic and the same tokeniser as both controls',
+        maxBytesPerFile: 65_536,
+        documentCap: null,
+        tieBreak: 'path ascending, the same rule as the controls',
+        note:
+          'It equals `bm25` to the last digit wherever the control’s four-thousand-document cap did not bite, because ' +
+          'the two read the same text with the same arithmetic; the artifact publishes both so that equality is ' +
+          'checkable rather than claimed.',
+      },
+      coverage: {
+        rows: allRows.length,
+        attempted: allRows.length,
+        share: allRows.length === 0 ? 0 : bodyOverall.rows / allRows.length,
+      },
+      overall: bodyOverall,
+      byLanguage: bodyByLanguage,
+      pairedVsControl: { bm25: bodyVsBm25, tfidf: bodyVsTfidf },
+      pairedVsFallback: bodyVsFallback,
+    },
+    /**
+     * **The weight ladder, and the folds that would move the shipped rung.**
+     *
+     * The shipped weighting is `equal` and the ladder is published beside it, exactly as the rank constant is. The folds
+     * are leave-one-language-out: the rung is selected without the rows it is then read on, and every fold is published
+     * including the ones that chose a different rung. **`body-alone` is in the ladder as a mechanism test, not as a
+     * candidate** - it must reproduce the `fileBody` column, and the gate refuses an artifact where it does not.
+     */
+    fusionWeights: {
+      shipped: weightingSelection.shipped,
+      chosen: weightingSelection.chosen,
+      rungs: weightingSelection.rungs.map((rung) => ({
+        weighting: rung.weighting,
+        map: rung.map,
+        rows: rung.rows,
+        vsShipped: pairedBetween(
+          allRows,
+          fusedAtWeighting(rung.weighting),
+          fusedAtWeighting(FUSION_WEIGHTING.name),
+        ),
+      })),
+      folds: weightingSelection.folds,
+      note:
+        'A rung chosen on the rows it is reported over is a rung fitted to them. The selection is made on two splits and ' +
+        'read on the third; the gain reported per fold is the held-out one, and a negative gain is a fold where the ' +
+        'ladder would have made the product worse.',
+    },
     fusion: {
-      name: 'declarations + path/imports (reciprocal rank fusion)',
+      name: 'declarations + path/imports + whole body (reciprocal rank fusion)',
       configuration: {
         fusion:
           'reciprocal rank fusion, unweighted, k = 60 (Cormack, Clarke and Büttcher, SIGIR 2009)',
@@ -833,6 +914,24 @@ function main(): void {
     byLanguage: combined.byLanguage,
     /** **Where this figure stands against the published table**, computed rather than asserted. */
     comparison: comparisonOf(combined.overall.map?.value ?? null, 'measured'),
+    /**
+     * **The same rank, computed on the denominator the table was measured over.**
+     *
+     * `comparison` reads the rows the analysis measured, and the published baselines are means over **all fifty
+     * instances per split**. A figure over a hundred and fifteen rows placed beside a table over a hundred and fifty is
+     * two numbers in one font - the comparison is arithmetically fine and rhetorically false, which is the defect this
+     * project has already paid for once on the per-language legs. So the rank that a reader should quote is computed
+     * again on the row set whose denominator *is* the protocol: the fused column, which exists on every attempted
+     * instance because its file-level arms need no parser.
+     *
+     * **It is lower, and that is the point.** The rows the bounds refuse are the large repositories, which are the
+     * hardest to rank, so a mean over the ones that fitted is a mean over the easier part of the corpus.
+     */
+    comparisonProtocol: {
+      ...comparisonOf(fusionOverall.value, 'protocol'),
+      rows: fusionOverall.rows,
+      attempted: allRows.length,
+    },
     /**
      * **The same ranking computed on the floor rather than on the mean.**
      *

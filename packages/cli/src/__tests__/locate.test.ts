@@ -48,12 +48,26 @@ describe('locateRepository', () => {
 
   it('restricts to the extensions the reader named', () => {
     writeFileSync(join(root, 'notes.md'), 'retry interceptor');
-    const output = locateRepository({
+    // **The universe, not the ranking, is what an extension filter promises.** The ranking changed in iteration 81 -
+    // a markdown file now matches a question written in its own words, because the body arm reads it and the
+    // path-and-imports arm never could - so the assertion is that the two Kotlin files left the answer space rather
+    // than that nothing matched. **An assertion on the old emptiness would now be an assertion that the product cannot
+    // read prose, which is the defect the third arm was added to remove.**
+    const markdownOnly = locateRepository({
       question: 'retry interceptor',
       directory: root,
       extensions: ['.md'],
     });
-    expect(output.files).toEqual([]);
+    expect(markdownOnly.answerSpace).toBe(1);
+    expect(markdownOnly.files).toEqual(['notes.md']);
+    // And with the Kotlin extension the markdown file is out of the universe instead.
+    const kotlinOnly = locateRepository({
+      question: 'retry interceptor',
+      directory: root,
+      extensions: ['.kt'],
+    });
+    expect(kotlinOnly.answerSpace).toBe(2);
+    expect(kotlinOnly.files).not.toContain('notes.md');
   });
 
   it('**reports a failure instead of throwing**, because a CLI that crashes has told the reader nothing', () => {
@@ -98,6 +112,7 @@ describe('formatLocateOutput', () => {
         answerSpace: 2,
         truncated: true,
         importLines: 0,
+        bodyRanked: [],
         fused: false,
         k: null,
         unreadableFiles: 0,
@@ -118,6 +133,7 @@ describe('formatLocateOutput', () => {
         answerSpace: 3,
         truncated: false,
         importLines: 0,
+        bodyRanked: [],
         fused: false,
         k: null,
         unreadableFiles: 0,
@@ -138,6 +154,7 @@ describe('formatLocateOutput', () => {
         answerSpace: 0,
         truncated: false,
         importLines: 0,
+        bodyRanked: [],
         fused: false,
         k: null,
         unreadableFiles: 0,
@@ -160,6 +177,7 @@ describe('formatLocateOutput', () => {
         answerSpace: 0,
         truncated: false,
         importLines: 0,
+        bodyRanked: [],
         fused: false,
         k: null,
         unreadableFiles: 0,

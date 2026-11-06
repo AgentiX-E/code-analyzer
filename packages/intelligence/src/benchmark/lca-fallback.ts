@@ -12,6 +12,7 @@
 // same one.
 
 import { averagePrecision, firstRelevantRank } from './lca-instrument.js';
+import { rankByFileBody } from '../search/file-body.js';
 import { pathImportsRanking } from '../search/path-imports.js';
 
 /** What the fallback produced on one instance. **Published on refused rows as well as measured ones.** */
@@ -73,5 +74,62 @@ export function fallbackArm(input: {
     candidates: result.ranked,
     durationMs: Date.now() - started,
     filesRead: input.files.length,
+  };
+}
+
+/**
+ * The third arm's figure on one instance: **the file's body, read as a bag of words**.
+ *
+ * **It is scored here, in the parent, for the reason the fallback is**: the arm exists for the instances the analysis
+ * refuses, and the child that would have ranked them is the child the supervisor kills. A body arm computed inside the
+ * child would exist only on the rows that did not need it - which is the same mistake the fallback column was created
+ * to repair, one level down.
+ *
+ * **Its shape is the control's, not the fallback's.** The path-and-imports arm publishes `importLines` because that is
+ * the extraction whose failure would explain a zero; this arm extracts nothing, so it publishes the bytes it read and
+ * the files it could not open. Both are facts about whether the ranking rested on the corpus or on an accident.
+ */
+export interface BodyArmResult {
+  /** Average precision against the fixing commit, at the same depth every other column reads. */
+  readonly map: number;
+  /** Where the first fixing file sits, or `null` when it is not in the list. */
+  readonly rank: number | null;
+  /** How many files were in the answer space. **The denominator, not the number that matched.** */
+  readonly documents: number;
+  /** Files whose head could not be read. */
+  readonly unreadableFiles: number;
+  /** Bytes of text tokenised. **The arm's cost, per row.** */
+  readonly bytesRead: number;
+  /** The first ten of the ranking. */
+  readonly ranked: readonly string[];
+  /** The ranking at the full depth, **which is what the child fuses with**. */
+  readonly candidates: readonly string[];
+  readonly durationMs: number;
+}
+
+/** Score one checkout's whole-body ranking against the fixing commit. */
+export function bodyArm(input: {
+  readonly checkout: string;
+  readonly files: readonly string[];
+  readonly query: string;
+  readonly expected: readonly string[];
+  readonly depth: number;
+}): BodyArmResult {
+  const started = Date.now();
+  const result = rankByFileBody({
+    checkout: input.checkout,
+    files: input.files,
+    query: input.query,
+    limit: input.depth,
+  });
+  return {
+    map: averagePrecision([...result.ranked], input.expected, input.depth),
+    rank: firstRelevantRank([...result.ranked], input.expected),
+    documents: result.documents,
+    unreadableFiles: result.unreadableFiles,
+    bytesRead: result.bytesRead,
+    ranked: result.ranked.slice(0, 10),
+    candidates: result.ranked,
+    durationMs: Date.now() - started,
   };
 }

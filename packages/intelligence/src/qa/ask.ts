@@ -178,12 +178,22 @@ export async function retrieveContext(
             [
               { name: 'declarations', ranked: rankedFiles },
               { name: 'file-level', ranked: options.fileSignals.ranked },
+              // **Every further arm the caller holds, after the two the product has always fused.** The first two names
+              // are fixed because the artifact's contribution report and the harness's weight ladder quote them; a
+              // caller-supplied arm brings its own name, and a name that repeats one of the two replaces it in the
+              // contribution record rather than adding a third - which is what `RankedArm`'s name has always meant.
+              ...(options.fileSignals.arms ?? []),
             ],
-            // **No cut.** The union of the two arms is the ranking, and truncating it to the declaration list's length
-            // would discard exactly the files the second arm was supplied to promote - on a checkout where the pool
-            // reaches eight files and the file-level arm reaches a hundred, a cut at eight restores the recall the
-            // fusion exists to repair. The caller's own depth (`retrieveLimit`) already bounded both arms.
-            options.fileSignals.k === undefined ? {} : { k: options.fileSignals.k },
+            // **No cut.** The union of the arms is the ranking, and truncating it to the declaration list's length
+            // would discard exactly the files the other arms were supplied to promote - on a checkout where the pool
+            // reaches eight files and a file-level arm reaches a hundred, a cut at eight restores the recall the
+            // fusion exists to repair. The caller's own depth (`retrieveLimit`) already bounded the pool.
+            {
+              ...(options.fileSignals.k === undefined ? {} : { k: options.fileSignals.k }),
+              ...(options.fileSignals.weights === undefined
+                ? {}
+                : { weights: options.fileSignals.weights }),
+            },
           ).ranked,
         ];
   return {

@@ -24,8 +24,8 @@ import {
 } from './lca-instrument.js';
 
 import type { ControlResult } from './lca-baseline.js';
-import type { FallbackResult } from './lca-fallback.js';
-import type { FusionAtK, FusionResult } from './lca-fusion.js';
+import type { BodyArmResult, FallbackResult } from './lca-fallback.js';
+import type { FusionAtK, FusionAtWeighting, FusionResult } from './lca-fusion.js';
 
 /** The seven figures the authors' `get_quality_metrics` produces, for one instance or as a mean. */
 export interface ArmMetrics {
@@ -134,6 +134,21 @@ export interface LcaRowScore {
    */
   readonly tfidf: ControlResult | null;
   /**
+   * **The product's second file-level arm: the whole body of a file, read as a bag of words.**
+   *
+   * It exists because the first one could not read a body and the corpus noticed: on the instances the analyser refused,
+   * path-and-imports scored **0.1441** against the lexical control's **0.3116**, and 23 % of the protocol is refused. On
+   * a measured instance this column is the fusion's third arm; on a refused one it is half of the degraded reading, so
+   * its denominator is the run itself, like `fallback`'s.
+   *
+   * **It is expected to equal `bm25` to the last digit wherever the control's four-thousand-document cap did not bite**,
+   * because the two read the same text with the same arithmetic. The artifact publishes both so a reader can check it,
+   * and the gate refuses a run where they disagree on rows that had no cap to blame.
+   *
+   * `null` when the arm did not run, which is a different fact from an arm that scored zero.
+   */
+  readonly body: BodyArmResult | null;
+  /**
    * **The product's file-level fallback: path and imports, ranked on every instance the run reached.**
    *
    * `bm25` and `tfidf` are controls and this is not one - it is what the product does when the checkout is too large for
@@ -182,6 +197,14 @@ export interface LcaRowScore {
    * Empty on a refused row, like every other column that needs a pool.
    */
   readonly fusionByK: readonly FusionAtK[];
+  /**
+   * **The same arms fused at every weighting the ladder states**, on this instance.
+   *
+   * The sibling of `fusionByK` and under the same rule: the ladder is fixed in advance, every rung is published, and the
+   * rung that ships is moved only by a fold that did not see the figure it is reported beside. **Its `body-alone` rung is
+   * not a candidate at all** - it is the mechanism test for the block, and its figure must equal the `body` column's.
+   */
+  readonly fusionByWeighting: readonly FusionAtWeighting[];
   /**
    * The fused ranking, in full and to the metric's depth, **in the corpus's coordinate system**.
    *
@@ -363,7 +386,9 @@ export function skippedRow(input: {
   tfidf?: ControlResult | null;
   /** The product's fallback ranking, **which a refused instance has by construction**. */
   fallback?: FallbackResult | null;
-  /** The product's ranking on these instances: **the file-level arm alone, because the declaration arm was refused**. */
+  /** The product's whole-body arm, **which a refused instance also has by construction**. */
+  body?: BodyArmResult | null;
+  /** The product's ranking on these instances: **the file-level arms fused, because the declaration arm was refused**. */
   fusion?: FusionResult | null;
   /** What the instance cost before it was stopped, when it was stopped rather than refused up front. */
   cost?: InstanceCost | null;
@@ -387,11 +412,13 @@ export function skippedRow(input: {
     cost: input.cost ?? null,
     bm25: input.bm25 ?? null,
     tfidf: input.tfidf ?? null,
+    body: input.body ?? null,
     fallback: input.fallback ?? null,
     fusion: input.fusion ?? null,
     declarationMap: null,
     declarationRank: null,
     fusionByK: [],
+    fusionByWeighting: [],
     rankedPaths: [],
     skipped: input.because,
     fileArms: null,

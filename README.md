@@ -58,7 +58,8 @@ code-analyzer search "authentication"
 # Review code for issues
 code-analyzer review src/
 
-# Rank the files an issue is about, with no index at all - works on a checkout too large to analyse
+# Rank the files an issue is about, with no index at all - works on a checkout too large to analyse.
+# It reads each file's path, its imports and its body, and fuses the three; --no-body skips the last.
 code-analyzer locate "the retry policy drops the timeout" -d .
 
 # ...and fuse that reading with a ranking you already have (a search result, an editor's symbol list)

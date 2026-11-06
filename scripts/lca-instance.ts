@@ -53,6 +53,7 @@ const checkout = flagOf('--checkout');
 const rowFile = flagOf('--row');
 const out = flagOf('--out');
 const fileRanking = flagOf('--file-ranking');
+const bodyRanking = flagOf('--body-ranking');
 const budgetFlag = flagOf('--declaration-budget');
 
 if (config === undefined || checkout === undefined || rowFile === undefined || out === undefined) {
@@ -108,6 +109,13 @@ async function main(): Promise<void> {
     fileRanking !== undefined && existsSync(fileRanking)
       ? (JSON.parse(readFileSync(fileRanking, 'utf8')) as string[])
       : undefined;
+  // **The second file-level arm, read from the parent's file for the same reason and at the same cost.** Two arms and two
+  // files: a parent that handed over one and not the other would leave the child fusing a path-and-imports list against
+  // a body list it rebuilt itself, and the rebuild is the charge the hand-over exists to avoid.
+  const bodySignals =
+    bodyRanking !== undefined && existsSync(bodyRanking)
+      ? (JSON.parse(readFileSync(bodyRanking, 'utf8')) as string[])
+      : undefined;
 
   try {
     const scored = await measureInstance({
@@ -116,6 +124,7 @@ async function main(): Promise<void> {
       allFiles,
       provider,
       ...(signals === undefined ? {} : { fileSignals: signals }),
+      ...(bodySignals === undefined ? {} : { bodySignals }),
       ...(declarationBudget === null ? {} : { declarationBudget }),
     });
     emit({ row: scored });

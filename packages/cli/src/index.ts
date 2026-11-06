@@ -143,7 +143,9 @@ program
 // ---------------------------------------------------------------------------
 program
   .command('locate')
-  .description('Rank the files a question is about, reading only paths and imports (no index)')
+  .description(
+    'Rank the files a question is about, reading paths, imports and file bodies (no index, no parser)',
+  )
   .argument('<question>', 'The question, in your own words')
   .option('-d, --directory <path>', 'Checkout to rank', process.cwd())
   .option('-l, --limit <number>', 'How many paths to print', '10')
@@ -155,6 +157,10 @@ program
   .option(
     '-D, --declarations <file>',
     'A ranking to fuse in - paths best first, as JSON or one per line - e.g. from an earlier search',
+  )
+  .option(
+    '--no-body',
+    'Do not read the files’ bodies - cheaper, and measurably weaker on questions written in the code’s own words',
   )
   .action((question: string, opts: Record<string, string | undefined>) => {
     const extensions = (opts['extensions'] ?? '')
@@ -168,6 +174,10 @@ program
       limit: parseInt(opts['limit'] ?? '10', 10) || 10,
       extensions: extensions.length === 0 ? undefined : extensions,
       ...(opts['declarations'] === undefined ? {} : { declarationsFile: opts['declarations'] }),
+      // **Commander reads `--no-body` as `body: false` and its absence as `true`**, which is why this is passed through
+      // rather than defaulted here: the command's default is the module's, so a caller of the module and a caller of the
+      // CLI get one answer to "does it read the body".
+      ...(opts['body'] === undefined ? {} : { body: opts['body'] !== 'false' }),
     };
     const result = locateRepository(options);
     // `process.stdout.write` rather than `console.log`: the ranking is the command's whole output and its trailing

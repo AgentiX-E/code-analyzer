@@ -306,6 +306,148 @@ export function fusedByKOf(rows: readonly LcaRowScore[]): FusionRung[] {
     .map(([k, values]) => ({ k, map: mean(values), rows: values.length }));
 }
 
+/**
+ * **The whole-body arm's figure on one row.**
+ *
+ * It is not a control: it is the product's own second file-level reading, and the one that runs where the analyser
+ * cannot. Its selector is separate from `fallbackMapOf`'s for the reason the two arms are separate - a mean over a
+ * column that silently mixed them would describe neither.
+ */
+export function bodyMapOf(row: LcaRowScore): number | undefined {
+  return row.body?.map;
+}
+
+/** The body arm's mean over the rows that carry one. **Its denominator is the run**, like the fallback's. */
+export function bodyOf(rows: readonly LcaRowScore[]): { value: number | null; rows: number } {
+  const values = rows.map(bodyMapOf).filter((value): value is number => typeof value === 'number');
+  return { value: values.length === 0 ? null : mean(values), rows: values.length };
+}
+
+/** A row's figure at one weighting, or `undefined` when the row has no rung there. **The general form of the ladder.** */
+export function fusedAtWeighting(name: string): RowReading {
+  return (row) => row.fusionByWeighting?.find((at) => at.weighting === name)?.map;
+}
+
+/** One rung of the weight ladder: the figure at one weighting, and how many rows stand behind it. */
+export interface WeightingRung {
+  /** The rung's name, from `lca-fusion.ts`'s ladder. */
+  readonly weighting: string;
+  /** Mean average precision over the rows that carry this rung, or `null` when none does. */
+  readonly map: number | null;
+  readonly rows: number;
+}
+
+/**
+ * **The ladder, aggregated in the order it was written.**
+ *
+ * Not sorted by figure: the order is the ladder's, which is published before any figure is read, and a table sorted by
+ * the number it reports invites the reader to believe the ranking of the rungs was discovered rather than declared.
+ */
+export function fusedByWeightingOf(rows: readonly LcaRowScore[]): WeightingRung[] {
+  const rungs = new Map<string, number[]>();
+  for (const row of rows) {
+    for (const at of row.fusionByWeighting ?? []) {
+      const values = rungs.get(at.weighting) ?? [];
+      values.push(at.map);
+      rungs.set(at.weighting, values);
+    }
+  }
+  return [...rungs.entries()].map(([weighting, values]) => ({
+    weighting,
+    map: mean(values),
+    rows: values.length,
+  }));
+}
+
+/** One fold of the leave-one-language-out selection: what the training splits chose, and what it then scored. */
+export interface WeightingFold {
+  /** The split that was held out. **Named, because a fold nobody can name is not a fold.** */
+  readonly heldOut: string;
+  /** The rung the remaining splits picked. `null` when they carried no rung at all. */
+  readonly chosen: string | null;
+  /** That rung's mean over the held-out rows - **the only figure in the fold that the selection did not see**. */
+  readonly heldOutMap: number | null;
+  /** The shipped rung's mean over the same held-out rows. **The bar the selection had to clear.** */
+  readonly shippedMap: number | null;
+  /** `heldOutMap - shippedMap`. **A negative gain is a fold where the ladder would have made the product worse.** */
+  readonly gain: number | null;
+}
+
+/** What the weight ladder says about the shipped weighting, and the folds that said it. */
+export interface WeightingSelection {
+  /** The weighting the product ships. **The bar every fold is measured against.** */
+  readonly shipped: string;
+  /** The rung chosen by a majority of the folds, or `null` when no fold produced one. */
+  readonly chosen: string | null;
+  /** Every rung's mean over every row, in the ladder's order. **Published, because a choice needs its alternatives.** */
+  readonly rungs: readonly WeightingRung[];
+  readonly folds: readonly WeightingFold[];
+}
+
+/** The best rung over a set of rows, by mean average precision. `null` when the rows carry no rung. */
+function bestWeighting(rows: readonly LcaRowScore[]): string | null {
+  let best: { weighting: string; map: number } | null = null;
+  for (const rung of fusedByWeightingOf(rows)) {
+    if (rung.map === null) continue;
+    // **The first rung wins a tie**, so the shipped weighting is not displaced by an equal one. A ladder whose
+    // selection moves on a tie is a ladder that moves between runs of the same corpus.
+    if (best === null || rung.map > best.map) best = { weighting: rung.weighting, map: rung.map };
+  }
+  return best?.weighting ?? null;
+}
+
+/**
+ * **The weighting, chosen out of fold.** For each language split: select the rung that scores best on the other two,
+ * then read that rung on the one it did not see.
+ *
+ * **Why this and not the best row of the table.** A weight chosen on the rows it is reported over is a weight fitted to
+ * the corpus, and the fitted number would be larger than the honest one by exactly the amount the fit absorbed. The
+ * folds make the selection a prediction: the rung is picked without the rows it is then measured on, and the figure the
+ * artifact reports as the gain is the held-out one. **All three folds are published**, including the ones that disagree,
+ * because a selection reported only where it worked is a selection reported dishonestly.
+ */
+export function selectWeighting(
+  parts: readonly { readonly config: string; readonly rows: readonly LcaRowScore[] }[],
+  shipped: string,
+): WeightingSelection {
+  const allRows = parts.flatMap((part) => [...part.rows]);
+  const folds: WeightingFold[] = [];
+  for (const part of parts) {
+    const training = allRows.filter((row) => !part.rows.includes(row));
+    const chosen = bestWeighting(training);
+    const heldOut = part.rows.filter((row) => row.fusionByWeighting !== undefined);
+    const meanAt = (name: string): number | null => {
+      const values = heldOut
+        .map(fusedAtWeighting(name))
+        .filter((value): value is number => typeof value === 'number');
+      return values.length === 0 ? null : mean(values);
+    };
+    const heldOutMap = chosen === null ? null : meanAt(chosen);
+    const shippedMap = meanAt(shipped);
+    folds.push({
+      heldOut: part.config,
+      chosen,
+      heldOutMap,
+      shippedMap,
+      gain: heldOutMap === null || shippedMap === null ? null : heldOutMap - shippedMap,
+    });
+  }
+  // **A majority, with the ladder's own order breaking a tie.** Two folds naming two rungs is a ladder with no answer,
+  // and resolving it by the order the ladder was written in is a decision a reader can see; resolving it by whichever
+  // name the map happened to iterate first is the defect this project has removed from three other rankings.
+  const rungs = fusedByWeightingOf(allRows);
+  const votes = new Map<string, number>();
+  for (const fold of folds)
+    if (fold.chosen !== null) votes.set(fold.chosen, (votes.get(fold.chosen) ?? 0) + 1);
+  let chosen: string | null = null;
+  for (const rung of rungs) {
+    const count = votes.get(rung.weighting) ?? 0;
+    if (count === 0) continue;
+    if (chosen === null || count > (votes.get(chosen) ?? 0)) chosen = rung.weighting;
+  }
+  return { shipped, chosen, rungs, folds };
+}
+
 /** The declaration arm alone, **which exists only where the analysis produced a pool**. */
 export const DECLARATIONS: RowReading = (row) => row.declarationMap;
 

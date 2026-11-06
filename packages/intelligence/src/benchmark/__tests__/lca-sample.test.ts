@@ -13,8 +13,12 @@ import {
   armComparison,
   BOOTSTRAP_SEED,
   DEFAULT_STRATA,
+  bodyMapOf,
+  bodyOf,
   fallbackMapOf,
   fallbackOf,
+  fusedAtWeighting,
+  fusedByWeightingOf,
   fusedAtK,
   fusedByKOf,
   pairedBetween,
@@ -24,6 +28,7 @@ import {
   rankDiagnosis,
   rowsInBand,
   sampleCoverage,
+  selectWeighting,
   signTest,
   standardisedMap,
   stratify,
@@ -49,6 +54,10 @@ function row(input: {
   fusion?: number | null;
   declarationMap?: number | null;
   declarationRank?: number | null;
+  /** The whole-body arm's figure. **Absent by default**, for the same reason `fusion` is. */
+  body?: number | null;
+  /** The weight ladder's figures on this row, keyed by rung. **Absent by default.** */
+  weights?: Readonly<Record<string, number>>;
 }): LcaRowScore {
   return {
     id: input.id,
@@ -66,6 +75,19 @@ function row(input: {
     graphNodes: null,
     graphEdges: null,
     cost: null,
+    body:
+      input.body === undefined || input.body === null
+        ? null
+        : {
+            map: input.body,
+            rank: null,
+            documents: 10,
+            unreadableFiles: 0,
+            bytesRead: 1024,
+            ranked: [],
+            candidates: [],
+            durationMs: 1,
+          },
     fileArms: input.fileArms ?? null,
     bm25:
       input.bm25 === undefined || input.bm25 === null
@@ -98,6 +120,7 @@ function row(input: {
         : {
             map: input.fusion,
             rank: null,
+            weighting: 'equal',
             fused: input.skipped === undefined || input.skipped === null,
             arms:
               input.skipped === undefined || input.skipped === null
@@ -109,6 +132,10 @@ function row(input: {
     declarationMap: input.declarationMap ?? null,
     declarationRank: input.declarationRank ?? null,
     fusionByK: [],
+    fusionByWeighting:
+      input.weights === undefined
+        ? []
+        : Object.entries(input.weights).map(([weighting, map]) => ({ weighting, map, rank: null })),
     rankedPaths: [],
     tfidf:
       input.tfidf === undefined || input.tfidf === null
@@ -1086,5 +1113,153 @@ describe('the fusion constant, aggregated', () => {
       reading({ ...row({ id: 1, corpusFiles: 10 }), fusionByK: [rung(60, 0.4)] }),
     ).toBeUndefined();
     expect(reading(row({ id: 1, corpusFiles: 10 }))).toBeUndefined();
+  });
+});
+
+/**
+ * **The whole-body arm and the weight ladder, which are iteration 81's two additions to this module.**
+ *
+ * Both are columns whose denominator is the run rather than the rows the analysis survived, so the ways they can be
+ * wrong are the quiet ones this file exists to catch: a mean over the rows that have the arm instead of the rows that
+ * were attempted, a ladder reported in the order its figures came out rather than the order it was declared, and a fold
+ * that selects a rung on the very rows it then reports.
+ */
+describe('bodyOf', () => {
+  it('**averages the rows that carry the arm**, and says how many there were', () => {
+    const rows = [
+      row({ id: 1, corpusFiles: 10, body: 0.4 }),
+      row({ id: 2, corpusFiles: 10, body: 0.2 }),
+      row({ id: 3, corpusFiles: 10, body: null }),
+    ];
+    expect(bodyOf(rows).rows).toBe(2);
+    expect(bodyOf(rows).value).toBeCloseTo(0.3, 10);
+  });
+
+  it('**reports no mean rather than a zero** when no row carries the arm', () => {
+    expect(bodyOf([row({ id: 1, corpusFiles: 10 })])).toEqual({ value: null, rows: 0 });
+    expect(bodyMapOf(row({ id: 1, corpusFiles: 10 }))).toBeUndefined();
+  });
+
+  it('**counts a refused row**, because the arm exists for exactly those rows', () => {
+    const rows = [
+      row({ id: 1, corpusFiles: 10, skipped: 'above the cap', body: 0.5 }),
+      row({ id: 2, corpusFiles: 10, skipped: 'above the cap', body: 0.1 }),
+    ];
+    expect(bodyOf(rows)).toEqual({ value: 0.3, rows: 2 });
+  });
+});
+
+describe('fusedByWeightingOf', () => {
+  it('**keeps the ladder’s order rather than sorting by the figure**', () => {
+    // A table sorted by the number it reports invites the reader to believe the ranking of the rungs was discovered.
+    const rows = [
+      row({ id: 1, corpusFiles: 10, weights: { equal: 0.2, 'body-alone': 0.9 } }),
+      row({ id: 2, corpusFiles: 10, weights: { equal: 0.4, 'body-alone': 0.1 } }),
+    ];
+    expect(fusedByWeightingOf(rows).map((rung) => rung.weighting)).toEqual(['equal', 'body-alone']);
+    expect(fusedByWeightingOf(rows)[0]!.map).toBeCloseTo(0.3, 10);
+  });
+
+  it('**carries the row count per rung**, so a rung measured on fewer instances is visible', () => {
+    const rows = [
+      row({ id: 1, corpusFiles: 10, weights: { equal: 0.2 } }),
+      row({ id: 2, corpusFiles: 10, weights: { equal: 0.4, 'body-alone': 0.1 } }),
+    ];
+    const rungs = fusedByWeightingOf(rows);
+    expect(rungs.map((rung) => [rung.weighting, rung.rows])).toEqual([
+      ['equal', 2],
+      ['body-alone', 1],
+    ]);
+    expect(rungs[0]!.map).toBeCloseTo(0.3, 10);
+    expect(rungs[1]!.map).toBeCloseTo(0.1, 10);
+  });
+
+  it('**is empty for rows written before the ladder existed**', () => {
+    expect(fusedByWeightingOf([row({ id: 1, corpusFiles: 10 })])).toEqual([]);
+    expect(fusedAtWeighting('equal')(row({ id: 1, corpusFiles: 10 }))).toBeUndefined();
+  });
+});
+
+describe('selectWeighting', () => {
+  /**
+   * Three splits, one row each, with the arithmetic chosen so every fold is redoable by hand.
+   *
+   * `body-alone` wins big on `java` (0.90 against 0.10), wins narrowly on `py` (0.45 against 0.40) and loses badly on
+   * `kt` (0.20 against 0.80). **The asymmetry is deliberate**: a ladder on which one rung is best everywhere produces
+   * three identical folds, which would test nothing about the selection. Here the fold that holds out `py` trains on a
+   * large win and a large loss (0.55 against 0.45, so `body-alone`) while the fold that holds out `java` trains on a
+   * narrow win and the same large loss (0.325 against 0.60, so `equal`).
+   */
+  const parts = [
+    {
+      config: 'py',
+      rows: [row({ id: 1, corpusFiles: 10, weights: { equal: 0.4, 'body-alone': 0.45 } })],
+    },
+    {
+      config: 'java',
+      rows: [row({ id: 2, corpusFiles: 10, weights: { equal: 0.1, 'body-alone': 0.9 } })],
+    },
+    {
+      config: 'kt',
+      rows: [row({ id: 3, corpusFiles: 10, weights: { equal: 0.8, 'body-alone': 0.2 } })],
+    },
+  ];
+
+  it('**publishes every rung and every fold**, because a selection reported only where it worked is not reported', () => {
+    const selection = selectWeighting(parts, 'equal');
+    expect(selection.shipped).toBe('equal');
+    expect(selection.rungs.map((rung) => rung.weighting)).toEqual(['equal', 'body-alone']);
+    expect(selection.folds.map((fold) => fold.heldOut)).toEqual(['py', 'java', 'kt']);
+  });
+
+  it('**selects on the splits it can see and reads on the one it cannot**', () => {
+    const selection = selectWeighting(parts, 'equal');
+    const heldOutKt = selection.folds.find((fold) => fold.heldOut === 'kt')!;
+    // Training on py and java, `body-alone` averages 0.675 against `equal`'s 0.25, so it is chosen - and then read on
+    // `kt`, where it loses to the shipped rung by 0.6. **This is the number the honest gain is**, and it is negative.
+    expect(heldOutKt.chosen).toBe('body-alone');
+    expect(heldOutKt.heldOutMap).toBeCloseTo(0.2, 10);
+    expect(heldOutKt.shippedMap).toBeCloseTo(0.8, 10);
+    expect(heldOutKt.gain).toBeCloseTo(-0.6, 10);
+  });
+
+  it('**is decided by a majority of the folds, including the ones that dissent**', () => {
+    const selection = selectWeighting(parts, 'equal');
+    expect(selection.folds.map((fold) => fold.chosen)).toEqual([
+      'body-alone',
+      'equal',
+      'body-alone',
+    ]);
+    expect(selection.chosen).toBe('body-alone');
+    // The dissenting fold is published with its own gain, which is zero because it chose the shipped rung on the split
+    // where the shipped rung was also the winner.
+    const dissent = selection.folds.find((fold) => fold.heldOut === 'java')!;
+    expect(dissent.gain).toBeCloseTo(0, 10);
+  });
+
+  it('**never displaces the shipped rung on a tie**, so the selection cannot move between runs of one corpus', () => {
+    const level = [
+      {
+        config: 'py',
+        rows: [row({ id: 1, corpusFiles: 10, weights: { equal: 0.4, 'body-alone': 0.4 } })],
+      },
+      {
+        config: 'kt',
+        rows: [row({ id: 2, corpusFiles: 10, weights: { equal: 0.6, 'body-alone': 0.6 } })],
+      },
+    ];
+    const selection = selectWeighting(level, 'equal');
+    expect(selection.folds.every((fold) => fold.chosen === 'equal')).toBe(true);
+    expect(selection.chosen).toBe('equal');
+  });
+
+  it('**answers `null` for a corpus with no rungs at all**', () => {
+    const selection = selectWeighting(
+      [{ config: 'py', rows: [row({ id: 1, corpusFiles: 10 })] }],
+      'equal',
+    );
+    expect(selection.chosen).toBeNull();
+    expect(selection.folds[0]!.chosen).toBeNull();
+    expect(selection.folds[0]!.gain).toBeNull();
   });
 });

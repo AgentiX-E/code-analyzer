@@ -19,6 +19,7 @@
 // **What this is not.** It is not the answer arm: it produces no prose, no explanation and no proof. It is a ranking,
 // and the ranking is the half of the question that a reader can act on without waiting for an index.
 
+import { rankByFileBody } from './file-body.js';
 import { walkSourceFiles } from './file-tree.js';
 import { reciprocalRankFusion } from './fusion.js';
 import { pathImportsRanking } from './path-imports.js';
@@ -47,6 +48,19 @@ export interface LocateOptions extends FileTreeOptions {
   readonly fusionDepth?: number;
   /** The fusion's rank constant. **Supplied only by an ablation.** */
   readonly k?: number;
+  /**
+   * Whether to read the files' bodies and fuse that ranking in. **Default `true`.**
+   *
+   * **The default flipped, and the measurement is why.** A path and an import block are evidence about what a file is
+   * wired to; they are not evidence about what it does, and an issue is usually written in the words the code is written
+   * in rather than in the words its imports are. On Long Code Arena the path-and-imports reading scored **0.1441** on
+   * the instances the analyser refuses where a ranking over the whole body scored **0.3116** - so a caller with no
+   * index was being given the weaker of the two readings this product already knows how to produce, on the only rows
+   * where it matters. Fusing them is what the command does now, and `false` is kept for a caller who is paying for I/O.
+   */
+  readonly body?: boolean;
+  /** Bytes read per file by the body arm. **Defaults to `BODY_BYTES_PER_FILE` and is stated in the output.** */
+  readonly bodyBytes?: number;
 }
 
 /** A locate: the ranking, the universe it was drawn from, and whether that universe was complete. */
@@ -55,10 +69,20 @@ export interface LocateResult extends PathImportsResult {
   readonly answerSpace: number;
   /** The walk hit its cap. **A truncated universe makes the ranking a lower bound on the reachable answer.** */
   readonly truncated: boolean;
-  /** The file-level arm alone, **the ranking before any fusion**. Published so the two can be told apart.** */
+  /** The path-and-imports arm alone, **before any fusion**. Published so the arms can be told apart. */
   readonly fileLevel: readonly string[];
-  /** The fusion, or `null` when the caller supplied no declaration ranking. */
+  /** The whole-body arm alone, **before any fusion**. Empty when `body` was `false`. */
+  readonly bodyRanked: readonly string[];
+  /**
+   * The declaration fusion, or `null` when the caller supplied no declaration ranking.
+   *
+   * **Still about declarations only**, even though the file-level arms are fused too: a caller reads this to know whether
+   * its own evidence was used, and that question should not become "yes" because the command learned a second way to read
+   * a file.
+   */
   readonly fusion: FusedRanking | null;
+  /** The fusion of the file-level arms, **which is what the ranking is when no declaration list was given**. */
+  readonly fileFusion: FusedRanking;
 }
 
 /**
@@ -98,19 +122,49 @@ export function locateFiles(
     query: question,
     limit: depth,
   });
+  // **The second file-level arm, and the one this command did not have.** It reads the words of each file instead of its
+  // imports; both are cheap, neither needs a parser, and each is the stronger reading on a different part of the corpus,
+  // so the command fuses them rather than choosing - the same argument that made it take a declaration ranking.
+  const body =
+    options.body === false
+      ? null
+      : rankByFileBody({
+          checkout: root,
+          files,
+          query: question,
+          limit: depth,
+          ...(options.bodyBytes === undefined ? {} : { options: { maxBytes: options.bodyBytes } }),
+        });
+  const fileArms =
+    body === null || body.ranked.length === 0
+      ? [{ name: 'file-level', ranked: ranking.ranked }]
+      : [
+          { name: 'file-level', ranked: ranking.ranked },
+          { name: 'file-body', ranked: body.ranked },
+        ];
+  // **The file-level fusion is always computed**, because it is what a caller with no index gets: the two readings this
+  // product can produce without a parser, fused. A declaration ranking is then fused *over* it rather than beside it,
+  // so a path both file arms agree on keeps the position they gave it.
+  const fileFusion = reciprocalRankFusion(fileArms, {
+    ...(options.k === undefined ? {} : { k: options.k }),
+    limit: depth,
+  });
   if (options.declarations === undefined) {
     return {
       ...ranking,
+      ranked: fileFusion.ranked,
       answerSpace: files.length,
       truncated,
       fileLevel: ranking.ranked,
+      bodyRanked: body === null ? [] : body.ranked,
       fusion: null,
+      fileFusion,
     };
   }
   const fusion = reciprocalRankFusion(
     [
       { name: 'declarations', ranked: options.declarations },
-      { name: 'file-level', ranked: ranking.ranked },
+      { name: 'file-level', ranked: fileFusion.ranked },
     ],
     { ...(options.k === undefined ? {} : { k: options.k }), limit },
   );
@@ -120,6 +174,8 @@ export function locateFiles(
     answerSpace: files.length,
     truncated,
     fileLevel: ranking.ranked,
+    bodyRanked: body === null ? [] : body.ranked,
     fusion,
+    fileFusion,
   };
 }

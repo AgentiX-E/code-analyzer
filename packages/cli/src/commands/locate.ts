@@ -35,6 +35,14 @@ export interface LocateCommandOptions {
   readonly declarations?: readonly string[];
   /** The same ranking, **as a file**: a JSON array of paths or one path per line, which is what a shell can produce. */
   readonly declarationsFile?: string;
+  /**
+   * Whether to read the files' bodies. **Default `true`**, and `false` is kept for a caller paying for the I/O.
+   *
+   * The body arm is what makes this command answer a question written in the words the code is written in rather than in
+   * the words its imports are: on Long Code Arena the path-and-imports reading scored **0.1441** on the instances the
+   * analyser refuses, where the whole-body reading scored **0.3116**. Both run without a parser; the command fuses them.
+   */
+  readonly body?: boolean;
 }
 
 /**
@@ -76,8 +84,10 @@ export interface LocateOutput {
   readonly truncated: boolean;
   /** Import statements the extraction found. **Zero means it missed the language, not that files have no imports.** */
   readonly importLines: number;
-  /** The file-level arm alone, **before any fusion** - present only when `declarations` was supplied. */
+  /** The path-and-imports arm alone, **before any fusion** - present only when `declarations` was supplied. */
   readonly fileLevel?: readonly string[];
+  /** The whole-body arm alone, **before any fusion**. Empty when the caller disabled it. */
+  readonly bodyRanked: readonly string[];
   /** Whether the printed order is a fusion of two arms. **A reader has to be able to tell.** */
   readonly fused: boolean;
   /** The rank constant the fusion used, or `null` when nothing was fused. */
@@ -107,6 +117,7 @@ export function locateRepository(options: LocateCommandOptions): LocateOutput {
       limit: options.limit ?? 10,
       extensions: options.extensions,
       ...(declarations === undefined ? {} : { declarations }),
+      ...(options.body === undefined ? {} : { body: options.body }),
     });
     const fused = result.fusion !== null;
     return {
@@ -118,6 +129,7 @@ export function locateRepository(options: LocateCommandOptions): LocateOutput {
       truncated: result.truncated,
       importLines: result.importLines,
       ...(fused ? { fileLevel: result.fileLevel } : {}),
+      bodyRanked: result.bodyRanked,
       fused,
       k: result.fusion === null ? null : result.fusion.k,
       unreadableFiles: result.unreadableFiles,
@@ -132,6 +144,7 @@ export function locateRepository(options: LocateCommandOptions): LocateOutput {
       answerSpace: 0,
       truncated: false,
       importLines: 0,
+      bodyRanked: [],
       fused: false,
       k: null,
       unreadableFiles: 0,

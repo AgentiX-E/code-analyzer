@@ -51,7 +51,7 @@ import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { lexicalControls } from '../benchmark/lca-baseline.js';
-import { fallbackArm } from '../benchmark/lca-fallback.js';
+import { bodyArm, fallbackArm } from '../benchmark/lca-fallback.js';
 import { fusionFor } from '../benchmark/lca-fusion.js';
 import {
   CONFIG_EXTENSION,
@@ -453,6 +453,17 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
             expected: row.changed_files,
             depth: MAP_DEPTH,
           });
+          // **And the third arm, built here for the identical reason.** The path-and-imports reading never opens a body,
+          // so on the instances this harness refuses it scored 0.1441 against the control's 0.3116 - and a quarter of the
+          // protocol is refused. This arm reads the words, needs no parser and no graph, and therefore exists on exactly
+          // the rows the analyser does not. It is computed before `decideInstance` so that a refused instance carries it.
+          const body = bodyArm({
+            checkout,
+            files: allFiles,
+            query: question,
+            expected: row.changed_files,
+            depth: MAP_DEPTH,
+          });
           // **The bound is on the checkout and not on the corpus's own extension.** `ccxt/ccxt` holds 686 Python files
           // and tens of thousands of others: it passed a bound computed from `corpusFiles` and the analysis of the whole
           // directory is what took the runner down six minutes later.
@@ -503,15 +514,20 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
                 bm25: control,
                 tfidf: secondControl,
                 fallback,
-                // **The fused column on an instance the analysis was refused**, and it is the file-level arm alone:
-                // the declaration arm is the analysis that was refused, so there is nothing to fuse it with. `fused:
-                // false` is what makes that a stated fact per row rather than an average over two different kinds.
+                body,
+                // **The fused column on an instance the analysis was refused**, and it is the fusion of the two
+                // file-level arms: the declaration arm is the analysis that was refused, so there is nothing to fuse it
+                // with. `fused: false` is what makes that a stated fact per row rather than an average over two
+                // different kinds.
                 fusion: fusionFor({
                   skipped: verdict.because,
                   map: 0,
                   rank: null,
                   ranked: [],
                   fallback,
+                  body,
+                  expected: row.changed_files,
+                  depth: MAP_DEPTH,
                 }),
               }),
             );
@@ -526,6 +542,10 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
           // the job twice for the same bytes - which is exactly how the nine instances of iteration 76 were lost.
           const rankingFile = join(rowsDir, `${config}-${String(row.id)}.ranking.json`);
           writeFileSync(rankingFile, JSON.stringify(fallback.candidates), 'utf8');
+          // **The second file-level arm, handed over on the same terms.** One write per arm; reading the same checkouts
+          // twice is the charge the hand-over exists to avoid, and it is a charge this job has already paid once.
+          const bodyRankingFile = join(rowsDir, `${config}-${String(row.id)}.body-ranking.json`);
+          writeFileSync(bodyRankingFile, JSON.stringify(body.candidates), 'utf8');
 
           const outcome = await superviseInstance({
             command: 'npx',
@@ -542,6 +562,8 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               outFile,
               '--file-ranking',
               rankingFile,
+              '--body-ranking',
+              bodyRankingFile,
               '--declaration-budget',
               String(MEASURED_DECLARATION_CEILING.declarations),
               ...(answerArm ? ['--answer-arm'] : []),
@@ -578,6 +600,9 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               rank: outcome.row.answerRank,
               ranked: outcome.row.rankedPaths,
               fallback,
+              body,
+              expected: row.changed_files,
+              depth: MAP_DEPTH,
             });
             scores.push({
               ...outcome.row,
@@ -585,6 +610,7 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
               bm25: control,
               tfidf: secondControl,
               fallback,
+              body,
               fusion: fused,
             });
           } else {
@@ -601,12 +627,16 @@ describe.skipIf(!CORPUS_DIR)('Long Code Arena — bug localisation', () => {
                 bm25: control,
                 tfidf: secondControl,
                 fallback,
+                body,
                 fusion: fusionFor({
                   skipped: outcome.because,
                   map: 0,
                   rank: null,
                   ranked: [],
                   fallback,
+                  body,
+                  expected: row.changed_files,
+                  depth: MAP_DEPTH,
                 }),
               }),
             );

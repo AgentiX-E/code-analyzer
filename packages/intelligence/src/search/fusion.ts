@@ -72,6 +72,20 @@ export interface FusionOptions {
   readonly k?: number;
   /** How many paths to return. **The full list is still in `scores`**, so a cut is a view and not a loss. */
   readonly limit?: number;
+  /**
+   * How much one position in an arm is worth, keyed by the arm's own name. **Absent means 1 for every arm.**
+   *
+   * **A weight of zero removes the arm**, rather than contributing zero: an arm that cannot move the order but can still
+   * put a path into the list would turn a one-arm rung of the ladder into a two-arm one, and the rung exists to
+   * reproduce a single arm's column exactly. Removing it makes that equality structural instead of approximate.
+   *
+   * **Weights exist because equal weight is a decision too.** Two arms of equal authority make the fused order a
+   * compromise between them, and a compromise with a worse list is a worse list - which is what the Long Code Arena
+   * measurement found when a path-and-imports arm at 0.3781 was fused unweighted with a declaration arm at 0.4152 and a
+   * body arm at 0.4584. The shipped weighting is a constant with a published ladder, and this parameter is how the
+   * ladder is expressed.
+   */
+  readonly weights?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -91,6 +105,11 @@ export function reciprocalRankFusion(
   const k = options.k ?? RRF_K;
   const contributions = new Map<string, Record<string, number>>();
   for (const arm of arms) {
+    const weight = options.weights?.[arm.name] ?? 1;
+    // **A removed arm is not a zero-weight arm.** See `FusionOptions.weights`: a zero here would still admit every path
+    // the arm ranked into the fused list at score zero, so a rung that means "this arm alone" would publish a list that
+    // is the union of all of them, and the equality the ladder checks would hold on the numbers and not on the order.
+    if (weight === 0) continue;
     const seen = new Set<string>();
     let position = 0;
     for (const path of arm.ranked) {
@@ -98,7 +117,7 @@ export function reciprocalRankFusion(
       seen.add(path);
       position += 1;
       const entries = contributions.get(path) ?? {};
-      entries[arm.name] = (entries[arm.name] ?? 0) + 1 / (k + position);
+      entries[arm.name] = (entries[arm.name] ?? 0) + weight / (k + position);
       contributions.set(path, entries);
     }
   }
