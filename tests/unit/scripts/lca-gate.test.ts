@@ -419,7 +419,8 @@ function baseRecord(): Record<string, unknown> {
           { k: 30, map: 0.51, rank: 1 },
           { k: 60, map: 0.52, rank: 1 },
         ],
-        body: { map: 0.5, rank: 1 },
+        bodyMap: 0.5,
+        bodyRank: 1,
         fusionByWeighting: [
           { weighting: 'equal', map: 0.5, rank: 1 },
           { weighting: 'body-alone', map: 0.5, rank: 1 },
@@ -452,7 +453,8 @@ function baseRecord(): Record<string, unknown> {
           { k: 30, map: 0.31, rank: 3 },
           { k: 60, map: 0.32, rank: 3 },
         ],
-        body: { map: 0.35, rank: 2 },
+        bodyMap: 0.35,
+        bodyRank: 2,
         fusionByWeighting: [
           { weighting: 'equal', map: 0.3, rank: 3 },
           { weighting: 'body-alone', map: 0.35, rank: 2 },

@@ -597,7 +597,7 @@ function main() {
   );
   let bodyAloneChecked = 0;
   for (const row of rowsOf) {
-    if (typeof row?.body?.map !== 'number') continue;
+    if (typeof row?.bodyMap !== 'number') continue;
     const rung = Array.isArray(row?.fusionByWeighting)
       ? row.fusionByWeighting.find((at_) => at_?.weighting === 'body-alone')
       : undefined;
@@ -611,9 +611,9 @@ function main() {
     }
     bodyAloneChecked += 1;
     guard(
-      Math.abs(rung.map - row.body.map) < 1e-9,
+      Math.abs(rung.map - row.bodyMap) < 1e-9,
       `rows[${String(row.id)}]: the \`body-alone\` rung reads ${String(rung.map)} where the body arm published ` +
-        `${String(row.body.map)} - a zero weight is not removing the other arms, so no rung of the ladder is a rung`,
+        `${String(row.bodyMap)} - a zero weight is not removing the other arms, so no rung of the ladder is a rung`,
     );
   }
   guard(

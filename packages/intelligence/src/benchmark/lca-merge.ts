@@ -865,3 +865,93 @@ export function combineParts(parts: readonly LanguagePart[], cuts: readonly numb
     byLanguage,
   };
 }
+
+/**
+ * The shape one row takes in the published artifact.
+ *
+ * **This function exists because the projection was a literal in the merge script, and a literal loses fields
+ * silently.** The run of 6 November published 150 rows and not one of them carried the `body` figure or the weight
+ * ladder: the block above them was computed from the parts, so `fileBody.overall` and `fusionWeights.rungs` were
+ * correct, while the per-row evidence they are the mean of was simply absent. **The gate caught it** - its mechanism
+ * test compares the `body-alone` rung against the `body` column row by row, and a missing field is not a passing
+ * row - but the only way to catch it before an eighty-minute measurement was to run the gate, because the projection
+ * had no test and could not have one where it lived.
+ *
+ * So the projection is a function of this module, on the side of the boundary that has tests. **Two rules for its
+ * contents.** Every field the artifact's own blocks are computed from must survive, or the artifact publishes a figure
+ * a reader cannot recompute; and every field a *paired* comparison reads must survive with its `null`s intact, because
+ * a row that had no control and a row whose control scored zero are different facts and a projection that flattened
+ * them would erase the distinction the comparison depends on.
+ */
+export function publishedRow(row: LcaRowScore, config: string): Record<string, unknown> {
+  return {
+    config,
+    id: row.id,
+    repo: row.repo,
+    corpusFiles: row.corpusFiles,
+    expectedFiles: row.expectedFiles,
+    expectedOutside: row.expectedOutside,
+    offered: row.offered,
+    outside: row.outside,
+    offeredPaths: row.offeredPaths,
+    /** Where the first fixing file sits in our list, and in the control's. **One number each, same instance.** */
+    answerRank: row.answerRank,
+    /** Every reading of the pool, so a reader can recompute `fileRanking` from the rows. */
+    fileArms: row.fileArms,
+    bm25Rank: row.bm25 === null ? null : row.bm25.rank,
+    bm25Top: row.bm25 === null ? null : row.bm25.ranked,
+    corpusBytes: row.corpusBytes,
+    corpusUnreadable: row.corpusUnreadable,
+    checkoutBytes: row.checkoutBytes,
+    checkoutUnreadable: row.checkoutUnreadable,
+    graphNodes: row.graphNodes,
+    graphEdges: row.graphEdges,
+    bm25Map: row.bm25 === null ? null : row.bm25.map,
+    bm25Documents: row.bm25 === null ? null : row.bm25.documents,
+    /** The second control on the same instance, **so a row can be read against both formulas**. */
+    tfidfMap: row.tfidf === null ? null : row.tfidf.map,
+    tfidfRank: row.tfidf === null ? null : row.tfidf.rank,
+    /** **The fallback on this instance, refused or measured.** The row a mean over the whole run is built from. */
+    fallbackMap: row.fallback === null ? null : row.fallback.map,
+    fallbackRank: row.fallback === null ? null : row.fallback.rank,
+    fallbackDocuments: row.fallback === null ? null : row.fallback.documents,
+    importLines: row.fallback === null ? null : row.fallback.importLines,
+    /**
+     * **The whole-body arm on this instance, refused or measured**, flattened like the two controls above it.
+     *
+     * **`bodyMap` is the name, and it is a decision rather than a habit.** The gate compares this number against the
+     * `body-alone` rung of the same row, so a reader who cannot find it under the name the rest of the row uses for
+     * "this arm's average precision" (`bm25Map`, `tfidfMap`, `fallbackMap`) would be reading a row with two naming
+     * conventions. It is also the row that a run of 150 instances published without the field at all, which is the
+     * reason this projection is a tested function.
+     */
+    bodyMap: row.body === null ? null : row.body.map,
+    bodyRank: row.body === null ? null : row.body.rank,
+    bodyDocuments: row.body === null ? null : row.body.documents,
+    bodyTop: row.body === null ? null : row.body.ranked,
+    bodyBytesRead: row.body === null ? null : row.body.bytesRead,
+    bodyUnreadableFiles: row.body === null ? null : row.body.unreadableFiles,
+    bodyDurationMs: row.body === null ? null : row.body.durationMs,
+    /** **The product's own ranking on this instance**, fused or declined, and whether both arms took part. */
+    fusionMap: row.fusion === null ? null : row.fusion.map,
+    fusionRank: row.fusion === null ? null : row.fusion.rank,
+    fusionFused: row.fusion === null ? null : row.fusion.fused,
+    fusionArms: row.fusion === null ? null : row.fusion.arms,
+    fusionWeighting: row.fusion === null ? null : row.fusion.weighting,
+    /** The declaration arm alone, **so the fusion's contribution is a subtraction inside this row**. */
+    declarationMap: row.declarationMap,
+    declarationRank: row.declarationRank,
+    /** The constant ladder and the weight ladder, per row: what makes both blocks checkable rather than asserted. */
+    fusionByK: row.fusionByK,
+    fusionByWeighting: row.fusionByWeighting,
+    /** The fused list itself, to the metric's depth: a figure whose order a reader cannot check is an assertion. */
+    rankedPaths: row.rankedPaths,
+    peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
+    elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
+    map: row.map,
+    /** The cut metrics and the answer arm's figures, **at the addresses the documentation quotes**. */
+    retrieval: row.retrieval,
+    answer: row.answer,
+    skipped: row.skipped,
+  };
+}

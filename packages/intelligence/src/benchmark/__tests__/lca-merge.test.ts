@@ -15,6 +15,7 @@ import {
   declarationDensity,
   fitCost,
   mapScore,
+  publishedRow,
   skippedRow,
   summarisePart,
 } from '../lca-merge.js';
@@ -576,5 +577,103 @@ describe('declarationDensity', () => {
     // figure, and the ladder says so instead of inventing one from zero.
     const density = declarationDensity([withDensity(1, 10, 200)], { chargedAt: 120 });
     expect(density.ladder.every((entry) => entry.files === null)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The row the artifact publishes
+// ---------------------------------------------------------------------------
+
+describe('publishedRow', () => {
+  /** A measured row carrying every arm, both ladders, and the body figure the gate compares them against. */
+  function loaded(): LcaRowScore {
+    return {
+      ...row(7, 0.5, 0.5),
+      body: {
+        map: 0.44,
+        rank: 1,
+        documents: 120,
+        unreadableFiles: 0,
+        bytesRead: 4096,
+        durationMs: 12,
+        ranked: ['a.py'],
+        candidates: ['a.py', 'b.py'],
+      },
+      fallback: {
+        map: 0.5,
+        rank: 2,
+        documents: 120,
+        unreadableFiles: 1,
+        importLines: 7,
+        ranked: ['b.py'],
+        candidates: ['b.py', 'a.py'],
+        durationMs: 3,
+        filesRead: 120,
+      },
+      fusion: {
+        map: 0.47,
+        rank: 1,
+        fused: true,
+        arms: ['declarations', 'file-level', 'file-body'],
+        k: 10,
+        weighting: 'equal',
+        ranked: ['a.py', 'b.py'],
+      },
+      declarationMap: 0.42,
+      declarationRank: 2,
+      fusionByK: [
+        { k: 10, map: 0.47, rank: 1 },
+        { k: 60, map: 0.45, rank: 1 },
+      ],
+      fusionByWeighting: [
+        { weighting: 'equal', map: 0.47, rank: 1 },
+        { weighting: 'body-alone', map: 0.44, rank: 1 },
+      ],
+      rankedPaths: ['a.py', 'b.py'],
+    };
+  }
+
+  it('**carries the body figure and both ladders onto the published row**', () => {
+    // **The defect this case was written for.** The projection used to be a literal in the merge script, and the literal
+    // had no `body` and no `fusionByWeighting`: the published artifact of 6 November carried 150 rows, none of which held
+    // either, while the blocks computed from the *parts* above them were correct. The gate refused the run with
+    // "0 rows carry a `body-alone` rung against 125 measured" - a whole eighty-minute measurement lost to a missing key.
+    const source = loaded();
+    const projected = publishedRow(source, 'py');
+
+    expect(projected['config']).toBe('py');
+    expect(projected['bodyMap']).toBe(0.44);
+    expect(projected['bodyRank']).toBe(1);
+    expect(projected['bodyDocuments']).toBe(120);
+    expect(projected['fusionByWeighting']).toEqual(source.fusionByWeighting);
+    expect(projected['fusionByK']).toEqual(source.fusionByK);
+    // **And the two figures the gate compares row by row are the same numbers under the names it reads.**
+    const rung = (
+      projected['fusionByWeighting'] as readonly { weighting: string; map: number }[]
+    ).find((at) => at.weighting === 'body-alone');
+    expect(rung?.map).toBe(projected['bodyMap']);
+  });
+
+  it('**keeps an absent arm as a `null` rather than dropping the key**', () => {
+    // A row with no body arm and a row whose body arm scored zero are different facts, and a projection that made the
+    // first indistinguishable from the second would erase the difference the means depend on.
+    const projected = publishedRow(row(8, 0.5, 0.5), 'java');
+    expect('bodyMap' in projected).toBe(true);
+    expect(projected['bodyMap']).toBeNull();
+    expect('fusionByWeighting' in projected).toBe(true);
+    expect(projected['fusionByWeighting']).toEqual([]);
+  });
+
+  it('**publishes the cut metrics and the answer figures at the addresses the documentation quotes**', () => {
+    const source = loaded();
+    const projected = publishedRow(source, 'kt');
+    expect(projected['retrieval']).toEqual(source.retrieval);
+    expect(projected['answer']).toEqual(source.answer);
+    // **Every field a block above the rows is a mean of, present under the name it has on the row.** A reader
+    // recomputing `fileBody.overall` from `rows[].body.map` has to find the same number of rows the block counted.
+    expect(projected['map']).toBe(source.map);
+    expect(projected['skipped']).toBeNull();
+    expect(projected['fallbackMap']).toBe(0.5);
+    expect(projected['bodyMap']).toBe(0.44);
   });
 });

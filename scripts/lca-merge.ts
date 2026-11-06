@@ -27,6 +27,7 @@ import {
   combineParts,
   costModels,
   declarationDensity,
+  publishedRow,
 } from '../packages/intelligence/src/benchmark/lca-merge.js';
 import {
   armComparison,
@@ -949,54 +950,9 @@ function main(): void {
      */
     comparisonWorstCase: comparisonOf(worst, 'worstCase'),
     /** One entry per instance, so that a zero can be explained from the artifact alone. */
-    rows: parts.flatMap((part) =>
-      part.rows.map((row) => ({
-        config: part.config,
-        id: row.id,
-        repo: row.repo,
-        corpusFiles: row.corpusFiles,
-        expectedFiles: row.expectedFiles,
-        expectedOutside: row.expectedOutside,
-        offered: row.offered,
-        outside: row.outside,
-        offeredPaths: row.offeredPaths,
-        /** Where the first fixing file sits in our list, and in the control's. **One number each, same instance.** */
-        answerRank: row.answerRank,
-        /** Every reading of the pool, so a reader can recompute `fileRanking` from the rows. */
-        fileArms: row.fileArms,
-        bm25Rank: row.bm25 === null ? null : row.bm25.rank,
-        bm25Top: row.bm25 === null ? null : row.bm25.ranked,
-        corpusBytes: row.corpusBytes,
-        corpusUnreadable: row.corpusUnreadable,
-        checkoutBytes: row.checkoutBytes,
-        checkoutUnreadable: row.checkoutUnreadable,
-        graphNodes: row.graphNodes,
-        graphEdges: row.graphEdges,
-        bm25Map: row.bm25 === null ? null : row.bm25.map,
-        bm25Documents: row.bm25 === null ? null : row.bm25.documents,
-        /** The second control on the same instance, **so a row can be read against both formulas**. */
-        tfidfMap: row.tfidf === null ? null : row.tfidf.map,
-        tfidfRank: row.tfidf === null ? null : row.tfidf.rank,
-        /** **The fallback on this instance, refused or measured.** The row a mean over the whole run is built from. */
-        fallbackMap: row.fallback === null ? null : row.fallback.map,
-        fallbackRank: row.fallback === null ? null : row.fallback.rank,
-        fallbackDocuments: row.fallback === null ? null : row.fallback.documents,
-        importLines: row.fallback === null ? null : row.fallback.importLines,
-        /** **The product's own ranking on this instance**, fused or declined, and whether both arms took part. */
-        fusionMap: row.fusion === null ? null : row.fusion.map,
-        fusionRank: row.fusion === null ? null : row.fusion.rank,
-        fusionFused: row.fusion === null ? null : row.fusion.fused,
-        /** The declaration arm alone, **so the fusion's contribution is a subtraction inside this row**. */
-        declarationMap: row.declarationMap,
-        declarationRank: row.declarationRank,
-        /** The fused list itself, to the metric's depth: a figure whose order a reader cannot check is an assertion. */
-        rankedPaths: row.rankedPaths,
-        peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
-        elapsedMs: row.cost === null ? null : row.cost.elapsedMs,
-        map: row.map,
-        skipped: row.skipped,
-      })),
-    ),
+    // **The projection is a function of the tested module**, not a literal here: this literal dropped `body` and the
+    // weight ladder from every row of a published run, and nothing but an eighty-minute gate run could have said so.
+    rows: parts.flatMap((part) => part.rows.map((row) => publishedRow(row, part.config))),
   };
 
   const recorded = recordArtifact(OUT, artifact);
