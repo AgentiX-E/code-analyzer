@@ -82,7 +82,9 @@ describe('reciprocalRankFusion', () => {
 
   it('**a negative limit returns nothing rather than everything**', () => {
     // `slice(0, -1)` drops the last element, which would be a silent off-by-one in a caller's loop.
-    expect(reciprocalRankFusion([{ name: 'x', ranked: ['a.py'] }], { limit: -3 }).ranked).toEqual([]);
+    expect(reciprocalRankFusion([{ name: 'x', ranked: ['a.py'] }], { limit: -3 }).ranked).toEqual(
+      [],
+    );
   });
 
   it('**no arms is an empty ranking, not a throw**', () => {

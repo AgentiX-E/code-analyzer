@@ -24,7 +24,7 @@
 import { mean } from './lca-instrument.js';
 import { FILE_AGGREGATION } from '../search/file-ranking.js';
 
-import type { LanguagePart, LcaRowScore } from './lca-merge.js';
+import type { FileArmScore, LanguagePart, LcaRowScore } from './lca-merge.js';
 
 /**
  * The aggregation the product ships, read from the module that owns the choice rather than restated here.
@@ -600,6 +600,16 @@ export interface ArmComparison {
 }
 
 /**
+ * Which of an arm's two figures a comparison is about.
+ *
+ * `pool` is the file ranking the pool's own declarations produce - the instrument the product shipped before iteration
+ * 77, and still the right reading for the question "which aggregation rule", because it is the only reading in which
+ * the aggregation is the sole difference. `fused` is that ranking with the file-level arm fused into it, which is what
+ * the product returns: the same five aggregations, each answering on the ranking a user actually gets.
+ */
+export type FileArmReading = 'pool' | 'fused';
+
+/**
  * What each way of turning declarations into files would have scored, on the instances the run actually measured.
  *
  * **The question this answers is a choice the product made without measuring it.** A declaration ranking becomes a file
@@ -615,12 +625,28 @@ export interface ArmComparison {
  * **`shipped` is an argument with a default rather than a literal read from the rows**, because a run that published no
  * `max` arm at all (an older part merged beside a newer one) has to fail this comparison loudly rather than quietly
  * compare two other arms and label one of them the product.
+ *
+ * **`reading` is an argument for the same reason one step further out.** The artifact publishes this comparison twice -
+ * once on the pool's own ranking and once on the fused ranking the product returns - and the difference between those
+ * two blocks is the fusion's contribution to every aggregation at once. A single block would have to choose, and the
+ * choice would be invisible in the numbers.
  */
 export function armComparison(
   rows: readonly LcaRowScore[],
-  options: { readonly shipped?: string; readonly seed?: number; readonly resamples?: number } = {},
+  options: {
+    readonly shipped?: string;
+    readonly seed?: number;
+    readonly resamples?: number;
+    readonly reading?: FileArmReading;
+  } = {},
 ): ArmComparison[] {
   const shipped = options.shipped ?? SHIPPED_AGGREGATION;
+  const fused = options.reading === 'fused';
+  // **The two readings differ only in which field is read**, and they are read through one pair of accessors so that a
+  // comparison cannot accidentally pair one arm's pool figure with another arm's fused one.
+  const figure = (arm: FileArmScore): number | null => (fused ? arm.fusedMap : arm.map);
+  const position = (arm: FileArmScore): number | null =>
+    fused ? arm.fusedAnswerRank : arm.answerRank;
   const present: string[] = [];
   for (const row of rows) {
     for (const arm of row.fileArms ?? []) {
@@ -638,13 +664,20 @@ export function armComparison(
       if (row.skipped !== null) continue;
       const arm = row.fileArms?.find((entry) => entry.aggregation === aggregation);
       if (arm === undefined) continue;
-      if (arm.answerRank !== null) found += 1;
-      if (arm.answerRank === 1) firstPlaced += 1;
+      const own = figure(arm);
+      // **A row without the requested figure is not a row with a zero.** Rows written before the fused reading existed
+      // are excluded here rather than counted as a ranking that found nothing.
+      if (own === null || typeof own !== 'number') continue;
+      const rank = position(arm);
+      if (rank !== null && rank !== undefined) found += 1;
+      if (rank === 1) firstPlaced += 1;
       const control = row.fileArms?.find((entry) => entry.aggregation === shipped);
       if (control === undefined) continue;
-      arms.push(arm.map);
-      controls.push(control.map);
-      deltas.push(arm.map - control.map);
+      const controlFigure = figure(control);
+      if (controlFigure === null || typeof controlFigure !== 'number') continue;
+      arms.push(own);
+      controls.push(controlFigure);
+      deltas.push(own - controlFigure);
     }
 
     if (deltas.length === 0) {

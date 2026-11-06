@@ -13,11 +13,11 @@
 // baseline table reports **MAP**. Both are computed here from the same ranked list, and the ranked list is published in
 // the row's first ten entries so that a reader can see why a precision column and a MAP column disagree.
 
+import { join } from 'node:path';
+
 import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-
-import { join } from 'node:path';
 
 import {
   averagePrecision,
@@ -32,6 +32,7 @@ import {
 } from './lca-instrument.js';
 import { askCodebase } from '../qa/ask.js';
 import { FILE_AGGREGATIONS, rankFiles } from '../search/file-ranking.js';
+import { reciprocalRankFusion } from '../search/fusion.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
 import type { ArmMetrics, FileArmScore, LcaRowScore } from './lca-merge.js';
@@ -232,12 +233,41 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     if (!universe.has(path)) continue;
     pool.push({ filePath: path, score: entry.score });
   }
+  // **The armature's second reading, and the reason it needs a pool the first one does not.** The product fuses the
+  // pool's own file ranking with the file-level arm (`search/fusion.ts`), so an armature that published only the pool's
+  // figures would describe a ranking nothing ships and every comparison it printed would be a comparison of four
+  // candidates and a control, none of which is the product. Reproducing the fused ranking needs two things the
+  // universe-filtered pool cannot give it:
+  //
+  //   * the declaration ranking **before** the answer space is applied, because reciprocal rank fusion scores a path by
+  //     its *position* in each arm and removing a path shifts the position of every path after it;
+  //   * the file-level arm itself, in the same coordinate system and at its own full length, for the same reason.
+  //
+  // The fusion is then restricted to the answer space, which preserves the order it produced - exactly the sequence the
+  // product's own column was scored from.
+  const armaturePool: PoolEntry[] = result.rankedPool.map((entry) => ({
+    filePath: toCorpusPath(input.checkout, entry.filePath),
+    score: entry.score,
+  }));
+  const fileLevelArm = (input.fileSignals ?? []).map((file) => toCorpusPath(input.checkout, file));
   const fileArms: FileArmScore[] = FILE_AGGREGATIONS.map((aggregation) => {
     const ranked = rankFiles(pool, aggregation).map((file) => file.filePath);
+    const throughTheWholePool = rankFiles(armaturePool, aggregation).map((file) => file.filePath);
+    const fused = restrictToUniverse(
+      [
+        ...reciprocalRankFusion([
+          { name: 'declarations', ranked: throughTheWholePool },
+          { name: 'file-level', ranked: fileLevelArm },
+        ]).ranked,
+      ],
+      universe,
+    );
     return {
       aggregation,
       map: averagePrecision(ranked, input.row.changed_files, MAP_DEPTH),
       answerRank: firstRelevantRank(ranked.slice(0, MAP_DEPTH), input.row.changed_files),
+      fusedMap: averagePrecision(fused, input.row.changed_files, MAP_DEPTH),
+      fusedAnswerRank: firstRelevantRank(fused.slice(0, MAP_DEPTH), input.row.changed_files),
     };
   });
 
@@ -282,6 +312,7 @@ export async function measureInstance(input: MeasureInput): Promise<LcaRowScore>
     // **The declaration arm alone**, so the fusion's net contribution is a paired subtraction on the same rows rather
     // than a comparison between two runs of two commits.
     declarationMap: averagePrecision(declarations, input.row.changed_files, MAP_DEPTH),
+    declarationRank: firstRelevantRank(declarations.slice(0, MAP_DEPTH), input.row.changed_files),
     corpusBytes: size.bytes,
     corpusUnreadable: size.unreadable,
     checkoutBytes: walked.bytes,

@@ -60,6 +60,7 @@ function row(id: number, precision: number, recall: number, cuts = [1, 3, 5, 10]
     fallback: null,
     fusion: null,
     declarationMap: null,
+    declarationRank: null,
     rankedPaths: [],
     skipped: null,
     fileArms: null,

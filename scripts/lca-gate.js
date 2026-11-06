@@ -172,40 +172,49 @@ function main() {
   const guard = (condition, message) => {
     if (!condition) invariants.push(message);
   };
-  guard(
+  // **The sample family owns its own list of failures.** The summary line for this family used to print
+  // `invariants.length`, which is every failure the gate collected anywhere - so a run whose arithmetic was exact
+  // printed ✗ beside `measured + refused = attempted` because the armature had failed eight hundred lines earlier, and a
+  // reader looking at that row would have been pointed at the wrong number. A status column is a claim about the claim
+  // beside it, so each family collects its own failures and the summary reports the list it is about.
+  const sampleFailures = [];
+  const sampleGuard = (condition, message) => {
+    if (!condition) sampleFailures.push(message);
+  };
+  sampleGuard(
     typeof sample?.attempted === 'number' &&
       typeof sample?.measured === 'number' &&
       typeof sample?.refused === 'number',
     'sample: attempted / measured / refused are absent, so the figure does not say what it was computed over',
   );
   if (typeof sample?.attempted === 'number') {
-    guard(
+    sampleGuard(
       sample.attempted === sample.measured + sample.refused,
       `sample: attempted ${String(sample.attempted)} is not measured plus refused ` +
         `(${String(sample.measured)} + ${String(sample.refused)})`,
     );
-    guard(
+    sampleGuard(
       sample.planned >= sample.attempted,
       `sample: planned ${String(sample.planned)} is below attempted ${String(sample.attempted)}`,
     );
-    guard(
+    sampleGuard(
       typeof sample.ofPlanned === 'number' && sample.ofPlanned > 0,
       'sample: ofPlanned is absent or zero, so the run saw none of the protocol',
     );
   }
-  guard(
+  sampleGuard(
     typeof control?.rows === 'number' &&
       typeof sample?.measured === 'number' &&
       control.rows >= sample.measured,
     `baseline: the control scored ${String(control?.rows)} rows against ${String(sample?.measured)} measured - a ` +
       'control that skips instances is the bias it exists to remove',
   );
-  guard(
+  sampleGuard(
     typeof paired?.rows === 'number' && paired.rows === sample?.measured,
     `paired: ${String(paired?.rows)} paired rows against ${String(sample?.measured)} measured - every measured ` +
       'instance must be paired, or the comparison is over a different sample than the figure',
   );
-  guard(
+  sampleGuard(
     Array.isArray(at(record, ['stratified'])) && at(record, ['stratified']).length > 0,
     'stratified: absent - the sample’s difficulty cannot be read without it',
   );
@@ -245,41 +254,62 @@ function main() {
   //
   // `fileRanking` publishes what the same pool would have scored under five readings of a file. Four of them are
   // candidates and one of them is the product, so the armature has to be checked against the product before any
-  // candidate is read: **the shipped arm's own delta must be zero, and on every row the shipped arm's average precision
-  // and answer position must be the row's own.** An armature that measured five rules without one of them being the
-  // shipped rule would publish four differences between candidates and call one of them the control.
+  // candidate is read: **the shipped arm's own delta must be zero, and on every row the shipped arm's figures must be
+  // the row's own.** An armature that measured five rules without one of them being the shipped rule would publish four
+  // differences between candidates and call one of them the control.
+  //
+  // **Twice, because the product now has two arms.** Since iteration 77 the figure the product publishes is a
+  // reciprocal-rank fusion of the pool's file ranking with the file-level one, so the armature publishes both readings:
+  // `arms` is that fusion applied to each of the five aggregations, and `poolOnly` is the same five without it.
+  //   * `arms` is checked against `row.map` and `row.answerRank` - the product's own column, which is fused;
+  //   * `poolOnly` is checked against `row.declarationMap` and `row.declarationRank` - the pool alone, which is the
+  //     ablation the fusion is measured against.
+  // A gate that checked only the second would pass an artifact whose fusion had silently been left out of the column,
+  // and a gate that checked only the first would stop being able to say which aggregation rule the product ships.
   const fileRanking = at(record, ['fileRanking']);
   const arms = Array.isArray(fileRanking?.arms) ? fileRanking.arms : [];
+  const poolArms = Array.isArray(fileRanking?.poolOnly) ? fileRanking.poolOnly : [];
   guard(
     typeof fileRanking?.shipped === 'string' && arms.length > 1,
     'fileRanking: absent, or holds fewer than two readings - an armature with one arm measures nothing',
   );
-  const shippedArm = arms.find((arm) => arm?.aggregation === fileRanking?.shipped);
   guard(
-    shippedArm !== undefined,
-    `fileRanking: the shipped aggregation ${String(fileRanking?.shipped)} is not among the arms, so nothing in this ` +
-      'block is a comparison against the product',
+    poolArms.length === arms.length,
+    `fileRanking.poolOnly: ${String(poolArms.length)} readings against ${String(arms.length)} in arms - the two blocks ` +
+      'are the same aggregations read with and without the fusion, so they cannot disagree about which were read',
   );
-  if (shippedArm !== undefined) {
+  const checkArms = (block, expectedRows, label) => {
+    const shippedArm = block.find((arm) => arm?.aggregation === fileRanking?.shipped);
     guard(
-      shippedArm.delta === 0 && shippedArm.wins === 0 && shippedArm.losses === 0,
-      `fileRanking.${String(shippedArm.aggregation)}: compared with itself it reports delta ` +
-        `${String(shippedArm.delta)}, ${String(shippedArm.wins)} wins and ${String(shippedArm.losses)} losses`,
+      shippedArm !== undefined,
+      `${label}: the shipped aggregation ${String(fileRanking?.shipped)} is not among the arms, so nothing in this ` +
+        'block is a comparison against the product',
     );
-    guard(
-      shippedArm.rows === paired?.rows,
-      `fileRanking.${String(shippedArm.aggregation)}: ${String(shippedArm.rows)} paired rows against ` +
-        `${String(paired?.rows)} on the figure, so the armature is about a different sample`,
-    );
-  }
-  for (const entry of arms) {
-    guard(
-      typeof entry?.aggregation === 'string' &&
-        typeof entry?.rows === 'number' &&
-        typeof entry?.map === 'number',
-      `fileRanking: an arm (${String(entry?.aggregation)}) is missing its name, its row count or its mean`,
-    );
-  }
+    if (shippedArm !== undefined) {
+      guard(
+        shippedArm.delta === 0 && shippedArm.wins === 0 && shippedArm.losses === 0,
+        `${label}.${String(shippedArm.aggregation)}: compared with itself it reports delta ` +
+          `${String(shippedArm.delta)}, ${String(shippedArm.wins)} wins and ${String(shippedArm.losses)} losses`,
+      );
+      guard(
+        shippedArm.rows === expectedRows,
+        `${label}.${String(shippedArm.aggregation)}: ${String(shippedArm.rows)} paired rows against ` +
+          `${String(expectedRows)} on the figure, so the armature is about a different sample`,
+      );
+    }
+    for (const entry of block) {
+      guard(
+        typeof entry?.aggregation === 'string' &&
+          typeof entry?.rows === 'number' &&
+          typeof entry?.map === 'number',
+        `${label}: an arm (${String(entry?.aggregation)}) is missing its name, its row count or its mean`,
+      );
+    }
+  };
+  // **The fused block is paired against the fused figure**, which is the column `paired` compares with the control; the
+  // pool block is paired against the pool figure, which exists on every row the analysis measured.
+  checkArms(arms, paired?.rows, 'fileRanking.arms');
+  checkArms(poolArms, sample?.measured, 'fileRanking.poolOnly');
   // **Per row, because a mean can agree with a mean while the rows behind them do not.** This is the check that would
   // have caught the armature reading a collapsed pool: every file would then score identically under all five arms and
   // the figures would agree, so the assertion is the shipped arm's *per-row* figures rather than its mean alone.
@@ -291,10 +321,17 @@ function main() {
     if (shipped === undefined) continue;
     checked += 1;
     guard(
-      Math.abs(shipped.map - row.map) < 1e-9 && shipped.answerRank === row.answerRank,
-      `rows[${String(row.id)}]: the shipped arm reads ${String(shipped.map)}/${String(shipped.answerRank)} where the ` +
-        `product published ${String(row.map)}/${String(row.answerRank)} - the armature is not reading the pool the ` +
-        'product ranked',
+      Math.abs(shipped.fusedMap - row.map) < 1e-9 && shipped.fusedAnswerRank === row.answerRank,
+      `rows[${String(row.id)}]: the shipped arm fused with the file-level arm reads ` +
+        `${String(shipped.fusedMap)}/${String(shipped.fusedAnswerRank)} where the product published ` +
+        `${String(row.map)}/${String(row.answerRank)} - the armature is not reading the pool the product ranked`,
+    );
+    guard(
+      Math.abs(shipped.map - row.declarationMap) < 1e-9 &&
+        shipped.answerRank === row.declarationRank,
+      `rows[${String(row.id)}]: the shipped arm on the pool alone reads ${String(shipped.map)}/` +
+        `${String(shipped.answerRank)} where the product published ${String(row.declarationMap)}/` +
+        `${String(row.declarationRank)} - the armature and the ablation are reading different pools`,
     );
   }
   guard(
@@ -598,7 +635,8 @@ function main() {
         `${String(sample.planned)} planned · worst case ` +
         `${typeof sample.worstCaseMap === 'number' ? sample.worstCaseMap.toFixed(4) : 'none'} · standardised ` +
         `${typeof sample.standardised?.value === 'number' ? sample.standardised.value.toFixed(4) : 'none'} | ` +
-        `measured + refused = attempted | ${invariants.length === 0 ? '✓' : '✗'} |`
+        `measured + refused = attempted, every measured row paired | ` +
+        `${sampleFailures.length === 0 ? '✓' : '✗'} |`
       : '| sample | absent | measured + refused = attempted | ✗ |';
   const pairedLine =
     typeof paired?.meanDelta === 'number'
@@ -624,7 +662,7 @@ function main() {
         `${diagnosis.rows === paired?.rows ? '✓' : '✗'} |`
       : '| answer rank | absent | same rows as the pairing | ✗ |';
   const rows = [];
-  const failures = [...invariants];
+  const failures = [...sampleFailures, ...invariants];
   rows.push(fitLine.line);
   if (fitLine.failure) failures.push(fitLine.failure);
   const fallbackLine =
@@ -661,16 +699,25 @@ function main() {
   // **One line per reading of the pool**, because the block is a comparison and a comparison a reader cannot see is a
   // number with a name. The shipped arm is marked, since it is the control rather than a candidate - and a candidate
   // that loses is a ✓ here, because losing is a finding rather than a failure of the gate.
-  for (const entry of arms) {
-    const mark = entry?.aggregation === fileRanking?.shipped ? ' (shipped)' : '';
-    const delta = typeof entry?.delta === 'number' ? entry.delta : null;
-    rows.push(
-      `| file aggregation: ${String(entry?.aggregation)}${mark} | ` +
-        `${typeof entry?.map === 'number' ? entry.map.toFixed(4) : 'none'} vs ` +
-        `${typeof entry?.control === 'number' ? entry.control.toFixed(4) : 'none'} · Δ ` +
-        `${delta === null ? 'none' : delta.toFixed(4)} · first ${String(entry?.firstPlaced)} | ` +
-        `paired, ${String(entry?.rows)} rows | ${delta === null ? '✗' : '✓'} |`,
-    );
+  //
+  // **Both readings of every arm**, because the artifact publishes both and a comparison a reader cannot see is a number
+  // with a name. The fused row is what a user is handed; the pool row is the same aggregation without the file-level
+  // arm, which is the only reading in which the aggregation is the sole difference.
+  for (const [label, block] of [
+    ['file aggregation', arms],
+    ['file aggregation, pool alone', poolArms],
+  ]) {
+    for (const entry of block) {
+      const mark = entry?.aggregation === fileRanking?.shipped ? ' (shipped)' : '';
+      const delta = typeof entry?.delta === 'number' ? entry.delta : null;
+      rows.push(
+        `| ${label}: ${String(entry?.aggregation)}${mark} | ` +
+          `${typeof entry?.map === 'number' ? entry.map.toFixed(4) : 'none'} vs ` +
+          `${typeof entry?.control === 'number' ? entry.control.toFixed(4) : 'none'} · Δ ` +
+          `${delta === null ? 'none' : delta.toFixed(4)} · first ${String(entry?.firstPlaced)} | ` +
+          `paired, ${String(entry?.rows)} rows | ${delta === null ? '✗' : '✓'} |`,
+      );
+    }
   }
   for (const [name, path, floor, ceiling, optional] of RULES) {
     const { row: line, failure } = row(name, at(record, path), floor, ceiling, optional);

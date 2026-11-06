@@ -173,17 +173,19 @@ export async function retrieveContext(
   const fusedFiles =
     options.fileSignals === undefined
       ? rankedFiles
-      : [...reciprocalRankFusion(
-          [
-            { name: 'declarations', ranked: rankedFiles },
-            { name: 'file-level', ranked: options.fileSignals.ranked },
-          ],
-          // **No cut.** The union of the two arms is the ranking, and truncating it to the declaration list's length
-          // would discard exactly the files the second arm was supplied to promote - on a checkout where the pool
-          // reaches eight files and the file-level arm reaches a hundred, a cut at eight restores the recall the
-          // fusion exists to repair. The caller's own depth (`retrieveLimit`) already bounded both arms.
-          options.fileSignals.k === undefined ? {} : { k: options.fileSignals.k },
-        ).ranked];
+      : [
+          ...reciprocalRankFusion(
+            [
+              { name: 'declarations', ranked: rankedFiles },
+              { name: 'file-level', ranked: options.fileSignals.ranked },
+            ],
+            // **No cut.** The union of the two arms is the ranking, and truncating it to the declaration list's length
+            // would discard exactly the files the second arm was supplied to promote - on a checkout where the pool
+            // reaches eight files and the file-level arm reaches a hundred, a cut at eight restores the recall the
+            // fusion exists to repair. The caller's own depth (`retrieveLimit`) already bounded both arms.
+            options.fileSignals.k === undefined ? {} : { k: options.fileSignals.k },
+          ).ranked,
+        ];
   return {
     blocks,
     rankedFiles,
@@ -235,8 +237,16 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
   const options = input.options ?? {};
   const notes: string[] = [];
 
-  const { blocks, rankedFiles, fusedFiles, rankedPool, candidates, rerankApplied, rerankReason, scope } =
-    await retrieveContext(input);
+  const {
+    blocks,
+    rankedFiles,
+    fusedFiles,
+    rankedPool,
+    candidates,
+    rerankApplied,
+    rerankReason,
+    scope,
+  } = await retrieveContext(input);
   if (rerankApplied) notes.push('the fused list was reordered by a listwise rerank');
   else if (rerankReason) notes.push(`the fused list kept its order: ${rerankReason}`);
   if (scope) {

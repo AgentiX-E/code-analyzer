@@ -156,6 +156,14 @@ export interface LcaRowScore {
    */
   readonly declarationMap: number | null;
   /**
+   * Where the first fixing file sits **in that same declaration-only ranking**.
+   *
+   * The armature in `fileArms` reproduces the pool's ranking, and a reproduction that is checked on average precision
+   * alone can be right about the figure and wrong about the order - two lists can share a mean precision while disagreeing
+   * about which file comes first. This is the armature's second half, and it is the row's own column for the pool.
+   */
+  readonly declarationRank: number | null;
+  /**
    * The fused ranking, in full and to the metric's depth, **in the corpus's coordinate system**.
    *
    * Published rather than kept because two questions the artifact asks cannot be answered from a ten-entry preview: does
@@ -204,6 +212,19 @@ export interface FileArmScore {
   readonly map: number;
   /** Where the first fixing file sits in it, or `null` when the file is not in the ranking at all. */
   readonly answerRank: number | null;
+  /**
+   * The same reading of the pool **with the file-level arm fused into it**, which is the ranking the product returns.
+   *
+   * **Two readings, because the product has two arms and only one of them is the pool.** After iteration 77 the figure
+   * the product publishes is a reciprocal-rank fusion of this arm with the file-level one, so an armature that published
+   * only the pool's own average precision would describe a ranking nothing ships - and every comparison it printed
+   * would be a comparison of four candidates and a control, none of which is the product. `map` stays the pool's figure
+   * (it is the ablation of the fusion, and the aggregation question can be asked without it), and this is the figure the
+   * product's own column must equal on every row.
+   */
+  readonly fusedMap: number;
+  /** Where the first fixing file sits in the fused ranking, or `null` when it is not in it. */
+  readonly fusedAnswerRank: number | null;
 }
 
 /** One language split, as one job measured it. */
@@ -303,6 +324,7 @@ export function skippedRow(input: {
     fallback: input.fallback ?? null,
     fusion: input.fusion ?? null,
     declarationMap: null,
+    declarationRank: null,
     rankedPaths: [],
     skipped: input.because,
     fileArms: null,

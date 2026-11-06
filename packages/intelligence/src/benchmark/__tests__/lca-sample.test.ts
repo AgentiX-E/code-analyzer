@@ -46,6 +46,7 @@ function row(input: {
   /** The fused figure. **Absent by default, because a fixture that invented one would test its own arithmetic.** */
   fusion?: number | null;
   declarationMap?: number | null;
+  declarationRank?: number | null;
 }): LcaRowScore {
   return {
     id: input.id,
@@ -104,6 +105,7 @@ function row(input: {
             ranked: [],
           },
     declarationMap: input.declarationMap ?? null,
+    declarationRank: input.declarationRank ?? null,
     rankedPaths: [],
     tfidf:
       input.tfidf === undefined || input.tfidf === null
@@ -765,21 +767,33 @@ describe('pairedByLanguage', () => {
 // The file aggregation armature
 // ---------------------------------------------------------------------------
 
-/** A row carrying the same pool read by each aggregation, with `max` standing in for the shipped arm. */
+/**
+ * A row carrying the same pool read by each aggregation, with `max` standing in for the shipped arm.
+ *
+ * Each entry is `[pool figure, pool position, fused figure?, fused position?]`. **The fused pair is optional and defaults
+ * to the pool's**, which is what the two readings are before the file-level arm has anything to contribute - a fixture in
+ * which the fusion is invisible is the honest default, and a case about the fused block passes the two figures it means.
+ */
 function armRow(
   id: number,
-  figures: Readonly<Record<string, readonly [number, number | null]>>,
+  figures: Readonly<Record<string, readonly [number, number | null, number?, number?]>>,
 ): LcaRowScore {
   return row({
     id,
     corpusFiles: 100,
-    map: figures['max']?.[0] ?? 0,
+    map: figures['max']?.[2] ?? figures['max']?.[0] ?? 0,
     bm25: 0.1,
-    fileArms: Object.entries(figures).map(([aggregation, [map, answerRank]]) => ({
-      aggregation,
-      map,
-      answerRank,
-    })),
+    declarationMap: figures['max']?.[0] ?? 0,
+    declarationRank: figures['max']?.[1] ?? null,
+    fileArms: Object.entries(figures).map(
+      ([aggregation, [map, answerRank, fusedMap, fusedRank]]) => ({
+        aggregation,
+        map,
+        answerRank,
+        fusedMap: fusedMap ?? map,
+        fusedAnswerRank: fusedRank ?? answerRank,
+      }),
+    ),
   });
 }
 
@@ -919,5 +933,91 @@ describe('the file aggregation armature', () => {
     // **And a reading that is not shipped now carries a difference against it**, which is the whole point of a default
     // that follows the product rather than a constant in this file.
     expect(armComparison(rows).find((arm) => arm.aggregation === 'max')!.delta).toBeLessThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The file aggregation armature, on the ranking the product returns
+// ---------------------------------------------------------------------------
+
+/**
+ * **The product's figure is fused, so the armature has to be readable on the fused ranking.**
+ *
+ * Iteration 77 made the product's file ranking a reciprocal-rank fusion of the pool's ranking with the file-level arm.
+ * The armature kept publishing the pool's figures alone, and the consequence was not a wrong number in a table: it was
+ * that the shipped arm could no longer reproduce the row it claimed to control - the gate refused 78 rows of a real run
+ * with *"the armature is not reading the pool the product ranked"*. The frozen case there is that the two readings are
+ * two readings: same rows, same arms, different field, and asking one question cannot answer the other.
+ */
+describe('the file aggregation armature on the fused ranking', () => {
+  const CONTROL = { shipped: 'max' } as const;
+
+  it('reads the fused figure when asked for it and the pool’s when not', () => {
+    const rows = [
+      armRow(1, { max: [0.2, 4, 0.5, 2], sum: [0.6, 1, 0.6, 3] }),
+      armRow(2, { max: [0.4, 2, 0.1, 6], sum: [0.8, 1, 0.2, 5] }),
+    ];
+    const fused = armComparison(rows, { ...CONTROL, reading: 'fused' });
+    const pool = armComparison(rows, { ...CONTROL, reading: 'pool' });
+    expect(fused.find((arm) => arm.aggregation === 'sum')!.map).toBe(0.4);
+    expect(pool.find((arm) => arm.aggregation === 'sum')!.map).toBe(0.7);
+    // **The same rows, in the same order, with the same control** - the reading is the only thing that changed.
+    expect(fused.map((arm) => arm.aggregation)).toEqual(pool.map((arm) => arm.aggregation));
+    expect(fused.every((arm) => arm.rows === 2)).toBe(true);
+    expect(pool.every((arm) => arm.rows === 2)).toBe(true);
+  });
+
+  it('pairs the shipped arm against itself in the fused reading, which is the block’s own control', () => {
+    const fused = armComparison([armRow(1, { max: [0.2, 4, 0.5, 2], sum: [0.2, 4, 0.9, 1] })], {
+      ...CONTROL,
+      reading: 'fused',
+    });
+    const shipped = fused.find((arm) => arm.aggregation === 'max')!;
+    expect(shipped.delta).toBe(0);
+    expect(shipped.ties).toBe(1);
+    // And the candidate it disagrees with is scored on the fused figure, not on the pool's.
+    expect(fused.find((arm) => arm.aggregation === 'sum')!.delta).toBe(0.4);
+  });
+
+  it('answers a different question from the pool reading, and both answers are published', () => {
+    // **The finding this case freezes**: a reading that wins on the pool can lose once the file-level arm is fused in,
+    // because the fusion rewards a path the file-level arm also ranked and that reward is not evenly distributed over
+    // the pool's ties. A single block would have had to choose which of these two statements to make.
+    const rows = [armRow(1, { max: [0.2, 3, 0.8, 1], sum: [0.6, 1, 0.3, 4] })];
+    const pool = armComparison(rows, { ...CONTROL, reading: 'pool' });
+    const fused = armComparison(rows, { ...CONTROL, reading: 'fused' });
+    expect(pool.find((arm) => arm.aggregation === 'sum')!.delta).toBeGreaterThan(0);
+    expect(fused.find((arm) => arm.aggregation === 'sum')!.delta).toBeLessThan(0);
+  });
+
+  it('counts a row’s leading position from the fused ranking, not from the pool’s', () => {
+    const fused = armComparison([armRow(1, { max: [0.2, 4, 0.9, 1], sum: [0.2, 4, 0.2, 7] })], {
+      ...CONTROL,
+      reading: 'fused',
+    });
+    expect(fused.find((arm) => arm.aggregation === 'max')!.firstPlaced).toBe(1);
+    expect(fused.find((arm) => arm.aggregation === 'sum')!.firstPlaced).toBe(0);
+    expect(fused.find((arm) => arm.aggregation === 'sum')!.found).toBe(1);
+  });
+
+  it('excludes a row that carries no fused figure rather than reading its absence as a zero', () => {
+    // **A row from a part written before the fused reading existed.** Counting it as a ranking that found nothing would
+    // publish a fusion that had never been measured as a fusion that lost, which is the defect the whole armature is
+    // meant to prevent one level down.
+    const legacy = {
+      ...armRow(2, { sum: [0.9, 1] }),
+      fileArms: [{ aggregation: 'sum', map: 0.9, answerRank: 1 }],
+    } as unknown as LcaRowScore;
+    const fused = armComparison(
+      [armRow(1, { max: [0.2, 2, 0.3, 1], sum: [0.4, 1, 0.4, 2] }), legacy],
+      {
+        ...CONTROL,
+        reading: 'fused',
+      },
+    );
+    const sum = fused.find((arm) => arm.aggregation === 'sum')!;
+    expect(sum.rows).toBe(1);
+    expect(sum.found).toBe(1);
+    expect(sum.map).toBe(0.4);
   });
 });

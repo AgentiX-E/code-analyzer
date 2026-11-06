@@ -306,6 +306,43 @@ describe('measureInstance — the fused arm', () => {
     expect(scored.declarationMap).toBe(scored.map);
   });
 
+  it('**the armature reproduces both of the row’s columns**, which is what the gate compares row by row', async () => {
+    // **The defect this case was written for.** The armature published only the pool's figures while the row's `map`
+    // became the fused one, so a real run's gate refused 78 rows with *"the shipped arm reads 0.0714/14 where the
+    // product published 0.2/5"* - not because a figure was wrong but because two different rankings had been given one
+    // name. Both readings are now computed here, and the shipped arm has to be the row on both of them.
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({
+      row: row(['src/retry.py']),
+      checkout: root,
+      allFiles,
+      fileSignals: ['src/http.py'],
+    });
+    const shipped = scored.fileArms?.find((arm) => arm.aggregation === FILE_AGGREGATION);
+    expect(shipped).toBeDefined();
+    expect(shipped?.fusedMap).toBe(scored.map);
+    expect(shipped?.fusedAnswerRank).toBe(scored.answerRank);
+    expect(shipped?.map).toBe(scored.declarationMap);
+    expect(shipped?.answerRank).toBe(scored.declarationRank);
+    // **And the two readings differ on this fixture**, so neither equality above is vacuous: the arm the parent handed
+    // in changes the order, which is the only reason there are two columns to compare.
+    expect(shipped?.fusedMap).not.toBe(shipped?.map);
+  });
+
+  it('**computes the same fused figure for every aggregation when the caller hands in no arm**', async () => {
+    // A fusion of one arm is that arm, so with no file-level ranking every aggregation's fused reading must equal its
+    // own pool reading - which is how an armature that silently dropped the second arm would be caught.
+    const { root, allFiles } = checkout();
+    const scored = await measureInstance({ row: row(['src/retry.py']), checkout: root, allFiles });
+    expect(scored.fileArms?.length).toBeGreaterThan(1);
+    for (const arm of scored.fileArms ?? []) {
+      expect(arm.fusedMap).toBe(arm.map);
+      expect(arm.fusedAnswerRank).toBe(arm.answerRank);
+    }
+    expect(scored.map).toBe(scored.declarationMap);
+    expect(scored.answerRank).toBe(scored.declarationRank);
+  });
+
   it('**leaves the fused column to the parent**, because a row does not know whether its own analysis survived', async () => {
     const { root, allFiles } = checkout();
     const scored = await measureInstance({ row: row(['src/retry.py']), checkout: root, allFiles });

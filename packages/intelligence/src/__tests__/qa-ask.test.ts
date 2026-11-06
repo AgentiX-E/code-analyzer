@@ -1013,7 +1013,8 @@ describe('file signals as a second arm', () => {
       },
     });
     expect(context.fusedFiles.length).toBe(
-      new Set([...context.rankedFiles, '/repo/a.py', '/repo/b.py', '/repo/c.py', '/repo/d.py']).size,
+      new Set([...context.rankedFiles, '/repo/a.py', '/repo/b.py', '/repo/c.py', '/repo/d.py'])
+        .size,
     );
     expect(context.fusedFiles.length).toBe(new Set([...context.fusedFiles]).size);
   });

@@ -169,7 +169,11 @@ function baseRecord(): Record<string, unknown> {
       configuration: { document: 'the path followed by the module names of its import statements' },
       coverage: { rows: 3, attempted: 3, share: 1, importLines: 12 },
       overall: { value: 0.3, rows: 3 },
-      degraded: { map: 0.3333, rows: 3, because: 'a measured row contributes its analysis figure, a refused one this' },
+      degraded: {
+        map: 0.3333,
+        rows: 3,
+        because: 'a measured row contributes its analysis figure, a refused one this',
+      },
       cost: { rows: 3, totalMs: 1_200, meanMs: 400, filesRead: 5_020 },
       byLanguage: { kt: { attempted: 3, value: 0.3, rows: 3 } },
       pairedVsControl: {
@@ -237,7 +241,16 @@ function baseRecord(): Record<string, unknown> {
     // other and none of them with the product, and the equality below is what tells the two apart.
     fileRanking: {
       shipped: 'max',
-      arms: [arm('max', 0, 0, 0, 1), arm('sum', 0.05, 1, 1, 2), arm('top2', -0.05, 0, 1, 1)],
+      arms: [
+        arm('max', 0, 0, 0, 1, 0.4),
+        arm('sum', 0.05, 1, 1, 1, 0.4),
+        arm('top2', -0.05, 0, 2, 1, 0.4),
+      ],
+      poolOnly: [
+        arm('max', 0, 0, 0, 2, 0.35),
+        arm('sum', 0.05, 1, 1, 1, 0.35),
+        arm('top2', 0, 0, 0, 1, 0.35),
+      ],
     },
     rows: [
       {
@@ -254,10 +267,11 @@ function baseRecord(): Record<string, unknown> {
         fusionMap: 0.5,
         fusionFused: true,
         declarationMap: 0.4,
+        declarationRank: 2,
         fileArms: [
-          { aggregation: 'max', map: 0.5, answerRank: 1 },
-          { aggregation: 'sum', map: 0.6, answerRank: 1 },
-          { aggregation: 'top2', map: 0.45, answerRank: 1 },
+          { aggregation: 'max', map: 0.4, answerRank: 2, fusedMap: 0.5, fusedAnswerRank: 1 },
+          { aggregation: 'sum', map: 0.6, answerRank: 1, fusedMap: 0.7, fusedAnswerRank: 1 },
+          { aggregation: 'top2', map: 0.45, answerRank: 1, fusedMap: 0.45, fusedAnswerRank: 1 },
         ],
       },
       {
@@ -274,10 +288,11 @@ function baseRecord(): Record<string, unknown> {
         fusionMap: 0.3,
         fusionFused: true,
         declarationMap: 0.3,
+        declarationRank: 3,
         fileArms: [
-          { aggregation: 'max', map: 0.3, answerRank: 3 },
-          { aggregation: 'sum', map: 0.2, answerRank: 4 },
-          { aggregation: 'top2', map: 0.25, answerRank: 3 },
+          { aggregation: 'max', map: 0.3, answerRank: 3, fusedMap: 0.3, fusedAnswerRank: 3 },
+          { aggregation: 'sum', map: 0.2, answerRank: 4, fusedMap: 0.2, fusedAnswerRank: 4 },
+          { aggregation: 'top2', map: 0.25, answerRank: 3, fusedMap: 0.25, fusedAnswerRank: 3 },
         ],
       },
       {
@@ -294,6 +309,7 @@ function baseRecord(): Record<string, unknown> {
         fusionMap: 0.2,
         fusionFused: false,
         declarationMap: null,
+        declarationRank: null,
         fileArms: null,
       },
     ],
@@ -307,12 +323,13 @@ function arm(
   wins: number,
   losses: number,
   firstPlaced: number,
+  control = 0.4,
 ): Record<string, unknown> {
   return {
     aggregation,
     rows: 2,
-    map: 0.4 + delta,
-    control: 0.4,
+    map: control + delta,
+    control,
     delta,
     wins,
     losses,
@@ -499,7 +516,7 @@ describe('lca gate', () => {
       mutated((record) => {
         const rows = record['rows'] as Record<string, unknown>[];
         const arms = rows[1]!['fileArms'] as Record<string, unknown>[];
-        arms[0]!['map'] = 0.31;
+        arms[0]!['fusedMap'] = 0.31;
       }),
     );
     expect(run.status).toBe(1);
@@ -525,6 +542,65 @@ describe('lca gate', () => {
     );
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('fileRanking');
+  });
+
+  it('refuses an armature whose pool reading disagrees with the row’s own ablation', () => {
+    // **The second equality, and the one iteration 77 needed.** The per-row check used to compare the pool's figures
+    // against `map` - which is now the fused figure - so a correct armature failed on 78 rows of a real run. Both
+    // readings are compared now, and this case proves the pool side is still checked rather than dropped.
+    const run = runGate(
+      mutated((record) => {
+        const rows = record['rows'] as Record<string, unknown>[];
+        const arms = rows[0]!['fileArms'] as Record<string, unknown>[];
+        arms[0]!['map'] = 0.44;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('the armature and the ablation are reading different pools');
+  });
+
+  it('refuses an armature whose pool ranking leads with a different file than the ablation does', () => {
+    // **A mean can be right while the order is wrong**, so the position is checked beside the figure on both readings.
+    const run = runGate(
+      mutated((record) => {
+        const rows = record['rows'] as Record<string, unknown>[];
+        const arms = rows[0]!['fileArms'] as Record<string, unknown>[];
+        arms[0]!['answerRank'] = 1;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('different pools');
+  });
+
+  it('refuses an artifact that publishes one reading of the armature and not the other', () => {
+    // **A block that quietly disappeared is a comparison a reader cannot make**: five aggregations fused, five without
+    // the fusion, and an artifact holding only one of the two would leave the reader unable to say which figure came
+    // from which ranking.
+    const run = runGate(
+      mutated((record) => {
+        delete (record['fileRanking'] as Record<string, unknown>)['poolOnly'];
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('fileRanking.poolOnly');
+  });
+
+  it('marks the sample row by its own failures rather than by every failure in the artifact', () => {
+    // **The display defect this case freezes.** The sample line printed ✗ whenever anything anywhere had failed, so a
+    // run whose arithmetic was exact showed a red row beside `measured + refused = attempted` because the armature had
+    // failed - and a reader would have been pointed at the wrong number. The row's ✗ must be about the row's claim.
+    const run = runGate(
+      mutated((record) => {
+        const rows = record['rows'] as Record<string, unknown>[];
+        const arms = rows[0]!['fileArms'] as Record<string, unknown>[];
+        arms[0]!['fusedMap'] = 0.31;
+      }),
+    );
+    expect(run.status).toBe(1);
+    const sampleLine = run.stdout.split('\n').find((line) => line.startsWith('| sample |'));
+    expect(sampleLine).toBeDefined();
+    expect(sampleLine).toContain('measured + refused = attempted');
+    expect(sampleLine?.endsWith('✓ |')).toBe(true);
   });
 
   it('refuses a record whose attempted count is not measured plus refused', () => {

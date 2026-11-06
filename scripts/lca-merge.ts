@@ -330,7 +330,17 @@ function main(): void {
   // **The conversion from declarations to files, measured rather than chosen.** Five readings of the same pool, paired
   // on the same rows, with the shipped one first - and its own delta is zero by construction, which is the armature's
   // wiring check rather than a result.
-  const fileRanking = { shipped: FILE_AGGREGATION, arms: armComparison(allRows) };
+  //
+  // **Twice, because the product has two arms.** `arms` is each aggregation's ranking fused with the file-level arm,
+  // which is what a user is handed and therefore what the row's own `map` was scored from; `poolOnly` is the same five
+  // readings without the fusion, which is the only comparison in which the aggregation is the sole difference and the
+  // ablation the fusion's own contribution is measured against. One block would have to choose between those questions,
+  // and the choice would be invisible in the numbers.
+  const fileRanking = {
+    shipped: FILE_AGGREGATION,
+    arms: armComparison(allRows, { reading: 'fused' }),
+    poolOnly: armComparison(allRows, { reading: 'pool' }),
+  };
   const worst = worstCaseMap(allRows);
   // **Our mean restricted to the rows the control also scored**, because a paired difference printed beside an unpaired
   // mean invites the reader to subtract two numbers measured on different sets.
@@ -678,8 +688,12 @@ function main(): void {
     fusion: {
       name: 'declarations + path/imports (reciprocal rank fusion)',
       configuration: {
-        fusion: 'reciprocal rank fusion, unweighted, k = 60 (Cormack, Clarke and Büttcher, SIGIR 2009)',
-        arms: ['the declaration pool, collapsed to files by the shipped aggregation', 'the file-level arm of `fallback`'],
+        fusion:
+          'reciprocal rank fusion, unweighted, k = 60 (Cormack, Clarke and Büttcher, SIGIR 2009)',
+        arms: [
+          'the declaration pool, collapsed to files by the shipped aggregation',
+          'the file-level arm of `fallback`',
+        ],
         k: allRows.find((row) => row.fusion !== null)?.fusion?.k ?? null,
         order:
           'fused after the collapse, because the collapse is a rule over declarations and a file-level ranking has no ' +
@@ -779,6 +793,7 @@ function main(): void {
         fusionFused: row.fusion === null ? null : row.fusion.fused,
         /** The declaration arm alone, **so the fusion's contribution is a subtraction inside this row**. */
         declarationMap: row.declarationMap,
+        declarationRank: row.declarationRank,
         /** The fused list itself, to the metric's depth: a figure whose order a reader cannot check is an assertion. */
         rankedPaths: row.rankedPaths,
         peakRssMb: row.cost === null ? null : row.cost.peakRssMb,
@@ -915,6 +930,11 @@ function main(): void {
       `map=${fusionOverall.value === null ? 'none' : fusionOverall.value.toFixed(4)} ` +
       `vsDeclarations=${fusionVsDeclarations.delta === null ? 'none' : fusionVsDeclarations.delta.toFixed(4)} ` +
       `declarationRows=${String(fusionVsDeclarations.rows)} ` +
+      // **Both halves of the ablation, not only their difference.** A delta is a mean of differences and the two means
+      // it came from are the two figures a reader comparing it with a published table needs: the fused ranking's mean
+      // over the paired rows, and the declaration arm's mean over the same rows.
+      `fusedPaired=${fusionVsDeclarations.ours === null ? 'none' : fusionVsDeclarations.ours.toFixed(4)} ` +
+      `declarationPaired=${fusionVsDeclarations.control === null ? 'none' : fusionVsDeclarations.control.toFixed(4)} ` +
       `vsBm25=${fusionVsBm25.delta === null ? 'none' : fusionVsBm25.delta.toFixed(4)} ` +
       `vsTfidf=${fusionVsTfidf.delta === null ? 'none' : fusionVsTfidf.delta.toFixed(4)}`,
   );

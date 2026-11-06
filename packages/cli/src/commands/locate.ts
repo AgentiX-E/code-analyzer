@@ -100,7 +100,9 @@ export function locateRepository(options: LocateCommandOptions): LocateOutput {
     // **`declarations` wins over `declarationsFile`**, because a caller that passed both has one list and one copy of it.
     const declarations =
       options.declarations ??
-      (options.declarationsFile === undefined ? undefined : readDeclarations(options.declarationsFile));
+      (options.declarationsFile === undefined
+        ? undefined
+        : readDeclarations(options.declarationsFile));
     const result = locateFiles(options.directory, options.question, {
       limit: options.limit ?? 10,
       extensions: options.extensions,

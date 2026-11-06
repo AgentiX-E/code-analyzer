@@ -89,7 +89,9 @@ export function locateFiles(
   }
   const limit = options.limit ?? 10;
   const depth =
-    options.declarations === undefined ? limit : Math.max(limit, options.fusionDepth ?? FUSION_DEPTH);
+    options.declarations === undefined
+      ? limit
+      : Math.max(limit, options.fusionDepth ?? FUSION_DEPTH);
   const ranking = pathImportsRanking({
     checkout: root,
     files,
@@ -97,7 +99,13 @@ export function locateFiles(
     limit: depth,
   });
   if (options.declarations === undefined) {
-    return { ...ranking, answerSpace: files.length, truncated, fileLevel: ranking.ranked, fusion: null };
+    return {
+      ...ranking,
+      answerSpace: files.length,
+      truncated,
+      fileLevel: ranking.ranked,
+      fusion: null,
+    };
   }
   const fusion = reciprocalRankFusion(
     [
