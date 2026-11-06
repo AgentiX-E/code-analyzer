@@ -48,6 +48,14 @@ FROM base AS builder
 
 # Copy workspace root configs first for optimal layer caching
 COPY pnpm-workspace.yaml pnpm-lock.yaml .pnpmfile.cjs ./
+# **`.npmrc` travels with the manifests, and its absence was an unexplained flake.** The repository states
+# `onnxruntime-node-install=skip` there so the ONNX runtime's postinstall does not fetch CUDA and TensorRT providers from
+# a Microsoft feed CI cannot rely on - the CPU binaries are already in the npm package and no runner has a GPU. That file
+# was never copied, so the setting never reached the image: every build downloaded the providers anyway, and two of them
+# lost the race on the same commit - the `mcp-server` image finished and the `cli` image died with `ETIMEDOUT
+# 150.171.109.73:443`. **A gate that passes or fails on a vendor feed is not measuring this repository**, so the file is
+# copied before the install rather than the build being retried.
+COPY .npmrc* ./
 COPY package.json tsconfig.base.json turbo.json ./
 
 # Copy ALL package manifests in a single layer (consolidated)
@@ -108,7 +116,7 @@ RUN groupadd -g 1001 code-analyzer && \
 WORKDIR /app
 
 # Copy workspace root
-COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/.pnpmfile.cjs ./
+COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/.pnpmfile.cjs /app/.npmrc ./
 COPY --from=builder /app/package.json /app/turbo.json ./
 
 # Copy built packages — consolidated into fewer layers using glob-like patterns
@@ -180,7 +188,7 @@ RUN groupadd -g 1001 cli && \
 
 WORKDIR /app
 
-COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/.pnpmfile.cjs ./
+COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/.pnpmfile.cjs /app/.npmrc ./
 COPY --from=builder /app/package.json /app/turbo.json ./
 
 # CLI only needs core + shared + infra + analyzer + intelligence + CLI
@@ -212,6 +220,14 @@ FROM base AS vscode-builder
 
 # Copy workspace root
 COPY pnpm-workspace.yaml pnpm-lock.yaml .pnpmfile.cjs ./
+# **`.npmrc` travels with the manifests, and its absence was an unexplained flake.** The repository states
+# `onnxruntime-node-install=skip` there so the ONNX runtime's postinstall does not fetch CUDA and TensorRT providers from
+# a Microsoft feed CI cannot rely on - the CPU binaries are already in the npm package and no runner has a GPU. That file
+# was never copied, so the setting never reached the image: every build downloaded the providers anyway, and two of them
+# lost the race on the same commit - the `mcp-server` image finished and the `cli` image died with `ETIMEDOUT
+# 150.171.109.73:443`. **A gate that passes or fails on a vendor feed is not measuring this repository**, so the file is
+# copied before the install rather than the build being retried.
+COPY .npmrc* ./
 COPY package.json tsconfig.base.json turbo.json ./
 COPY packages/ /app/packages/
 
