@@ -108,6 +108,10 @@ export interface TreeSitterSyntaxNode {
   readonly childCount: number;
   readonly namedChildCount: number;
   readonly hasError: boolean;
+  /** **Recovery is not failure**: a node the parser inserted to finish a construct, absent from the text. */
+  readonly isMissing?: boolean;
+  /** The node an unreadable span became. **This one is a failure**, and the walk has nothing to say about the span. */
+  readonly isError?: boolean;
   child(index: number): TreeSitterSyntaxNode;
   namedChild(index: number): TreeSitterSyntaxNode;
   /** Return the named child that carries the given grammar field, or null. */
@@ -421,8 +425,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const rootNode = tree.rootNode;
     this.signatureRoot = rootNode;
 
-    if (rootNode.hasError) {
-      // If the AST has parse errors, fall back to regex
+    if (hasUnrecoverableError(rootNode)) {
+      // **A tree the parser could not read at all goes to the reader; one it repaired does not.**
       this.parseFellBack = true;
       return this.finishCaptures(this.fallbackParse(sanitized, filePath));
     }
@@ -2066,6 +2070,32 @@ function isClassNodeType(type: string): boolean {
 /** Whether a node type can own a member. */
 function isContainerNodeType(type: string): boolean {
   return CONTAINER_NODE_TYPES.has(type);
+}
+
+/**
+ * Whether a tree holds an error a walk cannot work around.
+ *
+ * **`hasError` is true for two different things, and the difference is the whole product for one language.**
+ * A node with `type: 'ERROR'` is the parser saying it could not read a span — there is no structure there. A node with
+ * `isMissing` is the parser saying it *did* read the construct and inserted a token the grammar required — the
+ * structure is intact and the token is absent from the text.
+ *
+ * **Groovy is where this matters.** Its grammar requires a semicolon after a statement; real Groovy omits it; so every
+ * ordinary Groovy file parses with `(MISSING ";")` and `hasError` is true at the root. The base class read that as
+ * "the grammar cannot read this file", fell back to the regular-expression reader, and **the five-hundred-line AST
+ * walker in `groovy.ts` never ran on a single real file** — which is why that language claimed four rows of the
+ * capability matrix and produced classes and functions named by a line-oriented guessing game.
+ *
+ * **The traversal only happens on a tree that reported an error**, so a clean parse of any language pays `hasError`
+ * and nothing else.
+ */
+function hasUnrecoverableError(node: TreeSitterSyntaxNode): boolean {
+  if (!node.hasError) return false;
+  if (node.isError === true || node.type === 'ERROR') return true;
+  for (let index = 0; index < node.childCount; index++) {
+    if (hasUnrecoverableError(node.child(index))) return true;
+  }
+  return false;
 }
 
 /**

@@ -22,11 +22,13 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { ArkTSProvider } from '../languages/arkts.js';
 import { CppProvider } from '../languages/cpp.js';
 import { CSharpProvider } from '../languages/csharp.js';
 import { DartProvider } from '../languages/dart.js';
 import { ElixirProvider } from '../languages/elixir.js';
 import { GoProvider } from '../languages/go.js';
+import { GroovyProvider } from '../languages/groovy.js';
 import { JavaProvider } from '../languages/java.js';
 import { JavaScriptProvider } from '../languages/javascript.js';
 import { KotlinProvider } from '../languages/kotlin.js';
@@ -62,6 +64,8 @@ const PROVIDERS: Readonly<Record<string, () => LanguageProvider>> = {
   Scala: () => new ScalaProvider(),
   Zig: () => new ZigProvider(),
   Elixir: () => new ElixirProvider(),
+  ArkTS: () => new ArkTSProvider(),
+  Groovy: () => new GroovyProvider(),
 };
 
 /** `✅`, `—` and `N/A` are the three cells the table writes; anything else is a typo this suite should catch. */

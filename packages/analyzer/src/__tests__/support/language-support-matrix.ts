@@ -10,8 +10,8 @@
  * Three pieces make a row checkable:
  *
  * 1. **One fixture per language**, written to contain the constructs the row names, with the same identifiers in every
- *    language so a check does not have to be written seventeen times. `Widget`, `draw`, `topLevel`, `Drawable`,
- *    `Color`, `LIMIT` and `local` mean the same thing in all seventeen files.
+ *    language so a check does not have to be written nineteen times. `Widget`, `draw`, `topLevel`, `Drawable`,
+ *    `Color`, `LIMIT` and `local` mean the same thing in all nineteen files.
  * 2. **One check per row**, reading the captures the provider emitted for its own fixture. A check returns `null` when
  *    the row is backed and a sentence naming the missing evidence when it is not, so a failure says what to look at
  *    rather than only that something is wrong.
@@ -27,7 +27,7 @@
 
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
-/** The identifiers every fixture writes, so one check serves seventeen languages. */
+/** The identifiers every fixture writes, so one check serves nineteen languages. */
 export interface FixtureNames {
   /** A function declared at file scope. */
   readonly fn: string;
@@ -74,7 +74,7 @@ const DEFAULT_NAMES: FixtureNames = {
   callee: 'helper',
 };
 
-/** A fixture with the camelCase names, which is what most of the seventeen languages write. */
+/** A fixture with the camelCase names, which is what most of the nineteen languages write. */
 function fixture(
   file: string,
   source: string,
@@ -728,6 +728,119 @@ defmodule Matrix do
 end
 `,
     { fn: 'top_level', cls: 'Widget', variable: 'local' },
+  ),
+
+  /**
+   * **ArkTS is TypeScript with a UI language bolted on**, and the fixture writes both halves: `struct` with `@Component`
+   * is a declarative component rather than a class, `@State` is a decorator that changes what a field means, and the
+   * rest of the file is ordinary TypeScript so that a row which passes here and fails in the TypeScript column would be
+   * a fact about the provider rather than about the grammar.
+   */
+  ArkTS: fixture(
+    'matrix.ets',
+    `
+import { helper } from './helper';
+
+export const LIMIT: number = 10;
+
+/** Greets a name through the helper. */
+export function topLevel(name: string): string {
+  let local = helper(name);
+  return local;
+}
+
+export abstract class Base {
+  abstract run(): void;
+}
+
+export class Widget {
+  private label: string = 'x';
+
+  constructor(label: string) {
+    this.label = label;
+  }
+
+  draw(): void {
+    helper(this.label);
+  }
+}
+
+export interface Drawable {
+  draw(): void;
+}
+
+export enum Color {
+  RED,
+  GREEN,
+}
+
+export type Alias = Widget;
+
+export function identity<T>(value: T): T {
+  return value;
+}
+
+export const later = async (): Promise<number> => 1;
+
+export const anon = class Inner {
+  run(): void {}
+};
+
+@Component
+export struct Card {
+  @State title: string = 'x';
+
+  build() {
+    Column() {
+      Text(this.title)
+    }
+  }
+}
+`,
+  ),
+  /**
+   * **Groovy is the JVM with the ceremony removed**, and the fixture writes the parts that differ from Java: a method
+   * without a modifier, a property declared as a field with no type, a constructor that assigns, `@Override` in front of
+   * a method, and a `static final` constant — the same six constructs the Java fixture writes, in Groovy's spelling.
+   */
+  Groovy: fixture(
+    'matrix.groovy',
+    `
+import java.util.List
+
+interface Drawable {
+  void draw()
+}
+
+enum Color {
+  RED,
+  GREEN
+}
+
+abstract class Base {
+  abstract void run()
+}
+
+/** A widget. */
+class Widget extends Base implements Drawable {
+  public static final int LIMIT = 10
+  private final List<String> labels
+
+  Widget(List<String> labels) {
+    this.labels = labels
+  }
+
+  @Override
+  void draw() {
+    List<String> local = helper(labels)
+  }
+
+  static void topLevel(String name) {
+    helper(name)
+  }
+}
+`,
+    { typeName: 'List' },
   ),
 };
 

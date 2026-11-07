@@ -165,6 +165,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
     argIndex?: number,
   ): void {
     for (const name of this.namesUnder(node)) {
+      // **A node the parser inserted carries no text**, and a name of no characters names nothing: `Foo::<String>;`
+      // is caught mid-edit, the grammar repairs it with `(MISSING identifier)`, and the access it would record is an
+      // edge from the statement to the empty string.
+      if (name.text.length === 0) continue;
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_ACCESS,
         text: name.text,
@@ -549,7 +553,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
     // **The last named child, because the explicit type arguments sit between the two names**:
     // `Foo::<String>bar` is `(identifier) (type_arguments) (identifier)`, and the method is still the last one.
     const written = parts[parts.length - 1]!;
-    if (written.type !== 'identifier') return;
+    // **`(MISSING identifier)` is the half-edited reference, and it is not a name.** `Foo::<String>;` has the explicit
+    // type arguments and no method after them, so the last named child is the token the parser inserted - a call site
+    // to nothing, which the resolver reads as an external edge named `''`.
+    if (written.type !== 'identifier' || written.text.length === 0) return;
     captures.push({
       tag: CAPTURE_TAGS.METHOD_CALL,
       text: `${qualifier.text}.${written.text}`,
