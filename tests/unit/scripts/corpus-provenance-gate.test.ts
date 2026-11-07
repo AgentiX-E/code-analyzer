@@ -77,9 +77,14 @@ describe('corpus-provenance-gate', () => {
     const output = execFileSync(process.execPath, [GATE, '--repo', dir, '--json'], {
       encoding: 'utf-8',
     });
-    const parsed = JSON.parse(output) as { corpora: Record<string, { digest: string }> };
+    const parsed = JSON.parse(output) as {
+      corpora: Record<string, { digest: string } | undefined>;
+    };
 
-    expect(parsed.corpora[CORPUS].digest).toBe(corpusDigest(join(dir, CORPUS)));
+    // Two assertions rather than one, because the absent case is the one that would otherwise throw a TypeError
+    // instead of failing: a digest that is missing and a digest that is wrong are different defects.
+    expect(parsed.corpora[CORPUS]).toBeDefined();
+    expect(parsed.corpora[CORPUS]?.digest).toBe(corpusDigest(join(dir, CORPUS)));
   });
 
   it('passes a pinned artifact whose digest matches', () => {
