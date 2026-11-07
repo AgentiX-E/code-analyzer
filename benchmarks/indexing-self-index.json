@@ -9,6 +9,7 @@
   "measuredAt": "2026-10-29",
   "corpus": {
     "path": "packages",
+    "snapshot": "live",
     "files": 410,
     "lines": 141387
   },

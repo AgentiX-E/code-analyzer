@@ -22,6 +22,8 @@
   "measuredAt": "2026-11-03",
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
+    "snapshot": "superseded",
+    "supersededReason": "measured on the corpus as it measured 5 735 nodes; the same 52 files measure 3 257 today, so these weights are not comparable with any figure in this directory. Re-run paraphrase-search.test.ts with a key before quoting them.",
     "nodes": 5735
   },
   "queries": 99,

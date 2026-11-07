@@ -74,17 +74,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -126,7 +126,7 @@ jobs:
 
       - name: Upload the Python half
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: dead-code-python
           # **One file, staged under a name the gate job names explicitly.** `upload-artifact` archives a single matched
@@ -146,17 +146,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -192,7 +192,7 @@ jobs:
 
       - name: Upload the TypeScript half
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: dead-code-typescript
           # The same single-file layout the Python half uses — see the comment there.
@@ -210,15 +210,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       - name: Download the Python half
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: dead-code-python
           # **The halves are staged beside the checkout, not over it.** Downloading the Python artifact to the default
@@ -228,7 +228,7 @@ jobs:
           path: py-half
 
       - name: Download the TypeScript half
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: dead-code-typescript
           # **The two halves are written by separate jobs**, so they are merged here rather than by a third run that
@@ -289,7 +289,7 @@ jobs:
 
       - name: Upload the merged record
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: dead-code
           path: benchmarks/dead-code.json

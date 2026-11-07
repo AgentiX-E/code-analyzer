@@ -6,19 +6,22 @@ permissions: read-all
 jobs:
   provenance:
     runs-on: ubuntu-latest
+    # **The generator needs both writes, by its own documentation**: `id-token` to sign the provenance through OIDC,
+    # and `contents` to attach it to the release the subjects came from. `actions: read` is for reading the build
+    # output. Nothing here can be dropped without dropping the artifact this job produces.
     permissions:
       id-token: write
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Generate provenance
-        uses: slsa-framework/slsa-github-generator/.github/actions/generate-provenance@v2.1.0
+        uses: slsa-framework/slsa-github-generator/.github/actions/generate-provenance@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
         with:
           base64-subjects: '${{ needs.build.outputs.hashes }}'

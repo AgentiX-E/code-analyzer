@@ -20,6 +20,7 @@
   },
   "corpus": {
     "path": "packages/analyzer/src/graph",
+    "snapshot": "live",
     "files": 1,
     "tokens": 3315
   },

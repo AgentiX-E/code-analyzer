@@ -1106,6 +1106,30 @@ stopped being the only large one — type resolution (3.7 s) and cross-file link
 
 ---
 
+## How a figure says what it measured
+
+Every published number in this repository comes from an artifact under `benchmarks/`, and until iteration 100 an
+artifact could name a directory and nothing else. `docstring-search.json` recorded `corpus.nodes: 5735` for
+`benchmarks/retrieval-corpus`, and the same 52 files measure **3 257** today, in CI and locally alike: two numbers for
+one path and no way to tell which was measured on what, because **a directory is not a version**.
+
+An artifact's `corpus` block now states one of three things, and `scripts/corpus-provenance-gate.js` enforces the
+distinction:
+
+| state        | meaning                                                                | what the gate does                                |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------- |
+| `pinned`     | a frozen directory, with a digest computed from its contents           | fails when the digest no longer matches the files |
+| `live`       | this repository as it is on the day the figure was taken (`packages/`) | nothing; it moves by design, a digest would lie   |
+| `superseded` | a corpus that changed under a figure which cannot be re-derived today  | requires a reason and prints it on every run      |
+
+The digest is `packages/intelligence/src/benchmark/corpus-digest.ts`: sorted by relative path, for each file feed
+`<path>\n<sha256 of its bytes>\n` into one sha256. It is computed rather than declared, because a hand-written
+revision number is a claim and a hash is an observation. `scripts/corpus-provenance-gate.js` reimplements the same
+algorithm in JavaScript and a test asserts the two agree, which is the only reason two implementations are allowed.
+
+**An artifact that names a corpus and no state fails.** The omission is exactly what let 5 735 and 3 257 coexist
+without anyone asking which was true.
+
 ## Key Design Principles
 
 1. **Strict layer isolation**: Each layer depends only on the layers below it. No upward dependencies.

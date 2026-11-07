@@ -19,6 +19,8 @@
   "where": "local-vitest",
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
+    "snapshot": "pinned",
+    "digest": "e60f8c5b27d0fd6e1dc8029a65aa4584ac94f6b8f45281577f4a08c884eb7349",
     "questions": "benchmarks/paraphrase-queries.json",
     "size": 99
   },

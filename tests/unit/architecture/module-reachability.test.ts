@@ -183,6 +183,10 @@ const TEST_ONLY: Readonly<Record<string, readonly string[]>> = {
   intelligence: [
     'benchmark/benchmark-fixtures.ts',
     'benchmark/code-review-benchmark.ts',
+    // **Named by the two artifacts it stamps and by nothing in the product.** A corpus digest exists so a benchmark
+    // can say which version of a directory it measured; no runtime path needs it, and exporting it from the package
+    // entry would add a benchmark concern to the public API to satisfy a reachability walk.
+    'benchmark/corpus-digest.ts',
     'benchmark/lca-baseline.ts',
     'benchmark/lca-fallback.ts',
     'benchmark/lca-fusion.ts',
@@ -338,7 +342,7 @@ describe('every module a package compiles is reachable from an entry its manifes
       cli: 9,
       core: 45,
       infra: 29,
-      intelligence: 148,
+      intelligence: 149,
       mcp: 39,
       server: 24,
       shared: 10,
@@ -366,8 +370,11 @@ describe('every module a package compiles is reachable from an entry its manifes
     // **Seventy was the number until iteration 97 moved the Leiden algorithm and its PRNG from `intelligence` to
     // `core`.** They left this register by becoming reachable — `analyzer`'s communities phase calls `leiden`, and
     // `core`'s entry exports it — which is the only way an entry should ever leave.
+    // **Sixty-nine since iteration 100 added `benchmark/corpus-digest.ts`** — the digest a benchmark artifact uses to
+    // name the corpus version it measured. It is a measurement concern with no runtime caller, which is what this
+    // register is for; the number moves when a module of that kind is added, and that is the point of asserting it.
     const total = Object.values(TEST_ONLY).reduce((sum, modules) => sum + modules.length, 0);
-    expect(total).toBe(68);
+    expect(total).toBe(69);
   });
 
   it('nothing is listed as test-only while the product reaches it', () => {

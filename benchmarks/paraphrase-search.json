@@ -30,7 +30,7 @@
     "**`poolDepth` is that ceiling measured on the fused list** at every depth a reranker could be given. It costs",
     "no completion: the fused list at depth d is the fusion of the two candidate lists cut at d"
   ],
-  "measuredAt": "2026-11-03",
+  "measuredAt": "2026-11-07",
   "querySet": {
     "source": "frozen",
     "path": "benchmarks/paraphrase-queries.json",
@@ -38,7 +38,9 @@
   },
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
-    "nodes": 5735,
+    "snapshot": "pinned",
+    "digest": "e60f8c5b27d0fd6e1dc8029a65aa4584ac94f6b8f45281577f4a08c884eb7349",
+    "nodes": 3257,
     "queries": 99,
     "dropped": 1,
     "withAWordFromTheName": 52
@@ -51,48 +53,48 @@
   },
   "topK": 20,
   "lexical": {
-    "recallAt5": 0.3131,
-    "recallAt20": 0.4646,
-    "mrr": 0.2034,
-    "found": 46
+    "recallAt5": 0.303,
+    "recallAt20": 0.4545,
+    "mrr": 0.1952,
+    "found": 45
   },
   "lexicalDepth": {
-    "recall": [0.3131, 0.3535, 0.4646, 0.4646, 0.5051, 0.5354, 0.5758, 0.6263, 0.6667],
+    "recall": [0.303, 0.3636, 0.4545, 0.4646, 0.5051, 0.5657, 0.596, 0.6566, 0.6768],
     "reachable": 0.8889,
     "medianFoundRank": 20
   },
   "lexicalSlices": {
     "leakFree": {
       "size": 47,
-      "recallAt5": 0.0851,
+      "recallAt5": 0.1064,
       "recallAt20": 0.1702,
-      "mrr": 0.0295,
+      "mrr": 0.0306,
       "found": 8
     },
     "withLeak": {
       "size": 52,
-      "recallAt5": 0.5192,
-      "recallAt20": 0.7308,
-      "mrr": 0.3605,
-      "found": 38
+      "recallAt5": 0.4808,
+      "recallAt20": 0.7115,
+      "mrr": 0.344,
+      "found": 37
     }
   },
   "poolDepth": [
     {
       "depth": 20,
-      "ceiling": 0.6364
+      "ceiling": 0.6061
     },
     {
       "depth": 50,
-      "ceiling": 0.7071
+      "ceiling": 0.7172
     },
     {
       "depth": 100,
-      "ceiling": 0.798
+      "ceiling": 0.7778
     },
     {
       "depth": 150,
-      "ceiling": 0.8384
+      "ceiling": 0.8485
     },
     {
       "depth": 200,
@@ -105,23 +107,23 @@
       "name": "no-path",
       "note": "the composition the product shipped before the path was measured in",
       "recallAt5": 0.3333,
-      "recallAt20": 0.4646,
-      "mrr": 0.2493,
-      "found": 46,
+      "recallAt20": 0.4545,
+      "mrr": 0.254,
+      "found": 45,
       "slices": {
         "leakFree": {
           "size": 47,
           "recallAt5": 0.0851,
-          "recallAt20": 0.2553,
-          "mrr": 0.0543,
-          "found": 12
+          "recallAt20": 0.2128,
+          "mrr": 0.0525,
+          "found": 10
         },
         "withLeak": {
           "size": 52,
           "recallAt5": 0.5577,
-          "recallAt20": 0.6538,
-          "mrr": 0.4255,
-          "found": 34
+          "recallAt20": 0.6731,
+          "mrr": 0.4361,
+          "found": 35
         }
       }
     },
@@ -129,21 +131,21 @@
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.4949,
-      "recallAt20": 0.6869,
-      "mrr": 0.3615,
-      "found": 68,
+      "recallAt5": 0.5051,
+      "recallAt20": 0.6768,
+      "mrr": 0.3556,
+      "found": 67,
       "slices": {
         "leakFree": {
           "size": 47,
-          "recallAt5": 0.234,
-          "recallAt20": 0.4681,
-          "mrr": 0.1607,
-          "found": 22
+          "recallAt5": 0.2766,
+          "recallAt20": 0.4468,
+          "mrr": 0.1484,
+          "found": 21
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.7308,
+          "recallAt5": 0.7115,
           "recallAt20": 0.8846,
           "mrr": 0.5429,
           "found": 46
@@ -153,54 +155,54 @@
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
-      "reranked": 97,
+      "reranked": 99,
       "poolDepth": 50,
-      "poolRecallAt20": 0.7071,
-      "recallAt5": 0.6061,
-      "recallAt20": 0.697,
-      "mrr": 0.4975,
-      "found": 69,
+      "poolRecallAt20": 0.7172,
+      "recallAt5": 0.6465,
+      "recallAt20": 0.7172,
+      "mrr": 0.5237,
+      "found": 71,
       "slices": {
         "leakFree": {
           "size": 47,
           "recallAt5": 0.4468,
           "recallAt20": 0.5106,
-          "mrr": 0.3521,
+          "mrr": 0.3506,
           "found": 24
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.75,
-          "recallAt20": 0.8654,
-          "mrr": 0.6289,
-          "found": 45
+          "recallAt5": 0.8269,
+          "recallAt20": 0.9038,
+          "mrr": 0.6803,
+          "found": 47
         }
       }
     },
     {
       "name": "rerank-deep",
       "note": "the fused top 150, reordered by a model, cut at 20",
-      "reranked": 97,
+      "reranked": 98,
       "poolDepth": 150,
-      "poolRecallAt20": 0.8384,
-      "recallAt5": 0.697,
-      "recallAt20": 0.8081,
-      "mrr": 0.5447,
-      "found": 80,
+      "poolRecallAt20": 0.8485,
+      "recallAt5": 0.6869,
+      "recallAt20": 0.8384,
+      "mrr": 0.5293,
+      "found": 83,
       "slices": {
         "leakFree": {
           "size": 47,
-          "recallAt5": 0.5957,
-          "recallAt20": 0.7021,
-          "mrr": 0.4661,
-          "found": 33
+          "recallAt5": 0.5745,
+          "recallAt20": 0.7234,
+          "mrr": 0.4251,
+          "found": 34
         },
         "withLeak": {
           "size": 52,
           "recallAt5": 0.7885,
-          "recallAt20": 0.9038,
-          "mrr": 0.6157,
-          "found": 47
+          "recallAt20": 0.9423,
+          "mrr": 0.6235,
+          "found": 49
         }
       }
     }
@@ -208,39 +210,39 @@
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.4646,
-      "recallAt20": 0.6364,
-      "mrr": 0.3732,
-      "found": 63
+      "recallAt5": 0.4242,
+      "recallAt20": 0.6061,
+      "mrr": 0.3531,
+      "found": 60
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.404,
-      "recallAt20": 0.4646,
-      "mrr": 0.3316,
-      "found": 46
+      "recallAt5": 0.4141,
+      "recallAt20": 0.4545,
+      "mrr": 0.3381,
+      "found": 45
     },
     {
       "vectorWeight": 0.25,
       "recallAt5": 0.404,
-      "recallAt20": 0.4646,
-      "mrr": 0.326,
-      "found": 46
+      "recallAt20": 0.4545,
+      "mrr": 0.3289,
+      "found": 45
     },
     {
       "vectorWeight": 0.1,
-      "recallAt5": 0.3434,
-      "recallAt20": 0.4646,
-      "mrr": 0.2831,
-      "found": 46
+      "recallAt5": 0.3535,
+      "recallAt20": 0.4545,
+      "mrr": 0.2786,
+      "found": 45
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.4646,
-    "recallAt20": 0.6364,
-    "mrr": 0.3732,
-    "found": 63
+    "recallAt5": 0.4242,
+    "recallAt20": 0.6061,
+    "mrr": 0.3531,
+    "found": 60
   },
   "target": {
     "recall": 0.9,

@@ -37,6 +37,8 @@ import { HybridSearchEngine } from '@code-analyzer/intelligence';
 import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
+import { corpusDigest } from '../benchmark/corpus-digest.js';
+
 import type { EmbeddingBackendName } from '@code-analyzer/analyzer';
 import type { HybridSearchResult, RankedResult } from '@code-analyzer/intelligence';
 import type { PipelineContext } from '@code-analyzer/shared';
@@ -249,6 +251,12 @@ describe('finding a symbol from its own doc comment', () => {
       measuredAt: new Date().toISOString().slice(0, 10),
       corpus: {
         path: CORPUS,
+        // **Pinned, and the digest is how a reader checks that.** This directory is frozen on purpose — the questions
+        // are written against it — so a figure has to name the exact version it measured. `corpus-provenance-gate.js`
+        // fails when the digest no longer matches the files, which is what a path alone could never do: the committed
+        // artifact claimed 5 735 nodes for a directory that now measures 3 257.
+        snapshot: 'pinned' as const,
+        digest: corpusDigest(CORPUS),
         nodes: result.graph.nodes.size,
         nodesWithADocstring: [...result.graph.nodes.values()].filter(
           (n) => (n.docstring ?? '').length > 0,

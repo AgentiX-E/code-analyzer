@@ -45,21 +45,29 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # **What the default backend is, said out loud in the job that exists because of it.** With no credential and no
+      # model file the embed phase writes a hash and names the space `deterministic`; this prints that state into the
+      # summary so a reader never has to infer it from a figure, and exits 0 either way - a missing 137MB model is a
+      # state, not a failed build.
+      - name: Which embedding backend would run with no credential
+        run: |
+          node scripts/embedding-backend-status.js | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Build all packages
         run: pnpm build
@@ -133,7 +141,7 @@ jobs:
       # only exists inside a failed job cannot be committed.
       - name: Upload the frozen question set
         if: always() && steps.credential.outputs.present == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: paraphrase-queries
           path: benchmarks/paraphrase-queries.json
@@ -142,7 +150,7 @@ jobs:
 
       - name: Upload the paraphrase figure
         if: always() && steps.credential.outputs.present == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: paraphrase-search
           path: benchmarks/paraphrase-search.json
@@ -153,7 +161,7 @@ jobs:
       # matrix's cell as MISSING, which is the honest state and not the useful one.
       - name: Upload the artifact the matrix reads
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: docstring-search
           path: benchmarks/docstring-search.json

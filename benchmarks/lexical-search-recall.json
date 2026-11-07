@@ -18,7 +18,9 @@
     "note": "BM25 alone, so the figure is deterministic"
   },
   "corpus": {
-    "path": "30 copies of packages/shared/src/types/graph.ts",
+    "path": "packages/shared/src/types/graph.ts",
+    "snapshot": "live",
+    "shape": "30 copies of the file",
     "files": 31,
     "nodes": 6631
   },

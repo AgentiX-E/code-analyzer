@@ -34,6 +34,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
+import { corpusDigest } from '../benchmark/corpus-digest.js';
 import { DeepSeekProvider } from '../review/llm/provider.js';
 import { DEFAULT_FIELD_WEIGHTING, HybridSearchEngine } from '../search/hybrid-search.js';
 import { expandToVector } from '../search/query-expansion.js';
@@ -59,6 +60,7 @@ import type { GraphNode, PipelineContext } from '@code-analyzer/shared';
  * only the retriever can change it. Editing the snapshot is a deliberate act in the same sense that regenerating the
  * questions is, and `benchmarks/retrieval-corpus.md` beside it says how.
  */
+
 const CORPUS = 'benchmarks/retrieval-corpus';
 const TOP_K = 20;
 const TOP_5 = 5;
@@ -1780,6 +1782,10 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         },
         corpus: {
           path: CORPUS,
+          // **Which version of the frozen corpus**, computed rather than declared: see `corpus-digest.ts` for the
+          // 5 735-versus-3 257 discrepancy that made a path insufficient.
+          snapshot: 'pinned' as const,
+          digest: corpusDigest(CORPUS),
           nodes: stripped.size,
           queries: paraphrases.length,
           dropped,

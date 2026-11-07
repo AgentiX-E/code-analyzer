@@ -7,7 +7,7 @@
 #
 
 # ── Global build args for cross-platform support ──────────────────────────────
-ARG NODE_VERSION=22
+ARG NODE_VERSION=22.23.4
 ARG PNPM_VERSION=9.15.0
 
 # ─────────────────────────────────────────────────────────────────────────────

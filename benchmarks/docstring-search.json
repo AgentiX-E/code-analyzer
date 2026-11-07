@@ -12,12 +12,14 @@
     "`semanticSweep` row is that same lexical list fused with one semantic list at that weight; `space` names the",
     "vector space on each side, because a cosine between two spaces is noise and this file once published one."
   ],
-  "measuredAt": "2026-11-03",
+  "measuredAt": "2026-11-07",
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
-    "nodes": 5735,
-    "nodesWithADocstring": 221,
-    "queries": 217
+    "snapshot": "pinned",
+    "digest": "e60f8c5b27d0fd6e1dc8029a65aa4584ac94f6b8f45281577f4a08c884eb7349",
+    "nodes": 3257,
+    "nodesWithADocstring": 220,
+    "queries": 219
   },
   "space": {
     "index": "api",
@@ -27,47 +29,47 @@
   },
   "topK": 20,
   "lexical": {
-    "recallAt5": 0.9862,
+    "recallAt5": 0.9954,
     "recallAt20": 1,
-    "mrr": 0.9476,
-    "found": 217
+    "mrr": 0.9781,
+    "found": 219
   },
   "semanticSweep": [
     {
       "vectorWeight": 1,
-      "recallAt5": 0.9862,
+      "recallAt5": 0.9863,
       "recallAt20": 1,
-      "mrr": 0.9492,
-      "found": 217
+      "mrr": 0.9711,
+      "found": 219
     },
     {
       "vectorWeight": 0.5,
-      "recallAt5": 0.9862,
+      "recallAt5": 0.9863,
       "recallAt20": 1,
-      "mrr": 0.9454,
-      "found": 217
+      "mrr": 0.9711,
+      "found": 219
     },
     {
       "vectorWeight": 0.25,
-      "recallAt5": 0.9862,
+      "recallAt5": 0.9863,
       "recallAt20": 1,
-      "mrr": 0.944,
-      "found": 217
+      "mrr": 0.9711,
+      "found": 219
     },
     {
       "vectorWeight": 0.1,
-      "recallAt5": 0.9908,
+      "recallAt5": 0.9954,
       "recallAt20": 1,
-      "mrr": 0.946,
-      "found": 217
+      "mrr": 0.9718,
+      "found": 219
     }
   ],
   "fused": {
     "vectorWeight": 1,
-    "recallAt5": 0.9862,
+    "recallAt5": 0.9863,
     "recallAt20": 1,
-    "mrr": 0.9492,
-    "found": 217
+    "mrr": 0.9711,
+    "found": 219
   },
   "target": {
     "recall": 0.9,

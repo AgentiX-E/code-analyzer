@@ -6,12 +6,17 @@ permissions: read-all
 jobs:
   sign:
     runs-on: ubuntu-latest
+    # **`contents: write` is the release, and it is the only write in a file whose top level is `read-all`.** The job
+    # exists to attach `.sig` and `.cert` beside the archives it signed, which `softprops/action-gh-release` can only
+    # do with write access. Scorecard's `TokenPermissionsID` reports a job-level write whatever the reason, so this
+    # one is recorded rather than removed: narrowing it further means a second job that receives the signature files
+    # and does nothing but upload them.
     permissions:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: sigstore/cosign-installer@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
       - name: Sign release artifacts
         run: |
           for asset in dist/*.tar.gz dist/*.zip; do
@@ -20,6 +25,6 @@ jobs:
               --output-certificate "${asset}.cert"
           done
       - name: Upload signatures
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
           files: dist/*.sig,dist/*.cert

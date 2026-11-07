@@ -302,6 +302,33 @@ version is not a maintenance task but a **claim**, and a claim needs a measureme
   floor with no upper bound; it resolved a major that jsdom cannot use, and the only suite that would have noticed was
   one no workflow ran. Floors are for vulnerabilities; ceilings are for compatibility, and an override needs both.
 
+## The gates that guard this repository
+
+Five checks decide whether the tree is what it says it is. Each is a script with its own tests, each is named by a
+workflow, and each exists because something in this repository's history was true in the tree and false in fact.
+
+| gate                        | the claim it checks                                                       | what it caught                                                        |
+| --------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `npm run gate:wiring`       | every script in `scripts/` and `.github/scripts/` is invoked by something | 9 orphaned entry points, 2 of them gates nobody had ever run          |
+| `npm run gate:node-version` | `.nvmrc`, `engines.node` and the CI matrix describe one runtime           | a `if: matrix.node-version == '22'` that had become permanently false |
+| `npm run gate:actions`      | every `uses:` runs a named commit, and one repository is pinned once      | three actions at two majors each, across two workflows doing one job  |
+| `npm run gate:corpus`       | every figure that names a corpus names which version of it                | an artifact claiming 5 735 nodes for a directory that measures 3 257  |
+| `npm run coverage:gate`     | the coverage report is newer than every source file it names              | a gate passing on a report written before the code it judged          |
+
+**A script that nothing invokes is not a gate, it is a file.** `scripts/gate-wiring-register.json` is where a
+deliberate exception is written down with its reason — a tool that needs a credential, or one that answers a
+developer's question rather than guarding a pull request. An entry that has since become wired is a stale record and
+fails, so the register cannot accumulate reasons nobody has re-read.
+
+**An action reference is `owner/repo@<40 hex> # vN`.** The commit is what runs; the comment is what the next person
+needs to decide whether to move it. Dependabot maintains both halves, which is why SHA pinning and automated updates
+are compatible here rather than opposed.
+
+**A benchmark artifact states what its corpus is**: `pinned` with a digest computed from the files, `live` when the
+corpus is this repository and moves every commit, or `superseded` with the reason it can no longer be re-derived. An
+artifact that names a corpus and no state fails, because that omission is how two node counts for one directory
+coexisted without anyone asking which was true.
+
 ## Changesets
 
 We use [Changesets](https://github.com/changesets/changesets) for versioning and changelogs.
