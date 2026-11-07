@@ -32,8 +32,8 @@ importers:
         specifier: ^0.21.3
         version: 0.21.3(tree-sitter@0.25.0)
       tree-sitter-go:
-        specifier: ^0.21.2
-        version: 0.21.2(tree-sitter@0.25.0)
+        specifier: ^0.25.0
+        version: 0.25.0(tree-sitter@0.25.0)
       tree-sitter-java:
         specifier: ^0.23.5
         version: 0.23.5(tree-sitter@0.25.0)
@@ -178,8 +178,8 @@ importers:
         specifier: ^0.3.0
         version: 0.3.5(tree-sitter@0.25.0)
       tree-sitter-go:
-        specifier: ^0.21.0
-        version: 0.21.2(tree-sitter@0.25.0)
+        specifier: ^0.25.0
+        version: 0.25.0(tree-sitter@0.25.0)
       tree-sitter-groovy:
         specifier: ^0.1.2
         version: 0.1.2(tree-sitter@0.25.0)
@@ -232,8 +232,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       tree-sitter-zig:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       typescript:
         specifier: ^6.0.3
@@ -459,8 +459,8 @@ importers:
         specifier: ^0.3.0
         version: 0.3.5(tree-sitter@0.25.0)
       tree-sitter-go:
-        specifier: ^0.21.0
-        version: 0.21.2(tree-sitter@0.25.0)
+        specifier: ^0.25.0
+        version: 0.25.0(tree-sitter@0.25.0)
       tree-sitter-groovy:
         specifier: ^0.1.2
         version: 0.1.2(tree-sitter@0.25.0)
@@ -513,8 +513,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       tree-sitter-zig:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@code-analyzer/analyzer':
         specifier: workspace:*
@@ -3595,13 +3595,12 @@ packages:
     peerDependencies:
       tree-sitter: ^0.21.0
 
-  tree-sitter-go@0.21.2:
-    resolution: {integrity: sha512-aMFwjsB948nWhURiIxExK8QX29JYKs96P/IfXVvluVMRJZpL04SREHsdOZHYqJr1whkb7zr3/gWHqqvlkczmvw==}
+  tree-sitter-go@0.25.0:
+    resolution: {integrity: sha512-APBc/Dq3xz/e35Xpkhb1blu5UgW+2E3RyGWawZSCNcbGwa7jhSQPS8KsUupuzBla8PCo8+lz9W/JDJjmfRa2tw==}
     peerDependencies:
-      tree-sitter: ^0.21.0
-      tree_sitter: '*'
+      tree-sitter: ^0.25.0
     peerDependenciesMeta:
-      tree_sitter:
+      tree-sitter:
         optional: true
 
   tree-sitter-groovy@0.1.2:
@@ -3749,8 +3748,8 @@ packages:
   tree-sitter-yaml@0.5.0:
     resolution: {integrity: sha512-POJ4ZNXXSWIG/W4Rjuyg36MkUD4d769YRUGKRqN+sVaj/VCo6Dh6Pkssn1Rtewd5kybx+jT1BWMyWN0CijXnMA==}
 
-  tree-sitter-zig@0.1.0:
-    resolution: {integrity: sha512-Ky5+72K6sYCqCIkYixqCkoRQX/RGk6L/MpQvdDyau9BeB8Cd16SoEDW6nmef4LGVhs0xIhhN2MkZ/62/tPF/tA==}
+  tree-sitter-zig@0.2.0:
+    resolution: {integrity: sha512-tvRaQw16pwlLVUFoBGMmBZFJfXaGB3vrgEcgrmanKL/MPdCBA12NYotrO8iS8C4DRJV5YimGvXt8do7f+d53qg==}
 
   tree-sitter@0.25.0:
     resolution: {integrity: sha512-PGZZzFW63eElZJDe/b/R/LbsjDDYJa5UEjLZJB59RQsMX+fo0j54fqBPn1MGKav/QNa0JR0zBiVaikYDWCj5KQ==}
@@ -7285,10 +7284,11 @@ snapshots:
       node-gyp-build: 4.8.4
       tree-sitter: 0.25.0
 
-  tree-sitter-go@0.21.2(tree-sitter@0.25.0):
+  tree-sitter-go@0.25.0(tree-sitter@0.25.0):
     dependencies:
       node-addon-api: 8.9.0
       node-gyp-build: 4.8.4
+    optionalDependencies:
       tree-sitter: 0.25.0
 
   tree-sitter-groovy@0.1.2(tree-sitter@0.25.0):
@@ -7417,7 +7417,7 @@ snapshots:
     dependencies:
       nan: 2.28.0
 
-  tree-sitter-zig@0.1.0:
+  tree-sitter-zig@0.2.0:
     dependencies:
       nan: 2.28.0
 
