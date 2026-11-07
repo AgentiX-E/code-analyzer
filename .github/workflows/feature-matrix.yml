@@ -76,7 +76,7 @@ jobs:
           - { language: swift, repo: 'Alamofire/Alamofire', ref: '5.10.2', slug: swift-alamofire }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
