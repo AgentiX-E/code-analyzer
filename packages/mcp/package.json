@@ -33,6 +33,9 @@
   },
   "sideEffects": false,
   "main": "./dist/index.js",
+  "bin": {
+    "code-analyzer-mcp": "./dist/start.js"
+  },
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
