@@ -182,6 +182,27 @@ const COLUMN_OF: Readonly<Record<string, string>> = {
   svelte: 'Svelte',
 };
 
+/**
+ * **The four `N/A` cells where the provider files a declaration under a tag the language does not have.**
+ *
+ * `N/A` says the *language* has no such construct, and that is a claim no capture can refute — the provider emitting a
+ * `class.def` for Go's `type Widget struct` is the tag's business, not the language's grammar. So the four are named here
+ * with the sentence that justifies them, and the suite asserts that every `N/A` cell is either refuted by its own check
+ * (the usual case) or named in this table. **An `N/A` that is neither is a claim nobody has looked at**, which is how
+ * thirteen of them turned out to be wrong: PHP has traits and enums, C, Go and Zig have structs, and seven providers
+ * *can* tell an exported declaration from a private one.
+ */
+const CONSTRUCT_ABSENT: Readonly<Record<string, string>> = {
+  'Elixir / Class Definitions':
+    'Elixir has no class: `defmodule` is a module, and the provider files it under `class.def`',
+  'Go / Class Definitions':
+    'Go has no class declaration: `type Widget struct` is a struct and the `Struct Detection` row is where it is claimed',
+  'Rust / Class Definitions':
+    'Rust has no class: a struct and its `impl` are two declarations, and the provider files the struct under `class.def`',
+  'Scala / Interface Definitions':
+    'Scala 3 dropped `interface`: a `trait` is the construct, and it has its own row',
+};
+
 const MATRIX = readMatrix();
 
 const ALL_FIXTURES = { ...FIXTURES, ...SCRIPT_AND_COMPONENT_FIXTURES };
@@ -327,4 +348,72 @@ describe('every claim a checked row makes is backed by its language', () => {
       }
     });
   }
+});
+
+/**
+ * **A `—` and an `N/A` are claims, and only `✅` was being checked.**
+ *
+ * Three cells were authored wrong and refuted by measurement in three consecutive iterations — `Docstrings/JSDoc` for
+ * Bash and R (they publish it), `Class Definitions` for R (`setClass` is a class declaration), and `Export Detection` for
+ * four providers whose predicate was a constant. Each was found by a probe written by hand; none of them by this suite,
+ * because a cell that says "we do not publish this" had no test behind it.
+ *
+ * The rule is the mirror of the one above: **a cell that is not `✅` in a row that has a check must be what that check
+ * reports as missing evidence.** The distinction between `—` (the language has the construct, the provider does not
+ * publish it) and `N/A` (the language has no such construct) stays documentation — no instrument can tell those apart,
+ * and pretending otherwise would be the same defect at a higher level of abstraction.
+ */
+describe('every cell that is not ✅ is what its check reports as missing', () => {
+  for (const language of MATRIX.languages) {
+    const fixture = ALL_FIXTURES[language];
+    if (fixture === undefined) continue;
+
+    describe(language, () => {
+      const provider = PROVIDERS[language]!();
+      const index = MATRIX.languages.indexOf(language);
+
+      for (const row of MATRIX.rows) {
+        const cell = row.cells[index];
+        if (cell === CLAIMED) continue;
+        const check = CHECKS[row.feature];
+        if (check === undefined) continue;
+
+        if (CONSTRUCT_ABSENT[`${language} / ${row.feature}`] !== undefined) continue;
+
+        it(row.feature, () => {
+          const reason = check({
+            captures: capturesOf(language),
+            names: fixture.names,
+            isExported: (name) => provider.isExported(fixture.source, name),
+          });
+          expect(
+            reason,
+            `${language} writes \`${cell}\` for ${row.feature} and its check found the evidence anyway`,
+          ).not.toBeNull();
+        });
+      }
+    });
+  }
+});
+
+describe('an N/A cell is justified rather than assumed', () => {
+  const absent = new Set<string>();
+  for (const language of MATRIX.languages) {
+    const index = MATRIX.languages.indexOf(language);
+    for (const row of MATRIX.rows) {
+      if (row.cells[index] === 'N/A') absent.add(`${language} / ${row.feature}`);
+    }
+  }
+
+  it('every cell named here is in fact N/A', () => {
+    const stale = Object.keys(CONSTRUCT_ABSENT).filter((cell) => !absent.has(cell));
+    expect(stale, 'cells named as construct-absent that the matrix does not write N/A').toEqual([]);
+  });
+
+  it('every one of them says why the language has no such construct', () => {
+    const unexplained = Object.entries(CONSTRUCT_ABSENT)
+      .filter(([, reason]) => reason.trim().length < 40)
+      .map(([cell]) => cell);
+    expect(unexplained, 'cells justified in fewer than forty characters').toEqual([]);
+  });
 });

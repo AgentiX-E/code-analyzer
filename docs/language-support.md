@@ -12,6 +12,14 @@ parses this file, and for each `✅` runs the check that row owns against the fi
 from — so a `✅` that stops being true fails the build rather than waiting for a reader to notice. Rows whose evidence is
 a call graph rather than a capture are listed in `UNINSTRUMENTED` with the measurement that covers them.
 
+**`—` and `N/A` are promises too.** For every cell that is not `✅`, the same check must report the evidence as missing,
+so a `—` cannot quietly become false and an `N/A` cannot hide a construct the language does have. That assertion found
+**thirteen wrong cells** the day it was written — PHP has traits and enums, C, Go and Zig have structs, and seven
+providers can tell an exported declaration from a private one — and every one of them is `✅` now. The four cells where a
+provider files a declaration under a tag the language does not have (Go, Rust and Elixir `class.def`, Scala
+`interface`) are named in `CONSTRUCT_ABSENT` with the sentence that justifies them, because no capture can refute a
+claim about a grammar.
+
 ## Feature Matrix
 
 | Feature                      | TypeScript | JavaScript | Python | Go  | Java | Kotlin | C#  | Rust | PHP | Ruby | C/C++ | Swift | Dart | Lua | Scala | Zig | Elixir | ArkTS | Groovy | Bash |  R  | Svelte |
@@ -20,12 +28,12 @@ a call graph rather than a capture are listed in `UNINSTRUMENTED` with the measu
 | **Method Definitions**       |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  —   | ✅  |  ✅  |   —   |   —   |  —   | N/A |   —   |  —  |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
 | **Class Definitions**        |     ✅     |     ✅     |   ✅   | N/A |  ✅  |   ✅   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |  ✅   |   ✅   | N/A  | ✅  |   —    |
 | **Interface Definitions**    |     ✅     |    N/A     |  N/A   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |  N/A   |
-| **Enum Definitions**         |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  ✅   |  ✅   |  ✅  | N/A |   —   | ✅  |  N/A   |  ✅   |   ✅   | N/A  | N/A |  N/A   |
+| **Enum Definitions**         |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  ✅   |  ✅   |  ✅  | N/A |   —   | ✅  |  N/A   |  ✅   |   ✅   | N/A  | N/A |  N/A   |
 | **Type Definitions**         |     ✅     |    N/A     |   —    | N/A | N/A  |  N/A   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |  N/A   | N/A  | N/A |  N/A   |
 | **Variable Definitions**     |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  —   |  —  |  ✅  |  ✅   |   —   |  —   | ✅  |   —   | ✅  |   —    |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
 | **Constant Definitions**     |     ✅     |     ✅     |   —    | ✅  |  —   |   —    |  —  |  ✅  |  —  |  ✅  |   —   |  ✅   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    |  —   |  —  |   ✅   |
 | **Import Statements**        |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  —   |  —  |   ✅   |
-| **Export Detection**         |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
+| **Export Detection**         |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
 | **Decorators/Annotations**   |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  N/A  |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
 | **Route Detection**          |     —      |    N/A     |   —    | N/A | N/A  |  N/A   |  —  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |   —   |  N/A   | N/A  | N/A |   —    |
 | **Constructor Detection**    |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |   —   |  —   | N/A |   —   | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
@@ -59,9 +67,9 @@ a call graph rather than a capture are listed in `UNINSTRUMENTED` with the measu
 | **Generics**                 |     ✅     |    N/A     |   —    | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
 | **Async Detection**          |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |  N/A   | N/A  | N/A |   —    |
 | **Extension Functions**      |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
-| **Struct Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
+| **Struct Detection**         |    N/A     |    N/A     |  N/A   | ✅  | N/A  |  N/A   | ✅  |  ✅  | N/A | N/A  |  ✅   |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
 | **Record Detection**         |    N/A     |    N/A     |  N/A   | N/A |  ✅  |  N/A   | ✅  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |   ✅   |  —   |  —  |  N/A   |
-| **Trait Detection**          |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
+| **Trait Detection**          |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | ✅  | N/A  |  N/A  |  N/A  | N/A  | N/A |  ✅   | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
 | **Impl Block Detection**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   |  —   |  —  |  N/A   |
 | **Object Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
 
