@@ -78,6 +78,16 @@ on:
       # **The arms the retrieval column is made of, and the reason they are listed by name.** A change to a file-level
       # arm is a change in the figure this job publishes, and until iteration 81 the trigger named one search file out of
       # fourteen - so an arm could be rewritten with the measurement that exists to check it staying green and stale.
+      # **And the layer under the arms, which the first version of this list left out.** The retrieval column is a
+      # chain — scan, parse, resolve, index, fuse, number — and iteration 85 changed the *parser*: Kotlin emitted no call
+      # site at all, so the graph the retriever ranks had no `CALLS` edges to walk. `packages/analyzer/src/languages/**`
+      # matched none of the paths above, so the measurement that exists to catch that defect would not have run on the
+      # commit that fixed it, and its figure would have stayed the pre-fix one. **A trigger that names the last stage of
+      # a chain measures the last stage of a chain.**
+      - 'packages/analyzer/src/languages/**'
+      - 'packages/analyzer/src/pipeline/**'
+      - 'packages/intelligence/src/resolution/**'
+      - 'packages/intelligence/src/indexing/**'
       - 'packages/intelligence/src/search/file-body.ts'
       - 'packages/intelligence/src/search/path-imports.ts'
       - 'packages/intelligence/src/search/lexical.ts'

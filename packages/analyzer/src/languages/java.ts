@@ -1161,6 +1161,14 @@ export class JavaProvider extends TreeSitterBaseProvider {
           baseClasses: this.superclassNameOf(node),
           interfaces,
           filePath: this.filePath,
+          // **`abstract class Base` is a class that cannot be instantiated**, and the modifier is a child of the
+          // declaration. The matrix claimed the row and nothing recorded the fact, so a reader of the graph could not
+          // tell a class with a body from one every subclass has to complete.
+          ...(childrenOf(node).some(
+            (child) => child.type === 'modifiers' && /\babstract\b/.test(child.text),
+          )
+            ? { abstract: 'true' }
+            : {}),
           ...this.outerClassPropertyOf(node),
           ...this.typeParametersPropertyOf(node),
         },

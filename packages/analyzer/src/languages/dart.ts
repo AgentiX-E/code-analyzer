@@ -8,7 +8,8 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import { sanitizeSource, lineNumber } from './regex-helpers.js';
+import { captureRegexCallSites } from './regex-calls.js';
+import { captureDocComments, sanitizeSource, lineNumber } from './regex-helpers.js';
 
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -18,6 +19,32 @@ const DART_GLOBS = ['**/*.dart'];
 
 /** Keyword identifiers that a function-definition regex must never match. */
 const DART_KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch', 'return']);
+
+/**
+ * The names a Dart call scanner must not read as a callee.
+ *
+ * **Two groups, and the second is why the list is longer than the keyword list above.** Control flow opens a
+ * parenthesis where a callee would go (`if (x)`), and so does a declaration (`String topLevel(…)`) unless the text
+ * before it says a type was just written — which is what `DART_DECLARATION` tests. `assert` and `super` are calls the
+ * language makes and this product does not resolve, so they are skipped rather than claimed.
+ */
+const DART_CALL_SKIP = new Set([
+  ...DART_KEYWORDS,
+  'else',
+  'do',
+  'try',
+  'finally',
+  'assert',
+  'super',
+  'this',
+  'new',
+  'const',
+  'await',
+  'yield',
+  'is',
+  'as',
+  'in',
+]);
 
 export class DartProvider implements LanguageProvider {
   readonly language = 'dart';
@@ -90,7 +117,8 @@ export class DartProvider implements LanguageProvider {
         startByte: m.index,
         endByte: m.index + m[0].length,
         name,
-        properties: { filePath },
+        // **`async` is written between the parameter list and the body**, so it is in the text the definition matched.
+        properties: { ...(/\basync\b/.test(m[0]) ? { async: 'true' } : {}), filePath },
       });
     }
 
@@ -125,6 +153,32 @@ export class DartProvider implements LanguageProvider {
         properties: { importType: 'named', filePath },
       });
     }
+
+    // Annotations: `@override`, `@immutable`, `@JsonSerializable()` — one `@name` per line.
+    const annotationRegex = /^\s*@([\w.]+)/gm;
+    while ((m = annotationRegex.exec(sanitized)) !== null) {
+      captures.push({
+        tag: CAPTURE_TAGS.DECORATOR,
+        text: m[0].trim(),
+        startLine: lineNumber(sanitized, m.index),
+        endLine: lineNumber(sanitized, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { decorator: m[1]!, filePath },
+      });
+    }
+
+    // Doc comments: `///` above a declaration is the form the language documents itself with.
+    captures.push(...captureDocComments(source, filePath, ['///'], captures));
+
+    // Call sites, which this provider emitted none of while the matrix claimed the row.
+    captures.push(
+      ...captureRegexCallSites(sanitized, {
+        filePath,
+        skip: DART_CALL_SKIP,
+      }),
+    );
 
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }

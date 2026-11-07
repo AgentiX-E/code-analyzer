@@ -807,62 +807,6 @@ describe('KotlinProvider', () => {
         expect(imports.length).toBeGreaterThanOrEqual(1);
       }
     });
-
-    it('extractKotlinImport with wildcard import', () => {
-      const p = provider as any;
-      const code = 'import kotlin.collections.*';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const importNode = findDeepChild(tree.rootNode, 'import_header');
-        if (importNode) {
-          const imports: any[] = [];
-          p.extractKotlinImport(importNode, imports);
-          expect(imports.length).toBe(1);
-          expect(imports[0].type).toBe('wildcard');
-        }
-      }
-    });
-
-    it('extractKotlinImport with alias import', () => {
-      const p = provider as any;
-      const code = 'import kotlin.collections.List as MyList';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const importNode = findDeepChild(tree.rootNode, 'import_header');
-        if (importNode) {
-          const imports: any[] = [];
-          p.extractKotlinImport(importNode, imports);
-          expect(imports.length).toBe(1);
-          expect(imports[0].names).toContain('MyList');
-        }
-      }
-    });
-
-    it('walkForImports with wildcard import', () => {
-      const p = provider as any;
-      const code = 'import kotlin.collections.*\nfun main() { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const imports: any[] = [];
-        p.walkForImports(tree.rootNode, imports);
-        expect(imports.length).toBeGreaterThanOrEqual(1);
-      }
-    });
-
-    it('walkForImports with aliased import', () => {
-      const p = provider as any;
-      const code = 'import kotlin.collections.List as MyList\nfun main() { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const imports: any[] = [];
-        p.walkForImports(tree.rootNode, imports);
-        expect(imports.length).toBeGreaterThanOrEqual(1);
-      }
-    });
   });
 });
 

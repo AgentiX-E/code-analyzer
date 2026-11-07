@@ -5,6 +5,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { collectCLikeTaint } from './base-c-like.js';
 import { FUNCTION_SCOPED_CONSTANTS } from './constant-fold.js';
 import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
+import { JSDOC_MARKERS } from './doc-comment-markers.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -28,6 +29,18 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   /** The same two node types TypeScript has: this grammar is the same grammar with fewer annotations. */
   protected override callNodeTypes(): ReadonlySet<string> {
     return C_FAMILY_CALL_NODE_TYPES;
+  }
+
+  /**
+   * **JSDoc is `/**`, and a `//` line is a note rather than documentation.**
+   *
+   * The grammar spells both `comment`, so the node type cannot tell them apart — and this provider has asserted since
+   * before the collection pass existed that `// plain comment` above a function produces no docstring. **Attaching it
+   * would make the note the function's prose in the embedding index**, which is a worse answer than no answer for every
+   * question that searches by description.
+   */
+  protected override docCommentMarkers(): readonly string[] {
+    return JSDOC_MARKERS;
   }
 
   protected override loadGrammar(): TreeSitterLanguage | null {

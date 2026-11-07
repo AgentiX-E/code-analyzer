@@ -9,6 +9,59 @@ import type { ParsedImport } from './provider.js';
 import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
+/**
+ * The names Elixir spells as a call and means as a declaration.
+ *
+ * **`def`, `if` and `case` are all `call` nodes**, because a macro is a function, so a walk that files every call node
+ * as a call site files the declaration syntax as one. This is the list of the ones a reader would not call a call: the
+ * definition macros, the imports, the module attribute, and the control-flow forms that expand into a function the
+ * programmer never wrote. A call to any other name is a call.
+ */
+/** The macros that define a function, whose head parses as a call to the function being defined. */
+const ELIXIR_DEFINITION_MACROS: ReadonlySet<string> = new Set([
+  'def',
+  'defp',
+  'defmacro',
+  'defmacrop',
+  'defdelegate',
+  'defguard',
+]);
+
+const ELIXIR_KEYWORD_CALLS: ReadonlySet<string> = new Set([
+  'def',
+  'defp',
+  'defmacro',
+  'defmacrop',
+  'defmodule',
+  'defprotocol',
+  'defimpl',
+  'defdelegate',
+  'defstruct',
+  'defexception',
+  'defguard',
+  'defguardp',
+  'use',
+  'import',
+  'alias',
+  'require',
+  'quote',
+  'case',
+  'cond',
+  'if',
+  'unless',
+  'for',
+  'with',
+  'try',
+  'receive',
+  'raise',
+  'throw',
+  'super',
+  'fn',
+  'unquote',
+  'doc',
+  'moduledoc',
+]);
+
 const ELIXIR_EXTENSIONS = ['.ex', '.exs'];
 const ELIXIR_GLOBS = ['**/*.ex', '**/*.exs'];
 
@@ -26,7 +79,31 @@ export class ElixirProvider extends TreeSitterBaseProvider {
     return require('tree-sitter-elixir') as TreeSitterLanguage;
   }
 
+  /** The documentation a `@doc` or `@moduledoc` attribute states, waiting for the declaration it documents. */
+  private pendingDoc: string | null = null;
+
+  /** The pending documentation this declaration took, which is cleared as it is read. */
+  private consumedDoc: string | null = null;
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    // **Elixir documents a function with an attribute rather than a comment.** `@doc "Greets."` is a `unary_operator`
+    // over a call to `doc`, so no grammar here has a comment node to hand the base class's attach pass — the text is
+    // in the attribute, and the declaration it documents is the next one written.
+    if (node.type === 'unary_operator' && /^@(module)?doc\b/.test(node.text)) {
+      const text = node.text.replace(/^@(module)?doc\s*/, '');
+      this.pendingDoc = text;
+      captures.push({
+        tag: CAPTURE_TAGS.DOCSTRING,
+        text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: text,
+        properties: { filePath: this.filePath },
+      });
+    }
+
     if (node.type === 'call') {
       // Detect def, defp, defmacro, defmodule, use, import, alias. A remote or
       // anonymous call (`String.upcase("x")`, `(fn -> 0 end).()`) has no direct
@@ -55,6 +132,9 @@ export class ElixirProvider extends TreeSitterBaseProvider {
           const args = this.findNamedChild(node, 'arguments')!;
           const funcNameNode = this.findFunctionName(args);
           if (funcNameNode) {
+            // The attribute belongs to the declaration written under it, and only to that one.
+            this.consumedDoc = this.pendingDoc;
+            this.pendingDoc = null;
             captures.push({
               tag: CAPTURE_TAGS.FUNCTION_DEF,
               text: funcNameNode.text,
@@ -66,6 +146,7 @@ export class ElixirProvider extends TreeSitterBaseProvider {
               properties: {
                 visibility: target.text === 'defp' ? 'private' : 'public',
                 ...(target.text === 'defmacro' ? { isMacro: 'true' } : {}),
+                ...(this.consumedDoc === null ? {} : { docstring: this.consumedDoc }),
                 filePath: this.filePath,
               },
             });
@@ -88,6 +169,19 @@ export class ElixirProvider extends TreeSitterBaseProvider {
               properties: { importType: 'named', filePath: this.filePath },
             });
           }
+        } else if (!ELIXIR_KEYWORD_CALLS.has(target.text) && !this.isDefinitionHead(node)) {
+          // **The fourth walk with no arm for a call, and the one where the arm already existed and pointed the other
+          // way.** Every `call` node in this grammar is a function application — `def` is a call to the `def` macro and
+          // `helper(name)` is a call to a function — so the walk dispatched on the keyword and skipped the rest. What
+          // separates them is a list of names the language reserves, and a call to one of those is a declaration.
+          this.emitCallCapture(node, captures);
+        }
+      } else {
+        // A remote call writes the module and the function as one `dot` child: `Enum.map(list, …)` has no plain
+        // `identifier` of its own, which is why the first version of this walk saw none of them.
+        const remote = namedChildrenOf(node)[0];
+        if (remote?.type === 'dot' || remote?.type === 'anonymous_function') {
+          this.emitCallCapture(node, captures);
         }
       }
     }
@@ -95,6 +189,49 @@ export class ElixirProvider extends TreeSitterBaseProvider {
     for (const child of childrenOf(node)) {
       this.walkAndCapture(child, captures);
     }
+  }
+
+  /**
+   * The name an Elixir call names: the last segment of `Enum.map`, or the plain name of `helper`.
+   *
+   * A remote call's callee text is `Enum.map` — the module is not a symbol in the graph and the function is.
+   */
+  protected override extractCallName(node: TreeSitterSyntaxNode): string | undefined {
+    const callee = namedChildrenOf(node)[0];
+    if (callee === undefined) return undefined;
+    const text = callee.text;
+    const dot = text.lastIndexOf('.');
+    return dot < 0 ? text : text.slice(dot + 1);
+  }
+
+  /** **A call whose callee is written `Module.function` is a method call**, which is what carries the receiver. */
+  protected override isMethodCall(node: TreeSitterSyntaxNode): boolean {
+    const callee = namedChildrenOf(node)[0];
+    return callee?.type === 'dot';
+  }
+
+  /**
+   * The argument list of an Elixir call, which is `arguments` but written without parentheses often enough that the
+   * node may hold none: `helper name` passes one and `helper` passes none, and the grammar says which.
+   */
+  protected override argumentCountOf(node: TreeSitterSyntaxNode): number | undefined {
+    const list = namedChildrenOf(node).find((child) => child.type === 'arguments');
+    return list === undefined ? undefined : namedChildrenOf(list).length;
+  }
+  /**
+   * Whether this call node is the **head of a definition** rather than a call.
+   *
+   * `def a(name) do … end` parses the head `a(name)` as a call in its own right, so a walk that files every call node
+   * records the function being defined as a call to itself — with the argument count of its own parameter list. The
+   * shape is unambiguous: the node sits in the `arguments` of a call to one of the definition macros.
+   */
+  private isDefinitionHead(node: TreeSitterSyntaxNode): boolean {
+    const argumentsNode = node.parent;
+    if (argumentsNode === null || argumentsNode.type !== 'arguments') return false;
+    const call = argumentsNode.parent;
+    if (call === null || call.type !== 'call') return false;
+    const keyword = this.findNamedChild(call, 'identifier');
+    return keyword !== null && ELIXIR_DEFINITION_MACROS.has(keyword.text);
   }
 
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {

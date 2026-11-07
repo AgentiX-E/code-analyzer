@@ -8,11 +8,38 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { captureRegexCallSites } from './regex-calls.js';
+import { captureDocComments } from './regex-helpers.js';
+
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const LUA_EXTENSIONS = ['.lua'];
 const LUA_GLOBS = ['**/*.lua'];
+
+/**
+ * The names a Lua call scanner must not read as a callee.
+ *
+ * **`function` is the one that matters**: Lua writes a method as `function Widget.draw(self)`, and a scanner that took
+ * the parenthesis would file every declaration as a call to the last segment of its own name.
+ */
+const LUA_CALL_SKIP = new Set([
+  'if',
+  'elseif',
+  'while',
+  'for',
+  'return',
+  'local',
+  'repeat',
+  'until',
+  'do',
+  'then',
+  'end',
+  'and',
+  'or',
+  'not',
+  'print',
+]);
 
 export class LuaProvider implements LanguageProvider {
   readonly language = 'lua';
@@ -88,6 +115,17 @@ export class LuaProvider implements LanguageProvider {
         properties: { isLocal: 'true', filePath },
       });
     }
+
+    // Doc comments: `--` above a declaration is how Lua documents itself, and it is the only comment form there is.
+    captures.push(...captureDocComments(source, filePath, ['--'], captures));
+
+    // Call sites, which this provider emitted none of while the matrix claimed the row.
+    captures.push(
+      ...captureRegexCallSites(sanitized, {
+        filePath,
+        skip: LUA_CALL_SKIP,
+      }),
+    );
 
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }

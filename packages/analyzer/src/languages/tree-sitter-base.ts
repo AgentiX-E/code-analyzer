@@ -656,7 +656,16 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     ]);
 
     const kept: UnifiedCapture[] = [];
+    /**
+     * The documentation waiting for the declaration below it, and the line its last piece ended on.
+     *
+     * **A doc comment is a block, and a line comment is one line of it.** Go documents a function with three `//` lines
+     * and Godoc renders all three; Java does the same with `//` runs. **A pass that kept only the last line would hand
+     * the graph the third of three sentences**, so a line comment directly under a pending one joins it. The second field
+     * is what makes "directly under" a fact about the file rather than about the order captures were emitted in.
+     */
     let pending: string | null = null;
+    let pendingEndLine = -1;
     /**
      * The last declaration seen, which is the only candidate a comment can belong to.
      *
@@ -683,19 +692,32 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
         // a range that different grammars compute differently.**
         const owner = lastDeclaration;
         if (text.length > 0 && owner && capture.startLine <= owner.endLine) {
-          (owner.properties as Record<string, unknown>)['docstring'] = text;
+          // **The first documentation wins.** A body's own docstring is at the top of the body, so in Python and Ruby
+          // the docstring capture arrives before any comment inside the body; **without this the last `# note` in a
+          // function would replace the paragraph that describes it**, and nothing downstream could tell the two apart.
+          const properties = owner.properties as Record<string, unknown>;
+          if (properties['docstring'] === undefined) properties['docstring'] = text;
         } else if (text.length > 0) {
           // **Otherwise it documents what comes next**, and **it is still pushed**, because **a comment is in the file
           // whether or not a declaration follows it.**
-          pending = text;
+          pending =
+            pending !== null && capture.startLine === pendingEndLine + 1
+              ? `${pending}\n${text}`
+              : text;
+          pendingEndLine = capture.endLine;
         }
         kept.push(capture);
         continue;
       }
 
       if (pending !== null) {
-        (capture.properties as Record<string, unknown>)['docstring'] = pending;
+        const properties = capture.properties as Record<string, unknown>;
+        // **A declaration that already carries documentation keeps it.** Go writes the doc comment above a method and
+        // Kotlin writes `@param` lines above the same declaration through a grammar that emits them as comments; the
+        // more specific producer is the one that spoke first.
+        if (properties['docstring'] === undefined) properties['docstring'] = pending;
         pending = null;
+        pendingEndLine = -1;
       }
       kept.push(capture);
       if (DECLARATIONS.has(capture.tag)) lastDeclaration = capture;
@@ -726,9 +748,87 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    */
   private finishCaptures(captures: UnifiedCapture[]): UnifiedCapture[] {
     const ordered = captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+    this.collectDocCommentCaptures(ordered);
     this.attachDocCommentsInOrder(ordered);
     this.attachSignatures(ordered);
     return this.decorateCaptures(ordered);
+  }
+
+  /**
+   * Collect the comments a grammar writes and the walk never looked at.
+   *
+   * **`Docstrings/JSDoc` was `✅` for seventeen languages and three of them emitted one.** TypeScript, JavaScript and
+   * Python each map their own comment nodes, and the other fourteen walks were written for declarations — a comment
+   * reaches no branch, so a Javadoc block above a class was parsed and dropped, and the base class's own
+   * `attachDocCommentsInOrder` had nothing to attach. The row was a capability of the language read as a capability of
+   * the product, which is the defect iteration 85 found in `Function Calls` and this is its widest instance.
+   *
+   * **A stage in `parse` and not a branch in each walk**, for the reason `attachSignatures` is one: twenty providers
+   * replace `walkAndCapture` with their own recursion, so a branch reaches the two that use the base walk and no
+   * others. **A pass over the finished list cannot be skipped by a walk**, because the walk does not own it.
+   *
+   * **A comment node is recognised by its name.** Every grammar in this class spells it `…comment` — `block_comment`,
+   * `line_comment`, `multiline_comment`, `doc_comment`, `comment` — so the test is the suffix rather than a table of
+   * seventeen sets, and `outer_doc_comment_marker` is excluded because the marker of a doc comment is not one.
+   *
+   * **A capture already there is not collected again.** TypeScript, JavaScript and Python emit their own, and a second
+   * copy of every docstring would double the text the embedding index sees; the byte offset is the identity of a node,
+   * so a capture that starts where the comment starts is the same comment.
+   */
+  /**
+   * The markers that open a comment this language reads as documentation, or `null` when every comment is one.
+   *
+   * **The distinction is real and it is per language.** In Java, Go and Kotlin a `//` line above a declaration *is* the
+   * documentation — `javadoc` renders it, `godoc` attaches it — so the base's answer of "every comment" is right for
+   * them. In JavaScript and TypeScript it is not: `JSDoc` is introduced by `/**`, and a `// TODO: rename` above a
+   * function is a note to the next reader, not a description of the function. **Attaching it would put the note in the
+   * embedding index as the function's prose**, which is why `javascript-provider` has asserted since before this pass
+   * existed that a plain `//` produces no docstring.
+   *
+   * **`null` rather than a shared default list**, because a wrong default would be silent: a language that gained a
+   * marker nobody listed would lose documentation the product already had, and no test would name the language.
+   */
+  protected docCommentMarkers(): readonly string[] | null {
+    return null;
+  }
+
+  private collectDocCommentCaptures(captures: UnifiedCapture[]): void {
+    const root = this.signatureRoot;
+    // **A fallback parse has no tree of its own.** The reader returns captures without a root, and `signatureRoot`
+    // still holds the last file the grammar managed to read - walking it here would attach another file's comments.
+    if (root === null || this.parseFellBack) return;
+
+    const known = new Set<number>();
+    for (const capture of captures) {
+      if (capture.tag === CAPTURE_TAGS.DOCSTRING) known.add(capture.startByte);
+    }
+
+    const markers = this.docCommentMarkers();
+    const collected: UnifiedCapture[] = [];
+    walkPreOrder(root, (type, _depth, cursor) => {
+      if (!isCommentNodeType(type)) return;
+      const node = cursorNode<TreeSitterSyntaxNode>(cursor);
+      if (known.has(node.startIndex)) return;
+      // **A comment that says nothing documents nothing.** `<!---->` and `/** */` are empty strings once the markers
+      // come off, and a capture whose text is empty is a docstring the graph would index as a blank paragraph.
+      if (stripCommentSyntax(node.text).length === 0) return;
+      // **And a comment the language does not read as documentation is not one.** See `docCommentMarkers`.
+      if (markers !== null && !markers.some((marker) => node.text.startsWith(marker))) return;
+      collected.push({
+        tag: CAPTURE_TAGS.DOCSTRING,
+        text: node.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        properties: { filePath: this.filePath },
+      });
+    });
+
+    if (collected.length === 0) return;
+    // **Copied element by element**, because an argument list of a hundred thousand captures is a stack overflow.
+    for (const capture of collected) captures.push(capture);
+    captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
   /**
@@ -1002,6 +1102,14 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
           break;
         }
       }
+    }
+
+    // **A declaration the mapping names a child for, holding no such child, is a fragment of an error recovery.**
+    // The `class` keyword is a node of its own in tree-sitter-ruby, so a Ruby file produced a second `class.def`
+    // called `class` beside the real one - a node named after a keyword, in every file, for every class. The fallback
+    // below is what produced it, and a name taken from the whole node's text is not a name.
+    if (!name && mapping.nameChildType !== undefined) {
+      return;
     }
 
     if (!name && mapping.useFirstNamedChild && node.namedChildCount > 0) {
@@ -1961,6 +2069,17 @@ function isContainerNodeType(type: string): boolean {
 }
 
 /**
+ * Whether a node type names a comment.
+ *
+ * **Every grammar in this class ends the name with `comment`**, which is why one suffix serves seventeen of them
+ * rather than a table per language. `outer_doc_comment_marker` is the `///` that introduces a Rust doc comment and is
+ * not itself the comment, so the marker suffix is excluded.
+ */
+function isCommentNodeType(type: string): boolean {
+  return type.endsWith('comment') && !type.endsWith('_marker');
+}
+
+/**
  * A comment's text without its markers, so a docstring reads as prose rather than as syntax.
  *
  * **Deliberately not comment-type aware.** Block, line and hash comments all reduce
@@ -1968,16 +2087,25 @@ function isContainerNodeType(type: string): boolean {
  * left on**, which is a worse docstring than a clean one and a better one than none.
  */
 function stripCommentSyntax(text: string): string {
-  return text
-    .replace(/^\s*\/\*\*?/, '')
-    .replace(/\*\/\s*$/, '')
-    .split('\n')
-    .map((line) =>
-      line
-        .replace(/^\s*\*\s?/, '')
-        .replace(/^\s*(\/\/|#|--|<!--|-->)\s?/, '')
-        .trimEnd(),
-    )
-    .join('\n')
-    .trim();
+  return (
+    text
+      .replace(/^\s*\/\*\*?/, '')
+      .replace(/\*\/\s*$/, '')
+      // **An HTML comment closes with `-->` and opens with `<!--`, and neither is a line prefix.** Removing the pair
+      // before the split is what makes `<!---->` strip to the empty string: without it the line rule takes `<!--` off
+      // and leaves `-->` behind, so an empty comment reads as documentation that says `-->`.
+      .replace(/<!--/g, '')
+      .replace(/-->/g, '')
+      .split('\n')
+      .map((line) =>
+        line
+          .replace(/^\s*\*\s?/, '')
+          // **A run and not a pair.** `///` is one comment marker written three slashes wide, and a rule that consumed two
+          // of them left `/ A widget.` as a C# docstring - a leading slash in the text of every documented member.
+          .replace(/^\s*(\/\/+|#+|--+)\s?/, '')
+          .trimEnd(),
+      )
+      .join('\n')
+      .trim()
+  );
 }

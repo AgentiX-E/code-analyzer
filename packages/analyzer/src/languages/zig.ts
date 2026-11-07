@@ -8,13 +8,33 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import { sanitizeSource, lineNumber } from './regex-helpers.js';
+import { captureRegexCallSites } from './regex-calls.js';
+import { captureDocComments, sanitizeSource, lineNumber } from './regex-helpers.js';
 
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 const ZIG_EXTENSIONS = ['.zig'];
 const ZIG_GLOBS = ['**/*.zig'];
+
+/**
+ * The names a Zig call scanner must not read as a callee: the control flow that opens a parenthesis, and the builtins
+ * the language resolves itself.
+ */
+const ZIG_CALL_SKIP = new Set([
+  'if',
+  'while',
+  'for',
+  'switch',
+  'catch',
+  'return',
+  'orelse',
+  'and',
+  'or',
+  'test',
+  'comptime',
+  'pub',
+]);
 
 export class ZigProvider implements LanguageProvider {
   readonly language = 'zig';
@@ -118,6 +138,18 @@ export class ZigProvider implements LanguageProvider {
         properties: { isMutable: 'true', filePath },
       });
     }
+
+    // Doc comments: `///` is the only documentation form the language has.
+    captures.push(...captureDocComments(source, filePath, ['///'], captures));
+
+    // Call sites. **`@import` is skipped rather than claimed**: a builtin is not a function the checkout declares, and
+    // the scanner is told so by the `@` it finds in front of the callee.
+    captures.push(
+      ...captureRegexCallSites(sanitized, {
+        filePath,
+        skip: ZIG_CALL_SKIP,
+      }),
+    );
 
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }

@@ -73,7 +73,17 @@ export class RustProvider extends TreeSitterBaseProvider {
         startByte: nameNode.startIndex,
         endByte: nameNode.endIndex,
         name: nameNode.text,
-        properties: { isPublic: String(isPublic), filePath: this.filePath },
+        properties: {
+          isPublic: String(isPublic),
+          // **`async fn` is a different declaration from `fn`**, and `async` is a token of the item rather than a
+          // named child; a caller that awaits it is making a promise the graph could not see.
+          ...(childrenOf(node).some(
+            (child) => child.type === 'function_modifiers' && /\basync\b/.test(child.text),
+          )
+            ? { async: 'true' }
+            : {}),
+          filePath: this.filePath,
+        },
       });
     } else if (nodeType === 'struct_item') {
       // A struct_item always carries its name as a direct `type_identifier` child.
@@ -182,11 +192,39 @@ export class RustProvider extends TreeSitterBaseProvider {
         name: nameNode.text,
         properties: { decorator: nameNode.text, filePath: this.filePath },
       });
+    } else if (nodeType === 'call_expression') {
+      // **A Rust call site was parsed and dropped**, which is the same hole Kotlin had: this walk handles the five
+      // declaration nodes and recurses, and a `helper(x)` is none of them. One node type spells every call — a free
+      // function (`helper`), a method (`self.draw`, whose callee is a `field_expression`) and a path
+      // (`std::mem::drop`) are all `call_expression` with the callee as the first named child.
+      this.emitCallCapture(node, captures);
     }
 
     for (const child of childrenOf(node)) {
       this.walkAndCapture(child, captures);
     }
+  }
+
+  /**
+   * The name a Rust call names, which is the **last** segment of the callee.
+   *
+   * `std::mem::drop(x)` calls `drop` and `self.draw()` calls `draw`; a name that keeps its path resolves to nothing,
+   * because no declaration in any graph is called `std::mem::drop`. The same split Kotlin needed for `p.refresh` and
+   * Java for `java.util.List`.
+   */
+  protected override extractCallName(node: TreeSitterSyntaxNode): string | undefined {
+    // A `call_expression` always writes its callee as the first named child.
+    const text = namedChildrenOf(node)[0]!.text;
+    const colon = text.lastIndexOf('::');
+    const dot = text.lastIndexOf('.');
+    if (colon > dot) return text.slice(colon + 2);
+    if (dot >= 0) return text.slice(dot + 1);
+    return text;
+  }
+
+  /** **A method call is the one whose callee is a field access.** `self.draw` is a `field_expression`; `helper` is not. */
+  protected override isMethodCall(node: TreeSitterSyntaxNode): boolean {
+    return namedChildrenOf(node)[0]?.type === 'field_expression';
   }
 
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {

@@ -3,6 +3,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
+import { XML_DOC_MARKERS } from './doc-comment-markers.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -27,6 +28,18 @@ export class CSharpProvider extends TreeSitterBaseProvider {
   readonly extensions = CSHARP_EXTENSIONS;
   readonly globs = CSHARP_GLOBS;
   readonly importSemantics = 'named' as const;
+
+  /**
+   * **C# documents with three slashes, and the compiler is what says so.**
+   *
+   * `///` is read into the assembly's XML documentation file, while `//` and a single-star block comment are ordinary
+   * notes; the grammar files all three as `comment`, so a table of node types cannot make the distinction. **A file of
+   * nothing but ordinary comments has no symbols in it**, which is why this provider's own test has expected an empty
+   * capture list for such a file since before the collection pass existed.
+   */
+  protected override docCommentMarkers(): readonly string[] {
+    return XML_DOC_MARKERS;
+  }
 
   protected override loadGrammar(): TreeSitterLanguage | null {
     // tree-sitter-c-sharp is a direct dependency of the analyzer, so this
@@ -349,7 +362,14 @@ export class CSharpProvider extends TreeSitterBaseProvider {
       endByte: nameNode.endIndex,
       name: nameNode.text,
       containerName,
-      properties: { filePath: this.filePath },
+      properties: {
+        filePath: this.filePath,
+        // **`async` is one of the `modifier` tokens in front of the method**, and a method that returns `Task` without
+        // it is a different call: nothing in the graph distinguished an awaited call from an ordinary one.
+        ...(childrenOf(node).some((child) => child.type === 'modifier' && child.text === 'async')
+          ? { async: 'true' }
+          : {}),
+      },
     });
   }
 

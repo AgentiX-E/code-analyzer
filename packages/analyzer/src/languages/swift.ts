@@ -274,11 +274,58 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       });
     }
 
+    // A call site. **Swift was the second language whose `Function Calls` row was `✅` and whose walk had no arm for
+    // one**: `helper(label)` and `self.draw()` are both `call_expression`, and this walk knew classes, structs, enums,
+    // extensions, functions, properties and imports — every declaration, and no use.
+    else if (nodeType === 'call_expression') {
+      this.emitCallCapture(node, captures);
+    }
+
     // Recurse into children
     for (const child of childrenOf(node)) {
       this.walkAndCapture(child, captures);
     }
   }
+
+  /**
+   * The name a Swift call names: the **last** segment of the callee.
+   *
+   * `self.draw()` calls `draw` and `builder().build()` calls `build`; the receiver is carried by the tag rather than
+   * by the name, so a dotted name here resolves to nothing — the same split Kotlin needed for `p.refresh`.
+   */
+  protected override extractCallName(node: TreeSitterSyntaxNode): string | undefined {
+    // A `call_expression` always writes its callee as the first named child.
+    const text = namedChildrenOf(node)[0]!.text;
+    const dot = text.lastIndexOf('.');
+    return dot < 0 ? text : text.slice(dot + 1);
+  }
+
+  /**
+   * **A method call is a callee written as a navigation**, and a callee that is itself a call is one too.
+   *
+   * `builder().build()` parses as a `call_expression` whose callee is the `navigation_expression`
+   * `builder().build`, and the outer call is a method call on what `builder` returns.
+   */
+  protected override isMethodCall(node: TreeSitterSyntaxNode): boolean {
+    const callee = namedChildrenOf(node)[0];
+    return callee?.type === 'navigation_expression' || callee?.type === 'call_expression';
+  }
+
+  /**
+   * The argument count, read from `call_suffix > value_arguments` rather than from an `arguments` field.
+   *
+   * **The Swift grammar writes the list one level down**, exactly as Kotlin's does: a `call_suffix` that holds a
+   * `value_arguments` is a call with arguments, and a `call_suffix` holding only a trailing closure states no count
+   * rather than a count of zero.
+   */
+  protected override argumentCountOf(node: TreeSitterSyntaxNode): number | undefined {
+    const suffix = namedChildrenOf(node).find((child) => child.type === 'call_suffix');
+    if (suffix === undefined) return undefined;
+    const list = namedChildrenOf(suffix).find((child) => child.type === 'value_arguments');
+    if (list === undefined) return undefined;
+    return namedChildrenOf(list).length;
+  }
+
   // ---- Import extraction (tree-sitter AST) ----
 
   /**

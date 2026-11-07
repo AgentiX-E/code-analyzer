@@ -6,6 +6,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { collectCLikeTaint } from './base-c-like.js';
 import { FUNCTION_SCOPED_CONSTANTS } from './constant-fold.js';
 import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
+import { JSDOC_MARKERS } from './doc-comment-markers.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
 import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
@@ -220,6 +221,16 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   /** Two node types are calls in this grammar, and the walk stops nowhere else. */
   protected override callNodeTypes(): ReadonlySet<string> {
     return C_FAMILY_CALL_NODE_TYPES;
+  }
+
+  /**
+   * **TypeScript documents with `/**` too, and a `//` line is still a note.**
+   *
+   * The grammar is the JavaScript one with annotations, so it has the same `comment` node for both forms; the language's
+   * own documentation tooling recognises the doubled star alone.
+   */
+  protected override docCommentMarkers(): readonly string[] {
+    return JSDOC_MARKERS;
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {

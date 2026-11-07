@@ -233,6 +233,13 @@ export class KotlinProvider extends TreeSitterBaseProvider {
         properties: {
           filePath: this.filePath,
           ...(enclosingClass === undefined ? {} : { enclosingClass }),
+          // **`suspend` is Kotlin's word for a function that may be awaited**, and it is one word in a `modifiers`
+          // child. Nothing in the graph said it, so a coroutine call read as an ordinary one.
+          ...(childrenOf(node).some(
+            (child) => child.type === 'modifiers' && /\bsuspend\b/.test(child.text),
+          )
+            ? { async: 'true' }
+            : {}),
         },
       });
       // **What the declaration says it returns and how many arguments it takes.** Both were written in the source and
@@ -242,8 +249,28 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       this.emitParameterDefs(node, nameNode.text, enclosingClass, captures);
     } else if (nodeType === 'property_declaration') {
       this.recordPropertyType(node);
+      this.emitLocalDeclaration(node, captures);
     } else if (nodeType === 'class_parameter') {
       this.recordConstructorPropertyType(node);
+    } else if (nodeType === 'annotation') {
+      // **An annotation is a decorator with a different name**, and this provider recorded only the type it names.
+      // `@Component class Service` and `@Component()` differ only in parentheses, so the name is the annotation's
+      // first identifier and the rest of the node is its arguments.
+      // **The annotation's own text starts with `@` by definition of the node**, so the name is the qualified run
+      // after it: `@Deprecated("old")` and `@Component` differ in their arguments, not in how they name themselves.
+      const written = /^@([\w.]+)/.exec(node.text)?.[1];
+      if (written !== undefined) {
+        captures.push({
+          tag: CAPTURE_TAGS.DECORATOR,
+          text: node.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: written,
+          properties: { decorator: written, filePath: this.filePath },
+        });
+      }
     }
 
     // Capture import statements in the unified capture stream
@@ -319,88 +346,6 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   /** Public wrapper for checkExported used by direct tests. */
   kotlinCheckExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
     return this.checkExported(node, symbolName);
-  }
-
-  // ---- Import extraction via AST walking ----
-
-  /**
-   * Walk the AST to find and extract Kotlin import statements.
-   * Kotlin imports are represented as `import_header` nodes in the tree-sitter AST.
-   *
-   * Syntax handled:
-   *   import kotlin.collections.List           // named import
-   *   import kotlin.collections.*               // wildcard import
-   *   import kotlin.collections.List as MyList  // aliased import
-   */
-  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
-    if (node.type === 'import_header') {
-      this.extractKotlinImport(node, imports);
-      return; // Don't recurse into import children
-    }
-
-    for (const child of childrenOf(node)) {
-      this.walkForImports(child, imports);
-    }
-  }
-
-  /**
-   * Extract import details from a Kotlin `import_header` AST node.
-   * Collects identifiers to build the package path, detects wildcard (*) imports,
-   * and extracts alias names from `as` clauses.
-   */
-  private extractKotlinImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
-    const line = node.startPosition.row + 1;
-    const parts: string[] = [];
-    let aliasName: string | undefined;
-    let isWildcard = false;
-
-    // Collect all identifier children to build the package path
-    // and check for wildcard character
-    for (const child of childrenOf(node)) {
-      if (child.type === 'identifier') {
-        parts.push(child.text);
-      } else if (child.text === '*') {
-        isWildcard = true;
-        parts.push('*');
-      }
-    }
-
-    // Tree-sitter: import_alias holds the alias name as a type_identifier child
-    for (const child of namedChildrenOf(node)) {
-      if (child.type === 'import_alias') {
-        // An import_alias is `seq("as", alias(simple_identifier, type_identifier))`,
-        // so it always carries the alias name as a direct `type_identifier` child.
-        const aliasNode = this.findChild(child, 'type_identifier');
-        if (!aliasNode) continue;
-        aliasName = aliasNode.text;
-        break;
-      }
-    }
-
-    // An import_header always carries an identifier path, so the joined source
-    // path is never empty.
-    const sourcePath = parts.join('.');
-
-    // Build the import name list:
-    // - Aliased imports use the alias name
-    // - Wildcard imports have an empty names array
-    // - Named imports use the last segment of the path
-    let names: string[];
-    if (aliasName) {
-      names = [aliasName];
-    } else if (isWildcard) {
-      names = [];
-    } else {
-      const lastName = parts[parts.length - 1]!;
-      names = [lastName];
-    }
-
-    imports.push({
-      source: sourcePath,
-      names,
-      type: isWildcard ? 'wildcard' : 'named',
-      lineNumber: line,
-    });
   }
 
   // Fallbacks
@@ -789,6 +734,43 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     const type = this.writtenTypeOf(declaration);
     if (field === undefined || type === undefined) return;
     this.fileFieldType(className, field.text, type);
+  }
+
+  /**
+   * A `val` or `var` written **inside a function body is a local**, and it was invisible.
+   *
+   * `val local = helper(name)` is how every Kotlin body names an intermediate value, and the only branch that looked at
+   * a `property_declaration` was the field-type recorder — which returns early when there is no enclosing class. So a
+   * local reached the graph as nothing at all: not a symbol, not a name the resolver could type, and `variable.def` was
+   * a row this language claimed and did not emit.
+   *
+   * **The declared type travels the way a field's does**, as the `declaredType` property a name's own declaration can
+   * be asked for, because `val policy: RetryPolicy = …` states it in the same position.
+   */
+  private emitLocalDeclaration(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    if (this.enclosingClassNameOf(node) !== undefined) return;
+    const declaration = namedChildrenOf(node).find(
+      (child) => child.type === 'variable_declaration',
+    );
+    if (declaration === undefined) return;
+    const nameNode = namedChildrenOf(declaration).find(
+      (child) => child.type === 'simple_identifier',
+    );
+    if (nameNode === undefined) return;
+    const type = this.writtenTypeOf(declaration);
+    captures.push({
+      tag: CAPTURE_TAGS.VARIABLE_DEF,
+      text: `${nameNode.text}${type === undefined ? '' : `: ${type}`}`,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: nameNode.endIndex,
+      name: nameNode.text,
+      properties: {
+        filePath: this.filePath,
+        ...(type === undefined ? {} : { declaredType: type }),
+      },
+    });
   }
 
   /**

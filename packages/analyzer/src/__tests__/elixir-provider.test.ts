@@ -178,9 +178,24 @@ describe('ElixirProvider', () => {
   });
 
   describe('parse — remote and anonymous calls', () => {
-    it('should ignore a remote call', () => {
+    /**
+     * **A remote call is a call site whose callee is the segment after the dot.**
+     *
+     * This asserted an empty capture list until iteration 86, when Elixir gained call sites: before that the walk had no
+     * branch a call could reach, so the assertion was true of a provider that produced nothing at all rather than of one
+     * that decided remote calls were uninteresting. The decision it now records is the one every other provider makes -
+     * `Enum.map` is a call to `map` on `Enum`, which is what the resolver needs to look up a definition or report an
+     * external edge - and the module segment is not part of the name.
+     */
+    it('names a remote call after the segment after the dot', () => {
       const captures = provider.parse('String.upcase("x")\n', 't.ex');
-      expect(captures).toHaveLength(0);
+      expect(captures).toHaveLength(1);
+      expect(captures[0]!.tag).toBe(CAPTURE_TAGS.METHOD_CALL);
+      expect(captures[0]!.name).toBe('upcase');
+      // The callee keeps the module it was written with, and `callType` says the receiver is part of the call rather
+      // than a bare function name: `String.upcase(x)` and `upcase(x)` resolve to different things.
+      expect(captures[0]!.text).toBe('String.upcase');
+      expect(captures[0]!.properties?.callType).toBe('method');
     });
 
     it('should ignore an anonymous function call', () => {

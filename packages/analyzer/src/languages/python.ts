@@ -461,6 +461,9 @@ export class PythonProvider extends TreeSitterBaseProvider {
             // emitted as a plain `Function` with an empty container, and the resolver has read line spans instead since
             // iteration 41 - right for deciding scope, and useless for naming the class a `self.` call is written on.
             ...(enclosingClass === undefined ? {} : { enclosingClass }),
+            // **`async def` is a different declaration from `def`**, and the difference is one token the grammar keeps
+            // as a child of the function node. Every caller that awaits it needs to know, and no capture said so.
+            ...(childrenOf(node).some((child) => child.type === 'async') ? { async: 'true' } : {}),
             ...docstringProperty(node),
           },
         });

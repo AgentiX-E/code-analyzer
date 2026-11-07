@@ -217,6 +217,9 @@ export class PhpProvider extends TreeSitterBaseProvider {
         captureTag: CAPTURE_TAGS.METHOD_DEF,
         nameChildType: 'name',
       },
+      // **PHP 8 attributes are the language's decorators**, and `#[Attribute]` parses to an `attribute` node whose
+      // `name` field is the class being applied. The matrix claimed the row and no capture carried it.
+      { nodeType: 'attribute', captureTag: CAPTURE_TAGS.DECORATOR, nameChildType: 'name' },
     ];
   }
 

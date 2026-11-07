@@ -89,6 +89,10 @@ export class ScalaProvider extends TreeSitterBaseProvider {
         name: path,
         properties: { filePath: this.filePath },
       });
+    } else if (nodeType === 'call_expression') {
+      // **The third walk with no arm for a call.** `helper(name)` and `this.draw()` are both `call_expression`, and
+      // this walk knew classes, objects, traits, functions and imports — every declaration, and no use.
+      this.emitCallCapture(node, captures);
     }
 
     for (const child of childrenOf(node)) {
@@ -96,6 +100,23 @@ export class ScalaProvider extends TreeSitterBaseProvider {
     }
   }
 
+  /**
+   * The name a Scala call names: the **last** segment of the callee.
+   *
+   * `this.draw()` calls `draw` and `scala.collection.mutable.Map` calls `Map`; a name that keeps its path resolves to
+   * nothing, which is the split Kotlin, Java and Rust all needed.
+   */
+  protected override extractCallName(node: TreeSitterSyntaxNode): string | undefined {
+    // A `call_expression` always writes its callee as the first named child.
+    const text = namedChildrenOf(node)[0]!.text;
+    const dot = text.lastIndexOf('.');
+    return dot < 0 ? text : text.slice(dot + 1);
+  }
+
+  /** **A method call is the one whose callee is a field access**, which is how Scala spells `this.draw`. */
+  protected override isMethodCall(node: TreeSitterSyntaxNode): boolean {
+    return namedChildrenOf(node)[0]?.type === 'field_expression';
+  }
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'import_declaration') {
       const path = this.collectImportPath(node);
