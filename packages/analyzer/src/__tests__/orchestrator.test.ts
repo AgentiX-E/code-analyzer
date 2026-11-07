@@ -2,14 +2,14 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 
+import { PipelineOrchestrator } from '../pipeline/orchestrator.js';
 import {
-  PipelineOrchestrator,
   createAllPhases,
   ScanPhase,
   ParsePhase,
   CrossFilePhase,
   DumpPhase,
-} from '../pipeline/index.js';
+} from '../pipeline/phases/index.js';
 import { GraphBuilder } from '../graph/graph-builder.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 

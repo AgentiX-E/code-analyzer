@@ -5,6 +5,12 @@
 **Iteration:** 3 — Performance & Scale  
 **Status:** COMPLETE ✅ (pending push due to sandbox network restrictions)
 
+> **Historical record, with one deletion to note.** The framework-route detector this iteration added at
+> `packages/intelligence/src/impact/framework-routes.ts` was **deleted in iteration 94**: it had no production importer
+> for its whole life, and the capability it carried — route declaration detection with class-prefix composition — lives in
+> `packages/analyzer/src/pipeline/phases/route-patterns.ts`, which the pipeline actually runs. The line counts and test
+> counts below describe what iteration 3 wrote, not what the repository holds today.
+
 ---
 
 ## Summary

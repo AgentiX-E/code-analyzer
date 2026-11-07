@@ -16,7 +16,7 @@ const GATE = 'scripts/doc-code-sync-gate.js';
 function buildRepo(options: { tools: number; readmeTools: number }): string {
   const root = mkdtempSync(join(tmpdir(), 'doc-code-'));
   mkdirSync(join(root, 'packages/mcp/src/tools'), { recursive: true });
-  mkdirSync(join(root, 'packages/analyzer/src/pipeline'), { recursive: true });
+  mkdirSync(join(root, 'packages/analyzer/src/pipeline/phases'), { recursive: true });
   mkdirSync(join(root, 'packages/shared/src/types'), { recursive: true });
 
   const calls = Array.from(
@@ -24,9 +24,11 @@ function buildRepo(options: { tools: number; readmeTools: number }): string {
     (_, i) => `registry.register(\n  'tool_${i}',\n  'd',\n);`,
   ).join('\n');
   writeFileSync(join(root, 'packages/mcp/src/tools/index.ts'), calls + '\n', 'utf-8');
+  // The gate counts the constructor calls inside `createAllPhases`, because a phase that is imported and not registered
+  // is a phase that does not run.
   writeFileSync(
-    join(root, 'packages/analyzer/src/pipeline/index.ts'),
-    'import {\n  ScanPhase,\n} from x;\n',
+    join(root, 'packages/analyzer/src/pipeline/phases/index.ts'),
+    'export function createAllPhases() {\n  return [\n    new ScanPhase(),\n  ];\n}\n',
     'utf-8',
   );
   writeFileSync(

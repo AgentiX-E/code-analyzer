@@ -19,7 +19,8 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { GraphBuilder } from '../graph/graph-builder.js';
-import { PipelineOrchestrator, createAllPhases } from '../pipeline/index.js';
+import { PipelineOrchestrator } from '../pipeline/orchestrator.js';
+import { createAllPhases } from '../pipeline/phases/index.js';
 
 import type {
   CodeAnalyzerConfig,

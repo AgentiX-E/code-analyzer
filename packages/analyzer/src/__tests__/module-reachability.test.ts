@@ -18,32 +18,19 @@ import { describe, expect, it } from 'vitest';
 const SRC = join(__dirname, '..');
 
 /**
- * **The modules the entry does not reach, with what each of them is.**
+ * **No module is allowed to be unreachable, and the list that used to be here is empty.**
  *
- * Ten entries, and every one is a candidate for deletion rather than a capability: six files of a control-flow
- * subsystem whose live counterpart is `@code-analyzer/intelligence`'s `cfg/` (that one builds the PDG, that one is
- * imported by `pdg-builder`, and this one is imported by nothing), two superseded type resolvers whose `-advanced`
- * successors are the ones `phases/type-resolution.ts` loads, a barrel nothing imports, and the parallel phase classes
- * — the module whose stale table started this. **The number may only go down**: a file that gains a caller leaves the
- * list, and a file added here needs a sentence saying why it exists at all.
+ * Ten entries stood here for three iterations, each with a sentence saying what it was: six files of a second
+ * control-flow subsystem whose live counterpart is `@code-analyzer/intelligence`'s `cfg/`, two type resolvers superseded
+ * by their `-advanced` successors, a barrel nothing imported, and the parallel phase classes whose stale language table
+ * started this instrument. Iteration 94 deleted all ten — and the 1443-line second route detector in
+ * `@code-analyzer/intelligence`, which this suite did not yet cover — along with the 5000 lines of tests that asserted
+ * the behaviour of code no caller could reach.
+ *
+ * **The empty object is the assertion.** A module added without a caller fails this suite by name, and the fix is a
+ * caller or a deletion rather than a sentence here.
  */
-const UNREACHABLE: Readonly<Record<string, string>> = {
-  'cfg/cfg-builder.ts':
-    'dead: a second CFG builder; the live one is intelligence/cfg/from-parsed-files.ts',
-  'cfg/cfg-types.ts': 'dead: the types of the second CFG builder',
-  'cfg/dataflow.ts':
-    'dead: reaching definitions over the second CFG; intelligence/cfg/reaching-defs.ts is live',
-  'cfg/dominators.ts':
-    'dead: dominators over the second CFG; intelligence/cfg/post-dominators.ts is live',
-  'cfg/index.ts': 'dead: the barrel of the second CFG package',
-  'cfg/set-utils.ts': 'dead: set helpers used only by the second CFG builder',
-  'pipeline/index.ts': 'dead: a barrel nothing imports; the package barrel is src/index.ts',
-  'pipeline/parallel-phases.ts':
-    'dead: parallel phase classes with no production caller; its language table now re-exports the live one',
-  'resolution/python-resolver.ts': 'dead: superseded by resolution/python-resolver-advanced.ts',
-  'resolution/typescript-resolver.ts':
-    'dead: superseded by resolution/typescript-resolver-advanced.ts',
-};
+const UNREACHABLE: Readonly<Record<string, string>> = {};
 
 /** Every non-test module the package compiles, as paths relative to `src/`. */
 function modulesUnder(root: string): string[] {

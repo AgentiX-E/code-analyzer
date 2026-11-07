@@ -52,10 +52,17 @@ function countToolRegistrations(file) {
 }
 
 /** Count the pipeline's phase imports, which is what "N-phase pipeline" refers to. */
+/**
+ * The number of phases the pipeline registers — `new ScanPhase()` and its siblings inside `createAllPhases`.
+ *
+ * **Counting the constructor calls rather than the imports** is what makes the claim checkable: an import list can name a
+ * phase the array never runs, and the README's number is about what runs. The barrel this used to read was a second copy
+ * of `src/index.ts`'s exports, and it was deleted in iteration 94.
+ */
 function countPipelinePhases(file) {
   const text = fs.readFileSync(file, 'utf8');
-  const imports = text.match(/^\s+[A-Z][A-Za-z]*Phase,\s*$/gm) ?? [];
-  return imports.length;
+  const calls = text.match(/^\s+new [A-Z][A-Za-z]*Phase\(\),\s*$/gm) ?? [];
+  return calls.length;
 }
 
 /** Length of a `const X = [ ... ] as const` literal. */
@@ -75,7 +82,7 @@ const at = (file) => path.join(ROOT, file);
 
 const FACTS = {
   mcpTools: countToolRegistrations(at('packages/mcp/src/tools/index.ts')),
-  pipelinePhases: countPipelinePhases(at('packages/analyzer/src/pipeline/index.ts')),
+  pipelinePhases: countPipelinePhases(at('packages/analyzer/src/pipeline/phases/index.ts')),
   nodeTypes: countConstArray(at('packages/shared/src/types/graph.ts'), 'NODE_LABELS'),
   relationshipTypes: countConstArray(
     at('packages/shared/src/types/graph.ts'),
