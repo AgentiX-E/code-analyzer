@@ -122,16 +122,31 @@ pnpm vitest run --coverage
 
 ### Coverage Thresholds
 
-Unit tests must meet strict coverage thresholds:
+Four numbers are enforced, and all four are **95%**:
 
 | Metric     | Threshold |
 | ---------- | --------- |
 | Lines      | 95%       |
-| Branches   | 90%       |
+| Branches   | 95%       |
 | Functions  | 95%       |
 | Statements | 95%       |
 
-Barrel files (`src/index.ts`) are excluded from coverage as they are covered by consumer tests.
+Two gates read them, and passing one is not passing the other:
+
+- **The aggregate** (`scripts/coverage-report.js`) checks the `total` row. An aggregate hides a file: thirteen
+  files once sat between 50% and 94% while this gate was green.
+- **The per-file gate** (`scripts/coverage-per-file.js`) requires *every* file with countable code to reach the
+  threshold on all four dimensions. A file that cannot reach it on the platform the gate runs on carries a
+  recorded floor with a reason in `scripts/coverage-per-file-exclusions.json`, and still fails if it drops below
+  that floor.
+
+There is no filename-based exclusion list — no `**/types.ts`, no `**/index.ts`. A pattern is a claim about a
+file's contents from its name, and both of those patterns turned out to match files that were neither. Files
+that hold only declarations have nothing to cover and are counted as 0/0, which costs nothing and hides nothing.
+
+Both gates also refuse a report that is **older than a source file it names**: a summary written before a file
+was last edited describes a tree that no longer exists, and every percentage in it is a measurement of something
+else. Regenerate with `pnpm test:coverage`; the check lives in `scripts/coverage-freshness.js`.
 
 ## Coding Standards
 

@@ -32,6 +32,8 @@
 const { readFileSync, existsSync } = require('node:fs');
 const { resolve, relative, isAbsolute } = require('node:path');
 
+const { assertCoverageFresh } = require('./coverage-freshness.js');
+
 // ---------------------------------------------------------------------------
 // Parse arguments
 // ---------------------------------------------------------------------------
@@ -102,6 +104,11 @@ function main() {
     console.error(`Error: Failed to parse coverage JSON: ${err.message}`);
     process.exit(1);
   }
+
+  // **Before any number in this file is read, the question of whether it is current.** A summary that predates a
+  // file it names describes a tree that no longer exists; every percentage below would be a measurement of
+  // something else. See scripts/coverage-freshness.js for the incident this rule came from.
+  assertCoverageFresh(JSON_PATH, data);
 
   const exclusions = loadExclusions();
   const failures = [];

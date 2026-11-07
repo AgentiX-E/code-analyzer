@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -170,5 +170,35 @@ describe('coverage-report gate', () => {
 
     expect(code).toBe(1);
     expect(stderr).toContain('Missing "statements" dimension');
+  });
+
+  // The aggregate gate reads `total` and nothing else, so it is the easiest of the two to satisfy with an old
+  // file: a perfect aggregate from before a regression is still a perfect aggregate. It asks the same freshness
+  // question as the per-file gate, from the same summary, through the same module.
+  it('exits 1 when the report predates a file it names', () => {
+    const source = join(dir, 'aggregate-source.ts');
+    writeFileSync(source, 'export const value = 1;\n');
+    const wrote = new Date('2026-11-07T12:00:00Z');
+    utimesSync(source, new Date('2026-11-07T12:30:00Z'), new Date('2026-11-07T12:30:00Z'));
+
+    const path = writeSummary(
+      'stale-total.json',
+      JSON.stringify({
+        total: {
+          lines: { total: 100, covered: 100, skipped: 0, pct: 100 },
+          branches: { total: 100, covered: 100, skipped: 0, pct: 100 },
+          functions: { total: 100, covered: 100, skipped: 0, pct: 100 },
+          statements: { total: 100, covered: 100, skipped: 0, pct: 100 },
+        },
+        [source]: { lines: { total: 1, covered: 1, skipped: 0, pct: 100 } },
+      }),
+    );
+    utimesSync(path, wrote, wrote);
+
+    const { code, stderr } = runGate([path]);
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('older than a source file it describes');
+    expect(stderr).toContain('aggregate-source.ts');
   });
 });

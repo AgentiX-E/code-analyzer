@@ -20,6 +20,8 @@
 const { readFileSync, existsSync } = require('node:fs');
 const { resolve } = require('node:path');
 
+const { assertCoverageFresh } = require('./coverage-freshness.js');
+
 // ---------------------------------------------------------------------------
 // Parse arguments
 // ---------------------------------------------------------------------------
@@ -62,6 +64,10 @@ function main() {
     console.error('Error: No "total" key in coverage summary.');
     process.exit(1);
   }
+
+  // An aggregate is the easiest kind of number to satisfy with an old file: it is a percentage of percentages,
+  // and a perfect one from before a regression is still perfect. Same rule, same module as the per-file gate.
+  assertCoverageFresh(JSON_PATH, data);
 
   const dimensions = [
     { key: 'lines', label: 'Lines' },

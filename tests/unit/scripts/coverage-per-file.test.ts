@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -161,5 +161,63 @@ describe('coverage-per-file gate', () => {
     expect(code).toBe(1);
     expect(output).toContain('inside a recorded floor');
     expect(output).toContain('branch 80.00% < 85%');
+  });
+});
+
+// A gate that reads a report without asking when it was written answers a question about the past. The per-file
+// gate went green on a commit the runner then failed, because the artifact it read had been produced half an hour
+// before the file it named was rewritten — so the rule these cases fix is that the report must be at least as new
+// as the sources it claims to have measured.
+describe('coverage-per-file gate — a report is evidence only if it is current', () => {
+  /** A source file with an explicit modification time, so the comparison is not a race with the test clock. */
+  function sourceAt(name: string, mtime: Date): string {
+    const path = join(dir, name);
+    writeFileSync(path, 'export const value = 1;\n');
+    utimesSync(path, mtime, mtime);
+    return path;
+  }
+
+  it('fails a report written before the source it describes, and says how far behind it is', () => {
+    const source = sourceAt('stale-source.ts', new Date('2026-11-07T12:30:00Z'));
+    const summary = writeJson('stale.json', {
+      total: fileEntry(PASSING),
+      [source]: fileEntry(PASSING),
+    });
+    const writtenAt = new Date('2026-11-07T12:00:00Z');
+    utimesSync(summary, writtenAt, writtenAt);
+
+    const { code, output } = runGate(summary);
+
+    expect(code).toBe(1);
+    expect(output).toContain('older than a source file it describes');
+    expect(output).toContain('stale-source.ts');
+    // The lag is the diagnosis: thirty minutes is the incident this rule was written for.
+    expect(output).toContain('30m');
+    expect(output).toContain('::error title=Stale coverage report::');
+  });
+
+  it('accepts a report written after every source it names', () => {
+    const source = sourceAt('fresh-source.ts', new Date('2026-11-07T12:00:00Z'));
+    const summary = writeJson('fresh.json', {
+      total: fileEntry(PASSING),
+      [source]: fileEntry(PASSING),
+    });
+    const writtenAt = new Date('2026-11-07T12:30:00Z');
+    utimesSync(summary, writtenAt, writtenAt);
+
+    expect(runGate(summary).code).toBe(0);
+  });
+
+  it('does not mistake a vanished path for a stale report', () => {
+    // A summary from an older tree names files that are gone. Whether a recorded path still exists is a separate
+    // question with its own gate (`baselines:anchors`); reporting it here would answer one with the other.
+    const summary = writeJson('vanished.json', {
+      total: fileEntry(PASSING),
+      [join(dir, 'deleted-long-ago.ts')]: fileEntry(PASSING),
+    });
+    const writtenAt = new Date('2020-01-01T00:00:00Z');
+    utimesSync(summary, writtenAt, writtenAt);
+
+    expect(runGate(summary).code).toBe(0);
   });
 });
