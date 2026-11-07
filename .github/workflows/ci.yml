@@ -198,6 +198,32 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # ── Web UI Tests ──────────────────────────────────────────────────────────
+  #
+  # **The only job that runs `packages/web`.** Its suite is the one kind of test in this repository that the root
+  # `vitest.config.ts` cannot see: the files are `.test.tsx` and they need jsdom, so the root `include` never matched
+  # them and no job ever named them. They had been failing for every run of `pnpm test:web` - a `pnpm.overrides` entry
+  # for `undici` with no upper bound had resolved the version jsdom needs past a major it supports - and nothing said
+  # so, because nothing ran them. A suite nobody invokes is a suite that is green by absence.
+  test-web:
+    name: 'Web UI Tests'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Run the web suite
+        run: pnpm test:web
+      - name: Build the web bundle
+        run: pnpm --filter @code-analyzer/web build
+
   # ── Coverage Gate ─────────────────────────────────────────────────────────
   coverage:
     name: 'Coverage ≥95% Gate'
@@ -366,7 +392,18 @@ jobs:
   ci-summary:
     name: 'CI Summary'
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test-unit, test-integration, test-property, test-e2e, coverage, bench]
+    needs:
+      [
+        lint,
+        typecheck,
+        test-unit,
+        test-integration,
+        test-property,
+        test-e2e,
+        test-web,
+        coverage,
+        bench,
+      ]
     if: always()
     steps:
       - name: Generate CI summary
@@ -383,6 +420,7 @@ jobs:
             ["test-integration"]="${{ needs.test-integration.result }}"
             ["test-property"]="${{ needs.test-property.result }}"
             ["test-e2e"]="${{ needs.test-e2e.result }}"
+            ["test-web"]="${{ needs.test-web.result }}"
             ["coverage"]="${{ needs.coverage.result }}"
             ["bench"]="${{ needs.bench.result }}"
           )

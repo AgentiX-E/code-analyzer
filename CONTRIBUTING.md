@@ -119,6 +119,10 @@ pnpm vitest run --coverage
 - **Integration tests** — Reside in `tests/integration/`. Test interactions between packages. May use the in-memory graph store or file system.
 - **Property-based tests** — Reside in `tests/property/`. Use `fast-check` to verify invariants with random inputs.
 - **E2E tests** — Reside in `tests/e2e/`. Full CLI or server tests exercising the complete pipeline.
+- **Web UI tests** — Reside in `packages/web/src/**/*.test.tsx`. jsdom, React Testing Library, and the package's own
+  vitest config, so the root `include` never matches them: `pnpm test:web` runs them and the `Web UI Tests` job is
+  what runs that. A suite that no workflow names is not a suite — this one went red on an unbounded `pnpm.overrides`
+  entry and stayed red, because nothing invoked it.
 
 ### Coverage Thresholds
 
@@ -135,7 +139,7 @@ Two gates read them, and passing one is not passing the other:
 
 - **The aggregate** (`scripts/coverage-report.js`) checks the `total` row. An aggregate hides a file: thirteen
   files once sat between 50% and 94% while this gate was green.
-- **The per-file gate** (`scripts/coverage-per-file.js`) requires *every* file with countable code to reach the
+- **The per-file gate** (`scripts/coverage-per-file.js`) requires _every_ file with countable code to reach the
   threshold on all four dimensions. A file that cannot reach it on the platform the gate runs on carries a
   recorded floor with a reason in `scripts/coverage-per-file-exclusions.json`, and still fails if it drops below
   that floor.

@@ -304,7 +304,7 @@ describe('Agent Command — Commander execution', () => {
   it('detect: prints a message when no agents are installed', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'detect').parse(['node', 'test', 'detect']);
+    findSubcommand(cmd, 'detect').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith('No supported AI coding agents detected.');
   });
 
@@ -312,7 +312,7 @@ describe('Agent Command — Commander execution', () => {
     fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'detect').parse(['node', 'test', 'detect']);
+    findSubcommand(cmd, 'detect').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith('Detected 1 agent(s):');
     expect(logSpy).toHaveBeenCalledWith('  - Cursor (not configured)');
   });
@@ -326,7 +326,7 @@ describe('Agent Command — Commander execution', () => {
     );
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'detect').parse(['node', 'test', 'detect']);
+    findSubcommand(cmd, 'detect').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith('Detected 1 agent(s):');
     expect(logSpy).toHaveBeenCalledWith('  - Cursor (configured)');
   });
@@ -334,7 +334,7 @@ describe('Agent Command — Commander execution', () => {
   it('configure: prints a message when no agents are detected', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure']);
+    findSubcommand(cmd, 'configure').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith(
       'No agents to configure. Run `code-analyzer agent detect` first.',
     );
@@ -344,7 +344,7 @@ describe('Agent Command — Commander execution', () => {
     fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--dry-run']);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', '--dry-run']);
     expect(logSpy).toHaveBeenCalledWith('[DRY RUN] Would configure the following agents:');
     expect(logSpy).toHaveBeenCalledWith('  - Cursor → .cursor/mcp.json');
     expect(fs.existsSync(path.join(tempHome, '.cursor', 'mcp.json'))).toBe(false);
@@ -353,7 +353,7 @@ describe('Agent Command — Commander execution', () => {
   it('configure --all: configures every supported agent and reports success', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--all']);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', '--all']);
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Configuring'));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('OK'));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('configured'));
@@ -362,7 +362,7 @@ describe('Agent Command — Commander execution', () => {
   it('configure --target: configures a named agent', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--target', 'cursor']);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', '--target', 'cursor']);
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Configuring'));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('OK'));
   });
@@ -374,14 +374,14 @@ describe('Agent Command — Commander execution', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--target', 'cursor']);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', '--target', 'cursor']);
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('FAIL'));
   });
 
   it('list: shows every supported agent as not installed', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'list').parse(['node', 'test', 'list']);
+    findSubcommand(cmd, 'list').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith('Supported AI Coding Agent Integrations');
     expect(logSpy).toHaveBeenCalledWith('    Status:      not installed');
   });
@@ -390,7 +390,7 @@ describe('Agent Command — Commander execution', () => {
     fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'list').parse(['node', 'test', 'list']);
+    findSubcommand(cmd, 'list').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith('    Status:      installed');
   });
 
@@ -403,14 +403,14 @@ describe('Agent Command — Commander execution', () => {
     );
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'list').parse(['node', 'test', 'list']);
+    findSubcommand(cmd, 'list').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith('    Status:      installed + configured');
   });
 
   it('status: prints the status report', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const cmd = createAgentCommand(manager);
-    findSubcommand(cmd, 'status').parse(['node', 'test', 'status']);
+    findSubcommand(cmd, 'status').parse(['node', 'test']);
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringContaining('Code Analyzer — Agent Integration Status'),
     );
