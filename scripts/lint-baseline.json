@@ -237,7 +237,6 @@
     "packages/intelligence/src/cfg/post-dominators.ts": 2,
     "packages/intelligence/src/cfg/reaching-defs.ts": 2,
     "packages/intelligence/src/community/leiden-detector.ts": 6,
-    "packages/intelligence/src/community/louvain.ts": 1,
     "packages/intelligence/src/cross-repo/cross-repo-indexer.ts": 1,
     "packages/intelligence/src/cross-repo/cross-repo-pr-review.ts": 16,
     "packages/intelligence/src/cross-repo/graph-compressor.ts": 1,

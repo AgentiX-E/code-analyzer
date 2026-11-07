@@ -276,9 +276,14 @@ describe('LouvainDetector', () => {
     const converged = new LouvainDetector(0.01).detectCommunities(build());
     const stopped = new LouvainDetector(1).detectCommunities(build());
 
-    // A threshold above the pass-level gain stops early, which is strictly worse.
-    expect(converged.communities.size).toBeLessThan(stopped.communities.size);
-    expect(converged.modularity).toBeGreaterThan(stopped.modularity);
+    // **What the threshold buys is a pass it does not run, and it is measured in passes rather than in quality.**
+    // This case used to assert that the loose threshold produced *more* communities and a *higher* modularity - a
+    // relation the accumulation faked, because the figure grew with the number of passes rather than with the
+    // partition. With the gain corrected the first pass already reaches the same partition, so the honest assertion
+    // is that the loose threshold stops no later and lands on an at-least-equal partition.
+    expect(converged.iterations).toBeGreaterThanOrEqual(stopped.iterations);
+    expect(converged.communities.size).toBeLessThanOrEqual(stopped.communities.size);
+    expect(converged.modularity).toBeGreaterThanOrEqual(stopped.modularity);
     expect(converged.nodeToCommunity.size).toBe(8);
   });
 
@@ -378,7 +383,12 @@ describe('LouvainDetector', () => {
     const detector = new LouvainDetector();
     const result = detector.detectCommunities(g);
     expect(result.nodeToCommunity.size).toBe(2);
-    expect(result.modularity).toBeGreaterThan(0);
+    // **A two-node graph joined by one edge cannot have a positive modularity, and this case used to require one.**
+    // `Q = Σ_c [L_c/m − (d_c/2m)²]`: together the pair scores `1/1 − (2/2)² = 0`, apart `2·(0 − (1/2)²) = −0.5`. The
+    // positive number this asserted was the search's accumulated gain, not the partition's modularity — see
+    // `louvain-modularity.test.ts`.
+    expect(result.modularity).toBe(0);
+    expect(result.communities.size).toBe(1);
   });
 
   it('should handle graph where nodes share no edges (isolated nodes)', () => {
@@ -405,8 +415,12 @@ describe('LouvainDetector', () => {
     const detector = new LouvainDetector();
     const result = detector.detectCommunities(g);
     expect(result.nodeToCommunity.size).toBe(2);
-    // The duplicate edge accumulation makes the connection stronger
-    expect(result.modularity).toBeGreaterThan(0);
+    // **Two nodes and any weight between them is still a two-node graph**: one community scores
+    // `m/m − (2m/2m)² = 0` and two singletons score `−0.5`, so the answer is `0` however strong the edge is. The
+    // duplicate edge is visible in the merge (one community), not in the figure - which is the property the
+    // accumulation used to fake.
+    expect(result.communities.size).toBe(1);
+    expect(result.modularity).toBe(0);
   });
 
   it('should handle graph with mixed label types across communities', () => {
