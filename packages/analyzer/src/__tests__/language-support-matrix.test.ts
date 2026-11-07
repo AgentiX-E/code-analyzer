@@ -48,6 +48,7 @@ import { providerLoaders } from '../pipeline/phase-helpers.js';
 import {
   CHECKS,
   FIXTURES,
+  ROUTE_FIXTURES,
   SCRIPT_AND_COMPONENT_FIXTURES,
   UNINSTRUMENTED,
 } from './support/language-support-matrix.js';
@@ -342,6 +343,7 @@ describe('every claim a checked row makes is backed by its language', () => {
             captures: capturesOf(language),
             names: fixture.names,
             isExported: (name) => provider.isExported(fixture.source, name),
+            route: ROUTE_FIXTURES[language],
           });
           expect(reason, `${language} claims ${row.feature}`).toBeNull();
         });
@@ -385,6 +387,7 @@ describe('every cell that is not ✅ is what its check reports as missing', () =
             captures: capturesOf(language),
             names: fixture.names,
             isExported: (name) => provider.isExported(fixture.source, name),
+            route: ROUTE_FIXTURES[language],
           });
           expect(
             reason,

@@ -9,7 +9,10 @@ provider that no file ever reaches is dead code, and until 2026-10-25 six of the
 
 **Every column below is a promise a test can break.** `packages/analyzer/src/__tests__/language-support-matrix.test.ts`
 parses this file, and for each `✅` runs the check that row owns against the fixture the column's language is parsed
-from — so a `✅` that stops being true fails the build rather than waiting for a reader to notice. Rows whose evidence is
+from — so a `✅` that stops being true fails the build rather than waiting for a reader to notice. The check reads the
+provider that publishes the fact, which is why `Route Detection` runs the route phase's own detector rather than asking
+a provider for a capture no provider emits: a row measured against the wrong producer is a row that says `N/A` about the
+language Spring is written in. Rows whose evidence is
 a call graph rather than a capture are listed in `UNINSTRUMENTED` with the measurement that covers them.
 
 **`—` and `N/A` are promises too.** For every cell that is not `✅`, the same check must report the evidence as missing,
@@ -35,7 +38,7 @@ claim about a grammar.
 | **Import Statements**        |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  —   |  —  |   ✅   |
 | **Export Detection**         |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
 | **Decorators/Annotations**   |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  N/A  |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
-| **Route Detection**          |     —      |    N/A     |   —    | N/A | N/A  |  N/A   |  —  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |   —   |  N/A   | N/A  | N/A |   —    |
+| **Route Detection**          |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  N/A  |   ✅   | N/A  | ✅  |   ✅   |
 | **Constructor Detection**    |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |   —   |  —   | N/A |   —   | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
 | **Docstrings/JSDoc**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |   —    |
 | **Function Calls**           |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |   —    |

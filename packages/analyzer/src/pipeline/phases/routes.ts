@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Pipeline Phase: Routes
 
-import { basename, dirname } from 'node:path';
+import { basename } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
@@ -11,6 +11,7 @@ import {
   EDGE_HANDLES_ROUTE,
 } from '@code-analyzer/shared';
 
+import { detectRoutes, ROUTE_LANGUAGES } from './route-patterns.js';
 import { GraphBuilder } from '../../graph/graph-builder.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -25,205 +26,13 @@ import type {
 // Routes helpers
 // ---------------------------------------------------------------------------
 
-const ROUTE_PATTERNS: Array<{ regex: RegExp; framework: string; method: string }> = [
-  // Express.js / Connect-style
-  {
-    regex:
-      /(?:app|router)\.(get|post|put|delete|patch|options|all|head)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'express',
-    method: '$1',
-  },
-  // Next.js App Router (export const GET/POST/etc)
-  {
-    regex: /export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)/g,
-    framework: 'nextjs-app',
-    method: '$1',
-  },
-  // Next.js API Routes
-  {
-    regex:
-      /export\s+default\s+(?:async\s+)?function\s+handler|export\s+default\s+function\s+handler/g,
-    framework: 'nextjs-api',
-    method: 'ALL',
-  },
-  // FastAPI / Flask decorator patterns
-  {
-    regex:
-      /@(?:app|router|blueprint)\.(get|post|put|delete|patch|options)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'flask',
-    method: '$1',
-  },
-  // Python FastAPI decorator
-  {
-    regex: /@(?:router|app)\.(get|post|put|delete|patch|options)\s*\(\s*['"`]([^'"`]+)['"`]/gi,
-    framework: 'fastapi',
-    method: '$1',
-  },
-  // Django URL patterns
-  { regex: /(?:path|re_path|url)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'django', method: 'ALL' },
-  // Gin (Go)
-  {
-    regex:
-      /(?:r|router|engine)\.(?:GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'gin',
-    method: 'ALL',
-  },
-  // Spring Boot annotations
-  {
-    regex:
-      /@(?:Get|Post|Put|Delete|Patch|Request)Mapping\s*\(\s*(?:value\s*=\s*)?['"`]([^'"`]+)['"`]/g,
-    framework: 'spring',
-    method: 'ALL',
-  },
-  // Express router modules
-  {
-    regex: /router\.(get|post|put|delete|patch|options|all|head)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'express-router',
-    method: '$1',
-  },
-  // Koa
-  {
-    regex: /router\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'koa',
-    method: '$1',
-  },
-  // Hono
-  {
-    regex: /app\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'hono',
-    method: '$1',
-  },
-  // Hapi.js
-  {
-    regex:
-      /server\.route\s*\(\s*\{[\s\S]{0,100}method\s*:\s*['"`](GET|POST|PUT|DELETE|PATCH|OPTIONS)['"`][\s\S]{0,100}path\s*:\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'hapi',
-    method: '$1',
-  },
-  // NestJS @Controller + HTTP method decorators
-  {
-    regex: /@(Get|Post|Put|Delete|Patch|Options|All|Head)\s*\(\s*['"`]([^'"`]*)['"`]/g,
-    framework: 'nestjs',
-    method: '$1',
-  },
-  // Echo (Go)
-  {
-    regex: /e\.(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'echo',
-    method: '$1',
-  },
-  // Chi (Go)
-  {
-    regex: /r\.(Get|Post|Put|Delete|Patch|Options|Head)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'chi',
-    method: '$1',
-  },
-  // Fiber (Go)
-  {
-    regex: /app\.(Get|Post|Put|Delete|Patch|Options|Head)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'fiber',
-    method: '$1',
-  },
-  // Rails routes (Ruby)
-  {
-    regex: /(get|post|put|patch|delete|resources|resource)\s+['"`]([^'"`]+)['"`]/g,
-    framework: 'rails',
-    method: '$1',
-  },
-  // Sinatra (Ruby)
-  {
-    regex: /(get|post|put|delete|patch|options)\s+['"`]([^'"`]+)['"`']\s+do/g,
-    framework: 'sinatra',
-    method: '$1',
-  },
-  // Laravel (PHP)
-  {
-    regex: /Route::(get|post|put|delete|patch|options|any|match)\s*\(\s*['"`]([^'"`]+)['"`]/g,
-    framework: 'laravel',
-    method: '$1',
-  },
-];
-
 /**
- * **Routes are declared in code; markup merely links to them.**
- *
- * These patterns are regular expressions over source text, and the Rails one - `(get|post|…) "…"` - reads a Thymeleaf
- * `th:href="@{/owners}"` as an endpoint once templates are indexed. On `spring-petclinic` the phase reported **55 routes
- * for a 17-endpoint application** the moment HTML was admitted; restricting the scan to the languages that can declare a
- * route gives back the 17 that exist. A template is a caller of a route, not its definition.
+ * **The detector lives in `route-patterns.ts` and is exported**, because a table of regular expressions that only a
+ * pipeline run can reach is a table no unit test can disagree with — and this one was wrong in three ways at once
+ * (four matches for one Express endpoint, `ALL` for every Spring verb, and a framework label guessed from syntax that
+ * four libraries share). The phase keeps the graph work; the syntax work is a pure function of the file.
  */
-const ROUTE_LANGUAGES = new Set<string>([
-  'typescript',
-  'javascript',
-  'python',
-  'java',
-  'kotlin',
-  'go',
-  'ruby',
-  'php',
-  'csharp',
-  'rust',
-  'scala',
-  'elixir',
-  'dart',
-  'swift',
-  'groovy',
-]);
-
-interface RouteInfo {
-  path: string;
-  method: string;
-  framework: string;
-  line: number;
-  filePath: string;
-}
-
-function detectRoutes(filePath: string, content: string, fileName: string): RouteInfo[] {
-  const routes: RouteInfo[] = [];
-
-  // Also check for Next.js route file conventions
-  if (
-    fileName === 'route.ts' ||
-    fileName === 'route.tsx' ||
-    fileName === 'route.js' ||
-    fileName === 'route.jsx'
-  ) {
-    const dirPath = dirname(filePath);
-    const routePath = dirPath.split('/app/')[1] ?? dirPath;
-    routes.push({
-      path: routePath,
-      method: 'ALL',
-      framework: 'nextjs-app-router',
-      line: 1,
-      filePath,
-    });
-  }
-
-  for (const pattern of ROUTE_PATTERNS) {
-    const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(content)) !== null) {
-      const lineNum = content.slice(0, match.index).split('\n').length;
-      const pathOrMethod = match[1] ?? '';
-      const routePath = match[2] ?? pathOrMethod;
-
-      // Determine if the first capture is the HTTP method or the path
-      const isHttpMethod = /^(get|post|put|delete|patch|options|head|all)$/i.test(pathOrMethod);
-      const actualPath = isHttpMethod ? routePath : pathOrMethod;
-      const actualMethod = isHttpMethod ? pathOrMethod.toUpperCase() : pattern.method;
-
-      routes.push({
-        path: actualPath,
-        method: actualMethod,
-        framework: pattern.framework,
-        line: lineNum,
-        filePath,
-      });
-    }
-  }
-
-  return routes;
-}
+export { detectRoutes, ROUTE_LANGUAGES } from './route-patterns.js';
 
 // ---------------------------------------------------------------------------
 // Phase 8: routes — Detect route handlers
@@ -251,7 +60,7 @@ export class RoutesPhase implements ExecutablePhase {
       for (const file of scanData.discoveredFiles) {
         if (!file.language || !ROUTE_LANGUAGES.has(file.language)) continue;
         const fileName = basename(file.filePath);
-        const routes = detectRoutes(file.filePath, file.content, fileName);
+        const routes = detectRoutes(file.filePath, file.content, fileName, file.language);
         if (routes.length === 0) continue;
 
         const fileNodeId = ctx.graph.fileIndex.get(file.filePath);

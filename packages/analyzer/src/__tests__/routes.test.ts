@@ -137,16 +137,25 @@ describe('RoutesPhase — defensive branches', () => {
     expect((result.output as { routesFound: number }).routesFound).toBeGreaterThanOrEqual(1);
   });
 
-  it('matches a Next.js API handler with no capture groups', async () => {
+  /**
+   * **A Pages Router API file answers every verb from one default export, and its path is its directory.** The case here
+   * used to be a file called `api.ts` at the project root exporting a handler — which is no Next.js convention at all,
+   * and asserted only that *something* was found. `pages/api/users.ts` is the convention, and the path it answers is
+   * `/api/users` rather than the empty string.
+   */
+  it('derives a Pages Router API path from the directory and reports the file as answering every verb', async () => {
     const store = new InMemoryGraphStore();
-    store.fileIndex.set('/proj/api.ts', 1);
+    store.fileIndex.set('/proj/pages/api/users.ts', 1);
     const ctx = makeCtx(
-      [makeFile('/proj/api.ts', 'export default function handler(req, res) {}\n')],
+      [makeFile('/proj/pages/api/users.ts', 'export default function handler(req, res) {}\n')],
       store,
     );
     const result = await new RoutesPhase().execute(ctx);
     expect(result.status).toBe('success');
-    expect((result.output as { routesFound: number }).routesFound).toBeGreaterThanOrEqual(1);
+    expect((result.output as { routesFound: number }).routesFound).toBe(1);
+    const route = [...store.nodes.values()].find((node) => node.label === 'Route');
+    expect(route?.properties.routePath).toBe('/api/users');
+    expect(route?.properties['framework']).toBe('nextjs-pages-api');
   });
 
   it('skips a route file absent from the graph file index', async () => {

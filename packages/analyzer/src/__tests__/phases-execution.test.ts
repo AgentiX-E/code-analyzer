@@ -3241,15 +3241,20 @@ describe('RoutesPhase - more frameworks', () => {
     await parsePhase.execute(ctx);
     await routesPhase.execute(ctx);
 
+    /**
+     * **The label said `gin` and the verb said `ALL`, and neither was evidence.** Gin, Echo, Chi and Fiber spell a
+     * route `r.GET("/x", h)` — the receiver's name is what the old table guessed from, and the verb was lost because the
+     * pattern's first capture was the method and its second the path while the detector read them the other way round.
+     * The family is `go-router` now, and the verb is the one the call names.
+     */
     const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Route' && n.properties?.['framework'] === 'gin',
+      (n) => n.label === 'Route' && n.properties?.['framework'] === 'go-router',
     );
-    // Gin routes should be detected (framework: 'gin', method: 'ALL')
-    expect(routeNodes.length).toBeGreaterThanOrEqual(2);
-
-    // Gin pattern captures paths, method is ALL
-    const paths = routeNodes.map((n) => n.properties.routePath as string);
-    expect(paths.some((p) => p.includes('/api/ping') || p.includes('/api/users'))).toBe(true);
+    expect(
+      routeNodes
+        .map((n) => `${String(n.properties.routeMethod)} ${String(n.properties.routePath)}`)
+        .sort(),
+    ).toEqual(['GET /api/ping', 'POST /api/users', 'PUT /api/users/:id']);
   });
 
   it('should detect FastAPI (Python) style routes', async () => {
@@ -3284,15 +3289,17 @@ describe('RoutesPhase - more frameworks', () => {
     await parsePhase.execute(ctx);
     await routesPhase.execute(ctx);
 
+    /**
+     * **`toBeGreaterThanOrEqual(0)` cannot fail.** The old assertion allowed zero routes and said so in a comment about
+     * regex flags; it would have passed with the detector switched off. The four decorators in the fixture are four
+     * endpoints with four verbs, and that is what is asserted.
+     */
     const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
-    // FastAPI patterns use /gi flag; Python files parsed by tree-sitter may
-    // have decorator lines that match as either 'fastapi' or 'flask'
-    const fastapiRoutes = routeNodes.filter(
-      (n) =>
-        (n.properties?.['framework'] as string)?.includes('fastapi') ||
-        (n.properties?.['framework'] as string)?.includes('flask'),
-    );
-    expect(fastapiRoutes.length).toBeGreaterThanOrEqual(0);
+    expect(
+      routeNodes
+        .map((n) => `${String(n.properties.routeMethod)} ${String(n.properties.routePath)}`)
+        .sort(),
+    ).toEqual(['GET /items', 'GET /users', 'POST /items', 'PUT /users/{id}']);
   });
 
   it('should detect Next.js app router file conventions', async () => {
@@ -3342,14 +3349,19 @@ describe('RoutesPhase - more frameworks', () => {
     await parsePhase.execute(ctx);
     await routesPhase.execute(ctx);
 
-    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
-    const koaRoutes = routeNodes.filter(
-      (n) =>
-        (n.properties?.['framework'] as string) === 'koa' ||
-        (n.properties?.['framework'] as string) === 'express-router',
+    /**
+     * **Koa and Express Router are one syntax, so they are one label.** The old case accepted either name and then
+     * asserted that zero was acceptable — a test that could not fail about a distinction that does not exist. What the
+     * reader wants to know is which endpoints the file answers.
+     */
+    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
+      (n) => n.label === 'Route' && n.properties?.['framework'] === 'express',
     );
-    // Koa routes use the same pattern as express-router so may be detected as either
-    expect(koaRoutes.length).toBeGreaterThanOrEqual(0);
+    expect(
+      routeNodes
+        .map((n) => `${String(n.properties.routeMethod)} ${String(n.properties.routePath)}`)
+        .sort(),
+    ).toEqual(['GET /api/health', 'POST /api/data']);
   });
 
   it('should handle routes error catch block', async () => {

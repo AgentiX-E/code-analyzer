@@ -25,6 +25,8 @@
  * reaching the graph.
  */
 
+import { detectRoutes } from '../../pipeline/phases/route-patterns.js';
+
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
 /** The identifiers every fixture writes, so one check serves twenty-one languages. */
@@ -919,11 +921,174 @@ draw(LIMIT)
 };
 
 /** What a check needs besides the captures. */
+/**
+ * **A route is not a capture, and the row that claims it was being checked against captures.**
+ *
+ * `Route Detection` was the only row whose producer is a pipeline phase rather than a provider: the phase reads the file
+ * with its own table of syntaxes and builds `Route` nodes. The matrix asked the provider for a `route.path` capture that
+ * no provider has ever emitted, so every column read `—` or `N/A`, and the `N/A` cells said things like "Java has no
+ * route construct" — about the language Spring was written in.
+ *
+ * One snippet per language, with the endpoint it must produce, and the check runs the phase's own detector.
+ */
+export interface RouteFixture {
+  readonly file: string;
+  readonly language: string;
+  readonly source: string;
+  readonly method: string;
+  readonly path: string;
+}
+
+export const ROUTE_FIXTURES: Readonly<Record<string, RouteFixture>> = {
+  TypeScript: {
+    file: 'src/server.ts',
+    language: 'typescript',
+    source: `app.get('/api/widgets', handler);`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  JavaScript: {
+    file: 'src/router.js',
+    language: 'javascript',
+    source: `router.post('/api/widgets', handler);`,
+    method: 'POST',
+    path: '/api/widgets',
+  },
+  Python: {
+    file: 'src/api.py',
+    language: 'python',
+    source: `@app.get("/api/widgets")\nasync def list_widgets():\n    return []`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Java: {
+    file: 'src/WidgetController.java',
+    language: 'java',
+    source: `@RestController\npublic class WidgetController {\n  @GetMapping("/api/widgets")\n  public List<Widget> list() { return null; }\n}`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Kotlin: {
+    file: 'src/Application.kt',
+    language: 'kotlin',
+    source: `routing {\n  post("/api/widgets") { call.respond(HttpStatusCode.Created) }\n}`,
+    method: 'POST',
+    path: '/api/widgets',
+  },
+  'C#': {
+    file: 'WidgetController.cs',
+    language: 'csharp',
+    source: `[ApiController]\npublic class WidgetController {\n  [HttpGet("/api/widgets")]\n  public IActionResult List() => Ok();\n}`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Go: {
+    file: 'main.go',
+    language: 'go',
+    source: `r.GET("/api/widgets", listWidgets)`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Ruby: {
+    file: 'config/routes.rb',
+    language: 'ruby',
+    source: `Rails.application.routes.draw do\n  get "/api/widgets"\nend`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  PHP: {
+    file: 'routes/web.php',
+    language: 'php',
+    source: `Route::post('/api/widgets', [WidgetController::class, 'store']);`,
+    method: 'POST',
+    path: '/api/widgets',
+  },
+  Rust: {
+    file: 'src/routes.rs',
+    language: 'rust',
+    source: `#[get("/api/widgets")]\nasync fn list_widgets() -> impl Responder { "ok" }`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Scala: {
+    file: 'app/WidgetController.scala',
+    language: 'scala',
+    source: `@GetMapping("/api/widgets")\ndef list(): List[Widget] = Nil`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Elixir: {
+    file: 'lib/router.ex',
+    language: 'elixir',
+    source: `scope "/api" do\n  get "/widgets", WidgetController, :index\nend`,
+    method: 'GET',
+    path: '/widgets',
+  },
+  Dart: {
+    file: 'bin/server.dart',
+    language: 'dart',
+    source: `app.get('/api/widgets', listWidgets);`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Swift: {
+    file: 'Sources/App/routes.swift',
+    language: 'swift',
+    source: `app.get("widgets") { req in "ok" }`,
+    method: 'GET',
+    path: 'widgets',
+  },
+  Groovy: {
+    file: 'grails-app/controllers/UrlMappings.groovy',
+    language: 'groovy',
+    source: `"/api/widgets"(controller: "widget", action: "index")`,
+    method: 'ALL',
+    path: '/api/widgets',
+  },
+  'C/C++': {
+    file: 'src/main.cpp',
+    language: 'cpp',
+    source: `CROW_ROUTE(app, "/api/widgets")([]{ return "ok"; });`,
+    method: 'ALL',
+    path: '/api/widgets',
+  },
+  Lua: {
+    file: 'app.lua',
+    language: 'lua',
+    source: `app:get("/api/widgets", function(self) return "ok" end)`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Zig: {
+    file: 'src/main.zig',
+    language: 'zig',
+    source: `try app.get("/api/widgets", listWidgets);`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  R: {
+    file: 'plumber.R',
+    language: 'r',
+    source: `#' @get /api/widgets\nfunction() { list() }`,
+    method: 'GET',
+    path: '/api/widgets',
+  },
+  Svelte: {
+    file: 'src/routes/api/widgets/+server.ts',
+    language: 'svelte',
+    source: `export function GET() { return new Response('[]'); }`,
+    method: 'ALL',
+    path: '/api/widgets',
+  },
+};
+
 export interface CheckContext {
   readonly captures: readonly UnifiedCapture[];
   readonly names: FixtureNames;
   /** Whether the provider reports a name as exported, which is a method rather than a capture. */
   readonly isExported: (name: string) => boolean;
+  /** The route this language declares, for the one row whose producer is a phase rather than a provider. */
+  readonly route?: RouteFixture;
 }
 
 /** `null` when the row is backed, or a sentence naming the evidence that is missing. */
@@ -1050,10 +1215,30 @@ export const CHECKS: Readonly<Record<string, MatrixCheck>> = {
       ? null
       : 'Decorators/Annotations: the fixture carries an annotation and nothing was captured',
 
-  'Route Detection': ({ captures }) =>
-    tagsOf(captures, 'route.path', 'route.method').length > 0
+  /**
+   * **The row's producer is the route phase, so the check runs the phase's detector.** Asking the provider for a
+   * `route.path` capture was asking the wrong instrument: no provider has ever emitted one, and the row then said `N/A`
+   * for Java — the language Spring is written in.
+   */
+  'Route Detection': ({ route }) => {
+    if (route === undefined)
+      return 'Route Detection: this language declares no route, by any convention';
+    const found = detectRoutes(
+      route.file,
+      route.source,
+      route.file.split('/').pop() ?? route.file,
+      route.language,
+    );
+    return found.some(
+      (candidate) => candidate.method === route.method && candidate.path === route.path,
+    )
       ? null
-      : 'Route Detection: no route was captured',
+      : `Route Detection: expected \`${route.method} ${route.path}\`, the detector found ${
+          found.length === 0
+            ? 'nothing'
+            : found.map((candidate) => `\`${candidate.method} ${candidate.path}\``).join(', ')
+        }`;
+  },
 
   /**
    * **The constructor is the language's own word for it.** `constructor`, `__init__`, `initialize` and `init` are
