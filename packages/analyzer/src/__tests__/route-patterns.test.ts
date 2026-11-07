@@ -114,22 +114,84 @@ describe('Spring names its verb in the annotation', () => {
    * states where its handlers live — `@RestController @RequestMapping("/owners") class OwnerController` — and reading it
    * as a route added a sixth endpoint to a five-endpoint checkout in the end-to-end test for this feature.
    */
-  it('reads a class-level prefix as a namespace rather than an endpoint', () => {
+  it('reads a class-level prefix as a namespace, and joins it onto the handlers under it', () => {
     const source = [
       '@RestController',
       '@RequestMapping("/owners")',
       'public class OwnerController {',
-      '  @GetMapping("/owners")',
+      '  @GetMapping',
       '  public List<Owner> list() { return null; }',
+      '  @GetMapping("/{ownerId}")',
+      '  public Owner show() { return null; }',
       '}',
     ].join('\n');
-    expect(pairs(source, 'OwnerController.java', 'java')).toEqual(['GET /owners']);
+    // Three facts at once: the class annotation is not an endpoint of its own, a handler with no path answers the
+    // class's, and a handler with one answers the two joined.
+    expect(pairs(source, 'OwnerController.java', 'java').sort()).toEqual([
+      'GET /owners',
+      'GET /owners/{ownerId}',
+    ]);
+  });
+
+  it('joins a nested controller’s path onto its parent’s', () => {
+    const source = [
+      '@RequestMapping("/owners/{ownerId}")',
+      'public class PetController {',
+      '  @GetMapping("/pets/new")',
+      '  public String init() { return null; }',
+      '}',
+    ].join('\n');
+    // `spring-petclinic` serves this handler at `/owners/{ownerId}/pets/new`, and reporting `/pets/new` leaves the
+    // reader to open the file.
+    expect(pairs(source, 'PetController.java', 'java')).toEqual(['GET /owners/{ownerId}/pets/new']);
   });
 
   it('does not read a mapping with no path as an endpoint at the empty string', () => {
     expect(pairs('@RequestMapping(method = RequestMethod.GET)', 'Mapping.java', 'java')).toEqual(
       [],
     );
+  });
+});
+
+describe('the class a handler belongs to is decided by where it sits', () => {
+  const FILE = [
+    '@RestController',
+    '@RequestMapping("/api")',
+    'public class Controller {',
+    '  private String brace = "}";',
+    '  @GetMapping("/inside")',
+    '  public String inside() { return brace; }',
+    '}',
+    '',
+    'class Unrelated {',
+    '  @GetMapping("/outside")',
+    '  public String outside() { return "x"; }',
+    '}',
+  ].join('\n');
+
+  it('composes a handler inside the class and leaves one in the next class alone', () => {
+    // **The `}` inside a string literal is not the end of the block.** Counting braces without blanking the literals
+    // would close `Controller` on line 4 and report `/inside` uncomposed while prefixing `/outside` — two wrong answers
+    // from one line of text.
+    expect(pairs(FILE, 'Controller.java', 'java').sort()).toEqual([
+      'GET /api/inside',
+      'GET /outside',
+    ]);
+  });
+
+  it('composes nothing in a language whose classes carry no path', () => {
+    const source = ['const app = express();', 'app.get("/x", h);'].join('\n');
+    expect(pairs(source, 'src/a.ts', 'typescript')).toEqual(['GET /x']);
+  });
+
+  it('ignores a class declaration with no annotation above it', () => {
+    const source = [
+      'class Plain {',
+      '  @GetMapping("/x")',
+      '  String x() { return ""; }',
+      '}',
+    ].join('\n');
+    expect(pairs(source, 'Plain.java', 'java')).toEqual(['GET /x']);
   });
 });
 
@@ -155,16 +217,35 @@ describe('a declaration that names no path is not an endpoint', () => {
 });
 
 describe('the other frameworks', () => {
-  it('reads ASP.NET attributes, and skips one that inherits its template', () => {
+  it('reads ASP.NET attributes, and skips one whose template nothing supplies', () => {
     const source = [
       '[HttpGet("/api/users")]',
       '[HttpPost(Template = "/api/users")]',
       '[HttpDelete]',
     ].join('\n');
-    // `[HttpDelete]` takes its path from `[Route("api/[controller]")]`, which this detector does not resolve.
+    // A file with no `[Route]` above the class leaves `[HttpDelete]` with no path at all, and a route at the empty
+    // string is worse than no route: it is indistinguishable from a real endpoint when counted.
     expect(pairs(source, 'UsersController.cs', 'csharp').sort()).toEqual([
       'GET /api/users',
       'POST /api/users',
+    ]);
+  });
+
+  it('supplies an ASP.NET template from [Route] and the class name', () => {
+    const source = [
+      '[ApiController]',
+      '[Route("api/[controller]")]',
+      'public class WidgetController : ControllerBase {',
+      '  [HttpGet]',
+      '  public IActionResult List() => Ok();',
+      '  [HttpGet("{id}")]',
+      '  public IActionResult Show(int id) => Ok();',
+      '}',
+    ].join('\n');
+    // `[controller]` is the class name without its `Controller` suffix — ASP.NET's own token, not a guess.
+    expect(pairs(source, 'WidgetController.cs', 'csharp').sort()).toEqual([
+      'GET /api/Widget',
+      'GET /api/Widget/{id}',
     ]);
   });
 
@@ -174,18 +255,13 @@ describe('the other frameworks', () => {
       'export class WidgetController {',
       "  @Get('all')",
       '  list() {}',
-      "  @Post('/widgets')",
+      '  @Post()',
       '  create() {}',
-      '  @Get()',
-      '  root() {}',
       '}',
     ].join('\n');
-    // **The path is reported as written, not composed with the controller's prefix.** `@Get('all')` inside
-    // `@Controller('widgets')` answers `/widgets/all`, and composing that is a resolution step this detector does not
-    // take — so the inventory says `all`, which is honest, rather than `/all`, which would be a guess.
-    // `@Get()` with no argument cannot even be reported that way, so it is skipped.
+    // `@Post()` has no path of its own and answers the controller's; `@Get('all')` answers the two joined.
     expect(pairs(source, 'widget.controller.ts', 'typescript').sort()).toEqual([
-      'GET all',
+      'GET /widgets/all',
       'POST /widgets',
     ]);
   });

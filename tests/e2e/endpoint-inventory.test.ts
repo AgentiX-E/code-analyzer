@@ -74,10 +74,12 @@ beforeAll(async () => {
       '@RestController',
       '@RequestMapping("/owners")',
       'public class OwnerController {',
-      '  @GetMapping("/owners")',
+      // **The handlers name no path at all**: they answer the class's, which is how most Spring controllers are written
+      // and which is why an inventory that reports only the handler's fragment answers `/` for both.
+      '  @GetMapping',
       '  public List<Owner> list() { return null; }',
       '',
-      '  @PostMapping("/owners")',
+      '  @PostMapping',
       '  public Owner create() { return null; }',
       '}',
     ].join('\n'),

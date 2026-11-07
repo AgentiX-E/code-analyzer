@@ -129,20 +129,6 @@ function flaskRoute(
 }
 
 /**
- * **A route with no path is not a route.** `[HttpGet]` and `@Get()` inherit their path from `[Route("api")]` or
- * `@Controller("api")`, which this detector does not resolve into a prefix, so an empty path would be an endpoint at
- * the empty string — worse than no endpoint, because it is indistinguishable from a real one when counted.
- */
-function withPathRequired(
-  extract: (match: RegExpExecArray) => { path: string; verb: RouteVerb },
-): (match: RegExpExecArray) => { path: string; verb: RouteVerb } | null {
-  return (match) => {
-    const value = extract(match);
-    return value.path.length === 0 ? null : value;
-  };
-}
-
-/**
  * **Every syntax this detector knows, most specific first.**
  *
  * The order decides the label a duplicated endpoint keeps — `@GetMapping` is claimed by `spring` before the generic
@@ -150,12 +136,13 @@ function withPathRequired(
  */
 const PATTERNS: readonly RoutePattern[] = [
   // Spring's verb-per-annotation forms. The verb is fixed by the annotation, so it is a literal rather than a capture.
-  // The optional `{` is the array form — `@GetMapping({ "/vets" })` — which `spring-petclinic` writes for its vet list
-  // and which a pattern that expected a quote straight after the parenthesis read as no endpoint at all.
+  // Two spellings matter beyond the ordinary one: the array form — `@GetMapping({ "/vets" })`, which `spring-petclinic`
+  // writes for its vet list — and the bare form, `@GetMapping` with no argument list at all, whose path is entirely the
+  // class the handler is declared in. The path group is optional so the bare form reaches the scope composition below.
   {
     framework: 'spring',
     regex:
-      /@(Get|Post|Put|Delete|Patch)Mapping\s*\(\s*(?:value\s*=\s*|path\s*=\s*)?\{?\s*["']([^"']*)["']/gu,
+      /@(Get|Post|Put|Delete|Patch)Mapping\b(?:\s*\(\s*(?:value\s*=\s*|path\s*=\s*)?\{?\s*["']([^"']*)["'])?/gu,
     path: 2,
     verb: 1,
     languages: ['java', 'kotlin', 'groovy', 'scala'],
@@ -176,16 +163,17 @@ const PATTERNS: readonly RoutePattern[] = [
       /\[Http(Get|Post|Put|Delete|Patch|Options|Head)(?:Attribute)?\s*(?:\(\s*(?:Template\s*=\s*)?["']([^"']*)["']\s*\))?\s*\]/gu,
     path: 2,
     verb: 1,
-    adjust: withPathRequired((match) => ({ path: group(match, 2), verb: verbOf(group(match, 1)) })),
+    adjust: (match) => ({ path: group(match, 2), verb: verbOf(group(match, 1)) }),
     languages: ['csharp'],
   },
-  // NestJS decorators. `@Get()` with an empty path inherits `@Controller('prefix')` and is not a route on its own.
+  // NestJS decorators. **`@Post()` with no argument is the common spelling**, and its path is entirely the controller's,
+  // so the path group is optional here for the same reason it is optional above.
   {
     framework: 'nestjs',
-    regex: /@(Get|Post|Put|Delete|Patch|Options|All|Head)\s*\(\s*["']([^"']*)["']\s*\)/gu,
+    regex: /@(Get|Post|Put|Delete|Patch|Options|All|Head)\s*\(\s*(?:["']([^"']*)["'])?\s*\)/gu,
     path: 2,
     verb: 1,
-    adjust: withPathRequired((match) => ({ path: group(match, 2), verb: verbOf(group(match, 1)) })),
+    adjust: (match) => ({ path: group(match, 2), verb: verbOf(group(match, 1)) }),
     languages: ['typescript', 'javascript'],
   },
   // Ktor: `get("/x") { … }` inside a `routing { }` block.
@@ -410,6 +398,133 @@ const NEXT_ROUTE_FILES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * **A handler's URL is the class's path plus its own, and the class path is written once for all of them.**
+ *
+ * `@RequestMapping("/owners/{ownerId}")` above `class PetController` and `@GetMapping("/pets/new")` inside it answer
+ * `/owners/{ownerId}/pets/new`; `[Route("api/[controller]")]` above `class WidgetController` and a bare `[HttpGet]` answer
+ * `/api/Widget`. Reporting the handler's own fragment is half an answer, and the half it reports is the one a reader
+ * cannot resolve without opening the file — which is the definition of the fact this inventory exists to save them.
+ *
+ * The prefixes are read with a brace-matched body extent rather than with an AST, because the detector reads text: the
+ * class declaration's extent is the block it opens, and a route belongs to the innermost block that contains its line.
+ */
+interface ClassScope {
+  /** The class's path, normalised to a leading slash, with `[controller]` already substituted. */
+  readonly prefix: string;
+  readonly startLine: number;
+  readonly endLine: number;
+}
+
+/** The frameworks whose handlers live under a class-level path. Rails, Go and the file conventions have no such thing. */
+const SCOPED_FRAMEWORKS: ReadonlySet<string> = new Set(['spring', 'aspnet', 'nestjs']);
+
+/** The languages in which a class-level path is spelled. */
+const SCOPED_LANGUAGES: ReadonlySet<string> = new Set([
+  'java',
+  'kotlin',
+  'groovy',
+  'scala',
+  'csharp',
+  'typescript',
+  'javascript',
+]);
+
+/**
+ * The declaration that opens a scope: a path-bearing annotation, any further annotations, then a class.
+ *
+ * `[Route(…)]` closes with a bracket, `@RequestMapping(…)` does not, and every framework allows more annotations between
+ * the path and the class — `@RequestMapping("/owners") @Slf4j public final class OwnerController` is one declaration.
+ */
+const SCOPE_DECLARATION =
+  /(?:@RequestMapping|@Controller|\[Route)\s*\([^)]*\)\]?(?:\s*@[\w.]+(?:\s*\([^)]*\))?)*\s*(?:[a-z]+\s+)*(?:class|record)\s+(\w+)/gu;
+
+/**
+ * The same text with comments and string literals blanked out, so braces can be counted.
+ *
+ * **A `{` inside a string is not a block.** `${…}` and escaped quotes are the cases that matter, and blanking keeps every
+ * index where it was, which is what lets the extent be computed on this copy and read back from the original.
+ */
+function blankOut(text: string): string {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//gu, (match) => ' '.repeat(match.length))
+    .replace(/\/\/[^\n]*/gu, (match) => ' '.repeat(match.length))
+    .replace(/`(?:[^`\\]|\\.)*`/gu, (match) => ' '.repeat(match.length))
+    .replace(/"(?:[^"\\\n]|\\.)*"/gu, (match) => ' '.repeat(match.length))
+    .replace(/'(?:[^'\\\n]|\\.)*'/gu, (match) => ' '.repeat(match.length));
+}
+
+/** The index of the brace that closes the block opened at `open`, or the end of the text. */
+function closingBrace(blanked: string, open: number): number {
+  let depth = 0;
+  for (let index = open; index < blanked.length; index += 1) {
+    if (blanked[index] === '{') depth += 1;
+    else if (blanked[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return blanked.length;
+}
+
+/** The 1-based line an index falls on. */
+function lineOf(content: string, index: number): number {
+  return content.slice(0, index).split('\n').length;
+}
+
+/** A path joined onto a prefix: one slash between them, and a method path written with or without a leading slash. */
+function joinPath(prefix: string, path: string): string {
+  const left = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+  const right = path.startsWith('/') ? path : `/${path}`;
+  return `${left}${right}`;
+}
+
+/** Every class-level path in the file, with the line range it governs. */
+function classScopes(content: string, language: string | undefined): readonly ClassScope[] {
+  if (language === undefined || !SCOPED_LANGUAGES.has(language)) return [];
+
+  const blanked = blankOut(content);
+  const scopes: ClassScope[] = [];
+  for (const match of content.matchAll(
+    new RegExp(SCOPE_DECLARATION.source, SCOPE_DECLARATION.flags),
+  )) {
+    const raw = firstQuoted(match[0]);
+    if (raw === null || match.index === undefined) continue;
+
+    const open = blanked.indexOf('{', match.index + match[0].length - 1);
+    if (open === -1) continue;
+
+    // `[Route("api/[controller]")]` names the class it is written above; ASP.NET substitutes the name without its
+    // `Controller` suffix, which is why the two are read from the same match.
+    const controller = group(match, 1).replace(/Controller$/u, '');
+    const withController = raw.replace(/\[controller\]/gu, controller);
+    scopes.push({
+      prefix: withController.startsWith('/') ? withController : `/${withController}`,
+      startLine: lineOf(content, match.index),
+      endLine: lineOf(content, closingBrace(blanked, open)),
+    });
+  }
+  return scopes;
+}
+
+/** The path a handler answers: its own, or the one its class declares, or the two joined. */
+function composePath(
+  path: string,
+  line: number,
+  framework: string,
+  scopes: readonly ClassScope[],
+): string | null {
+  // The innermost scope wins: a nested class inside a controller is governed by its own path, not its parent's.
+  const scope = SCOPED_FRAMEWORKS.has(framework)
+    ? [...scopes]
+        .reverse()
+        .find((candidate) => line >= candidate.startLine && line <= candidate.endLine)
+    : undefined;
+
+  if (path.length === 0) return scope === undefined ? null : scope.prefix;
+  return scope === undefined ? path : joinPath(scope.prefix, path);
+}
+
+/**
  * **Every endpoint one file declares, deduplicated by `(verb, path)`.**
  *
  * The deduplication is the point. Four regexes match one Express route because four libraries share the syntax, and a
@@ -426,6 +541,7 @@ export function detectRoutes(
   fileName: string,
   language?: string,
 ): DetectedRoute[] {
+  const scopes = classScopes(content, language);
   const found = new Map<string, DetectedRoute>();
   const routes: DetectedRoute[] = [];
 
@@ -449,17 +565,15 @@ export function detectRoutes(
   if (NEXT_ROUTE_FILES.has(fileName)) {
     // A Next.js app-router file answers every verb its exported functions name, and the path is the directory.
     const path = nextAppRouterPath(filePath) ?? '/';
-    const verbs = [
-      ...content.matchAll(
-        /export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b/gu,
-      ),
-    ].map((match) => verbOf(match[1]));
-    if (verbs.length === 0) {
-      claim({ path, method: 'ALL', framework: 'nextjs-app-router', line: 1, filePath });
-    } else {
-      for (const verb of new Set(verbs)) {
-        claim({ path, method: verb, framework: 'nextjs-app-router', line: 1, filePath });
-      }
+    const claimedVerbs = new Set(
+      [
+        ...content.matchAll(
+          /export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b/gu,
+        ),
+      ].map((match) => verbOf(match[1])),
+    );
+    for (const verb of claimedVerbs.size === 0 ? ['ALL'] : claimedVerbs) {
+      claim({ path, method: verb, framework: 'nextjs-app-router', line: 1, filePath });
     }
   }
 
@@ -479,13 +593,18 @@ export function detectRoutes(
       // **An `adjust` that returns null is a declaration that is not an endpoint**, and falling back to the raw
       // capture would turn `@RequestMapping(method = RequestMethod.GET)` into a route at that argument list.
       if (pattern.adjust !== undefined && adjusted === null) continue;
-      const path = adjusted?.path ?? group(match, pattern.path);
+      const declared = adjusted?.path ?? group(match, pattern.path);
       const verb =
         adjusted?.verb ??
         (typeof pattern.verb === 'number' ? verbOf(match[pattern.verb]) : pattern.verb);
-      if (path.length === 0) continue;
 
-      const line = content.slice(0, match.index).split('\n').length;
+      const line = lineOf(content, match.index);
+      // **A handler with no path of its own still has a URL**: `[HttpGet]` above `[Route("api/[controller]")]` answers
+      // `/api/Widget`, and `@GetMapping` under `@RequestMapping("/owners")` answers `/owners`. Only a handler with
+      // neither is not an endpoint, and that is what a `null` here means.
+      const path = composePath(declared, line, pattern.framework, scopes);
+      if (path === null) continue;
+
       claim({ path, method: verb, framework: pattern.framework, line, filePath });
     }
   }

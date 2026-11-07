@@ -218,7 +218,12 @@ describe(`a polyglot repository (${CORPUS.name} at ${CORPUS.sha.slice(0, 8)})`, 
     const paths = nodes()
       .filter((n) => n.label === 'Route')
       .map((n) => n.name);
-    expect(paths.some((p) => p.includes('/owners'))).toBe(true);
+
+    // **A handler's URL is the class's path plus its own.** `PetController` is annotated `@RequestMapping("/owners/
+    // {ownerId}")` and its handlers write `/pets/new`; the application serves that at `/owners/{ownerId}/pets/new`, and
+    // reporting the fragment leaves the reader to open the file — which is the work this inventory exists to save.
+    expect(paths).toContain('GET /owners/{ownerId}/pets/new');
+    expect(paths.some((p) => p.startsWith('GET /owners'))).toBe(true);
   });
 
   it('resolves Java imports to the project’s own types', (ctx) => {
