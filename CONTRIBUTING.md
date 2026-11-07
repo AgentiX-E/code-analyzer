@@ -283,6 +283,25 @@ test(intelligence): add vector search benchmarks
 - [ ] Breaking changes are documented in changeset
 - [ ] Commit messages follow conventional commits
 
+## Dependencies
+
+Dependabot opens the pull request; a human still has to decide. The rule this repository follows is that a major
+version is not a maintenance task but a **claim**, and a claim needs a measurement before it lands:
+
+- **A major that changes the runtime is one change, not N.** `setup-node`, `upload-artifact`, `download-artifact`,
+  `cache` and `release-drafter` all moved from Node 20 to Node 24 and then from CommonJS to ESM without touching an
+  input this repository passes. They landed together, in one commit, verified by the workflows that run them.
+- **A type package follows the floor, not the release.** `@types/node` is refused above the oldest Node the CI matrix
+  runs, because types are a claim about which APIs exist: accepting Node 26 types on a Node 22 floor makes `tsc`
+  pass on calls that throw. `engines.node` is `>=22.14.0` for the same reason — `better-sqlite3` 13's N-API prebuilt
+  segfaults on 22.13.1 and opens cleanly on every version from 22.14.0 up, which was measured, not assumed.
+- **An ESM-only major means a packaging migration.** `commander` 14 is taken and 15 is not: 15 removed its CommonJS
+  build, and `packages/cli` publishes CommonJS (`bin`, Docker entrypoint, and the extension's esbuild bundle all load
+  `dist/index.js`). That is a migration with its own verification, not a line in a manifest.
+- **A range in `pnpm.overrides` needs a ceiling as well as a floor.** `undici: ">=7.29.1"` was a correct security
+  floor with no upper bound; it resolved a major that jsdom cannot use, and the only suite that would have noticed was
+  one no workflow ran. Floors are for vulnerabilities; ceilings are for compatibility, and an override needs both.
+
 ## Changesets
 
 We use [Changesets](https://github.com/changesets/changesets) for versioning and changelogs.
