@@ -482,13 +482,16 @@ describe('phase error handling (catch paths)', () => {
 // ---------------------------------------------------------------------------
 
 describe('phase graph construction branches', () => {
-  it('parse skips a file whose language has no parallel provider', async () => {
+  it('parse skips a file whose language has no provider at all', async () => {
     const phase = new ParallelParsePhase();
     const ctx = makeCtx();
-    // 'c' is a supported language but is absent from the parallel phase's
-    // provider map, so getOrLoadProvider returns null and the file is skipped.
+    // **This case used to be written with `c`**, on the reasoning that "`c` is a supported language but is absent from
+    // the parallel phase's provider map, so `getOrLoadProvider` returns null". That map was a second copy of the
+    // language table that had drifted to 18 of the 32 languages, so the test was asserting the drift. `pdf` is the
+    // honest example: it is indexed for its text and has no provider to build, which is a different fact from a
+    // provider the parallel path could not find.
     ctx.phaseData.set('scan', {
-      discoveredFiles: [makeDiscoveredFile({ language: 'c', filePath: '/fake/project/src/lib.c' })],
+      discoveredFiles: [makeDiscoveredFile({ language: 'pdf', filePath: '/fake/project/doc.pdf' })],
     });
 
     const result = await phase.execute(ctx);

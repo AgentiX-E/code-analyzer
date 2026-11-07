@@ -40,14 +40,15 @@ import { RProvider } from '../languages/r.js';
 import { RubyProvider } from '../languages/ruby.js';
 import { RustProvider } from '../languages/rust.js';
 import { ScalaProvider } from '../languages/scala.js';
+import { SvelteProvider } from '../languages/svelte.js';
 import { SwiftProvider } from '../languages/swift.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 import { ZigProvider } from '../languages/zig.js';
-import { providerLoaders } from '../pipeline/parallel-phases.js';
+import { providerLoaders } from '../pipeline/phase-helpers.js';
 import {
-  BASH_AND_R_FIXTURES,
   CHECKS,
   FIXTURES,
+  SCRIPT_AND_COMPONENT_FIXTURES,
   UNINSTRUMENTED,
 } from './support/language-support-matrix.js';
 
@@ -77,6 +78,7 @@ const PROVIDERS: Readonly<Record<string, () => LanguageProvider>> = {
   Groovy: () => new GroovyProvider(),
   Bash: () => new BashProvider(),
   R: () => new RProvider(),
+  Svelte: () => new SvelteProvider(),
 };
 
 /** `✅`, `—` and `N/A` are the three cells the table writes; anything else is a typo this suite should catch. */
@@ -129,20 +131,26 @@ function readMatrix(): Matrix {
 /**
  * **The languages the product has, and the ones the matrix deliberately does not cover.**
  *
- * A column is a claim about a *programming* language: capture a function, a class, a method, a call. A scanner also
- * admits the configuration, markup and document formats a repository is made of, and those have providers with their
- * own facts — a YAML key, an HTML element, a SQL table — which this table's rows do not describe. **The split is stated
- * here rather than implied by a hard-coded list**, so a provider added tomorrow fails this suite until its author says
- * which half it belongs to.
+ * A column is a claim about a language that publishes declarations: capture a function, a class, a method, a call. A
+ * scanner also admits the configuration, markup and document formats a repository is made of, and those have providers
+ * with their own facts — a YAML key, an HTML element, a SQL table — which this table's rows do not describe. **The split
+ * is stated here rather than implied by a hard-coded list**, so a provider added tomorrow fails this suite until its
+ * author says which half it belongs to.
+ *
+ * The list is read off `providerLoaders` and not off a recollection of it, which is how it came to have eleven entries:
+ * `hcl`, `dockerfile` and `xml` were in the table and in neither list.
  */
 const NOT_A_PROGRAMMING_LANGUAGE: Readonly<Record<string, string>> = {
   yaml: 'a configuration format: keys and anchors, not declarations and calls',
   json: 'a data format: no declarations at all',
   sql: 'a query language: tables and statements, measured by the taint and schema rows of its own suite',
-  toml: 'a configuration format',
+  toml: 'a configuration format: keys and tables',
   markdown: 'a document format: headings and links',
   html: 'a markup format: elements and attributes, measured by the taint rows of its own suite',
   css: 'a stylesheet language: selectors and rules',
+  hcl: 'a configuration format: blocks and attributes, read by the infrastructure rules of its own suite',
+  dockerfile: 'a build recipe: instructions in order, with no declaration and no call',
+  xml: 'a markup format: elements and attributes, measured by its own provider suite',
 };
 
 /** The identifier in `docs/language-support.md` for each language the pipeline can load. */
@@ -157,6 +165,9 @@ const COLUMN_OF: Readonly<Record<string, string>> = {
   rust: 'Rust',
   php: 'PHP',
   ruby: 'Ruby',
+  // **One column, two providers**: `c` and `cpp` are separate loaders because the grammars differ, and one column
+  // because a user asking "do you read C++" is asking about both.
+  c: 'C/C++',
   cpp: 'C/C++',
   swift: 'Swift',
   dart: 'Dart',
@@ -168,11 +179,12 @@ const COLUMN_OF: Readonly<Record<string, string>> = {
   groovy: 'Groovy',
   bash: 'Bash',
   r: 'R',
+  svelte: 'Svelte',
 };
 
 const MATRIX = readMatrix();
 
-const ALL_FIXTURES = { ...FIXTURES, ...BASH_AND_R_FIXTURES };
+const ALL_FIXTURES = { ...FIXTURES, ...SCRIPT_AND_COMPONENT_FIXTURES };
 
 /** One parse per language, because twenty-five assertions ask the same provider about the same file. */
 const parsed = new Map<string, UnifiedCapture[]>();

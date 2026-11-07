@@ -17,6 +17,7 @@ import {
 import {
   captureTagToNodeLabel,
   captureTagToReferenceKind,
+  getOrLoadProvider,
   groupCaptures,
   receiverOf,
   toPhaseFailure,
@@ -24,7 +25,6 @@ import {
 import { GraphBuilder } from '../graph/graph-builder.js';
 
 import type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';
-import type { LanguageProvider } from '../languages/provider.js';
 import type {
   PipelinePhaseId,
   PipelineContext,
@@ -34,105 +34,23 @@ import type {
 } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
-// Provider Loader (shared with sequential phases)
+// Provider Loader
 // ---------------------------------------------------------------------------
 
 /**
- * Every language the pipeline can build a provider for, by the identifier a scanner assigns.
+ * **This module used to own a second copy of the language table**, and the copy had drifted: 18 languages against the
+ * 32 the pipeline loads, which left C, C++, PHP, Ruby, Swift, Dart, Lua, Scala, Zig, Elixir, HCL, Dockerfile, XML and
+ * Svelte unloadable from here. The comment above that copy already said what to do about it — "**the copy is gone**",
+ * written when a second `groupCaptures` disagreed with this file about qualified names — so the same answer applies:
+ * one implementation in `phase-helpers.ts`, re-exported so this module's surface is unchanged.
  *
- * **Exported because it is the list of languages the product has**, and anything that claims to describe the product's
- * language support has to be measured against it rather than against a copy: `docs/language-support.md` grew from
- * seventeen columns to nineteen because two providers — ArkTS and Groovy — were in this table and in no column at all,
- * and nothing could notice.
+ * **Nothing in production imports this module** (see `module-reachability.test.ts`), which is why the drift had no
+ * symptom; a table a test is the only reader of is a table nothing can disagree with.
+ *
+ * The import above is separate from this export because a re-export creates no local binding, and the parse phase below
+ * calls the function.
  */
-export const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
-  typescript: async () => {
-    const { TypeScriptProvider } = await import('../languages/typescript.js');
-    return new TypeScriptProvider();
-  },
-  javascript: async () => {
-    const { JavaScriptProvider } = await import('../languages/javascript.js');
-    return new JavaScriptProvider();
-  },
-  python: async () => {
-    const { PythonProvider } = await import('../languages/python.js');
-    return new PythonProvider();
-  },
-  go: async () => {
-    const { GoProvider } = await import('../languages/go.js');
-    return new GoProvider();
-  },
-  java: async () => {
-    const { JavaProvider } = await import('../languages/java.js');
-    return new JavaProvider();
-  },
-  kotlin: async () => {
-    const { KotlinProvider } = await import('../languages/kotlin.js');
-    return new KotlinProvider();
-  },
-  csharp: async () => {
-    const { CSharpProvider } = await import('../languages/csharp.js');
-    return new CSharpProvider();
-  },
-  rust: async () => {
-    const { RustProvider } = await import('../languages/rust.js');
-    return new RustProvider();
-  },
-  yaml: async () => {
-    const { YamlProvider } = await import('../languages/yaml.js');
-    return new YamlProvider();
-  },
-  json: async () => {
-    const { JsonProvider } = await import('../languages/json.js');
-    return new JsonProvider();
-  },
-  sql: async () => {
-    const { SqlProvider } = await import('../languages/sql.js');
-    return new SqlProvider();
-  },
-  bash: async () => {
-    const { BashProvider } = await import('../languages/bash.js');
-    return new BashProvider();
-  },
-  toml: async () => {
-    const { TomlProvider } = await import('../languages/toml.js');
-    return new TomlProvider();
-  },
-  markdown: async () => {
-    const { MarkdownProvider } = await import('../languages/markdown.js');
-    return new MarkdownProvider();
-  },
-  html: async () => {
-    const { HtmlProvider } = await import('../languages/html.js');
-    return new HtmlProvider();
-  },
-  css: async () => {
-    const { CssProvider } = await import('../languages/css.js');
-    return new CssProvider();
-  },
-  r: async () => {
-    const { RProvider } = await import('../languages/r.js');
-    return new RProvider();
-  },
-  groovy: async () => {
-    const { GroovyProvider } = await import('../languages/groovy.js');
-    return new GroovyProvider();
-  },
-};
-
-const providerCache = new Map<string, LanguageProvider>();
-
-export async function getOrLoadProvider(language: string): Promise<LanguageProvider | null> {
-  const cached = providerCache.get(language);
-  if (cached) return cached;
-
-  const loader = providerLoaders[language];
-  if (!loader) return null;
-
-  const provider = await loader();
-  providerCache.set(language, provider);
-  return provider;
-}
+export { getOrLoadProvider, providerLoaders } from './phase-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Shared capture → symbol/reference conversion — one implementation

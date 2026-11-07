@@ -845,16 +845,20 @@ class Widget extends Base implements Drawable {
 };
 
 /**
- * **Two languages with no classes and no types.** Bash and R are the two providers whose entire vocabulary is a
- * declaration with a name and a call — a function, a variable, a call site — and neither has a class, an interface, an
- * enum, a constructor or a generic to write in a fixture. Their columns are mostly `N/A` for that reason, and `—` where
- * the fact is one the provider could publish and does not.
+ * **Three providers whose fixture is a file rather than a program.** Bash and R are scripts — a declaration with a name
+ * and a call, and no interface, enum or generic syntax to write — which is why most of their rows are `N/A`. Svelte is a
+ * component: its declarations live inside a `<script>` block and its template is markup, so the rows about types and
+ * receivers do not describe it either.
  *
  * They live in this second table rather than in `FIXTURES` because the fixtures above are one family with a shared
- * vocabulary; these two write a script, not a program with a type system, and a reader comparing them to the seventeen
- * above should see the difference before the braces.
+ * vocabulary and a type system; these three write a file, and a reader comparing them to the eighteen above should see
+ * the difference before the braces.
+ *
+ * **`N/A` means the syntax does not exist, not that the language cannot express the idea.** R has classes — `setClass`
+ * declares one and the walker files it as `class.def` — so R's `Class Definitions` is `✅` and this fixture writes the
+ * call, while Bash's is `N/A` because a shell has no class at all.
  */
-export const BASH_AND_R_FIXTURES: Readonly<Record<string, MatrixFixture>> = {
+export const SCRIPT_AND_COMPONENT_FIXTURES: Readonly<Record<string, MatrixFixture>> = {
   Bash: fixture(
     'matrix.sh',
     `
@@ -879,6 +883,8 @@ draw "$NAME"
 # A small script.
 LIMIT <- 10
 
+setClass("Widget", representation(label = "character"))
+
 # Draws the widget through the helper.
 draw <- function(labels) {
   local <- helper(labels)
@@ -888,6 +894,24 @@ draw <- function(labels) {
 draw(LIMIT)
 `,
     { fn: 'draw', variable: 'local', constant: 'LIMIT', callee: 'helper' },
+  ),
+  Svelte: fixture(
+    'Widget.svelte',
+    `
+<script lang="ts">
+  import { helper } from './helper';
+
+  export const LIMIT = 10;
+
+  /** Greets a name through the helper. */
+  export function topLevel(name: string): string {
+    let local = helper(name);
+    return local;
+  }
+</script>
+
+<div class="widget">{LIMIT}</div>
+`,
   ),
 };
 

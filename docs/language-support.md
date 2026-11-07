@@ -1,9 +1,11 @@
 # Language Support Matrix
 
-Code Analyzer names **33 languages** in `SUPPORTED_LANGUAGES`: **twenty-one with a tree-sitter grammar** and the
-symbol-level extraction below, plus twelve that carry the configuration, markup and documents a repository is made of —
-**and every one of them is admitted by the scanner**, which is what makes the provider for it reachable. _A provider
-that no file ever reaches is dead code, and until 2026-10-25 six of them were._
+Code Analyzer names **33 languages** in `SUPPORTED_LANGUAGES`: **twenty-two that publish declarations** — twenty-one
+with a tree-sitter grammar, plus Svelte, whose declarations are the ones inside its `<script>` block and whose provider
+reads them with expressions rather than a grammar — and eleven that carry the configuration, markup, documents and
+archives a repository is made of: `yaml`, `json`, `toml`, `sql`, `markdown`, `pdf`, `html`, `xml`, `css`, `hcl`,
+`dockerfile`. **Every one of them is admitted by the scanner**, which is what makes the provider for it reachable. _A
+provider that no file ever reaches is dead code, and until 2026-10-25 six of them were._
 
 **Every column below is a promise a test can break.** `packages/analyzer/src/__tests__/language-support-matrix.test.ts`
 parses this file, and for each `✅` runs the check that row owns against the fixture the column's language is parsed
@@ -12,56 +14,56 @@ a call graph rather than a capture are listed in `UNINSTRUMENTED` with the measu
 
 ## Feature Matrix
 
-| Feature                      | TypeScript | JavaScript | Python | Go  | Java | Kotlin | C#  | Rust | PHP | Ruby | C/C++ | Swift | Dart | Lua | Scala | Zig | Elixir | ArkTS | Groovy | Bash |  R  |
-| ---------------------------- | :--------: | :--------: | :----: | :-: | :--: | :----: | :-: | :--: | :-: | :--: | :---: | :---: | :--: | :-: | :---: | :-: | :----: | :---: | :----: | :--: | :-: |
-| **Function Definitions**     |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |
-| **Method Definitions**       |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  —   | ✅  |  ✅  |   —   |   —   |  —   | N/A |   —   |  —  |  N/A   |  ✅   |   ✅   | N/A  | N/A |
-| **Class Definitions**        |     ✅     |     ✅     |   ✅   | N/A |  ✅  |   ✅   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |
-| **Interface Definitions**    |     ✅     |    N/A     |  N/A   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |
-| **Enum Definitions**         |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  ✅   |  ✅   |  ✅  | N/A |   —   | ✅  |  N/A   |  ✅   |   ✅   | N/A  | N/A |
-| **Type Definitions**         |     ✅     |    N/A     |   —    | N/A | N/A  |  N/A   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |  N/A   | N/A  | N/A |
-| **Variable Definitions**     |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  —   |  —  |  ✅  |  ✅   |   —   |  —   | ✅  |   —   | ✅  |   —    |  ✅   |   ✅   |  ✅  | ✅  |
-| **Constant Definitions**     |     ✅     |     ✅     |   —    | ✅  |  —   |   —    |  —  |  ✅  |  —  |  ✅  |   —   |  ✅   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    |  —   |  —  |
-| **Import Statements**        |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  —   |  —  |
-| **Export Detection**         |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |  ✅   |   ✅   |  —   |  —  |
-| **Decorators/Annotations**   |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  N/A  |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |
-| **Route Detection**          |     —      |    N/A     |   —    | N/A | N/A  |  N/A   |  —  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |   —   |  N/A   | N/A  | N/A |
-| **Constructor Detection**    |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |   —   |  —   | N/A |   —   | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |
-| **Docstrings/JSDoc**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |
-| **Function Calls**           |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |
-| **Declared Type Facts**      |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |
-| **Declared Return Types**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |
-| **Parameter Arity**          |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |
-| **Package-Qualified Names**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Abstract Classes**         |     ✅     |    N/A     |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |
-| **Class Expressions**        |     ✅     |     —      |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    | N/A  | N/A |
-| **Type Aliases**             |     ✅     |    N/A     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    | N/A  | N/A |
-| **Type-Position References** |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |
-| **Member Alias Bindings**    |     ✅     |     ✅     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    |  —   |  —  |
-| **Lexical `this`**           |     ✅     |     ✅     |  N/A   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   |  —   |  —  |
-| **Deferred Calls (`::`)**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Resource Bindings**        |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Enum Constants**           |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Type Parameter Bounds**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Outer Instance `this`**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Factory-Call Receiver**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Cast Receiver**            |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Argument-Type Dispatch**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Collection Elements**      |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Lambda Parameter Types**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Functional Parameters**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Stream Receivers**         |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Implicit Construction**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Generic Factory Returns**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Inherited Member Hops**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |
-| **Generics**                 |     ✅     |    N/A     |   —    | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |
-| **Async Detection**          |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |  N/A   | N/A  | N/A |
-| **Extension Functions**      |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |
-| **Struct Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |
-| **Record Detection**         |    N/A     |    N/A     |  N/A   | N/A |  ✅  |  N/A   | ✅  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |   ✅   |  —   |  —  |
-| **Trait Detection**          |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |
-| **Impl Block Detection**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   |  —   |  —  |
-| **Object Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |
+| Feature                      | TypeScript | JavaScript | Python | Go  | Java | Kotlin | C#  | Rust | PHP | Ruby | C/C++ | Swift | Dart | Lua | Scala | Zig | Elixir | ArkTS | Groovy | Bash |  R  | Svelte |
+| ---------------------------- | :--------: | :--------: | :----: | :-: | :--: | :----: | :-: | :--: | :-: | :--: | :---: | :---: | :--: | :-: | :---: | :-: | :----: | :---: | :----: | :--: | :-: | :----: |
+| **Function Definitions**     |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
+| **Method Definitions**       |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  —   | ✅  |  ✅  |   —   |   —   |  —   | N/A |   —   |  —  |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Class Definitions**        |     ✅     |     ✅     |   ✅   | N/A |  ✅  |   ✅   | ✅  | N/A  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | N/A |  ✅   | N/A |  N/A   |  ✅   |   ✅   | N/A  | ✅  |   —    |
+| **Interface Definitions**    |     ✅     |    N/A     |  N/A   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |  N/A   |
+| **Enum Definitions**         |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  ✅   |  ✅   |  ✅  | N/A |   —   | ✅  |  N/A   |  ✅   |   ✅   | N/A  | N/A |  N/A   |
+| **Type Definitions**         |     ✅     |    N/A     |   —    | N/A | N/A  |  N/A   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |  N/A   | N/A  | N/A |  N/A   |
+| **Variable Definitions**     |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  —   |  —  |  ✅  |  ✅   |   —   |  —   | ✅  |   —   | ✅  |   —    |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
+| **Constant Definitions**     |     ✅     |     ✅     |   —    | ✅  |  —   |   —    |  —  |  ✅  |  —  |  ✅  |   —   |  ✅   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    |  —   |  —  |   ✅   |
+| **Import Statements**        |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  —   |  —  |   ✅   |
+| **Export Detection**         |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |  ✅   |   ✅   |  —   |  —  |   ✅   |
+| **Decorators/Annotations**   |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  N/A  |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Route Detection**          |     —      |    N/A     |   —    | N/A | N/A  |  N/A   |  —  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |   —   |  N/A   | N/A  | N/A |   —    |
+| **Constructor Detection**    |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |   —   |  —   | N/A |   —   | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Docstrings/JSDoc**         |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |   —    |
+| **Function Calls**           |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  ✅  | ✅  |   —    |
+| **Declared Type Facts**      |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Declared Return Types**    |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Parameter Arity**          |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Package-Qualified Names**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Abstract Classes**         |     ✅     |    N/A     |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |  N/A   |
+| **Class Expressions**        |     ✅     |     —      |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    | N/A  | N/A |  N/A   |
+| **Type Aliases**             |     ✅     |    N/A     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    | N/A  | N/A |   —    |
+| **Type-Position References** |     ✅     |     —      |   ✅   |  —  |  ✅  |   ✅   |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Member Alias Bindings**    |     ✅     |     ✅     |   —    |  —  |  —   |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    |  —   |  —  |   —    |
+| **Lexical `this`**           |     ✅     |     ✅     |  N/A   |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |  ✅   |   ✅   |  —   |  —  |   —    |
+| **Deferred Calls (`::`)**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |  N/A   |
+| **Resource Bindings**        |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |  N/A   |
+| **Enum Constants**           |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |  N/A   |
+| **Type Parameter Bounds**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Outer Instance `this`**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |  N/A   |
+| **Factory-Call Receiver**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Cast Receiver**            |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Argument-Type Dispatch**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Collection Elements**      |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Lambda Parameter Types**   |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Functional Parameters**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Stream Receivers**         |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Implicit Construction**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Generic Factory Returns**  |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Inherited Member Hops**    |     —      |     —      |   —    |  —  |  ✅  |   —    |  —  |  —   |  —  |  —   |   —   |   —   |  —   |  —  |   —   |  —  |   —    |   —   |   ✅   |  —   |  —  |   —    |
+| **Generics**                 |     ✅     |    N/A     |   —    | ✅  |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
+| **Async Detection**          |     ✅     |     ✅     |   ✅   | N/A | N/A  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |  N/A   | N/A  | N/A |   —    |
+| **Extension Functions**      |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
+| **Struct Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
+| **Record Detection**         |    N/A     |    N/A     |  N/A   | N/A |  ✅  |  N/A   | ✅  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |   ✅   |  —   |  —  |  N/A   |
+| **Trait Detection**          |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
+| **Impl Block Detection**     |    N/A     |    N/A     |  N/A   | N/A | N/A  |  N/A   | N/A |  ✅  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   |  —   |  —  |  N/A   |
+| **Object Detection**         |    N/A     |    N/A     |  N/A   | N/A | N/A  |   ✅   | N/A | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |  N/A  |  N/A   | N/A  | N/A |  N/A   |
 
 **Four providers read a declared type**, and that row is the reason the call graph can resolve a receiver at all:
 `fieldTypes`, `localTypes` and `parameterOwner`/`parameterType` are emitted by **TypeScript**, **Python**, **Java** and —
