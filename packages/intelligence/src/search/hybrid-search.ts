@@ -214,6 +214,19 @@ export const INDEXED_FIELDS: readonly IndexedField[] = [
  */
 const PROSE_LANGUAGES: ReadonlySet<string> = new Set(['markdown', 'pdf']);
 
+/**
+ * **Nodes the analysis produced, which must not be indexed as if they were code.**
+ *
+ * The index answers one question - which piece of code do I open - and every document in it contributes to the
+ * collection statistics that answer it: `N` in the idf, the field averages in the length normalisation, the document
+ * frequency of every term. **A derived node moves all three.** Iteration 97 measured it: `communities` used to emit a
+ * `Community` node per node with no neighbour, and on the issue-to-file acceptance case those extra documents were
+ * enough to flip the top result from the decoy to the fixing file. The ranking had been right for the wrong reason -
+ * not because the retriever read the code, but because ten meaningless documents had changed the idf of the words it
+ * was reading. Nothing about a community is a location a reader can open: it carries no `filePath` and no line.
+ */
+const DERIVED_LABELS: ReadonlySet<string> = new Set(['Community']);
+
 export interface FieldWeighting {
   readonly weight: Readonly<Record<IndexedField, number>>;
   readonly lengthNormalisation: Readonly<Record<IndexedField, number>>;
@@ -305,6 +318,9 @@ class InvertedIndex {
   constructor(private readonly weighting: FieldWeighting = DEFAULT_FIELD_WEIGHTING) {}
 
   addDocument(node: GraphNode): void {
+    // **A derived node is not a search result.** Skipped before it can reach the postings lists, so it cannot move
+    // the collection statistics that decide the order of the documents that are.
+    if (DERIVED_LABELS.has(node.label)) return;
     const nodeId = node.id;
 
     const prose = PROSE_LANGUAGES.has(node.language ?? '');

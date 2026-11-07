@@ -5,9 +5,8 @@
 // The two-triangle-plus-bridge "dumbbell" graph has a known optimal partition with
 // Q = 5/14, which guards against regressions in the gain/score formulas.
 
+import { leiden } from '@code-analyzer/core';
 import { describe, it, expect } from 'vitest';
-
-import { leiden } from '../community/leiden.js';
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 

@@ -1717,3 +1717,80 @@ describe('the fields a document is indexed under', () => {
     expect(ranked(corpora([documented, containing]))).toEqual(['parse', 'apply']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Derived nodes
+// ---------------------------------------------------------------------------
+
+describe('a node the analysis produced is not a search result', () => {
+  /** The code documents a query is meant to rank, with nothing derived in the store. */
+  function codeOnly(): InMemoryGraphStore {
+    const store = new InMemoryGraphStore();
+    store.insertNode(
+      createNode(1, {
+        label: 'Constructor',
+        name: 'HttpClient',
+        qualifiedName: 'http.HttpClient',
+        filePath: '/src/http.py',
+        language: 'python',
+        docstring: 'A client that posts to a url and returns the status.',
+        properties: { body: 'class HttpClient post url status' },
+      }),
+    );
+    store.insertNode(
+      createNode(2, {
+        label: 'Function',
+        name: 'send_with_retry',
+        qualifiedName: 'retry.send_with_retry',
+        filePath: '/src/retry.py',
+        language: 'python',
+        docstring: 'POST the url, retrying while the server answers 503.',
+        properties: { body: 'attempt while retries response status returns none' },
+      }),
+    );
+    return store;
+  }
+
+  /** The same two documents, plus the communities a previous analysis wrote into the graph. */
+  function withCommunities(): InMemoryGraphStore {
+    const store = codeOnly();
+    for (let id = 100; id <= 120; id++) {
+      store.insertNode(
+        createNode(id, {
+          label: 'Community',
+          name: `community_${id}`,
+          qualifiedName: `community:test-project:community_${id}`,
+          filePath: null,
+          language: null,
+          docstring: null,
+          properties: { name: `community_${id}`, memberCount: 1 },
+        }),
+      );
+    }
+    return store;
+  }
+
+  it('does not index a Community node at all', () => {
+    const engine = new HybridSearchEngine(withCommunities());
+    engine.initialize();
+    const labels = engine.bm25Search('community').map((hit) => hit.node.label);
+    expect(labels).not.toContain('Community');
+  });
+
+  it('ranks the code documents identically whether or not the graph holds communities', () => {
+    // **The assertion that would have caught the defect.** `communities` emitted a node per node with no neighbour, so
+    // a real analysis carried ten thousand extra documents; every one of them moved `N` in the idf and the field
+    // averages in the length normalisation, and with them the order of the documents that *are* code. Measured on the
+    // issue-to-file acceptance case, that was enough to put the decoy first. A derived node must not be able to change
+    // this order, and the only way to guarantee it is to keep it out of the collection statistics.
+    const order = (store: InMemoryGraphStore): string[] => {
+      const engine = new HybridSearchEngine(store);
+      engine.initialize();
+      return engine
+        .bm25Search('HttpClient posts the url retry 503')
+        .map((hit) => hit.node.filePath ?? '');
+    };
+
+    expect(order(withCommunities())).toEqual(order(codeOnly()));
+  });
+});

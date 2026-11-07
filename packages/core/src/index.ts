@@ -136,3 +136,13 @@ export type {
   SecurityViolation,
   DependencyIntegrity,
 } from './security/supply-chain-integrity.js';
+
+// Community detection
+export { leiden } from './community/leiden.js';
+export type {
+  LeidenCommunityResult,
+  LeidenInput,
+  LeidenConfig,
+  LeidenGraphSource,
+} from './community/leiden.js';
+export { mulberry32, shuffleWith, DEFAULT_SEED } from './community/rng.js';

@@ -1,4 +1,4 @@
-// @code-analyzer/intelligence — Deterministic PRNG for community detection
+// @code-analyzer/core — Deterministic PRNG for community detection
 //
 // Community detection (Louvain/Leiden) processes nodes in a randomized order to
 // break ties and escape local optima. Using `Math.random()` makes the result

@@ -4,10 +4,10 @@
 // being refined, and describeCommunities over a community whose member ids are
 // absent from the graph (empty member set → dominant-label fallback).
 
+import { leiden } from '@code-analyzer/core';
 import { describe, it, expect } from 'vitest';
 
 import { LeidenCommunityDetector } from '../community/leiden-detector.js';
-import { leiden } from '../community/leiden.js';
 
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 

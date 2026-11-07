@@ -198,9 +198,7 @@ const TEST_ONLY: Readonly<Record<string, readonly string[]>> = {
     'cfg/post-dominators.ts',
     'community/aggregation.ts',
     'community/leiden-detector.ts',
-    'community/leiden.ts',
     'community/louvain.ts',
-    'community/rng.ts',
     'cross-repo/contract-validator.ts',
     'cross-repo/impact-graph.ts',
     'cross-repo/pr-review-bridge.ts',
@@ -338,9 +336,9 @@ describe('every module a package compiles is reachable from an entry its manifes
     expect(counts).toEqual({
       analyzer: 89,
       cli: 9,
-      core: 43,
+      core: 45,
       infra: 29,
-      intelligence: 150,
+      intelligence: 148,
       mcp: 39,
       server: 24,
       shared: 10,
@@ -364,9 +362,12 @@ describe('every module a package compiles is reachable from an entry its manifes
     expect(measured).toEqual(TEST_ONLY as Record<string, readonly string[]>);
   });
 
-  it('the register totals seventy, and the number is the measurement', () => {
+  it('the register total is the measurement', () => {
+    // **Seventy was the number until iteration 97 moved the Leiden algorithm and its PRNG from `intelligence` to
+    // `core`.** They left this register by becoming reachable — `analyzer`'s communities phase calls `leiden`, and
+    // `core`'s entry exports it — which is the only way an entry should ever leave.
     const total = Object.values(TEST_ONLY).reduce((sum, modules) => sum + modules.length, 0);
-    expect(total).toBe(70);
+    expect(total).toBe(68);
   });
 
   it('nothing is listed as test-only while the product reaches it', () => {

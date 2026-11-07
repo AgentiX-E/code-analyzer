@@ -1566,7 +1566,7 @@ describe('CommunitiesPhase', () => {
     fixture.cleanup();
   });
 
-  it('should detect communities from import/call relationships', async () => {
+  it('reports exactly the communities it wrote', async () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
@@ -1575,28 +1575,43 @@ describe('CommunitiesPhase', () => {
     const result = await communitiesPhase.execute(ctx);
     expect(result.status).toBe('success');
 
+    // **`toBeGreaterThanOrEqual(0)` was the assertion here, and it is true of every implementation.** It could not
+    // distinguish this phase from one that returned nothing at all. The count and the nodes it wrote are two views of
+    // one fact, so they have to agree.
     const output = result.output as { communitiesFound: number };
-    // Files that import each other should form communities
-    expect(output.communitiesFound).toBeGreaterThanOrEqual(0);
+    const written = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Community');
+    expect(output.communitiesFound).toBe(written.length);
   });
 
-  it('should create Community nodes and MEMBER_OF edges', async () => {
+  it('writes a MEMBER_OF edge for every member of every community', async () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await crossFilePhase.execute(ctx);
     await communitiesPhase.execute(ctx);
 
-    const communityNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Community',
-    );
-    const memberOfEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'MEMBER_OF',
-    );
+    const graph = ctx.graph!;
+    const memberOf = Array.from(graph.edges.values()).filter((e) => e.type === 'MEMBER_OF');
+    const byCommunity = new Map<number, number>();
+    for (const edge of memberOf)
+      byCommunity.set(edge.targetId, (byCommunity.get(edge.targetId) ?? 0) + 1);
 
-    if (communityNodes.length > 0) {
-      expect(memberOfEdges.length).toBeGreaterThan(0);
+    // **No community of one, and no member without an edge.** `if (communityNodes.length > 0)` guarded nothing: on a
+    // fixture whose graph has no structural edges the body never ran and the test passed on an empty result.
+    let members = 0;
+    for (const node of graph.nodes.values()) {
+      if (node.label !== 'Community') continue;
+      const count = byCommunity.get(node.id) ?? 0;
+      expect(count, `community ${node.name} has ${String(count)} members`).toBe(
+        node.properties['memberCount'],
+      );
+      expect(count).toBeGreaterThanOrEqual(2);
+      members += count;
     }
+    expect(memberOf.length).toBe(members);
+    // The loop above is vacuous on a graph with no community, which is the failure mode this file has already had
+    // once. This line is what makes "every community is at least two members" an assertion about something.
+    expect(byCommunity.size).toBeGreaterThan(0);
   });
 
   it('should handle missing graph gracefully', async () => {

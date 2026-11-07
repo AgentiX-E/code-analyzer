@@ -126,3 +126,14 @@ jobs:
           # construction - ties broken by node identity, neighbours by edge id - and this step is the check that the
           # construction holds on a real workspace rather than only on a fixture.
           npx vitest run --config vitest.e2e.config.ts tests/e2e/qa-multilingual-crossrepo.test.ts 2>&1 | tee /tmp/qa-again.log
+
+      # **The module map, on the same checkout the questions were asked about.** `communities` is the phase that turns
+      # a graph into a list of modules a reader can navigate, and it shipped for four iterations emitting one community
+      # per node: 10 086 communities over 10 340 nodes on this very checkout, mean size 1.01. A fixture could not
+      # reproduce that shape, so the acceptance case has to run here.
+      - name: Name the modules of a real repository
+        env:
+          QA_CORPUS_DIR: benchmarks/corpora/qa
+        run: |
+          set -o pipefail
+          npx vitest run --config vitest.e2e.config.ts tests/e2e/communities-real-corpus.test.ts 2>&1 | tee /tmp/communities.log

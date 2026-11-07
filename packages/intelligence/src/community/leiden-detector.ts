@@ -19,7 +19,7 @@
 // "From Louvain to Leiden: guaranteeing well-connected communities."
 // Scientific Reports 9, 5233 (2019).
 
-import { mulberry32, DEFAULT_SEED } from './rng.js';
+import { mulberry32, DEFAULT_SEED } from '@code-analyzer/core';
 
 import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 

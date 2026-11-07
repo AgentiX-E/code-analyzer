@@ -1,8 +1,13 @@
-// @code-analyzer/intelligence — Leiden Community Detection (Pure Algorithm)
+// @code-analyzer/core — Leiden Community Detection (Pure Algorithm)
 // Implements the Leiden algorithm (Traag, Waltman & van Eck, 2019) as a
-// standalone, minimal-dependency function. Unlike the detector class,
-// this focuses purely on the algorithmic steps with InMemoryGraphStore
-// as input.
+// standalone, minimal-dependency function. Unlike the detector class in
+// `@code-analyzer/intelligence`, this focuses purely on the algorithmic steps,
+// taking any node and edge iterables as input.
+//
+// **It lives in `core` because the pipeline needs it and could not reach it.** `intelligence` depends on `analyzer`,
+// so an `analyzer` phase that imported `intelligence` would close a cycle; the effect was that the strongest
+// community algorithm in the repository was reachable by nothing but its own tests, and the pipeline ran a BFS
+// connected-component pass that called itself Leiden.
 //
 // Algorithm phases:
 //   1. Local moving — move nodes to neighbor communities to maximize modularity
@@ -15,11 +20,22 @@
 //   - Higher modularity scores on most graphs
 //   - Fewer iterations due to smarter refinement
 
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-
 import { mulberry32, shuffleWith, DEFAULT_SEED } from './rng.js';
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+
+/**
+ * The two questions the algorithm asks a graph store.
+ *
+ * **Structural, not nominal, so this module does not import `@code-analyzer/infra`.** `infra` depends on `core`, and
+ * an algorithm that needed the store type to name its input would pull the direction of that edge backwards. Any
+ * object with these two methods is a graph store as far as Leiden is concerned, which is also what makes the
+ * algorithm testable without one.
+ */
+export interface LeidenGraphSource {
+  getAllNodes(): GraphNode[];
+  getAllEdges(): GraphEdge[];
+}
 
 /** Result of Leiden community detection. */
 export interface LeidenCommunityResult {
@@ -38,12 +54,12 @@ export interface LeidenCommunityResult {
 }
 
 /**
- * Input type that accepts either InMemoryGraphStore or a raw adjacency map.
+ * Input type that accepts either a graph store or raw nodes and edges.
  * This allows the algorithm to work with both the main pipeline and standalone usage.
  */
 export interface LeidenInput {
   /** Graph store with nodes and edges (primary input source). */
-  graphStore?: InMemoryGraphStore;
+  graphStore?: LeidenGraphSource;
   /** Nodes for standalone usage (without a full graph store). */
   nodes?: Iterable<GraphNode>;
   /** Edges for standalone usage (without a full graph store). */
@@ -71,7 +87,7 @@ export interface LeidenConfig {
 /**
  * Run the Leiden algorithm on a graph to detect communities.
  *
- * Accepts an InMemoryGraphStore or standalone nodes/edges and returns
+ * Accepts a graph store or standalone nodes/edges and returns
  * a community partition with the highest achievable modularity.
  *
  * @param input - Graph input (graph store or raw nodes/edges)

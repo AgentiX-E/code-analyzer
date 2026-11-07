@@ -3,10 +3,9 @@
 // InMemoryGraphStore, standalone nodes/edges, edge-type filtering, directed
 // mode, and the edge-less early-return path.
 
+import { leiden } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect } from 'vitest';
-
-import { leiden } from '../community/leiden.js';
 
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 

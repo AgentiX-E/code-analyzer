@@ -4,10 +4,10 @@
 // are absent from the node set (malformed input), the empty-input fallback, and
 // describeCommunities over nodes with no language/name and isolated members.
 
+import { leiden } from '@code-analyzer/core';
 import { describe, it, expect } from 'vitest';
 
 import { LeidenCommunityDetector } from '../community/leiden-detector.js';
-import { leiden } from '../community/leiden.js';
 
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
