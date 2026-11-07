@@ -19,21 +19,21 @@ const find = (source: string, name: string) =>
 describe('a Groovy declaration that writes no type', () => {
   it('counts an untyped parameter and states no type for it', () => {
     const create = find('class A { void draw(labels) { } }', 'draw');
-    expect(create?.properties?.parameterCount).toBe('1');
-    expect(create?.properties?.parameterTypes).toBe('[""]');
-    expect(create?.properties?.returnType).toBe('void');
+    expect(create?.properties?.['parameterCount']).toBe('1');
+    expect(create?.properties?.['parameterTypes']).toBe('[""]');
+    expect(create?.properties?.['returnType']).toBe('void');
   });
 
   it('records an untyped parameter as a name a call can pass', () => {
     const parameter = find('class A { void draw(labels) { } }', 'labels');
     expect(parameter?.tag).toBe('variable.def');
-    expect(parameter?.properties?.parameterType).toBeUndefined();
+    expect(parameter?.properties?.['parameterType']).toBeUndefined();
   });
 
   it('separates a parameter with a default from one without', () => {
     const create = find('class A { void draw(String name = "x", int count) { } }', 'draw');
-    expect(create?.properties?.parameterCount).toBe('2');
-    expect(create?.properties?.requiredParameters).toBe('1');
+    expect(create?.properties?.['parameterCount']).toBe('2');
+    expect(create?.properties?.['requiredParameters']).toBe('1');
   });
 
   /**
@@ -42,7 +42,7 @@ describe('a Groovy declaration that writes no type', () => {
    */
   it('states no return type for a method declared with `def`', () => {
     const create = find('class A { def draw(int count) { } }', 'draw');
-    expect(create?.properties?.returnType).toBeUndefined();
+    expect(create?.properties?.['returnType']).toBeUndefined();
   });
 });
 

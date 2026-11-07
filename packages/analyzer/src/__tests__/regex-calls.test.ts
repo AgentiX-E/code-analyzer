@@ -39,7 +39,7 @@ describe('a call site in a source that is only text', () => {
 
   it('states no count when a spread makes the length a runtime fact', () => {
     const [capture] = captureRegexCallSites('helper(...items);', DART);
-    expect(capture!.properties?.argumentCount).toBeUndefined();
+    expect(capture!.properties?.['argumentCount']).toBeUndefined();
   });
 
   it('counts a nested call as one argument rather than flattening it', () => {

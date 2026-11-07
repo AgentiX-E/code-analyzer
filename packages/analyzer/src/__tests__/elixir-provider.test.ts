@@ -195,7 +195,7 @@ describe('ElixirProvider', () => {
       // The callee keeps the module it was written with, and `callType` says the receiver is part of the call rather
       // than a bare function name: `String.upcase(x)` and `upcase(x)` resolve to different things.
       expect(captures[0]!.text).toBe('String.upcase');
-      expect(captures[0]!.properties?.callType).toBe('method');
+      expect(captures[0]!.properties?.['callType']).toBe('method');
     });
 
     it('should ignore an anonymous function call', () => {

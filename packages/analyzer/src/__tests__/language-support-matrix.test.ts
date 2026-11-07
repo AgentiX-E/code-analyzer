@@ -43,6 +43,7 @@ import { TypeScriptProvider } from '../languages/typescript.js';
 import { ZigProvider } from '../languages/zig.js';
 import { CHECKS, FIXTURES, UNINSTRUMENTED } from './support/language-support-matrix.js';
 
+import type { FixtureNames } from './support/language-support-matrix.js';
 import type { LanguageProvider } from '../languages/provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
@@ -180,10 +181,12 @@ describe('the capability matrix and its fixture table are the same shape', () =>
    * this is the only way to find out that one does not.
    */
   it('every check rejects a parse that captured nothing', () => {
-    const absent = new Proxy({}, { get: (_target, key) => `absent-${String(key)}` }) as Record<
-      string,
-      string
-    >;
+    // **A name nothing was declared under**, spelled the same way for every key so a check that accidentally matches an
+    // empty string is caught as well.
+    const absent = new Proxy(
+      {},
+      { get: (_target, key) => `absent-${String(key)}` },
+    ) as FixtureNames;
     const silent = Object.entries(CHECKS).filter(
       ([, check]) => check({ captures: [], names: absent, isExported: () => false }) === null,
     );

@@ -143,8 +143,9 @@ const CASES: readonly Case[] = [
 ];
 
 const docstringOf = (captures: readonly UnifiedCapture[], name: string): string | undefined =>
-  captures.find((capture) => capture.name === name && capture.properties?.docstring !== undefined)
-    ?.properties?.docstring;
+  captures.find(
+    (capture) => capture.name === name && capture.properties?.['docstring'] !== undefined,
+  )?.properties?.['docstring'];
 
 describe('a comment a declaration is documented with', () => {
   for (const testCase of CASES) {
@@ -275,13 +276,15 @@ describe('a declaration that says it is asynchronous', () => {
     it(`is marked as such in ${language}`, () => {
       const captures = provider().parse(source, file);
       const declaration = captures.find((capture) => capture.name === name)!;
-      const marker = declaration.properties?.async ?? declaration.properties?.isAsync;
+      const marker = declaration.properties?.['async'] ?? declaration.properties?.['isAsync'];
       expect(marker).toBe('true');
     });
   }
 
   it('does not mark a synchronous declaration', () => {
     const captures = new KotlinProvider().parse('fun later(): Int = 1\n', 'a.kt');
-    expect(captures.find((capture) => capture.name === 'later')!.properties?.async).toBeUndefined();
+    expect(
+      captures.find((capture) => capture.name === 'later')!.properties?.['async'],
+    ).toBeUndefined();
   });
 });

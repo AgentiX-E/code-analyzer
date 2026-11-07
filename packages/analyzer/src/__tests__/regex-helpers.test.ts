@@ -91,7 +91,7 @@ describe('a doc comment a text provider has to find by shape', () => {
       [target],
     );
     expect(captures).toHaveLength(1);
-    expect(target.properties?.docstring).toBe('A widget.');
+    expect(target.properties?.['docstring']).toBe('A widget.');
   });
 
   it('joins the lines of a block into one docstring', () => {
@@ -102,7 +102,7 @@ describe('a doc comment a text provider has to find by shape', () => {
       ['///'],
       [target],
     );
-    expect(target.properties?.docstring).toBe('A widget.\nIt is round.');
+    expect(target.properties?.['docstring']).toBe('A widget.\nIt is round.');
     expect(captures[0]!.startLine).toBe(1);
     expect(captures[0]!.endLine).toBe(2);
   });
@@ -122,7 +122,7 @@ describe('a doc comment a text provider has to find by shape', () => {
       [target],
     );
     expect(captures).toHaveLength(1);
-    expect(target.properties?.docstring).toBeUndefined();
+    expect(target.properties?.['docstring']).toBeUndefined();
   });
 
   it('keeps a block at the end of a file that ends with a newline', () => {
@@ -134,6 +134,6 @@ describe('a doc comment a text provider has to find by shape', () => {
   it('reads whichever of the language markers opens the block', () => {
     const target = declaration(2);
     captureDocComments('-- A widget.\nlocal Widget = {}\n', 'a.lua', ['--'], [target]);
-    expect(target.properties?.docstring).toBe('A widget.');
+    expect(target.properties?.['docstring']).toBe('A widget.');
   });
 });

@@ -65,7 +65,7 @@ describe('the shapes a Kotlin property is written in', () => {
    */
   it('files the type of a property with no initialiser under its class', () => {
     const [capture] = provider.parse('class A {\n  var count: Int\n}', 'a.kt');
-    expect(JSON.parse(capture!.properties?.fieldTypes as string)).toEqual({ count: 'Int' });
+    expect(JSON.parse(capture!.properties?.['fieldTypes'] as string)).toEqual({ count: 'Int' });
   });
 
   it('survives a property whose type is missing', () => {
@@ -74,7 +74,7 @@ describe('the shapes a Kotlin property is written in', () => {
 
   it('files a constructor property under its class', () => {
     const [capture] = provider.parse('class Box(val width: Int, var height: Int)', 'a.kt');
-    expect(JSON.parse(capture!.properties?.fieldTypes as string)).toEqual({
+    expect(JSON.parse(capture!.properties?.['fieldTypes'] as string)).toEqual({
       width: 'Int',
       height: 'Int',
     });
