@@ -211,6 +211,12 @@ async function retrieveWithExpansion(
   params: SearchCodeParams,
   depth: number,
   embed: ((text: string) => Promise<Float32Array>) | null,
+  /**
+   * Why there is no embedder, when there is none. **Supplied by the caller rather than guessed here**: "the index holds
+   * no vectors" and "the index's vectors are a hash" are different facts about the index, and only one of them is
+   * repaired by installing a model.
+   */
+  noSpaceReason: string | null,
 ): Promise<{ list: HybridSearchResult[]; expansion: QueryExpansionReport }> {
   // **The lexical list is the same one the plain path uses**; the semantic list is deeper than the answer needs to be,
   // so a reranker downstream has something to choose from.
@@ -222,7 +228,7 @@ async function retrieveWithExpansion(
     if (!embed) {
       expansion = {
         applied: false,
-        reason: 'the index holds no vectors, so there is nothing to expand into',
+        reason: noSpaceReason ?? 'the index holds no vectors, so there is nothing to expand into',
       };
     } else if (!ctx.expandQuery) {
       expansion = { applied: false, reason: 'this context cannot expand queries' };
@@ -330,7 +336,18 @@ export async function searchCode(
       // **The semantic half, wired from the vectors the index already holds** - which is the difference between a
       // lexical engine and the hybrid search this tool documents. When the graph carries no vectors the same engine
       // comes back and `backend` says `none`, so a caller can tell which answer it received.
-      const { engine: searchEngine, backend, embed } = await ctx.getSemanticSearchEngine();
+      //
+      // **`semantic` is the third state and the one this tool got wrong.** A fresh install hashes each text instead of
+      // embedding it, and the hash list was fused at equal weight with the index: measured on the pinned corpus, that
+      // cost 55 of 99 frozen questions. A space that cannot rank contributes no embedder here, and `semantic.reason`
+      // says which fact about the index stopped it.
+      const {
+        engine: searchEngine,
+        backend,
+        embed,
+        semantic,
+        reason: semanticReason,
+      } = await ctx.getSemanticSearchEngine();
 
       // **Two optional stages, and each says what it did.** A caller that asked for either and got the plain fused
       // list back needs to know, or it will read one answer as another.
@@ -341,7 +358,14 @@ export async function searchCode(
       // than the answer. `max` is the same expression with the two roles the right way round: retrieval must be at
       // least as deep as the pool the model reads and at least as deep as the list the caller asked for.
       const depth = params.rerank ? Math.max(limit, RERANK_POOL) : limit;
-      const retrieved = await retrieveWithExpansion(ctx, searchEngine, params, depth, embed);
+      const retrieved = await retrieveWithExpansion(
+        ctx,
+        searchEngine,
+        params,
+        depth,
+        embed,
+        semanticReason,
+      );
       let results = retrieved.list.slice(0, limit);
       let rerank: RerankReport = { applied: false };
       if (params.rerank) {
@@ -375,13 +399,14 @@ export async function searchCode(
                   combinedScore: r.combinedScore,
                   // **The method is a fact about the run, not a hope**: with no vectors registered every item used to
                   // say "BM25 text search" correctly, and a tool that could never say "hybrid" was the symptom of the
-                  // semantic half being reachable from nothing.
-                  searchMethod:
-                    backend === 'none'
-                      ? 'BM25 text search'
-                      : r.vectorScore > 0
-                        ? 'hybrid (BM25 + vector)'
-                        : 'BM25 only (no vector match)',
+                  // semantic half being reachable from nothing. **The converse was the same defect wearing the other
+                  // coat**: an index of hash vectors made every item say "hybrid (BM25 + vector)" while the vector half
+                  // was a draw, so the word is only written when a space that can rank took part.
+                  searchMethod: !semantic
+                    ? 'BM25 text search'
+                    : r.vectorScore > 0
+                      ? 'hybrid (BM25 + vector)'
+                      : 'BM25 only (no vector match)',
                 })),
                 total: results.length,
                 returned: results.length,
@@ -389,6 +414,13 @@ export async function searchCode(
                 // **Which vector space the semantic half used, or `none`** - so a caller comparing two runs can tell a
                 // lexical answer from a hybrid one instead of inferring it from the scores.
                 semanticBackend: backend,
+                // **And whether that space did anything**, which `semanticBackend` alone cannot say: `deterministic`
+                // names a space that exists and cannot rank.
+                semantic: {
+                  applied: semantic,
+                  backend,
+                  ...(semanticReason ? { reason: semanticReason } : {}),
+                },
                 // **What the query side did**, because an expanded query and a plain one produce the same shape of
                 // answer and a reader cannot tell them apart from the scores.
                 queryExpansion: {
@@ -497,7 +529,36 @@ export async function semanticSearch(
     const ctx = getContext(store);
     if (ctx) {
       // Try vector search via hybrid search engine
-      const { engine: searchEngine } = await ctx.getSemanticSearchEngine();
+      const { engine: searchEngine, semantic, reason } = await ctx.getSemanticSearchEngine();
+
+      // **The tool named for the capability answers with the reason when the capability is absent.** It used to answer
+      // with the nearest hash neighbours under a note that said "Vector embeddings available": an index of pseudo-random
+      // vectors, ranked by cosine, presented as a semantic answer. `reason` is the sentence that replaces it.
+      if (!semantic) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  items: [],
+                  total: 0,
+                  returned: 0,
+                  hasMore: false,
+                  query,
+                  threshold,
+                  searchMethod: 'BM25 text search (no semantic space indexed)',
+                  ...(reason ? { reason } : {}),
+                  note: 'Semantic search needs an embedding model: install one, set an API key, or index with one available. Nothing was returned by similarity.',
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+
       const results = await searchEngine.search({
         query,
         limit: params.limit ?? 10,

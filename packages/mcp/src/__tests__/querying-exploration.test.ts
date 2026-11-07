@@ -437,10 +437,13 @@ describe('searchCode', () => {
     expect(first.vectorScore).toBe(0);
   });
 
-  it('reports hybrid search method when the index holds vectors', async () => {
+  it('reports hybrid search method when the index holds vectors a model produced', async () => {
     // **The vectors are put where the product reads them**: on the node, with the name of the space beside them. The
     // case used to register an embedder directly on the engine, which tested a code path no caller had - the tool asked
     // `getSearchEngine()`, got a lexical engine, and answered "BM25 text search" while claiming to be hybrid.
+    //
+    // **And the space has to be one that can rank.** An index of hash vectors made this case pass while the product
+    // fused a draw into the ranking - see `semantic-space-authority.test.ts`.
     const queryEmbedder = await createQueryEmbedder('deterministic');
     const vector = await queryEmbedder!.embed('doWork');
 
@@ -457,12 +460,18 @@ describe('searchCode', () => {
             ? {
                 ...node.properties,
                 embedding: Array.from(vector),
-                embeddingBackend: 'deterministic',
+                embeddingBackend: 'onnx',
               }
             : node.properties,
       });
     }
-    const ctx = new ToolContextImpl(store);
+    const ctx = new ToolContextImpl(store, {
+      queryEmbedderLoader: async () => ({
+        embed: async () => Float32Array.from(vector),
+        backend: 'onnx',
+        dispose: async () => undefined,
+      }),
+    });
 
     const result = await searchCode({ query: 'doWork' }, ctx);
     const data = JSON.parse(textOf(result));
@@ -510,12 +519,29 @@ describe('searchCodeSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('semanticSearch', () => {
-  it('returns vector results when embeddings are indexed', async () => {
-    const ctx = seededContext();
-    ctx.getSearchEngine().registerEmbeddings(
-      () => new Float32Array([1, 0]),
-      async () => new Float32Array([1, 0]),
-    );
+  it('returns vector results when the index holds a space that can rank', async () => {
+    // **The vectors are on the store, not registered on the engine beside it**, because the tool asks the context for
+    // its semantic half and the context reads the index. Registering on the engine was a shortcut that tested a path the
+    // tool never took, and it is why this case passed while `semantic_search` answered nothing in the product.
+    const seeded = seededStore();
+    const store = new InMemoryGraphStore();
+    for (const node of seeded.getAllNodes()) {
+      store.insertNode({
+        ...node,
+        properties:
+          node.name === 'doWork'
+            ? { ...node.properties, embedding: [1, 0], embeddingBackend: 'onnx' }
+            : node.properties,
+      });
+    }
+    const ctx = new ToolContextImpl(store, {
+      queryEmbedderLoader: async () => ({
+        embed: async () => new Float32Array([1, 0]),
+        backend: 'onnx',
+        dispose: async () => undefined,
+      }),
+    });
+
     const result = await semanticSearch({ query: 'doWork', limit: 10 }, ctx);
     const data = JSON.parse(textOf(result));
     expect(data.items.length).toBeGreaterThan(0);
@@ -523,11 +549,11 @@ describe('semanticSearch', () => {
     expect(data.items[0].vectorScore).toBeGreaterThan(0);
   });
 
-  it('falls back to BM25 message when embeddings are not indexed', async () => {
+  it('falls back to BM25 message when no semantic space is indexed', async () => {
     const result = await semanticSearch({ query: 'doWork' }, seededContext());
     const data = JSON.parse(textOf(result));
     expect(data.items).toEqual([]);
-    expect(data.searchMethod).toBe('BM25 text search (vector embeddings not indexed)');
+    expect(data.searchMethod).toBe('BM25 text search (no semantic space indexed)');
   });
 
   it('falls back to BM25 message when no store is available', async () => {

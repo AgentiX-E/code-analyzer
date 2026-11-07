@@ -37,6 +37,22 @@ export interface EmbeddingResult {
  */
 export type EmbeddingBackendName = 'onnx' | 'api' | 'deterministic';
 
+/**
+ * Whether a space has a notion of similarity at all, which is not the same question as whether it has vectors.
+ *
+ * **A cosine needs two directions that mean something together**, and only a model produces those. `onnx` and `api` are
+ * models; `deterministic` is a linear congruential generator seeded with one 32-bit hash of the text, so two texts
+ * produce two unrelated vectors and the cosine between them is a draw from a distribution centred on zero. Measured on
+ * the pinned corpus and the frozen ninety-nine questions, a search that fused that list with the index at equal weight
+ * answered **55 of 99 questions worse than the lexical list alone**, and its MRR was **0.0570 against 0.1990**.
+ *
+ * **The rule lives here rather than at each call site**, because every consumer that reads a backend name would
+ * otherwise have to re-derive it, and one of them would derive it as "vectors exist, so they count".
+ */
+export function hasSimilaritySpace(backend: EmbeddingBackendName): boolean {
+  return backend === 'onnx' || backend === 'api';
+}
+
 /** An embedder plus the name of the space it produces. */
 export interface NamedEmbedder {
   embedder: Embedder;

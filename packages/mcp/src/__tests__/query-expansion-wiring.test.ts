@@ -4,6 +4,12 @@
 // states the tool reports - expanded, no provider, no vectors, and not asked for - because an answer produced by a
 // plain query and an answer produced by an expanded one have the same shape, and a caller cannot tell them apart from
 // the scores.
+//
+// **The index in these cases declares a model space whose vectors the case supplies**, which is what makes "expanded"
+// a state that can be reached at all: a hypothesis is projected into the index's space, and a hash of each text is not
+// a space anything can be projected into (`semantic-space-authority.test.ts` pins that refusal). The vectors are a
+// reproducible hash so that two runs of a case are the same run; the *declaration* is the fixture, and it is the thing
+// the product reads.
 
 import { createQueryEmbedder } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -12,13 +18,19 @@ import { describe, expect, it } from 'vitest';
 import { searchCode } from '../tools/querying-exploration.js';
 import { ToolContextImpl } from '../tools/tool-context.js';
 
+import type { QueryEmbedder } from '@code-analyzer/analyzer';
 import type { LLMProvider } from '@code-analyzer/intelligence';
 import type { GraphNode } from '@code-analyzer/shared';
 
+/** The reproducible vectors these cases declare as a model space. */
+const hash: Promise<QueryEmbedder> = createQueryEmbedder('deterministic').then(
+  (embedder) => embedder!,
+);
+
 /** A node as the embed phase leaves it: a vector, and the name of the space it lives in. */
 async function nodeWithVector(id: number, name: string): Promise<GraphNode> {
-  const embedder = await createQueryEmbedder('deterministic');
-  const vector = await embedder!.embed(`Function ${name} walk the calls of a source file`);
+  const embedder = await hash;
+  const vector = await embedder.embed(`Function ${name} walk the calls of a source file`);
   return {
     id,
     projectId: 'p',
@@ -38,9 +50,26 @@ async function nodeWithVector(id: number, name: string): Promise<GraphNode> {
     updatedAt: '',
     properties: {
       embedding: Array.from(vector),
-      embeddingBackend: 'deterministic',
+      embeddingBackend: 'onnx',
     },
   };
+}
+
+/**
+ * A context over one store, in a space the product will rank in.
+ *
+ * **The loader is the product's own seam**, not a test hook bolted on: a deployment that holds its own embedder supplies
+ * one, and `createQueryEmbedder` takes a loader for the same reason.
+ */
+function context(store: InMemoryGraphStore, llm?: LLMProvider | null): ToolContextImpl {
+  return new ToolContextImpl(store, {
+    ...(llm === undefined ? {} : { llm }),
+    queryEmbedderLoader: async () => ({
+      embed: async (text: string) => (await hash).embed(text),
+      backend: 'onnx',
+      dispose: async () => undefined,
+    }),
+  });
 }
 
 /** A provider that answers with a plausible implementation, which is what HyDE asks for. */
@@ -71,7 +100,7 @@ describe('the context expands a query in the index’s own space', () => {
     const store = new InMemoryGraphStore();
     store.insertNode(await nodeWithVector(1, 'walkCalls'));
 
-    const expanded = await new ToolContextImpl(store, { llm: writer }).expandQuery(
+    const expanded = await context(store, writer).expandQuery(
       'how do I count the calls in a file?',
     );
 
@@ -84,7 +113,7 @@ describe('the context expands a query in the index’s own space', () => {
     store.insertNode(await nodeWithVector(1, 'walkCalls'));
 
     expect(
-      await new ToolContextImpl(store, { llm: null }).expandQuery('how do I count calls?'),
+      await context(store, null).expandQuery('how do I count calls?'),
     ).toBeNull();
   });
 
@@ -93,7 +122,7 @@ describe('the context expands a query in the index’s own space', () => {
     store.insertNode({ ...(await nodeWithVector(1, 'walkCalls')), properties: {} });
 
     expect(
-      await new ToolContextImpl(store, { llm: writer }).expandQuery('how do I count calls?'),
+      await context(store, writer).expandQuery('how do I count calls?'),
     ).toBeNull();
   });
 });
@@ -107,7 +136,7 @@ describe('the context, in the states a deployment can actually be in', () => {
     const previous = process.env['DEEPSEEK_API_KEY'];
     delete process.env['DEEPSEEK_API_KEY'];
     try {
-      expect(await new ToolContextImpl(store).expandQuery('how do I count calls?')).toBeNull();
+      expect(await context(store).expandQuery('how do I count calls?')).toBeNull();
     } finally {
       if (previous !== undefined) process.env['DEEPSEEK_API_KEY'] = previous;
     }
@@ -122,12 +151,15 @@ describe('the context, in the states a deployment can actually be in', () => {
       complete: async () => ({ content: '   ', model: 'silent' }),
     } as unknown as LLMProvider;
 
-    expect(await new ToolContextImpl(store, { llm: silent }).expandQuery('anything')).toBeNull();
+    expect(await context(store, silent).expandQuery('anything')).toBeNull();
   });
 
-  it('reports no embedder when the index names a space this machine cannot join', async () => {
+  it('names the space it cannot join, and refuses rather than comparing two of them', async () => {
     // **The two-space refusal, seen from the tool**: an `api` index on a machine without the key yields no embed
-    // function, so `semanticBackend` is `none` and expansion has nothing to expand into.
+    // function, so the semantic half does not run and expansion has nothing to expand into.
+    //
+    // **The space is still named `api`**, which it was not: the answer used to be `none`, the same word the tool uses
+    // for an index with no vectors at all - so a reader could not tell "install a model" from "index this repository".
     const store = new InMemoryGraphStore();
     const node = await nodeWithVector(1, 'walkCalls');
     store.insertNode({
@@ -137,12 +169,38 @@ describe('the context, in the states a deployment can actually be in', () => {
     const previous = process.env['ZHIPU_API_KEY'];
     delete process.env['ZHIPU_API_KEY'];
     try {
-      const { backend, embed } = await new ToolContextImpl(store).getSemanticSearchEngine();
-      expect(backend).toBe('none');
+      const { backend, embed, semantic, reason } = await new ToolContextImpl(
+        store,
+      ).getSemanticSearchEngine();
+      expect(backend).toBe('api');
+      expect(semantic).toBe(false);
       expect(embed).toBeNull();
+      expect(reason).toBeTruthy();
+      // And the query side is refused for the same reason, rather than expanded into a space it cannot reach.
+      expect(await new ToolContextImpl(store).expandQuery('how do I count calls?')).toBeNull();
     } finally {
       if (previous !== undefined) process.env['ZHIPU_API_KEY'] = previous;
     }
+  });
+
+  it('refuses an embedder that produces a different space from the index', async () => {
+    // **The seam is supplied by the caller and a caller can be wrong.** `createQueryEmbedder` refuses a mismatched
+    // loader, and a context that trusted whatever its loader returned would undo that one layer up.
+    const store = new InMemoryGraphStore();
+    store.insertNode(await nodeWithVector(1, 'walkCalls'));
+
+    const mismatched = new ToolContextImpl(store, {
+      queryEmbedderLoader: async () => ({
+        embed: async () => new Float32Array([1]),
+        backend: 'api',
+        dispose: async () => undefined,
+      }),
+    });
+    const { backend, semantic, reason } = await mismatched.getSemanticSearchEngine();
+
+    expect(backend).toBe('onnx');
+    expect(semantic).toBe(false);
+    expect(reason).toContain('api');
   });
 });
 
@@ -166,7 +224,7 @@ describe('search_code reorders the fused list when asked', () => {
 
     const result = await searchCode(
       { query: 'walk', rerank: true, limit: 2 },
-      new ToolContextImpl(store, { llm: orderer }),
+      context(store, orderer),
     );
     const payload = JSON.parse(textOf(result)) as {
       rerank: { applied: boolean; pool?: number };
@@ -186,7 +244,7 @@ describe('search_code reorders the fused list when asked', () => {
 
     const result = await searchCode(
       { query: 'walk', rerank: true, limit: 2 },
-      new ToolContextImpl(store, { llm: null }),
+      context(store, null),
     );
     const payload = JSON.parse(textOf(result)) as {
       rerank: { applied: boolean; reason?: string };
@@ -204,7 +262,7 @@ describe('search_code reorders the fused list when asked', () => {
 
     const result = await searchCode(
       { query: 'walkCalls' },
-      new ToolContextImpl(store, { llm: orderer }),
+      context(store, orderer),
     );
     const payload = JSON.parse(textOf(result)) as { rerank: { applied: boolean } };
     expect(payload.rerank).toEqual({ applied: false });
@@ -222,7 +280,7 @@ describe('search_code reorders the fused list when asked', () => {
 
     const result = await searchCode(
       { query: 'walk', rerank: true, limit: 60 },
-      new ToolContextImpl(store, { llm: orderer }),
+      context(store, orderer),
     );
     const payload = JSON.parse(textOf(result)) as {
       rerank: { applied: boolean; pool?: number };
@@ -243,7 +301,7 @@ describe('search_code reports what the query side did', () => {
 
     const result = await searchCode(
       { query: 'how do I count the calls in a file?', expand: true },
-      new ToolContextImpl(store, { llm: writer }),
+      context(store, writer),
     );
     const payload = JSON.parse(textOf(result)) as {
       queryExpansion: { applied: boolean; hypothesis?: string };
@@ -261,7 +319,7 @@ describe('search_code reports what the query side did', () => {
 
     const result = await searchCode(
       { query: 'walkCalls', expand: true },
-      new ToolContextImpl(store, { llm: null }),
+      context(store, null),
     );
     const payload = JSON.parse(textOf(result)) as {
       queryExpansion: { applied: boolean; reason?: string };
@@ -280,7 +338,7 @@ describe('search_code reports what the query side did', () => {
 
     const result = await searchCode(
       { query: 'walkCalls', expand: true },
-      new ToolContextImpl(store, { llm: failing }),
+      context(store, failing),
     );
     const payload = JSON.parse(textOf(result)) as {
       queryExpansion: { applied: boolean; reason?: string };
@@ -296,7 +354,7 @@ describe('search_code reports what the query side did', () => {
 
     const result = await searchCode(
       { query: 'walkCalls' },
-      new ToolContextImpl(store, { llm: writer }),
+      context(store, writer),
     );
     const payload = JSON.parse(textOf(result)) as {
       queryExpansion: { applied: boolean; reason?: string; hypothesis?: string };

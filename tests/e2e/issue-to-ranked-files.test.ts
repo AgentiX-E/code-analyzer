@@ -181,28 +181,36 @@ describe('a developer pastes an issue and gets the file that must change', () =>
     expect(files.some((file) => file.endsWith('src/retry.py'))).toBe(true);
   }, 120_000);
 
-  it('ranks the file that must change inside the first two source files', async () => {
-    // **This case used to assert the first position, and it passed for a reason that had nothing to do with retrieval.**
-    // `communities` emitted a `Community` node for every node with no neighbour, so a real graph carried ten thousand
-    // extra documents. They were never returned — a community has no `filePath` — but they were in the collection
-    // statistics: `N` in the idf, the field averages in the length normalisation. Iteration 97 removed them, and the
-    // order moved: measured on this fixture, `send_with_retry` scores **bm25 37.61 against a next-best 4.98** and still
-    // lands fifth, because the semantic half scores a one-line `README.md` above it and reciprocal rank fusion trusts
-    // that. **The assertion was never testing what it claimed**: it was testing the idf of a graph with noise in it.
+  it('ranks the file that must change first', async () => {
+    // **This case used to assert the first position, was weakened to "the first two source files", and is first again
+    // for the reason it should be.** The weakening was honest: on this fixture `send_with_retry` scores **bm25 37.61
+    // against a next-best 4.98** and landed **seventh**, because the semantic half ranked a one-line `README.md` above
+    // it. That half was a **hash of each text** - the embed phase's fallback when no model is present, which is the
+    // ordinary state of a fresh install - so the "semantic" ranking was a draw and the fusion trusted it at full weight.
     //
-    // What is measured now is what the retriever actually does: the fixing file is ranked above the sibling it is
-    // confused with, in the top two source files. **Getting it back to first is a retrieval problem, not a fixture
-    // problem**, and it is recorded in the roadmap as such — the observation that a prose file out-scores the
-    // highest-BM25 document is the entry point.
+    // **The product no longer fuses a space that cannot rank** (`semantic.reason` says so below), and the defect is
+    // measured where it belongs: on the pinned corpus and the frozen ninety-nine questions, fusing that list answered
+    // **55 questions worse for 3 better** and cut MRR from 0.1990 to 0.0570. See
+    // `tests/e2e/hash-space-does-not-rank.test.ts`.
     const { registry, toolContext } = await build();
     const result = await registry.execute(
       'search_code',
       { query: ISSUE, projectId: 'issue-to-files', limit: 5 },
       toolContext,
     );
+    const payload = JSON.parse((result.content[0] as { text: string }).text) as {
+      items?: Array<{ filePath?: string }>;
+      semantic?: { applied: boolean; backend: string; reason?: string };
+    };
     const files = rankedFiles((result.content[0] as { text: string }).text);
-    const sourceFiles = files.filter((file) => /\.(py|java|kt|ts|js|tsx)$/u.test(file));
-    expect(sourceFiles.slice(0, 2).some((file) => file.endsWith('src/retry.py'))).toBe(true);
+
+    // **The answer is the first thing the user sees**, which is the claim the tool makes: a ranked list whose first
+    // entry is the file to change.
+    expect(files[0]?.endsWith('src/retry.py')).toBe(true);
+    // **And the tool says which half it ran**, so this figure cannot be mistaken for one measured with a model.
+    expect(payload.semantic?.applied).toBe(false);
+    expect(payload.semantic?.backend).toBe('deterministic');
+    expect(payload.semantic?.reason).toContain('hash');
   }, 120_000);
 
   /**

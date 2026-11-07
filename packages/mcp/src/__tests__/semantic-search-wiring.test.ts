@@ -4,6 +4,12 @@
 // every symbol and nothing that a user could reach ever read them: `search_code` documented "BM25 + vector via
 // Reciprocal Rank Fusion" and could only ever answer lexically. That is the same class of defect as a provider no file
 // reaches - **a capability that exists in the codebase and not in the product** - and it is what these cases pin down.
+//
+// **The repair then over-corrected, and this file says so.** Wiring whatever the index held made a hash of each text
+// count as a semantic arm: the fallback the embed phase uses when no model is present, fused at equal weight with the
+// index. Measured on the pinned corpus it answered **55 of 99 frozen questions worse than the lexical list alone**. So
+// the cases below assert the third state - the space is named, and it does not vote - and the ranking arm is exercised
+// in `semantic-space-authority.test.ts` through an embedder the caller supplies.
 
 import { createQueryEmbedder } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -61,7 +67,7 @@ describe('the MCP search engine and the vectors the index holds', () => {
     expect(results[0]!.vectorScore).toBe(0);
   });
 
-  it('registers the vectors and names the space, so a search can be hybrid', async () => {
+  it('names the space, and declines to rank with a hash', async () => {
     const store = new InMemoryGraphStore();
     store.insertNode(
       await nodeWithVector(
@@ -75,20 +81,22 @@ describe('the MCP search engine and the vectors the index holds', () => {
       await nodeWithVector(2, 'unrelated', 'Formats a date for display', 'deterministic'),
     );
 
-    const { backend, engine } = await new ToolContextImpl(store).getSemanticSearchEngine();
+    const { backend, engine, semantic, reason } = await new ToolContextImpl(
+      store,
+    ).getSemanticSearchEngine();
 
+    // **The space is still named**, and that is the half of this case that survived: a reader asking what the index
+    // holds gets a true answer.
     expect(backend).toBe('deterministic');
-    // **The query is the text the node was embedded from**, because a hash vector's cosine is only meaningful for a
-    // near-identical string. What is under test is that the vectors are *reached* and that their space is named - not
-    // that the deterministic fallback understands a synonym, which it does not and never claimed to. The semantic
-    // figure that does claim it is `docstring-search.json`, and it runs against the real endpoint.
-    const embeddedText = 'Function reconcile Reconciles incoming invoices against receipts';
-    const results = await engine.search({ query: embeddedText, limit: 2 });
+    // **And it does not vote.** `semantic` used to be implied by `backend !== 'none'`, which made a hash of each text
+    // count as a semantic arm - see `semantic-space-authority.test.ts` for what that cost on the pinned corpus.
+    expect(semantic).toBe(false);
+    expect(reason).toContain('hash');
 
-    // **A vector score is the proof the semantic list ran at all.** Before the wiring, every result carried
-    // `vectorScore: 0` and the tool reported "BM25 text search" for every item it ever returned.
+    // **A lexical answer is still an answer**: the node is found by its name, with no vector score behind it.
+    const results = await engine.search({ query: 'reconcile', limit: 2 });
     expect(results[0]!.node.name).toBe('reconcile');
-    expect(results[0]!.vectorScore).toBeGreaterThan(0);
+    expect(results.every((result) => result.vectorScore === 0)).toBe(true);
   });
 
   it('refuses to guess the space when a vector arrived without one', async () => {

@@ -118,6 +118,9 @@ export {
   defaultEmbedderLoader,
   embeddingText,
   generateEmbeddings,
+  // **The question a consumer has to ask before it fuses**: a named space either has directions that mean something
+  // together or it does not, and a hash of the text does not.
+  hasSimilaritySpace,
 } from './pipeline/phases/embed.js';
 export type {
   EmbeddingBackendName,

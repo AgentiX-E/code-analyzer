@@ -1,7 +1,11 @@
 // @code-analyzer/mcp — ToolContext
 // Wraps the InMemoryGraphStore and all analysis services for use by tool handlers.
 
-import { createQueryEmbedder } from '@code-analyzer/analyzer';
+import {
+  createQueryEmbedder,
+  embedderUnavailableReason,
+  hasSimilaritySpace,
+} from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   HybridSearchEngine,
@@ -20,6 +24,7 @@ import type {
   EmbeddingBackendName,
   PipelineOrchestrator,
   PipelineResult,
+  QueryEmbedder,
 } from '@code-analyzer/analyzer';
 import type { InterprocTaintFinding, LLMProvider } from '@code-analyzer/intelligence';
 import type { GraphNode } from '@code-analyzer/shared';
@@ -27,6 +32,34 @@ import type { GraphNode } from '@code-analyzer/shared';
 // ---------------------------------------------------------------------------
 // Interfaces
 // ---------------------------------------------------------------------------
+
+/** What the semantic half turned out to be: the engine, the space, and whether that space can order anything. */
+export interface SemanticSearchWiring {
+  engine: HybridSearchEngine;
+  /** The space the index holds: `onnx`, `api`, `deterministic`, or `none` when it holds no named vectors. */
+  backend: string;
+  /** The function that puts a text into the index's space, or `null` when nothing can. **Expansion needs it.** */
+  embed: ((text: string) => Promise<Float32Array>) | null;
+  /** Whether the vectors behind this index can order anything. **False means the semantic half did not run.** */
+  semantic: boolean;
+  /** Why the semantic half did not run, in one sentence, or `null` when it did. */
+  reason: string | null;
+}
+
+/** What a context can be given beside the store. */
+export interface ToolContextOptions {
+  /** The provider, or `null` for a deployment with none. **`undefined` means "whatever the environment configures".** */
+  llm?: LLMProvider | null;
+  /**
+   * How a text is projected into the index's space, defaulting to `createQueryEmbedder`.
+   *
+   * **A seam, because the model that produced an index is not always reachable from here.** A deployment can hold its
+   * own embedder - a local server, a pinned model file, a test that needs a space with similarity on a machine with no
+   * key and no 137 MB model - and `createQueryEmbedder` already takes a loader for the same reason. Without it the only
+   * hybrid search reachable offline would be the hash one, which ranks nothing.
+   */
+  queryEmbedderLoader?: (backend: EmbeddingBackendName) => Promise<QueryEmbedder | null>;
+}
 
 /** Context provided to every MCP tool handler. Wraps all core services. */
 export interface ToolContext {
@@ -37,19 +70,19 @@ export interface ToolContext {
   getSearchEngine(): HybridSearchEngine;
 
   /**
-   * The same engine with the semantic half wired, if the index holds vectors.
+   * The same engine with the semantic half wired, if the index holds vectors **that can rank**.
    *
    * **`getSearchEngine()` alone is lexical**, and until this existed the vectors the pipeline computed were reachable
    * from nothing but a benchmark: `registerEmbeddings` had exactly one caller, in a test. **The query side is built from
    * the space the index recorded** - a cosine between two models is noise - and when no vectors are present this returns
    * the lexical engine unchanged, which is the honest answer rather than a silent downgrade.
+   *
+   * **`semantic` is the third state, and it is not the same as `backend !== 'none'`.** An index written by the hash
+   * fallback holds vectors and names its space, and every cosine over them is a draw: the product fused that list into
+   * the ranking at equal weight and lost **55 of 99 questions for 3** on the pinned corpus. So a space that cannot rank
+   * reports `semantic: false` with the reason, registers nothing, and the search answers lexically.
    */
-  getSemanticSearchEngine(): Promise<{
-    engine: HybridSearchEngine;
-    backend: string;
-    /** The function that puts a text into the index's space, or `null` when nothing can. **Expansion needs it.** */
-    embed: ((text: string) => Promise<Float32Array>) | null;
-  }>;
+  getSemanticSearchEngine(): Promise<SemanticSearchWiring>;
 
   /**
    * A query rewritten as the code it describes, in the index's space.
@@ -148,13 +181,12 @@ export interface DependencyTreeNode {
 export class ToolContextImpl implements ToolContext {
   public readonly store: InMemoryGraphStore;
   private _searchEngine: HybridSearchEngine | null = null;
-  private _semantic: Promise<{
-    engine: HybridSearchEngine;
-    backend: string;
-    embed: ((text: string) => Promise<Float32Array>) | null;
-  }> | null = null;
+  private _semantic: Promise<SemanticSearchWiring> | null = null;
   private _llm: LLMProvider | null | undefined;
   private readonly llmOverride?: LLMProvider | null;
+  private readonly queryEmbedderLoader: (
+    backend: EmbeddingBackendName,
+  ) => Promise<QueryEmbedder | null>;
   private _reviewEngine: CodeReviewEngine | null = null;
   private _prReviewEngine: PRReviewEngine | null = null;
   private _impactAnalyzer: ImpactAnalyzer | null = null;
@@ -168,9 +200,12 @@ export class ToolContextImpl implements ToolContext {
   private _crossRepoPrReview: CrossRepoPRReviewEngine | null = null;
   public currentAnalysis?: PipelineResult;
 
-  constructor(store: InMemoryGraphStore, options: { llm?: LLMProvider | null } = {}) {
+  constructor(store: InMemoryGraphStore, options: ToolContextOptions = {}) {
     this.store = store;
     this.llmOverride = options.llm;
+    this.queryEmbedderLoader =
+      options.queryEmbedderLoader ??
+      ((backend) => createQueryEmbedder(backend));
   }
 
   getSearchEngine(): HybridSearchEngine {
@@ -181,11 +216,7 @@ export class ToolContextImpl implements ToolContext {
     return this._searchEngine;
   }
 
-  getSemanticSearchEngine(): Promise<{
-    engine: HybridSearchEngine;
-    backend: string;
-    embed: ((text: string) => Promise<Float32Array>) | null;
-  }> {
+  getSemanticSearchEngine(): Promise<SemanticSearchWiring> {
     // **Cached as a promise, not as a value**: two tool calls arriving together must register the embedder once.
     this._semantic ??= this.wireSemanticSearch();
     return this._semantic;
@@ -222,11 +253,7 @@ export class ToolContextImpl implements ToolContext {
       : null;
   }
 
-  private async wireSemanticSearch(): Promise<{
-    engine: HybridSearchEngine;
-    backend: string;
-    embed: ((text: string) => Promise<Float32Array>) | null;
-  }> {
+  private async wireSemanticSearch(): Promise<SemanticSearchWiring> {
     const engine = this.getSearchEngine();
 
     // **Which space the index is in is a property of the data**, written by the embed phase beside the vectors, so a
@@ -243,14 +270,72 @@ export class ToolContextImpl implements ToolContext {
         backend = properties.embeddingBackend;
       }
     }
-    if (vectors.size === 0 || backend === null) return { engine, backend: 'none', embed: null };
+    // **No vectors is the ordinary state and needs no reason**: an index whose pipeline produced none is lexical, and
+    // saying "the semantic half did not run" about it would be a sentence with nothing behind it.
+    if (vectors.size === 0) {
+      return { engine, backend: 'none', embed: null, semantic: false, reason: null };
+    }
+    // A vector whose space nobody named **cannot be compared with a query**, so the honest answer is `none` rather
+    // than a cosine against whatever backend happens to be reachable - which is the mismatch that published 0.638.
+    if (backend === null) {
+      return {
+        engine,
+        backend: 'none',
+        embed: null,
+        semantic: false,
+        reason:
+          'the index holds vectors but names no space for them, so no query can be projected into it',
+      };
+    }
 
-    const queryEmbedder = await createQueryEmbedder(backend as EmbeddingBackendName);
-    if (!queryEmbedder) return { engine, backend: 'none', embed: null };
+    // **The defect this branch exists for, stated as the branch it is.** With no model file and no key - a fresh
+    // install, and every machine that runs this repository's tests - the embed phase writes a hash of each text and
+    // labels it `deterministic`. Those vectors exist, the space has a name, and a cosine between two of them is a draw
+    // from a distribution centred on zero: fusing that list at equal weight answered **55 of 99 frozen questions worse
+    // than the lexical list alone** on the pinned corpus, with MRR **0.0570 against 0.1990**. A space that cannot rank
+    // is not a weak arm to be weighted; it is the absence of one, and the search below answers without it.
+    if (!hasSimilaritySpace(backend as EmbeddingBackendName)) {
+      return {
+        engine,
+        backend,
+        embed: null,
+        semantic: false,
+        reason:
+          `the index's vectors are a hash of each text (${backend}), not a model: a cosine between two of them is ` +
+          'a draw, so nothing was ranked by them',
+      };
+    }
+
+    const queryEmbedder = await this.queryEmbedderLoader(backend as EmbeddingBackendName);
+    if (!queryEmbedder) {
+      return {
+        // **The space is still named**, because "the index holds no vectors" and "the index holds `api` vectors this
+        // machine cannot join" are two different facts and only one of them is fixed by installing a model.
+        engine,
+        backend,
+        embed: null,
+        semantic: false,
+        reason:
+          embedderUnavailableReason() ??
+          `the index holds ${backend} vectors and no embedder for that space is reachable here`,
+      };
+    }
+    // **The mismatch is checked here as well as inside `createQueryEmbedder`**, because a loader is supplied by the
+    // caller and a caller can be wrong: a query vector from another space is the defect that published 0.638 as a
+    // semantic figure, and a seam that trusts its own input would reintroduce it one layer up.
+    if (queryEmbedder.backend !== backend) {
+      return {
+        engine,
+        backend,
+        embed: null,
+        semantic: false,
+        reason: `the index holds ${backend} vectors and the embedder offered produces ${queryEmbedder.backend}`,
+      };
+    }
 
     const embed = (text: string): Promise<Float32Array> => queryEmbedder.embed(text);
     engine.registerEmbeddings((nodeId) => vectors.get(nodeId) ?? null, embed);
-    return { engine, backend: queryEmbedder.backend, embed };
+    return { engine, backend: queryEmbedder.backend, embed, semantic: true, reason: null };
   }
 
   getReviewEngine(): CodeReviewEngine {

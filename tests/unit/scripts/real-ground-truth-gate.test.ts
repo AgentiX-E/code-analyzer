@@ -31,11 +31,42 @@ interface Provenance {
   ranges: string;
   category: string;
 }
+/**
+ * One file of one issue, as the dataset writes it.
+ *
+ * **`region` is part of the identity and not decoration**: a file appears once per region of the diff, so the pairing
+ * this gate checks is `(filePath, region)` and not the path alone. The interface omitted the field while three cases
+ * read it, and `typecheck-tests-baseline.json` recorded the five errors so the ratchet could pass - **a baseline that
+ * records a real defect is a defect with a receipt**. The fields below are the ones the committed dataset actually
+ * carries; a field added there and not here would surface as an error rather than as a silent `undefined`.
+ */
+interface IssueFile {
+  filePath: string;
+  region: number;
+  beforeContent: string;
+  afterContent: string;
+  window: number;
+}
+
+/** One expected edit: the lines a reviewer should have commented on, and what kind of problem they are. */
+interface GroundTruthEntry {
+  filePath: string;
+  region: number;
+  startLine: number;
+  endLine: number;
+  /** Where those lines sit in the file the patch was taken from. **Absent when the hunk begins at line one.** */
+  sourceStartLine?: number;
+  sourceEndLine?: number;
+  category: string;
+  severity?: string;
+  description?: string;
+}
+
 interface Issue {
   id: string;
   language: string;
-  files: Array<{ filePath: string; beforeContent: string; afterContent: string }>;
-  groundTruth: Array<{ filePath: string; startLine: number; endLine: number; category: string }>;
+  files: IssueFile[];
+  groundTruth: GroundTruthEntry[];
   provenance: Provenance;
 }
 

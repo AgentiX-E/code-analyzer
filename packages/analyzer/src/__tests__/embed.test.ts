@@ -13,6 +13,7 @@ import {
   defaultEmbedderLoader,
   embeddingText,
   generateEmbeddings,
+  hasSimilaritySpace,
   loadRealEmbedder,
 } from '../pipeline/phases/embed.js';
 import type { Embedder } from '../pipeline/phases/embed.js';
@@ -273,6 +274,22 @@ describe('defaultEmbedderLoader — the name of the winning backend', () => {
 
   it('answers null when the chain found nothing, rather than a nameless embedder', async () => {
     expect(await defaultEmbedderLoader(async () => null)).toBeNull();
+  });
+});
+
+describe('hasSimilaritySpace — a space either ranks or it does not', () => {
+  it('is true for the two spaces a model produces', () => {
+    expect(hasSimilaritySpace('onnx')).toBe(true);
+    expect(hasSimilaritySpace('api')).toBe(true);
+  });
+
+  it('is false for the hash space, whose cosines are a draw', () => {
+    // **`deterministicEmbed` is a linear congruential generator seeded with one 32-bit hash of the text**, so two
+    // different texts produce two unrelated directions: the expected cosine is zero and the distribution around it is
+    // the whole of what the number means. The type's own comment says so ("adequate for exercising a pipeline, useless
+    // for similarity") and the retrieval half ignored it - see `semantic-space-authority.test.ts` in `mcp` for what
+    // that cost, measured on the pinned corpus.
+    expect(hasSimilaritySpace('deterministic')).toBe(false);
   });
 });
 

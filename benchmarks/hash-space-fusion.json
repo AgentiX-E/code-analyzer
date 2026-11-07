@@ -1,0 +1,50 @@
+{
+  "comment": [
+    "What fusing a hash space with the index cost, on the pinned corpus and the frozen questions.",
+    "",
+    "**The two columns differ in the fusion rule and in nothing else**: same corpus, same ninety-nine questions,",
+    "same index, same hash vectors, same cut. `lexical` is the index alone - what the product answers with after",
+    "the fix - and `hashFused` is the index fused at equal weight with the cosine ranking of the hash vectors,",
+    "which is what it answered with before.",
+    "",
+    "**No credential is used.** The hash space is what the embed phase writes when no model is present, so this",
+    "measurement runs on every machine and is comparable across commits. The semantic half that *does* rank is a",
+    "different question, measured against the real endpoint in `paraphrase-search.json`.",
+    "",
+    "**The rule the product now enforces**: `hasSimilaritySpace(backend)` is true only for `onnx` and `api`, and a",
+    "space for which it is false contributes neither candidates nor scores nor an embedder. `tests/e2e/",
+    "issue-to-ranked-files.test.ts` is the user-facing case; this file is the measurement behind it."
+  ],
+  "measuredAt": "2026-11-07",
+  "where": "local-vitest",
+  "corpus": {
+    "path": "benchmarks/retrieval-corpus",
+    "questions": "benchmarks/paraphrase-queries.json",
+    "size": 99
+  },
+  "space": {
+    "backend": "deterministic",
+    "semantic": false,
+    "reason": "the vectors are a hash of each text, so a cosine between two of them is a draw"
+  },
+  "topK": 20,
+  "lexical": {
+    "recallAt5": 0.303,
+    "recallAt20": 0.4545,
+    "mrr": 0.1952,
+    "found": 45
+  },
+  "hashFused": {
+    "recallAt5": 0.0404,
+    "recallAt20": 0.3333,
+    "mrr": 0.0496,
+    "found": 33
+  },
+  "paired": {
+    "questions": 99,
+    "fusedBetter": 3,
+    "fusedWorse": 55,
+    "deltaRecallAt20": -0.1212,
+    "deltaMrr": -0.1456
+  }
+}

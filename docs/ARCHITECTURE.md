@@ -352,6 +352,30 @@ This approach:
 - Rewards documents that rank highly in both systems
 - Naturally handles documents that appear in only one result set
 
+### When the semantic half does not run, and why it may not vote
+
+**A vector is a number; a space is a claim about what two of them mean.** The embed phase writes which space produced a
+node's vector (`onnx`, `api`, or `deterministic`), and the search half now asks
+`hasSimilaritySpace(backend)` from `@code-analyzer/analyzer` before it fuses anything:
+
+| Backend | Vectors | Can order | What the search does |
+| --- | --- | --- | --- |
+| `onnx` / `api` | yes | yes | fuses the two rankings at equal weight |
+| `deterministic` | yes | **no** | answers lexically; `semantic.reason` says why |
+| `none` (no vectors, or unnamed space) | no | no | answers lexically |
+
+**`deterministic` is the fallback the embed phase uses when neither the ONNX model nor an API key is present**, which is
+the state of a fresh install. It is a linear congruential generator seeded with one 32-bit hash of the text, so two
+texts produce two unrelated directions and the cosine between them is a draw. The product used to fuse that list at equal
+weight and report `hybrid (BM25 + vector)` on every item. Measured on the pinned corpus and the frozen ninety-nine
+questions (`benchmarks/hash-space-fusion.json`), the fusion answered **55 questions worse for 3 better**, with MRR
+**0.0496 against 0.1952** — and recall at 20 **0.3333 against 0.4545**.
+
+The same fact reaches the tool surface: `search_code` returns `semantic: { applied, backend, reason }`, `semantic_search`
+returns no items with the reason instead of the nearest hash neighbours, and a HyDE hypothesis is refused for the same
+reason — there is no space to project one into. **A caller that has its own embedder supplies it**:
+`new ToolContextImpl(store, { queryEmbedderLoader })`.
+
 ### Tie-breaking, and why a ranking needs a total order
 
 `search/ranking.ts` sorts every ranked list by score and then, on an exact tie, by the item's own name —

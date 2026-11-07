@@ -7,10 +7,15 @@
     "baseline was empty before this, so every one of them read as *new* - **and the reason they surfaced today is",
     "that the lint gate began reading the package test directories**, which put the same files in front of a typed",
     "tool for the first time. **A baseline records what is there so that a change to it is visible**; it is not a",
-    "claim that the errors are acceptable, and **the count is the number a fix has to bring down.**"
+    "claim that the errors are acceptable, and **the count is the number a fix has to bring down.**",
+    "",
+    "**Empty since iteration 98, and both entries it held were real defects rather than noise.**",
+    "`real-ground-truth-gate.test.ts` read `.region` on a shape that did not declare it, five times, while the field",
+    "was in the committed dataset all along - the interface described the dataset as the test *wished* it were. It is",
+    "now `IssueFile` + `GroundTruthEntry`, carrying every field the dataset has, so a field that moves there surfaces",
+    "as an error instead of as an `undefined`. `app-with-taint/src/config.ts` read `process.env.SEARCH_PREFIX`, which",
+    "the index signature of `process.env` forbids. **A baseline that records a real defect is a defect with a",
+    "receipt**: both were fixed rather than re-recorded, and the ratchet now holds the empty object."
   ],
-  "files": {
-    "tests/fixtures/app-with-taint/src/config.ts": 1,
-    "tests/unit/scripts/real-ground-truth-gate.test.ts": 5
-  }
+  "files": {}
 }
