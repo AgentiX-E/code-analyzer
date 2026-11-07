@@ -92,7 +92,6 @@ export default defineConfig({
       '**/benchmarks/ca-bench/suites/**',
       '**/benchmarks/ca-bench/fixtures/**',
       '**/benchmarks/search-benchmark.test.ts',
-      'packages/intelligence/src/__tests__/cross-service-linking.test.ts',
       // Scale stress generates and parses ~9.3K synthetic files across four
       // tiers to probe O(n²) cliffs and superlinear memory growth. It is a
       // dedicated stress benchmark (run standalone via its file path), not a

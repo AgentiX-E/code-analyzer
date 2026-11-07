@@ -7,11 +7,15 @@
  * added without a reason, a record could outlive its entry, and `/* v8 ignore *\/` directives could reappear
  * in source, silently removing code from measurement while the gate kept reporting a threshold.
  *
- * This gate closes that hole. Three checks, each able to fail on its own:
+ * This gate closes that hole. **Two** checks, each able to fail on its own:
  *
  *   1. Every coverage `exclude` entry has a record in the register, and every record has an entry.
- *   2. The number of entries matches the recorded count, so adding one is a deliberate act.
- *   3. The number of real `v8 ignore` directives matches the recorded ratchet — currently 0.
+ *   2. The number of real `v8 ignore` directives matches the recorded ratchet — currently 0.
+ *
+ * A third bullet stood here until iteration 95, claiming "the number of entries matches the recorded count, so
+ * adding one is a deliberate act". **There is no recorded count, and there never was**: the register is keyed by
+ * entry, so a new entry cannot arrive without a record and the count cannot drift without check 1 failing in one
+ * direction or the other. The check was the conjunction of the two halves, described as a third thing.
  *
  * A directive is a comment that *begins* with the marker. Prose that mentions it ("the file carried a
  * whole-file v8 ignore hint") is not a directive, and counting it as one is how an earlier audit arrived at

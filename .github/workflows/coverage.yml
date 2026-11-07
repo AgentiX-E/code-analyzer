@@ -102,6 +102,9 @@ jobs:
       - name: Enforce that stated counts match the code
         run: npm run docs:code-sync
 
+      - name: Enforce that every path a baseline records still exists
+        run: npm run baselines:anchors
+
       - name: Enforce that every coverage exclusion is recorded
         run: npm run coverage:exclusions
 

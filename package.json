@@ -64,6 +64,7 @@
     "docs:numbers": "node scripts/readme-numbers-gate.js",
     "docs:status": "node scripts/readme-status-gate.js",
     "docs:code-sync": "node scripts/doc-code-sync-gate.js",
+    "baselines:anchors": "node scripts/baseline-anchors-gate.js",
     "embeddings:status": "node scripts/embedding-backend-status.js",
     "impact": "node scripts/impact-of-change.mjs --changed",
     "measure": "node scripts/measure-candidate.mjs",
