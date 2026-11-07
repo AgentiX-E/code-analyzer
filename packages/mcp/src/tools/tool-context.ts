@@ -204,8 +204,7 @@ export class ToolContextImpl implements ToolContext {
     this.store = store;
     this.llmOverride = options.llm;
     this.queryEmbedderLoader =
-      options.queryEmbedderLoader ??
-      ((backend) => createQueryEmbedder(backend));
+      options.queryEmbedderLoader ?? ((backend) => createQueryEmbedder(backend));
   }
 
   getSearchEngine(): HybridSearchEngine {

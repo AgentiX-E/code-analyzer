@@ -358,11 +358,11 @@ This approach:
 node's vector (`onnx`, `api`, or `deterministic`), and the search half now asks
 `hasSimilaritySpace(backend)` from `@code-analyzer/analyzer` before it fuses anything:
 
-| Backend | Vectors | Can order | What the search does |
-| --- | --- | --- | --- |
-| `onnx` / `api` | yes | yes | fuses the two rankings at equal weight |
-| `deterministic` | yes | **no** | answers lexically; `semantic.reason` says why |
-| `none` (no vectors, or unnamed space) | no | no | answers lexically |
+| Backend                               | Vectors | Can order | What the search does                          |
+| ------------------------------------- | ------- | --------- | --------------------------------------------- |
+| `onnx` / `api`                        | yes     | yes       | fuses the two rankings at equal weight        |
+| `deterministic`                       | yes     | **no**    | answers lexically; `semantic.reason` says why |
+| `none` (no vectors, or unnamed space) | no      | no        | answers lexically                             |
 
 **`deterministic` is the fallback the embed phase uses when neither the ONNX model nor an API key is present**, which is
 the state of a fresh install. It is a linear congruential generator seeded with one 32-bit hash of the text, so two

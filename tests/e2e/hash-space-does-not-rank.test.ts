@@ -98,9 +98,7 @@ function answerKey(
 }
 
 /** The column of one ranking, cut at the same place for every arm. */
-function columnOf(
-  ranks: ReadonlyArray<number | null>,
-): Column {
+function columnOf(ranks: ReadonlyArray<number | null>): Column {
   const found = ranks.filter((rank) => rank !== null && rank <= TOP_K).length;
   const at5 = ranks.filter((rank) => rank !== null && rank <= TOP_5).length;
   const mrr = ranks.reduce<number>(
@@ -149,8 +147,11 @@ async function measure(): Promise<Measured> {
 
   const store = new InMemoryGraphStore();
   for (const node of pipeline.graph.nodes.values() as Iterable<GraphNode>) {
-    const { embedding: _embedding, embeddingBackend: _backend, ...rest } = (node.properties ??
-      {}) as Record<string, unknown>;
+    const {
+      embedding: _embedding,
+      embeddingBackend: _backend,
+      ...rest
+    } = (node.properties ?? {}) as Record<string, unknown>;
     store.insertNode({ ...node, docstring: null, properties: rest });
   }
 
@@ -247,7 +248,10 @@ describe('a hash space does not rank, and the product does not fuse it', () => {
       const vectorList = await engine.vectorSearch(query.query, 200);
       const fusedList = reciprocalRankFusion(
         [
-          { name: 'declarations', ranked: lexicalList.map((hit) => answerKey(hit.node, corpusRoot)) },
+          {
+            name: 'declarations',
+            ranked: lexicalList.map((hit) => answerKey(hit.node, corpusRoot)),
+          },
           {
             name: 'hash-vectors',
             ranked: vectorList.map((hit) => answerKey(hit.node, corpusRoot)),
@@ -275,47 +279,44 @@ describe('a hash space does not rank, and the product does not fuse it', () => {
     expect(fusedColumn.mrr).toBeLessThan(lexicalColumn.mrr);
     expect(worse).toBeGreaterThan(better);
 
-    const record = recordArtifact(
-      ARTIFACT,
-      {
-        comment: [
-          'What fusing a hash space with the index cost, on the pinned corpus and the frozen questions.',
-          '',
-          '**The two columns differ in the fusion rule and in nothing else**: same corpus, same ninety-nine questions,',
-          'same index, same hash vectors, same cut. `lexical` is the index alone - what the product answers with after',
-          'the fix - and `hashFused` is the index fused at equal weight with the cosine ranking of the hash vectors,',
-          'which is what it answered with before.',
-          '',
-          '**No credential is used.** The hash space is what the embed phase writes when no model is present, so this',
-          'measurement runs on every machine and is comparable across commits. The semantic half that *does* rank is a',
-          'different question, measured against the real endpoint in `paraphrase-search.json`.',
-          '',
-          '**The rule the product now enforces**: `hasSimilaritySpace(backend)` is true only for `onnx` and `api`, and a',
-          'space for which it is false contributes neither candidates nor scores nor an embedder. `tests/e2e/',
-          'issue-to-ranked-files.test.ts` is the user-facing case; this file is the measurement behind it.',
-        ],
-        measuredAt: new Date().toISOString().slice(0, 10),
-        where: 'local-vitest',
-        corpus: { path: CORPUS, questions: QUERY_SET, size: frozen.length },
-        space: {
-          backend: 'deterministic',
-          // **`semantic: false` is the claim**, and the artifact recorder uses it to refuse a lexical figure over a
-          // semantic one: this file may never replace a measurement that had a model behind it.
-          semantic: false,
-          reason: 'the vectors are a hash of each text, so a cosine between two of them is a draw',
-        },
-        topK: TOP_K,
-        lexical: lexicalColumn,
-        hashFused: fusedColumn,
-        paired: {
-          questions: frozen.length,
-          fusedBetter: better,
-          fusedWorse: worse,
-          deltaRecallAt20: Number((fusedColumn.recallAt20 - lexicalColumn.recallAt20).toFixed(4)),
-          deltaMrr: Number((fusedColumn.mrr - lexicalColumn.mrr).toFixed(4)),
-        },
+    const record = recordArtifact(ARTIFACT, {
+      comment: [
+        'What fusing a hash space with the index cost, on the pinned corpus and the frozen questions.',
+        '',
+        '**The two columns differ in the fusion rule and in nothing else**: same corpus, same ninety-nine questions,',
+        'same index, same hash vectors, same cut. `lexical` is the index alone - what the product answers with after',
+        'the fix - and `hashFused` is the index fused at equal weight with the cosine ranking of the hash vectors,',
+        'which is what it answered with before.',
+        '',
+        '**No credential is used.** The hash space is what the embed phase writes when no model is present, so this',
+        'measurement runs on every machine and is comparable across commits. The semantic half that *does* rank is a',
+        'different question, measured against the real endpoint in `paraphrase-search.json`.',
+        '',
+        '**The rule the product now enforces**: `hasSimilaritySpace(backend)` is true only for `onnx` and `api`, and a',
+        'space for which it is false contributes neither candidates nor scores nor an embedder. `tests/e2e/',
+        'issue-to-ranked-files.test.ts` is the user-facing case; this file is the measurement behind it.',
+      ],
+      measuredAt: new Date().toISOString().slice(0, 10),
+      where: 'local-vitest',
+      corpus: { path: CORPUS, questions: QUERY_SET, size: frozen.length },
+      space: {
+        backend: 'deterministic',
+        // **`semantic: false` is the claim**, and the artifact recorder uses it to refuse a lexical figure over a
+        // semantic one: this file may never replace a measurement that had a model behind it.
+        semantic: false,
+        reason: 'the vectors are a hash of each text, so a cosine between two of them is a draw',
       },
-    );
+      topK: TOP_K,
+      lexical: lexicalColumn,
+      hashFused: fusedColumn,
+      paired: {
+        questions: frozen.length,
+        fusedBetter: better,
+        fusedWorse: worse,
+        deltaRecallAt20: Number((fusedColumn.recallAt20 - lexicalColumn.recallAt20).toFixed(4)),
+        deltaMrr: Number((fusedColumn.mrr - lexicalColumn.mrr).toFixed(4)),
+      },
+    });
     // eslint-disable-next-line no-console -- the workflow reads this line into the job summary.
     console.log(
       `HASH-SPACE-FUSION lexical@20=${lexicalColumn.recallAt20} mrr=${lexicalColumn.mrr} ` +

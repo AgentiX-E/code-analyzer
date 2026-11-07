@@ -112,18 +112,14 @@ describe('the context expands a query in the index’s own space', () => {
     const store = new InMemoryGraphStore();
     store.insertNode(await nodeWithVector(1, 'walkCalls'));
 
-    expect(
-      await context(store, null).expandQuery('how do I count calls?'),
-    ).toBeNull();
+    expect(await context(store, null).expandQuery('how do I count calls?')).toBeNull();
   });
 
   it('is null when the index carries no vectors, because there is no space to expand into', async () => {
     const store = new InMemoryGraphStore();
     store.insertNode({ ...(await nodeWithVector(1, 'walkCalls')), properties: {} });
 
-    expect(
-      await context(store, writer).expandQuery('how do I count calls?'),
-    ).toBeNull();
+    expect(await context(store, writer).expandQuery('how do I count calls?')).toBeNull();
   });
 });
 
@@ -260,10 +256,7 @@ describe('search_code reorders the fused list when asked', () => {
     const store = new InMemoryGraphStore();
     store.insertNode(await nodeWithVector(1, 'walkCalls'));
 
-    const result = await searchCode(
-      { query: 'walkCalls' },
-      context(store, orderer),
-    );
+    const result = await searchCode({ query: 'walkCalls' }, context(store, orderer));
     const payload = JSON.parse(textOf(result)) as { rerank: { applied: boolean } };
     expect(payload.rerank).toEqual({ applied: false });
   });
@@ -317,10 +310,7 @@ describe('search_code reports what the query side did', () => {
     const store = new InMemoryGraphStore();
     store.insertNode(await nodeWithVector(1, 'walkCalls'));
 
-    const result = await searchCode(
-      { query: 'walkCalls', expand: true },
-      context(store, null),
-    );
+    const result = await searchCode({ query: 'walkCalls', expand: true }, context(store, null));
     const payload = JSON.parse(textOf(result)) as {
       queryExpansion: { applied: boolean; reason?: string };
       items: Array<{ name: string }>;
@@ -336,10 +326,7 @@ describe('search_code reports what the query side did', () => {
     const store = new InMemoryGraphStore();
     store.insertNode(await nodeWithVector(1, 'walkCalls'));
 
-    const result = await searchCode(
-      { query: 'walkCalls', expand: true },
-      context(store, failing),
-    );
+    const result = await searchCode({ query: 'walkCalls', expand: true }, context(store, failing));
     const payload = JSON.parse(textOf(result)) as {
       queryExpansion: { applied: boolean; reason?: string };
     };
@@ -352,10 +339,7 @@ describe('search_code reports what the query side did', () => {
     const store = new InMemoryGraphStore();
     store.insertNode(await nodeWithVector(1, 'walkCalls'));
 
-    const result = await searchCode(
-      { query: 'walkCalls' },
-      context(store, writer),
-    );
+    const result = await searchCode({ query: 'walkCalls' }, context(store, writer));
     const payload = JSON.parse(textOf(result)) as {
       queryExpansion: { applied: boolean; reason?: string; hypothesis?: string };
     };
