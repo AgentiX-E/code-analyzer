@@ -246,9 +246,37 @@ describe('BashProvider', () => {
     });
   });
 
+  /**
+   * **The old case here was `isExported('hello() {}', 'hello') === true`, titled "should report shell functions as
+   * exported by default".** That is the defect written down as a contract: a function defined in a script is visible to
+   * that script and to nothing else, and the predicate answered `true` for every name it was ever asked about — a
+   * constant cannot tell an exported symbol from a private one, which is the only question the row exists to answer.
+   */
   describe('isExported', () => {
-    it('should report shell functions as exported by default', () => {
-      expect(provider.isExported('hello() {}', 'hello')).toBe(true);
+    it('reports a function exported with `export -f` as exported', () => {
+      expect(provider.isExported('hello() {}\nexport -f hello\n', 'hello')).toBe(true);
+    });
+
+    it('reports a function that is merely defined as not exported', () => {
+      expect(provider.isExported('hello() {}\n', 'hello')).toBe(false);
+    });
+
+    it('reports a variable exported with `export` as exported and a plain assignment as not', () => {
+      expect(provider.isExported('NAME=widget\nexport NAME\n', 'NAME')).toBe(true);
+      expect(provider.isExported('NAME=widget\n', 'NAME')).toBe(false);
+    });
+
+    it('accepts `declare -x` and `typeset -x` as the same statement', () => {
+      expect(provider.isExported('declare -x NAME=widget\n', 'NAME')).toBe(true);
+      expect(provider.isExported('typeset -x NAME=widget\n', 'NAME')).toBe(true);
+    });
+
+    it('reports a name the script does not mention as not exported', () => {
+      expect(provider.isExported('hello() {}\n', 'nowhere')).toBe(false);
+    });
+
+    it('does not read an `export` inside a comment', () => {
+      expect(provider.isExported('# export -f hello\nhello() {}\n', 'hello')).toBe(false);
     });
   });
 
@@ -313,8 +341,8 @@ describe('BashProvider', () => {
     });
 
     it('should report everything as exported', () => {
-      expect(fallback.isExported('hello() {}', 'hello')).toBe(true);
-      expect(fallback.isExported('', 'anything')).toBe(true);
+      expect(fallback.isExported('hello() {}\nexport -f hello\n', 'hello')).toBe(true);
+      expect(fallback.isExported('', 'anything')).toBe(false);
     });
 
     it('should extract read taint sources', () => {

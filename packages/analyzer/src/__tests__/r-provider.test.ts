@@ -187,13 +187,36 @@ describe('RProvider', () => {
     });
   });
 
+  /**
+   * **The second case here used to be `isExported('', 'anything') === true` — "should return true for any symbol".**
+   * A predicate that answers `true` to an empty file is not detecting anything, and the matrix row it backed said the
+   * language has export detection. An R script publishes what it assigns at column 0; a name it never assigns, and an
+   * assignment inside a function, are both invisible to whoever `source()`s the file.
+   */
   describe('isExported', () => {
-    it('should return true (R functions are globally visible)', () => {
+    it('reports a top-level function assignment as published', () => {
       expect(provider.isExported('myfunc <- function() { }', 'myfunc')).toBe(true);
     });
 
-    it('should return true for any symbol', () => {
-      expect(provider.isExported('', 'anything')).toBe(true);
+    it('reports a top-level `=` assignment as published', () => {
+      expect(provider.isExported('LIMIT = 10', 'LIMIT')).toBe(true);
+    });
+
+    it('reports an assignment inside a function as not published', () => {
+      expect(provider.isExported('outer <- function() {\n  inner <- 1\n  inner\n}', 'inner')).toBe(
+        false,
+      );
+    });
+
+    it('reports a class declared with `setClass` as published', () => {
+      expect(
+        provider.isExported('setClass("Widget", representation(x = "numeric"))', 'Widget'),
+      ).toBe(true);
+    });
+
+    it('reports a name the script never assigns as not published', () => {
+      expect(provider.isExported('myfunc <- function() { }', 'anything')).toBe(false);
+      expect(provider.isExported('', 'anything')).toBe(false);
     });
   });
 
@@ -273,8 +296,9 @@ describe('RProvider', () => {
       expect(imports).toEqual([]);
     });
 
-    it('fallbackIsExported should return true', () => {
-      expect(provider.fallbackIsExported('', 'anything')).toBe(true);
+    it('fallbackIsExported reads the same rule the tree path does', () => {
+      expect(provider.fallbackIsExported('myfunc <- function() { }', 'myfunc')).toBe(true);
+      expect(provider.fallbackIsExported('', 'anything')).toBe(false);
     });
   });
 

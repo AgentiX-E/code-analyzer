@@ -873,6 +873,9 @@ draw() {
   helper "$label"
 }
 
+# Exported so a child process can call it - the one statement a shell has for that.
+export -f draw
+
 draw "$NAME"
 `,
     { fn: 'draw', variable: 'label', constant: 'NAME', callee: 'helper' },
@@ -937,6 +940,14 @@ const propertyOf = (capture: UnifiedCapture, key: string): string | undefined =>
 
 const missing = (row: string, names: readonly string[]): string =>
   `${row}: no capture names ${names.map((name) => `\`${name}\``).join(', ')}`;
+
+/**
+ * **A name no fixture declares**, so the only correct answer to "is it exported" is `false`.
+ *
+ * It is spelled with `zzz` so it cannot collide with an identifier in any of the twenty-two fixtures, and it exists
+ * because `Export Detection` spent four iterations praising providers whose predicate returned `true` unconditionally.
+ */
+const NEVER_DECLARED = 'zzzNeverDeclaredInAnyFixture';
 
 /**
  * One check per matrix row.
@@ -1016,11 +1027,23 @@ export const CHECKS: Readonly<Record<string, MatrixCheck>> = {
       ? null
       : 'Import Statements: the fixture imports and nothing was captured',
 
-  /** Export is a question the provider answers, not a capture it emits, so the check asks the same method the index does. */
-  'Export Detection': ({ names, isExported }) =>
-    isExported(names.fn)
-      ? null
-      : `Export Detection: \`${names.fn}\` is written exported and reported otherwise`,
+  /**
+   * Export is a question the provider answers, not a capture it emits, so the check asks the same method the index does.
+   *
+   * **And it asks twice, because a predicate that can only answer `true` is not a detection.** Four providers answered
+   * `true` for a name their fixture does not declare — Bash, R and Groovy returned it unconditionally with a comment
+   * saying why ("shell functions are globally visible"), and Python's `_`-prefix rule fell through to `true` for
+   * anything undeclared. A row that says `✅` claims the provider can tell an exported declaration from a private one,
+   * so the second question is asked of a name the file does not contain: the only correct answer to it is `false`.
+   */
+  'Export Detection': ({ names, isExported }) => {
+    if (!isExported(names.fn)) {
+      return `Export Detection: \`${names.fn}\` is written exported and reported otherwise`;
+    }
+    return isExported(NEVER_DECLARED)
+      ? `Export Detection: \`${NEVER_DECLARED}\` is declared nowhere in the fixture and the provider calls it exported, so the row is a constant`
+      : null;
+  },
 
   'Decorators/Annotations': ({ captures }) =>
     tagsOf(captures, 'decorator', 'annotation').length > 0

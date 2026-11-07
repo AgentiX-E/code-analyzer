@@ -548,8 +548,14 @@ describe('BashProvider', () => {
   });
 
   describe('isExported', () => {
-    it('returns true for shell', () => {
-      expect(provider.isExported('func() {}', 'func')).toBe(true);
+    /**
+     * **This case used to assert `isExported('func() {}', 'func') === true` — "returns true for shell"** — which is the
+     * predicate's constant written down as a contract. A shell function is visible to its own script; what crosses a
+     * process boundary is `export -f`, and that is the only statement the language has for it.
+     */
+    it('answers by the export statement rather than by the definition', () => {
+      expect(provider.isExported('func() {}\nexport -f func\n', 'func')).toBe(true);
+      expect(provider.isExported('func() {}', 'func')).toBe(false);
     });
   });
 

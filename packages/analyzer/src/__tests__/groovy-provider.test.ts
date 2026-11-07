@@ -189,6 +189,37 @@ describe('GroovyProvider', () => {
     it('reports Groovy defs as exported by default', () => {
       expect(provider.isExported('class Foo {}', 'Foo')).toBe(true);
     });
+
+    /**
+     * **The three answers this predicate used to get wrong by returning `true`.** A row that says a language has
+     * export detection is a claim that the provider can tell a visible member from an invisible one, so the invisible
+     * cases are the only interesting ones.
+     */
+    it('reports a private member as not exported', () => {
+      const source = 'class Widget {\n  private void draw() {}\n  void show() {}\n}\n';
+      expect(provider.isExported(source, 'draw')).toBe(false);
+      expect(provider.isExported(source, 'show')).toBe(true);
+    });
+
+    it('reports a protected member as not exported', () => {
+      expect(provider.isExported('class Widget {\n  protected void draw() {}\n}\n', 'draw')).toBe(
+        false,
+      );
+    });
+
+    it('reports a name the file does not declare as not exported', () => {
+      expect(provider.isExported('class Widget {\n  void draw() {}\n}\n', 'nowhere')).toBe(false);
+    });
+
+    it('reads the line that declares the symbol, not the first line that mentions it', () => {
+      const source = 'class Widget {\n  private String label\n\n  void draw() {}\n}\n';
+      expect(provider.isExported(source, 'draw')).toBe(true);
+    });
+
+    it('ignores a comment that mentions the symbol', () => {
+      const source = 'class Widget {\n  // private void draw() {}\n  void draw() {}\n}\n';
+      expect(provider.isExported(source, 'draw')).toBe(true);
+    });
   });
 
   describe('taint sources (AST)', () => {

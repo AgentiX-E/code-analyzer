@@ -17,6 +17,21 @@ import type {
 } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
+/**
+ * Whether an R script publishes a name: an assignment at column 0, or a `setClass`/`setMethod` naming it.
+ *
+ * **Column 0 is the rule and not a formatting habit**: the body of a function is indented, and a name assigned inside
+ * one is local to that call.
+ */
+function publishedAtTopLevel(source: string, symbolName: string): boolean {
+  const escaped = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const assignment = new RegExp(
+    `^(?:${escaped}\\s*(?:<-|=)|set(?:Class|Method)\\(\\s*["']${escaped}["'])`,
+    'mu',
+  );
+  return assignment.test(source);
+}
+
 export class RProvider extends TreeSitterBaseProvider {
   readonly language = 'r';
   readonly displayName = 'R';
@@ -359,8 +374,16 @@ export class RProvider extends TreeSitterBaseProvider {
     }
   }
 
-  protected override checkExported(_node: TreeSitterSyntaxNode, _symbolName: string): boolean {
-    return true; // R functions are globally visible by default
+  /**
+   * **`true` was a constant, and two tests insisted on it — one of them on an empty string.** A name is published by an
+   * R script when it is assigned at the top level: `draw <- function(x) x` written at column 0 is visible to anything
+   * that `source()`s the file, and the same assignment written inside another function is not. Class declarations are
+   * published through `setClass`/`setMethod`, which are commands rather than assignments.
+   *
+   * Package exports are a `NAMESPACE` file, which is not a script and not what this provider is handed.
+   */
+  protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    return publishedAtTopLevel(this.source, symbolName);
   }
 
   // ---- Fallback ----
@@ -439,8 +462,8 @@ export class RProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  public override fallbackIsExported(_source: string, _symbolName: string): boolean {
-    return true;
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
+    return publishedAtTopLevel(source, symbolName);
   }
 
   public override fallbackExtractTaintSources(source: string): TaintSource[] {

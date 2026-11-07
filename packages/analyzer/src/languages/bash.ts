@@ -17,6 +17,20 @@ import type {
 } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
+/**
+ * Whether a shell script exports a name: it must be mentioned, and an `export`/`declare -x`/`typeset -x` statement must
+ * name it. **A function is not exported by being defined** — `draw() { … }` is visible to this script only.
+ */
+function exportedByStatement(source: string, symbolName: string): boolean {
+  const escaped = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const naming = new RegExp(`\\b${escaped}\\b`, 'u');
+  const lines = source.split('\n').filter((line) => !line.trimStart().startsWith('#'));
+  if (!lines.some((line) => naming.test(line))) return false;
+  return lines.some(
+    (line) => /\b(?:export|declare\s+-x|typeset\s+-x)\b/u.test(line) && naming.test(line),
+  );
+}
+
 export class BashProvider extends TreeSitterBaseProvider {
   readonly language = 'bash';
   readonly displayName = 'Bash/Shell';
@@ -348,8 +362,17 @@ export class BashProvider extends TreeSitterBaseProvider {
     }
   }
 
-  protected override checkExported(_node: TreeSitterSyntaxNode, _symbolName: string): boolean {
-    return true; // Shell functions are globally visible
+  /**
+   * **`true` was a constant, and a test insisted on it.** The old body answered `true` for every name with the comment
+   * "shell functions are globally visible" — which is true *inside the script* and is not what export means. A shell
+   * hands a child process only what it exported: `export NAME`, `export -f function`, `declare -x NAME`, and the same
+   * statement spelled `typeset -x`. A name the file does not mention is not exported from it at all.
+   *
+   * The tree is not consulted because the statement is not a declaration the walker files: `export` is an ordinary
+   * command whose operands are names, so reading the line is the whole rule.
+   */
+  protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    return exportedByStatement(this.source, symbolName);
   }
 
   // ---- Helpers ----
@@ -460,8 +483,8 @@ export class BashProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  public override fallbackIsExported(_source: string, _symbolName: string): boolean {
-    return true;
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
+    return exportedByStatement(source, symbolName);
   }
 
   public override fallbackExtractTaintSources(source: string): TaintSource[] {

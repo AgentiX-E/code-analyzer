@@ -25,7 +25,7 @@ a call graph rather than a capture are listed in `UNINSTRUMENTED` with the measu
 | **Variable Definitions**     |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  —   |  —  |  ✅  |  ✅   |   —   |  —   | ✅  |   —   | ✅  |   —    |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
 | **Constant Definitions**     |     ✅     |     ✅     |   —    | ✅  |  —   |   —    |  —  |  ✅  |  —  |  ✅  |   —   |  ✅   |  —   |  —  |   —   |  —  |   —    |  ✅   |   —    |  —   |  —  |   ✅   |
 | **Import Statements**        |     ✅     |     ✅     |   ✅   | ✅  |  ✅  |   ✅   | ✅  |  ✅  | ✅  |  ✅  |  ✅   |  ✅   |  ✅  | ✅  |  ✅   | ✅  |   ✅   |  ✅   |   ✅   |  —   |  —  |   ✅   |
-| **Export Detection**         |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |  ✅   |   ✅   |  —   |  —  |   ✅   |
+| **Export Detection**         |     ✅     |     ✅     |  N/A   | N/A |  ✅  |   ✅   | ✅  |  ✅  | N/A | N/A  |  N/A  |  ✅   | N/A  | N/A |  N/A  | ✅  |  N/A   |  ✅   |   ✅   |  ✅  | ✅  |   ✅   |
 | **Decorators/Annotations**   |     ✅     |    N/A     |   ✅   | N/A |  ✅  |   ✅   | ✅  |  ✅  | ✅  | N/A  |  N/A  |  N/A  |  ✅  | N/A |  N/A  | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |
 | **Route Detection**          |     —      |    N/A     |   —    | N/A | N/A  |  N/A   |  —  | N/A  | N/A | N/A  |  N/A  |  N/A  | N/A  | N/A |  N/A  | N/A |  N/A   |   —   |  N/A   | N/A  | N/A |   —    |
 | **Constructor Detection**    |     ✅     |     ✅     |   ✅   | N/A |  ✅  |  N/A   | ✅  | N/A  | ✅  |  ✅  |  ✅   |   —   |  —   | N/A |   —   | N/A |  N/A   |  ✅   |   ✅   | N/A  | N/A |   —    |

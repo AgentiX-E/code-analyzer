@@ -17,6 +17,23 @@ import type {
 } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
+/**
+ * Whether a Groovy declaration is visible outside its class: it must be declared, and the line that declares it must
+ * not carry `private` or `protected`.
+ *
+ * **The line that names the symbol is the one that matters**, because `private String label` earlier in the same class
+ * says nothing about `draw`.
+ */
+function exportedUnlessRestricted(source: string, symbolName: string): boolean {
+  const escaped = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const naming = new RegExp(`\\b${escaped}\\b`, 'u');
+  const declaration = source
+    .split('\n')
+    .find((line) => naming.test(line) && !line.trimStart().startsWith('//'));
+  if (declaration === undefined) return false;
+  return !/\b(?:private|protected)\b/u.test(declaration);
+}
+
 export class GroovyProvider extends TreeSitterBaseProvider {
   readonly language = 'groovy';
   readonly displayName = 'Groovy';
@@ -527,8 +544,19 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     }
   }
 
-  protected override checkExported(_node: TreeSitterSyntaxNode, _symbolName: string): boolean {
-    return true; // Groovy defs are visible by default
+  /**
+   * **`true` was a constant, not a rule, and the matrix could not tell.** The old body was `return true` with the
+   * comment "Groovy defs are visible by default" — which is true of a `def`, and is exactly why the answer carried no
+   * information: a `private` method and a name the file never declares both came back `true`, so `Export Detection`
+   * was praising a predicate that could only say yes.
+   *
+   * Groovy's rule is the plumbing: a member is visible unless it is written `private` or `protected`, and a name the
+   * file does not declare is not exported from it. Both are in the text this method is handed, so the answer is read
+   * rather than assumed. **The declaration line is the one that names the symbol**, because `private String label`
+   * earlier in the same class says nothing about `draw`.
+   */
+  protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    return exportedUnlessRestricted(this.source, symbolName);
   }
 
   // ---- Fallback ----
@@ -621,8 +649,8 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  public override fallbackIsExported(_source: string, _symbolName: string): boolean {
-    return true;
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
+    return exportedUnlessRestricted(source, symbolName);
   }
 
   public override fallbackExtractTaintSources(source: string): TaintSource[] {
