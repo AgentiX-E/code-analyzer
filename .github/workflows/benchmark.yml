@@ -40,8 +40,6 @@ on:
         type: boolean
         default: true
 
-env:
-
 jobs:
   benchmarks:
     name: Run Benchmarks

@@ -38,8 +38,6 @@ on:
 permissions:
   contents: read
 
-env:
-
 jobs:
   real-corpus:
     name: ${{ matrix.corpus.language }} - ${{ matrix.corpus.repo }}

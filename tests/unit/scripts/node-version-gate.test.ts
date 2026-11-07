@@ -156,6 +156,23 @@ describe('node-version-gate', () => {
     expect(result.stderr).toContain('floor');
   });
 
+  it('fails a block a version deletion emptied, which GitHub reports as the file', () => {
+    // `env:` with nothing under it is valid YAML and is rejected by Actions, so the failure arrives as
+    // `.github/workflows/fixture.yml` with no line number - four workflows shipped that way in one commit.
+    const result = runGate({ workflow: WORKFLOW.replace('jobs:\n', 'env:\n\njobs:\n') });
+
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toContain('has no content');
+  });
+
+  it('accepts an env block that has content', () => {
+    const result = runGate({
+      workflow: WORKFLOW.replace('jobs:\n', "env:\n  PNPM_VERSION: '9.15.0'\njobs:\n"),
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
   it('fails on a Dockerfile that builds a different runtime', () => {
     const result = runGate({ dockerfile: 'ARG NODE_VERSION=22\n' });
 

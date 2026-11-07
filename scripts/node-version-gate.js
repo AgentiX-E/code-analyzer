@@ -149,6 +149,28 @@ function analyse(repo) {
 
   for (const { name, text } of workflowFiles(repo)) {
     const lines = text.split('\n');
+    // **Removing the last key of a block leaves `env:` with nothing under it**, which is valid YAML (`null`) and is
+    // rejected by GitHub, which reports the whole workflow as `.github/workflows/x.yml` rather than as a line. That
+    // is how this iteration shipped four workflows that could not start: deleting `NODE_VERSION` emptied the block.
+    ['env', 'permissions', 'strategy', 'concurrency', 'defaults'].forEach((block) => {
+      lines.forEach((line, index) => {
+        const header = line.match(new RegExp(`^(\\s*)${block}:\\s*$`));
+        if (!header) return;
+        const indent = header[1].length;
+        for (let next = index + 1; next < lines.length; next += 1) {
+          if (lines[next].trim() === '') continue;
+          const child = lines[next].match(/^(\s*)\S/);
+          const childIndent = child ? child[1].length : 0;
+          if (childIndent <= indent) {
+            failures.push(
+              `${name}:${index + 1}: \`${block}:\` has no content — an empty mapping is rejected by GitHub, ` +
+                'which reports the file rather than the line.',
+            );
+          }
+          break;
+        }
+      });
+    });
     lines.forEach((line, index) => {
       const scalar = line.match(/^\s*node-version:\s*(.+)$/);
       if (scalar) {

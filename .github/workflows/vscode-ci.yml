@@ -38,8 +38,6 @@ on:
         type: boolean
         default: false
 
-env:
-
 jobs:
   build:
     name: Build & Lint
