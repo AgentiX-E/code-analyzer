@@ -51,7 +51,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -65,7 +65,7 @@ jobs:
         run: npx vitest run --config vitest.config.ts tests/unit/scripts/competitor-matrix-gate.test.ts
 
       - name: Pull the figures other jobs produced
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           path: /tmp/ci-artifacts
@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload the report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: competitor-matrix-report
           path: benchmarks/competitor-matrix-report.json

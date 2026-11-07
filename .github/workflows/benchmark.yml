@@ -59,7 +59,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -72,7 +72,7 @@ jobs:
 
       - name: Download baseline report
         id: baseline
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: benchmark-baseline.json
           key: benchmark-baseline-${{ github.ref == 'refs/heads/master' && github.sha || 'master-latest' }}
@@ -136,7 +136,7 @@ jobs:
 
       - name: Upload the self-index artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: indexing-self-index
           path: benchmarks/indexing-self-index.json
@@ -144,7 +144,7 @@ jobs:
 
       - name: Upload benchmark report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-report
           path: benchmark-report.json
@@ -152,7 +152,7 @@ jobs:
 
       - name: Cache baseline (master branch only)
         if: github.ref == 'refs/heads/master' && steps.run.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: benchmark-report.json
           key: benchmark-baseline-${{ github.sha }}
@@ -168,7 +168,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: benchmark-report
 

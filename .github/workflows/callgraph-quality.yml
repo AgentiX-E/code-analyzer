@@ -97,7 +97,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload the figures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: callgraph-selfcheck
           path: benchmarks/callgraph-selfcheck.json
@@ -142,7 +142,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -187,7 +187,7 @@ jobs:
 
       - name: Upload the figures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: callgraph-quality
           path: benchmarks/callgraph-quality.json
@@ -211,7 +211,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -272,7 +272,7 @@ jobs:
 
       - name: Upload the figures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: callgraph-ts-quality
           path: |
@@ -298,7 +298,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -351,7 +351,7 @@ jobs:
 
       - name: Upload the figures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: callgraph-java-quality
           path: benchmarks/callgraph-java-quality.json

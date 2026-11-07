@@ -82,7 +82,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -126,7 +126,7 @@ jobs:
 
       - name: Upload the Python half
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dead-code-python
           # **One file, staged under a name the gate job names explicitly.** `upload-artifact` archives a single matched
@@ -154,7 +154,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -192,7 +192,7 @@ jobs:
 
       - name: Upload the TypeScript half
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dead-code-typescript
           # The same single-file layout the Python half uses — see the comment there.
@@ -213,12 +213,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
       - name: Download the Python half
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dead-code-python
           # **The halves are staged beside the checkout, not over it.** Downloading the Python artifact to the default
@@ -228,7 +228,7 @@ jobs:
           path: py-half
 
       - name: Download the TypeScript half
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dead-code-typescript
           # **The two halves are written by separate jobs**, so they are merged here rather than by a third run that
@@ -289,7 +289,7 @@ jobs:
 
       - name: Upload the merged record
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dead-code
           path: benchmarks/dead-code.json

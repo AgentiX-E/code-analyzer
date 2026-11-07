@@ -53,7 +53,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -133,7 +133,7 @@ jobs:
       # only exists inside a failed job cannot be committed.
       - name: Upload the frozen question set
         if: always() && steps.credential.outputs.present == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: paraphrase-queries
           path: benchmarks/paraphrase-queries.json
@@ -142,7 +142,7 @@ jobs:
 
       - name: Upload the paraphrase figure
         if: always() && steps.credential.outputs.present == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: paraphrase-search
           path: benchmarks/paraphrase-search.json
@@ -153,7 +153,7 @@ jobs:
       # matrix's cell as MISSING, which is the honest state and not the useful one.
       - name: Upload the artifact the matrix reads
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docstring-search
           path: benchmarks/docstring-search.json

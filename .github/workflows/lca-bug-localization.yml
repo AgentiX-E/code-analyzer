@@ -129,7 +129,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -297,7 +297,7 @@ jobs:
       # the first eleven runs undiagnosable.
       - name: Upload the part
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lca-part-${{ matrix.language }}
           # **One root, so the artifact is one directory**: a second path outside the workspace makes the archive's
@@ -325,7 +325,7 @@ jobs:
           version: 9.15.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -334,7 +334,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Collect the parts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: lca-part-*
           path: benchmarks/lca-parts
@@ -353,7 +353,7 @@ jobs:
 
       - name: Upload the figure
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lca-bug-localization
           path: benchmarks/lca-bug-localization.json

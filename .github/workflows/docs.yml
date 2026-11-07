@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload link check report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: link-check-report
           path: lychee-out.md
@@ -141,7 +141,7 @@ jobs:
         with:
           version: '9.15.0'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'pnpm'
