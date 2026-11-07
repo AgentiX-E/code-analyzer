@@ -28,7 +28,7 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.14.0"
   },
   "sideEffects": false,
   "bin": {

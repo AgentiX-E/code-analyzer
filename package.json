@@ -26,7 +26,7 @@
     "url": "https://github.com/AgentiX-E/code-analyzer/issues"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.14.0"
   },
   "files": [
     "packages/*/dist",
