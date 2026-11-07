@@ -131,7 +131,11 @@ export class LouvainDetector {
           weightTo.set(community, (weightTo.get(community) ?? 0) + weight);
         }
         const weightToFrom = weightTo.get(from) ?? 0;
-        const fromWithout = (communityDegree.get(from) ?? 0) - degree;
+        // Invariant: every community a live node belongs to has an entry here — the seed loop above fills one for
+        // every node, and a move below writes both the community it leaves and the one it joins. The `?? 0` this
+        // line used to carry was a fallback no test can enter, and the coverage gate said so before any test did:
+        // four dead branches in a file whose whole point was that its numbers are measured.
+        const fromWithout = communityDegree.get(from)! - degree;
 
         let bestTo = from;
         let bestGain = 0;
@@ -142,7 +146,9 @@ export class LouvainDetector {
             weightToFrom,
             degree,
             fromWithout,
-            communityDegree.get(to) ?? 0,
+            // Invariant: `to` came out of `weightTo`, so at least one node lives there and the seed loop gave it a
+            // degree. Same reasoning as `fromWithout` above; the same unreachable fallback is gone.
+            communityDegree.get(to)!,
             totalWeight,
           );
           if (gain > bestGain) {
@@ -154,7 +160,7 @@ export class LouvainDetector {
         if (bestTo !== from) {
           nodeToCommunity.set(nodeId, bestTo);
           communityDegree.set(from, fromWithout);
-          communityDegree.set(bestTo, (communityDegree.get(bestTo) ?? 0) + degree);
+          communityDegree.set(bestTo, communityDegree.get(bestTo)! + degree);
           improved = true;
         }
       }
@@ -271,9 +277,11 @@ export class LouvainDetector {
 
     let q = 0;
     // **Every community pays the null-model term, including one with no internal edge.** Iterating the degrees rather
-    // than the edges is what makes a singleton cost something.
+    // than the edges is what makes a singleton cost something. `degreeSum` and `internal` are filled by the same pass
+    // over the same keys, so every community in one is in the other and the `?? 0` this line used to carry could
+    // never be taken - a community with no internal edge still has `internal.get(c) === 0`, not `undefined`.
     for (const [community, total] of degreeSum) {
-      q += (internal.get(community) ?? 0) / m2 - (total / m2) ** 2;
+      q += internal.get(community)! / m2 - (total / m2) ** 2;
     }
     return q;
   }
