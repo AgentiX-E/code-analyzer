@@ -10,8 +10,8 @@
  * Three pieces make a row checkable:
  *
  * 1. **One fixture per language**, written to contain the constructs the row names, with the same identifiers in every
- *    language so a check does not have to be written nineteen times. `Widget`, `draw`, `topLevel`, `Drawable`,
- *    `Color`, `LIMIT` and `local` mean the same thing in all nineteen files.
+ *    language so a check does not have to be written twenty-one times. `Widget`, `draw`, `topLevel`, `Drawable`,
+ *    `Color`, `LIMIT` and `local` mean the same thing in all twenty-one files.
  * 2. **One check per row**, reading the captures the provider emitted for its own fixture. A check returns `null` when
  *    the row is backed and a sentence naming the missing evidence when it is not, so a failure says what to look at
  *    rather than only that something is wrong.
@@ -27,7 +27,7 @@
 
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
-/** The identifiers every fixture writes, so one check serves nineteen languages. */
+/** The identifiers every fixture writes, so one check serves twenty-one languages. */
 export interface FixtureNames {
   /** A function declared at file scope. */
   readonly fn: string;
@@ -74,7 +74,7 @@ const DEFAULT_NAMES: FixtureNames = {
   callee: 'helper',
 };
 
-/** A fixture with the camelCase names, which is what most of the nineteen languages write. */
+/** A fixture with the camelCase names, which is what most of the twenty-one languages write. */
 function fixture(
   file: string,
   source: string,
@@ -841,6 +841,53 @@ class Widget extends Base implements Drawable {
 }
 `,
     { typeName: 'List' },
+  ),
+};
+
+/**
+ * **Two languages with no classes and no types.** Bash and R are the two providers whose entire vocabulary is a
+ * declaration with a name and a call — a function, a variable, a call site — and neither has a class, an interface, an
+ * enum, a constructor or a generic to write in a fixture. Their columns are mostly `N/A` for that reason, and `—` where
+ * the fact is one the provider could publish and does not.
+ *
+ * They live in this second table rather than in `FIXTURES` because the fixtures above are one family with a shared
+ * vocabulary; these two write a script, not a program with a type system, and a reader comparing them to the seventeen
+ * above should see the difference before the braces.
+ */
+export const BASH_AND_R_FIXTURES: Readonly<Record<string, MatrixFixture>> = {
+  Bash: fixture(
+    'matrix.sh',
+    `
+#!/usr/bin/env bash
+# A small script.
+LIMIT=10
+readonly NAME="widget"
+
+# Draws the widget through the helper.
+draw() {
+  local label="$1"
+  helper "$label"
+}
+
+draw "$NAME"
+`,
+    { fn: 'draw', variable: 'label', constant: 'NAME', callee: 'helper' },
+  ),
+  R: fixture(
+    'matrix.R',
+    `
+# A small script.
+LIMIT <- 10
+
+# Draws the widget through the helper.
+draw <- function(labels) {
+  local <- helper(labels)
+  local
+}
+
+draw(LIMIT)
+`,
+    { fn: 'draw', variable: 'local', constant: 'LIMIT', callee: 'helper' },
   ),
 };
 

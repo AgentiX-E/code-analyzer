@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { ArkTSProvider } from '../languages/arkts.js';
+import { BashProvider } from '../languages/bash.js';
 import { CppProvider } from '../languages/cpp.js';
 import { CSharpProvider } from '../languages/csharp.js';
 import { DartProvider } from '../languages/dart.js';
@@ -35,13 +36,20 @@ import { KotlinProvider } from '../languages/kotlin.js';
 import { LuaProvider } from '../languages/lua.js';
 import { PhpProvider } from '../languages/php.js';
 import { PythonProvider } from '../languages/python.js';
+import { RProvider } from '../languages/r.js';
 import { RubyProvider } from '../languages/ruby.js';
 import { RustProvider } from '../languages/rust.js';
 import { ScalaProvider } from '../languages/scala.js';
 import { SwiftProvider } from '../languages/swift.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 import { ZigProvider } from '../languages/zig.js';
-import { CHECKS, FIXTURES, UNINSTRUMENTED } from './support/language-support-matrix.js';
+import { providerLoaders } from '../pipeline/parallel-phases.js';
+import {
+  BASH_AND_R_FIXTURES,
+  CHECKS,
+  FIXTURES,
+  UNINSTRUMENTED,
+} from './support/language-support-matrix.js';
 
 import type { FixtureNames } from './support/language-support-matrix.js';
 import type { LanguageProvider } from '../languages/provider.js';
@@ -67,6 +75,8 @@ const PROVIDERS: Readonly<Record<string, () => LanguageProvider>> = {
   Elixir: () => new ElixirProvider(),
   ArkTS: () => new ArkTSProvider(),
   Groovy: () => new GroovyProvider(),
+  Bash: () => new BashProvider(),
+  R: () => new RProvider(),
 };
 
 /** `✅`, `—` and `N/A` are the three cells the table writes; anything else is a typo this suite should catch. */
@@ -116,7 +126,53 @@ function readMatrix(): Matrix {
   return { languages, rows };
 }
 
+/**
+ * **The languages the product has, and the ones the matrix deliberately does not cover.**
+ *
+ * A column is a claim about a *programming* language: capture a function, a class, a method, a call. A scanner also
+ * admits the configuration, markup and document formats a repository is made of, and those have providers with their
+ * own facts — a YAML key, an HTML element, a SQL table — which this table's rows do not describe. **The split is stated
+ * here rather than implied by a hard-coded list**, so a provider added tomorrow fails this suite until its author says
+ * which half it belongs to.
+ */
+const NOT_A_PROGRAMMING_LANGUAGE: Readonly<Record<string, string>> = {
+  yaml: 'a configuration format: keys and anchors, not declarations and calls',
+  json: 'a data format: no declarations at all',
+  sql: 'a query language: tables and statements, measured by the taint and schema rows of its own suite',
+  toml: 'a configuration format',
+  markdown: 'a document format: headings and links',
+  html: 'a markup format: elements and attributes, measured by the taint rows of its own suite',
+  css: 'a stylesheet language: selectors and rules',
+};
+
+/** The identifier in `docs/language-support.md` for each language the pipeline can load. */
+const COLUMN_OF: Readonly<Record<string, string>> = {
+  typescript: 'TypeScript',
+  javascript: 'JavaScript',
+  python: 'Python',
+  go: 'Go',
+  java: 'Java',
+  kotlin: 'Kotlin',
+  csharp: 'C#',
+  rust: 'Rust',
+  php: 'PHP',
+  ruby: 'Ruby',
+  cpp: 'C/C++',
+  swift: 'Swift',
+  dart: 'Dart',
+  lua: 'Lua',
+  scala: 'Scala',
+  zig: 'Zig',
+  elixir: 'Elixir',
+  arkts: 'ArkTS',
+  groovy: 'Groovy',
+  bash: 'Bash',
+  r: 'R',
+};
+
 const MATRIX = readMatrix();
+
+const ALL_FIXTURES = { ...FIXTURES, ...BASH_AND_R_FIXTURES };
 
 /** One parse per language, because twenty-five assertions ask the same provider about the same file. */
 const parsed = new Map<string, UnifiedCapture[]>();
@@ -124,7 +180,7 @@ const parsed = new Map<string, UnifiedCapture[]>();
 function capturesOf(language: string): UnifiedCapture[] {
   const cached = parsed.get(language);
   if (cached !== undefined) return cached;
-  const fixture = FIXTURES[language];
+  const fixture = ALL_FIXTURES[language];
   if (fixture === undefined) return [];
   const provider = PROVIDERS[language]!();
   const captures = provider.parse(fixture.source, fixture.file);
@@ -134,12 +190,46 @@ function capturesOf(language: string): UnifiedCapture[] {
 
 describe('the capability matrix and its fixture table are the same shape', () => {
   it('every column of the matrix has a fixture', () => {
-    const missing = MATRIX.languages.filter((language) => FIXTURES[language] === undefined);
+    const missing = MATRIX.languages.filter((language) => ALL_FIXTURES[language] === undefined);
     expect(missing, 'languages in docs/language-support.md with no fixture').toEqual([]);
   });
 
+  /**
+   * **Every provider the pipeline can load is either a column or named as not a programming language.**
+   *
+   * This is the assertion whose absence cost a whole iteration: ArkTS and Groovy had grammars, hundreds of lines of
+   * walker and no column, so the table described seventeen languages while the product had nineteen. A row without a
+   * producer is a promise; **a producer without a row is a capability nobody measured.**
+   */
+  it('every provider the pipeline loads is a column of the matrix', () => {
+    const uncovered = Object.keys(providerLoaders)
+      .filter((language) => NOT_A_PROGRAMMING_LANGUAGE[language] === undefined)
+      .filter((language) => {
+        const column = COLUMN_OF[language];
+        return column === undefined || !MATRIX.languages.includes(column);
+      });
+    expect(uncovered, 'languages the pipeline loads with no column').toEqual([]);
+  });
+
+  it('every language the matrix does not cover says why not', () => {
+    const unexplained = Object.keys(providerLoaders).filter(
+      (language) =>
+        NOT_A_PROGRAMMING_LANGUAGE[language] === undefined && COLUMN_OF[language] === undefined,
+    );
+    expect(unexplained, 'providers in neither list').toEqual([]);
+  });
+
+  it('a language exempted as not a programming language is not a column either', () => {
+    const both = Object.keys(NOT_A_PROGRAMMING_LANGUAGE).filter((language) =>
+      MATRIX.languages.includes(COLUMN_OF[language] ?? ''),
+    );
+    expect(both, 'languages both exempted and covered').toEqual([]);
+  });
+
   it('every fixture is a column of the matrix', () => {
-    const extra = Object.keys(FIXTURES).filter((language) => !MATRIX.languages.includes(language));
+    const extra = Object.keys(ALL_FIXTURES).filter(
+      (language) => !MATRIX.languages.includes(language),
+    );
     expect(extra, 'fixtures for languages the matrix does not list').toEqual([]);
   });
 
@@ -199,7 +289,7 @@ describe('the capability matrix and its fixture table are the same shape', () =>
 
 describe('every claim a checked row makes is backed by its language', () => {
   for (const language of MATRIX.languages) {
-    const fixture = FIXTURES[language];
+    const fixture = ALL_FIXTURES[language];
     if (fixture === undefined) continue;
 
     describe(language, () => {

@@ -37,7 +37,15 @@ import type {
 // Provider Loader (shared with sequential phases)
 // ---------------------------------------------------------------------------
 
-const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
+/**
+ * Every language the pipeline can build a provider for, by the identifier a scanner assigns.
+ *
+ * **Exported because it is the list of languages the product has**, and anything that claims to describe the product's
+ * language support has to be measured against it rather than against a copy: `docs/language-support.md` grew from
+ * seventeen columns to nineteen because two providers — ArkTS and Groovy — were in this table and in no column at all,
+ * and nothing could notice.
+ */
+export const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
   typescript: async () => {
     const { TypeScriptProvider } = await import('../languages/typescript.js');
     return new TypeScriptProvider();
