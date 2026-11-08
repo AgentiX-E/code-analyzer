@@ -5,7 +5,8 @@
 // artifact publishes. That is the reason this file exists at all: the function is four lines long and it is the only
 // place where a cap is actually applied.
 
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -75,5 +76,25 @@ describe('readHead', () => {
     const path = join(root, 'utf8.txt');
     writeFileSync(path, '修正 修正\n');
     expect(readHead(path, 1_000)).toBe('修正 修正\n');
+  });
+
+  it('**answers null for a fifo instead of blocking on it**, which is why the open is non-blocking', () => {
+    // The check that refuses a non-regular file now runs *after* the open, so the open itself has to return. A fifo
+    // opened for reading waits for a writer, and a job that has a clock cannot afford to wait for one that never comes.
+    // This test would hang rather than fail if the flag were dropped, which is the point: the deadline is the assertion.
+    if (process.platform === 'win32') return;
+    const path = join(root, 'pipe');
+    execFileSync('mkfifo', [path]);
+    expect(readHead(path, 1_000)).toBeNull();
+  });
+
+  it('**answers null for a symlink to a directory**, so the descriptor is what is judged', () => {
+    // `statSync` followed the link and `openSync` then failed on the target; asking `fstat` about the descriptor means
+    // the file that is checked is the file that would be read. A symlink is how a checkout produces a non-file in an
+    // answer space without the path looking like one.
+    if (process.platform === 'win32') return;
+    const link = join(root, 'link');
+    symlinkSync(root, link);
+    expect(readHead(link, 1_000)).toBeNull();
   });
 });
