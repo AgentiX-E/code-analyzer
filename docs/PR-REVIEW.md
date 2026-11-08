@@ -49,6 +49,29 @@ Removes noise from review results:
 
 Adjusts comment line numbers to map from diff ranges to post-change file positions.
 
+### Phase 5: Order (LLM lane findings)
+
+**A review is read from the top and abandoned part-way through, so the order is part of the product.** The LLM review
+engine scores each finding on six terms computed from the patch and the finding alone — whether the range covers an
+added line, whether the suggestion names an action, whether the finding quotes added code, whether it names an
+identifier the diff touches, how many lanes independently reported it, and its severity and lane prior — and returns
+the comments in that order.
+
+```ts
+const engine = new LLMReviewEngine(provider);
+const comments = await engine.reviewDiffRanked(diff, patch); // ordered
+const unordered = await engine.reviewDiffAsComments(diff); // the previous behaviour
+```
+
+**Nothing is dropped by the ordering.** A finding the ranking places last is still in the array, because a filter that
+silently removes comments is a different feature with a different failure mode; the reader can stop reading at any
+point. The score, the six terms and the reasons behind a low one are exported from
+`@code-analyzer/intelligence` as `weighFinding` / `rankFindings`, and `docs/EVAL-CONTRACT.md` §6 records the emission
+rule the benchmark scores.
+
+**What the ordering is measured on**: `benchmarks/aacr-bench.json` scores it against a direct competitor on the
+competitor's own public corpus, with the top-k curve published beside the operating point.
+
 ## Rule Categories
 
 | Category            | Count | Examples                                                                                                                                                    |

@@ -205,9 +205,8 @@ function exactMcNemar(oursOnly, theirsOnly) {
  */
 async function dryRun() {
   const assert = (await import('node:assert/strict')).default;
-  const { collectDiffFacts, maximumMatchingCount, point, rankFindings, topKCurve } = await import(
-    '../../packages/intelligence/dist/review/actionability.js'
-  );
+  const { collectDiffFacts, maximumMatchingCount, point, rankFindings, topKCurve } =
+    await import('../../packages/intelligence/dist/review/actionability.js');
 
   const diff = [
     'diff --git a/a.ts b/a.ts',
@@ -242,12 +241,66 @@ async function dryRun() {
   };
 
   const findings = [
-    { title: 'F1 null deref in the guard', startLine: 1, endLine: 1, severity: 'high', category: 'bug', lane: 'security', description: 'the guard is missing before the deref', suggestion: 'Add a check before the deref' },
-    { title: 'F2 null deref reported again', startLine: 2, endLine: 2, severity: 'medium', category: 'bug', lane: 'maintainability', description: 'the same deref seen from another angle', suggestion: null },
-    { title: 'F3 the loop reads past the end', startLine: 99, endLine: 99, severity: 'high', category: 'bug', lane: 'security', description: 'the loop bound is one too far', suggestion: 'Remove the call' },
-    { title: 'F4 missing error handling', startLine: 3, endLine: 3, severity: 'high', category: 'bug', lane: 'security', description: 'the call can throw and nothing catches', suggestion: 'Throw on the error' },
-    { title: 'F5 rename the temporary', startLine: 1, endLine: 1, severity: 'low', category: 'style', lane: 'maintainability', description: 'the temporary is unnamed in meaning', suggestion: 'Rename the temporary' },
-    { title: 'F6 style remark', startLine: 50, endLine: 50, severity: 'info', category: 'style', lane: 'maintainability', description: 'spacing near the block', suggestion: null },
+    {
+      title: 'F1 null deref in the guard',
+      startLine: 1,
+      endLine: 1,
+      severity: 'high',
+      category: 'bug',
+      lane: 'security',
+      description: 'the guard is missing before the deref',
+      suggestion: 'Add a check before the deref',
+    },
+    {
+      title: 'F2 null deref reported again',
+      startLine: 2,
+      endLine: 2,
+      severity: 'medium',
+      category: 'bug',
+      lane: 'maintainability',
+      description: 'the same deref seen from another angle',
+      suggestion: null,
+    },
+    {
+      title: 'F3 the loop reads past the end',
+      startLine: 99,
+      endLine: 99,
+      severity: 'high',
+      category: 'bug',
+      lane: 'security',
+      description: 'the loop bound is one too far',
+      suggestion: 'Remove the call',
+    },
+    {
+      title: 'F4 missing error handling',
+      startLine: 3,
+      endLine: 3,
+      severity: 'high',
+      category: 'bug',
+      lane: 'security',
+      description: 'the call can throw and nothing catches',
+      suggestion: 'Throw on the error',
+    },
+    {
+      title: 'F5 rename the temporary',
+      startLine: 1,
+      endLine: 1,
+      severity: 'low',
+      category: 'style',
+      lane: 'maintainability',
+      description: 'the temporary is unnamed in meaning',
+      suggestion: 'Rename the temporary',
+    },
+    {
+      title: 'F6 style remark',
+      startLine: 50,
+      endLine: 50,
+      severity: 'info',
+      category: 'style',
+      lane: 'maintainability',
+      description: 'spacing near the block',
+      suggestion: null,
+    },
   ];
 
   const facts = collectDiffFacts(diff);
@@ -329,7 +382,6 @@ async function dryRun() {
     `AACR-BENCH dry run ok · full F1 ${full.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')}`,
   );
 }
-
 
 async function main() {
   // **The arithmetic without the model**, for a runner that has no credential and a reviewer who wants the maths checked.
@@ -533,7 +585,9 @@ async function main() {
     const category = CATEGORY_NAMES.find((name) => categoryTag.includes(name)) ?? 'other';
 
     const lines = body.split(String.fromCharCode(10));
-    const suggested = lines.filter((line) => /^[+-]/.test(line.trimStart()) && !/^[+-]{3}/.test(line));
+    const suggested = lines.filter(
+      (line) => /^[+-]/.test(line.trimStart()) && !/^[+-]{3}/.test(line),
+    );
     const startLine = Number(entry.startLine ?? entry.line ?? Number.NaN);
     const endLine = Number(entry.endLine ?? entry.line ?? Number.NaN);
 
@@ -1417,7 +1471,8 @@ async function main() {
         perPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0) +
         competitorPerPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0),
       weights: ACTIONABILITY_WEIGHTS,
-      changedFrom: 'the previous protocol consumed each golden with the first finding that matched it, in judging order',
+      changedFrom:
+        'the previous protocol consumed each golden with the first finding that matched it, in judging order',
     },
     prsInDataset: rows.length,
     prsReviewed: reviewed,
@@ -1440,7 +1495,10 @@ async function main() {
       oursOnly,
       theirsOnly,
       pValue: round(exactMcNemar(oursOnly, theirsOnly)),
-      verdict: exactMcNemar(oursOnly, theirsOnly) <= 0.05 ? 'significant at 0.05' : 'not significant at 0.05',
+      verdict:
+        exactMcNemar(oursOnly, theirsOnly) <= 0.05
+          ? 'significant at 0.05'
+          : 'not significant at 0.05',
     },
     // **The control arm, reported beside the first rather than instead of it.**
     wholePrArm: {

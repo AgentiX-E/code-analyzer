@@ -159,14 +159,14 @@ and a selection rule is exactly the kind of thing that can be tuned into a win a
 
 **So the rule was written down before the run it scores**, and the run does not get to choose it:
 
-| what                    | registered value                                                                                                                       |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| order                   | descending actionability score, computed from the diff and the finding alone; tie-broken by agreement, then severity, then input order |
-| emitted                 | a finding whose range covers an added line **and** which either names an action or quotes added code                                   |
-| not emitted             | everything else — **kept in the artifact, judged, and reported as a superset**, never dropped before it is scored                       |
-| primary figure          | precision, recall and F1 **of the emitted set**                                                                                        |
-| secondary figure        | the same three over everything emitted, and the top-k curve at k = 1, 2, 3, 4, 6, 8, 12, 16, 24, 32 per pull request                   |
-| control                 | the same ranker and the same rule applied to the competitor's findings                                                                  |
+| what             | registered value                                                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| order            | descending actionability score, computed from the diff and the finding alone; tie-broken by agreement, then severity, then input order |
+| emitted          | a finding whose range covers an added line **and** which either names an action or quotes added code                                   |
+| not emitted      | everything else — **kept in the artifact, judged, and reported as a superset**, never dropped before it is scored                      |
+| primary figure   | precision, recall and F1 **of the emitted set**                                                                                        |
+| secondary figure | the same three over everything emitted, and the top-k curve at k = 1, 2, 3, 4, 6, 8, 12, 16, 24, 32 per pull request                   |
+| control          | the same ranker and the same rule applied to the competitor's findings                                                                 |
 
 **Three things follow from registering it, and each one is a way of being wrong that this repository has already been.**
 
@@ -174,7 +174,7 @@ and a selection rule is exactly the kind of thing that can be tuned into a win a
    goldens, and it would be reported as a measurement. The curve is published **as a diagnostic** — it says what a
    different budget would have produced — and any figure quoted from it must say that it was chosen afterwards.
 2. **The rule is allowed to lose.** It is a claim about comments, not a search over thresholds, and the fixture in
-   `--dry-run` is built so that the rule's F1 is *lower* than the whole list's on it. **A rule that cannot fail is not
+   `--dry-run` is built so that the rule's F1 is _lower_ than the whole list's on it. **A rule that cannot fail is not
    being tested.**
 3. **A protocol change is a protocol change for both arms.** The matching is now a maximum bipartite matching over a
    full verdict matrix, where the previous run consumed each golden with the first finding that matched it in judging

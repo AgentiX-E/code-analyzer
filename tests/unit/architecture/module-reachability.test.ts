@@ -353,7 +353,7 @@ describe('every module a package compiles is reachable from an entry its manifes
       cli: 9,
       core: 45,
       infra: 29,
-      intelligence: 155,
+      intelligence: 156,
       mcp: 39,
       server: 24,
       shared: 10,
