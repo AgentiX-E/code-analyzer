@@ -8,6 +8,11 @@ concurrency:
   group: publish-npm-${{ github.ref }}
   cancel-in-progress: false
 
+# **The token is scoped to what the workflow reads.** The default is the repository's default — read-write on
+# an older repository — and the publish authenticates with `NPM_TOKEN`, so the workflow token only reads the checkout.
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     name: Build & Test

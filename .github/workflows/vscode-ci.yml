@@ -38,6 +38,11 @@ on:
         type: boolean
         default: false
 
+# **The token is scoped to what the workflow reads.** The default is the repository's default — read-write on
+# an older repository — and the publish job authenticates with `VSCE_PAT`; nothing here writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build & Lint

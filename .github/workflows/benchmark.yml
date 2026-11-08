@@ -40,6 +40,11 @@ on:
         type: boolean
         default: true
 
+# **The token is scoped to what the workflow reads.** The default is the repository's default — read-write on
+# an older repository — and the one job that needs more asks for that one scope itself (`pull-requests: write`, for the summary comment).
+permissions:
+  contents: read
+
 jobs:
   benchmarks:
     name: Run Benchmarks

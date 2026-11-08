@@ -55,6 +55,12 @@ env:
   # "repository name must be lowercase".
   IMAGE_NAME: agentix-e/code-analyzer
 
+# **The token is scoped to what the workflow reads.** The default is the repository's default — read-write on
+# an older repository — and the two jobs that need more declare it themselves (`packages: write` to push, `contents: write`
+# to attach the SBOM to a release).
+permissions:
+  contents: read
+
 jobs:
   build-and-publish:
     name: Build & Publish

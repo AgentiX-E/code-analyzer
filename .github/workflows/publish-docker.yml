@@ -12,6 +12,12 @@ env:
   REGISTRY: docker.io
   IMAGE_NAME: agentix-e/code-analyzer
 
+# **The token is scoped to what the workflow reads.** The default is the repository's default — read-write on
+# an older repository — and the push authenticates with `DOCKER_TOKEN` rather than the workflow token, so nothing here
+# needs a write scope at all.
+permissions:
+  contents: read
+
 jobs:
   build-and-push:
     name: Build & Push Multi-arch

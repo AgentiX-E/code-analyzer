@@ -8,6 +8,11 @@ concurrency:
   group: publish-vscode-${{ github.ref }}
   cancel-in-progress: false
 
+# **The token is scoped to what the workflow reads.** The default is the repository's default — read-write on
+# an older repository — and `vsce publish` authenticates with `VSCE_PAT`, so the workflow token only reads the checkout.
+permissions:
+  contents: read
+
 jobs:
   build-and-publish:
     name: Build & Publish
