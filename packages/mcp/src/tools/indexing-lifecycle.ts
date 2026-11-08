@@ -41,7 +41,25 @@ interface PersistenceReport {
 }
 
 /**
+ * The report for a call that never ran a pipeline, so it had nothing to store.
+ *
+ * **`persisted: false` is on every response, and this is why.** The field spent a round as a property of the
+ * pipeline path only, which meant two of the three return paths omitted it — and a caller reading
+ * `payload.persisted.persisted` from those got `undefined`, which is falsy but reads as "no answer" rather than
+ * "nothing was stored". The distinction a caller needs is *did the graph reach the store*, and a response that
+ * does not carry the answer is the defect this whole file exists for.
+ */
+function nothingStored(reason: string): PersistenceReport {
+  return { persisted: false, nodes: 0, edges: 0, duplicateNodes: 0, orphanEdges: 0, reason };
+}
+
+/**
  * Write a pipeline result into the graph store, remapping node ids as it goes.
+ *
+ * **The store is a parameter of type `InMemoryGraphStore`, not `InMemoryGraphStore | null`.** It was nullable,
+ * for a caller that could not supply one — and the only caller supplies `ctx.store`, which the context guarantees,
+ * so the null arm was a branch no test and no deployment could take. Covering it would have meant writing a test
+ * for a state the code cannot be in; removing it means the type says what the function needs.
  *
  * **This function exists because the tool that indexes did not index.** `analyze_repository` ran the full pipeline,
  * reported `nodeCount`, and dropped `result.graph` when the handler returned: `currentAnalysis` was assigned on the tool
@@ -56,23 +74,11 @@ interface PersistenceReport {
  * rather than silently dropped.
  */
 function persistGraph(
-  graphStore: InMemoryGraphStore | null,
+  graphStore: InMemoryGraphStore,
   result: PipelineResult,
   projectId: string,
   force: boolean,
 ): PersistenceReport {
-  if (graphStore === null) {
-    return {
-      persisted: false,
-      nodes: 0,
-      edges: 0,
-      duplicateNodes: 0,
-      orphanEdges: 0,
-      reason:
-        'no graph store is attached to this context, so the analysis was computed and discarded',
-    };
-  }
-
   // **`force` is the promise that a re-index replaces the old one**, and a promise the store would otherwise keep by
   // throwing on the first node whose qualified name already exists — leaving the project half old and half new.
   if (force) {
@@ -250,7 +256,7 @@ export async function analyzeRepository(
 
       const nodeCount = result.graph.nodes.size;
       const edgeCount = result.graph.edges.size;
-      const persisted = persistGraph(getStore(store), result, projectId, force);
+      const persisted = persistGraph(ctx.store, result, projectId, force);
       const phaseStatuses = result.phases.map((p) => ({
         phaseId: p.phaseId,
         status: p.status,
@@ -310,6 +316,10 @@ export async function analyzeRepository(
                 force,
                 nodeCount: integrity.nodeCount,
                 edgeCount: integrity.edgeCount,
+                // The store was read, not written: no pipeline ran, so there was nothing to persist.
+                persisted: nothingStored(
+                  'no pipeline context was attached, so the store was inspected rather than written',
+                ),
                 message: `Store-based analysis: ${integrity.nodeCount} nodes, ${integrity.edgeCount} edges`,
               },
               null,
@@ -331,6 +341,9 @@ export async function analyzeRepository(
               language: language ?? 'auto-detected',
               status: 'indexing',
               force,
+              persisted: nothingStored(
+                'no pipeline context and no graph store were attached, so nothing was analysed and nothing was stored',
+              ),
               message: `Repository analysis started for ${path}. Use get_graph_schema or cypher_query to inspect results after indexing.`,
             },
             null,
