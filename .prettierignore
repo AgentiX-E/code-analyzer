@@ -13,3 +13,10 @@ benchmarks/retrieval-corpus/
 # conventions of the language it is written in - which is the point of it being written in that language - so it is
 # excluded here rather than reformatted into something neither formatter is right about.
 scripts/callgraph-oracle-java/
+
+# **A generated artifact is not formatted by hand, and this one cannot be.** `benchmarks/lca-bug-localization.json` is
+# 2.3 MB of per-instance rows written by `scripts/lca-merge.ts`; `--write` would reflow it into a file nobody reviews,
+# and a formatter failure here would be a formatter opinion about a measurement rather than a defect in it. **It is
+# excluded rather than reformatted, and the exclusion is stated because the last artifact that failed `--check` failed
+# after it had been committed.**
+benchmarks/lca-bug-localization.json
