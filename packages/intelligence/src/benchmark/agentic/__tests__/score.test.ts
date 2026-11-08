@@ -376,7 +376,7 @@ describe('scoring an attempt', () => {
         {
           calls: [{ name: 'tests_for', arguments: { symbol: 'alpha', projectId: 'p' } }],
           text: '',
-          executed: undefined,
+          executed: null,
         },
       ],
     };
