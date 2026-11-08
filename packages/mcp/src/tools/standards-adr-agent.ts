@@ -497,18 +497,24 @@ export const installSkillsSchema = {
   properties: {
     agents: {
       type: 'array',
-      items: { type: 'string' },
+      // **The `enum` belonged on the items, and on the array it forbade every valid call.** A property-level `enum` on an
+      // array says the *array* must equal one of those strings, so a schema-driven client could not construct a single
+      // acceptable argument and a validating server would reject `["claude-code"]`. Found by the L4 harness's answer-key
+      // check, which refuses a gold call its own tool's schema rejects - the first caller to try the documented shape.
+      items: {
+        type: 'string',
+        enum: [
+          'claude-code',
+          'cursor',
+          'codex',
+          'windsurf',
+          'codebuddy',
+          'aider',
+          'continue',
+          'custom',
+        ],
+      },
       description: 'Agent names to install skills for',
-      enum: [
-        'claude-code',
-        'cursor',
-        'codex',
-        'windsurf',
-        'codebuddy',
-        'aider',
-        'continue',
-        'custom',
-      ],
     },
     projectId: { type: 'string', description: 'Project ID (for generating repo-specific skills)' },
     skills: { type: 'array', items: { type: 'string' }, description: 'Specific skills to install' },

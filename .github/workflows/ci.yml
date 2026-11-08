@@ -305,6 +305,14 @@ jobs:
       - name: Enforce that the corpus figures are rendered from their artifact
         run: npm run docs:lca
 
+      # **The L4 task set and its answer key, checked on every push.** `--check` proves every gold tool still exists in
+      # the registry, every grounding value still appears in the fixture, and every gold call still passes its own tool's
+      # schema. `--self-test` runs those gold calls through the same execution and scoring path a model's calls take and
+      # requires the answer key to score 1.0 — so if a correct answer would not have scored 1.0, this fails before any
+      # number is published. Neither needs a key, a model or the network.
+      - name: Enforce that the tool-selection task set is still answerable
+        run: npm run docs:agentic
+
       - name: Enforce that every status claim is backed by a record
         run: npm run docs:status
 

@@ -1,0 +1,153 @@
+name: Agentic tool selection — L4
+
+# **The layer nobody had measured.** Four iterations of `benchmarks/status-register.json` recorded the same gap: 51 MCP
+# tools, five roles, and not one record of an agent choosing among them. Every other measurement in this repository is
+# about an engine — a retriever's ranking, a parser's accuracy, a localiser's MAP — and none of them is about the moment
+# a developer types a sentence and something decides which engine to run.
+#
+# **What this job measures, in one sentence.** Given the live tool catalog and a sentence in a user's words, does the
+# agent name the right tool, state a call its own schema accepts, name entities that exist, and — where the tool can run
+# without a corpus it does not have — produce an assertion that holds?
+#
+# **Three arms, and the third one is why the other two mean anything.**
+#
+# 1. `full` — the real catalog: name, description, parameter schema. Three attempts per task, so the figure has a
+#    reliability half (`pass^k`: every attempt right) and not only an average.
+# 2. `names-only` — the same model with the descriptions replaced by the tool's name spelled out. One attempt. **This
+#    isolates whether the descriptions are doing any work**; if it scores within the interval of `full`, they are not,
+#    and that is a finding the product has to act on either way.
+# 3. `lexical` — no model at all. BM25 over the catalog, one deterministic attempt, which is the honest stand-in for the
+#    description-index router a product without an agent loop ships. It is the null the model has to clear.
+#
+# **The headline is the decoyed subset.** 50 of the 64 tasks name a decoy: a real tool in the same family whose name and
+# description are close enough that a keyword router picks it and that is wrong for the stated intent. A task whose gold
+# tool is the only plausible one measures nothing, so accuracy on the decoyed subset — where being right is
+# distinguishable from being lucky — is the number this workflow exists to produce.
+#
+# **The corpus is this repository.** The fixture is `packages/intelligence/src/search` plus
+# `packages/intelligence/src/review/llm`, copied to a temporary checkout and indexed by the product's own pipeline —
+# 805 nodes on the commit that added this file. Not a synthetic project: a fixture written for a benchmark contains the
+# symbols the benchmark needed, and a real module contains the symbols the code has.
+#
+# **Nothing here is a local-only measurement.** The runner is the workflow, the model is the organisation's
+# `DEEPSEEK_API_KEY`, and the artifact records the commit, the model, the attempts and the interval beside every rate.
+#
+# **The job fails when it cannot measure.** A missing key is an error rather than a green run with an empty table: a
+# workflow that exists to produce a number and produces nothing while reporting success is the defect this repository
+# has spent three iterations removing from its documents.
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempts:
+        description: 'Attempts per task for the model arms (pass^k needs more than one)'
+        required: false
+        default: '3'
+      tasks:
+        description: 'Comma-separated task ids to run, or empty for the whole set'
+        required: false
+        default: ''
+  push:
+    branches: [master]
+    paths:
+      - 'packages/intelligence/src/benchmark/agentic/**'
+      - 'packages/mcp/src/tools/**'
+      - 'packages/mcp/src/eval/**'
+      - 'scripts/agentic-tools.ts'
+      - '.github/workflows/agentic-tools.yml'
+
+concurrency:
+  group: agentic-tools
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: Measure tool selection against the catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Refuse to run without a model
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "::error::DEEPSEEK_API_KEY is not available to this workflow, so none of the three arms can be compared. A run that reports success without a model would publish a table whose model column is empty."
+            exit 1
+          fi
+
+      # **The answer key first, and it must score 1.0.** If the gold calls do not pass through the same execution and
+      # scoring path the model's calls take, then a correct answer would not have scored 1.0 either and every number
+      # below is capped for a reason that belongs to the benchmark rather than to the model.
+      - name: Verify the answer key before measuring anything
+        run: npm run docs:agentic
+
+      - name: Measure
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AGENTIC_MODEL: deepseek-chat
+        run: |
+          TSX_TSCONFIG_PATH=tsconfig.tests.json npx tsx scripts/agentic-tools.ts --run \
+            --attempts "${{ github.event.inputs.attempts || '3' }}" \
+            ${{ github.event.inputs.tasks && format('--task {0}', github.event.inputs.tasks) || '' }} \
+            --write
+
+      - name: Record the figures in the job summary
+        if: always()
+        run: |
+          if [ ! -f benchmarks/agentic-tools.json ]; then
+            echo "### L4 — no artifact was produced" >> "$GITHUB_STEP_SUMMARY"
+            echo "The run did not write \`benchmarks/agentic-tools.json\`; the log above says why. **Nothing is claimed.**" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const a = require('./benchmarks/agentic-tools.json');
+          const row = (name, arm) => {
+            const p = arm.decoyed;
+            const f = (x) => (x === null ? '—' : x.toFixed(4));
+            return `| ${name} | ${p.n}/${p.of} | **${f(p.value)}** | [${f(p.lower)}, ${f(p.upper)}] | ${f(arm.overall.value)} | ${arm.passEvery.n}/${arm.passEvery.of} |`;
+          };
+          console.log('## L4 — tool selection');
+          console.log('');
+          console.log(`Commit \`${a.commit}\` · model \`${a.model}\` · ${a.tasks} tasks · ${a.decoyedTasks} decoyed · catalog ${a.catalog.tools} tools · fixture ${a.catalog.indexedNodes} nodes`);
+          console.log('');
+          console.log('| arm | decoyed correct | rate | 95 % Wilson | overall | pass^k |');
+          console.log('| --- | --- | --- | --- | --- | --- |');
+          for (const [name, arm] of Object.entries(a.arms)) console.log(row(name, arm));
+          console.log('');
+          const c = a.comparison;
+          console.log(`McNemar against the null: full vs lexical — only-full ${c.full_vs_lexical.onlyA}, only-lexical ${c.full_vs_lexical.onlyB}, p = ${c.full_vs_lexical.pValue.toFixed(4)}`);
+          console.log('');
+          console.log(`McNemar on the description ablation: full vs names-only — only-full ${c.full_vs_names_only.onlyA}, only-names ${c.full_vs_names_only.onlyB}, p = ${c.full_vs_names_only.pValue.toFixed(4)}`);
+          NODE
+
+      # **The artifact is not committed from here.** A bot commit would put a figure in the repository that no reviewer
+      # read; the merge is `download the artifact, copy it to benchmarks/agentic-tools.json, run docs:agentic, commit`.
+      - name: Upload the artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: agentic-tools
+          path: benchmarks/agentic-tools.json
+          if-no-files-found: warn
+          retention-days: 30
