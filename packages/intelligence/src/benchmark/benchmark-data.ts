@@ -766,6 +766,18 @@ export const ALL_BENCHMARK_CASES: BenchmarkCase[] = [
 // Named exports for individual test access
 // ---------------------------------------------------------------------------
 
+/**
+ * What this dataset holds, declared once so a gate can read it without running TypeScript.
+ *
+ * **Declared rather than derived, and therefore a claim that has to be checked**: `benchmark-dataset-consistency`
+ * recomputes both numbers from `ALL_BENCHMARK_CASES` and fails when they disagree, so the pair cannot drift the way the
+ * `49` in `citations.json` did - it was 15 cases plus 34 issues, and nothing compared the units.
+ */
+export const BENCHMARK_DATA_STATS = {
+  totalCases: 15,
+  totalGroundTruthIssues: 30,
+} as const;
+
 export {
   BENCH_NPE_001,
   BENCH_NPE_002,

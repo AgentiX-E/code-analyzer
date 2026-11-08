@@ -1,5 +1,7 @@
 # The pinned corpus
 
+<!-- figures: citations:paraphrase-search -->
+
 The fifty-two source files in `retrieval-corpus/` are a **snapshot**, not a copy that is kept in step with the product.
 This note lives beside that directory rather than inside it on purpose: the walk reaches a `.md` file too, and the first
 attempt at documenting the corpus from within it added **53 nodes** to the graph the measurement runs on — a corpus that

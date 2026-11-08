@@ -29,8 +29,9 @@
       "evidence": "packages/mcp/src/__tests__/ — query tests present"
     },
     "MCP Server": {
-      "status": "partial",
-      "note": "The code has 48 `registry.register(...)` calls and 46 distinct names, computed by scripts/doc-code-sync-gate.js. The README previously said 45 and had done so since before the audit; it now states the computed figure. The gap between 48 calls and 46 names is unresolved — it is either two duplicate registrations or two names the parser does not read, and the entry stays `partial` until that is settled."
+      "status": "tested",
+      "evidence": "packages/mcp/src/__tests__ and tests/e2e/mcp-e2e.test.ts (23 cases); 51 tools, 15 resources, 5 prompts",
+      "note": "**This entry was `partial` because the counts did not agree, and the disagreement is gone.** It recorded 48 `registry.register(...)` calls against 46 distinct names, with the gap either two duplicate registrations or two names the parser could not read. `scripts/doc-code-sync-gate.js` now computes **51 calls, 51 distinct names**, and `createToolRegistry().list()` returns 51, so the parser and the code agree. **`tested` is not the same as measured**: what the tools do is covered, and whether an agent picks the right one is not - there is no tool-selection artifact in this repository yet, and `docs/EVAL-CONTRACT.md` records that as the open gap in layer L4."
     },
     "VS Code Extension": {
       "status": "tested",

@@ -4,13 +4,17 @@
 
 [![Status: v0.1.0](https://img.shields.io/badge/status-v0.1.0-blue)](https://github.com/AgentiX-E/code-analyzer)
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/AgentiX-E/code-analyzer/actions)
-[![Coverage](https://img.shields.io/badge/coverage-55%25-yellow)](https://github.com/AgentiX-E/code-analyzer)
+[![Coverage](https://img.shields.io/badge/coverage-gated%20at%2095%25-brightgreen)](https://github.com/AgentiX-E/code-analyzer/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/AgentiX-E/code-analyzer/badge)](https://securityscorecards.dev/viewer/?uri=github.com/AgentiX-E/code-analyzer)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-green)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0+-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> **Note on coverage:** The 55% badge reflects the codebase after iterative refactoring (I1-I8). Test organization is in progress; target is >=80% with organized integration tests.
+> **Note on coverage:** the badge states the gate, not a measurement — CI enforces **95 % on lines, branches, functions
+> and statements**, per file, with an exclusion register and a freshness check on the report itself. The measured number
+> lives in the `Coverage` job of each run. It used to say 55 %, hand-written, and it understated the gate by forty points
+> for as long as the gate had existed: **a figure no gate reads is a figure nobody is checking**, which is the same
+> defect as a figure with no citation, pointing the other way.
 
 ---
 
@@ -155,28 +159,40 @@ The platform is structured as a 10-package pnpm monorepo with clear separation o
 
 ## Benchmarks
 
-**No benchmark figures are published yet, and that is deliberate.**
+<!-- figures: citations:internal-suite-2026-08,real-bug-fix-commits-2026-10 -->
+
+**One figure may be published, and it is not a good one: F1 0.217 on a hundred real bug-fix commits.**
 
 Earlier revisions of this section carried a table of precision, recall and F1 beside SonarQube and CodeRabbit
-columns. Two things were wrong with it. The internal suite behind our own figures holds **49** ground-truth issues
-— below the **100** this project now requires before any figure may be published — and the competitor columns
-carried numbers taken from those vendors' documentation rather than measured here. **A number this project did not
-measure is not a comparison**, whatever the footnote says.
+columns. Two things were wrong with it. The internal suite behind our own figures holds **64** ground-truth issues
+across 34 samples — below the **100** this project requires before a figure may be published — and the competitor
+columns carried numbers taken from those vendors' documentation rather than measured here. **A number this project
+did not measure is not a comparison**, whatever the footnote says.
+
+**That withdrawal was written in one file and left standing in three others**, which is the part worth reporting.
+`docs/BENCHMARK_REPORT.md` went on publishing `79.4 % / 73.0 % / F1 0.761` beside two vendors (both now withheld), `CHANGELOG.md`
+repeated them in the v0.1.0 entry, and the gate that existed to prevent it read only this file, found no table here
+because the section had become prose, printed `nothing to publish, nothing to verify` and exited 0. It had been green
+and empty since the table was removed. The figures now live in `docs/archive/withdrawn-2026-08-07/`, the changelog
+entry is marked, and the replacement gate reads every Markdown file in the repository.
 
 The measurements that exist are recorded in [`benchmarks/citations.json`](benchmarks/citations.json), with the
-dataset size, the date, and an explicit `independentValidation: false` where it applies.
-`scripts/readme-numbers-gate.js` runs in CI and fails the build when a figure in this section has no citation,
-when its artifact is missing, when its dataset is below the declared minimum, or when it is marked as not
-independently validated.
+dataset size, the date, and an explicit `independentValidation: false` where it applies. The rule is the dataset
+floor, not that flag: `scripts/numbers-gate.js` fails the build when any document restates a value from a citation
+below the floor, when a document that publishes figures names no source, or when it scans so few figures that it
+would have passed by finding nothing.
 
-Raising `minimumGroundTruth` is the work, not lowering it: the plan is a dataset of at least 100 ground-truth
-issues with the protocol recorded — source, date, and arm — so that a published number can be checked rather than
-believed.
+**Raising the floor is the work, not lowering it.** Two datasets clear it: 1 415 labelled servlets in OWASP
+Benchmark, 500 CoSQA questions, 196 human review findings in Alibaba's `aacr-bench`, and 100 real bug-fix commits
+whose ground truth is each commit's own patch hunk. The last one is the honest headline: **precision 0.148, recall
+0.406, F1 0.217** — the engine reports style where the benchmark asked for bugs. It is published because the
+artifact is public and checkable, and it is the number the next iteration is measured against.
 
 ## Documentation
 
 - **[Getting Started](docs/getting-started.md)** — Installation, quick start, first analysis
 - **[Architecture](docs/ARCHITECTURE.md)** — 7-layer design, data flow, design decisions
+- **[Evaluation Contract](docs/EVAL-CONTRACT.md)** — what a figure must satisfy before it may be written down
 - **[Benchmark Report](docs/BENCHMARK_REPORT.md)** — Methodology, results, caveats, v0.2.0 roadmap
 - **[Deployment Guide](docs/DEPLOYMENT.md)** — Docker, Docker Compose, Kubernetes, env vars
 - **[MCP Server](docs/MCP-SERVER.md)** — Tool reference, resources, prompts, configuration

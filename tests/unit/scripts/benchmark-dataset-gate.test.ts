@@ -1,8 +1,12 @@
-// Benchmark dataset gate — the test that proves the gate can fail.
+// Benchmark dataset gate — the test that proves the gate can fail, and the one that pins the unit it counts in.
 //
-// The state this gate was written for: the citations file declares a minimum of 100, the suite holds 49, and the
-// README published figures anyway. The gate has to say "not publishable" and say why, and it has to catch a
-// citation that overstates its own dataset.
+// The state this gate was written for: the citations file declared a minimum of 100, the suite held 49, and the
+// README published figures anyway. The gate has to say "not publishable" and say why, and it has to catch a citation
+// that overstates its own dataset.
+//
+// **And it has to count the right thing.** It counted `id:` strings, which in `benchmark-data.ts` are cases rather
+// than ground-truth entries, so the suite was recorded as 15 + 34 = 49 when it is 30 + 34 = 64. Both sides of the
+// comparison used the same wrong unit, so the check passed. The third test below is that defect.
 
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
@@ -11,24 +15,40 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const GATE = 'scripts/benchmark-dataset-gate.js';
+/** Absolute, because the fixture runs the gate with the temporary tree as its working directory. */
+const GATE_PATH = join(process.cwd(), GATE);
 
 interface Citation {
   groundTruthIssues?: number;
+  samples?: number;
+  groundTruthSource?: string;
+  countFrom?: string;
+  datasets?: { source: string; samples: number; groundTruthIssues: number }[];
 }
 interface Citations {
   minimumGroundTruth: number;
   citations: Record<string, Citation>;
 }
 
-function runGate(citations: Citations): { ok: boolean; stdout: string; stderr: string } {
+function runGate(
+  citations: Citations,
+  files: Record<string, string> = {},
+): { ok: boolean; stdout: string; stderr: string } {
   const dir = mkdtempSync(join(tmpdir(), 'benchmark-dataset-'));
-  mkdirSync(join(dir, 'benchmarks'), { recursive: true });
+  for (const [path, body] of Object.entries(files)) {
+    const full = join(dir, path);
+    mkdirSync(join(full, '..'), { recursive: true });
+    writeFileSync(full, body, 'utf-8');
+  }
   const file = join(dir, 'citations.json');
   writeFileSync(file, JSON.stringify(citations, null, 2), 'utf-8');
   try {
     return {
       ok: true,
-      stdout: execFileSync(process.execPath, [GATE, '--citations', file], { encoding: 'utf-8' }),
+      stdout: execFileSync(process.execPath, [GATE_PATH, '--citations', file], {
+        cwd: dir,
+        encoding: 'utf-8',
+      }),
       stderr: '',
     };
   } catch (err) {
@@ -41,27 +61,45 @@ function runGate(citations: Citations): { ok: boolean; stdout: string; stderr: s
   }
 }
 
+/** A TypeScript dataset that declares its own totals, which is what the gate reads. */
+const dataset = (fixtures: number, issues: number): string =>
+  `export const STATS = {\n  totalFixtures: ${String(fixtures)},\n  totalGroundTruthIssues: ${String(issues)},\n};\n`;
+
 describe('benchmark-dataset-gate', () => {
   it('reports the real dataset against the declared minimum, on this repository', () => {
     const out = execFileSync(process.execPath, [GATE, '--json'], { encoding: 'utf-8' });
     const result = JSON.parse(out) as { minimum: number; counted: number; publishable: boolean };
 
-    // **This assertion used to read 49 and `publishable: false`** - the state I20.2 recorded, and the reason no
-    // PR-review figure was published: 49 hand-written fixtures against a minimum of 100, and not independent
-    // because this project wrote them. On 2026-10-05 the real dataset from public bug-fix commits reached the
-    // minimum, so the assertion states the new truth. **It is still an assertion about the world, not a wish**:
-    // if the count falls below the minimum again, this fails.
+    // **It is still an assertion about the world, not a wish**: if the dataset falls below the minimum, this fails.
     expect(result.minimum).toBe(100);
     expect(result.counted).toBeGreaterThanOrEqual(100);
     expect(result.publishable).toBe(true);
   });
 
+  it('counts ground-truth entries rather than `id:` strings, per dataset', () => {
+    const out = execFileSync(process.execPath, [GATE, '--json'], { encoding: 'utf-8' });
+    const result = JSON.parse(out) as {
+      perCitation: Record<string, { counted: number; sources: string[] }>;
+    };
+    const suite = result.perCitation['internal-suite-2026-08'];
+
+    // 30 in `benchmark-data.ts` (fifteen cases, two entries each) and 34 in `benchmark-fixtures.ts`. The citation
+    // said 49 until this iteration, and 15 of that 49 was a case count.
+    expect(suite?.counted).toBe(64);
+    expect(suite?.sources).toEqual(['benchmark-data.ts=30', 'benchmark-fixtures.ts=34']);
+  });
+
   it('reports below-minimum without failing, because a small dataset is a state rather than a defect', () => {
     // Failing CI here would leave the build permanently red until the dataset grows, and a permanently red job
-    // teaches people to ignore red. The publication refusal lives in the README gate; this one states the fact.
+    // teaches people to ignore red. The publication refusal lives in the numbers gate; this one states the fact.
     const result = runGate({
       minimumGroundTruth: 100,
-      citations: { suite: { groundTruthIssues: 49 } },
+      citations: {
+        suite: {
+          groundTruthIssues: 64,
+          groundTruthSource: 'two internal datasets, counted at build time',
+        },
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -74,37 +112,82 @@ describe('benchmark-dataset-gate', () => {
     const file = join(dir, 'citations.json');
     writeFileSync(
       file,
-      JSON.stringify({ minimumGroundTruth: 100, citations: { suite: { groundTruthIssues: 49 } } }),
+      JSON.stringify({
+        minimumGroundTruth: 100,
+        citations: {
+          suite: {
+            groundTruthIssues: 64,
+            groundTruthSource: 'two internal datasets, counted at build time',
+          },
+        },
+      }),
       'utf-8',
     );
     expect(() =>
-      execFileSync(process.execPath, [GATE, '--citations', file, '--require-publishable'], {
+      execFileSync(process.execPath, [GATE_PATH, '--citations', file, '--require-publishable'], {
         encoding: 'utf-8',
       }),
     ).toThrow();
   });
 
   it('fails when a citation overstates the dataset it points at', () => {
+    const result = runGate(
+      {
+        minimumGroundTruth: 10,
+        citations: { suite: { groundTruthIssues: 100, countFrom: 'data/ground-truth.json' } },
+      },
+      { 'data/ground-truth.json': JSON.stringify([{ id: 'a' }, { id: 'b' }, { id: 'c' }]) },
+    );
+
+    expect(result.ok).toBe(false);
+    const said = result.stderr + result.stdout;
+    expect(said).toContain('its sources hold 3');
+    expect(said).toContain('100');
+  });
+
+  it('fails when a citation names no countable dataset and does not say where its number came from', () => {
     const result = runGate({
       minimumGroundTruth: 10,
-      citations: { suite: { groundTruthIssues: 100 } },
+      citations: { elsewhere: { groundTruthIssues: 500 } },
     });
 
     expect(result.ok).toBe(false);
-    // **The gate says which sources it counted and what they hold.** The wording changed when a citation began
-    // counting the sources it names rather than a global list, so the assertion checks the substance: the
-    // discrepancy is named, and both numbers appear.
-    const said = result.stderr + result.stdout;
-    expect(said).toContain('sources hold');
-    expect(said).toContain('100');
-    expect(said).toContain('49');
+    expect(result.stderr).toContain('groundTruthSource');
+  });
+
+  it('fails when a dataset it lists declares a different size than the citation says', () => {
+    const result = runGate(
+      {
+        minimumGroundTruth: 10,
+        citations: {
+          suite: {
+            // The total is right and the split is wrong: 20 in each file, but the files hold 12 and 8. Only the
+            // per-dataset check can catch this, which is the check the 15-beside-34 error needed.
+            groundTruthIssues: 40,
+            samples: 20,
+            datasets: [
+              { source: 'data/one.ts', samples: 10, groundTruthIssues: 20 },
+              { source: 'data/two.ts', samples: 10, groundTruthIssues: 20 },
+            ],
+          },
+        },
+      },
+      { 'data/one.ts': dataset(10, 12), 'data/two.ts': dataset(10, 8) },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toContain('says `data/one.ts` holds 20');
+    expect(result.stderr).toContain('it declares 12');
   });
 
   it('passes only when the count matches and reaches the minimum', () => {
-    const result = runGate({
-      minimumGroundTruth: 10,
-      citations: { suite: { groundTruthIssues: 49 } },
-    });
+    const result = runGate(
+      {
+        minimumGroundTruth: 10,
+        citations: { suite: { groundTruthIssues: 12, samples: 4, countFrom: 'data/set.ts' } },
+      },
+      { 'data/set.ts': dataset(4, 12) },
+    );
 
     expect(result.ok).toBe(true);
     expect(result.stdout).toContain('is what the citation says it is');

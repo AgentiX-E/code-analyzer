@@ -1,8 +1,10 @@
 # Code Analyzer — Benchmark Report
 
+<!-- figures: citations:internal-suite-2026-08,owasp-benchmark-1.2,cosqa-retrieval,paraphrase-search,cross-repo-matrix,aacr-bench,lca-bug-localization -->
+
 **Date:** 2026-08-07
 **Version:** v0.1.0
-**Methodology:** Internal test suite — 20 fixtures, 37 ground-truth issues, 5 languages
+**Methodology:** Internal test suite — 34 samples, 64 ground-truth issues, 5 languages, in two datasets
 
 ---
 
@@ -14,8 +16,14 @@ The current benchmark evaluates Code Analyzer's heuristic review engine against 
 
 **How it works:**
 
-1. **Fixture Selection:** 20 test files across 5 programming languages (TypeScript, Python, Go, Java, Rust) containing 37 known defects
-2. **Defect Categories:** Security (12), Correctness/Bug (16), Performance (4), Maintainability (3), Style (2)
+1. **Fixture Selection:** two disjoint datasets over five languages (TypeScript, Python, Go, Java, Rust). **15 cases
+   carrying 30 ground-truth entries** in `benchmark-data.ts`, read by `tests/.../benchmark.test.ts`, and **19 fixtures
+   carrying 34** in `benchmark-fixtures.ts`, read by `llm-benchmark-runner.ts`. **64 in total, counted by importing the
+   arrays rather than by reading a comment** - the figure this section carried until iteration 102 was 37, and the one
+   in `citations.json` was 49, because a case count and an issue count had been added together.
+2. **Defect Categories:** the two datasets use different vocabularies, so they are reported separately rather than
+   added. Fixtures: security 12, correctness 15, performance 3, maintainability 2, style 2. Cases: bug 16,
+   maintainability 5, style 4, documentation 3, security 1, architecture 1.
 3. **Detection:** CodeReviewEngine runs all 50+ heuristic rules against each fixture; no LLM or external API calls involved
 4. **Matching:** A detection is considered a true positive if its line range overlaps the ground-truth annotation by >= 50% and the category matches
 5. **Metrics:** Standard precision, recall, F1, and noise rate calculated per-category and overall
@@ -24,8 +32,8 @@ The current benchmark evaluates Code Analyzer's heuristic review engine against 
 
 The benchmark is **internal only**:
 
-- **37 ground-truth issues** annotated by the development team
-- **20 test fixtures** designed to exercise known rules
+- **64 ground-truth issues** annotated by the development team, over 34 samples
+- **34 samples** designed to exercise known rules
 - **Deterministic results** — the heuristic engine produces identical output on every run (no stochastic element)
 
 ### v0.2.0 Plan
@@ -42,74 +50,37 @@ We recognize the limitations of internal-only validation. The following improvem
 
 ---
 
-## Results (Internal Test Suite)
+## Results
 
-### Overall
+**Withheld.** No precision, recall or F1 figure is published from the internal suite: it holds 64 ground-truth issues
+against the 100 this project requires, and the two datasets behind it were written by the people who wrote the rules.
+The sections that used to stand here — an overall table, a per-category breakdown and a four-column comparison against
+two vendors — are kept verbatim in [`docs/archive/withdrawn-2026-08-07/`](archive/withdrawn-2026-08-07/internal-suite-results.md)
+and are not a claim about the current engine.
 
-| Metric         |            Code Analyzer v0.1.0             |
-| -------------- | :-----------------------------------------: |
-| **Precision**  |                    79.4%                    |
-| **Recall**     |                    73.0%                    |
-| **F1 Score**   |                    0.761                    |
-| **Noise Rate** | 0.3x (0.3 false positives per true finding) |
-| **Token Cost** |    $0.00 (fully local heuristic engine)     |
-
-### Per-Category Breakdown
-
-| Category        | TP  | FP  | FN  | Precision | Recall |  F1   |
-| --------------- | :-: | :-: | :-: | :-------: | :----: | :---: |
-| Security        |  8  |  2  |  4  |    80%    |  67%   | 0.727 |
-| Correctness     | 11  |  3  |  5  |    79%    |  69%   | 0.733 |
-| Performance     |  3  |  1  |  1  |    75%    |  75%   | 0.750 |
-| Maintainability |  3  |  0  |  0  |   100%    |  100%  | 1.000 |
-| Style           |  2  |  1  |  0  |    67%    |  100%  | 0.800 |
-
----
-
-## Comparison with Other Tools
-
-Code Analyzer is competitive in specific dimensions on the internal test suite. Results below combine Code Analyzer's scores with competitor data sourced from published documentation and independent studies (aitoollab.cn, May 2026).
-
-| Metric              | Code Analyzer | SonarQube | Semgrep  |  CodeRabbit  |
-| ------------------- | :-----------: | :-------: | :------: | :----------: |
-| **Precision**       |     79.4%     |    72%    |    —     |     58%      |
-| **Recall**          |     73.0%     |    48%    |    —     |     52%      |
-| **F1 Score**        |     0.761     |   0.576   |    —     |    0.549     |
-| **Noise Rate**      |     0.3x      |   0.8x    |    —     |     2.1x     |
-| **Cost per Review** |      $0       | API cost  | Free OSS |   API cost   |
-| **Languages**       |      20       |    30+    |   30+    |  All (LLM)   |
-| **Security Rules**  |      12       |   200+    |   100+   | Prompt-based |
-
-> **Note on Semgrep:** Semgrep's strength is pattern-based static analysis, not general-purpose code review. It reports zero false positives on known patterns but does not surface the same class of issues as heuristic or LLM-based reviewers. A direct precision/recall comparison is not meaningful without a controlled experiment on identical datasets.
-
----
+The one figure this repository may publish is in `benchmarks/citations.json` under `real-bug-fix-commits-2026-10`:
+**precision 0.148, recall 0.406, F1 0.217 over 100 real bug-fix commits**, with the criterion and the category mix
+recorded beside it.
 
 ## Caveats & Limitations
 
-### Internal vs External Validation
+**The internal suite is a regression test, not evidence.** Thirty-four samples carrying 64 ground-truth issues, five
+languages, annotated by the same people who wrote the rules, with no second annotator and therefore no agreement
+figure. It answers "did this commit change what the engine reports" and it cannot answer "is the engine good".
 
-The current results reflect performance on a **curated internal test suite**, not on real-world PR datasets. This has several implications:
+**No figure is published from it**, because the project's floor is 100 issues and a number from a smaller set reads as
+a measurement of quality whatever sentence introduces it.
 
-1. **Selection bias:** Fixtures were designed to test rules that are known to work well. Rules with known false-positive problems may not be equally represented.
-2. **No inter-reviewer validation:** Ground truth was annotated by the development team without independent cross-validation, which can inflate recall metrics.
-3. **Small sample size:** 37 issues across 5 languages is insufficient for statistical significance on per-language or per-category breakdowns.
-4. **Different datasets, different scores:** Competitor numbers come from different datasets and studies. Direct comparison on a common benchmark is needed for meaningful conclusions.
+**The one published figure is 0.217 and it is low.** `real-bug-fix-commits-2026-10` holds 100 issues whose ground
+truth is each fixing commit's own patch hunk, and the engine scores precision 0.148, recall 0.406, F1 0.217 on it.
+Its criterion, its category mix and the reason 99 % of the gap to the strict criterion was the criterion are recorded
+in `benchmarks/citations.json` rather than paraphrased here.
 
-### What These Numbers Mean
-
-| If you see...     | It means...                                               |
-| ----------------- | --------------------------------------------------------- |
-| Precision = 79.4% | ~8 out of 10 comments Code Analyzer posts are real issues |
-| Recall = 73.0%    | It finds ~3 out of every 4 known issues in the test suite |
-| Noise Rate = 0.3x | For every 3 true issues found, expect ~1 false positive   |
-
-### Areas for Improvement
-
-- **Security recall (67%):** Some CWE categories (authentication bypass, race conditions) require deeper semantic analysis not yet implemented
-- **Style false positives:** One of the style fixtures produces a false positive due to an overly broad regex pattern
-- **Correctness recall (69%):** Multi-file logical errors that span >2 files are not yet detectable
-
----
+**A competitor figure is not a comparison unless the run was common.** Numbers from another tool's documentation were
+measured on another tool's corpus by another tool's judge. The one place this repository runs both arms in one job
+with one judge is Alibaba's `aacr-bench`, and the result there is in `benchmarks/aacr-bench.json`: **ours F1 0.2452
+(precision 0.181, recall 0.380) against the corpus author's tool at F1 0.4000 (precision 0.422, recall 0.380)**.
+Recall is tied; precision is the gap.
 
 ## Reproducibility
 
@@ -143,20 +114,27 @@ To contribute new benchmark fixtures:
 
 ## Public corpora, and what each one can and cannot say
 
-The suite above is **internal**: twenty fixtures written by the same people who wrote the rules, which makes it a
+The suite above is **internal**: thirty-four samples written by the same people who wrote the rules, which makes it a
 regression test rather than evidence. The figures that are comparable with other tools come from corpora somebody else
 published, and each of them is gated by a script that fails when the figure falls:
 
-| corpus                                 | what it measures                                                                                                                                                      | artifact                                                        | gate                                |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------- |
-| **OWASP Benchmark v1.2**               | whether a taint flow is followed, on 2 740 generated servlets whose ground truth is the generator                                                                     | `benchmarks/owasp-benchmark.json`                               | `scripts/owasp-benchmark-gate.js`   |
-| **CoSQA**                              | retrieval of the code that answers a natural-language question (MRR@10)                                                                                               | `benchmarks/cosqa-retrieval.json`                               | `scripts/cosqa-gate.js`             |
-| **Martian / AACR**                     | whether a review finding is the one a human recorded                                                                                                                  | `benchmarks/martian-our-row.json`, `benchmarks/aacr-bench.json` | `scripts/real-ground-truth-gate.js` |
-| **Long Code Arena — bug localisation** | given an issue and the repository at the commit where it reproduces, are the files a fix touches among the files named? Metric: the authors' own `quality_metrics.py` | `benchmarks/lca-bug-localization.json`                          | `scripts/lca-gate.js`               |
+| corpus                                 | what it measures                                                                                                                                                      | artifact                                                                                            | gate                                        |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **OWASP Benchmark v1.2**               | whether a taint flow is followed, on 2 740 generated servlets whose ground truth is the generator                                                                     | `benchmarks/owasp-benchmark.json`                                                                   | `scripts/owasp-benchmark-gate.js`           |
+| **CoSQA**                              | retrieval of the code that answers a natural-language question (MRR@10)                                                                                               | `benchmarks/cosqa-retrieval.json`                                                                   | `scripts/cosqa-gate.js`                     |
+| **Martian / AACR**                     | whether a review finding is the one a human recorded                                                                                                                  | `benchmarks/martian-our-row.json`, `benchmarks/aacr-bench.json`                                     | `scripts/real-ground-truth-gate.js`         |
+| **Long Code Arena — bug localisation** | given an issue and the repository at the commit where it reproduces, are the files a fix touches among the files named? Metric: the authors' own `quality_metrics.py` | `benchmarks/lca-parts/{py,java,kt}.json` — the merged file is produced by the run and not committed | `scripts/lca-gate.js`, inside that workflow |
 
 **The last row is the newest and the most demanding**, because its ground truth is a fixing commit rather than a
 generator: Python, Java and Kotlin, decided by what a maintainer actually changed. **It is also the first corpus this
 project did not author, and the first figure that can be placed in a published table.**
+
+**And its table below does not reproduce from the committed tree, which is stated here rather than fixed by re-wording.**
+The run it quotes produced a merged artifact that was never committed; the three committed parts aggregate to a mean
+MAP of **0.3955 over all 150 rows**, against the **0.4673 over 115** in the table. Both are recorded, neither is
+retracted, and the difference stays open until the harness is re-run — the roadmap entry is `Phase 21`. **A published
+figure whose artifact is not in the repository is the same defect as a withdrawn figure that is; it is only the
+direction of the error that differs.**
 
 | rank  | system                                      | MAP        | measured over             |
 | ----- | ------------------------------------------- | ---------- | ------------------------- |

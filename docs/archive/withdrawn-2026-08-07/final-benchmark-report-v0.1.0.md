@@ -1,4 +1,7 @@
-# Code Analyzer — Final Benchmark Report v0.1.0
+# Code Analyzer — Final Benchmark Report v0.1.0 (withdrawn)
+
+> **Archived 2026-11-08.** This report was never linked from any document and publishes the same withdrawn figures as
+> the section archived beside it. It is kept for the record and is not a claim about the current engine.
 
 **Date:** 2026-08-01
 **Version:** v0.1.0 (Active Development)

@@ -369,7 +369,8 @@ the state of a fresh install. It is a linear congruential generator seeded with 
 texts produce two unrelated directions and the cosine between them is a draw. The product used to fuse that list at equal
 weight and report `hybrid (BM25 + vector)` on every item. Measured on the pinned corpus and the frozen ninety-nine
 questions (`benchmarks/hash-space-fusion.json`), the fusion answered **55 questions worse for 3 better**, with MRR
-**0.0496 against 0.1952** — and recall at 20 **0.3333 against 0.4545**.
+**0.0496 against 0.1952** — and recall at 20 **0.3333 against 0.4545**, below the publication floor, on ninety-nine
+questions: the level is a composition measurement and not a headline.
 
 The same fact reaches the tool surface: `search_code` returns `semantic: { applied, backend, reason }`, `semantic_search`
 returns no items with the reason instead of the nearest hash neighbours, and a HyDE hypothesis is refused for the same

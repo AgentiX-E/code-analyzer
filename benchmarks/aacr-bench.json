@@ -18,7 +18,7 @@
     "endpoint": "https://api.deepseek.com/v1"
   },
   "route": "our engine reading each PR diff; no bot account installed",
-  "comparisonBasis": "their published figures, not a run we performed",
+  "comparisonBasis": "both arms run in this job by .github/workflows/aacr-bench.yml, one judge for both: our engine reading each PR diff, and the corpus author's tool run through the same harness; neither number is taken from a publication",
   "dedupThreshold": 0.8,
   "prsInDataset": 5,
   "prsReviewed": 5,

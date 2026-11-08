@@ -238,6 +238,13 @@ function generateMarkdown(report: IndustryComparisonReport): string {
     '',
     `**Generated**: ${report.generatedAt}`,
     '',
+    '> **This is a rubric, not a measurement.** Every cell below is scored by weights this project chose, against',
+    '> capability checklists rather than against a corpus two tools both ran. Rows marked `estimate` are read from a',
+    "> vendor's own documentation and were not measured here. **A composite score is therefore a description of the",
+    '> rubric**, and the ordering it produces is not a ranking of quality - `README.md` § Benchmarks states the policy',
+    '> that a figure this project did not measure is not a comparison, and this page is an artefact the policy applies',
+    '> to. The one head-to-head run in this repository is `benchmarks/aacr-bench.json`, and it puts us second.',
+    '',
     '## Executive Summary',
     '',
     'Code Analyzer is a next-generation code intelligence platform that combines ' +
@@ -253,21 +260,26 @@ function generateMarkdown(report: IndustryComparisonReport): string {
 
   for (const r of report.summary.overallRanking) {
     const s = report.scores.find((x) => x.tool === r.tool);
-    const icon = r.rank === 1 ? '🏆 ' : '';
     lines.push(
-      `| ${icon}${r.rank} | **${r.tool}** | ${r.compositeScore} | ${s?.confidence ?? 'estimate'} |`,
+      `| ${r.rank} | **${r.tool}** | ${r.compositeScore} | ${s?.confidence ?? 'estimate'} |`,
     );
   }
 
+  // How many of the rows are vendor documentation rather than a run. Stated in the sentence that could otherwise be
+  // read as a ranking of quality.
+  const estimated = report.scores.filter((score) => score.confidence !== 'measured').length;
+
   lines.push(
     '',
-    `**Code Analyzer Rank**: #${report.summary.codeAnalyzerRank} of ${report.summary.overallRanking.length}`,
+    `**Code Analyzer Rank**: #${report.summary.codeAnalyzerRank} of ${report.summary.overallRanking.length} — on this rubric only, with ${String(estimated)} of ${String(report.summary.overallRanking.length)} rows scored from vendor documentation rather than from a run.`,
     '',
     '### Key Differentiators',
     '',
   );
   for (const adv of report.summary.competitiveAdvantages) {
-    lines.push(`- ✅ **${adv}** — Code Analyzer leads the industry`);
+    // **"leads the industry" was an assertion this page had no evidence for.** The rubric asks whether a capability
+    // exists, not whether it is better, so the sentence now says what was actually checked.
+    lines.push(`- **${adv}** — present here, and scored as present in the rubric below`);
   }
 
   lines.push('', '---', '', '## Dimension-by-Dimension Analysis', '');

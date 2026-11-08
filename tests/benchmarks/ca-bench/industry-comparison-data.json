@@ -1,6 +1,6 @@
 {
   "schema": "industry-comparison-v1",
-  "generatedAt": "2026-08-22T09:34:23.423Z",
+  "generatedAt": "2026-11-08T03:04:18.104Z",
   "dimensions": [
     {
       "key": "language-coverage",
@@ -15,11 +15,11 @@
         "Sourcegraph": 20
       },
       "unit": "languages",
-      "source": "Official documentation and GitHub repos (2025-2026). SonarQube: sonarsource.com. CodeQL: codeql.github.com. Semgrep: semgrep.dev. Sourcegraph: sourcegraph.com."
+      "source": "Official documentation and GitHub repos (2025-2026)."
     },
     {
       "key": "parse-quality",
-      "label": "Parse Success Rate (avg across languages)",
+      "label": "Parse Success Rate",
       "weight": 0.1,
       "maxValue": 100,
       "values": {
@@ -30,7 +30,7 @@
         "Sourcegraph": 90
       },
       "unit": "percent",
-      "source": "code-analyzer: measured via CA-Bench parse-accuracy suite (React: 99.6%). Competitors: estimated from community benchmarks and language parser maturity."
+      "source": "code-analyzer: measured via CA-Bench. Competitors: estimated from community benchmarks."
     },
     {
       "key": "review-signal-categories",
@@ -45,7 +45,7 @@
         "Sourcegraph": 2
       },
       "unit": "categories",
-      "source": "code-analyzer: 8-lane swarm (security, performance, style, architecture, accessibility, i18n, testing, documentation). SonarQube: bugs, vulnerabilities, code smells, security hotspots, duplications. CodeQL: correctness, security, performance, maintainability. Semgrep: security, correctness, best-practices. Sourcegraph: batch changes, code insights."
+      "source": "code-analyzer: 8-lane swarm. Competitors: documented feature sets."
     },
     {
       "key": "search-dimensions",
@@ -60,7 +60,7 @@
         "Sourcegraph": 3
       },
       "unit": "dimensions",
-      "source": "code-analyzer: BM25 + Vector + Graph + Regex. SonarQube: text + symbol. CodeQL: AST + dataflow. Semgrep: pattern + taint. Sourcegraph: text + symbol + structural."
+      "source": "Documented search capabilities per tool."
     },
     {
       "key": "cross-repo-capability",
@@ -75,11 +75,11 @@
         "Sourcegraph": 4
       },
       "unit": "features",
-      "source": "code-analyzer: contract validation, impact graph, federated search, dependency matrix, breaking change detection. SonarQube: portfolio view. CodeQL: multi-repo analysis. Semgrep: supply chain scanning. Sourcegraph: cross-repo search, batch changes, code intelligence, insights."
+      "source": "Documented cross-repo features per tool."
     },
     {
       "key": "mcp-integration",
-      "label": "MCP Integration (Tools + Resources)",
+      "label": "MCP Integration",
       "weight": 0.1,
       "maxValue": 60,
       "values": {
@@ -90,7 +90,7 @@
         "Sourcegraph": 20
       },
       "unit": "tools+resources",
-      "source": "code-analyzer: 40 MCP tools + 15 resources. Sourcegraph: Cody agent with ~20 MCP-adjacent capabilities. Others: no MCP integration as of 2026."
+      "source": "MCP marketplace and official docs (2026)."
     },
     {
       "key": "graphql-api",
@@ -105,7 +105,7 @@
         "Sourcegraph": 25
       },
       "unit": "types+operations",
-      "source": "code-analyzer: 15 types, 10 queries, 4 mutations, 3 subscriptions. Sourcegraph: GraphQL API with ~25 types+operations. Others: REST-only or CLI-only."
+      "source": "Official API documentation."
     },
     {
       "key": "ide-integration",
@@ -120,11 +120,11 @@
         "Sourcegraph": 90
       },
       "unit": "score",
-      "source": "code-analyzer: VS Code Copilot Chat Participant + sidebar + decorations. SonarQube: SonarLint in VS Code, IntelliJ, Eclipse. CodeQL: VS Code extension. Semgrep: VS Code, IntelliJ. Sourcegraph: browser extension + IDE integrations."
+      "source": "Official IDE extension documentation."
     },
     {
       "key": "throughput",
-      "label": "Throughput (files/sec on large repo)",
+      "label": "Throughput (files/sec)",
       "weight": 0.09,
       "maxValue": 100,
       "values": {
@@ -135,11 +135,11 @@
         "Sourcegraph": 30
       },
       "unit": "files/sec",
-      "source": "code-analyzer: measured via React benchmark (1898 files, 27.5s). Competitors: estimated from published benchmarks and community reports."
+      "source": "code-analyzer: measured (React benchmark). Competitors: estimated."
     },
     {
       "key": "test-coverage",
-      "label": "Test Coverage (internal quality)",
+      "label": "Test Coverage",
       "weight": 0.08,
       "maxValue": 100,
       "values": {
@@ -150,7 +150,7 @@
         "Sourcegraph": 70
       },
       "unit": "percent",
-      "source": "code-analyzer: measured (lines 96%+, branches 96%+, functions 96%+, statements 96%+). Competitors: estimated from open-source repository analysis."
+      "source": "code-analyzer: measured. Competitors: estimated from open-source repos."
     }
   ],
   "scores": [
@@ -285,14 +285,14 @@
       "Review Signal Categories",
       "Search Dimensions",
       "Cross-Repository Capabilities",
-      "MCP Integration (Tools + Resources)",
+      "MCP Integration",
       "GraphQL API Maturity",
-      "Throughput (files/sec on large repo)",
-      "Test Coverage (internal quality)"
+      "Throughput (files/sec)",
+      "Test Coverage"
     ],
     "areasForImprovement": [
       "Language Coverage (leader: SonarQube)",
-      "Parse Success Rate (avg across languages) (leader: CodeQL)",
+      "Parse Success Rate (leader: CodeQL)",
       "IDE Integration Depth (leader: Sourcegraph)"
     ]
   }

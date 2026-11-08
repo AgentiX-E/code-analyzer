@@ -117,6 +117,8 @@ All notable changes to Code Analyzer are documented in this file.
 
 ### Benchmarks
 
-- Internal test suite: 20 fixtures, 37 ground-truth issues across 5 languages
-- Competitive precision (79.4%), recall (73.0%), F1 (0.761) with zero LLM token cost
+- Internal test suite: 34 samples carrying 64 ground-truth issues across 5 languages
+- Competitive precision (79.4%), recall (73.0%), F1 (0.761) with zero LLM token cost — **withheld**: the suite is
+  below the 100-issue floor this project now requires before publishing a figure, and the counts above are the ones
+  measured at runtime rather than the 37 this entry originally stated. See `README.md` § Benchmarks.
 - See [BENCHMARK_REPORT.md](docs/BENCHMARK_REPORT.md) for methodology and caveats
