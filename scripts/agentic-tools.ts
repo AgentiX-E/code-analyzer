@@ -43,6 +43,11 @@ import {
   taskClassCounts,
 } from '../packages/intelligence/src/benchmark/agentic/tasks.js';
 import {
+  AGENT_INSTRUCTION,
+  firstTurn,
+  nextTurn,
+} from '../packages/intelligence/src/benchmark/agentic/prompt.js';
+import {
   catalogDocuments,
   rankTools,
 } from '../packages/intelligence/src/benchmark/agentic/lexical-router.js';
@@ -167,10 +172,61 @@ function fixtureFiles(): Array<{ relativePath: string; absolutePath: string }> {
 // --check: the set is still a set
 // ---------------------------------------------------------------------------
 
+/**
+ * The text a model is sent, checked without a model.
+ *
+ * **`--check` and the oracle run never touched the prompt builders, and the third run died on exactly that**: the
+ * runner called `firstTurn`, which was not imported, so `--check` and `--self-test` passed on every push and the
+ * measurement failed on the one run that costs a key. `firstTurn is not defined` is not a finding about a model; it is
+ * a finding about a gate that measured everything except the thing it hands the model.
+ *
+ * Three properties, each one able to fail for a reason that belongs to the benchmark:
+ *
+ * - the request reaches the model, and so does the project id every call has to carry;
+ * - **the instruction names no tool**, because an instruction that listed the catalog would be answering part of the
+ *   question and the rate would stop being about whether the catalog is legible;
+ * - a long tool result is truncated *out loud*, since a silent cut makes the next answer a function of the cut.
+ */
+function promptDefects(catalog: Catalog): string[] {
+  const defects: string[] = [];
+
+  for (const tool of catalog.tools) {
+    if (AGENT_INSTRUCTION.includes(tool.name)) {
+      defects.push(
+        `the instruction names the tool "${tool.name}", so the model is handed the answer`,
+      );
+    }
+  }
+
+  for (const task of AGENTIC_TASKS) {
+    const turn = firstTurn(task);
+    if (!turn.includes(task.prompt))
+      defects.push(`${task.id}: the first turn does not carry the request`);
+    if (!turn.includes(FIXTURE.projectId))
+      defects.push(`${task.id}: the first turn does not name the project a call has to use`);
+  }
+
+  const chain = AGENTIC_TASKS.find((task) => task.class === 'chain');
+  if (chain === undefined) {
+    defects.push('the set has no chain task, so the second turn is never built');
+  } else {
+    const long = nextTurn(chain, { tool: 'some_tool', detail: 'x'.repeat(5000) });
+    if (!long.includes('… (truncated)'))
+      defects.push(`${chain.id}: a long tool result is cut without saying so`);
+    if (!long.includes('`some_tool`'))
+      defects.push(`${chain.id}: the second turn does not say what was already called`);
+    const short = nextTurn(chain, { tool: 'some_tool', detail: 'ok' });
+    if (short.includes('… (truncated)'))
+      defects.push(`${chain.id}: a short tool result is announced as truncated`);
+  }
+
+  return defects;
+}
+
 function check(): number {
   const catalog = buildCatalog();
   const names = new Set(catalog.tools.map((tool) => tool.name));
-  const failures: string[] = [];
+  const failures: string[] = promptDefects(catalog);
   const seen = new Set<string>();
 
   const counts = taskClassCounts();
@@ -420,7 +476,14 @@ async function execute(
   if (registry.get(call.name) === undefined) {
     return { ok: false, detail: `no tool named ${call.name}` };
   }
+  // **The working directory belongs to the fixture, not to the repository.** `export_report` defaults its output path
+  // to `report_<id>.<format>` relative to the process's cwd, and one task in this set asks for a pdf — so running the
+  // harness from the repository root wrote `report_rep-17.pdf` beside `package.json`, and a commit of mine carried it
+  // in. A harness may not modify the tree it is measuring, and `.gitignore` covering only `report_*.json` is what let
+  // this one stay invisible until it was tracked.
+  const cwd = process.cwd();
   try {
+    process.chdir(fixture.dir);
     const result = await registry.execute(call.name, call.arguments, fixture.context);
     const text = result.content.map((part) => part.text ?? '').join('\n');
     if (result.isError === true)
@@ -433,6 +496,8 @@ async function execute(
     return { ok, detail: text.slice(0, 400) };
   } catch (error) {
     return { ok: false, detail: `the call threw: ${String((error as Error).message)}` };
+  } finally {
+    process.chdir(cwd);
   }
 }
 

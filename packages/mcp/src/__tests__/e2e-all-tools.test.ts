@@ -1449,7 +1449,14 @@ describe('MCP E2E — All 51 Tools Integration', () => {
         review_pr: { projectId: PROJECT_ID },
         check_standards: { projectId: PROJECT_ID },
         generate_report: { projectId: PROJECT_ID, type: 'codebase-audit' },
-        export_report: { reportId: 'test-out', format: 'json' },
+        // **The path is explicit because the default is relative to the process's working directory**, and a sweep
+        // that omits it writes `report_test-out.json` into the repository root — ignored by `.gitignore`, so nobody
+        // sees it, which is how the same omission once left a `report_*.pdf` in a commit.
+        export_report: {
+          reportId: 'test-out',
+          format: 'json',
+          outputPath: join(tmpdir(), 'e2e-export-report.json'),
+        },
         get_recommendations: { projectId: PROJECT_ID },
         cross_repo_search: { query: 'test', groupId: 'e2e-group' },
         cross_repo_trace: { sourceSymbol: 'src/index::main', groupId: 'e2e-group' },

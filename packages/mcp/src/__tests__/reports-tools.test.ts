@@ -2,7 +2,7 @@
 // Tests for generateReport, exportReport, getRecommendations
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -509,15 +509,28 @@ describe('exportReport', () => {
   });
 
   it('should export with default output path when not specified', async () => {
-    const result = await registry.execute('export_report', {
-      reportId: 'report-456',
-      format: 'json',
-    });
+    // **The default path is relative to `process.cwd()`, so the test has to own the cwd.** This case ran from the
+    // repository root and wrote `report_report-456.json` beside `package.json` — matched by the `report_*.json`
+    // ignore rule, so it was invisible, and the same default with a `.pdf` format left a file that a commit carried.
+    const dir = mkdtempSync(join(tmpdir(), 'default-export-'));
+    const previous = process.cwd();
+    try {
+      process.chdir(dir);
+      const result = await registry.execute('export_report', {
+        reportId: 'report-456',
+        format: 'json',
+      });
 
-    const data = JSON.parse(result.content[0]!.text!);
-    expect(data.exported).toBe(true);
-    expect(data.outputPath).toContain('report-456');
-    expect(data.format).toBe('json');
+      const data = JSON.parse(result.content[0]!.text!);
+      expect(data.exported).toBe(true);
+      expect(data.outputPath).toContain('report-456');
+      expect(data.format).toBe('json');
+      // The file is where the tool said it is, in the directory this case chose rather than the one it inherited.
+      expect(existsSync(join(dir, 'report_report-456.json'))).toBe(true);
+    } finally {
+      process.chdir(previous);
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('should export in markdown format', async () => {
