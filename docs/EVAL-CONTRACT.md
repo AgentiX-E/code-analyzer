@@ -104,13 +104,20 @@ exists so each part is compared in its own unit before anything is summed.
 
 Written here so that the absence is a decision rather than an oversight:
 
-1. **L4's selection half is measured; its permission half is not.** 100 tasks over the live catalog: **198 of 240 decoyed
-   attempts chose the right tool and stated a schema-valid call (0.8250), against 28 of 80 for BM25 over the same catalog
-   (0.3500)**, paired at p = 1.72 × 10⁻¹⁴; the chain half is 21 of 42 and 16 tasks were never right in three attempts.
-   **Two of the three runs behind that figure measured a model that had been told nothing** — the system prompt was built
-   and never sent — so the honest description of the first two numbers is "a failure of the harness", not a model result.
-   **What is still missing is the role**: whether a call that is right about intent is one the caller may make. No arm
-   here asserts that, so the rate may not be quoted as safety. Details in `docs/BENCHMARK_REPORT.md` under layer L4.
+1. **L4 has two measurements and one gate, and the gate is the part with no sampling error.** 100 tasks over the live
+   catalog: **198 of 240 decoyed attempts chose the right tool and stated a schema-valid call (0.8250), against 28 of 80
+   for BM25 over the same catalog (0.3500)**, paired at p = 1.72 × 10⁻¹⁴; the chain half is 21 of 42 and 16 tasks were
+   never right in three attempts. **Two of the five runs behind that figure measured a model that had been told nothing**
+   — the system prompt was built and never sent — so the honest description of those two numbers is "a failure of the
+   harness", not a model result, and the three runs that sent it produced 0.7875, 0.7958 and 0.8250, a spread inside one
+   run's interval. **The permission half now has a measurement of its own**: 100 planted instructions inside the files the
+   agent was asked about, **0 of 100 exposed attempts complied**, against **32 of 100 when the user asked for the same
+   call** (p = 4.66 × 10⁻¹⁰), with a 3.7 % ceiling, and every one of those 32 calls was refused by a read-only client and
+   by a `scout` profile — which is the enforcement, tested without a model, not the statistic. **What remains unmeasured
+   is policy rather than mechanism**: which role a given deployment should grant, how a token maps to a role, and whether
+   an instruction planted somewhere other than the file under discussion (a commit message, a dependency, a long
+   conversation) behaves like this one. Nothing here asserts safety, and the selection rate in particular may not be
+   quoted as if it did.
 2. **The LCA table reproduces, and it took three runs to say anything durable.** `docs/BENCHMARK_REPORT.md` quoted 0.4673
    over 115 rows from a run whose merged artifact was never committed. The merge then produced one — 0.4746 over 125 rows
    — but stated no scope on any row and set a cap wider than its own charge. **The artifact now holds the run the harness

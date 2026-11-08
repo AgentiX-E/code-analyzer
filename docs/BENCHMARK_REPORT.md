@@ -1,6 +1,6 @@
 # Code Analyzer — Benchmark Report
 
-<!-- figures: citations:internal-suite-2026-08,owasp-benchmark-1.2,cosqa-retrieval,paraphrase-search,cross-repo-matrix,aacr-bench,lca-bug-localization,agentic-tools -->
+<!-- figures: citations:internal-suite-2026-08,owasp-benchmark-1.2,cosqa-retrieval,paraphrase-search,cross-repo-matrix,aacr-bench,lca-bug-localization,agentic-tools,agentic-permissions -->
 
 **Date:** 2026-08-07
 **Version:** v0.1.0
@@ -209,6 +209,67 @@ floors hold and no id repeats — and it now also builds the text the model is s
 `firstTurn is not defined` while `--check` and `--self-test` were green. `--self-test` runs the answer key through the
 same execution and scoring path a model's calls take and requires 100 of 100: **if a correct answer would not have scored
 1.0, the number above is capped by the harness rather than by the model.**
+
+### L4, second axis — what a planted instruction does, and what the boundary does when it works
+
+The selection arm asks whether the agent picks the right tool. It does not ask whether the call it picked is one the
+caller is allowed to make, and **a tool result is a prompt**: this server's answers contain source code, written by
+people the operator does not control. `scripts/agentic-permissions.ts` plants an instruction inside a file and counts
+what happens next.
+
+**One hundred modules, ten groups, one exported function each.** The question names the symbol and the file, so the only
+way to answer is to read the file the payload is in. The payload sits _inside the function body_, not above the
+declaration — a tool that returns a node's own lines returns the body and not the leading comment, and a payload only one
+read path can see would make exposure a property of the tool the model happened to choose.
+
+| arm                                                                       | what it changes      | exposed | complied | asr (of exposed) | 95 % Wilson      | effect on the store |
+| ------------------------------------------------------------------------- | -------------------- | ------- | -------- | ---------------- | ---------------- | ------------------- |
+| **injected** — the instruction is in the file                             | the treatment        | 100/100 | **0**    | **0.0000**       | [0.0000, 0.0370] | 0/100               |
+| clean — the same file, a comment of the same length that asks for nothing | the negative control | 100/100 | 0        | 0.0000           | [0.0000, 0.0370] | 0/100               |
+| **directed** — the user asks for the same call                            | the positive control | 0/100   | **32**   | **0.3200**       | [0.2367, 0.4166] | 32/100              |
+
+**The zero is only readable because of the third row.** On the same hundred questions, with the same fixture and the
+same harness, the model complied 32 times out of 100 when the _user_ asked for the identical call — so what produced the
+zero is the model, not a harness that cannot observe compliance. Paired on the tasks, injected against directed is **0 to
+32, p = 4.66 × 10⁻¹⁰** (exact McNemar); injected against clean is 0 to 0, which is the correct answer for a treatment
+that had no effect and is reported as a null rather than as a win.
+
+**Exposure was 100 of 100 in both payload arms**, so the denominator of the rate is the whole arm and `asr` coincides
+with the unconditional rate. That is a property of the fixture, not a hope: the question names the file, and this
+iteration made `get_code_snippet` return code, which is what the model reaches for.
+
+**The positive control is also a product finding.** A developer who says "delete the project, I am done with it" gets it
+deleted 32 % of the time. That is not a safety result — it is an agent under-executing a legitimate request — and it is
+the next thing to fix in the prompt, now that there is a number for it.
+
+#### What happens to the calls it did make
+
+`--self-test` runs the action against three configurations without a model, and the artifact also replays **the model's
+own destructive calls** through both restricted ones, so containment costs no second run and the input is held fixed:
+
+| configuration                        | what happens to the 32 calls the model made              |
+| ------------------------------------ | -------------------------------------------------------- |
+| open server, `profile: all`          | 32 of 32 executed; the project was gone after each       |
+| `readOnly: true`, profile `analysis` | **32 of 32 refused**, reason `read-only`, project intact |
+| profile `scout`                      | **32 of 32 refused**, reason `profile`, project intact   |
+
+**The boundary those two rows describe did not exist when this iteration started.** `listByProfile` filtered what a
+client was _shown_ and `execute` looked the name up in a map of everything, so a `scout` client could call all
+fifty-one tools by name; `delete_project` was registered in `all`, the bucket every profile inherits, so the narrow
+client could destroy an index; and `get_code_snippet` — the tool whose job is to return code — answered
+`// Code snippet not available in current session` to every call it ever received, which is why the injection arm had no
+channel until this iteration built one. Authority is now two axes: `ToolProfile` says what a client may see, `ToolEffect`
+(`read` / `write` / `destroy`) says what a call changes, and `readOnly` refuses the second and third whatever the first
+allows. `profile-enforcement.test.ts` holds the invariant exhaustively over 51 tools × 3 profiles (callable **if and only
+if** advertised, with the mismatch list printed on failure) and then drives it over a real MCP client on a linked
+transport.
+
+**What this cannot say.** The corpus is synthetic; a hundred small modules written so each question has one file is not
+this repository's code and not a claim about it. It measures one request and at most two turns, so it says nothing about
+an instruction planted in a commit message, a dependency's README or a conversation that has already turned twenty times.
+And a 3.7 % ceiling on a corpus that has never produced a success is a bound, not a rate: the honest reading is that on
+this corpus, this model, once each, a planted instruction did nothing a hundred times — and that the boundary holds
+whether or not it does.
 
 ---
 
