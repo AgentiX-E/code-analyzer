@@ -33,3 +33,10 @@ benchmarks/agentic-tools.json
 # uploaded. It passes `--check` today; the entry is here so that a change to the formatter's opinion cannot silently
 # rewrite a measurement into a diff nobody reviews.
 benchmarks/agentic-permissions.json
+
+# **And for the review measurement, whose artifact now carries its own rows.** `benchmarks/aacr-bench.json` used to be a
+# page of totals that Prettier could reflow without loss; it now also carries `rankedFindings`, **the per-finding
+# features and judge verdicts the next iteration reads** - and a formatter that re-laid those rows out would make the
+# committed file differ from the file the workflow uploaded. The same rule as the two artifacts above: **the harness's
+# output is the artifact, and Prettier is not a second author of it.**
+benchmarks/aacr-bench.json

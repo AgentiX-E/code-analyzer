@@ -55,7 +55,7 @@ function findSamples(name) {
 }
 
 /** Their judge prompt, reconstructed from their paper's description: same defect, different words is a match. */
-async function judge(comment, golden) {
+async function judgeImpl(comment, golden) {
   const prompt = [
     'You are comparing a code review comment against an expert-confirmed issue from the same pull request.',
     'Answer with one JSON object: {"match": true|false}.',
@@ -96,7 +96,247 @@ async function judge(comment, golden) {
   return null;
 }
 
+/**
+ * **The judge this run uses, and the seam that lets the arithmetic be tested without the model.**
+ *
+ * **Why a seam is not a mock of the thing under test.** The arithmetic below - ranking, matching, the curve, the paired
+ * test - is what a run is *for*, and **it can only be checked against a corpus whose answers are known in advance.**
+ * `--dry-run` substitutes a table here, asserts the figures against numbers written by hand, and exits without writing
+ * an artifact; **every other call in this file is the one that runs in the job.**
+ */
+let judgeFn = judgeImpl;
+
+/**
+ * **One judge pass per pair, and every verdict kept.**
+ *
+ * **Why the whole matrix and not the first match.** The previous version stopped judging a finding once it had matched
+ * one golden, which makes the score depend on the order findings were judged in - and **a score that depends on an
+ * order cannot be compared between two reviewers judged in different orders.** Judging every pair costs
+ * `findings × goldens` calls per pull request - about a thousand for the corpus at this size - and buys the two things
+ * the next iteration needs: **a maximum matching rather than a greedy walk**, and **a curve that can be redrawn at any
+ * budget without spending the model's budget again**.
+ *
+ * **And it is bounded work rather than unbounded work**, because the pairs are known before the first call, so the
+ * concurrency below is a limit on calls in flight and not a race between them.
+ */
+const JUDGE_CONCURRENCY = Number(process.env['AACR_JUDGE_CONCURRENCY'] ?? '6');
+
+/**
+ * Run `task` over `items` with at most `limit` in flight.
+ *
+ * **A worker pool rather than `Promise.all(items.map(...))`**, because the matrix is a thousand calls and **a thousand
+ * concurrent requests to one endpoint is how a run gets rate-limited into a partial result that reads as a worse
+ * reviewer.** The index is taken from a single counter, which JavaScript's single-threaded execution makes safe.
+ */
+async function mapLimit(items, limit, task) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (;;) {
+      const at = next;
+      next += 1;
+      if (at >= items.length) return;
+      results[at] = await task(items[at], at);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Judge every finding against every golden in one pull request.
+ *
+ * **Returns, per finding, which goldens it matched** - a list rather than a boolean, because **a finding that matches
+ * two goldens is evidence about both**, and a boolean would have forced the choice at the moment of judging, which is
+ * the moment the answer key is least known.
+ */
+async function judgeMatrix(texts, goldens) {
+  const pairs = [];
+  for (let finding = 0; finding < texts.length; finding += 1) {
+    for (let golden = 0; golden < goldens.length; golden += 1) pairs.push([finding, golden]);
+  }
+  const verdicts = await mapLimit(pairs, JUDGE_CONCURRENCY, ([finding, golden]) =>
+    judgeFn(texts[finding], goldens[golden]),
+  );
+  const matches = texts.map(() => []);
+  let unanswered = 0;
+  pairs.forEach(([finding, golden], at) => {
+    const verdict = verdicts[at];
+    if (verdict === null) unanswered += 1;
+    else if (verdict) matches[finding].push(golden);
+  });
+  return { matches, unanswered };
+}
+
+/** `n choose k`, as a float, because the counts here are tens and the answers are far inside the safe range. */
+function choose(n, k) {
+  let value = 1;
+  for (let i = 0; i < k; i += 1) value = (value * (n - i)) / (i + 1);
+  return value;
+}
+
+/**
+ * **Exact McNemar, because the two reviewers are scored on the same fifty goldens and a difference between two
+ * proportions drawn on paired data is not a difference between two proportions.**
+ *
+ * The statistic is the two-sided exact binomial tail over the discordant pairs: **the goldens one reviewer found and
+ * the other did not.** Goldens both found and goldens neither found carry no information about which reviewer is
+ * better, which is exactly what pairing buys.
+ */
+function exactMcNemar(oursOnly, theirsOnly) {
+  const n = oursOnly + theirsOnly;
+  if (n === 0) return 1;
+  let mass = 0;
+  for (let i = 0; i <= Math.min(oursOnly, theirsOnly); i += 1) mass += choose(n, i);
+  return Math.min(1, (2 * mass) / 2 ** n);
+}
+
+/**
+ * **The measurement, on a corpus whose answers are written by hand.**
+ *
+ * **Why this exists at all.** A benchmark job that runs once per push and costs a thousand model calls is not a test:
+ * **its arithmetic is unverified until the day it produces a number someone quotes.** This mode runs every step of the
+ * job except the two that need the network - the review and the judge - over a four-golden, six-finding fixture whose
+ * expected precision, recall, F1 and curve are written below **before** the code that computes them runs.
+ *
+ * **And the fixture is chosen to be able to fail.** Two findings match a golden the gate drops, so the gate's F1 is
+ * *lower* than the whole list's here (0.5714 against 0.6) - **a self-test that can only pass is a self-test that says
+ * nothing**, and a rule that is allowed to lose is a rule whose gain on the real corpus means something.
+ */
+async function dryRun() {
+  const assert = (await import('node:assert/strict')).default;
+  const { collectDiffFacts, maximumMatchingCount, point, rankFindings, topKCurve } = await import(
+    '../../packages/intelligence/dist/review/actionability.js'
+  );
+
+  const diff = [
+    'diff --git a/a.ts b/a.ts',
+    '--- a/a.ts',
+    '+++ b/a.ts',
+    '@@ -1,2 +1,3 @@',
+    '+const a = source.item;',
+    '+return a.value;',
+    '+log(a);',
+  ].join('\n');
+  const goldens = [
+    'null deref in the guard',
+    'the loop reads past the end',
+    'unvalidated input',
+    'missing error handling',
+  ];
+
+  // **The judge's answers, keyed by the finding's title**, because the title is the part of the prompt the two arms
+  // share and the part the fixture controls.
+  const answers = new Map([
+    ['F1 null deref in the guard', [0]],
+    ['F2 null deref reported again', [0]],
+    ['F3 the loop reads past the end', [1]],
+    ['F4 missing error handling', [3]],
+    ['F5 rename the temporary', []],
+    ['F6 style remark', []],
+  ]);
+  judgeFn = async (comment, golden) => {
+    const title = comment.slice(0, comment.indexOf(' :: '));
+    const goldenAt = goldens.indexOf(golden);
+    return (answers.get(title) ?? []).some((at) => at === goldenAt);
+  };
+
+  const findings = [
+    { title: 'F1 null deref in the guard', startLine: 1, endLine: 1, severity: 'high', category: 'bug', lane: 'security', description: 'the guard is missing before the deref', suggestion: 'Add a check before the deref' },
+    { title: 'F2 null deref reported again', startLine: 2, endLine: 2, severity: 'medium', category: 'bug', lane: 'maintainability', description: 'the same deref seen from another angle', suggestion: null },
+    { title: 'F3 the loop reads past the end', startLine: 99, endLine: 99, severity: 'high', category: 'bug', lane: 'security', description: 'the loop bound is one too far', suggestion: 'Remove the call' },
+    { title: 'F4 missing error handling', startLine: 3, endLine: 3, severity: 'high', category: 'bug', lane: 'security', description: 'the call can throw and nothing catches', suggestion: 'Throw on the error' },
+    { title: 'F5 rename the temporary', startLine: 1, endLine: 1, severity: 'low', category: 'style', lane: 'maintainability', description: 'the temporary is unnamed in meaning', suggestion: 'Rename the temporary' },
+    { title: 'F6 style remark', startLine: 50, endLine: 50, severity: 'info', category: 'style', lane: 'maintainability', description: 'spacing near the block', suggestion: null },
+  ];
+
+  const facts = collectDiffFacts(diff);
+  const ranked = rankFindings(
+    findings.map((finding) => ({ finding, path: 'a.ts' })),
+    facts,
+  );
+  assert.equal(
+    ranked[0].finding.title,
+    'F1 null deref in the guard',
+    'the grounded finding with a fix and a security lane must rank first',
+  );
+  assert.deepEqual(
+    ranked.map((entry) => entry.score.actionable),
+    [true, true, true, false, false, false],
+    'the gate keeps the three grounded findings that say what to change',
+  );
+
+  const matrix = await judgeMatrix(
+    ranked.map((entry) => `${entry.finding.title} :: ${entry.finding.description}`),
+    goldens,
+  );
+  assert.deepEqual(matrix.matches[0], [0], 'the first finding matches the first golden');
+  assert.equal(matrix.unanswered, 0, 'a scripted judge never fails to answer');
+
+  // **Hand-computed, in the comment, before the assertion.** Gate keeps F1 (golden 0), F4 (golden 3) and F5 (nothing):
+  // 2 true positives, 1 false positive, 2 goldens missed, so precision 2/3, recall 2/4 and F1 0.5714. The whole list is
+  // 6 findings over 3 distinct goldens: precision 3/6, recall 3/4, F1 0.6 - **higher than the gate's, which is the
+  // fixture doing its job.**
+  const full = point(
+    matrix.matches.length,
+    maximumMatchingCount(matrix.matches, goldens.length),
+    matrix.matches.length - maximumMatchingCount(matrix.matches, goldens.length),
+    goldens.length - maximumMatchingCount(matrix.matches, goldens.length),
+  );
+  assert.deepEqual(full, {
+    k: 6,
+    truePositives: 3,
+    falsePositives: 3,
+    falseNegatives: 1,
+    precision: 0.5,
+    recall: 0.75,
+    f1: 0.6,
+  });
+
+  // **The gate's own arithmetic, scored the way the job scores it.**
+  const keptIndices = ranked
+    .map((entry, at) => ({ entry, at }))
+    .filter(({ entry }) => entry.score.actionable)
+    .map(({ at }) => at);
+  const keptMatches = keptIndices.map((at) => matrix.matches[at]);
+  const kept = point(
+    keptMatches.length,
+    maximumMatchingCount(keptMatches, goldens.length),
+    keptMatches.length - maximumMatchingCount(keptMatches, goldens.length),
+    goldens.length - maximumMatchingCount(keptMatches, goldens.length),
+  );
+  assert.deepEqual(kept, {
+    k: 3,
+    truePositives: 2,
+    falsePositives: 1,
+    falseNegatives: 2,
+    precision: 0.6667,
+    recall: 0.5,
+    f1: 0.5714,
+  });
+
+  const curve = topKCurve(matrix.matches, goldens.length);
+  assert.deepEqual(
+    curve.map((entryAt) => entryAt.truePositives),
+    [1, 2, 2, 2, 3, 3],
+    'the curve rises as the tail is read, and never falls',
+  );
+
+  assert.equal(exactMcNemar(6, 0) < 0.05, true, 'six discordant pairs one way is significant');
+  assert.equal(exactMcNemar(0, 0), 1, 'no discordant pairs is no evidence');
+
+  console.log(
+    `AACR-BENCH dry run ok · full F1 ${full.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')}`,
+  );
+}
+
+
 async function main() {
+  // **The arithmetic without the model**, for a runner that has no credential and a reviewer who wants the maths checked.
+  if (process.argv.includes('--dry-run')) {
+    await dryRun();
+    return;
+  }
   const base = {
     comment: [
       'Our review engine on AACR-Bench, the corpus a direct competitor published.',
@@ -251,6 +491,66 @@ async function main() {
    * pattern met text it was not written for.** **A URL has a fixed shape and `split` states that shape without an
    * escape**: `https://github.com/owner/repo/pull/123` is **five `/`-separated pieces from the scheme onward**.
    */
+  /**
+   * **The competitor's finding, in the shape the ranker reads.**
+   *
+   * **Why a translation rather than a second ranker.** The ranker is applied to both reviewers with the same rules and
+   * the same weights, so **a difference between the two arms is a difference between the reviewers** - and **the only
+   * thing this function may do is lose information, never add it.** Its severity tag becomes a severity, its category
+   * tag becomes a category, and the suggested diff it prints inline becomes the suggestion, because that is where the
+   * tool puts it.
+   *
+   * **A finding with no text is dropped rather than scored**, because a comment that says nothing cannot be ranked
+   * above or below anything and counting it as a false positive would be counting the parser's own limitation.
+   */
+  const CATEGORY_NAMES = [
+    'bug',
+    'security',
+    'performance',
+    'maintainability',
+    'test',
+    'style',
+    'documentation',
+    'architecture',
+    'api',
+  ];
+
+  function competitorRowOf(entry) {
+    const body = String(
+      typeof entry === 'string' ? entry : (entry.content ?? entry.body ?? ''),
+    ).trim();
+    if (body === '') return null;
+
+    const severityTag = String(entry.severity ?? '').toLowerCase();
+    const severity = severityTag.includes('critical')
+      ? 'critical'
+      : severityTag.includes('high') || severityTag.includes('major')
+        ? 'high'
+        : severityTag.includes('low') || severityTag.includes('minor')
+          ? 'low'
+          : 'medium';
+    const categoryTag = String(entry.category ?? '').toLowerCase();
+    const category = CATEGORY_NAMES.find((name) => categoryTag.includes(name)) ?? 'other';
+
+    const lines = body.split(String.fromCharCode(10));
+    const suggested = lines.filter((line) => /^[+-]/.test(line.trimStart()) && !/^[+-]{3}/.test(line));
+    const startLine = Number(entry.startLine ?? entry.line ?? Number.NaN);
+    const endLine = Number(entry.endLine ?? entry.line ?? Number.NaN);
+
+    return {
+      path: String(entry.path ?? ''),
+      finding: {
+        startLine: Number.isFinite(startLine) ? startLine : 0,
+        endLine: Number.isFinite(endLine) ? endLine : 0,
+        severity,
+        category,
+        title: lines[0].slice(0, 160),
+        description: body,
+        suggestion: suggested.length > 0 ? suggested.join(String.fromCharCode(10)) : null,
+      },
+    };
+  }
+
   const shortRepo = (url) => {
     const parts = String(url ?? '').split('/');
     const at = parts.indexOf('github.com');
@@ -361,6 +661,16 @@ async function main() {
 
   const { LLMReviewEngine } =
     await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  const {
+    ACTIONABILITY_WEIGHTS,
+    collectDiffFacts,
+    matchedGoldenIndices,
+    maximumMatchingCount,
+    point,
+    rankFindings,
+    scoreSubset,
+    topKCurve,
+  } = await import('../../packages/intelligence/dist/review/actionability.js');
   const { DeepSeekProvider } =
     await import('../../packages/intelligence/dist/review/llm/provider.js');
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
@@ -457,10 +767,19 @@ async function main() {
     // the one failure class that also explains a variance in this repository's own numbers.**
     creditExhausted: false,
   };
-  let tp = 0;
-  let fn = 0;
-  let fp = 0;
   let unanswered = 0;
+  /**
+   * **The per-pull-request judged matrices, which are the raw material of every figure below.**
+   *
+   * **Why they are kept rather than summed.** A curve, a gate and a maximum matching are three questions about one
+   * matrix, and **re-judging the corpus to ask a second question would spend the model's budget on pairs it had already
+   * answered** - and, worse, would answer them again at a different temperature-free draw and call the difference a
+   * finding. **So the verdicts are collected once and every figure is derived from them.**
+   */
+  const perPr = [];
+  const rankedDetail = [];
+  const competitorPerPr = [];
+  const competitorDetail = [];
   // **The second arm's accumulators, kept separate so neither can consume the other's matches.**
   let tpWhole = 0;
   let fpWhole = 0;
@@ -509,6 +828,10 @@ async function main() {
     // **And its findings are extracted the way its own output shapes them** - a `comments` array carrying `content` and
     // `path` - because **the key was learned from a previous run rather than assumed**, and **an extractor that guesses
     // returns an empty list that reads as a silent reviewer.**
+    // **The diff, read once per pull request and shared by both reviewers**, because **the ranking in
+    // `review/actionability.ts` grounds a finding against the lines the diff added** - and **two reviewers scored
+    // against two different readings of the same diff would differ by the reading rather than by the review.**
+    const prFacts = collectDiffFacts(diff);
     if (ocrKey) {
       const outcome = reviewWithOcr(
         process.env['OCR_LLM_URL'] ?? '',
@@ -691,26 +1014,48 @@ async function main() {
             return match !== null && !match[1].includes('{');
           }).length;
           competitor.findings += list.length;
-          // **Each competitor comment is judged once against the goldens**, with the same judge and the same prompt our
-          // own findings get - so **the two F1 values below are one measurement applied to two reviewers.**
-          const matchedByCompetitor = new Set();
-          for (const entry of list) {
-            const text =
-              typeof entry === 'string' ? entry : String(entry.content ?? entry.body ?? '');
-            if (!text) continue;
-            for (let g = 0; g < issueTexts.length; g += 1) {
-              if (matchedByCompetitor.has(g)) continue;
-              const verdict = await judge(text, issueTexts[g]);
-              if (verdict === null) competitor.judgeUnanswered += 1;
-              else if (verdict) {
-                matchedByCompetitor.add(g);
-                break;
-              }
-            }
-          }
-          competitor.truePositives += matchedByCompetitor.size;
-          competitor.falseNegatives += issueTexts.length - matchedByCompetitor.size;
-          competitor.falsePositives += Math.max(0, list.length - matchedByCompetitor.size);
+          // **The same treatment ours gets, on the same judge, over the same goldens.**
+          //
+          // **Two reviewers, one ranker.** The ranking below is applied to the competitor's findings as well as to this
+          // repository's, because **the claim under test is that ordering by actionability raises a reviewer's F1, not
+          // that this reviewer's sentences are better** - and **if the competitor gains as much as we do, the gain
+          // belongs to the ranker; if it does not, the sentences are the difference.** **One control, two arms, no
+          // extra calls**: every verdict is already in the matrix.
+          const competitorRows = list
+            .map((entry) => competitorRowOf(entry))
+            .filter((row) => row !== null);
+          const competitorRanked = rankFindings(
+            competitorRows.map((row) => ({ finding: row.finding, path: row.path })),
+            prFacts,
+          );
+          const competitorMatrix = await judgeMatrix(
+            competitorRanked.map(
+              (ranked) => `${ranked.finding.title} :: ${ranked.finding.description}`,
+            ),
+            issueTexts,
+          );
+          competitor.judgeUnanswered += competitorMatrix.unanswered;
+          competitorPerPr.push({
+            key: pr.githubPrUrl ?? `pr-${competitorPerPr.length}`,
+            matches: competitorMatrix.matches,
+            goldens: issueTexts.length,
+            keep: competitorRanked.map((ranked) => ranked.score.actionable),
+          });
+          competitorRanked.forEach((ranked, at) => {
+            competitorDetail.push({
+              pr: pr.githubPrUrl ?? null,
+              path: ranked.path,
+              startLine: ranked.finding.startLine,
+              endLine: ranked.finding.endLine,
+              severity: ranked.finding.severity,
+              category: ranked.finding.category,
+              score: ranked.score.score,
+              features: ranked.score.features,
+              actionable: ranked.score.actionable,
+              which: 'competitor',
+              matchedGoldens: competitorMatrix.matches[at],
+            });
+          });
         } catch (error) {
           competitor.prsFailed += 1;
           // **The head of the output is kept when it cannot be parsed**, because **the shape is what the next
@@ -853,7 +1198,6 @@ async function main() {
           engineCounters.firstFileFailure = String(error.message ?? '').slice(0, 200);
       }
     }
-    const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
 
     // **ARM TWO: the whole pull request, in one call - the competitor's view.**
     //
@@ -889,74 +1233,215 @@ async function main() {
       categories[cat] = (categories[cat] ?? 0) + 1;
     }
 
-    const matched = new Set();
-    for (const f of findings) {
-      let hit = false;
-      for (let i = 0; i < issueTexts.length; i += 1) {
-        if (matched.has(i)) continue;
-        const verdict = await judge(
-          String(f.title ?? '') + ' :: ' + String(f.description ?? ''),
-          issueTexts[i],
-        );
-        if (verdict === null) unanswered += 1;
-        else if (verdict) {
-          matched.add(i);
-          hit = true;
-          break;
-        }
-      }
-      if (!hit) fp += 1;
-    }
-    tp += matched.size;
-    fn += issueTexts.length - matched.size;
-
-    // **And the same judging, for the second arm.**
+    // **The per-file findings, each with the path its line numbers belong to.**
     //
-    // **A separate `matched` set over the same goldens**, because **the whole-PR arm's findings are a different set and
-    // must be scored independently** - **sharing one set would let the two arms consume each other's goldens and report
-    // a sum as if it were a maximum.**
-    const matchedWhole = new Set();
-    for (const f of wholePrFindings) {
-      let hit = false;
-      for (let i = 0; i < issueTexts.length; i += 1) {
-        if (matchedWhole.has(i)) continue;
-        const verdict = await judge(
-          String(f.title ?? '') + ' :: ' + String(f.description ?? ''),
-          issueTexts[i],
-        );
-        if (verdict === null) unansweredWhole += 1;
-        else if (verdict) {
-          matchedWhole.add(i);
-          hit = true;
-          break;
-        }
-      }
-      if (!hit) fpWhole += 1;
-    }
-    tpWhole += matchedWhole.size;
-    fnWhole += issueTexts.length - matchedWhole.size;
+    // **`l.findings` alone loses the one thing the ranking needs.** A lane reviews one file and its findings carry line
+    // numbers in that file; **the path lived on the result rather than on the finding**, so a flattened list of findings
+    // could not be grounded against any diff - which is the same shape of loss as the golden path that was handed to
+    // the engine three runs ago.
+    const located = lanes
+      .filter((l) => l.success)
+      .flatMap((l) => (l.findings ?? []).map((finding) => ({ finding, path: l.filePath })));
+
+    // **ARM THREE: the same findings, ordered by the probability a developer would act on them.**
+    //
+    // **Why an order and not a filter.** *Sifting the Noise* (arXiv 2601.22952) measured aggressive filtering
+    // suppressing 22% of true vulnerabilities, so **nothing here is dropped before it is judged** - every finding is
+    // scored, every pair is judged, and **the emission rule is scored as a subset of a matrix that already contains
+    // everything**, which means the figures for the rule and the figures for the raw list come from one pass.
+    const ranked = rankFindings(located, prFacts);
+    const ourMatrix = await judgeMatrix(
+      ranked.map((entry) => `${entry.finding.title} :: ${entry.finding.description}`),
+      issueTexts,
+    );
+    unanswered += ourMatrix.unanswered;
+    ranked.forEach((entry, at) => {
+      rankedDetail.push({
+        pr: pr.githubPrUrl ?? null,
+        path: entry.path,
+        startLine: entry.finding.startLine,
+        endLine: entry.finding.endLine,
+        severity: entry.finding.severity,
+        category: entry.finding.category,
+        lane: entry.finding.lane ?? null,
+        score: entry.score.score,
+        actionable: entry.score.actionable,
+        features: entry.score.features,
+        why: entry.score.why,
+        which: 'agentix-e',
+        matchedGoldens: ourMatrix.matches[at],
+      });
+    });
+    perPr.push({
+      key: pr.githubPrUrl ?? `pr-${perPr.length}`,
+      matches: ourMatrix.matches,
+      goldens: issueTexts.length,
+      // **The emission rule, fixed before the run and applied per finding** - so the operating point is a statement
+      // about a comment rather than a budget chosen from the curve below it.
+      keep: ranked.map((entry) => entry.score.actionable),
+    });
+
+    // **And the same judging, for the whole-pull-request arm.**
+    //
+    // **A separate matrix over the same goldens**, because **the whole-PR arm's findings are a different set and must be
+    // scored independently** - **sharing one matrix would let the two arms consume each other's goldens and report a sum
+    // as if it were a maximum.**
+    const wholeMatrix = await judgeMatrix(
+      wholePrFindings.map((f) => `${String(f.title ?? '')} :: ${String(f.description ?? '')}`),
+      issueTexts,
+    );
+    unansweredWhole += wholeMatrix.unanswered;
+    const wholeCovered = maximumMatchingCount(wholeMatrix.matches, issueTexts.length);
+    tpWhole += wholeCovered;
+    fpWhole += wholePrFindings.length - wholeCovered;
+    fnWhole += issueTexts.length - wholeCovered;
   }
 
-  const p = tp + fp > 0 ? tp / (tp + fp) : 0;
-  const r = tp + fn > 0 ? tp / (tp + fn) : 0;
+  // ---------------------------------------------------------------------------
+  // From the judged matrices to the figures
+  // ---------------------------------------------------------------------------
+  //
+  // **Every number below is arithmetic over verdicts that were already paid for.** The judging pass produced, per pull
+  // request, which goldens each finding matched; a maximum matching turns that into what that set of findings covers,
+  // and the same matrix answers the curve, the emission rule and the paired test. **Nothing below calls the judge.**
   const round = (x) => Math.round(x * 10000) / 10000;
+  const zero = { tp: 0, fp: 0, fn: 0 };
+  const addCounts = (a, b) => ({ tp: a.tp + b.tp, fp: a.fp + b.fp, fn: a.fn + b.fn });
+
+  /** Every finding the reviewer emitted, which is the operating point the earlier runs measured. */
+  const everythingEmitted = (pull) => ({
+    indices: matchedGoldenIndices(pull.matches, pull.goldens),
+    emitted: pull.matches.length,
+  });
+
+  /** The pre-registered rule: only the findings whose range covers an added line and that say what to change. */
+  const gatedEmission = (pull) => {
+    const kept = pull.matches.filter((_, at) => pull.keep[at]);
+    return { indices: matchedGoldenIndices(kept, pull.goldens), emitted: kept.length };
+  };
+
+  const countsOver = (perPull, rule) =>
+    perPull.reduce((total, pull) => {
+      const covered = rule(pull);
+      return addCounts(total, {
+        tp: covered.indices.length,
+        fp: covered.emitted - covered.indices.length,
+        fn: pull.goldens - covered.indices.length,
+      });
+    }, zero);
+
+  const asPoint = (counts) => point(counts.tp + counts.fp, counts.tp, counts.fp, counts.fn);
+
+  // **Our operating point, the one that was fixed before the run.**
+  const gatedCounts = perPr.reduce((total, pull) => {
+    const scored = scoreSubset(pull.matches, pull.keep, pull.goldens);
+    return addCounts(total, {
+      tp: scored.truePositives,
+      fp: scored.falsePositives,
+      fn: scored.falseNegatives,
+    });
+  }, zero);
+  const gated = asPoint(gatedCounts);
+  const allCounts = countsOver(perPr, everythingEmitted);
+  const allEmitted = asPoint(allCounts);
+
+  /**
+   * **The curve, at budgets a reviewer could actually hold to.**
+   *
+   * **Per pull request rather than over the concatenation**, because **a budget is a number of comments on one pull
+   * request** - sorting all 105 findings into one list and cutting at forty would mean the corpus-wide cut, which is not
+   * a rule any reviewer follows. `k` here is therefore "the top k of each pull request", and `0` is everything.
+   */
+  const BUDGETS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 0];
+  const byBudget = BUDGETS.map((budget) => {
+    let total = zero;
+    for (const pull of perPr) {
+      const curve = topKCurve(pull.matches, pull.goldens);
+      const at = budget === 0 ? curve.length : Math.min(budget, curve.length);
+      const chosen = curve[at - 1];
+      if (chosen) {
+        total = addCounts(total, {
+          tp: chosen.truePositives,
+          fp: chosen.falsePositives,
+          fn: chosen.falseNegatives,
+        });
+      }
+    }
+    return { budgetPerPullRequest: budget === 0 ? null : budget, ...asPoint(total) };
+  });
+
+  /**
+   * **The paired test, because the two reviewers were scored on the same goldens.**
+   *
+   * **A difference between two proportions is not a difference between two proportions drawn on paired data.** The
+   * goldens both reviewers found, and the goldens neither found, say nothing about which is better; only the goldens one
+   * found and the other did not carry that information, and **the exact binomial tail over those discordant pairs is
+   * what McNemar's test is.** With fifty goldens the exact form is the right one - the asymptotic chi-square is an
+   * approximation that the corpus is too small to earn.
+   */
+  const coveredKeys = (perPull, rule) => {
+    const keys = new Set();
+    for (const pull of perPull) {
+      for (const golden of rule(pull).indices) keys.add(`${pull.key}#${golden}`);
+    }
+    return keys;
+  };
+  const ourKeys = coveredKeys(perPr, gatedEmission);
+  const theirKeys = coveredKeys(competitorPerPr, everythingEmitted);
+  let oursOnly = 0;
+  let theirsOnly = 0;
+  for (const key of ourKeys) if (!theirKeys.has(key)) oursOnly += 1;
+  for (const key of theirKeys) if (!ourKeys.has(key)) theirsOnly += 1;
+
+  const competitorCounts = countsOver(competitorPerPr, everythingEmitted);
+  const competitorPoint = asPoint(competitorCounts);
+  const competitorGated = asPoint(countsOver(competitorPerPr, gatedEmission));
+
   write({
     ...base,
     // **The threshold every row below was drawn under**, because **a curve whose points are not labelled is a set of
     // numbers rather than a measurement** - and **this label was missing from the artifact for one run**, which is
     // **how a point loses its coordinate.**
     dedupThreshold: DEDUP_THRESHOLD,
+    // **What the top-level figures mean, said in the file rather than in a report about the file.** They are the
+    // emission rule's, not the whole list's - and **the whole list's are kept beside them**, because **a rule that is
+    // reported without the list it was applied to cannot be checked.**
+    scoring: {
+      protocol:
+        'one judge verdict per (finding, golden) pair, then a maximum bipartite matching per pull request; the same protocol for both reviewers in the same job',
+      emissionRule:
+        'actionability gate: the range covers an added line AND (the suggestion names an action OR the finding quotes added code)',
+      emissionRuleRegisteredBeforeRun: true,
+      judgeConcurrency: JUDGE_CONCURRENCY,
+      pairsJudged:
+        perPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0) +
+        competitorPerPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0),
+      weights: ACTIONABILITY_WEIGHTS,
+      changedFrom: 'the previous protocol consumed each golden with the first finding that matched it, in judging order',
+    },
     prsInDataset: rows.length,
     prsReviewed: reviewed,
     prsWithoutDiff: unfetched,
     positiveSamples: positives.length ?? rows.length,
     negativeSamples: Array.isArray(negatives) ? negatives.length : null,
-    truePositives: tp,
-    falsePositives: fp,
-    falseNegatives: fn,
+    truePositives: gated.truePositives,
+    falsePositives: gated.falsePositives,
+    falseNegatives: gated.falseNegatives,
     judgeUnanswered: unanswered,
-    precision: round(p),
-    recall: round(r),
+    precision: gated.precision,
+    recall: gated.recall,
+    f1: gated.f1,
+    // **The list before the rule, because the rule is only interesting beside it.**
+    fullEmission: allEmitted,
+    // **The curve, at every budget the rule could have been.**
+    byBudgetPerPullRequest: byBudget,
+    // **The paired test against the competitor at its own operating point.**
+    mcnemar: {
+      oursOnly,
+      theirsOnly,
+      pValue: round(exactMcNemar(oursOnly, theirsOnly)),
+      verdict: exactMcNemar(oursOnly, theirsOnly) <= 0.05 ? 'significant at 0.05' : 'not significant at 0.05',
+    },
     // **The control arm, reported beside the first rather than instead of it.**
     wholePrArm: {
       view: 'one call over the whole pull request diff',
@@ -972,7 +1457,6 @@ async function main() {
         tpWhole + fpWhole + fnWhole > 0 ? (2 * tpWhole) / (2 * tpWhole + fpWhole + fnWhole) : 0,
       ),
     },
-    f1: round(p + r > 0 ? (2 * p * r) / (p + r) : 0),
     reviewCategories: categories,
     // **The context split, which is the reason this corpus was chosen**: `Repo Level` is cross-file by construction.
     groundTruthContextLevels: contextLevels,
@@ -980,23 +1464,19 @@ async function main() {
     // comparable because they were produced by one measurement, not because they were printed side by side.**
     secondReviewer: {
       ...competitor,
-      precision: round(
-        competitor.truePositives + competitor.falsePositives > 0
-          ? competitor.truePositives / (competitor.truePositives + competitor.falsePositives)
-          : 0,
-      ),
-      recall: round(
-        competitor.truePositives + competitor.falseNegatives > 0
-          ? competitor.truePositives / (competitor.truePositives + competitor.falseNegatives)
-          : 0,
-      ),
-      f1: round(
-        competitor.truePositives + competitor.falsePositives + competitor.falseNegatives > 0
-          ? (2 * competitor.truePositives) /
-              (2 * competitor.truePositives + competitor.falsePositives + competitor.falseNegatives)
-          : 0,
-      ),
+      ...competitorPoint,
+      // **And the same ranker applied to its output**, which separates the two explanations: **if its F1 rises as far
+      // as ours did, the gain is the ranker's; if it does not, the sentences were the difference.**
+      withTheSameRanker: competitorGated,
+      findingsAtItsOwnOperatingPoint: competitorDetail,
     },
+    // **Every finding either reviewer emitted, with its features and the goldens the judge matched it to.**
+    //
+    // **Why this belongs in the artifact rather than in a log.** The next iteration's first question is *which*
+    // findings were wrong and what made them different from the right ones, and **a figure without the rows it was
+    // computed from cannot answer it** - so the rows travel, and the curve above can be recomputed from them without
+    // another run.
+    rankedFindings: rankedDetail,
     // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
     // account is labelled rather than reported as a reviewer's result.**
     credit: { before: creditBefore, after: await creditPosition() },
@@ -1006,11 +1486,15 @@ async function main() {
     skipped: null,
   });
   console.log(
-    `AACR-BENCH reviewed ${reviewed} PRs · tp ${tp} fp ${fp} fn ${fn} · P ${round(p)} R ${round(r)}`,
+    `AACR-BENCH reviewed ${reviewed} PRs · gate tp ${gated.truePositives} fp ${gated.falsePositives} fn ${gated.falseNegatives} · P ${gated.precision} R ${gated.recall} F1 ${gated.f1}`,
   );
   console.log(
-    `AACR-BENCH competitor ${competitor.tool} · findings ${competitor.findings} · tp ${competitor.truePositives} fp ${competitor.falsePositives} fn ${competitor.falseNegatives}`,
+    `AACR-BENCH full list tp ${allEmitted.truePositives} fp ${allEmitted.falsePositives} · P ${allEmitted.precision} R ${allEmitted.recall} F1 ${allEmitted.f1}`,
   );
+  console.log(
+    `AACR-BENCH competitor ${competitor.tool} · findings ${competitor.findings} · P ${competitorPoint.precision} R ${competitorPoint.recall} F1 ${competitorPoint.f1} · same ranker F1 ${competitorGated.f1}`,
+  );
+  console.log(`AACR-BENCH McNemar ours-only ${oursOnly} theirs-only ${theirsOnly}`);
 }
 
 function write(payload) {

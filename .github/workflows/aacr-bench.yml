@@ -26,6 +26,8 @@ on:
       - '.github/scripts/aacr-bench.mjs'
       - '.github/workflows/aacr-bench.yml'
       - 'packages/intelligence/src/review/llm/**'
+      # **The ranker is part of the measurement now**, so a change to it has to re-draw the figure it orders.
+      - 'packages/intelligence/src/review/actionability.ts'
 
 concurrency:
   group: aacr-bench
@@ -60,6 +62,13 @@ jobs:
 
       - name: Build all packages
         run: pnpm build
+
+      # **The arithmetic, before the money.** `--dry-run` runs ranking, matching, the curve and the paired test over a
+      # six-finding fixture whose expected figures are written in the script, and exits without writing an artifact or
+      # calling a provider. **A benchmark job whose maths is unverified until the day it produces a quotable number is a
+      # job that spends a thousand calls to test its own arithmetic for the first time in a report.**
+      - name: Prove the measurement's arithmetic without the model
+        run: node .github/scripts/aacr-bench.mjs --dry-run
 
       # **The competitor this job now scores beside us, installed from its own registry entry.**
       #

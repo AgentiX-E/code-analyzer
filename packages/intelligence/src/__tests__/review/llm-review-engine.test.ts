@@ -558,6 +558,139 @@ describe('LLMReviewEngine', () => {
   // ReviewComment Conversion
   // -------------------------------------------------------------------------
 
+  describe('reviewDiffRanked', () => {
+    // **A patch whose added lines are 1 and 2 of the reviewed file**, so a finding on line 2 is grounded and a finding
+    // on line 90 is not - which is the whole of what the ordering is allowed to know about the answer.
+    const patch = [
+      'diff --git a//src/test.ts b//src/test.ts',
+      '@@ -1,1 +1,2 @@',
+      ' const kept = true;',
+      '+const added = read();',
+      '+if (added) { guard(); }',
+    ].join('\n');
+
+    const twoFindings = JSON.stringify({
+      findings: [
+        {
+          startLine: 90,
+          endLine: 91,
+          severity: 'critical',
+          category: 'security',
+          title: 'A remark about code the change never touched',
+          description: 'This might be a problem somewhere else in this file',
+          suggestion: null,
+        },
+        {
+          startLine: 2,
+          endLine: 2,
+          severity: 'medium',
+          category: 'bug',
+          title: 'The guard reads an unvalidated value',
+          description: 'added is read and used before it is checked',
+          suggestion: 'Check added before the guard runs',
+        },
+      ],
+    });
+
+    it('puts the grounded finding first and keeps both comments', async () => {
+      (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createSuccessResult(twoFindings),
+      );
+      const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+
+      const comments = await engine.reviewDiffRanked(createDiff(), patch);
+
+      expect(comments).toHaveLength(2);
+      expect(comments[0]?.content).toBe('The guard reads an unvalidated value');
+      expect(comments[1]?.content).toBe('A remark about code the change never touched');
+    });
+
+    it('orders the same way twice, so two runs can be compared', async () => {
+      (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createSuccessResult(twoFindings),
+      );
+      const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+
+      const first = await engine.reviewDiffRanked(createDiff(), patch);
+      const second = await engine.reviewDiffRanked(createDiff(), patch);
+
+      expect(second.map((c) => c.content)).toEqual(first.map((c) => c.content));
+    });
+
+    it('still honours the terms a patch is not needed for, when the patch is empty', async () => {
+      (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createSuccessResult(twoFindings),
+      );
+      const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+
+      const comments = await engine.reviewDiffRanked(createDiff(), '');
+
+      // **Nothing can be grounded without a patch**, so the two location terms drop out and the ranking is left with
+      // what the sentence itself carries: the finding that says what to change leads the one that only remarks.
+      expect(comments).toHaveLength(2);
+      expect(comments[0]?.content).toBe('The guard reads an unvalidated value');
+    });
+  });
+
+  describe('convertToReviewComments with an order', () => {
+    it('keeps a finding the order does not mention, and places it last', async () => {
+      // **A partial map is a real input**: a caller that ranked one lane still has the others' comments to return, and
+      // an ordering function that dropped them would be a filter.
+      const twoLanes = JSON.stringify({
+        findings: [
+          {
+            startLine: 1,
+            endLine: 1,
+            severity: 'critical',
+            category: 'security',
+            title: 'SQL injection found',
+            description: 'Unsafe query',
+            suggestion: 'Use parameterized queries',
+          },
+        ],
+      });
+      (provider.complete as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(createSuccessResult(twoLanes))
+        .mockResolvedValueOnce(
+          createSuccessResult(
+            JSON.stringify({
+              findings: [
+                {
+                  startLine: 40,
+                  endLine: 40,
+                  severity: 'high',
+                  category: 'performance',
+                  title: 'N+1 query',
+                  description: 'Query in loop',
+                  suggestion: 'Use batch query',
+                },
+              ],
+            }),
+          ),
+        );
+
+      const engine = new LLMReviewEngine(provider, { lanes: ['security', 'performance'] });
+      const diff = createDiff();
+      const results = await engine.reviewDiff(diff);
+      const findings = results.flatMap((result) => result.findings);
+      expect(findings).toHaveLength(2);
+
+      // The security finding is ranked and the performance finding is not mentioned at all.
+      const order = new Map([[findings[0]!, 0]]);
+      const comments = engine.convertToReviewComments(diff, results, order);
+
+      expect(comments).toHaveLength(2);
+      expect(comments[0]?.content).toBe('SQL injection found');
+      expect(comments[1]?.content).toBe('N+1 query');
+
+      // **And the other way round**, because a comparator is exercised from both sides and a map that mentions the
+      // second finding is the case where the unmentioned one takes its place at the back of the queue.
+      const swapped = engine.convertToReviewComments(diff, results, new Map([[findings[1]!, 0]]));
+      expect(swapped[0]?.content).toBe('N+1 query');
+      expect(swapped[1]?.content).toBe('SQL injection found');
+    });
+  });
+
   describe('reviewDiffAsComments', () => {
     it('should convert LLM findings to ReviewComment format', async () => {
       (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -1010,6 +1143,63 @@ describe('deduplication', () => {
     const total = results.reduce((sum, r) => sum + r.findings.length, 0);
     expect(total).toBe(1);
     expect(engine.lastDeduplication?.dropped).toBe(1);
+  });
+
+  it('records how many findings the survivor absorbed, because agreement is the one signal the review already paid for', async () => {
+    // **One defect, three angles.** The survivor of a three-way merge is a different object from a finding no other
+    // lane saw, and until `agreement` existed the output could not tell them apart - which left the ranking in
+    // `review/actionability.ts` with nothing but the sentence to go on.
+    const same = (startLine: number): string =>
+      JSON.stringify({
+        findings: [
+          {
+            startLine,
+            endLine: startLine,
+            severity: 'high',
+            category: 'security',
+            title: 'Unvalidated request parameter concatenated into the query',
+            description: 'The parameter reaches the query builder without validation',
+            suggestion: 'Parameterise the query',
+          },
+        ],
+      });
+    (provider.complete as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(createSuccessResult(same(1)))
+      .mockResolvedValueOnce(createSuccessResult(same(1)))
+      .mockResolvedValueOnce(createSuccessResult(same(1)));
+
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security', 'testing', 'performance'],
+    });
+    const results = await engine.reviewDiff(createDiff());
+
+    const findings = results.flatMap((r) => r.findings);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.agreement).toBe(3);
+  });
+
+  it('leaves agreement undefined when a finding stood alone, rather than claiming one lane', async () => {
+    // **Absent and one are the same arithmetic and different facts**: a lone finding was not corroborated by anything,
+    // and a field that always says `1` cannot be told from a field that was never written.
+    const single = JSON.stringify({
+      findings: [
+        {
+          startLine: 1,
+          endLine: 1,
+          severity: 'high',
+          category: 'bug',
+          title: 'Off-by-one in the loop bound',
+          description: 'The loop reads one element past the end of the buffer',
+          suggestion: 'Use a strict less-than',
+        },
+      ],
+    });
+    (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(createSuccessResult(single));
+
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+    const results = await engine.reviewDiff(createDiff());
+
+    expect(results.flatMap((r) => r.findings)[0]?.agreement).toBeUndefined();
   });
 
   it('keeps a finding whose severity is not in the rank table, and sorts it last', async () => {

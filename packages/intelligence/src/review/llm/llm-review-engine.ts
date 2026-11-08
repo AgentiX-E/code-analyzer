@@ -9,6 +9,7 @@ import {
   type ReviewLane,
   type LLMFinding,
 } from './prompts.js';
+import { collectDiffFacts, rankFindings } from '../actionability.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
@@ -187,23 +188,42 @@ export class LLMReviewEngine {
     // **a stable tie-break is what makes the output reproducible.**
     all.sort((x, y) => rank[y.finding.severity] - rank[x.finding.severity]);
 
-    const survivors: Entry[] = [];
+    const survivors: Array<Entry & { absorbed: number }> = [];
+    /**
+     * **How many findings each survivor absorbed**, because **agreement between lanes is free evidence and this
+     * function was discarding it.**
+     *
+     * **A defect three angles name is likelier a defect than one only a single angle saw** - and until now the survivor
+     * and the lone finding were the same shape in the output, so nothing downstream could tell them apart. **The count
+     * is kept beside the survivor rather than on it until the end**, so a later pass cannot read a half-built number.
+     */
     for (const entry of all) {
-      const duplicate =
-        survivors.some(
-          (k) =>
-            // **Same file, overlapping ranges** - the same defect has one location.
-            String(k.result.filePath ?? '') === String(entry.result.filePath ?? '') &&
-            entry.finding.startLine <= k.finding.endLine &&
-            entry.finding.endLine >= k.finding.startLine,
-        ) ||
-        survivors.some(
-          (k) =>
-            // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range is a
-            // hint that this iteration already watched a filter discard 207 findings over.
-            shares(k.words, entry.words) >= this.options.dedupThreshold,
-        );
-      if (!duplicate) survivors.push(entry);
+      // **Which survivor this is a duplicate of, rather than whether it is one.** The predicate is the same two
+      // conditions it was; what changed is that the answer is now an index, because a duplicate has somebody to be a
+      // duplicate of and the count is what the ranking needs.
+      const sameLocation = survivors.findIndex(
+        (k) =>
+          // **Same file, overlapping ranges** - the same defect has one location.
+          String(k.result.filePath ?? '') === String(entry.result.filePath ?? '') &&
+          entry.finding.startLine <= k.finding.endLine &&
+          entry.finding.endLine >= k.finding.startLine,
+      );
+      const duplicateAt =
+        sameLocation !== -1
+          ? sameLocation
+          : survivors.findIndex(
+              (k) =>
+                // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range
+                // is a hint that this iteration already watched a filter discard 207 findings over.
+                shares(k.words, entry.words) >= this.options.dedupThreshold,
+            );
+      const survivor = duplicateAt === -1 ? undefined : survivors[duplicateAt];
+      if (survivor === undefined) survivors.push({ ...entry, absorbed: 1 });
+      else survivor.absorbed += 1;
+    }
+
+    for (const survivor of survivors) {
+      if (survivor.absorbed > 1) survivor.finding.agreement = survivor.absorbed;
     }
 
     const keep = new Set(survivors.map((e) => e.finding));
@@ -216,6 +236,34 @@ export class LLMReviewEngine {
       dropped: all.length - survivors.length,
     };
     return results;
+  }
+
+  /**
+   * **A review whose comments arrive in the order a developer should read them.**
+   *
+   * **Why this is a method rather than an option on the one above.** Ordering needs the patch, and the patch is the one
+   * thing a `GitDiff` does not carry - it has ranges and hashes, and the lines themselves live in whatever the caller
+   * fetched. **So the caller that has the patch says so by calling this**, and a caller that does not gets the unordered
+   * behaviour it always had rather than a ranking computed against a diff nobody can check.
+   *
+   * **Nothing is dropped.** *Sifting the Noise* (arXiv 2601.22952) measured aggressive filtering suppressing 22% of
+   * true vulnerabilities, so the order changes and the set does not - and the reader can stop reading at any point,
+   * which is the same control a filter gives them without the risk of a filter.
+   */
+  async reviewDiffRanked(
+    diff: GitDiff,
+    patch: string,
+    fileContext?: string,
+  ): Promise<ReviewComment[]> {
+    const results = await this.reviewDiff(diff, fileContext);
+    const located = results
+      .filter((result) => result.success)
+      .flatMap((result) => result.findings.map((finding) => ({ finding, path: diff.filePath })));
+    const order = new Map<LLMFinding, number>();
+    rankFindings(located, collectDiffFacts(patch)).forEach((entry, at) => {
+      order.set(entry.finding, at);
+    });
+    return this.convertToReviewComments(diff, results, order);
   }
 
   /**
@@ -389,9 +437,17 @@ export class LLMReviewEngine {
 
   /**
    * Convert LLM review results to the standard ReviewComment format.
+   *
+   * **`order` is a finding-to-rank map, and a finding it does not mention is kept and placed last.** That is a contract
+   * rather than a fallback: a caller that ranked a subset - one lane, one file, one budget - still gets every comment,
+   * because **an ordering function that could silently drop a comment would be a filter wearing an order's name.**
    */
-  convertToReviewComments(diff: GitDiff, results: LLMReviewResult[]): ReviewComment[] {
-    const comments: ReviewComment[] = [];
+  convertToReviewComments(
+    diff: GitDiff,
+    results: LLMReviewResult[],
+    order?: ReadonlyMap<LLMFinding, number>,
+  ): ReviewComment[] {
+    const built: Array<{ comment: ReviewComment; finding: LLMFinding }> = [];
     const now = new Date().toISOString();
 
     for (const result of results) {
@@ -400,24 +456,34 @@ export class LLMReviewEngine {
       for (const finding of result.findings) {
         const rangeText = this.extractRangeText(diff, finding);
 
-        comments.push({
-          id: `llm-${result.lane}-${comments.length}-${Date.now()}`,
-          path: diff.filePath,
-          content: finding.title,
-          thinking: `${finding.description}\n\n[Review Lane: ${LANE_LABELS[result.lane]}]`,
-          existingCode: rangeText,
-          suggestionCode: finding.suggestion ?? undefined,
-          startLine: finding.startLine,
-          endLine: finding.endLine,
-          category: finding.category,
-          severity: finding.severity,
-          filtered: false,
-          createdAt: now,
+        built.push({
+          finding,
+          comment: {
+            id: `llm-${result.lane}-${built.length}-${Date.now()}`,
+            path: diff.filePath,
+            content: finding.title,
+            thinking: `${finding.description}\n\n[Review Lane: ${LANE_LABELS[result.lane]}]`,
+            existingCode: rangeText,
+            suggestionCode: finding.suggestion ?? undefined,
+            startLine: finding.startLine,
+            endLine: finding.endLine,
+            category: finding.category,
+            severity: finding.severity,
+            filtered: false,
+            createdAt: now,
+          },
         });
       }
     }
 
-    return comments;
+    if (order) {
+      built.sort(
+        (a, b) =>
+          (order.get(a.finding) ?? Number.MAX_SAFE_INTEGER) -
+          (order.get(b.finding) ?? Number.MAX_SAFE_INTEGER),
+      );
+    }
+    return built.map((entry) => entry.comment);
   }
 
   // -------------------------------------------------------------------------

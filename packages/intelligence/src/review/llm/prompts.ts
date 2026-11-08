@@ -29,6 +29,16 @@ export interface LLMFinding {
   lane?: string;
   /** Optional code snippet showing the problematic code. */
   snippet?: string;
+  /**
+   * **How many findings the engine folded into this one**, set by `deduplicateAcrossLanes` and left undefined when a
+   * finding stood alone.
+   *
+   * **Why a count and not a flag.** Five lanes review one diff from five angles, so **a defect that three of them
+   * independently name is likelier a defect than one only a single angle saw** - and that agreement is the one signal
+   * the review already paid for and then threw away. **The ranking in `review/actionability.ts` uses it as one of its
+   * six terms**, which is the only reason it is stored.
+   */
+  agreement?: number;
 }
 
 /** Parameters passed to each review prompt template. */

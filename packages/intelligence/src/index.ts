@@ -294,6 +294,27 @@ export type { LLMFinding, PromptContext, ReviewLane } from './review/llm/prompts
 export { LLMReviewEngine } from './review/llm/llm-review-engine.js';
 export type { LLMReviewOptions, LLMReviewResult } from './review/llm/llm-review-engine.js';
 
+// Actionability ranking — the order a reader should meet the findings in.
+export {
+  ACTIONABILITY_WEIGHTS,
+  collectDiffFacts,
+  matchedGoldenIndices,
+  maximumMatchingCount,
+  point,
+  rankFindings,
+  scoreSubset,
+  topKCurve,
+  weighFinding,
+} from './review/actionability.js';
+export type {
+  ActionabilityFeatures,
+  ActionabilityScore,
+  DiffFacts,
+  LocatedFinding,
+  RankedFinding,
+  TopKPoint,
+} from './review/actionability.js';
+
 // Comment Positioner
 export { CommentPositioner } from './review/comment-positioner.js';
 export type { PositionedComment, PositionResult } from './review/comment-positioner.js';
