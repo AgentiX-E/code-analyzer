@@ -329,13 +329,6 @@ async function buildFixture(): Promise<Fixture> {
 // The arms
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = [
-  'You are the code-analyzer agent. A developer has typed a request and you must answer it using the tools you are',
-  `given. The project you are working in is indexed under the id "${FIXTURE.projectId}"; use that id in every call that`,
-  'takes one. Call the single most appropriate tool for the request. If no tool can do what was asked, say so in one',
-  'sentence and do not call anything. Never invent a tool name.',
-].join(' ');
-
 type ArmName = 'full' | 'names-only' | 'lexical';
 
 interface ArmConfig {
@@ -376,7 +369,7 @@ async function runModelArm(
   for (const task of tasks) {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       const observations: StepObservation[] = [];
-      let transcript = task.prompt;
+      let transcript = firstTurn(task);
 
       for (let step = 0; step < Math.max(1, task.steps.length); step += 1) {
         const completion = await provider.completeWithTools(transcript, tools, {
@@ -391,9 +384,7 @@ async function runModelArm(
         observations.push({ calls, text: completion.content, executed });
 
         if (calls.length === 0) break;
-        transcript =
-          `${task.prompt}\n\nYou called ${calls[0]!.name} and it returned:\n` +
-          `${(executed?.detail ?? '').slice(0, 1200)}\n\nNow continue with the request.`;
+        transcript = nextTurn(task, { tool: calls[0]!.name, detail: executed?.detail ?? '' });
       }
       runs.push({ taskId: task.id, attempt, steps: observations });
     }

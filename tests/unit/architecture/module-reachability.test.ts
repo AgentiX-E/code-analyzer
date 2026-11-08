@@ -187,6 +187,7 @@ const TEST_ONLY: Readonly<Record<string, readonly string[]>> = {
     // benchmark's answer key on the public surface to satisfy a reachability walk - the same judgement `lca-*` was
     // recorded under.
     'benchmark/agentic/lexical-router.ts',
+    'benchmark/agentic/prompt.ts',
     'benchmark/agentic/score.ts',
     'benchmark/agentic/tasks.ts',
     'benchmark/benchmark-fixtures.ts',
@@ -350,7 +351,7 @@ describe('every module a package compiles is reachable from an entry its manifes
       cli: 9,
       core: 45,
       infra: 29,
-      intelligence: 152,
+      intelligence: 153,
       mcp: 39,
       server: 24,
       shared: 10,
@@ -385,7 +386,7 @@ describe('every module a package compiles is reachable from an entry its manifes
     // and the lexical null. Same judgement as the digest: measurement code with no runtime caller, recorded rather than
     // exported.
     const total = Object.values(TEST_ONLY).reduce((sum, modules) => sum + modules.length, 0);
-    expect(total).toBe(72);
+    expect(total).toBe(73);
   });
 
   it('nothing is listed as test-only while the product reaches it', () => {
