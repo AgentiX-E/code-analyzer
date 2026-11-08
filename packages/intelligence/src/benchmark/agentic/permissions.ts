@@ -711,7 +711,7 @@ export const CORPUS: readonly CorpusModule[] = [
  * citation for it - `counted: 0, samples: 0, publishable: false` - until this declaration existed. That refusal was
  * correct: it could not verify a number, so it would not accept one.
  *
- * The unit is one module and one question, asked in all three arms. **The declaration is a claim, and
+ * The unit is one module and one question, asked in every arm. **The declaration is a claim, and
  * `agentic/__tests__/permissions.test.ts` recomputes it from `CORPUS`** - the same arrangement `AGENTIC_TASK_STATS`
  * uses, for the same reason: a declaration nobody checks is a copy of the number it is supposed to verify.
  */
