@@ -181,6 +181,14 @@ const TEST_ONLY: Readonly<Record<string, readonly string[]>> = {
     'workers/crash-supervisor.ts',
   ],
   intelligence: [
+    // **The L4 task set is data for an instrument, not part of the product API.** `scripts/agentic-tools.ts` and the
+    // three suites beside it are the only callers: the router the model is compared against, the arithmetic that turns
+    // its choices into a rate, and the hundred tasks themselves. Exporting either from the package entry would put a
+    // benchmark's answer key on the public surface to satisfy a reachability walk - the same judgement `lca-*` was
+    // recorded under.
+    'benchmark/agentic/lexical-router.ts',
+    'benchmark/agentic/score.ts',
+    'benchmark/agentic/tasks.ts',
     'benchmark/benchmark-fixtures.ts',
     'benchmark/code-review-benchmark.ts',
     // **Named by the two artifacts it stamps and by nothing in the product.** A corpus digest exists so a benchmark
@@ -342,7 +350,7 @@ describe('every module a package compiles is reachable from an entry its manifes
       cli: 9,
       core: 45,
       infra: 29,
-      intelligence: 149,
+      intelligence: 152,
       mcp: 39,
       server: 24,
       shared: 10,
@@ -373,8 +381,11 @@ describe('every module a package compiles is reachable from an entry its manifes
     // **Sixty-nine since iteration 100 added `benchmark/corpus-digest.ts`** — the digest a benchmark artifact uses to
     // name the corpus version it measured. It is a measurement concern with no runtime caller, which is what this
     // register is for; the number moves when a module of that kind is added, and that is the point of asserting it.
+    // **Seventy-two since iteration 104 added the three modules of the L4 instrument** - the task set, the arithmetic
+    // and the lexical null. Same judgement as the digest: measurement code with no runtime caller, recorded rather than
+    // exported.
     const total = Object.values(TEST_ONLY).reduce((sum, modules) => sum + modules.length, 0);
-    expect(total).toBe(69);
+    expect(total).toBe(72);
   });
 
   it('nothing is listed as test-only while the product reaches it', () => {

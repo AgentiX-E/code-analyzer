@@ -12,6 +12,10 @@
 
 import type { ToolDefinition } from '../../review/llm/provider.js';
 
+/** Okapi BM25's two constants, at the textbook values. */
+const K1 = 1.2;
+const B = 0.75;
+
 /** One indexed document: a tool, and the words that describe it. */
 export interface CatalogDocument {
   readonly name: string;
@@ -32,12 +36,16 @@ export function tokenise(text: string): string[] {
 /** Build the documents this arm indexes from a tool catalog. */
 export function catalogDocuments(tools: readonly ToolDefinition[]): CatalogDocument[] {
   return tools.map((tool) => {
-    const properties =
-      (tool.parameters as { properties?: Record<string, unknown> }).properties ?? {};
+    // **A spread rather than a `??`.** Spreading `undefined` is the empty object, so a tool that declares no
+    // properties needs no coalesce and the arm has one fewer branch than the one that shipped with a default nobody
+    // could reach.
+    const declared = {
+      ...(tool.parameters as { properties?: Record<string, unknown> }).properties,
+    };
     return {
       name: tool.name,
       description: tool.description,
-      parameters: Object.keys(properties),
+      parameters: Object.keys(declared),
     };
   });
 }
@@ -45,16 +53,18 @@ export function catalogDocuments(tools: readonly ToolDefinition[]): CatalogDocum
 /**
  * Rank tools for a query with Okapi BM25.
  *
- * **`k1 = 1.2`, `b = 0.75`, the textbook defaults**, because a tuned BM25 would be a second thing to defend and this arm
- * is a floor rather than a contender. Ties break on name so two runs rank identically.
+ * **`k1 = 1.2`, `b = 0.75`, the textbook defaults, and not parameters.** A tuned BM25 would be a second thing to defend,
+ * and this arm is a floor rather than a contender — so the constants are `const`, and the version of this function that
+ * took them as an optional argument was removed when its only caller turned out to be a test of itself. Ties break on
+ * name so two runs rank identically.
  */
 export function rankTools(
   query: string,
   documents: readonly CatalogDocument[],
-  options: { readonly k1?: number; readonly b?: number } = {},
 ): Array<{ name: string; score: number }> {
-  const k1 = options.k1 ?? 1.2;
-  const b = options.b ?? 0.75;
+  const k1 = K1;
+  const b = B;
+  if (documents.length === 0) return [];
   const queryTerms = tokenise(query);
 
   const docs = documents.map((doc) => {
@@ -73,7 +83,13 @@ export function rankTools(
     return { name: doc.name, length: terms.length, frequency };
   });
 
-  const averageLength = docs.reduce((sum, doc) => sum + doc.length, 0) / Math.max(1, docs.length);
+  // **A floor on the mean, not a guard that cannot fire.** An empty catalog is handled above; a catalog whose every
+  // document tokenises to nothing would divide by zero downstream, and one sixteenth is below every mean a real catalog
+  // produces and above zero, so the term is a floor rather than a correction.
+  const averageLength = Math.max(
+    1 / (docs.length + 1),
+    docs.reduce((sum, doc) => sum + doc.length, 0) / docs.length,
+  );
   const documentFrequency = new Map<string, number>();
   for (const term of new Set(queryTerms)) {
     documentFrequency.set(term, docs.filter((doc) => doc.frequency.has(term)).length);
@@ -86,10 +102,11 @@ export function rankTools(
       for (const term of new Set(queryTerms)) {
         const frequency = doc.frequency.get(term) ?? 0;
         if (frequency === 0) continue;
-        const df = documentFrequency.get(term) ?? 0;
+        // **Every query term is in the map by construction** - it is built from the same set this loop walks - so the
+        // lookup cannot miss and the coalesce that used to sit here was a branch no input could take.
+        const df = documentFrequency.get(term)!;
         const idf = Math.log(1 + (total - df + 0.5) / (df + 0.5));
-        const denominator =
-          frequency + k1 * (1 - b + (b * doc.length) / Math.max(1, averageLength));
+        const denominator = frequency + k1 * (1 - b + (b * doc.length) / averageLength);
         score += idf * ((frequency * (k1 + 1)) / denominator);
       }
       return { name: doc.name, score };

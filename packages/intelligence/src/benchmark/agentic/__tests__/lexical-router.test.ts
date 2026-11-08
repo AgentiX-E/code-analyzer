@@ -82,6 +82,10 @@ describe('ranking the catalog for a sentence', () => {
     expect(ranked[0]?.name).toBe('hotspot_detection');
   });
 
+  it('**ranks nothing over an empty catalog instead of dividing by zero**', () => {
+    expect(rankTools('find dead code', [])).toEqual([]);
+  });
+
   it('**scores zero for a sentence that shares no token with the catalog**', () => {
     const ranked = rankTools('cancel my subscription', documents);
     expect(ranked.every((entry) => entry.score === 0)).toBe(true);

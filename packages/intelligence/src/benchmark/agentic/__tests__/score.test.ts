@@ -189,6 +189,71 @@ describe('argument validation', () => {
   it('**a tool with no schema is not a pass**', () => {
     expect(checkArguments({}, undefined).ok).toBe(false);
   });
+
+  it('**refuses arguments that are not an object at all**', () => {
+    const schema = schemas.get('tests_for');
+    expect(checkArguments(null, schema).why).toBe('the arguments are not an object');
+    expect(checkArguments('symbol=alpha', schema).ok).toBe(false);
+    expect(checkArguments(['alpha'], schema).ok).toBe(false);
+  });
+
+  it('**respects every type the cabinet actually uses**', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        count: { type: 'number' },
+        total: { type: 'integer' },
+        flag: { type: 'boolean' },
+        names: { type: 'array' },
+        nested: { type: 'object' },
+        nothing: { type: 'null' },
+        either: { type: ['string', 'number'] },
+        anything: {},
+      },
+    };
+    expect(
+      checkArguments(
+        { count: 1, total: 2, flag: true, names: [], nested: {}, nothing: null },
+        schema,
+      ).ok,
+    ).toBe(true);
+    expect(checkArguments({ either: 'x' }, schema).ok).toBe(true);
+    expect(checkArguments({ either: 7 }, schema).ok).toBe(true);
+    expect(checkArguments({ either: true }, schema).ok).toBe(false);
+    // A declared type the switch does not know is not a failure: a schema this file cannot interpret must not reject
+    // an argument it has no grounds to reject.
+    expect(checkArguments({ anything: { any: 'shape' } }, schema).ok).toBe(true);
+    expect(checkArguments({ count: Number.NaN }, schema).ok).toBe(false);
+    expect(checkArguments({ nested: [] }, schema).ok).toBe(false);
+  });
+
+  it('**judges a declared type this file does not know as unjudgeable, not as wrong**', () => {
+    const exotic = { type: 'object', properties: { shape: { type: 'widget' } } };
+    expect(checkArguments({ shape: { anything: true } }, exotic).ok).toBe(true);
+    // A key whose value is `undefined` is not a wrong value - it is an absent one - and JSON cannot carry it anyway.
+    expect(checkArguments({ shape: undefined }, exotic).ok).toBe(true);
+  });
+
+  it('**checks an enum in both directions**', () => {
+    const enumerated = {
+      type: 'object',
+      properties: { detail: { type: 'string', enum: ['overview', 'full'] } },
+      required: ['detail'],
+    };
+    expect(checkArguments({ detail: 'full' }, enumerated).ok).toBe(true);
+    expect(checkArguments({ detail: 'summary' }, enumerated).why).toContain('overview, full');
+  });
+
+  it('**accepts an empty schema, because a tool may declare nothing**', () => {
+    expect(checkArguments({ free: 'form' }, { type: 'object' }).ok).toBe(true);
+  });
+
+  it('**treats an undeclared key as legal when the schema does not close itself**', () => {
+    // Most tools in this cabinet declare `properties` without `additionalProperties: false`, and an optional argument a
+    // model adds is not a call the server would reject.
+    const open = { type: 'object', properties: { a: { type: 'string' } }, required: ['a'] };
+    expect(checkArguments({ a: 'x', extra: 1 }, open).ok).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -303,6 +368,44 @@ describe('scoring an attempt', () => {
     expect(score.failure).toBe('call-when-none-expected');
   });
 
+  it('**treats a step the harness did not execute as unasserted, not as passed**', () => {
+    const taskRun: TaskRun = {
+      taskId: single.id,
+      attempt: 0,
+      steps: [
+        {
+          calls: [{ name: 'tests_for', arguments: { symbol: 'alpha', projectId: 'p' } }],
+          text: '',
+          executed: undefined,
+        },
+      ],
+    };
+    const score = scoreAttempt(single, taskRun, { schemas, groundingPool: pool });
+    expect(score.asserted).toBeNull();
+    expect(score.correct).toBe(true);
+  });
+
+  it('**survives a call whose argument object the model never wrote**', () => {
+    const task: AgenticTask = {
+      ...single,
+      steps: [{ gold: ['tests_for'], call: { symbol: 'alpha' }, grounding: ['alpha'] }],
+    };
+    const score = scoreAttempt(
+      task,
+      run(task.id, [
+        { name: 'tests_for', arguments: undefined as unknown as Record<string, unknown> },
+      ]),
+      { schemas },
+    );
+    expect(score.grounded).toBe(false);
+  });
+
+  it('**an expected call that never came is a failure, and it is named as one**', () => {
+    const score = scoreAttempt(single, run(single.id, []), { schemas, groundingPool: pool });
+    expect(score.selected).toBe(false);
+    expect(score.failure).toBe('no-call-when-expected');
+  });
+
   it('**saying nothing is correct for a task nothing can answer**', () => {
     const score = scoreAttempt(none, run(none.id, []), { schemas });
     expect(score.correct).toBe(true);
@@ -398,6 +501,35 @@ describe('summarising an arm', () => {
   });
 });
 
+describe('grounding without a pool', () => {
+  it('**checks that the value is in the call, and not that a fixture contains it**', () => {
+    // The pool is what proves an entity exists; a caller without one can still prove the call names it.
+    const task: AgenticTask = {
+      ...single,
+      steps: [{ gold: ['tests_for'], call: { symbol: 'alpha' }, grounding: ['alpha'] }],
+    };
+    const score = scoreAttempt(
+      task,
+      run(task.id, [{ name: 'tests_for', arguments: { symbol: 'alpha' } }]),
+      { schemas },
+    );
+    expect(score.grounded).toBe(true);
+  });
+});
+
+describe('summarising a set with a stray attempt', () => {
+  it('**ignores an attempt for a task the set does not contain, rather than inventing one**', () => {
+    const summary = summariseArm(
+      'arm',
+      [attempt(single.id, true), attempt('test/not-in-the-set', true)],
+      [single],
+    );
+    expect(summary.overall.total).toBe(2);
+    expect(summary.passEvery.total).toBe(1);
+    expect(summary.perTask).toHaveLength(1);
+  });
+});
+
 describe('comparing two arms', () => {
   const tasks: AgenticTask[] = [single, chain, none];
 
@@ -416,9 +548,36 @@ describe('comparing two arms', () => {
     expect(comparison.neither).toBe(1);
   });
 
+  it('**credits the second arm where only it was right**', () => {
+    const a = arm('a', [false, true, false]);
+    const b = arm('b', [false, true, true]);
+    const comparison = compareArms(a, b);
+    expect(comparison.onlyB).toBe(1);
+    expect(comparison.both).toBe(1);
+    expect(comparison.neither).toBe(1);
+  });
+
   it('**two identical arms are not evidence of a difference**', () => {
     const a = arm('a', [true, false, true]);
     expect(compareArms(a, arm('b', [true, false, true])).pValue).toBe(1);
+  });
+
+  it('**counts a task only one arm ran as untestable rather than as a win for whoever ran it**', () => {
+    const a = summariseArm(
+      'a',
+      [attempt(single.id, true), attempt(chain.id, true)],
+      [single, chain],
+    );
+    const b = summariseArm(
+      'b',
+      [attempt(single.id, false), attempt(none.id, true)],
+      [single, none],
+    );
+    const comparison = compareArms(a, b);
+    // `chain` is in one arm and not the other, so it is not a discordant pair; `none` is likewise absent from `a`.
+    expect(comparison.onlyA).toBe(1);
+    expect(comparison.onlyB).toBe(0);
+    expect(comparison.neither).toBe(0);
   });
 
   it('**a one-task difference cannot be significant at this size**', () => {

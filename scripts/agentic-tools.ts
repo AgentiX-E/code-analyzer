@@ -424,9 +424,6 @@ async function execute(
   step: number,
 ): Promise<{ ok: boolean; detail: string } | null> {
   if (call === undefined) return null;
-  if (task.assert.kind === 'none') return null;
-  // **The assertion belongs to the last step**: for a chain, the answer is what the second call produced.
-  if (task.class === 'chain' && step !== task.steps.length - 1) return null;
 
   const registry = createToolRegistry();
   if (registry.get(call.name) === undefined) {
@@ -506,9 +503,12 @@ async function selfTest(): Promise<number> {
       runs.push(taskRun);
       const score = scoreAttempt(task, taskRun, { schemas: catalog.schemas, groundingPool: pool });
       if (!score.correct) defects.push(`${task.id}: the gold call is ${String(score.failure)}`);
-      const failed = taskRun.steps.find((observed) => observed.executed?.ok === false);
-      if (failed !== undefined)
-        defects.push(`${task.id}: execution failed — ${failed.executed?.detail ?? ''}`);
+      // **Only the step the task asserts on.** Every step is executed so a chain can be shown its own first result, and
+      // a tool that legitimately refuses without a git checkout or a repository group is not a defect in the answer key.
+      if (score.asserted === false) {
+        const last = taskRun.steps[taskRun.steps.length - 1];
+        defects.push(`${task.id}: execution failed — ${last?.executed?.detail ?? ''}`);
+      }
     }
   } finally {
     fixture.dispose();
@@ -643,6 +643,21 @@ async function run(options: Options): Promise<number> {
     perTask: arms.map((arm) => ({
       arm: arm.config.name,
       tasks: arm.summary.perTask,
+    })),
+    // **What was chosen, not only whether it was right.** The first artifact recorded the verdict and not the choice, so
+    // a rate of 10.8 % could be read as "the model is bad" or as "the answer key is narrow" and there was no way to tell
+    // from the file. One line per attempt per step is cheap, and it is the difference between a number and a diagnosis.
+    choices: arms.map((arm) => ({
+      arm: arm.config.name,
+      steps: rawRuns[arm.config.name]!.flatMap((taskRun) =>
+        taskRun.steps.map((observed, step) => ({
+          taskId: taskRun.taskId,
+          attempt: taskRun.attempt,
+          step,
+          chose: observed.calls.map((call) => call.name),
+          executed: observed.executed === null ? null : observed.executed.ok,
+        })),
+      ),
     })),
     failures: Object.fromEntries(
       arms.map((arm) => [

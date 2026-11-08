@@ -139,6 +139,26 @@ jobs:
           console.log(`McNemar against the null: full vs lexical — only-full ${c.full_vs_lexical.onlyA}, only-lexical ${c.full_vs_lexical.onlyB}, p = ${c.full_vs_lexical.pValue.toFixed(4)}`);
           console.log('');
           console.log(`McNemar on the description ablation: full vs names-only — only-full ${c.full_vs_names_only.onlyA}, only-names ${c.full_vs_names_only.onlyB}, p = ${c.full_vs_names_only.pValue.toFixed(4)}`);
+          console.log('');
+          // **What it chose, not only whether it was right.** A rate says how often; the histogram says whether the
+          // answer key is narrow (one tool absorbing everything) or the model is diffuse (a different tool per attempt).
+          const full = (a.choices || []).find((entry) => entry.arm === 'full');
+          if (full) {
+            const histogram = new Map();
+            for (const step of full.steps) {
+              const name = step.chose[0] || '(no call)';
+              histogram.set(name, (histogram.get(name) || 0) + 1);
+            }
+            const top = [...histogram.entries()].sort((l, r) => r[1] - l[1]).slice(0, 10);
+            console.log('Most-chosen tools on the `full` arm (all steps, all attempts):');
+            console.log('');
+            console.log('| tool | steps |');
+            console.log('| --- | --- |');
+            for (const [name, count] of top) console.log(`| \`${name}\` | ${count} |`);
+            console.log('');
+            const distinct = histogram.size;
+            console.log(`${distinct} distinct tools were named across ${full.steps.length} steps.`);
+          }
           NODE
 
       # **The artifact is not committed from here.** A bot commit would put a figure in the repository that no reviewer

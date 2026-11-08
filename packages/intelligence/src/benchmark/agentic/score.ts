@@ -5,7 +5,7 @@
  * a model, and so the scoring rules can be tested against hand-computed cases instead of against a live API.
  */
 
-import type { AgenticTask, TaskClass, TaskStep } from './tasks.js';
+import type { AgenticTask, TaskClass } from './tasks.js';
 
 // ---------------------------------------------------------------------------
 // What a run recorded
@@ -224,7 +224,7 @@ export function scoreAttempt(
 
     if (judge === 'call') {
       schemaChecked = true;
-      if (!isSchemaOk(first, step, context)) invalidArguments = true;
+      if (!isSchemaOk(first, context)) invalidArguments = true;
 
       if (step.grounding !== undefined && step.grounding.length > 0) {
         groundedChecked = true;
@@ -232,7 +232,12 @@ export function scoreAttempt(
       }
     }
 
-    if (observed?.executed != null) {
+    // **The assertion is about the last step, and only where the task declares one.** Every step is executed so the
+    // model can be shown what its first call returned; what is *asserted* is the answer the user asked for, which for
+    // a chain is the second call's output. Counting an intermediate call's failure as the answer's failure would score
+    // the transcript rather than the result.
+    const isLast = index === task.steps.length - 1;
+    if (isLast && task.assert.kind !== 'none' && observed?.executed != null) {
       assertedChecked = true;
       if (!observed.executed.ok) assertionFailed = true;
     }
@@ -271,13 +276,17 @@ export function scoreAttempt(
 /** Schema validity of a call, read from the schema the harness recorded for that tool. */
 function isSchemaOk(
   call: ObservedCall,
-  step: TaskStep,
   context: { readonly schemas?: ReadonlyMap<string, ToolSchema> },
 ): boolean {
   const schema = context.schemas?.get(call.name);
   // **A tool with no recorded schema cannot be judged, and is not a pass.** The harness records every schema it sends,
-  // so this is reached only if a call names a tool outside the cabinet - which is a wrong tool, already counted.
-  if (!step.gold.includes(call.name) || schema === undefined) return step.gold.includes(call.name);
+  // so this is reached only if a call names a tool that does not exist - which is a wrong tool, already counted.
+  //
+  // **The schema column is about the call, not about the choice.** The first version of this function returned "is the
+  // tool the gold one" whenever the schema was missing, and marked every wrong-tool attempt as an invalid argument - so
+  // an agent that picked the wrong tool and formatted it perfectly was reported as unable to format, and the column
+  // that exists to separate those two failures could not.
+  if (schema === undefined) return false;
   return checkArguments(call.arguments, schema).ok;
 }
 
