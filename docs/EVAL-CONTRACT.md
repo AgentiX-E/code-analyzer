@@ -101,21 +101,19 @@ exists so each part is compared in its own unit before anything is summed.
 Written here so that the absence is a decision rather than an oversight:
 
 1. **L4 has no measurement.** 51 tools, 5 roles, zero tool-selection records. The next iteration's first deliverable.
-2. **The LCA table reproduces only where the artifact now exists.** `docs/BENCHMARK_REPORT.md` quotes 0.4673 over 115
-   rows from a run whose merged artifact was never committed. A re-run of the sharded workflow, merged by
-   `scripts/lca-merge.ts`, produced `benchmarks/lca-bug-localization.json`: **0.4746 over 125 measured rows**. The old
-   figure is neither retracted nor deleted — it is marked historical, because a run whose artifact is missing and a run
-   that has been superseded are the same defect in two tenses. **The 0.3955 that an audit read as a second run's figure
-   is `sample.worstCaseMap` in this artifact** — the same run with every refusal scored zero — so what looked like two
-   runs disagreeing was one run quoted at two denominators, and the rule that follows is the one this document already
-   states: a mean without its denominator is not a figure. **What the re-run did not settle is whether the lead is
-   real**: the bootstrap interval against BM25 excludes zero and the sign test over the same 125 pairs does not
-   (p = 0.5154), and **the two controls swapped which of them is beaten between runs** (BM25 p = 0.657 → 0.5154, TF-IDF
-   p = 0.069 → 0.0013). A paired test that reports two answers has reported one answer, namely "not established". **The
-   current figures in that section are now rendered from the artifact** by `scripts/lca-report.js`, delimited by markers,
-   with `--check` in CI refusing a report and an artifact that disagree — the four tables a reader quotes can no longer be
-   typed by hand. The narratives older than the artifact are still prose: they are analyses of the earlier run's rows, and
-   each says so.
+2. **The LCA table reproduces, and it took three runs to say anything durable.** `docs/BENCHMARK_REPORT.md` quoted 0.4673
+   over 115 rows from a run whose merged artifact was never committed. The merge then produced one — 0.4746 over 125 rows
+   — but stated no scope on any row and set a cap wider than its own charge. **The artifact now holds the run the harness
+   produces after both defects were fixed**: 0.4647 over 141 of 150 rows, 150 of 150 rows scoped, a cap of 3 833 against
+   3 963. **The 0.3955 an audit read as a second run's figure is `sample.worstCaseMap`** — the same artifact with every
+   refusal scored zero — so what looked like two runs disagreeing was one run quoted at two denominators, and the rule
+   that follows is the one this document already states: a mean without its denominator is not a figure. **What three
+   runs establish is narrower than any of them claimed**: BM25 has never cleared its own paired test (p = 0.657, 0.5154,
+   0.5467) and its interval changed sides when the sample grew, while TF-IDF cleared it twice. "We lead the term-count
+   family" is supportable; "we beat BM25" has never been established on this corpus. **The current figures in that section
+   are rendered from the artifact** by `scripts/lca-report.js`, delimited by markers, with `--check` in CI refusing a
+   report and an artifact that disagree. The narratives older than the artifact are still prose: they are analyses of the
+   earlier run's rows, and each says so.
 3. **OWASP has no official scorecard.** The labels are the benchmark's and the formula is the scorecard's, but the
    implementation has never been diffed against `BenchmarkUtils`. A reimplementation nobody has compared is a
    hypothesis.

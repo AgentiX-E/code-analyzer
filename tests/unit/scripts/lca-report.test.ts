@@ -91,7 +91,9 @@ describe('lca report — the four tables a reader quotes', () => {
   it('**refuses a block that a hand has edited, and names the line that differs**', () => {
     // This is the whole point: 0.4746 typed as 0.4750 in a report is a figure from a run that does not exist.
     const rendered = execFileSync('node', [SCRIPT], { encoding: 'utf8' }).trimEnd();
-    const edited = rendered.replace('**0.4746**', '**0.4750**');
+    // **A figure altered by one digit, whatever the figure is.** Naming the current value would make this case fail on
+    // every re-merge for a reason that has nothing to do with what it checks.
+    const edited = rendered.replace(/0\.\d{4}/, '0.9999');
     expect(edited).not.toEqual(rendered);
     const { dir, script } = tree(
       `# report\n\n${edited}\n`,

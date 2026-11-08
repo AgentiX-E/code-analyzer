@@ -131,91 +131,105 @@ project did not author, and the first figure that can be placed in a published t
 
 **This table quoted a run whose artifact was never in this repository, and the artifact is now here.** The measurement
 is sharded — one workflow job per language split, merged by `scripts/lca-merge.ts` — and the shards are gitignored
-intermediates, so a merge that was never run left the report citing a file that did not exist. Re-run while this section
-was audited, `benchmarks/lca-bug-localization.json` now holds the figure: **125 of 150 rows measured, MAP 0.4746** over
-those 125, **0.5867 recall at ten files with precision 0.1728 and F1 0.2375**.
+intermediates, so a merge that was never run left the report citing a file that did not exist. **Three runs then followed
+in one working session**, and the sequence is the point:
+
+| run                                                  | measured       | scope stated        | cap against its charge          | MAP        | BM25 paired interval | TF-IDF p |
+| ---------------------------------------------------- | -------------- | ------------------- | ------------------------------- | ---------- | -------------------- | -------- |
+| the earlier run this section quoted                  | 115 of 150     | —                   | —                               | 0.4673     | [−0.0248, +0.0557]   | 0.0693   |
+| the merge that produced the committed file, unscoped | 125 of 150     | 0 rows of 150       | 4 000 against 1 981 — **wider** | 0.4746     | [+0.0069, +0.0656]   | 0.0013   |
+| **the run the artifact now holds**                   | **141 of 150** | **150 rows of 150** | 3 833 against 3 963             | **0.4647** | [−0.0095, +0.0549]   | 0.0002   |
+
+The middle row is the one this section was audited on, and the third exists because the `Long Code Arena` workflow ran on
+the commit that added the check below. **The figure fell when the run got better** — 0.4746 over 125 became 0.4647 over
+141 — which is what a bounded sample does when the sixteen hardest instances stop being refused.
 
 <!-- lca:figures:begin — written by `node scripts/lca-report.js --write`, checked by `--check` in CI -->
 
 **Every figure in this block is rendered from `benchmarks/lca-bug-localization.json`.** The tables below it are the
 argument; these are the numbers, and a change to either without the other fails the check.
 
-Measured 2026-11-08 over 150 planned instances, 150 attempted, 125 measured.
+Measured 2026-11-08 over 150 planned instances, 150 attempted, 141 measured.
 
 ### Three denominators
 
 <!-- prettier-ignore -->
 | how a refusal is scored | rows | MAP | recall@10 | precision@10 | F1@10 | field |
 | --- | --- | --- | --- | --- | --- | --- |
-| not scored at all — the rows the analysis ran on | 125 of 150 | **0.4746** | 0.5867 | 0.1728 | 0.2375 | `overall.map.value` |
-| the file-level fallback arm's figure | 150 | 0.4499 | — | — | — | `fusion.overall.value` |
-| zero | 150 | 0.3955 | — | — | — | `sample.worstCaseMap` |
+| not scored at all — the rows the analysis ran on | 141 of 150 | **0.4647** | 0.5858 | 0.1681 | 0.2336 | `overall.map.value` |
+| the file-level fallback arm's figure | 150 | 0.4470 | — | — | — | `fusion.overall.value` |
+| zero | 150 | 0.4368 | — | — | — | `sample.worstCaseMap` |
 
 <!-- prettier-ignore -->
 | cut | recall | precision | F1 | false positive rate |
 | --- | --- | --- | --- | --- |
-| @1 | 0.3360 | 0.6160 | 0.3970 | 0.0040 |
-| @3 | 0.4307 | 0.3213 | 0.3260 | 0.0317 |
-| @5 | 0.4951 | 0.2536 | 0.2971 | 0.0542 |
-| @10 | 0.5867 | 0.1728 | 0.2375 | 0.1112 |
+| @1 | 0.3129 | 0.5887 | 0.3737 | 0.0038 |
+| @3 | 0.4305 | 0.3227 | 0.3274 | 0.0295 |
+| @5 | 0.5141 | 0.2574 | 0.3062 | 0.0486 |
+| @10 | 0.5858 | 0.1681 | 0.2336 | 0.1020 |
 
 ### The two controls, paired
 
 <!-- prettier-ignore -->
 | control | rows (all) | its mean there | paired rows | its mean there | ours | Δ | 95 % interval | W / L / T | sign test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| BM25 | 150 | 0.4242 | 125 | 0.4383 | 0.4746 | +0.0363 | [0.0069, 0.0656] | 46 / 39 / 40 | 0.5154 |
-| **TF-IDF (cosine)** | 150 | 0.3800 | 125 | 0.3989 | 0.4746 | +0.0757 | [0.0327, 0.1182] | 63 / 31 / 31 | 0.0013 |
+| BM25 | 150 | 0.4242 | 141 | 0.4422 | 0.4647 | +0.0225 | [-0.0095, 0.0549] | 46 / 53 / 42 | 0.5467 |
+| **TF-IDF (cosine)** | 150 | 0.3800 | 141 | 0.3951 | 0.4647 | +0.0696 | [0.0291, 0.1115] | 73 / 34 / 34 | 0.0002 |
 
 ### By split
 
 <!-- prettier-ignore -->
 | split | measured | MAP | recall@10 | F1@10 |
 | --- | --- | --- | --- | --- |
-| py | 42 of 50 | 0.5366 | 0.6668 | 0.2588 |
-| java | 36 of 50 | 0.5020 | 0.5827 | 0.2608 |
-| kt | 47 of 50 | 0.3983 | 0.5182 | 0.2007 |
+| py | 49 of 50 | 0.5320 | 0.6678 | 0.2542 |
+| java | 42 of 50 | 0.4769 | 0.5822 | 0.2471 |
+| kt | 50 of 50 | 0.3884 | 0.5085 | 0.2021 |
 
 ### By checkout size
 
 <!-- prettier-ignore -->
 | checkout size | attempted | measured | ours | BM25 | Δ | fallback arm | fused (all attempted) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0-50 files | 22 | 22 | 0.6714 | 0.6922 | −0.0208 | 0.4527 | 0.6714 |
-| 50-200 files | 52 | 49 | 0.4513 | 0.4058 | +0.0455 | 0.3481 | 0.4550 |
-| 200-500 files | 37 | 32 | 0.4784 | 0.4353 | +0.0431 | 0.4056 | 0.4828 |
-| 500-2000 files | 31 | 22 | 0.3242 | 0.2612 | +0.0630 | 0.1413 | 0.2992 |
-| 2000+ files | 8 | 0 | — | — | — | 0.1346 | 0.2396 |
+| 0-50 files | 22 | 22 | 0.6603 | 0.6922 | −0.0319 | 0.4527 | 0.6603 |
+| 50-200 files | 52 | 52 | 0.4370 | 0.4218 | +0.0152 | 0.3481 | 0.4370 |
+| 200-500 files | 37 | 37 | 0.5010 | 0.4445 | +0.0565 | 0.4056 | 0.5010 |
+| 500-2000 files | 31 | 29 | 0.3185 | 0.2899 | +0.0286 | 0.1413 | 0.3015 |
+| 2000+ files | 8 | 1 | 0.5000 | 0.3333 | +0.1667 | 0.1346 | 0.2396 |
 
 ### The run in two lines
 
 <!-- prettier-ignore -->
 | property | this run |
 | --- | --- |
-| rows stating what the analysis was allowed to read | 0 of 150 — **the whole checkout on every row** |
-| file cap against the charge it publishes | 4000 files against floor(237796 / 120) = 1981 — **wider than its own charge** |
+| rows stating what the analysis was allowed to read | 150 of 150 |
+| file cap against the charge it publishes | 3833 files against floor(237796 / 60) = 3963 |
 
 <!-- lca:figures:end -->
 
-**The three denominators are the table above, and they are one run.** 0.4746 is the figure computed over the rows that produced a ranking; the other two answer what a refusal costs, and the audit that read 0.3955 as another run's figure read it without its denominator. **The report no longer types any of these numbers**: the block is written by `node scripts/lca-report.js --write` and `--check` fails in CI when the artifact and the report disagree, which is the only version of this section that cannot drift on the next run.
+**The three denominators are the table above, and they are one run.** 0.4647 is the figure computed over the rows
+that produced a ranking; the other two answer what a refusal costs, and the audit that read 0.3955 as another run's
+figure read it without its denominator — in this artifact the same column is **0.4368**, because nine refusals instead of
+twenty-five is what a run under a working admission rule produces. **The report no longer types any of these numbers**:
+the block is written by `node scripts/lca-report.js --write` and `--check` fails in CI when the artifact and the report
+disagree, which is the only version of this section that cannot drift on the next run.
 
-**Both controls are behind, and only one of the two leads survives its own significance test.** The bootstrap interval
-against BM25 excludes zero and the exact sign test over the same 125 pairs does not (**p = 0.5154**), so on this run the
-term-count comparator is **not** separated from the product; against TF-IDF both tests agree (**p = 0.0013**). **The
-previous run had these two the other way round** — BM25 p = 0.657, TF-IDF p = 0.069 — and that reversal is the honest
-headline: a 125-row sample moves which comparator is beaten, so the durable statement is that the product leads the
-term-count family on this corpus, not that it leads any particular member of it. **The two control means are in different
-columns because they are different denominators**: 0.4242 is a mean over all 150 attempted rows including every refusal,
-and only 0.4383 is subtractable from 0.4746. 0.4746 − 0.4383 = 0.0363, and the artifact computes the subtraction rather
-than leaving it to the reader.
+**Both controls are behind, and the TF-IDF lead is the only one three runs agree on.** On 141 paired rows BM25's delta is
+**+0.0225** with a 95 % interval of **[−0.0095, +0.0549]** and a sign test of **p = 0.5467** — **both tests now agree, and
+what they agree on is that the term-count comparator cannot be separated from the product**; TF-IDF's delta is
+**+0.0696**, **[+0.0291, +0.1115]**, **p = 0.0002**, and 73 wins against 34 losses. Across the three runs BM25 has never
+cleared its own test (p = 0.657, 0.5154, 0.5467) while TF-IDF cleared it twice (0.069, 0.0013, 0.0002), **and the
+interval on BM25 changed sides when the sample grew** — which is the reading a single run could not have produced: the
+durable claim is a lead over the term-count family, and the specific claim "we beat BM25" has never been established on
+this corpus. **The two control means are in different columns because they are different denominators**: 0.4242 is a mean
+over all 150 attempted rows including every refusal, 0.4422 over the 141 that were measured, and only the second is
+subtractable from 0.4647.
 
-**Two defects of this run are published beside its figure rather than edited out of it.** No row carries an
-`analysisScope`, so **every instance was analysed over the whole checkout** (`rowsScoped` 0, `byLanguage` null
-throughout); the parts were written before the field existed, and `scripts/lca-gate.js` now prints that state in its
-summary instead of crashing on it. And the **file cap of 4 000 is wider than the 1 981 its own charge of 120 declarations
-per file affords** — `fileCap.consistent` is false and `fileCap.reason` states the gap. **Neither is repaired by editing
-the artifact**: narrowing the cap now would be rewriting the run, and the honest record of a run under a loose bound is
-the bound.
+**The two defects this section published against the previous artifact are gone, and how they went is the record.**
+That run stated no scope on any row and set a cap of 4 000 against a charge that afforded 1 981; `fileCap.consistent`
+was false and `fileCap.reason` said so, the gate printed `the whole checkout on every row`, and **neither was repaired by
+editing the artifact**. The next run came from the harness as it now stands — **150 of 150 rows scoped** to
+`**/*.py`, `**/*.java` and `**/*.kt`, and a cap of **3 833 against 3 963** — so the two lines a reader can check are
+clean because the run was re-measured, not because the report was softened.
 
 > **Everything from here to the end of this section was measured on the run that this artifact replaced** — 150
 > attempted, 115 measured, MAP 0.4673. Those tables are kept because each one records a decision that was taken from it,
