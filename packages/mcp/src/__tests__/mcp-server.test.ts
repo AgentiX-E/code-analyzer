@@ -4,7 +4,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { CodeAnalyzerMCPServer } from '../server/mcp-server.js';
 import { ResourceProvider } from '../resources/index.js';
 import { PromptProvider } from '../prompts/index.js';
-import { AuthMiddleware, RateLimiter, ToolPolicy, RequestLogger } from '../middleware/index.js';
+import { AuthMiddleware, RateLimiter } from '../middleware/index.js';
 
 describe('CodeAnalyzerMCPServer', () => {
   let server: CodeAnalyzerMCPServer;
@@ -258,67 +258,10 @@ describe('Middleware', () => {
     });
   });
 
-  describe('ToolPolicy', () => {
-    it('should allow all tools for "all" profile', () => {
-      const policy = new ToolPolicy('all');
-      expect(policy.isAllowed('any_tool', 'analysis')).toBe(true);
-      expect(policy.isAllowed('any_tool', 'scout')).toBe(true);
-    });
-
-    it('should filter by profile', () => {
-      const policy = new ToolPolicy('analysis');
-      expect(policy.isAllowed('tool', 'analysis')).toBe(true);
-      expect(policy.isAllowed('tool', 'all')).toBe(true);
-      expect(policy.isAllowed('tool', 'scout')).toBe(false);
-    });
-
-    it('should update profile', () => {
-      const policy = new ToolPolicy('analysis');
-      policy.setProfile('scout');
-      expect(policy.isAllowed('tool', 'analysis')).toBe(false);
-      expect(policy.isAllowed('tool', 'scout')).toBe(true);
-    });
-  });
-
-  describe('RequestLogger', () => {
-    it('should log requests and retrieve them', () => {
-      const logger = new RequestLogger(10);
-      logger.log({ toolName: 'test', args: { x: 1 }, duration: 100, error: false });
-
-      const logs = logger.getLogs();
-      expect(logs).toHaveLength(1);
-      expect(logs[0]!.toolName).toBe('test');
-      expect(logs[0]!.duration).toBe(100);
-    });
-
-    it('should track error entries', () => {
-      const logger = new RequestLogger(10);
-      logger.log({ toolName: 'ok', args: {}, duration: 10, error: false });
-      logger.log({ toolName: 'fail', args: {}, duration: 5, error: true });
-
-      const stats = logger.getStats();
-      expect(stats.total).toBe(2);
-      expect(stats.errors).toBe(1);
-      expect(stats.avgDuration).toBe(7.5);
-    });
-
-    it('should trim old logs', () => {
-      const logger = new RequestLogger(2);
-      logger.log({ toolName: 'a', args: {}, duration: 1, error: false });
-      logger.log({ toolName: 'b', args: {}, duration: 1, error: false });
-      logger.log({ toolName: 'c', args: {}, duration: 1, error: false });
-
-      expect(logger.getLogs()).toHaveLength(2);
-      expect(logger.getLogs()[0]!.toolName).toBe('b');
-    });
-
-    it('should clear logs', () => {
-      const logger = new RequestLogger(10);
-      logger.log({ toolName: 'test', args: {}, duration: 1, error: false });
-      logger.clear();
-      expect(logger.getLogs()).toHaveLength(0);
-    });
-  });
+  // `ToolPolicy` and `RequestLogger` were tested here and constructed by nothing. A test for a class no request
+  // reaches is a test that certifies the presence of a feature rather than its effect, which is how a duplicate
+  // authorisation rule survived in the tree; the rule is now `ToolRegistry.authorize`, and
+  // `profile-enforcement.test.ts` drives it over a real client instead of instantiating it.
 });
 
 describe('MCP Server Integration Tests', () => {

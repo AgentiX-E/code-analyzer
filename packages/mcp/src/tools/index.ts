@@ -142,7 +142,8 @@ export function createToolRegistry(): ToolRegistry {
     'Analyze and index a code repository',
     analyzeRepositorySchema,
     analyzeRepository,
-    'all',
+    'analysis',
+    'write',
   );
   registry.register(
     'list_projects',
@@ -150,13 +151,15 @@ export function createToolRegistry(): ToolRegistry {
     listProjectsSchema,
     listProjects,
     'all',
+    'read',
   );
   registry.register(
     'delete_project',
     'Delete an indexed project and its data',
     deleteProjectSchema,
     deleteProject,
-    'all',
+    'analysis',
+    'destroy',
   );
   registry.register(
     'index_status',
@@ -164,6 +167,7 @@ export function createToolRegistry(): ToolRegistry {
     indexStatusSchema,
     indexStatus,
     'all',
+    'read',
   );
 
   // Querying & Exploration (10)
@@ -172,14 +176,16 @@ export function createToolRegistry(): ToolRegistry {
     'Search the knowledge graph by keyword',
     searchGraphSchema,
     searchGraph,
-    'analysis',
+    'all',
+    'read',
   );
   registry.register(
     'search_code',
     'Search source code using full-text search',
     searchCodeSchema,
     searchCode,
-    'analysis',
+    'all',
+    'read',
   );
   registry.register(
     'semantic_search',
@@ -187,6 +193,7 @@ export function createToolRegistry(): ToolRegistry {
     semanticSearchSchema,
     semanticSearch,
     'analysis',
+    'read',
   );
   registry.register(
     'trace_call_path',
@@ -194,6 +201,7 @@ export function createToolRegistry(): ToolRegistry {
     traceCallPathSchema,
     traceCallPath,
     'analysis',
+    'read',
   );
   registry.register(
     'query_graph',
@@ -201,13 +209,15 @@ export function createToolRegistry(): ToolRegistry {
     queryGraphSchema,
     queryGraph,
     'analysis',
+    'read',
   );
   registry.register(
     'get_code_snippet',
     'Retrieve a code snippet by file and line range',
     getCodeSnippetSchema,
     getCodeSnippet,
-    'analysis',
+    'all',
+    'read',
   );
   registry.register(
     'get_architecture',
@@ -215,20 +225,23 @@ export function createToolRegistry(): ToolRegistry {
     getArchitectureSchema,
     getArchitecture,
     'analysis',
+    'read',
   );
   registry.register(
     'get_graph_schema',
     'Get graph schema information',
     getGraphSchemaSchema,
     getGraphSchemaHandler,
-    'analysis',
+    'all',
+    'read',
   );
   registry.register(
     'explore_symbol',
     'Explore a symbol and its relationships',
     exploreSymbolSchema,
     exploreSymbol,
-    'analysis',
+    'all',
+    'read',
   );
   registry.register(
     'find_implementations',
@@ -236,6 +249,7 @@ export function createToolRegistry(): ToolRegistry {
     findImplementationsSchema,
     findImplementations,
     'analysis',
+    'read',
   );
 
   // Change & Impact (4)
@@ -245,6 +259,7 @@ export function createToolRegistry(): ToolRegistry {
     detectChangesSchema,
     detectChanges,
     'analysis',
+    'read',
   );
   // **The surface the arena ships as `tests_for`.** Its `EDGE_TESTS` edges have been produced and read all along -
   // by `structure-lens` and `impact-analyzer` - **and there was no way for an agent to ask**, which is the fifth
@@ -255,6 +270,7 @@ export function createToolRegistry(): ToolRegistry {
     testsForSchema,
     testsFor,
     'analysis',
+    'read',
   );
   registry.register(
     'impact_analysis',
@@ -262,6 +278,7 @@ export function createToolRegistry(): ToolRegistry {
     impactAnalysisSchema,
     impactAnalysis,
     'analysis',
+    'read',
   );
   registry.register(
     'route_map',
@@ -269,6 +286,7 @@ export function createToolRegistry(): ToolRegistry {
     routeMapSchema,
     routeMap,
     'analysis',
+    'read',
   );
   registry.register(
     'check_cycles',
@@ -276,6 +294,7 @@ export function createToolRegistry(): ToolRegistry {
     checkCyclesSchema,
     checkCycles,
     'analysis',
+    'read',
   );
 
   // Code Review (2)
@@ -285,6 +304,7 @@ export function createToolRegistry(): ToolRegistry {
     reviewDiffSchema,
     reviewDiff,
     'analysis',
+    'read',
   );
   registry.register(
     'review_file',
@@ -292,16 +312,25 @@ export function createToolRegistry(): ToolRegistry {
     reviewFileSchema,
     reviewFile,
     'analysis',
+    'read',
   );
 
   // PR Review (2)
-  registry.register('review_pr', 'Review a pull request', reviewPRSchema, reviewPR, 'analysis');
+  registry.register(
+    'review_pr',
+    'Review a pull request',
+    reviewPRSchema,
+    reviewPR,
+    'analysis',
+    'read',
+  );
   registry.register(
     'check_standards',
     'Check code against project standards',
     checkStandardsSchema,
     checkStandards,
     'analysis',
+    'read',
   );
 
   // Reports (3)
@@ -311,6 +340,7 @@ export function createToolRegistry(): ToolRegistry {
     generateReportSchema,
     generateReport,
     'analysis',
+    'read',
   );
   registry.register(
     'export_report',
@@ -318,6 +348,7 @@ export function createToolRegistry(): ToolRegistry {
     exportReportSchema,
     exportReport,
     'analysis',
+    'write',
   );
   registry.register(
     'get_recommendations',
@@ -325,6 +356,7 @@ export function createToolRegistry(): ToolRegistry {
     getRecommendationsSchema,
     getRecommendations,
     'analysis',
+    'read',
   );
 
   // Cross-Repo (7)
@@ -334,6 +366,7 @@ export function createToolRegistry(): ToolRegistry {
     crossRepoSearchSchema,
     crossRepoSearch,
     'analysis',
+    'read',
   );
   registry.register(
     'cross_repo_trace',
@@ -341,6 +374,7 @@ export function createToolRegistry(): ToolRegistry {
     crossRepoTraceSchema,
     crossRepoTrace,
     'analysis',
+    'read',
   );
   registry.register(
     'cross_repo_impact',
@@ -348,13 +382,15 @@ export function createToolRegistry(): ToolRegistry {
     crossRepoImpactSchema,
     crossRepoImpact,
     'analysis',
+    'read',
   );
   registry.register(
     'manage_repo_group',
     'Manage repository groups',
     manageRepoGroupSchema,
     manageRepoGroup,
-    'all',
+    'analysis',
+    'write',
   );
   registry.register(
     'sync_contracts',
@@ -362,6 +398,7 @@ export function createToolRegistry(): ToolRegistry {
     syncContractsSchema,
     syncContracts,
     'analysis',
+    'read',
   );
   registry.register(
     'discover_related_repos',
@@ -369,6 +406,7 @@ export function createToolRegistry(): ToolRegistry {
     discoverRelatedReposSchema,
     discoverRelatedRepos,
     'scout',
+    'read',
   );
   registry.register(
     'cross_repo_review_pr',
@@ -376,6 +414,7 @@ export function createToolRegistry(): ToolRegistry {
     crossRepoReviewPRSchema,
     crossRepoReviewPR,
     'analysis',
+    'read',
   );
 
   // PDG (3)
@@ -385,6 +424,7 @@ export function createToolRegistry(): ToolRegistry {
     pdgQuerySchema,
     pdgQuery,
     'analysis',
+    'read',
   );
   registry.register(
     'taint_analysis',
@@ -392,6 +432,7 @@ export function createToolRegistry(): ToolRegistry {
     taintAnalysisSchema,
     taintAnalysis,
     'analysis',
+    'read',
   );
   registry.register(
     'explain_taint',
@@ -399,6 +440,7 @@ export function createToolRegistry(): ToolRegistry {
     explainTaintSchema,
     explainTaint,
     'analysis',
+    'read',
   );
 
   // Standards (2)
@@ -408,13 +450,15 @@ export function createToolRegistry(): ToolRegistry {
     listStandardsSchema,
     listStandards,
     'all',
+    'read',
   );
   registry.register(
     'create_standard',
     'Create a new project standard',
     createStandardSchema,
     createStandard,
-    'all',
+    'analysis',
+    'write',
   );
 
   // ADR (1)
@@ -423,7 +467,8 @@ export function createToolRegistry(): ToolRegistry {
     'Manage Architecture Decision Records',
     manageADRSchema,
     manageADR,
-    'all',
+    'analysis',
+    'write',
   );
 
   // Agent (1)
@@ -432,7 +477,8 @@ export function createToolRegistry(): ToolRegistry {
     'Install agent skills for the project',
     installSkillsSchema,
     installSkills,
-    'all',
+    'analysis',
+    'write',
   );
 
   // Benchmark (1)
@@ -442,6 +488,7 @@ export function createToolRegistry(): ToolRegistry {
     runBenchmarkSchema,
     runBenchmark,
     'analysis',
+    'read',
   );
 
   // Intelligence Tools (5) — Iteration 15
@@ -451,6 +498,7 @@ export function createToolRegistry(): ToolRegistry {
     trendAnalysisTool.inputSchema,
     trendAnalysisTool.handler,
     'analysis',
+    'read',
   );
   registry.register(
     'hotspot_detection',
@@ -458,6 +506,7 @@ export function createToolRegistry(): ToolRegistry {
     hotspotDetectionTool.inputSchema,
     hotspotDetectionTool.handler,
     'analysis',
+    'read',
   );
   registry.register(
     'refactor_suggestion',
@@ -465,6 +514,7 @@ export function createToolRegistry(): ToolRegistry {
     refactorSuggestionTool.inputSchema,
     refactorSuggestionTool.handler,
     'analysis',
+    'read',
   );
   registry.register(
     'test_generation',
@@ -472,6 +522,7 @@ export function createToolRegistry(): ToolRegistry {
     testGenerationTool.inputSchema,
     testGenerationTool.handler,
     'analysis',
+    'read',
   );
   registry.register(
     'doc_generation',
@@ -479,6 +530,7 @@ export function createToolRegistry(): ToolRegistry {
     docGenerationTool.inputSchema,
     docGenerationTool.handler,
     'analysis',
+    'read',
   );
 
   // These three were implemented and covered by their own suites but never
@@ -492,6 +544,7 @@ export function createToolRegistry(): ToolRegistry {
     codeSuggestionTool.inputSchema,
     codeSuggestionTool.handler,
     'analysis',
+    'read',
   );
   registry.register(
     hallucinationDetectionTool.name,
@@ -499,6 +552,7 @@ export function createToolRegistry(): ToolRegistry {
     hallucinationDetectionTool.inputSchema,
     hallucinationDetectionTool.handler,
     'analysis',
+    'read',
   );
   registry.register(
     reportGenerationTool.name,
@@ -506,6 +560,7 @@ export function createToolRegistry(): ToolRegistry {
     reportGenerationTool.inputSchema,
     reportGenerationTool.handler,
     'analysis',
+    'read',
   );
 
   // **The question-answering surface, registered last because it composes the others.**
@@ -515,6 +570,7 @@ export function createToolRegistry(): ToolRegistry {
     askCodebaseSchema,
     askCodebaseTool,
     'analysis',
+    'read',
   );
 
   // **Story 10: what can never run.** Registered after the answering surface because it reads the graph the same way,
@@ -526,6 +582,7 @@ export function createToolRegistry(): ToolRegistry {
     deadCodeDetectionTool.inputSchema,
     deadCodeDetectionTool.handler,
     'analysis',
+    'read',
   );
 
   return registry;

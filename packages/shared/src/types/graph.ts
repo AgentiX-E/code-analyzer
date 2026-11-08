@@ -564,6 +564,24 @@ export type ErrorCategory = (typeof ERROR_CATEGORIES)[number];
 /** Tool profiles for MCP server — controls which tools are exposed */
 export type ToolProfile = 'all' | 'analysis' | 'scout';
 
+/**
+ * What calling a tool does to the world, on the axis `ToolProfile` does not have.
+ *
+ * **A profile answers "may this client see it", and that question is orthogonal to "does it change anything".**
+ * `delete_project` was registered under `all`, the widest profile, so a client named `scout` — the narrow one, the one
+ * that exists to be least privileged — could destroy an index. Restricting visibility had hidden the problem rather
+ * than solved it, because a narrow profile whose only tool in `all` is a deletion is still a deletion.
+ *
+ * - `read` computes an answer and stores nothing.
+ * - `write` changes state the server owns: the graph, a report on disk, an ADR, a skill file. Reversible in principle,
+ *   and a reader of the code cannot tell from the call alone what it overwrote.
+ * - `destroy` removes data, and `delete_project` is the only one today.
+ *
+ * `unclassified` is what a tool gets when its registration did not say, and it is refused to a read-only client rather
+ * than assumed harmless. A gate asserts that none of the shipped tools is in it.
+ */
+export type ToolEffect = 'read' | 'write' | 'destroy' | 'unclassified';
+
 /** MCP tool definition */
 export interface ToolDefinition {
   name: string;
@@ -693,6 +711,15 @@ export interface MCPServerConfig {
   name: string;
   version: string;
   toolProfile: ToolProfile;
+  /**
+   * Refuse every `write` and `destroy` call, whatever the profile allows.
+   *
+   * **This is the role the product did not have.** A reviewer or a question-answering agent needs to read the whole
+   * graph and must never mutate it, and before this flag the only way to give it read access was to give it `analysis`,
+   * which also carries `delete_project`. Absent means `false`, so a configuration written before this field behaved the
+   * same way it always did.
+   */
+  readOnly?: boolean;
   maxResults: number;
   enableStreaming: boolean;
   enableResources: boolean;

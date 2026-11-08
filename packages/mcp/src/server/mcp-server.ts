@@ -166,7 +166,20 @@ export class CodeAnalyzerMCPServer {
         }
 
         // Execute tool
-        const result = await this.registry.execute(name, argsObj, this.toolContext);
+        // **The profile travels with the call.** `tools/list` promised this client `profile` and now `tools/call` keeps
+        // that promise; without the actor the registry answered any name in the map, which is how a `scout` client could
+        // have deleted a project it was never shown.
+        const result = await this.registry.execute(name, argsObj, this.toolContext, {
+          profile,
+          readOnly: this.config.readOnly === true,
+        });
+        if (result.metadata?.['denied'] !== undefined) {
+          this.logger.warn('Refused a tool call outside the client profile', {
+            toolName: name,
+            profile,
+            reason: result.metadata['denied'],
+          });
+        }
 
         // Log successful request
         this.logger.info('Tool executed successfully', {

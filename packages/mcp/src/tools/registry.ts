@@ -1,7 +1,7 @@
 // @code-analyzer/mcp — Tool Registry
 // Central registry for MCP tools with profile-based filtering and execution.
 
-import type { ToolDefinition, ToolProfile } from '@code-analyzer/shared';
+import type { ToolDefinition, ToolEffect, ToolProfile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Tool Result Types
@@ -41,7 +41,30 @@ export interface McpToolDefinition {
 export interface RegisteredTool extends ToolDefinition {
   handler: ToolHandler;
   profile: ToolProfile;
+  effect: ToolEffect;
 }
+
+/**
+ * The caller a decision is made for.
+ *
+ * Two fields because there are two independent questions: **which tools this client was offered** (`profile`) and
+ * **whether it may change anything at all** (`readOnly`). Collapsing them into one enum would make "read-only analysis"
+ * unrepresentable, which is precisely the role a review agent needs.
+ */
+export interface ToolCallActor {
+  readonly profile: ToolProfile;
+  /** When true, `write` and `destroy` tools are refused even if the profile advertises them. */
+  readonly readOnly?: boolean;
+}
+
+/** The outcome of `authorize`, as data, so a refusal can be asserted rather than string-matched. */
+export type ToolAuthorization =
+  | { readonly allowed: true }
+  | {
+      readonly allowed: false;
+      readonly reason: 'unknown-tool' | 'profile' | 'read-only' | 'unclassified';
+      readonly message: string;
+    };
 
 // ---------------------------------------------------------------------------
 // Tool Registry
@@ -57,6 +80,15 @@ export class ToolRegistry {
     inputSchema: Record<string, unknown>,
     handler: ToolHandler,
     profile: ToolProfile = 'all',
+    /**
+     * What the call does to the world.
+     *
+     * Optional so that the forty-odd test registries that register a stub keep compiling; **the product catalog is
+     * required to declare all fifty-one by `tool-effect-classification.test.ts`**, and a tool that declares nothing is
+     * `unclassified`, which a read-only client refuses. The default is therefore fail-closed on the axis that matters
+     * and open on the axis that does not.
+     */
+    effect?: ToolEffect,
   ): void {
     if (this.tools.has(name)) {
       throw new Error(`Tool "${name}" is already registered`);
@@ -67,6 +99,7 @@ export class ToolRegistry {
       inputSchema,
       handler,
       profile,
+      effect: effect ?? 'unclassified',
     });
   }
 
@@ -75,36 +108,126 @@ export class ToolRegistry {
     return this.tools.get(name);
   }
 
-  /** List all registered tool definitions (without handlers). */
-  list(): Array<ToolDefinition & { profile: ToolProfile }> {
-    return Array.from(this.tools.values()).map(({ name, description, inputSchema, profile }) => ({
-      name,
-      description,
-      inputSchema,
-      profile,
-    }));
+  /**
+   * List all registered tool definitions (without handlers).
+   *
+   * `effect` is part of the answer because a caller that is deciding what to expose needs it: a gateway that offers a
+   * read-only role has to know which of the fifty-one changes something, and re-deriving that from the descriptions is
+   * how a tool gets mislabelled.
+   */
+  list(): Array<ToolDefinition & { profile: ToolProfile; effect: ToolEffect }> {
+    return Array.from(this.tools.values()).map(
+      ({ name, description, inputSchema, profile, effect }) => ({
+        name,
+        description,
+        inputSchema,
+        profile,
+        effect,
+      }),
+    );
   }
 
   /** List tools filtered by profile ('all' returns everything). */
-  listByProfile(profile: ToolProfile): Array<ToolDefinition & { profile: ToolProfile }> {
+  listByProfile(
+    profile: ToolProfile,
+  ): Array<ToolDefinition & { profile: ToolProfile; effect: ToolEffect }> {
     return Array.from(this.tools.values())
       .filter((t) => profile === 'all' || t.profile === 'all' || t.profile === profile)
-      .map(({ name, description, inputSchema, profile: p }) => ({
+      .map(({ name, description, inputSchema, profile: p, effect }) => ({
         name,
         description,
         inputSchema,
         profile: p,
+        effect,
       }));
   }
 
-  /** Execute a tool by name with the given arguments. */
-  async execute(name: string, args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+  /**
+   * Whether `actor` may call `name`.
+   *
+   * **This is the same predicate `listByProfile` advertises with, applied to a name instead of to a list**, and the two
+   * have to agree or the profile is decoration. Until this method existed, `listByProfile` filtered what a client was
+   * *told about* and `execute` looked the name up in a map of all fifty-one tools, so a client configured as `scout`
+   * saw ten tools and could call forty-one it had never been offered — with `delete_project` among them. A permission
+   * boundary that only exists in the advertisement is not a boundary; it is a suggestion to a caller that has any
+   * other way to learn a name, and tool names are in the public README.
+   *
+   * The reasons are separate because they are separate facts: `unknown-tool` is a name that does not exist, `profile`
+   * is a name that exists and is not yours, `read-only` is a name that is yours and changes something, and
+   * `unclassified` is a name whose registration forgot to say what it does.
+   */
+  authorize(actor: ToolCallActor, name: string): ToolAuthorization {
+    const tool = this.tools.get(name);
+    if (tool === undefined) {
+      return { allowed: false, reason: 'unknown-tool', message: `Tool "${name}" not found` };
+    }
+    if (actor.profile !== 'all' && tool.profile !== 'all' && tool.profile !== actor.profile) {
+      return {
+        allowed: false,
+        reason: 'profile',
+        message:
+          `Tool "${name}" is not available to a client with the "${actor.profile}" profile. ` +
+          `Call tools/list to see what this client may use.`,
+      };
+    }
+    if (actor.readOnly === true && (tool.effect === 'write' || tool.effect === 'destroy')) {
+      return {
+        allowed: false,
+        reason: 'read-only',
+        message:
+          `Tool "${name}" is ${tool.effect === 'destroy' ? 'destructive' : 'a write'}, and this client is ` +
+          `configured read-only. Read tools are unaffected; drop the read-only flag to allow changes.`,
+      };
+    }
+    if (actor.readOnly === true && tool.effect === 'unclassified') {
+      return {
+        allowed: false,
+        reason: 'unclassified',
+        message:
+          `Tool "${name}" does not declare what it changes, so a read-only client will not run it. ` +
+          `Its registration needs an effect.`,
+      };
+    }
+    return { allowed: true };
+  }
+
+  /**
+   * Execute a tool by name with the given arguments.
+   *
+   * **`actor` is optional, and its absence means unrestricted** — the in-process callers (the CLI, the benchmark
+   * harness, the tests that drive a handler directly) are not clients and have no profile. The network boundary is
+   * `CodeAnalyzerMCPServer`, which always passes one, and `profile-enforcement.test.ts` drives a real MCP client over a
+   * linked transport to prove it does. **A default of "allowed" is only safe because the one place that faces a
+   * stranger is the one place that never takes the default.**
+   */
+  async execute(
+    name: string,
+    args: Record<string, unknown>,
+    store?: unknown,
+    actor?: ToolCallActor,
+  ): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       return {
         content: [{ type: 'text', text: `Error: Tool "${name}" not found` }],
         isError: true,
       };
+    }
+
+    if (actor !== undefined) {
+      const decision = this.authorize(actor, name);
+      if (!decision.allowed) {
+        return {
+          content: [{ type: 'text', text: decision.message }],
+          isError: true,
+          metadata: {
+            denied: decision.reason,
+            tool: name,
+            profile: actor.profile,
+            readOnly: actor.readOnly === true,
+          },
+        };
+      }
     }
 
     try {

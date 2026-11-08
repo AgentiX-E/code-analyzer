@@ -43,17 +43,10 @@ export { registerResources } from './resources/index.js';
 export { registerPrompts } from './prompts/index.js';
 
 // Middleware
-export {
-  AuthMiddleware,
-  RateLimiter,
-  ToolPolicy,
-  RequestLogger,
-  CircuitBreaker,
-} from './middleware/index.js';
+export { AuthMiddleware, RateLimiter, CircuitBreaker } from './middleware/index.js';
 export type {
   AuthResult,
   RateLimitResult,
-  LogEntry,
   CircuitBreakerOptions,
   CircuitState,
 } from './middleware/index.js';

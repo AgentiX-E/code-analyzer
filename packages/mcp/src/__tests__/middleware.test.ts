@@ -10,13 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  AuthMiddleware,
-  CircuitBreaker,
-  RateLimiter,
-  RequestLogger,
-  ToolPolicy,
-} from '../middleware/index.js';
+import { AuthMiddleware, CircuitBreaker, RateLimiter } from '../middleware/index.js';
 
 // ---------------------------------------------------------------------------
 // Circuit breaker
@@ -276,66 +270,6 @@ describe('rate limiting', () => {
   });
 });
 
-describe('tool policy', () => {
-  it('allows everything under the `all` profile and under an `all` tool', () => {
-    const policy = new ToolPolicy('all');
-    expect(policy.isAllowed('anything', 'analysis')).toBe(true);
-
-    const narrow = new ToolPolicy('analysis');
-    expect(narrow.isAllowed('anything', 'all')).toBe(true);
-    expect(narrow.isAllowed('anything', 'analysis')).toBe(true);
-    expect(narrow.isAllowed('anything', 'scout')).toBe(false);
-  });
-
-  it('reports and changes the profile', () => {
-    const policy = new ToolPolicy();
-    expect(policy.getProfile()).toBe('all');
-
-    policy.setProfile('scout');
-    expect(policy.getProfile()).toBe('scout');
-    expect(policy.isAllowed('anything', 'analysis')).toBe(false);
-  });
-});
-
-describe('the request log', () => {
-  it('records the time of each entry rather than the caller’s', () => {
-    const logger = new RequestLogger();
-    logger.log({ toolName: 'search', args: {}, duration: 5, error: false });
-
-    const [entry] = logger.getLogs();
-    expect(entry!.toolName).toBe('search');
-    expect(Date.parse(entry!.timestamp)).toBeGreaterThan(0);
-  });
-
-  it('keeps only the most recent entries when it is full', () => {
-    const logger = new RequestLogger(2);
-    for (const name of ['a', 'b', 'c']) {
-      logger.log({ toolName: name, args: {}, duration: 1, error: false });
-    }
-
-    expect(logger.getLogs().map((l) => l.toolName)).toEqual(['b', 'c']);
-    expect(logger.getStats().total).toBe(2);
-  });
-
-  it('summarises errors and the average duration, and reports zero rather than NaN when empty', () => {
-    const logger = new RequestLogger();
-    expect(logger.getStats()).toEqual({ total: 0, errors: 0, avgDuration: 0 });
-
-    logger.log({ toolName: 'a', args: {}, duration: 10, error: true });
-    logger.log({ toolName: 'b', args: {}, duration: 30, error: false });
-
-    expect(logger.getStats()).toEqual({ total: 2, errors: 1, avgDuration: 20 });
-  });
-
-  it('returns the last N entries and clears on demand', () => {
-    const logger = new RequestLogger();
-    for (const name of ['a', 'b', 'c']) {
-      logger.log({ toolName: name, args: {}, duration: 1, error: false });
-    }
-
-    expect(logger.getLogs(2).map((l) => l.toolName)).toEqual(['b', 'c']);
-
-    logger.clear();
-    expect(logger.getLogs()).toEqual([]);
-  });
-});
+// `tool policy` and `the request log` were two `describe` blocks here, covering classes no request reached. The
+// authorisation rule now has one implementation, `ToolRegistry.authorize`, and one test file that drives it over a
+// linked MCP transport rather than instantiating it.

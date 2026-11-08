@@ -1,6 +1,7 @@
 // @code-analyzer/mcp — Indexing & Lifecycle Tools
 
 import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { analyzeInterproceduralTaint } from '@code-analyzer/intelligence';
@@ -256,6 +257,9 @@ export async function analyzeRepository(
 
       const nodeCount = result.graph.nodes.size;
       const edgeCount = result.graph.edges.size;
+      // **The directory, not only the graph.** `get_code_snippet` needs the path to open a file, and this is the one
+      // place that was told it; before this the tool answered "not available in this session" to every caller.
+      ctx.setProjectRoot(projectId, resolve(String(path)));
       const persisted = persistGraph(ctx.store, result, projectId, force);
       const phaseStatuses = result.phases.map((p) => ({
         phaseId: p.phaseId,

@@ -1,5 +1,8 @@
 // @code-analyzer/mcp — Querying & Exploration Tools
 
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve, sep } from 'node:path';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describeFailure, rerankCandidates } from '@code-analyzer/intelligence';
 import { EDGE_CALLS, EDGE_EXTENDS, EDGE_HAS_METHOD, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
@@ -880,7 +883,114 @@ export async function getCodeSnippet(
   const contextLines = params.contextLines ?? 5;
 
   try {
+    const context = getContext(store);
     const graphStore = getStore(store);
+    // **Derived from the context, not looked up twice.** A root exists only on a context, and a context always has a
+    // store, so a separate `graphStore === null` arm below the root check would be a branch that cannot run.
+    const root = context === null ? null : context.projectRoot(params.projectId);
+
+    /**
+     * **The tool is named for code and used to return a note saying it had none.**
+     *
+     * The graph holds symbols, line numbers and signatures, and not one byte of source; the fallback path below answered
+     * `// Code snippet not available in current session` with the explanation `File system access required`, which is a
+     * true statement about a version of this file that did not exist yet — `analyze_repository` now records the
+     * directory it indexed, so the file is one `readFileSync` away. A caller reading a tool list sees "get code
+     * snippet", calls it, and gets a sentence about the session instead of the function it asked for; the reviewers and
+     * the agents built on this server were doing their work on symbol names alone.
+     *
+     * **The path is resolved against the project root and is not allowed to leave it.** `filePath` comes from a client,
+     * so `../../etc/passwd` is a request a stranger can make; the prefix check is on the resolved path with a separator,
+     * because `/tmp/root-evil` starts with `/tmp/root` and is a different directory.
+     */
+    if (context !== null && root !== null) {
+      const target = resolve(root, filePath);
+      const inside = target === root || target.startsWith(`${root}${sep}`);
+      if (!inside) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  filePath,
+                  error: `"${filePath}" resolves outside the project root, so it was not read`,
+                  projectRoot: root,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+      if (existsSync(target)) {
+        const text = readFileSync(target, 'utf8');
+        const lines = text.split('\n');
+        const from = Math.max(1, startLine - contextLines);
+        const to = Math.min(lines.length, endLine + contextLines);
+        // **The graph stores the path the pipeline was given, which is absolute**, and the caller names the file as it
+        // appears in an import. Both resolve to the same file, so the comparison accepts either rather than making the
+        // caller guess which spelling the index used.
+        const symbolsInRange = context.store
+          .getAllNodes()
+          .filter(
+            (n) =>
+              (n.filePath === filePath || n.filePath === target) &&
+              n.projectId === params.projectId &&
+              n.startLine !== null &&
+              n.endLine !== null &&
+              n.startLine <= endLine &&
+              n.endLine >= startLine,
+          )
+          .map((n) => ({
+            name: n.name,
+            qualifiedName: n.qualifiedName,
+            label: n.label,
+            startLine: n.startLine,
+            endLine: n.endLine,
+            signature: n.signature,
+          }));
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  filePath,
+                  startLine: from,
+                  endLine: to,
+                  // **The slice, not the file.** A tool result is a prompt, and a 4000-line module in one result is a
+                  // result the model truncates somewhere of its own choosing.
+                  code: lines.slice(from - 1, to).join('\n'),
+                  totalLines: lines.length,
+                  truncated: to < lines.length || from > 1,
+                  symbolsInRange,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                filePath,
+                error: `"${filePath}" is not a file under the root this project was indexed from`,
+                projectRoot: root,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
 
     if (graphStore) {
       // Try to find nodes in this file and line range

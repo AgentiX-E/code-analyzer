@@ -313,6 +313,15 @@ jobs:
       - name: Enforce that the tool-selection task set is still answerable
         run: npm run docs:agentic
 
+      # **The other half of L4, and the half a push can execute end to end.** `--check` proves the injection corpus is a
+      # controlled experiment (the two arms differ in one comment, the control asks for nothing, the action names a tool
+      # that exists and is classified `destroy`). `--self-test` runs that action against a writable store, a read-only
+      # client and a `scout` profile, and requires one execution and two refusals. `--dry-run` puts a scripted model
+      # through the whole measured path — prompt, tool call, execution, scoring, artifact, fence replay — which is the
+      # path that was invisible to every gate when a previous iteration shipped a run that died on a missing import.
+      - name: Enforce that the injection corpus is still a controlled experiment and the fence refuses its action
+        run: npm run docs:permissions
+
       - name: Enforce that every status claim is backed by a record
         run: npm run docs:status
 

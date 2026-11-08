@@ -66,6 +66,19 @@ export interface ToolContext {
   /** The underlying graph store. All tool data lives here. */
   store: InMemoryGraphStore;
 
+  /**
+   * The directory a project was indexed from, or `null` when nothing recorded one.
+   *
+   * **The store holds symbols and never bytes**, so a tool that promises code has to reach the filesystem — and the
+   * filesystem path it needs is the one `analyze_repository` was given, which nothing kept. `get_code_snippet` answered
+   * `// Code snippet not available in current session` for every call it ever received, including the ones a fixture
+   * indexed from a temporary directory in the same process could have answered by opening the file.
+   */
+  projectRoot(projectId: string): string | null;
+
+  /** Record the directory a project was indexed from. Called by `analyze_repository`, the only caller that knows it. */
+  setProjectRoot(projectId: string, root: string): void;
+
   /** Hybrid search engine (BM25 + vector). Lazy initialized. */
   getSearchEngine(): HybridSearchEngine;
 
@@ -199,12 +212,28 @@ export class ToolContextImpl implements ToolContext {
   private _crossRepoIndexer: CrossRepoIndexer | null = null;
   private _crossRepoPrReview: CrossRepoPRReviewEngine | null = null;
   public currentAnalysis?: PipelineResult;
+  /** Where each project's files are, keyed by the id it was indexed under. */
+  private readonly projectRoots = new Map<string, string>();
 
   constructor(store: InMemoryGraphStore, options: ToolContextOptions = {}) {
     this.store = store;
     this.llmOverride = options.llm;
     this.queryEmbedderLoader =
       options.queryEmbedderLoader ?? ((backend) => createQueryEmbedder(backend));
+  }
+
+  /**
+   * Record the directory a project was indexed from.
+   *
+   * Called by `analyze_repository`, which is the only place that knows it. **A project indexed before this existed has
+   * no root, and `projectRoot` returns `null` rather than guessing** — a guess would read someone else's files.
+   */
+  setProjectRoot(projectId: string, root: string): void {
+    this.projectRoots.set(projectId, root);
+  }
+
+  projectRoot(projectId: string): string | null {
+    return this.projectRoots.get(projectId) ?? null;
   }
 
   getSearchEngine(): HybridSearchEngine {

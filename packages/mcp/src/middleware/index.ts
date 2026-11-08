@@ -1,9 +1,8 @@
 // @code-analyzer/mcp — MCP Middleware
-// Auth, rate limiting, tool policies, request logging, and circuit breaker.
+// Auth, rate limiting, and circuit breaker. Authorisation by tool lives in `ToolRegistry.authorize`, where the tool
+// name is available; this file holds only the parts that are about the request rather than about the tool.
 
 import { createHash, timingSafeEqual } from 'node:crypto';
-
-import type { ToolProfile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Auth Middleware
@@ -211,90 +210,17 @@ export class RateLimiter {
 }
 
 // ---------------------------------------------------------------------------
-// Tool Policy Profiles
+// Authorisation
 // ---------------------------------------------------------------------------
 
-export class ToolPolicy {
-  private profile: ToolProfile;
-
-  constructor(profile: ToolProfile = 'all') {
-    this.profile = profile;
-  }
-
-  /** Check if a tool is allowed under the current profile. */
-  isAllowed(_toolName: string, toolProfile: ToolProfile): boolean {
-    if (this.profile === 'all') return true;
-    if (toolProfile === 'all') return true;
-    return this.profile === toolProfile;
-  }
-
-  /** Get the current profile. */
-  getProfile(): ToolProfile {
-    return this.profile;
-  }
-
-  /** Update the profile. */
-  setProfile(profile: ToolProfile): void {
-    this.profile = profile;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Request Logger
-// ---------------------------------------------------------------------------
-
-export interface LogEntry {
-  toolName: string;
-  args: Record<string, unknown>;
-  duration: number;
-  error: boolean;
-  timestamp: string;
-  correlationId?: string;
-  userId?: string;
-}
-
-export class RequestLogger {
-  private logs: LogEntry[];
-  private maxLogs: number;
-
-  constructor(maxLogs = 1000) {
-    this.logs = [];
-    this.maxLogs = maxLogs;
-  }
-
-  /** Log a request with optional correlation ID and user identity. */
-  log(entry: Omit<LogEntry, 'timestamp'>): void {
-    const logEntry: LogEntry = {
-      ...entry,
-      timestamp: new Date().toISOString(),
-    };
-    this.logs.push(logEntry);
-
-    // Trim old logs
-    if (this.logs.length > this.maxLogs) {
-      this.logs = this.logs.slice(-this.maxLogs);
-    }
-  }
-
-  /** Get recent logs. */
-  getLogs(limit = 100): LogEntry[] {
-    return this.logs.slice(-limit);
-  }
-
-  /** Clear all logs. */
-  clear(): void {
-    this.logs = [];
-  }
-
-  /** Get log statistics. */
-  getStats(): { total: number; errors: number; avgDuration: number } {
-    const total = this.logs.length;
-    const errors = this.logs.filter((l) => l.error).length;
-    const avgDuration = total > 0 ? this.logs.reduce((sum, l) => sum + l.duration, 0) / total : 0;
-    return { total, errors, avgDuration };
-  }
-}
-
+/**
+ * **`ToolPolicy` lived here and is gone.** It answered `isAllowed(toolName, toolProfile)` and ignored `toolName`
+ * entirely, so it could only ever restate the profile rule; it was constructed by nothing — not by the server, not by a
+ * transport — and its tests made it look alive. A class called `ToolPolicy` that no request passes through is worse than
+ * no class at all: the next maintainer wires it up believing authorisation already exists, and gets a second copy of
+ * the rule that must be kept in step with `ToolRegistry.authorize`. The rule lives in one place now, and
+ * `profile-enforcement.test.ts` drives it over a real MCP client.
+ */
 // ---------------------------------------------------------------------------
 // Circuit Breaker
 // ---------------------------------------------------------------------------

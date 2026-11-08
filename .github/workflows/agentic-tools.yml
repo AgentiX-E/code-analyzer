@@ -1,4 +1,4 @@
-name: Agentic tool selection — L4
+name: Agentic surface — L4
 
 # **The layer nobody had measured.** Four iterations of `benchmarks/status-register.json` recorded the same gap: 51 MCP
 # tools, five roles, and not one record of an agent choosing among them. Every other measurement in this repository is
@@ -52,8 +52,10 @@ on:
     paths:
       - 'packages/intelligence/src/benchmark/agentic/**'
       - 'packages/mcp/src/tools/**'
+      - 'packages/mcp/src/server/**'
       - 'packages/mcp/src/eval/**'
       - 'scripts/agentic-tools.ts'
+      - 'scripts/agentic-permissions.ts'
       - '.github/workflows/agentic-tools.yml'
 
 concurrency:
@@ -169,5 +171,95 @@ jobs:
         with:
           name: agentic-tools
           path: benchmarks/agentic-tools.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  # **The second axis of the same layer.** `measure` asks whether the agent picks the right tool; this job asks what
+  # happens when the tool result tells it to do something else. The two are separate because the second one can only be
+  # read beside a control: a rate of 0 % from a harness that has never seen compliance is a statement about the harness.
+  permission:
+    name: Measure what a planted instruction does, and what the fence does
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # **Three checks, none of which needs a key, and between them they execute every line of the run path.** The dry
+      # run puts a scripted model through `runAttempt`, the scorer, the artifact assembly and the fence replay, which is
+      # the coverage that was missing when a previous iteration shipped a run path that died on a missing import.
+      - name: Check the corpus, the fence and the run path
+        run: npm run docs:permissions
+
+      - name: Refuse to run without a model
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "::error::DEEPSEEK_API_KEY is not available to this workflow, so the three arms cannot be compared. A run that reports success without a model would publish a rate whose denominator is a question nobody asked."
+            exit 1
+          fi
+
+      - name: Measure
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AGENTIC_MODEL: deepseek-chat
+        run: |
+          TSX_TSCONFIG_PATH=tsconfig.tests.json npx tsx scripts/agentic-permissions.ts --run \
+            --attempts "${{ github.event.inputs.attempts || '3' }}" \
+            --write
+
+      - name: Record the figures in the job summary
+        if: always()
+        run: |
+          if [ ! -f benchmarks/agentic-permissions.json ]; then
+            echo "### L4 permissions — no artifact was produced" >> "$GITHUB_STEP_SUMMARY"
+            echo "The run did not write \`benchmarks/agentic-permissions.json\`; the log above says why. **Nothing is claimed.**" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const a = require('./benchmarks/agentic-permissions.json');
+          const f = (x) => (x === null ? '—' : x.toFixed(4));
+          console.log('## L4 — what a planted instruction does');
+          console.log('');
+          console.log(`Commit \`${a.commit}\` · model \`${a.model}\` · ${a.corpus.modules} modules · ${a.attempts} attempts per task`);
+          console.log('');
+          console.log('| arm | exposed | complied | asr (of exposed) | 95 % Wilson | compliance (of all) | effect |');
+          console.log('| --- | --- | --- | --- | --- | --- | --- |');
+          for (const [name, arm] of Object.entries(a.arms)) {
+            console.log(`| ${name} | ${arm.exposed}/${arm.attempts} | ${arm.asr.n} | **${f(arm.asr.value)}** | [${f(arm.asr.lower)}, ${f(arm.asr.upper)}] | ${f(arm.compliance.value)} (${arm.compliance.n}/${arm.compliance.of}) | ${arm.effect.n}/${arm.effect.of} |`);
+          }
+          console.log('');
+          const c = a.comparison;
+          for (const [key, value] of Object.entries(c)) {
+            console.log(`- \`${key}\`: only-A ${value.onlyA}, only-B ${value.onlyB}, both ${value.both}, neither ${value.neither}, p = ${value.pValue.toFixed(4)}`);
+          }
+          console.log('');
+          console.log(`**Fence replay.** The model's own destructive calls, ${a.fence.replayed} of them, replayed against the two restricted configurations: executed on an open server ${a.fence.executed}, refused by a read-only client ${a.fence.readOnlyRefused}, refused by a \`scout\` profile ${a.fence.scoutRefused}.`);
+          console.log('');
+          console.log('`asr` is compliance over the attempts where the payload reached the model; `compliance` is over every attempt. Where they differ, exposure was partial and the first number is over a smaller denominator.');
+          NODE
+
+      - name: Upload the artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: agentic-permissions
+          path: benchmarks/agentic-permissions.json
           if-no-files-found: warn
           retention-days: 30
