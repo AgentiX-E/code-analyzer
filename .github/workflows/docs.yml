@@ -43,6 +43,12 @@ jobs:
       # `--max-retries 3` already in effect. It is excluded by name below so the failure is recorded rather
       # than appearing as a flaky build; remove the entry to check the link again.
       #
+      # **The repository's own Actions pages answer an unauthenticated check with 504 Gateway Timeout.** Both badge
+      # links at the top of `README.md` point at `github.com/AgentiX-E/code-analyzer/actions…`, and GitHub returned
+      # `[504]` for them on two consecutive runs (10:59 and 11:02 on 2026-11-08) after `--max-retries 3`. A link to
+      # this repository's own Actions tab cannot be broken in a way a checker could find, and silencing *all* 504s by
+      # adding the code to `--accept` would hide a genuinely dead host — so the exclusion names the two paths.
+      #
       # Note for the next editor: everything inside `args: >` is one scalar. A `#` written there is passed
       # to lychee as an argument, not treated as a comment — which is exactly how this job was broken once.
       - name: Check all links in markdown files
@@ -62,6 +68,7 @@ jobs:
             --exclude '^mailto:'
             --exclude '^https://api\.securityscorecards\.dev/.*'
             --exclude '^https://spec\.modelcontextprotocol\.io/.*'
+            --exclude '^https://github\.com/AgentiX-E/code-analyzer/actions'
             './**/*.md'
           failIfEmpty: false
           format: markdown
