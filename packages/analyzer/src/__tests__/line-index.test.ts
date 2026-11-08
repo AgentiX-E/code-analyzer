@@ -10,10 +10,16 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { OVERLONG_LINE_BUDGET, createLineIndex, lineOf, maskOverlongLines } from '../languages/line-index.js';
+import {
+  OVERLONG_LINE_BUDGET,
+  createLineIndex,
+  lineOf,
+  maskOverlongLines,
+} from '../languages/line-index.js';
 
 /** The idiom the index replaces, kept here as the oracle rather than as a memory. */
-const bySlice = (source: string, offset: number): number => source.slice(0, offset).split('\n').length;
+const bySlice = (source: string, offset: number): number =>
+  source.slice(0, offset).split('\n').length;
 
 describe('the line table', () => {
   it('counts the lines a reader sees', () => {
@@ -128,7 +134,8 @@ describe('the idiom this module replaced', () => {
       if (!name.endsWith('.ts') || name === 'line-index.ts') continue;
       const body = readFileSync(join(directory, name), 'utf8');
       // The pattern is the idiom itself and not the word `slice`: a provider may slice a line for other reasons.
-      if (/\.slice\(\s*0\s*,[^)]*\)\s*\.split\(\s*'\\n'\s*\)\s*\.length/.test(body)) offenders.push(name);
+      if (/\.slice\(\s*0\s*,[^)]*\)\s*\.split\(\s*'\\n'\s*\)\s*\.length/.test(body))
+        offenders.push(name);
     }
     expect(offenders).toEqual([]);
   });

@@ -376,7 +376,9 @@ describe('BashProvider', () => {
     // regex that backtracked across the line; both are decisions now, and a decision needs a case.
     it('should take the command before the first bar of each line', () => {
       const captures = fallback.parse('cat file | grep x\nls | wc -l\n', 'a.sh');
-      const heads = captures.filter((c) => c.properties['pipeCommand'] === 'true').map((c) => c.name);
+      const heads = captures
+        .filter((c) => c.properties['pipeCommand'] === 'true')
+        .map((c) => c.name);
       expect(heads).toEqual(['cat', 'ls']);
     });
 

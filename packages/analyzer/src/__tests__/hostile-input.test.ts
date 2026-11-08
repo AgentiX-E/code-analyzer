@@ -31,7 +31,8 @@ const BUDGET_MS = 5_000;
 
 /** A single line of the shape that makes each family of patterns backtrack. */
 function minifiedLine(language: string): string {
-  if (language === 'javascript' || language === 'typescript') return `const a = ${'x?y:z;'.repeat(8_000)}`;
+  if (language === 'javascript' || language === 'typescript')
+    return `const a = ${'x?y:z;'.repeat(8_000)}`;
   if (language === 'python') return `x = ${'a ? b : c'.repeat(8_000)}`;
   if (language === 'bash') return `x = ${'('.repeat(4_000)}1${')'.repeat(4_000)}`;
   if (language === 'css') return `${'a'.repeat(20_000)}`;
@@ -42,7 +43,9 @@ function minifiedLine(language: string): string {
 const DEEP_NESTING = `x = ${'('.repeat(4_000)}1${')'.repeat(4_000)};`;
 
 /** Twenty thousand declarations, which is a throughput question rather than a shape question. */
-const DENSE = Array.from({ length: 4_000 }, (_, index) => `const name${String(index)} = 1;`).join('\n');
+const DENSE = Array.from({ length: 4_000 }, (_, index) => `const name${String(index)} = 1;`).join(
+  '\n',
+);
 
 const CASES: ReadonlyArray<readonly [string, (language: string) => string]> = [
   ['one minified line', minifiedLine],
@@ -60,7 +63,9 @@ describe('a provider reading a file no fixture describes', () => {
         const captures = provider.parse(source, `hostile.${language}`);
         const elapsed = Date.now() - started;
         expect(Array.isArray(captures)).toBe(true);
-        expect(elapsed, `${language} took ${String(elapsed)}ms on ${shape}`).toBeLessThan(BUDGET_MS);
+        expect(elapsed, `${language} took ${String(elapsed)}ms on ${shape}`).toBeLessThan(
+          BUDGET_MS,
+        );
       });
     }
   }
@@ -71,9 +76,14 @@ describe('a capture taken from a masked file', () => {
     // **The assertion the mask has to earn.** Blanking a line must not move the line numbers of the declarations
     // around it, because every capture carries one and a reader clicks it.
     const provider = await providerLoaders['python']!();
-    const source = ['def first():', '    pass', `${'x'.repeat(9_000)}`, 'def second():', '    pass', ''].join(
-      '\n',
-    );
+    const source = [
+      'def first():',
+      '    pass',
+      `${'x'.repeat(9_000)}`,
+      'def second():',
+      '    pass',
+      '',
+    ].join('\n');
     const captures = provider.parse(source, 'masked.py');
     const second = captures.find((capture) => capture.text === 'second');
     expect(second).toBeDefined();

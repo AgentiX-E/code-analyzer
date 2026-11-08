@@ -1110,11 +1110,11 @@ stopped being the only large one — type resolution (3.7 s) and cross-file link
 an expression nested four thousand deep, a generated table of twenty thousand rows. Two of them were unbounded, and
 both were measured before either was changed (`packages/analyzer/src/__tests__/hostile-input.test.ts`).
 
-| input | before | after | what bounded it |
-| ----- | ------ | ----- | --------------- |
-| `bash`, an 8 000-character line of parentheses | **79 s**, 0 captures | **4 ms** | the pipeline head is a scan, not a backtrack |
-| `dart` / `css` / `lua` / `zig`, one 50 000-character line | 5.0 / 3.3 / 1.6 / 1.5 s, 0 captures each | **5 ms** | `maskOverlongLines` at 4 000 characters |
-| 2 000 line numbers over a 1 MB file | 522 ms | **3 ms** | `createLineIndex` + binary search |
+| input                                                     | before                                   | after    | what bounded it                              |
+| --------------------------------------------------------- | ---------------------------------------- | -------- | -------------------------------------------- |
+| `bash`, an 8 000-character line of parentheses            | **79 s**, 0 captures                     | **4 ms** | the pipeline head is a scan, not a backtrack |
+| `dart` / `css` / `lua` / `zig`, one 50 000-character line | 5.0 / 3.3 / 1.6 / 1.5 s, 0 captures each | **5 ms** | `maskOverlongLines` at 4 000 characters      |
+| 2 000 line numbers over a 1 MB file                       | 522 ms                                   | **3 ms** | `createLineIndex` + binary search            |
 
 **The three mechanisms, and what each one is.**
 
