@@ -1243,6 +1243,7 @@ export async function exploreSymbol(
 ): Promise<ToolResult> {
   const params = args as unknown as ExploreSymbolParams;
   const symbolName = params.symbolName;
+  const projectId = params.projectId;
   const includeRelationships = Boolean(params.includeRelationships);
 
   try {
@@ -1264,8 +1265,14 @@ export async function exploreSymbol(
 
     if (graphStore) {
       let node = graphStore.getNodeByQualifiedName(symbolName);
+      // **`projectId` is required by this tool's schema and was read by nothing.** The name index is global and the
+      // pipeline builds a qualified name from the file's absolute path, so a symbol exists once per checkout that
+      // contains it — and a question asked of project B was answered from project A whenever A held a node with that
+      // name. A required parameter that changes no behaviour is worse than an absent one: the caller believes the
+      // answer is scoped. Both resolutions below are now scoped.
+      if (node !== null && projectId !== undefined && node.projectId !== projectId) node = null;
       if (!node) {
-        const searchResults = graphStore.searchFts(symbolName, { limit: 1 });
+        const searchResults = graphStore.searchFts(symbolName, { limit: 1, projectId });
         const firstResult = searchResults[0];
         if (firstResult) {
           node = firstResult.node;

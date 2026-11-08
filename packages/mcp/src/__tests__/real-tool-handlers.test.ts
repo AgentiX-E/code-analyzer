@@ -903,6 +903,79 @@ describe('Querying & Exploration Tools', () => {
     expect(data.fileSymbols.length).toBeGreaterThan(0);
   });
 
+  // -------------------------------------------------------------------------
+  // explore_symbol — the project a question is asked about
+  // -------------------------------------------------------------------------
+
+  /**
+   * **`projectId` is required by the schema and was read by nothing.** The name index is global, so a question scoped
+   * to project B was answered from project A whenever A held a symbol with that name — a wrong answer that looks like
+   * a right one, and the exact failure a user of the cross-repo features would hit first. Both arms are asserted here:
+   * the resolution that has to stay inside its project, and the exact qualified name that has to be refused.
+   */
+  describe('explore_symbol project scoping', () => {
+    function seed(
+      store: InMemoryGraphStore,
+      projectId: string,
+      qualifiedName: string,
+      filePath: string,
+    ): number {
+      return store.insertNode({
+        projectId,
+        label: 'Function',
+        name: qualifiedName.split('.').pop() ?? qualifiedName,
+        qualifiedName,
+        filePath,
+        startLine: 1,
+        endLine: 4,
+        language: 'typescript',
+        properties: {},
+        complexity: 1,
+        isExported: true,
+      });
+    }
+
+    function twoProjects(): { store: InMemoryGraphStore; context: ToolContextImpl } {
+      const store = new InMemoryGraphStore();
+      seed(store, 'alpha', 'src/alpha.ts::doWork', '/repos/alpha/src/alpha.ts');
+      seed(store, 'beta', 'src/beta.ts::doWork', '/repos/beta/src/beta.ts');
+      return { store, context: new ToolContextImpl(store, { llm: null }) };
+    }
+
+    it('resolves a shared name inside the project that was asked about', async () => {
+      const { context } = twoProjects();
+
+      const beta = JSON.parse(
+        (
+          await registry.execute(
+            'explore_symbol',
+            { symbolName: 'doWork', projectId: 'beta' },
+            context,
+          )
+        ).content[0]!.text!,
+      ) as { symbol: { filePath: string } | null };
+
+      expect(beta.symbol?.filePath).toBe('/repos/beta/src/beta.ts');
+    });
+
+    it('refuses a qualified name that belongs to another project', async () => {
+      const { context } = twoProjects();
+
+      const refused = JSON.parse(
+        (
+          await registry.execute(
+            'explore_symbol',
+            { symbolName: 'src/alpha.ts::doWork', projectId: 'beta' },
+            context,
+          )
+        ).content[0]!.text!,
+      ) as { symbol: unknown };
+
+      // The exact name exists — in the other project. Answering with it would be the leak; the refusal is the fix.
+      expect(refused.symbol).toBeNull();
+    });
+  });
+
   it('find_implementations finds interface implementations', async () => {
     const result = await registry.execute(
       'find_implementations',
