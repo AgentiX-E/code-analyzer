@@ -377,19 +377,19 @@ describe('BashProvider', () => {
     it('should take the command before the first bar of each line', () => {
       const captures = fallback.parse('cat file | grep x\nls | wc -l\n', 'a.sh');
       const heads = captures
-        .filter((c) => c.properties['pipeCommand'] === 'true')
+        .filter((c) => c.properties?.['pipeCommand'] === 'true')
         .map((c) => c.name);
       expect(heads).toEqual(['cat', 'ls']);
     });
 
     it('should not take a head from a line whose bar has nothing after it', () => {
       const captures = fallback.parse('cat file |\n', 'a.sh');
-      expect(captures.filter((c) => c.properties['pipeCommand'] === 'true')).toEqual([]);
+      expect(captures.filter((c) => c.properties?.['pipeCommand'] === 'true')).toEqual([]);
     });
 
     it('should not take an empty head from a line that starts with a bar', () => {
       const captures = fallback.parse('| grep x\n', 'a.sh');
-      expect(captures.filter((c) => c.properties['pipeCommand'] === 'true')).toEqual([]);
+      expect(captures.filter((c) => c.properties?.['pipeCommand'] === 'true')).toEqual([]);
     });
   });
 });
