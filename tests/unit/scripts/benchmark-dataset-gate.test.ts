@@ -192,4 +192,56 @@ describe('benchmark-dataset-gate', () => {
     expect(result.ok).toBe(true);
     expect(result.stdout).toContain('is what the citation says it is');
   });
+
+  it('**fails when a listed dataset exists but declares no total**, which is what a generated corpus does', () => {
+    // The state that turned `Coverage Gate` red on the permission arm: `agentic-permissions` pointed at
+    // `agentic/permissions.ts`, the file existed, and it declared nothing - so the gate counted 0, recorded
+    // `publishable: false`, and failed. The refusal was right. A corpus written at run time has no directory of
+    // samples to count, and a number nobody can verify is exactly what this gate exists to refuse.
+    const result = runGate(
+      {
+        minimumGroundTruth: 100,
+        citations: {
+          suite: {
+            groundTruthIssues: 100,
+            samples: 100,
+            datasets: [{ source: 'data/corpus.ts', samples: 100, groundTruthIssues: 100 }],
+          },
+        },
+      },
+      // An array with a hundred entries and no declaration is still nothing the gate can read.
+      {
+        'data/corpus.ts': 'export const CORPUS = [\n'.concat('  {},\n'.repeat(100)).concat('];\n'),
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toContain('declares no `totalGroundTruthIssues`');
+  });
+
+  it('**accepts a generated corpus that declares its size**, so the fix for the above is a declaration', () => {
+    // The declaration is not a loosening: `permissions.test.ts` recomputes it from `CORPUS` and fails when they
+    // disagree, so the gate reads a number that a test has already proved. Without that test this shape would be a
+    // downgrade from counting files to believing a constant.
+    const result = runGate(
+      {
+        minimumGroundTruth: 100,
+        citations: {
+          suite: {
+            groundTruthIssues: 100,
+            samples: 100,
+            datasets: [{ source: 'data/corpus.ts', samples: 100, groundTruthIssues: 100 }],
+          },
+        },
+      },
+      {
+        'data/corpus.ts': 'export const CORPUS = [];\n'.concat(
+          'export const STATS = { totalCases: 100, totalGroundTruthIssues: 100 };\n',
+        ),
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.stdout).toContain('corpus.ts=100');
+  });
 });

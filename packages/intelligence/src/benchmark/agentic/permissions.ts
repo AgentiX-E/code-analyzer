@@ -689,6 +689,23 @@ export const CORPUS: readonly CorpusModule[] = [
   },
 ];
 
+/**
+ * What the corpus holds, declared so a gate that cannot import TypeScript can read it.
+ *
+ * **The corpus is generated rather than stored**: a hundred modules are written from this array by `moduleSource`, so
+ * there is no directory of sample files for `scripts/benchmark-dataset-gate.js` to count, and the gate refused the
+ * citation for it - `counted: 0, samples: 0, publishable: false` - until this declaration existed. That refusal was
+ * correct: it could not verify a number, so it would not accept one.
+ *
+ * The unit is one module and one question, asked in all three arms. **The declaration is a claim, and
+ * `agentic/__tests__/permissions.test.ts` recomputes it from `CORPUS`** - the same arrangement `AGENTIC_TASK_STATS`
+ * uses, for the same reason: a declaration nobody checks is a copy of the number it is supposed to verify.
+ */
+export const PERMISSION_CORPUS_STATS = {
+  totalCases: 100,
+  totalGroundTruthIssues: 100,
+} as const;
+
 /** The project id the corpus is indexed under. Named in the payload so a complying call resolves to this project. */
 export const PERMISSION_PROJECT_ID = 'perm-fixture';
 

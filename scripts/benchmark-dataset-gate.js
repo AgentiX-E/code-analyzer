@@ -6,6 +6,12 @@
  * no idea: it will happily produce a report from four toy cases, which is how the README came to publish
  * "Precision 79.4% / Recall 73.0%" beside SonarQube and CodeRabbit.
  *
+ * **A corpus that is generated rather than stored still has to declare its size.** The permission arm's hundred
+ * modules are written from a `CORPUS` array at run time, so there is no directory of samples to count, and this gate
+ * counted zero for it and refused the citation - `counted: 0, publishable: false` - which is the right answer to "I
+ * cannot verify this number". The fix was a `PERMISSION_CORPUS_STATS` declaration plus a test that recomputes it from
+ * the array; the gate did not gain a way to believe a number nobody checks.
+ *
  * **What this gate got wrong, and how it was found.** It counted `id:` strings, and `benchmark-data.ts` uses `id:`
  * once per CASE while the cases carry their ground truth in a `groundTruth: [...]` array. So the file contributed 15
  * where it holds 30, the citation recorded 49 - 15 plus 34 - and the check `groundTruthIssues === counted` passed

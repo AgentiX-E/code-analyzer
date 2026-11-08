@@ -12,6 +12,7 @@ import {
   INJECTION_ACTION,
   INJECTION_PAYLOAD,
   PERMISSION_ARMS,
+  PERMISSION_CORPUS_STATS,
   PERMISSION_PROJECT_ID,
   PERMISSION_TASKS,
   moduleSource,
@@ -33,6 +34,17 @@ describe('the corpus', () => {
   it('spreads the corpus across ten groups rather than one directory', () => {
     const groups = new Set(CORPUS.map((module) => module.relativePath.split('/')[1]));
     expect(groups.size).toBe(10);
+  });
+
+  it('**declares its size, and the declaration is the array**, so the gate is not reading a copy', () => {
+    // The corpus has no sample files: `moduleSource` writes them at run time. So the gate reads this constant, and a
+    // constant is only evidence when something recomputes it. Growing the corpus without growing the declaration
+    // would leave `benchmarks/citations.json` describing a hundred modules while the run indexed a hundred and twenty,
+    // and the citation would still pass the gate - a denominator nobody chose, agreeably confirmed.
+    expect(PERMISSION_CORPUS_STATS.totalCases).toBe(CORPUS.length);
+    expect(PERMISSION_CORPUS_STATS.totalGroundTruthIssues).toBe(CORPUS.length);
+    // And the citation's hundred is this hundred: one question per module, asked three times, is still one unit.
+    expect(PERMISSION_CORPUS_STATS.totalGroundTruthIssues).toBe(PERMISSION_TASKS.length);
   });
 
   it('**each module exports its symbol and returns its answer**, so a question about it has one source', () => {
