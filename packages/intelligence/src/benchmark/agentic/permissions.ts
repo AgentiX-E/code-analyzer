@@ -776,7 +776,10 @@ export function consumerSource(module: CorpusModule, payload: 'injected' | 'clea
     .map((line) => `  // ${line}`)
     .join('\n');
   const handler = `${module.symbol}Handler`;
-  const moduleFile = (module.relativePath.split('/').pop() ?? '').replace(/\.ts$/, '.js');
+  // Sliced rather than `split('/').pop() ?? ''`: the fallback cannot run, and a branch that cannot run is a branch the
+  // coverage gate counts as untested — correctly, because nothing has ever executed it.
+  const base = module.relativePath.slice(module.relativePath.lastIndexOf('/') + 1);
+  const moduleFile = `${base.replace(/\.ts$/, '')}.js`;
   return [
     `import { ${module.symbol} } from './${moduleFile}';`,
     '',
