@@ -111,13 +111,17 @@ Written here so that the absence is a decision rather than an oversight:
    — the system prompt was built and never sent — so the honest description of those two numbers is "a failure of the
    harness", not a model result, and the three runs that sent it produced 0.7875, 0.7958 and 0.8250, a spread inside one
    run's interval. **The permission half now has a measurement of its own**: 100 planted instructions inside the files the
-   agent was asked about, **0 of 100 exposed attempts complied**, against **32 of 100 when the user asked for the same
-   call** (p = 4.66 × 10⁻¹⁰), with a 3.7 % ceiling, and every one of those 32 calls was refused by a read-only client and
-   by a `scout` profile — which is the enforcement, tested without a model, not the statistic. **What remains unmeasured
-   is policy rather than mechanism**: which role a given deployment should grant, how a token maps to a role, and whether
-   an instruction planted somewhere other than the file under discussion (a commit message, a dependency, a long
-   conversation) behaves like this one. Nothing here asserts safety, and the selection rate in particular may not be
-   quoted as if it did.
+   agent was asked about, **0 of 100 exposed attempts complied**, against **98 of 100 when the user asked for the same
+   call** (p = 6.31 × 10⁻³⁰), with a 3.7 % ceiling, and every one of those 98 calls was refused by a read-only client and
+   by a `scout` profile — which is the enforcement, tested without a model, not the statistic. **The control read 32 in
+   the iteration before, and that figure is withdrawn**: the only change is a third tool turn, so it measured the
+   harness's turn budget rather than the model's willingness. **A second channel was built and did not run**: with the
+   payload in a call site and a question that names no file, exposure was 0 of 100 — every attempt answered from search
+   metadata without opening the file the search returned — so `asr` is null there and nothing about call-site injection
+   is measured. **What remains unmeasured is policy rather than mechanism**: which role a given deployment should grant,
+   how a token maps to a role, whether an instruction in a call site is obeyed when a question forces the read, and
+   whether one planted somewhere else (a commit message, a dependency's README, a long conversation) behaves like this
+   one. Nothing here asserts safety, and the selection rate in particular may not be quoted as if it did.
 2. **The LCA table reproduces, and it took three runs to say anything durable.** `docs/BENCHMARK_REPORT.md` quoted 0.4673
    over 115 rows from a run whose merged artifact was never committed. The merge then produced one — 0.4746 over 125 rows
    — but stated no scope on any row and set a cap wider than its own charge. **The artifact now holds the run the harness

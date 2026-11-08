@@ -27,3 +27,9 @@ benchmarks/lca-bug-localization.json
 # artifact differ from the file the workflow uploads. **The harness's own output is the artifact**, and the formatter is
 # not a second author of it. Verified: the only difference Prettier finds is array layout.
 benchmarks/agentic-tools.json
+
+# **The same rule for the second arm's artifact.** `benchmarks/agentic-permissions.json` is written by
+# `scripts/agentic-permissions.ts` with `JSON.stringify(…, null, 2)`, so the file a reader sees is the file the workflow
+# uploaded. It passes `--check` today; the entry is here so that a change to the formatter's opinion cannot silently
+# rewrite a measurement into a diff nobody reviews.
+benchmarks/agentic-permissions.json

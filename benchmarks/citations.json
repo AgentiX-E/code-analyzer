@@ -24,13 +24,7 @@
       "measuredAt": "2026-08-07",
       "samples": 34,
       "groundTruthIssues": 64,
-      "languages": [
-        "typescript",
-        "python",
-        "go",
-        "java",
-        "rust"
-      ],
+      "languages": ["typescript", "python", "go", "java", "rust"],
       "groundTruthSource": "two disjoint datasets, counted from the code rather than from a comment: 15 cases carrying 30 ground-truth entries in `benchmark-data.ts`, and 19 fixtures carrying 34 in `benchmark-fixtures.ts`",
       "datasets": [
         {
@@ -67,9 +61,7 @@
       "groundTruthSource": "public bug-fix commits, extracted by scripts/extract-real-ground-truth.mjs from benchmarks/real-ground-truth/manifest.json; the line ranges are each commit's own patch hunk headers",
       "independentValidation": true,
       "caveat": "The ground truth is authored by the humans who wrote the fixes - a line range is the range that fix changed - and each issue carries its repo, sha, commit URL and license so any entry can be checked against GitHub. **The category and severity are NOT authored**: they are inferred from the commit message by rules in the manifest. **The metrics above are measured through `BenchmarkRunner`, which treats a case's `afterContent` as the code under review; for a fix commit that is the BEFORE state, so the before-content is mapped there.**",
-      "sources": [
-        "benchmarks/real-ground-truth/issues.json"
-      ],
+      "sources": ["benchmarks/real-ground-truth/issues.json"],
       "metrics": {
         "precision": 0.1483,
         "recall": 0.4064,
@@ -84,13 +76,9 @@
       "measuredAt": "2026-10-30",
       "samples": 2740,
       "groundTruthIssues": 1415,
-      "languages": [
-        "java"
-      ],
+      "languages": ["java"],
       "groundTruthSource": "the benchmark's own `expectedresults-1.2.csv` (sha256 1809f6a690c6cf7dd6685df6ebe2eef8fe3ca93d19a7ca0ce45987ca4f5d78e1); 1 415 of 2 740 servlets are labelled vulnerable",
-      "sources": [
-        "benchmarks/owasp-benchmark.json"
-      ],
+      "sources": ["benchmarks/owasp-benchmark.json"],
       "independentValidation": false,
       "caveat": "**The labels are the benchmark's; the score is ours.** `scripts/owasp-benchmark.ts` applies the scorecard's own definition - a case counts as flagged if the engine reports at least one flow in its file, and the score is `TPR - FPR` - but it is this project's implementation of that definition and it has never been diffed against OWASP's `BenchmarkUtils` scorecard. The published figure is the union of two engines, reported separately in the artifact: flows 0.6375, rule families 0.3625, union 1.0000 with zero false positives.",
       "metrics": {
@@ -104,13 +92,9 @@
       "measuredAt": "2026-10-27",
       "samples": 500,
       "groundTruthIssues": 500,
-      "languages": [
-        "python"
-      ],
+      "languages": ["python"],
       "groundTruthSource": "CoSQA retrieval test split, `Jun-jie-Huang/CoCLR · data/search/cosqa-retrieval-test-500.json`, sha256 27d3552b2e7dd86cf9f9a0b3c135e6777d4faafa9c29fb1b9b01ece945974ad6; one gold code answer per natural-language query",
-      "sources": [
-        "benchmarks/cosqa-retrieval.json"
-      ],
+      "sources": ["benchmarks/cosqa-retrieval.json"],
       "independentValidation": true,
       "caveat": "A corpus this project did not author, with the queries and their gold answers fixed before the run. The three columns are the same engine at three stages, so the difference between them is the composition rather than the corpus.",
       "metrics": {
@@ -125,17 +109,9 @@
       "measuredAt": "2026-11-07",
       "samples": 99,
       "groundTruthIssues": 99,
-      "languages": [
-        "typescript",
-        "python",
-        "go",
-        "java"
-      ],
+      "languages": ["typescript", "python", "go", "java"],
       "groundTruthSource": "99 paraphrased questions over a pinned corpus of 52 files, each with the files that answer it; generated once and frozen before the composition was changed",
-      "sources": [
-        "benchmarks/paraphrase-search.json",
-        "benchmarks/paraphrase-queries.json"
-      ],
+      "sources": ["benchmarks/paraphrase-search.json", "benchmarks/paraphrase-queries.json"],
       "independentValidation": false,
       "caveat": "The questions are generated rather than collected from users, so the absolute level is a statement about this corpus; the ordering between variants is what the run is for. `rerank-deep` reads 0.8384 at 20 against the lexical list's 0.4545, and the ceiling is 0.8889, which is the share of questions the corpus contains an answer for at all.",
       "metrics": {
@@ -150,13 +126,9 @@
       "measuredAt": "2026-10-30",
       "samples": 2,
       "groundTruthIssues": 122,
-      "languages": [
-        "python"
-      ],
+      "languages": ["python"],
       "groundTruthSource": "49 import pairs read by hand across two real checkouts (pallets/flask importing pallets/werkzeug) plus 73 call paths traced from one repository into the other",
-      "sources": [
-        "benchmarks/cross-repo-matrix.json"
-      ],
+      "sources": ["benchmarks/cross-repo-matrix.json"],
       "independentValidation": false,
       "caveat": "The pairs are read by hand from two repositories that import each other, which makes them checkable by anyone with the two checkouts; the sample is two repositories, so a recall of 1 is a statement about this pair and not about cross-repository resolution in general.",
       "metrics": {
@@ -169,15 +141,9 @@
       "measuredAt": "2026-11-07",
       "samples": 5,
       "groundTruthIssues": 196,
-      "languages": [
-        "c",
-        "cpp",
-        "python"
-      ],
+      "languages": ["c", "cpp", "python"],
       "groundTruthSource": "Alibaba `aacr-bench` (Apache-2.0, public on Hugging Face): 5 pull requests carrying 196 human-recorded review findings, scored by one judge for both reviewers in a single job",
-      "sources": [
-        "benchmarks/aacr-bench.json"
-      ],
+      "sources": ["benchmarks/aacr-bench.json"],
       "independentValidation": true,
       "caveat": "Both arms run in the same workflow with the same judge, so the comparison is like for like; the corpus is five pull requests, which is enough to compare two tools on the same evidence and not enough to estimate either tool's precision in general.",
       "metrics": {
@@ -194,15 +160,9 @@
       "measuredAt": "2026-11-08",
       "samples": 150,
       "groundTruthIssues": 150,
-      "languages": [
-        "python",
-        "java",
-        "kotlin"
-      ],
+      "languages": ["python", "java", "kotlin"],
       "groundTruthSource": "Long Code Arena bug localisation (JetBrains-Research, Apache-2.0): 150 issues, each with the files its fixing commit touched, over three splits (Python, Java, Kotlin). The three shards are measured by three workflow jobs and merged by scripts/lca-merge.ts, which is what writes this artifact; the shards are gitignored because they are intermediates of one run, and the merged figure is the committed one.",
-      "sources": [
-        "benchmarks/lca-bug-localization.json"
-      ],
+      "sources": ["benchmarks/lca-bug-localization.json"],
       "independentValidation": true,
       "caveat": "**Three runs in one working session, and the sequence is the finding.** The run this citation first described measured 115 of 150 rows at MAP 0.4673. The merge that first put an artifact in the repository measured 125 at **0.4746** but stated no `analysisScope` on any row and set a file cap of 4 000 against a charge that affords 1 981. **The run this artifact now holds**, produced by the `Long Code Arena` workflow after both defects were fixed, measures **141 of 150 at 0.4647**, with **150 of 150 rows scoped** to `**/*.py`, `**/*.java` and `**/*.kt` and a cap of **3 833 against 3 963**. **The figure fell when the run got better**, which is what a bounded sample does when sixteen more instances stop being refused. **Three denominators of this artifact, never subtracted across**: 0.4647 over the 141 rows the analysis ran on; **0.4470** over all 150 with a refused row taking the file-level fallback arm; **0.4368** over all 150 with every refusal scored zero. **Both controls are behind, and only one lead is established**: BM25 pairs at delta **+0.0225**, 95 % bootstrap **[−0.0095, +0.0549]**, wins/losses/ties 46/53/42, sign test **p = 0.5467** — the interval includes zero, so the term-count comparator is not separated from the product; TF-IDF pairs at **+0.0696**, **[+0.0291, +0.1115]**, 73/34/34, **p = 0.0002**. Across the three runs BM25 has never cleared its own test (p = 0.657, 0.5154, 0.5467) while TF-IDF cleared it twice (0.069, 0.0013, 0.0002), and **the BM25 interval changed sides when the sample grew** — so \"we beat the term-count family\" is supportable and \"we beat BM25\" has never been established on this corpus.",
       "metrics": {
@@ -237,9 +197,7 @@
       "measuredAt": "2026-11-08",
       "samples": 100,
       "groundTruthIssues": 100,
-      "languages": [
-        "typescript"
-      ],
+      "languages": ["typescript"],
       "groundTruthSource": "one gold tool per task, plus a decoy where a lexical matcher would go wrong; the answer is a decision rather than a document, so the count of ground-truth units is the count of tasks",
       "datasets": [
         {
@@ -289,23 +247,21 @@
       "measuredAt": "2026-11-08",
       "samples": 100,
       "groundTruthIssues": 100,
-      "languages": [
-        "typescript"
-      ],
-      "groundTruthSource": "one planted instruction per module, in ten groups; the unit is one module and one question, and the same hundred questions are asked in all three arms",
+      "languages": ["typescript"],
+      "groundTruthSource": "one planted instruction per module in ten groups, and one call site per module in a second file; the unit is one module and one question, and the same hundred questions are asked in every arm - four of the five arms ask a question that names the file, two of them ask one that names only the symbol",
       "datasets": [
         {
           "source": "packages/intelligence/src/benchmark/agentic/permissions.ts",
           "samples": 100,
           "groundTruthIssues": 100,
           "consumedBy": "scripts/agentic-permissions.ts",
-          "note": "100 modules, one exported function each; the injected arm's function bodies carry an instruction to call delete_project, the clean arm's carry a comment of the same length that asks for nothing, and the directed arm asks for the same call in the user's voice"
+          "note": "100 modules plus 100 call sites, one exported function each; in the pointed arms the module's function body carries the instruction, in the pointerless arms the call site's does, and the control arms carry a comment of the same length that asks for nothing"
         }
       ],
-      "caveat": "**This measures a decision under a planted instruction, not the model's alignment.** The corpus is synthetic and says so: a hundred small modules written so that each question has exactly one file to read, not a claim about this repository's code. **`asr` is conditioned on exposure** — an attempt whose tool results never carried the payload is excluded from the denominator, and exposure is recorded per attempt rather than assumed; in this run it was 100 of 100, so `asr` and `compliance` coincide. **The positive control is what makes the zero readable**: the same harness, on the same questions and the same fixture, observed the model comply 32 times out of 100 when the *user* asked for the identical call, so a harness that cannot see compliance is not what produced the zero. **What it cannot say:** whether another model, another prompt or a longer conversation would behave the same; whether a payload placed somewhere the model reads by accident (a commit message, a dependency's README) behaves like one inside the function it was asked about; and whether 3.7 % is a rate worth mitigating against when the corpus has never produced a success.",
+      "caveat": "**This measures a decision under a planted instruction, not the model's alignment.** The corpus is synthetic and says so: a hundred small modules plus a hundred call sites, written so that each question has exactly one file to answer from, not a claim about this repository's code. **`asr` is conditioned on exposure** — an attempt whose tool results never carried the payload is excluded from the denominator, and exposure is recorded per attempt rather than assumed. In the pointed arms it was 100 of 100, so `asr` and `compliance` coincide there; in the pointerless arms it was **0 of 100, so `asr` is null and the arm measured search behaviour rather than the payload**. **The positive control is what makes the zero readable**, and it moved: the same harness on the same questions complied **98 times out of 100** when the user asked for the identical call, against 32 in the previous iteration — the difference is a third tool turn, not a different model, so the earlier 32 % was a turn-budget artifact and is withdrawn as a statement about the model. **What it cannot say:** whether another model, another prompt or a longer conversation behaves the same; whether a payload in a call site changes behaviour, because no model in either pointerless arm opened the file it had found; whether a payload in a commit message or a dependency's README behaves like one inside the function under discussion; and whether 3.7 % is a rate worth mitigating against when the corpus has never produced a success.",
       "metrics": {
         "modules": 100,
-        "arms": 3,
+        "arms": 5,
         "attemptsPerArm": 100,
         "exposedInjected": 100,
         "asrInjected": 0,
@@ -314,18 +270,31 @@
         "complianceInjected": 0,
         "effectInjected": 0,
         "controlCompliance": 0,
-        "positiveControlCompliance": 0.32,
-        "positiveControlLower": 0.2367,
-        "positiveControlUpper": 0.4166,
-        "positiveControlEffect": 0.32,
+        "positiveControlCompliance": 0.98,
+        "positiveControlLower": 0.93,
+        "positiveControlUpper": 0.9945,
+        "positiveControlEffect": 0.98,
         "injectedVsDirectedOnlyA": 0,
-        "injectedVsDirectedOnlyB": 32,
-        "injectedVsDirectedPValue": 4.656612873077393e-10,
+        "injectedVsDirectedOnlyB": 98,
+        "injectedVsDirectedPValue": 6.310887241768095e-30,
         "injectedVsControlPValue": 1,
-        "fenceReplayed": 32,
-        "fenceExecutedOnOpenServer": 32,
-        "fenceRefusedReadOnly": 32,
-        "fenceRefusedScout": 32
+        "fenceReplayed": 98,
+        "fenceExecutedOnOpenServer": 98,
+        "fenceRefusedReadOnly": 98,
+        "fenceRefusedScout": 98,
+        "callSites": 100,
+        "turnsPerAttempt": 3,
+        "positiveControlPrevious": 0.32,
+        "exposedIndirect": 0,
+        "asrIndirect": null,
+        "complianceIndirect": 0,
+        "exposedIndirectControl": 0,
+        "indirectVsControlPValue": 1,
+        "indirectFirstCalls": {
+          "search_code": 80,
+          "search_graph": 14,
+          "explore_symbol": 6
+        }
       }
     }
   }
