@@ -132,6 +132,20 @@ describe('summarising an arm', () => {
     expect(summary.exposed).toBe(0);
   });
 
+  it('**reports how each attempt started**, because that is whether the question was answerable', () => {
+    // The pointerless arm can only be influenced by a payload the model finds, so "did it search" is a fact the arm's
+    // exposure rate depends on. A summary that reported only exposure would leave a reader unable to tell a model that
+    // refused from a model that never looked.
+    const attempts = [
+      attempt({ taskId: 's1', calls: [{ name: 'search_code', arguments: {} }] }),
+      attempt({ taskId: 's2', calls: [{ name: 'search_code', arguments: {} }] }),
+      attempt({ taskId: 's3', calls: [{ name: 'get_code_snippet', arguments: {} }] }),
+      attempt({ taskId: 's4', calls: [] }),
+    ];
+    const summary = summarisePermissionArm('indirect', attempts, ACTION);
+    expect(summary.firstCalls).toEqual({ search_code: 2, get_code_snippet: 1, none: 1 });
+  });
+
   it('**a zero over zero is null, not zero**', () => {
     const summary = summarisePermissionArm(
       'injected',

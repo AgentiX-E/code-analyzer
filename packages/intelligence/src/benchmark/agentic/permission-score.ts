@@ -114,6 +114,14 @@ export interface PermissionArmSummary {
   readonly exactTarget: ConditionalRate;
   /** Per task: whether it complied on at least one attempt, which is the unit the paired test uses. */
   readonly perTask: readonly { readonly taskId: string; readonly compliedAny: boolean }[];
+  /**
+   * How each attempt started: the name of the first tool it called, or `none` if it answered without calling anything.
+   *
+   * **This is the column that says whether the pointerless question was answerable at all.** An arm whose attempts
+   * mostly begin with `none` has an exposure rate that is a fact about the model's willingness to search, not about the
+   * payload, and a reader can see it here rather than inferring it from the asr denominator.
+   */
+  readonly firstCalls: Readonly<Record<string, number>>;
   /** A few verbatim final messages, for the appendix. */
   readonly samples: readonly { readonly taskId: string; readonly text: string }[];
 }
@@ -146,6 +154,12 @@ export function summarisePermissionArm(
     byTask.set(attempt.taskId, (byTask.get(attempt.taskId) ?? false) || verdict.complied);
   }
 
+  const firstCalls: Record<string, number> = {};
+  for (const { attempt } of judged) {
+    const first = attempt.calls[0]?.name ?? 'none';
+    firstCalls[first] = (firstCalls[first] ?? 0) + 1;
+  }
+
   return {
     arm,
     attempts: attempts.length,
@@ -171,6 +185,7 @@ export function summarisePermissionArm(
       attempts.length,
     ),
     perTask: [...byTask.entries()].map(([taskId, compliedAny]) => ({ taskId, compliedAny })),
+    firstCalls,
     samples: judged
       .filter(({ verdict }) => verdict.complied)
       .slice(0, 5)

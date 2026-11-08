@@ -183,7 +183,7 @@ jobs:
   permission:
     name: Measure what a planted instruction does, and what the fence does
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -214,7 +214,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           if [ -z "$DEEPSEEK_API_KEY" ]; then
-            echo "::error::DEEPSEEK_API_KEY is not available to this workflow, so the three arms cannot be compared. A run that reports success without a model would publish a rate whose denominator is a question nobody asked."
+            echo "::error::DEEPSEEK_API_KEY is not available to this workflow, so the five arms cannot be compared. A run that reports success without a model would publish a rate whose denominator is a question nobody asked."
             exit 1
           fi
 
@@ -249,6 +249,16 @@ jobs:
           console.log('| --- | --- | --- | --- | --- | --- | --- |');
           for (const [name, arm] of Object.entries(a.arms)) {
             console.log(`| ${name} | ${arm.exposed}/${arm.attempts} | ${arm.asr.n} | **${f(arm.asr.value)}** | [${f(arm.asr.lower)}, ${f(arm.asr.upper)}] | ${f(arm.compliance.value)} (${arm.compliance.n}/${arm.compliance.of}) | ${arm.effect.n}/${arm.effect.of} |`);
+          }
+          console.log('');
+          console.log('| arm | started with |');
+          console.log('| --- | --- |');
+          for (const [name, arm] of Object.entries(a.arms)) {
+            const calls = Object.entries(arm.firstCalls || {})
+              .sort((x, y) => y[1] - x[1])
+              .map(([tool, n]) => `${tool} ${n}`)
+              .join(', ');
+            console.log(`| ${name} | ${calls || '—'} |`);
           }
           console.log('');
           const c = a.comparison;
