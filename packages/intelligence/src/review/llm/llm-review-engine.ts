@@ -372,20 +372,37 @@ export class LLMReviewEngine {
   private lastDropped = { invalidLine: 0, beyondDiffLength: 0, kept: 0, total: 0 };
 
   private filterFindings(findings: LLMFinding[], ctx: PromptContext): LLMFinding[] {
-    const lines = ctx.diffContent.split('\n');
-    const maxLine = lines.length;
+    /**
+     * **The lines the review was shown, taken from the hunk headers rather than from the text's length.**
+     *
+     * **Why this is a second attempt at the same defect.** The first version compared a finding's line numbers against
+     * the number of lines in the diff and **clamped anything past it to the last line** - which stopped the finding
+     * being discarded and **moved it to a line it did not name.** The counters said how often that happened:
+     * `beyondDiffLength` fired on **194 of 199 lanes** on AACR-Bench, so **almost every finding in that run was
+     * relocated before anything read it.**
+     *
+     * **A unified diff states where each hunk sits in the new file** - `@@ -a,b +c,d @@` says the hunk covers lines
+     * `c` to `c+d-1` - **and it states nothing about how long the file is.** So the only question this function can
+     * answer is *is the line inside a hunk the model was shown*, and **the answer is a diagnostic**: a hint outside
+     * every hunk means the model named a line it was not looking at, which is worth counting and is **not** grounds for
+     * moving the line. **The ranker grounds a finding by intersecting its range with the diff's added lines**, and a
+     * range that has been rewritten to fit the diff grounds every finding against the same line.
+     */
+    const hunkText = `${ctx.diffContent}\n${ctx.fileContext ?? ''}`;
+    const hunks = [...hunkText.matchAll(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gm)].map(
+      (match) => {
+        const start = Number(match[1]);
+        return { start, end: start + Number(match[2] ?? 1) - 1 };
+      },
+    );
 
     // **And the filter counts what it removes, because it was removing almost everything in silence.**
     //
     // **What the measurement found and this explains**: **995 lanes succeeded and produced one finding**, and **the
     // competitor produced twenty-nine on the same pull requests with the same model.** **The emission chain is
     // `complete` -> `parseLLMResponse` -> `filterFindings`, and the last of the three ran a check with the wrong
-    // coordinate system**: **`maxLine` is the DIFF's line count**, while **the prompt requires the model to give the
-    // line numbers of the problem *in the file*.** **A 1,500-line file produces a 40-line diff, so a correct finding
-    // at line 900 has `startLine > maxLine` and is discarded.**
-    //
-    // **So the counters are per rule**, because **a filter with three rules and one counter cannot say which rule a
-    // finding died of** - **the same distinction this repository draws in every other loop.**
+    // coordinate system.** **So the counters are per rule**, because **a filter with three rules and one counter cannot
+    // say which rule a finding died of** - **the same distinction this repository draws in every other loop.**
     const dropped = { invalidLine: 0, beyondDiffLength: 0, kept: 0, total: findings.length };
     this.lastDropped = dropped;
     return findings
@@ -395,30 +412,12 @@ export class LLMReviewEngine {
           dropped.invalidLine += 1;
           return false;
         }
-        if (f.startLine > maxLine) {
-          // **Clamped, not discarded - and the measurement is why.**
-          //
-          // **What the counters reported on the first run that had them**: **`parsed: 208`, `kept: 1`,
-          // `beyondDiffLength: 207`.** **The model produced 208 findings and one rule removed 207 of them.**
-          //
-          // **And the rule compared two coordinate systems.** **The prompt requires the line numbers of the problem
-          // *in the file*** - `SELECTION_RULES` rule 4 says so - **and this check compared them against the length of
-          // a unified diff.** **A 1,500-line file produces a 40-line diff**, so **a correct finding at line 900 was
-          // discarded for being past line 40.**
-          //
-          // **The line is a location hint; the text is the finding.** **A finding whose hint is out of range is still
-          // a finding**, so **it is clamped to the last line rather than thrown away** - **and the drop count is kept
-          // as a measure of how often the hint was out of range**, which is **a fact about the prompt rather than
-          // grounds for deletion.**
+        // **A hint outside every hunk is counted and left alone.** With no hunk header there is no evidence either
+        // way, so nothing is counted: **an unknown extent is not a finding about the finding.**
+        const inside = (line: number): boolean =>
+          hunks.some((hunk) => line >= hunk.start && line <= hunk.end);
+        if (hunks.length > 0 && !(inside(f.startLine) && inside(f.endLine))) {
           dropped.beyondDiffLength += 1;
-          f.startLine = maxLine;
-          if (f.endLine > maxLine) f.endLine = maxLine;
-          if (f.startLine > f.endLine) f.startLine = f.endLine;
-          return true;
-        }
-        // End line cannot exceed the diff
-        if (f.endLine > maxLine) {
-          f.endLine = maxLine;
         }
         // Start must be before or equal to end
         if (f.startLine > f.endLine) {

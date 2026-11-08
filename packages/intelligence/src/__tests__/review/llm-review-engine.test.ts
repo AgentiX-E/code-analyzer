@@ -395,7 +395,7 @@ describe('LLMReviewEngine', () => {
       expect(results[0]!.findings[0]!.title).toBe('Good');
     });
 
-    it('should clamp end line to max diff lines', async () => {
+    it('leaves an end line the model named where it named it, and counts that it was outside every hunk', async () => {
       const findings = JSON.stringify({
         findings: [
           {
@@ -419,8 +419,11 @@ describe('LLMReviewEngine', () => {
       const results = await engine.reviewDiff(diff);
 
       expect(results[0]!.findings).toHaveLength(1);
-      // End line should be clamped to the actual diff content length
-      expect(results[0]!.findings[0]!.endLine).toBeLessThan(9999);
+      // **Not moved.** The diff says where its hunks sit in the file and says nothing about how long the file is, so
+      // rewriting 9999 into the diff's last line would be inventing a coordinate the model never named - and the
+      // ranker grounds a finding by intersecting that range with the added lines.
+      expect(results[0]!.findings[0]!.endLine).toBe(9999);
+      expect(engine.lastCounts?.dropped.beyondDiffLength).toBe(1);
     });
 
     it('should fix start line when start > end', async () => {
@@ -896,7 +899,7 @@ describe('LLMReviewEngine', () => {
       expect(returnedLanes.sort()).toEqual(allLanes.sort());
     });
 
-    it('should clamp endLine when it exceeds diff content length', async () => {
+    it('counts an endLine outside every hunk without rewriting it', async () => {
       // Create a diff with very few content lines (1 range = ~3 lines of content)
       // and a finding with endLine that exceeds the content
       const findings = JSON.stringify({
@@ -922,8 +925,8 @@ describe('LLMReviewEngine', () => {
       const results = await engine.reviewDiff(diff);
 
       expect(results[0]!.findings).toHaveLength(1);
-      // endLine should be clamped to the actual content line count
-      expect(results[0]!.findings[0]!.endLine).toBeLessThan(500);
+      expect(results[0]!.findings[0]!.endLine).toBe(500);
+      expect(engine.lastCounts?.dropped.beyondDiffLength).toBe(1);
     });
 
     it('should handle extractRangeText when ranges array is empty (fallback ternary)', async () => {
@@ -994,22 +997,25 @@ describe('LLMReviewEngine', () => {
       const diff = createDiff(); // newEnd: 15
       const results = await engine.reviewDiff(diff);
 
-      // **Both survive**, and **the out-of-range one is clamped to the diff's last line.**
+      // **Both survive, and the out-of-range one keeps the line it named**, because **the file's extent is not the
+      // diff's length** - the hunk header says where the hunk sits and nothing about how long the file is.
       expect(results[0]!.findings).toHaveLength(2);
       const outOfBounds = results[0]!.findings.find((f) => f.title === 'OutOfBounds');
       expect(outOfBounds).toBeDefined();
-      expect(outOfBounds!.startLine).toBeLessThanOrEqual(15);
+      expect(outOfBounds!.startLine).toBe(9999);
+      expect(engine.lastCounts?.dropped.beyondDiffLength).toBe(1);
     });
   });
 });
 
 // The two rules that decide what survives, at the edges where the numbers are unusual.
 //
-// **The clamp is the fix for a measured defect**: the prompt asks for the line *in the file*, the filter compared it
-// with the number of lines *in the diff*, and one rule threw away 207 of 208 findings. **A finding whose hint is out of
-// range is still a finding** — so the hint is clamped and counted, not used as grounds for deletion. The cases below
-// are the three ways the clamp can land: past the end with a range, past the end with an inverted range, and an
-// unusable line number.
+// **Not discarding was the first fix and moving the line was the second defect**: the prompt asks for the line *in the
+// file*, the filter compared it with the number of lines *in the diff*, and one rule threw away 207 of 208 findings.
+// **A finding whose hint is out of range is still a finding**, so it is kept — and it is kept *where the model put it*,
+// because a clamp that fits every finding to the diff's last line grounds all of them against the same line. What the
+// rule may do is count. The cases below are the shapes that reach it: past the end with a range, a range the order of
+// which has to be repaired, and a line number that is not usable at all.
 describe('the emission filter', () => {
   let provider: LLMProvider;
 
@@ -1033,7 +1039,7 @@ describe('the emission filter', () => {
       ],
     });
 
-  it('clamps a finding whose range is beyond the diff rather than discarding it', async () => {
+  it('keeps a finding whose range is beyond the diff, and does not move its lines', async () => {
     (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
       createSuccessResult(finding({ startLine: 900, endLine: 950 })),
     );
@@ -1041,9 +1047,11 @@ describe('the emission filter', () => {
     const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
     const results = await engine.reviewDiff(createDiff());
 
-    // **Kept, and clamped**: the text is the finding; the line is a hint about where it is.
+    // **Kept and unmoved**: the text is the finding, and the line is the coordinate the ranker and the positioner both
+    // read - so a rule that rewrote it would hand both of them a location the model never gave.
     expect(results[0]!.findings).toHaveLength(1);
-    expect(results[0]!.findings[0]!.startLine).toBe(results[0]!.findings[0]!.endLine);
+    expect(results[0]!.findings[0]!.startLine).toBe(900);
+    expect(results[0]!.findings[0]!.endLine).toBe(950);
     expect(engine.lastCounts?.dropped.beyondDiffLength).toBe(1);
   });
 
