@@ -7,6 +7,7 @@ import { collectCLikeTaint } from './base-c-like.js';
 import { FUNCTION_SCOPED_CONSTANTS } from './constant-fold.js';
 import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { JSDOC_MARKERS } from './doc-comment-markers.js';
+import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
 import { C_FAMILY_CALL_NODE_TYPES, TreeSitterBaseProvider } from './tree-sitter-base.js';
@@ -1809,7 +1810,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   }
 
   private lineFromOffset(source: string, offset: number): number {
-    return source.slice(0, offset).split('\n').length;
+    return lineOf(source, offset);
   }
 
   private parseNamedImports(braceContent: string): string[] {

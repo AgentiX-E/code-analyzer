@@ -1104,6 +1104,41 @@ What is left is the traversal itself: **walking the tree at all is now 24 % of t
 stopped being the only large one — type resolution (3.7 s) and cross-file linkage (1.4 s) together are close to it
 (6.3 s). The next lever is not in this section.
 
+### What a hostile file costs
+
+**A repository holds inputs no fixture describes**, and a parser is asked to read them: a minified bundle on one line,
+an expression nested four thousand deep, a generated table of twenty thousand rows. Two of them were unbounded, and
+both were measured before either was changed (`packages/analyzer/src/__tests__/hostile-input.test.ts`).
+
+| input | before | after | what bounded it |
+| ----- | ------ | ----- | --------------- |
+| `bash`, an 8 000-character line of parentheses | **79 s**, 0 captures | **4 ms** | the pipeline head is a scan, not a backtrack |
+| `dart` / `css` / `lua` / `zig`, one 50 000-character line | 5.0 / 3.3 / 1.6 / 1.5 s, 0 captures each | **5 ms** | `maskOverlongLines` at 4 000 characters |
+| 2 000 line numbers over a 1 MB file | 522 ms | **3 ms** | `createLineIndex` + binary search |
+
+**The three mechanisms, and what each one is.**
+
+1. **A line longer than 4 000 characters is data.** A declaration pattern is a scan for a shape that appears near the
+   start of a line; a fifty-thousand-character line is a bundle or a generated table, and the patterns cost their worst
+   case there — a `\s+` before a word, backtracked once per position, is cubic in the line's length. `maskOverlongLines`
+   blanks such a line to the **same length** with NUL, so every capture's byte offset and line number still points into
+   the file the reader has. The fill is NUL and not a space because a space is what `\s` matches, which is the
+   ambiguity that caused the cost.
+2. **A pipeline head is a position and a word.** `/(\S+)[^|\n]*\|\s*\S+/` asked the engine to try every position on
+   a line and re-scan the rest of the line from each of them. `indexOf('|')` and the first token before it answer the
+   same question in one pass.
+3. **A line number is a lookup, and it was a copy.** `source.slice(0, offset).split('\n').length` is O(offset), so a
+   provider emitting `m` captures over `n` bytes copied `O(n · m)` characters to label them — two gigabytes for two
+   thousand integers on a one-megabyte file. `packages/analyzer/src/languages/line-index.ts` builds the table once and
+   binary-searches it, and **a unit test asserts the two agree at every offset of generated sources**, which is what
+   allows twenty-two providers to be switched by a one-line edit.
+
+**The budget is a ceiling with a test behind it**: `hostile-input.test.ts` reads three hostile shapes with every one of
+the thirty-two providers and fails if any takes more than five seconds, which is several times the slowest green
+reading and an order of magnitude under the 79 seconds the worst case cost. `line-index.test.ts` also refuses the
+return of the copy-per-capture idiom by reading the source tree, because the defect is a line of code rather than a
+behaviour.
+
 ---
 
 ## How a figure says what it measured

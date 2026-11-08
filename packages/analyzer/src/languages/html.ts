@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf } from './line-index.js';
 import { childrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -389,7 +390,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
 
   public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const tagRx = /<\/?(\w+)[^>]*>/g;
     while ((m = tagRx.exec(source)) !== null) {
@@ -456,7 +457,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const rx = /<(form|input|textarea|select)\b/g;
     while ((m = rx.exec(source)) !== null) {
@@ -473,7 +474,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const rx = /<(script|style)\b/g;
     while ((m = rx.exec(source)) !== null) {

@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -563,7 +564,7 @@ export class GroovyProvider extends TreeSitterBaseProvider {
 
   public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const classRx = /(?:abstract\s+)?class\s+(\w+)/g;
     while ((m = classRx.exec(source)) !== null) {
@@ -635,7 +636,7 @@ export class GroovyProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const impRx = /import\s+(?:static\s+)?(\w+(?:\.\w+)*)/g;
     while ((m = impRx.exec(source)) !== null) {
@@ -655,7 +656,7 @@ export class GroovyProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const rx = /\b(Eval\.me|Eval\.x|System\.console|request|params)\b/g;
     while ((m = rx.exec(source)) !== null) {
@@ -673,7 +674,7 @@ export class GroovyProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const rx =
       /\b(Eval\.me|Eval\.x|GroovyShell|GroovyScriptEngine|evaluate|executeUpdate|\.execute\()\b/g;

@@ -338,7 +338,7 @@ describe('every module a package compiles is reachable from an entry its manifes
   it('measures the same number of modules in each package as it did when the register was written', () => {
     const counts = Object.fromEntries(NAMES.map((name) => [name, MEASURED[name]!.modules.length]));
     expect(counts).toEqual({
-      analyzer: 89,
+      analyzer: 90,
       cli: 9,
       core: 45,
       infra: 29,

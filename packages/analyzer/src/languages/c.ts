@@ -3,6 +3,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
+import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -492,7 +493,7 @@ export class CProvider extends TreeSitterBaseProvider {
   }
 
   private ln(source: string, offset: number): number {
-    return source.slice(0, offset).split('\n').length;
+    return lineOf(source, offset);
   }
 
   // Taint sources and sinks. C and C++ are where a buffer overflow starts, and neither had a walk.

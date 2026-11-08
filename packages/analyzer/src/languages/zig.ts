@@ -8,6 +8,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { OVERLONG_LINE_BUDGET, maskOverlongLines } from './line-index.js';
 import { captureRegexCallSites } from './regex-calls.js';
 import { captureDocComments, sanitizeSource, lineNumber } from './regex-helpers.js';
 
@@ -44,7 +45,7 @@ export class ZigProvider implements LanguageProvider {
   readonly importSemantics = 'named' as const;
 
   parse(source: string, filePath: string): UnifiedCapture[] {
-    const sanitized = sanitizeSource(source);
+    const sanitized = maskOverlongLines(sanitizeSource(source), OVERLONG_LINE_BUDGET).text;
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 

@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -390,7 +391,7 @@ export class RProvider extends TreeSitterBaseProvider {
 
   public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const funcRx = /(\w+)\s*<-\s*function\s*\(/g;
     while ((m = funcRx.exec(source)) !== null) {
@@ -453,7 +454,7 @@ export class RProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const libRx = /(?:library|require|source)\s*\(\s*["']?(\w+(?:\.\w+)*)["']?\s*\)/g;
     while ((m = libRx.exec(source)) !== null) {
@@ -468,7 +469,7 @@ export class RProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const rx = /(read\.\w+|Sys\.getenv|commandArgs)\s*\(/g;
     while ((m = rx.exec(source)) !== null) {
@@ -485,7 +486,7 @@ export class RProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const rx = /(system|system2|shell|shell\.exec|eval|parse)\s*\(/g;
     while ((m = rx.exec(source)) !== null) {

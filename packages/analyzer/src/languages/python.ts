@@ -5,6 +5,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { collectCLikeTaint } from './base-c-like.js';
 import { PYTHON_CONSTANTS } from './constant-fold.js';
 import { PYTHON_CONTAINERS } from './container-calls.js';
+import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 import { ownerKeyOf } from '../resolution/receiver-types.js';
@@ -852,7 +853,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
   }
 
   private ln(source: string, offset: number): number {
-    return source.slice(0, offset).split('\n').length;
+    return lineOf(source, offset);
   }
   /**
    * Taint, in one pass over the tree.

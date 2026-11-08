@@ -6,6 +6,8 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf, OVERLONG_LINE_BUDGET, maskOverlongLines } from './line-index.js';
+
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
@@ -16,9 +18,12 @@ export class SvelteProvider implements LanguageProvider {
   readonly globs = ['**/*.svelte'];
   readonly importSemantics = 'named' as const;
 
-  parse(source: string, filePath: string): UnifiedCapture[] {
+  parse(original: string, filePath: string): UnifiedCapture[] {
+    // **The mask is applied here and the offsets it preserves are what makes it safe**: every capture below carries a
+    // byte offset into the file, so a mask that changed the length of a line would put the answer where the code is not.
+    const source = maskOverlongLines(original, OVERLONG_LINE_BUDGET).text;
     const captures: UnifiedCapture[] = [];
-    const lineFromOffset = (off: number) => source.slice(0, off).split('\n').length;
+    const lineFromOffset = (off: number) => lineOf(source, off);
 
     // Extract all <script> blocks (including context="module" variants)
     const scriptBlocks = this.extractScriptBlocks(source);
@@ -53,7 +58,7 @@ export class SvelteProvider implements LanguageProvider {
 
   extractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
-    const lineFromOffset = (off: number) => source.slice(0, off).split('\n').length;
+    const lineFromOffset = (off: number) => lineOf(source, off);
 
     const scriptBlocks = this.extractScriptBlocks(source);
     for (const block of scriptBlocks) {

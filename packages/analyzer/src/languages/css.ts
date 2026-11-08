@@ -7,6 +7,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { OVERLONG_LINE_BUDGET, maskOverlongLines } from './line-index.js';
 import { sanitizeSource, lineNumber } from './regex-helpers.js';
 
 import type { ParsedImport, LanguageProvider } from './provider.js';
@@ -27,7 +28,7 @@ export class CssProvider implements LanguageProvider {
   readonly importSemantics = 'none' as const;
 
   parse(source: string, filePath: string): UnifiedCapture[] {
-    const sanitized = sanitizeSource(source);
+    const sanitized = maskOverlongLines(sanitizeSource(source), OVERLONG_LINE_BUDGET).text;
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => lineNumber(sanitized, off);
     let m: RegExpExecArray | null;

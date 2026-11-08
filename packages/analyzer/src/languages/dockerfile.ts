@@ -10,6 +10,8 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { OVERLONG_LINE_BUDGET, maskOverlongLines } from './line-index.js';
+
 import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
@@ -24,7 +26,7 @@ export class DockerfileProvider implements LanguageProvider {
   readonly importSemantics = 'named' as const;
 
   parse(source: string, filePath: string): UnifiedCapture[] {
-    const sanitized = sanitizeSource(source);
+    const sanitized = maskOverlongLines(sanitizeSource(source), OVERLONG_LINE_BUDGET).text;
     const captures: UnifiedCapture[] = [];
     const lines = sanitized.split('\n');
 

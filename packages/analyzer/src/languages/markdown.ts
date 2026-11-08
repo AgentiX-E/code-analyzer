@@ -8,6 +8,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { OVERLONG_LINE_BUDGET, lineOf, maskOverlongLines } from './line-index.js';
 import { sanitizeSource, lineNumber } from './regex-helpers.js';
 
 import type { ParsedImport, LanguageProvider } from './provider.js';
@@ -25,7 +26,7 @@ export class MarkdownProvider implements LanguageProvider {
   readonly importSemantics = 'none' as const;
 
   parse(source: string, filePath: string): UnifiedCapture[] {
-    const sanitized = sanitizeSource(source);
+    const sanitized = maskOverlongLines(sanitizeSource(source), OVERLONG_LINE_BUDGET).text;
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => lineNumber(sanitized, off);
     let m: RegExpExecArray | null;
@@ -129,7 +130,7 @@ export class MarkdownProvider implements LanguageProvider {
           tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: 'frontmatter',
           startLine: 1,
-          endLine: sanitized.slice(0, endIdx + 3).split('\n').length,
+          endLine: lineOf(sanitized, endIdx + 3),
           startByte: 0,
           endByte: endIdx + 3,
           name: 'frontmatter',

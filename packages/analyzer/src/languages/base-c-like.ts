@@ -3,6 +3,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf } from './line-index.js';
 import { scanTaint } from './taint-scan.js';
 
 import type { ParsedImport } from './provider.js';
@@ -12,7 +13,7 @@ import type { TaintSanitizer, TaintSink, TaintSource } from './tree-sitter-base.
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
 export function lineNumberAt(source: string, offset: number): number {
-  return source.slice(0, offset).split('\n').length;
+  return lineOf(source, offset);
 }
 
 export function escapeRegex(str: string): string {

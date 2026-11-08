@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
@@ -407,7 +408,7 @@ export class BashProvider extends TreeSitterBaseProvider {
 
   public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const funcRegex = /(?:function\s+)?(\w+)\s*\(\s*\)\s*\{/g;
     while ((m = funcRegex.exec(source)) !== null) {
@@ -456,25 +457,41 @@ export class BashProvider extends TreeSitterBaseProvider {
     // pipeline. The previous pattern `(\S+)\s*\|\s*\S+` anchored the capture
     // group to the word immediately before `|`, so `cat file | grep` yielded
     // the argument `file` instead of the command `cat`.
-    const pipeRegex = /(\S+)[^|\n]*\|\s*\S+/g;
-    while ((m = pipeRegex.exec(source)) !== null) {
-      captures.push({
-        tag: CAPTURE_TAGS.FUNCTION_CALL,
-        text: m[1]!,
-        startLine: ln(m.index),
-        endLine: ln(m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
-        name: m[1]!,
-        properties: { pipeCommand: 'true', filePath },
-      });
+    // **The pipeline head, read by scanning rather than by asking the engine to backtrack.**
+    //
+    // `/(\S+)[^|\n]*\|\s*\S+/` makes the engine try every position on a line and, from each one, re-scan the rest of
+    // the line - so a line with no `|` in it costs its own length twice per position. Measured on the hostile fixture
+    // in `hostile-input.test.ts`, an 8 000-character line took **79 seconds** to yield the same zero captures.
+    //
+    // **A pipeline head is a position and a word**: the first `|` on the line and the first token before it. `indexOf`
+    // answers the first in one pass and `split` the second in another, and both are linear.
+    let lineOffset = 0;
+    for (const line of source.split('\n')) {
+      const bar = line.indexOf('|');
+      if (bar >= 0 && line.slice(bar + 1).trim().length > 0) {
+        const head = line.slice(0, bar).trim().split(/\s+/)[0] ?? '';
+        if (head.length > 0) {
+          const offset = lineOffset + line.indexOf(head);
+          captures.push({
+            tag: CAPTURE_TAGS.FUNCTION_CALL,
+            text: head,
+            startLine: ln(offset),
+            endLine: ln(offset + head.length),
+            startByte: offset,
+            endByte: offset + head.length,
+            name: head,
+            properties: { pipeCommand: 'true', filePath },
+          });
+        }
+      }
+      lineOffset += line.length + 1;
     }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const srcRegex = /(?:source|\.)\s+["']?([\w./-]+)["']?/g;
     while ((m = srcRegex.exec(source)) !== null) {
@@ -489,7 +506,7 @@ export class BashProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const readRx = /\bread\b\s+/g;
     while ((m = readRx.exec(source)) !== null) {
@@ -506,7 +523,7 @@ export class BashProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
-    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
     const patterns = [/\beval\b/g, /\bexec\b/g, /\brm\s+-rf\b/g];
     for (const p of patterns) {

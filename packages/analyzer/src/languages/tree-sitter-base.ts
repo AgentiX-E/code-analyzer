@@ -6,6 +6,7 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { extractConstantFacts } from './constant-fold.js';
 import { extractContainerCalls } from './container-calls.js';
+import { OVERLONG_LINE_BUDGET, maskOverlongLines } from './line-index.js';
 import { extractDiscardedValueRegions, regionsOfType } from './regions.js';
 import { extractReturnLines } from './return-sites.js';
 import { signatureOf } from './signatures.js';
@@ -416,7 +417,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     if (!this.parser || !this.languageGrammar) {
       this.parseFellBack = true;
-      return this.finishCaptures(this.fallbackParse(sanitized, filePath));
+      return this.finishCaptures(this.fallbackParse(this.boundedSource(sanitized), filePath));
     }
 
     const captures: UnifiedCapture[] = [];
@@ -428,7 +429,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     if (hasUnrecoverableError(rootNode)) {
       // **A tree the parser could not read at all goes to the reader; one it repaired does not.**
       this.parseFellBack = true;
-      return this.finishCaptures(this.fallbackParse(sanitized, filePath));
+      return this.finishCaptures(this.fallbackParse(this.boundedSource(sanitized), filePath));
     }
 
     // **The tree this parse just built is the one the next question about this file needs.** `isExported` and
@@ -454,10 +455,21 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     } catch (error) {
       if (!(error instanceof RangeError)) throw error;
       this.parseFellBack = true;
-      return this.finishCaptures(this.fallbackParse(sanitized, filePath));
+      return this.finishCaptures(this.fallbackParse(this.boundedSource(sanitized), filePath));
     }
 
     return this.finishCaptures(captures);
+  }
+
+  /**
+   * The source a text reader is given: blanked lines longer than the budget.
+   *
+   * **The AST walk never sees this** - a minified bundle is exactly what a grammar is good at - and every path that
+   * hands a file to a regular expression does. A declaration pattern costs its worst case on a line of data, and the
+   * worst case is cubic in the line length; `maskOverlongLines` states the fill and the reason it is not a space.
+   */
+  protected boundedSource(sanitized: string): string {
+    return maskOverlongLines(sanitized, OVERLONG_LINE_BUDGET).text;
   }
 
   /**

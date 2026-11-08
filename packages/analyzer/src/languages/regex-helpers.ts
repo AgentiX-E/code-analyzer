@@ -6,6 +6,8 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf } from './line-index.js';
+
 import type { TaintSource } from './tree-sitter-base.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
@@ -28,7 +30,7 @@ export function sanitizeSource(source: string): string {
 
 /** 1-based line number for a byte offset within `source`. */
 export function lineNumber(source: string, offset: number): number {
-  return source.slice(0, offset).split('\n').length;
+  return lineOf(source, offset);
 }
 
 /**

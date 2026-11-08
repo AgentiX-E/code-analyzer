@@ -1,21 +1,16 @@
 {
   "comment": [
-    "Our review engine on AACR-Bench, the corpus a direct competitor published, judged by one model.",
+    "Our review engine on AACR-Bench, the corpus a direct competitor published.",
     "",
-    "**And this file is the run's own output rather than a copy of one.** **An earlier version of it was written by",
-    "hand from a previous run's numbers, and a later run of the same script on the same corpus produced different",
-    "ones** - **tp 1 fp 2 fn 49 on one run and tp 0 fp 4 fn 50 on the next.** **A judge is a model and a model is not",
-    "deterministic at temperature zero in the way a pure function is**, so **the artifact has to be the run, and the",
-    "run has to be re-taken rather than remembered.**",
+    "**Why this corpus**: 200 real PRs, 10 languages, 1,505 expert-confirmed issues and **three context levels, the",
+    "third of which is Repo Level** - so **it measures cross-file behaviour, which is our distinctive claim**.",
     "",
-    "**And the second reviewer was attempted and could not run**: **`spawnSync ocr ENOENT`, five times** - **the",
-    "competitor was not installed in this job**, which **the `firstFailure` field recorded rather than leaving as an",
-    "empty numerator.**",
-    "",
-    "**And the caveat stands**: **Alibaba built both the tool and the benchmark it wins on.** **Their reported",
-    "absolute precision is 33.9%**, and **that figure is theirs, not a run reproduced here.**"
+    "**And the caveat that belongs in the artifact**: **Alibaba built both the tool and the benchmark it wins on**,",
+    "and an independent party said so - *\"an instrument that agrees with itself is not evidence.\"* **Their reported",
+    "absolute precision is 33.9%**, so **their 33.90-versus-7.23 gap and their 9x token claim are their measurements",
+    "on their corpus, not runs reproduced here.**"
   ],
-  "measuredAt": "2026-10-12",
+  "measuredAt": "2026-11-07",
   "where": "github-actions",
   "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
   "judge": {
@@ -24,18 +19,31 @@
   },
   "route": "our engine reading each PR diff; no bot account installed",
   "comparisonBasis": "their published figures, not a run we performed",
+  "dedupThreshold": 0.8,
   "prsInDataset": 5,
   "prsReviewed": 5,
   "prsWithoutDiff": 0,
   "positiveSamples": 196,
   "negativeSamples": 155,
-  "truePositives": 0,
-  "falsePositives": 4,
-  "falseNegatives": 50,
+  "truePositives": 19,
+  "falsePositives": 86,
+  "falseNegatives": 31,
   "judgeUnanswered": 0,
-  "precision": 0,
-  "recall": 0,
-  "f1": 0,
+  "precision": 0.181,
+  "recall": 0.38,
+  "wholePrArm": {
+    "view": "one call over the whole pull request diff",
+    "lanes": 25,
+    "findings": 5,
+    "truePositives": 3,
+    "falsePositives": 2,
+    "falseNegatives": 47,
+    "judgeUnanswered": 0,
+    "precision": 0.6,
+    "recall": 0.06,
+    "f1": 0.1091
+  },
+  "f1": 0.2452,
   "reviewCategories": {
     "Performance": 5,
     "Maintainability and Readability": 28,
@@ -49,16 +57,72 @@
   "secondReviewer": {
     "tool": "open-code-review",
     "prsAttempted": 5,
-    "prsFailed": 5,
-    "firstFailure": "spawnSync ocr ENOENT",
-    "findings": 0,
-    "truePositives": 0,
-    "falsePositives": 0,
-    "falseNegatives": 0,
+    "prsFailed": 0,
+    "firstFailure": null,
+    "findings": 45,
+    "truePositives": 19,
+    "falsePositives": 26,
+    "falseNegatives": 31,
     "judgeUnanswered": 0,
-    "precision": 0,
-    "recall": 0,
-    "f1": 0
+    "outputKeys": null,
+    "outputChars": 13909,
+    "firstOutputHead": null,
+    "firstOutputFile": null,
+    "extraction": "prose",
+    "declaredCount": 1,
+    "parsedCount": 1,
+    "countsAgree": true,
+    "firstFinding": "{\"path\":\"src/App/FeaturePython.h\",\"startLine\":165,\"endLine\":165,\"category\":\"documentation\",\"severity\":\"low\",\"body\":\"The replacement wording is still grammatically awkward: \\\"allows one to behave\\nevery DocumentObject derived class as Python",
+    "creditExhausted": false,
+    "logLines": 92,
+    "precision": 0.4222,
+    "recall": 0.38,
+    "f1": 0.4
+  },
+  "credit": {
+    "before": {
+      "probed": true,
+      "ok": true,
+      "isAvailable": true,
+      "currency": "CNY",
+      "totalBalance": "144.26",
+      "grantedBalance": "0.00",
+      "toppedUpBalance": "144.26"
+    },
+    "after": {
+      "probed": true,
+      "ok": true,
+      "isAvailable": true,
+      "currency": "CNY",
+      "totalBalance": "142.03",
+      "grantedBalance": "0.00",
+      "toppedUpBalance": "142.03"
+    }
+  },
+  "engineCounters": {
+    "filesReviewed": 199,
+    "emptyDiffs": 0,
+    "fileFailures": 0,
+    "firstFileFailure": null,
+    "laneStats": {
+      "attempted": 995,
+      "succeeded": 995,
+      "failed": 0,
+      "findings": 105,
+      "firstError": null
+    },
+    "dedup": {
+      "before": 476,
+      "after": 105,
+      "dropped": 371
+    },
+    "filterDrops": {
+      "parsed": 195,
+      "kept": 195,
+      "invalidLine": 0,
+      "beyondDiffLength": 194,
+      "lanes": 199
+    }
   },
   "skipped": null
 }

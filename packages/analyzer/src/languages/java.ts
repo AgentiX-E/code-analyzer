@@ -10,6 +10,7 @@ import {
   declaredConstructedTypes,
   writesToResponseBody,
 } from './java-taint.js';
+import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 import { ELEMENT_OF, ownerKeyOf } from '../resolution/receiver-types.js';
@@ -1648,7 +1649,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
   }
 
   private ln(source: string, offset: number): number {
-    return source.slice(0, offset).split('\n').length;
+    return lineOf(source, offset);
   }
   /**
    * Taint, in one pass over the tree.

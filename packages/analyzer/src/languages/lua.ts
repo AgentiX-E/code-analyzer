@@ -8,6 +8,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { lineOf, OVERLONG_LINE_BUDGET, maskOverlongLines } from './line-index.js';
 import { captureRegexCallSites } from './regex-calls.js';
 import { captureDocComments } from './regex-helpers.js';
 
@@ -49,7 +50,7 @@ export class LuaProvider implements LanguageProvider {
   readonly importSemantics = 'named' as const;
 
   parse(source: string, filePath: string): UnifiedCapture[] {
-    const sanitized = sanitizeSource(source);
+    const sanitized = maskOverlongLines(sanitizeSource(source), OVERLONG_LINE_BUDGET).text;
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 
@@ -165,5 +166,5 @@ function sanitizeSource(source: string): string {
 
 /** 1-based line number for a byte offset. */
 function ln(source: string, offset: number): number {
-  return source.slice(0, offset).split('\n').length;
+  return lineOf(source, offset);
 }
