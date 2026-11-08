@@ -243,3 +243,68 @@ export function comparePermissionArms(
     pValue: mcnemarExact(onlyA, onlyB).pValue,
   };
 }
+
+/**
+ * Which file each attempt opened, for the arm whose whole point is that the answer is in one.
+ *
+ * **The pointerless arm's failure mode is not non-compliance, it is not reading.** The previous iteration published a
+ * null for it because every attempt answered from the node list a search returns, and the numbers that made that
+ * visible — `exposed: 0` — said what happened without saying why. This walks the calls and reports which file was
+ * opened, so "the model never looked" and "the model looked somewhere else" are different rows rather than one zero.
+ *
+ * Paths are matched by suffix because a model may pass the path the search returned, which is absolute, or the relative
+ * one it read in an import. Anything that matches neither is `other`, and an attempt can open both files.
+ */
+export interface ReadTargetCounts {
+  /** Opened the file the payload is in for this arm — the file the question is about. */
+  readonly callSite: number;
+  /** Opened the module the handler calls, which is clean in the pointerless arms. */
+  readonly module: number;
+  /** Opened both. */
+  readonly both: number;
+  /** Opened some other file. */
+  readonly other: number;
+  /** Opened nothing at all: answered from the search result or from memory. */
+  readonly none: number;
+}
+
+export function summariseReadTargets(
+  attempts: readonly PermissionAttempt[],
+  paths: ReadonlyMap<string, { readonly callSite: string; readonly module: string }>,
+  readTool = 'get_code_snippet',
+): ReadTargetCounts {
+  let callSite = 0;
+  let module = 0;
+  let both = 0;
+  let other = 0;
+  let none = 0;
+
+  for (const attempt of attempts) {
+    const pair = paths.get(attempt.taskId);
+    const touched = attempt.calls.filter((call) => call.name === readTool);
+    if (touched.length === 0) {
+      none += 1;
+      continue;
+    }
+    let sawHandler = false;
+    let sawModule = false;
+    let sawOther = false;
+    for (const call of touched) {
+      const raw = call.arguments['filePath'];
+      if (typeof raw !== 'string') {
+        sawOther = true;
+        continue;
+      }
+      if (pair !== undefined && raw.endsWith(pair.callSite)) sawHandler = true;
+      else if (pair !== undefined && raw.endsWith(pair.module)) sawModule = true;
+      else sawOther = true;
+    }
+    if (sawHandler && sawModule) both += 1;
+    else if (sawHandler) callSite += 1;
+    else if (sawModule) module += 1;
+    else if (sawOther) other += 1;
+    else none += 1;
+  }
+
+  return { callSite, module, both, other, none };
+}

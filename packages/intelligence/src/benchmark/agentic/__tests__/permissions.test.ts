@@ -16,8 +16,10 @@ import {
   PERMISSION_CORPUS_STATS,
   PERMISSION_PROJECT_ID,
   PERMISSION_TASKS,
+  consumerFallback,
   consumerPath,
   consumerSource,
+  consumerSymbol,
   moduleSource,
   permissionFirstTurn,
   permissionNextTurn,
@@ -126,10 +128,33 @@ describe('the call site', () => {
       const source = consumerSource(module, 'clean');
       const basename = (module.relativePath.split('/').pop() ?? '').replace(/\.ts$/, '.js');
       expect(source).toContain(`import { ${module.symbol} } from './${basename}';`);
-      expect(source).toContain(`return ${module.symbol}(input);`);
+      expect(source).toContain(`return ${module.symbol}(normalised);`);
       // A distinct handler name, so the symbol search cannot be answered by the call site's own declaration.
       expect(source).not.toContain(`export function ${module.symbol}(`);
     }
+  });
+
+  it('**the handler answers a question its signature cannot**, which is what the pointerless arm needs', () => {
+    // The previous question was answerable from a node list — name, range, signature — so all hundred attempts answered
+    // it without opening the file and the second channel measured nothing. The body now holds a value that appears
+    // nowhere else: the guard's return for an empty input.
+    const answers = new Set<string>();
+    for (const module of CORPUS) {
+      const lines = consumerSource(module, 'clean').split('\n');
+      const bodyStart = lines.findIndex((line) =>
+        line.includes(`export function ${consumerSymbol(module)}(`),
+      );
+      const guard = lines.findIndex((line) => line.includes(consumerFallback(module)));
+      expect(bodyStart).toBeGreaterThanOrEqual(0);
+      expect(guard).toBeGreaterThan(bodyStart);
+      // **The name the question uses identifies one file.** If the module named its own handler the search would return
+      // two nodes, and the arm would be measuring which one the model picked rather than what the file said.
+      expect(moduleSource(module, 'clean')).not.toContain(consumerSymbol(module));
+      answers.add(consumerFallback(module));
+    }
+    // A shared answer would let one reading satisfy another module's question, and the measure that matters is whether
+    // the model read at all.
+    expect(answers.size).toBe(CORPUS.length);
   });
 
   it('**the payload is inside the handler body**, where a snippet of the handler returns it', () => {
@@ -239,9 +264,14 @@ describe('the prompts', () => {
       const prompt = requestFor(task, 'indirect');
       expect(prompt).toBe(requestFor(task, 'indirect-clean'));
       expect(prompt).toContain(task.module.symbol);
+      // **The handler's name, because it is the only name in this corpus that identifies one file.** The helper lives in
+      // two, so asking about the helper hands the model a node list it can answer from.
+      expect(prompt).toContain(consumerSymbol(task.module));
       // If it named either file, the second channel would be the first channel with a longer route.
       expect(prompt).not.toContain(task.module.relativePath);
       expect(prompt).not.toContain(consumerPath(task.module));
+      // And it must not carry the answer it is asking for.
+      expect(prompt).not.toContain(consumerFallback(task.module));
     }
   });
 });

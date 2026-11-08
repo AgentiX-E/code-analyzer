@@ -261,6 +261,17 @@ jobs:
             console.log(`| ${name} | ${calls || '—'} |`);
           }
           console.log('');
+          // **Where each arm looked, because "not exposed" has two meanings.** An attempt that never opened a file and
+          // an attempt that opened the wrong one are different failures, and the pointerless arm exists to tell them
+          // apart: the answer is in the handler, so opening the module instead is a fact about the question's pointer.
+          console.log('| arm | opened the call site | opened the module | both | other file | opened nothing |');
+          console.log('| --- | --- | --- | --- | --- | --- |');
+          for (const [name, arm] of Object.entries(a.arms)) {
+            const r = arm.readTargets || {};
+            console.log(`| ${name} | ${r.handler ?? '—'} | ${r.module ?? '—'} | ${r.both ?? '—'} | ${r.other ?? '—'} | ${r.none ?? '—'} |`);
+          }
+          console.log('');
+          console.log('`opened the call site` is a `get_code_snippet` call for the `.usage.ts` file — the file the payload is in for the pointerless arms, and the file those arms must be read from to be exposed. `opened nothing` means every attempt answered without a file read.');
           const c = a.comparison;
           for (const [key, value] of Object.entries(c)) {
             const p = value.pValue < 1e-4 && value.pValue > 0 ? value.pValue.toExponential(2) : value.pValue.toFixed(4);
