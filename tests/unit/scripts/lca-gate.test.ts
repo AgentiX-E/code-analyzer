@@ -100,6 +100,11 @@ function baseRecord(): Record<string, unknown> {
       // below floor(237 796 / 60) = 3 963 and therefore a cap the charge can pay for. **It was 4 000 against a charge
       // of 120 - a budget of 1 916 - and `pinpoint-apm/pinpoint` was measured at 2 482 answer-space files under it.**
       files: 3_833,
+      // **The artifact's own division, published as a verdict.** The merge computes it from the two numbers in this
+      // block, so the gate can require the published verdict to equal the division it performs itself rather than
+      // trusting a number nobody checked.
+      consistent: true,
+      reason: null,
       appliedTo: 'every file in the checkout except .git',
       memory: {
         model: 'declarations',
@@ -1175,6 +1180,39 @@ describe('lca gate — the admission rule', () => {
     );
   });
 
+  it('**passes a run whose cap is wider than its charge, when the run says so**', () => {
+    // **The committed artifact is this case.** Its parts were written at a cap of 4 000 and a charge of 120, which
+    // affords 1 981; iteration 83 narrowed the shipped cap to fit the charge, and the run cannot be re-measured by
+    // editing it. Refusing the artifact deletes the measurement rather than the mistake, and accepting it silently is
+    // the defect the previous case exists against - so the third option is that the run publishes the gap, and the gate
+    // checks that published verdict against the division it can perform itself.
+    const run = runGate(
+      mutated((record) => {
+        const cap = record['fileCap'] as Record<string, unknown>;
+        cap['files'] = 4_000;
+        cap['consistent'] = false;
+        cap['reason'] =
+          'the cap admits 4000 files where the charge affords 1981 at 120 declarations per file, so a ' +
+          'checkout between the two was measured under a bound that cannot pay for it';
+      }),
+    );
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("this run's cap is wider than its charge");
+    expect(run.stdout).toContain('⚠');
+  });
+
+  it('**refuses that same run when the verdict is published without the sentence**', () => {
+    const run = runGate(
+      mutated((record) => {
+        const cap = record['fileCap'] as Record<string, unknown>;
+        cap['files'] = 4_000;
+        cap['consistent'] = false;
+      }),
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('must publish `consistent: false` with the gap in `reason`');
+  });
+
   it('**refuses a superseded artifact only for its shape, not for a division it never published**', () => {
     // An artifact from before the guard existed cannot be divided by it. What the gate asks of it is that the shape is
     // stated - the same allowance the memory-bound row makes - and the row says so in words a reader can see.
@@ -1642,6 +1680,36 @@ describe('the whole-body arm and the weight ladder', () => {
     const run = runGate(record);
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('do not state what the analysis read');
+  });
+
+  it('**accepts a run that restricted nothing, and says so where a reader sees it**', () => {
+    // **This is the state the committed artifact is actually in**, and the gate answered it with a stack trace:
+    // `stated.some` on a `null` scope threw `TypeError` before any sentence could be printed. A check that cannot
+    // describe the state it refuses is the same failure as a check that passes everything, one failure mode further
+    // on - and the state is legitimate rather than absent: the parts were written before the field existed, so every
+    // row reads the whole checkout.
+    const record = baseRecord() as Record<string, unknown>;
+    const rows = record['rows'] as Record<string, unknown>[];
+    for (const row of rows) delete row['analysisScope'];
+    const block = record['analysisScope'] as Record<string, unknown>;
+    block['byLanguage'] = { kt: null };
+    block['rowsScoped'] = 0;
+    const run = runGate(record);
+    expect(run.stderr).toBe('');
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('the whole checkout on every row');
+  });
+
+  it('**refuses a run that mixes scoped rows with unscoped ones**', () => {
+    // Half a run read the whole checkout and half read one language, under one mean. The block claiming `rowsScoped: 0`
+    // is how a merge that lost the field would present itself, so the two statements are compared rather than trusted.
+    const record = baseRecord() as Record<string, unknown>;
+    const rows = record['rows'] as Record<string, unknown>[];
+    delete rows[1]!['analysisScope'];
+    (record['analysisScope'] as Record<string, unknown>)['rowsScoped'] = 0;
+    const run = runGate(record);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('two questions averaged into one mean');
   });
 
   it('**refuses a row scoped to another answer space than its own**', () => {

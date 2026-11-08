@@ -333,6 +333,8 @@ function main(): void {
     const first = part.rows.find((row) => scopeOf(row) !== null);
     scopesByLanguage[part.config] = first === undefined ? null : scopeOf(first);
   }
+  /** **Whether any row states a scope at all**, which is what decides the sentence the block publishes about itself. */
+  const claimsScope = allRows.some((row) => scopeOf(row) !== null);
   const analysisScope = {
     byLanguage: scopesByLanguage,
     distinct: scopes.length,
@@ -347,14 +349,24 @@ function main(): void {
       ),
       max: Math.max(...allRows.map((row) => row.corpusFiles)),
     },
-    note:
-      'The globs the analysis was restricted to, published per row as `analysisScope`. The corpus defines its answer ' +
-      'space as the non-test files of the configuration’s extension, and until this run the pipeline parsed the whole ' +
-      'checkout to answer a question about that space: `airbnb/lottie-android` reached 6 146 MB on 131 Kotlin files and ' +
-      'was killed, and 25 of 150 instances were refused for cost. `includePatterns` is a configuration field the ' +
-      'product documents and no phase read; it is read now, and this run states the list it was given. **`null` means ' +
-      'the whole checkout**, which is what every artifact before this one measured, and a mix of the two is refused by ' +
-      '`lca-gate.js` rather than averaged here.',
+    // **The note states the run, not the intention.** It used to say "it is read now, and this run states the list it
+    // was given" unconditionally - and a merge of parts written before the field existed published that sentence beside
+    // `rowsScoped: 0` and `byLanguage: {py: null, java: null, kt: null}`. A note that describes the change a run was
+    // supposed to contain is a claim about the code, printed in the place where a claim about the data belongs.
+    note: claimsScope
+      ? 'The globs the analysis was restricted to, published per row as `analysisScope`. The corpus defines its ' +
+        'answer space as the non-test files of the configuration’s extension, and until this change the pipeline ' +
+        'parsed the whole checkout to answer a question about that space: `airbnb/lottie-android` reached 6 146 MB on ' +
+        '131 Kotlin files and was killed, and 25 of 150 instances were refused for cost. `includePatterns` is a ' +
+        'configuration field the product documents and no phase read; it is read now, and **this run states the list ' +
+        'it was given**. **`null` means the whole checkout**, and a mix of the two is refused by `lca-gate.js` rather ' +
+        'than averaged here.'
+      : 'The globs the analysis was restricted to, published per row as `analysisScope`. **This run restricted ' +
+        'nothing**: every part was written before the field existed, no row carries a scope, and `rowsScoped` is 0. ' +
+        'The block states that instead of describing the change the harness can make, because a note about what the ' +
+        'code should do is not a note about what this run did. **`null` means the whole checkout**, which is what ' +
+        'this artifact measured; a scoped run states its globs here and a mix of the two is refused by ' +
+        '`lca-gate.js` rather than averaged here.',
   };
 
   const strata = stratify(allRows);
@@ -538,6 +550,33 @@ function main(): void {
     },
     fileCap: {
       files: first.bounds.capFiles,
+      /**
+       * **Whether the cap fits inside the charge the same artifact publishes.** `cap × declarationsPerFile` is the
+       * declaration budget the cap promises, and the guard is what the child will actually pay for; a cap above
+       * `floor(guard / density)` admits checkouts whose analysis cannot finish, and the run that produced this artifact
+       * was measured under exactly that (4 000 files against a charge of 120, which affords 1 981). **The gap is
+       * published as a verdict and a sentence rather than left for a reader to divide**: a number the artifact computes
+       * is checkable, and a number it leaves to the reader is a number the gate can only guess at.
+       */
+      consistent:
+        typeof first.bounds.guard?.declarations === 'number' &&
+        typeof first.bounds.declarationsPerFile === 'number' &&
+        first.bounds.declarationsPerFile > 0
+          ? first.bounds.capFiles <=
+            Math.floor(first.bounds.guard.declarations / first.bounds.declarationsPerFile)
+          : null,
+      reason:
+        typeof first.bounds.guard?.declarations === 'number' &&
+        typeof first.bounds.declarationsPerFile === 'number' &&
+        first.bounds.declarationsPerFile > 0 &&
+        first.bounds.capFiles >
+          Math.floor(first.bounds.guard.declarations / first.bounds.declarationsPerFile)
+          ? `the cap admits ${String(first.bounds.capFiles)} files where the charge affords ` +
+            `${String(Math.floor(first.bounds.guard.declarations / first.bounds.declarationsPerFile))} at ` +
+            `${String(first.bounds.declarationsPerFile)} declarations per file, so a checkout between the two was ` +
+            'measured under a bound that cannot pay for it - the wider cap is published rather than narrowed here, ' +
+            'because narrowing it now would be editing the run instead of reporting it'
+          : null,
       appliedTo: 'every file in the checkout except .git',
       memory: {
         /** **The model admission is charged at**, which is the fit the block below recommends rather than a constant. */
@@ -1147,8 +1186,14 @@ function main(): void {
   // one still has `LCA-PAIRED` below it.
   for (const control of artifact.controlSummary) {
     console.log(
-      `LCA-CONTROL ${control.name.replace(/\s+/g, '_')} rows=${String(control.pairedRows)} ` +
+      // **Two denominators on one line, and each of them labelled.** `rows` printed the *paired* count beside a mean over
+      // every attempted row, so the line read `rows=125 map=0.4242` for a mean computed over 150 - the exact defect
+      // (`two means over two different samples on one line`) that `pairedByLanguage` was written to retire, reappearing
+      // in the console summary after the artifact had stopped committing it.
+      `LCA-CONTROL ${control.name.replace(/\s+/g, '_')} controlRows=${String(control.controlRows)} ` +
         `map=${control.controlMap === null ? 'none' : control.controlMap.toFixed(4)} ` +
+        `pairedRows=${String(control.pairedRows)} ` +
+        `pairedControl=${control.pairedControl === null ? 'none' : control.pairedControl.toFixed(4)} ` +
         `ours=${control.oursPaired === null ? 'none' : control.oursPaired.toFixed(4)} ` +
         `delta=${control.delta === null ? 'none' : control.delta.toFixed(4)} ` +
         `ci=[${control.lower === null ? 'none' : control.lower.toFixed(4)},` +

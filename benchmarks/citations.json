@@ -156,20 +156,41 @@
       }
     },
     "lca-bug-localization": {
-      "artifact": "benchmarks/lca-parts/py.json",
-      "measuredAt": "2026-11-06",
+      "artifact": "benchmarks/lca-bug-localization.json",
+      "measuredAt": "2026-11-08",
       "samples": 150,
       "groundTruthIssues": 150,
       "languages": ["python", "java", "kotlin"],
-      "groundTruthSource": "Long Code Arena bug localisation (JetBrains-Research, Apache-2.0): 150 issues, each with the files its fixing commit touched. The three language parts are committed under `benchmarks/lca-parts/`; the merged `benchmarks/lca-bug-localization.json` is produced by the workflow run and is not committed, which is why `scripts/lca-gate.js` can only run inside that workflow.",
-      "sources": [
-        "benchmarks/lca-parts/py.json",
-        "benchmarks/lca-parts/java.json",
-        "benchmarks/lca-parts/kt.json"
-      ],
+      "groundTruthSource": "Long Code Arena bug localisation (JetBrains-Research, Apache-2.0): 150 issues, each with the files its fixing commit touched, over three splits (Python, Java, Kotlin). The three shards are measured by three workflow jobs and merged by scripts/lca-merge.ts, which is what writes this artifact; the shards are gitignored because they are intermediates of one run, and the merged figure is the committed one.",
+      "sources": ["benchmarks/lca-bug-localization.json"],
       "independentValidation": true,
-      "caveat": "**The numbers in this repository do not reproduce from the committed parts, and that is recorded rather than papered over.** The report's table quotes run 0.4673 over 115 of 150 rows, from a run whose merged artifact was never committed; the committed parts aggregate to **0.3955 over all 150 rows** (mean of each row's `map`), with no refusals. The difference is an open defect rather than a rounding: re-running the harness is the only way to say which is current, and until then the table's figure is not backed by anything in the tree.",
-      "metrics": {}
+      "caveat": "**The table in docs/BENCHMARK_REPORT.md quotes an earlier run and is superseded by this artifact.** That run measured 115 of 150 rows at MAP 0.4673; this artifact measures 125 of 150 at **0.4746**. **Three denominators, and only one of them is the headline**: 0.4746 over the 125 rows the analysis ran on; **0.4499** over all 150 with a refused row scored by the file-level fallback arm (the `fusion` and `fallback.degraded` columns); **0.3955** over all 150 with every refusal scored zero (`sample.worstCaseMap`). The 0.3955 an earlier audit read as a rival measurement of a different run is this third column of this artifact. It pairs both controls on the same 125 rows: against BM25 the delta is **0.0363**, 95 % bootstrap [0.0069, 0.0656], wins/losses/ties 46/39/40, exact sign test **p = 0.5154**; against TF-IDF it is **0.0757**, [0.0327, 0.1182], 63/31/31, **p = 0.0013**. **The BM25 interval excludes zero and its sign test does not**, and this citation does not resolve that disagreement; **the run before this one had the two comparators the other way round** (BM25 p = 0.657, TF-IDF p = 0.069), so what survives both runs is a lead over the term-count family rather than over any one member of it. **Two denominators, never subtracted across**: BM25 scores 0.4242 over all 150 attempted rows and 0.4383 over the 125 that were measured, and only the second is subtractable from 0.4746. **Two properties of this run are recorded as defects of it rather than edited away**: no row carries an `analysisScope`, so every instance was analysed over the whole checkout (`rowsScoped` 0), and the file cap of 4 000 is wider than the 1 981 its own charge affords (`fileCap.consistent` false, with the gap in `fileCap.reason`).",
+      "metrics": {
+        "map": 0.4746,
+        "mapAllRows": 0.4499,
+        "mapWorstCase": 0.3955,
+        "rowsScoped": 0,
+        "capFiles": 4000,
+        "capAffordable": 1981,
+        "fileCapConsistent": false,
+        "measuredRows": 125,
+        "measuredOf": 150,
+        "recallAt10": 0.5867,
+        "precisionAt10": 0.1728,
+        "f1At10": 0.2375,
+        "controlBm25Map": 0.4242,
+        "controlBm25Paired": 0.4383,
+        "pairedDelta": 0.0363,
+        "pairedLower": 0.0069,
+        "pairedUpper": 0.0656,
+        "pairedPValue": 0.5154,
+        "controlTfidfMap": 0.38,
+        "controlTfidfPaired": 0.3989,
+        "pairedDeltaTfidf": 0.0757,
+        "pairedLowerTfidf": 0.0327,
+        "pairedUpperTfidf": 0.1182,
+        "pairedPValueTfidf": 0.0013
+      }
     }
   }
 }

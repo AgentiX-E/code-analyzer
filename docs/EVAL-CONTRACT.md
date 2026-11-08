@@ -101,9 +101,18 @@ exists so each part is compared in its own unit before anything is summed.
 Written here so that the absence is a decision rather than an oversight:
 
 1. **L4 has no measurement.** 51 tools, 5 roles, zero tool-selection records. The next iteration's first deliverable.
-2. **The LCA table does not reproduce.** `docs/BENCHMARK_REPORT.md` quotes 0.4673 over 115 rows from a run whose merged
-   artifact was never committed; the committed parts aggregate to 0.3955 over 150. Both are stated; neither is
-   retracted; a re-run settles it.
+2. **The LCA table reproduces only where the artifact now exists.** `docs/BENCHMARK_REPORT.md` quotes 0.4673 over 115
+   rows from a run whose merged artifact was never committed. A re-run of the sharded workflow, merged by
+   `scripts/lca-merge.ts`, produced `benchmarks/lca-bug-localization.json`: **0.4746 over 125 measured rows**. The old
+   figure is neither retracted nor deleted — it is marked historical, because a run whose artifact is missing and a run
+   that has been superseded are the same defect in two tenses. **The 0.3955 that an audit read as a second run's figure
+   is `sample.worstCaseMap` in this artifact** — the same run with every refusal scored zero — so what looked like two
+   runs disagreeing was one run quoted at two denominators, and the rule that follows is the one this document already
+   states: a mean without its denominator is not a figure. **What the re-run did not settle is whether the lead is
+   real**: the bootstrap interval against BM25 excludes zero and the sign test over the same 125 pairs does not
+   (p = 0.5154), and **the two controls swapped which of them is beaten between runs** (BM25 p = 0.657 → 0.5154, TF-IDF
+   p = 0.069 → 0.0013). A paired test that reports two answers has reported one answer, namely "not established". The
+   tables in that section that are older than the artifact are still hand-written rather than generated from it.
 3. **OWASP has no official scorecard.** The labels are the benchmark's and the formula is the scorecard's, but the
    implementation has never been diffed against `BenchmarkUtils`. A reimplementation nobody has compared is a
    hypothesis.

@@ -237,18 +237,36 @@ function main() {
     // gate requires of it is that the shape is stated - the same allowance the memory-bound row makes for
     // `cap-and-memory-model`. An artifact that *names* the current shape and publishes no guard is refused by that row.
     const superseded = guard === undefined || guard === null;
-    const ok = stated && (superseded || (derivable && files <= affordable));
+    // **A run whose cap is wider than its charge can pay for is a defect of that run, not a fact about the code**, and
+    // the artifact has to say which of the two it is publishing. The committed artifact is exactly that case: its parts
+    // were written at a cap of 4 000 and a charge of 120, which affords 1 981, and iteration 83 narrowed the shipped cap
+    // to fit the charge. **Refusing it here would delete the measurement rather than the mistake** - and accepting it
+    // silently is the defect this row was written against. So the merge computes `fileCap.consistent` from these two
+    // numbers and states the gap in `fileCap.reason`, and the gate requires the published verdict to equal the division
+    // it can perform itself. A future run that widens the cap again without publishing the gap fails here.
+    const published = at(record, ['fileCap', 'consistent']);
+    const measuredConsistent = derivable ? files <= affordable : null;
+    const verdictStated = published === true || published === false;
+    const verdictAgrees = verdictStated && published === measuredConsistent;
+    const gapExplained =
+      published !== false ||
+      (typeof at(record, ['fileCap', 'reason']) === 'string' &&
+        String(at(record, ['fileCap', 'reason'])).length > 40);
+    const ok = stated && (superseded || (derivable && verdictAgrees && gapExplained));
+    const mark = ok ? (published === false ? '⚠' : '✓') : '✗';
     return {
       line:
         `| file cap | ${String(files ?? '—')} files against floor(${String(guard ?? '—')} declarations / ` +
         `${String(density ?? '—')} per file) = ${String(affordable ?? '—')} | the cap is the file count the guard ` +
-        `buys at the charged density${superseded ? ' · no guard published, superseded shape' : ''} | ` +
-        `${ok ? '✓' : '✗'} |`,
+        `buys at the charged density${superseded ? ' · no guard published, superseded shape' : ''}` +
+        `${published === false ? ` · **this run's cap is wider than its charge**: ${String(at(record, ['fileCap', 'reason']))}` : ''} | ` +
+        `${mark} |`,
       failure: ok
         ? null
         : 'fileCap.files: the cap on a checkout must be the file count the declaration guard buys at the charged ' +
-          'density, because a cap and a charge that disagree are two answers to one question and a run can only ' +
-          'apply one of them',
+          'density, and an artifact whose cap is wider than that must publish `consistent: false` with the gap in ' +
+          '`reason` - a cap and a charge that disagree are two answers to one question, and a run can only apply one ' +
+          'of them',
     };
   })();
 
@@ -709,11 +727,32 @@ function main() {
   const scopeRows = Array.isArray(record?.rows) ? record.rows : [];
   const scopeOf = (row) =>
     Array.isArray(row?.analysisScope) && row.analysisScope.length > 0 ? row.analysisScope : null;
-  const silentRows = scopeRows.filter((row) => scopeOf(row) === null);
+  // **`null` and a missing key are two different statements, and this gate used to collapse them into one.** A row
+  // carrying `analysisScope: null` says "the whole checkout was allowed"; a row with no key at all says nothing, and
+  // the projection that publishes rows has dropped a field once already. **Which of the two is a defect depends on the
+  // run**, and the artifact states which kind of run it is in `rowsScoped`:
+  //
+  //   * a run that scoped anything has to state a scope on **every** row — measured and refused alike — because a row
+  //     silent about what its analysis read is a figure whose cost nobody can attribute;
+  //   * a run that scoped nothing has to have **no** row claiming a scope, and its block has to say so.
+  //
+  // **The run this invariant was written for is the second kind**, and the gate refused it with a stack trace rather
+  // than a sentence: `stated.some` on a `null` scope threw `TypeError`, so an artifact that was merely unscoped crashed
+  // the check instead of being reported. That is the same defect as a gate that passes everything, one failure mode
+  // further on, and the fix is to make the whole-checkout state a state the gate can describe.
+  const claimsScoped = typeof scopeBlock?.rowsScoped === 'number' && scopeBlock.rowsScoped > 0;
+  const silentRows = claimsScoped ? scopeRows.filter((row) => scopeOf(row) === null) : [];
+  const unclaimedScopes = claimsScoped ? [] : scopeRows.filter((row) => scopeOf(row) !== null);
   guard(
     silentRows.length === 0,
     `analysisScope: ${String(silentRows.length)} of ${String(scopeRows.length)} rows do not state what the analysis ` +
       'read - the row projection has dropped the field',
+  );
+  guard(
+    unclaimedScopes.length === 0,
+    `analysisScope: ${String(unclaimedScopes.length)} of ${String(scopeRows.length)} rows state a scope while the block ` +
+      `claims ${String(scopeBlock?.rowsScoped)} scoped rows - a mix of scoped and whole-checkout rows is two questions ` +
+      'averaged into one mean',
   );
   const wrongScope = scopeRows.filter((row) => {
     const extension = ANSWER_SPACE_EXTENSION[row?.config];
@@ -739,7 +778,10 @@ function main() {
         `its rows state ${JSON.stringify(stated)} - a summary written beside rows rather than from them`,
     );
     guard(
-      stated.some((glob) => glob.endsWith(`*${extension}`)),
+      // **A whole-checkout run has nothing to check here**: the scope it was given contains every file of the answer
+      // space by construction, and requiring the glob to say so would be requiring a run to state the absence of a
+      // restriction as a restriction. The `rowsScoped` guard above is what keeps this branch from hiding a mixed run.
+      stated === null || stated.some((glob) => glob.endsWith(`*${extension}`)),
       `analysisScope: ${config} rows were scoped to ${JSON.stringify(stated)}, which does not name a ${extension} file`,
     );
   }
@@ -1290,6 +1332,16 @@ function main() {
     '',
     `corpus: ${at(record, ['dataset', 'name'])} · ${measured} instances measured`,
     `semantic half: ${semantic ? 'ran' : 'did not run (lexical only)'}`,
+    // **What the analysis was allowed to read, in the line a reader sees first.** A gate that passes a whole-checkout
+    // run silently would be reporting success about a different question than the one the scoped run asks, so the state
+    // is printed rather than inferred from the absence of a failure.
+    `analysis scope: ${
+      claimsScoped
+        ? `${String(scopeBlock?.rowsScoped)} of ${String(scopeRows.length)} rows scoped, per language ${JSON.stringify(
+            scopeBlock?.byLanguage ?? null,
+          )}`
+        : `the whole checkout on every row - 0 of ${String(scopeRows.length)} rows carry a scope`
+    }`,
     `measured: ${String(at(record, ['measuredAt']))}`,
   ].join('\n');
 

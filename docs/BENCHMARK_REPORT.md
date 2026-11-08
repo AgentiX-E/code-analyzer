@@ -118,33 +118,67 @@ The suite above is **internal**: thirty-four samples written by the same people 
 regression test rather than evidence. The figures that are comparable with other tools come from corpora somebody else
 published, and each of them is gated by a script that fails when the figure falls:
 
-| corpus                                 | what it measures                                                                                                                                                      | artifact                                                                                            | gate                                        |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| **OWASP Benchmark v1.2**               | whether a taint flow is followed, on 2 740 generated servlets whose ground truth is the generator                                                                     | `benchmarks/owasp-benchmark.json`                                                                   | `scripts/owasp-benchmark-gate.js`           |
-| **CoSQA**                              | retrieval of the code that answers a natural-language question (MRR@10)                                                                                               | `benchmarks/cosqa-retrieval.json`                                                                   | `scripts/cosqa-gate.js`                     |
-| **Martian / AACR**                     | whether a review finding is the one a human recorded                                                                                                                  | `benchmarks/martian-our-row.json`, `benchmarks/aacr-bench.json`                                     | `scripts/real-ground-truth-gate.js`         |
-| **Long Code Arena — bug localisation** | given an issue and the repository at the commit where it reproduces, are the files a fix touches among the files named? Metric: the authors' own `quality_metrics.py` | `benchmarks/lca-parts/{py,java,kt}.json` — the merged file is produced by the run and not committed | `scripts/lca-gate.js`, inside that workflow |
+| corpus                                 | what it measures                                                                                                                                                      | artifact                                                                                              | gate                                        |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **OWASP Benchmark v1.2**               | whether a taint flow is followed, on 2 740 generated servlets whose ground truth is the generator                                                                     | `benchmarks/owasp-benchmark.json`                                                                     | `scripts/owasp-benchmark-gate.js`           |
+| **CoSQA**                              | retrieval of the code that answers a natural-language question (MRR@10)                                                                                               | `benchmarks/cosqa-retrieval.json`                                                                     | `scripts/cosqa-gate.js`                     |
+| **Martian / AACR**                     | whether a review finding is the one a human recorded                                                                                                                  | `benchmarks/martian-our-row.json`, `benchmarks/aacr-bench.json`                                       | `scripts/real-ground-truth-gate.js`         |
+| **Long Code Arena — bug localisation** | given an issue and the repository at the commit where it reproduces, are the files a fix touches among the files named? Metric: the authors' own `quality_metrics.py` | `benchmarks/lca-bug-localization.json`, merged by `scripts/lca-merge.ts` from three gitignored shards | `scripts/lca-gate.js`, inside that workflow |
 
 **The last row is the newest and the most demanding**, because its ground truth is a fixing commit rather than a
 generator: Python, Java and Kotlin, decided by what a maintainer actually changed. **It is also the first corpus this
 project did not author, and the first figure that can be placed in a published table.**
 
-**And its table below does not reproduce from the committed tree, which is stated here rather than fixed by re-wording.**
-The run it quotes produced a merged artifact that was never committed; the three committed parts aggregate to a mean
-MAP of **0.3955 over all 150 rows**, against the **0.4673 over 115** in the table. Both are recorded, neither is
-retracted, and the difference stays open until the harness is re-run — the roadmap entry is `Phase 21`. **A published
-figure whose artifact is not in the repository is the same defect as a withdrawn figure that is; it is only the
-direction of the error that differs.**
+**This table quoted a run whose artifact was never in this repository, and the artifact is now here.** The measurement
+is sharded — one workflow job per language split, merged by `scripts/lca-merge.ts` — and the shards are gitignored
+intermediates, so a merge that was never run left the report citing a file that did not exist. Re-run while this section
+was audited, `benchmarks/lca-bug-localization.json` now holds the figure: **125 of 150 rows measured, MAP 0.4746** over
+those 125, **0.5867 recall at ten files with precision 0.1728 and F1 0.2375**.
 
-| rank  | system                                      | MAP        | measured over             |
-| ----- | ------------------------------------------- | ---------- | ------------------------- |
-| 1     | GPT-4 (chat)                                | 0.39       | 50 instances per split    |
-| 2     | GTE (embedding)                             | 0.33       | 50 per split              |
-| 3     | Mistral (embedding)                         | 0.30       | 50 per split              |
-| 4     | TF-IDF (BPE)                                | 0.27       | 50 per split              |
-| 5     | BM25 and the remaining models               | below 0.25 | 50 per split              |
-| **1** | **this harness, as measured**               | **0.4673** | **115 of 150 rows**       |
-| **2** | **this harness, every refusal scored zero** | **0.3582** | **same run, 35 refusals** |
+**Three denominators and one headline.** The same run scores **0.4746** over the 125 rows the analysis ran on,
+**0.4499** over all 150 with a refused row taking the file-level fallback's figure, and **0.3955** over all 150 with
+every refusal scored zero. **The 0.3955 that an earlier audit read as a rival measurement of another run is the third of
+these columns of this one**, and the correction matters more than the number: a figure that looks like a disagreement
+between two runs was one artifact read at two denominators. The paired controls, same rows, same ruler:
+
+| control             | rows | control's mean on all 150 | control's mean on the 125 we measured | ours       | Δ           | 95 % interval      | W / L / T    | sign test  |
+| ------------------- | ---- | ------------------------- | ------------------------------------- | ---------- | ----------- | ------------------ | ------------ | ---------- |
+| BM25                | 150  | 0.4242                    | 0.4383                                | **0.4746** | **+0.0363** | [+0.0069, +0.0656] | 46 / 39 / 40 | p = 0.5154 |
+| **TF-IDF (cosine)** | 150  | 0.3800                    | 0.3989                                | **0.4746** | **+0.0757** | [+0.0327, +0.1182] | 63 / 31 / 31 | p = 0.0013 |
+
+**Both controls are behind, and only one of the two leads survives its own significance test.** The bootstrap interval
+against BM25 excludes zero and the exact sign test over the same 125 pairs does not (**p = 0.5154**), so on this run the
+term-count comparator is **not** separated from the product; against TF-IDF both tests agree (**p = 0.0013**). **The
+previous run had these two the other way round** — BM25 p = 0.657, TF-IDF p = 0.069 — and that reversal is the honest
+headline: a 125-row sample moves which comparator is beaten, so the durable statement is that the product leads the
+term-count family on this corpus, not that it leads any particular member of it. **The two control means are in different
+columns because they are different denominators**: 0.4242 is a mean over all 150 attempted rows including every refusal,
+and only 0.4383 is subtractable from 0.4746. 0.4746 − 0.4383 = 0.0363, and the artifact computes the subtraction rather
+than leaving it to the reader.
+
+**Two defects of this run are published beside its figure rather than edited out of it.** No row carries an
+`analysisScope`, so **every instance was analysed over the whole checkout** (`rowsScoped` 0, `byLanguage` null
+throughout); the parts were written before the field existed, and `scripts/lca-gate.js` now prints that state in its
+summary instead of crashing on it. And the **file cap of 4 000 is wider than the 1 981 its own charge of 120 declarations
+per file affords** — `fileCap.consistent` is false and `fileCap.reason` states the gap. **Neither is repaired by editing
+the artifact**: narrowing the cap now would be rewriting the run, and the honest record of a run under a loose bound is
+the bound.
+
+> **Everything from here to the end of this section was measured on the run that this artifact replaced** — 150
+> attempted, 115 measured, MAP 0.4673. Those tables are kept because each one records a decision that was taken from it,
+> not because it is this product's current figure. **Regenerating them from the artifact that now exists is the next
+> iteration's first task**; until it is done, this section has one current table (above), one current rank table (below,
+> whose paper rows are independent of our run), and several historical ones.
+
+| rank | system                                       | MAP        | measured over          |
+| ---- | -------------------------------------------- | ---------- | ---------------------- |
+| 1    | GPT-4 (chat)                                 | 0.39       | 50 instances per split |
+| 2    | GTE (embedding)                              | 0.33       | 50 per split           |
+| 3    | Mistral (embedding)                          | 0.30       | 50 per split           |
+| 4    | TF-IDF (BPE)                                 | 0.27       | 50 per split           |
+| 5    | BM25 and the remaining models                | below 0.25 | 50 per split           |
+| —    | _that run, superseded by the artifact above_ | _0.4673_   | _115 of 150 rows_      |
+| —    | _same run, every refusal scored zero_        | _0.3582_   | _35 refusals_          |
 
 Ranked against §2.5 of [arXiv:2406.11612](https://arxiv.org/abs/2406.11612), scored by the authors' own
 `quality_metrics.py`. The `comparison` block in the artifact computes the position rather than asserting it.
