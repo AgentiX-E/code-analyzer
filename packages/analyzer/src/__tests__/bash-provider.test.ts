@@ -368,5 +368,26 @@ describe('BashProvider', () => {
     it('should return empty sanitizers', () => {
       expect(fallback.extractSanitizers('echo hi')).toEqual([]);
     });
+
+    // **The three shapes a pipeline head can be, and two of them are not one.**
+    //
+    // The head is the command on the left of the first `|` on its line - and the two ways a line can hold a bar without
+    // holding a head are a bar with nothing after it and a bar with nothing before it. Both used to be matched by a
+    // regex that backtracked across the line; both are decisions now, and a decision needs a case.
+    it('should take the command before the first bar of each line', () => {
+      const captures = fallback.parse('cat file | grep x\nls | wc -l\n', 'a.sh');
+      const heads = captures.filter((c) => c.properties['pipeCommand'] === 'true').map((c) => c.name);
+      expect(heads).toEqual(['cat', 'ls']);
+    });
+
+    it('should not take a head from a line whose bar has nothing after it', () => {
+      const captures = fallback.parse('cat file |\n', 'a.sh');
+      expect(captures.filter((c) => c.properties['pipeCommand'] === 'true')).toEqual([]);
+    });
+
+    it('should not take an empty head from a line that starts with a bar', () => {
+      const captures = fallback.parse('| grep x\n', 'a.sh');
+      expect(captures.filter((c) => c.properties['pipeCommand'] === 'true')).toEqual([]);
+    });
   });
 });

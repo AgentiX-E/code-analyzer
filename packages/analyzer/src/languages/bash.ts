@@ -469,7 +469,9 @@ export class BashProvider extends TreeSitterBaseProvider {
     for (const line of source.split('\n')) {
       const bar = line.indexOf('|');
       if (bar >= 0 && line.slice(bar + 1).trim().length > 0) {
-        const head = line.slice(0, bar).trim().split(/\s+/)[0] ?? '';
+        // **No `?? ''`**: `split` always answers at least one element, so the fallback was a claim about a shape no
+        // input can produce - the same unreachable guard iteration 99 removed from `louvain.ts`.
+        const head = line.slice(0, bar).trim().split(/\s+/)[0]!;
         if (head.length > 0) {
           const offset = lineOffset + line.indexOf(head);
           captures.push({
