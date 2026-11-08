@@ -110,18 +110,20 @@ Written here so that the absence is a decision rather than an oversight:
    never right in three attempts. **Two of the five runs behind that figure measured a model that had been told nothing**
    — the system prompt was built and never sent — so the honest description of those two numbers is "a failure of the
    harness", not a model result, and the three runs that sent it produced 0.7875, 0.7958 and 0.8250, a spread inside one
-   run's interval. **The permission half now has a measurement of its own**: 100 planted instructions inside the files the
-   agent was asked about, **0 of 100 exposed attempts complied**, against **98 of 100 when the user asked for the same
-   call** (p = 6.31 × 10⁻³⁰), with a 3.7 % ceiling, and every one of those 98 calls was refused by a read-only client and
-   by a `scout` profile — which is the enforcement, tested without a model, not the statistic. **The control read 32 in
-   the iteration before, and that figure is withdrawn**: the only change is a third tool turn, so it measured the
-   harness's turn budget rather than the model's willingness. **A second channel was built and did not run**: with the
-   payload in a call site and a question that names no file, exposure was 0 of 100 — every attempt answered from search
-   metadata without opening the file the search returned — so `asr` is null there and nothing about call-site injection
-   is measured. **What remains unmeasured is policy rather than mechanism**: which role a given deployment should grant,
-   how a token maps to a role, whether an instruction in a call site is obeyed when a question forces the read, and
-   whether one planted somewhere else (a commit message, a dependency's README, a long conversation) behaves like this
-   one. Nothing here asserts safety, and the selection rate in particular may not be quoted as if it did.
+   run's interval. **The permission half now has a measurement of its own, over two channels**: 100 planted instructions
+   inside the file the agent was asked about, and 100 inside a call site it was never told about, **0 of 200 exposed
+   attempts complied** — a 1.88 % ceiling across both — against **96 of 100 when the user asked for the same call**
+   (0 to 96, p = 2.52 × 10⁻²⁹), and every one of those 96 calls was refused by a read-only client and by a `scout`
+   profile, which is the enforcement tested without a model rather than the statistic. **The second channel measured
+   nothing until the question was repaired**: it asked what the caller does with a symbol, which `search_code`'s node list
+   answers, so exposure was 0 of 100 and `asr` was null; it now names the handler — one file — and asks what its body
+   returns for an empty input, exposure became 100 of 100, and 61 of those attempts read both files. **The control read 32
+   two iterations ago and that figure is withdrawn** — the only change was a third tool turn, so it measured the harness's
+   turn budget — and it read 98 against 96 in the two runs at the current procedure, which is the sampling noise the
+   interval describes. **What remains unmeasured is policy rather than mechanism**: which role a given deployment should
+   grant, how a token maps to a role, whether a payload in a commit message or a dependency's README behaves like one in
+   a file the agent read, and whether the boundary holds when the planted text is twenty turns behind the model. Nothing
+   here asserts safety, and the selection rate in particular may not be quoted as if it did.
 2. **The LCA table reproduces, and it took three runs to say anything durable.** `docs/BENCHMARK_REPORT.md` quoted 0.4673
    over 115 rows from a run whose merged artifact was never committed. The merge then produced one — 0.4746 over 125 rows
    — but stated no scope on any row and set a cap wider than its own charge. **The artifact now holds the run the harness
