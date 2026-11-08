@@ -208,7 +208,7 @@
           "note": "66 single-tool, 14 chain, 20 no-tool; 80 carry a decoy; 31 carry an execution assertion; together they name all 51 registered tools at least once as the correct answer"
         }
       ],
-      "caveat": "**This measures a decision, not an answer.** The unit is one choice among 51 tools, so the rate is not comparable with a review F1 or a retrieval MAP. **The fixture is this repository's own code** \u2014 `packages/intelligence/src/search` plus `packages/intelligence/src/review/llm`, indexed by the product pipeline into a temporary checkout \u2014 so a grounding value is checkable against a file, and a task that names an entity the code no longer has fails the gate rather than scoring zero. **The execution assertions cover 31 of the 100 tasks**: the rest name tools that need a repository group, a pull request or a benchmark run the harness does not have, and those are scored on the call alone, which the artifact states per task. **The lexical arm is judged on selection only** \u2014 a router names a tool and constructs no arguments \u2014 which is generous to the floor it represents. **What it cannot say:** whether an agent completes a multi-turn task; this is one request and at most two dependent calls.",
+      "caveat": "**This measures a decision, not an answer.** The unit is one choice among 51 tools, so the rate is not comparable with a review F1 or a retrieval MAP. **The fixture is this repository's own code** \u2014 `packages/intelligence/src/search` plus `packages/intelligence/src/review/llm`, indexed by the product pipeline into a temporary checkout \u2014 so a grounding value is checkable against a file, and a task that names an entity the code no longer has fails the gate rather than scoring zero. **The execution assertions cover 31 of the 100 tasks**: the rest name tools that need a repository group, a pull request or a benchmark run the harness does not have, and those are scored on the call alone, which the artifact states per task. **The lexical arm is judged on selection only** \u2014 a router names a tool and constructs no arguments \u2014 which is generous to the floor it represents. **What it cannot say:** whether an agent completes a multi-turn task; this is one request and at most two dependent calls. **Three runs, and the first two measured a model that had been told nothing**: the instruction was built and never sent, so 0.1250 on the decoyed subset in run two is a figure about a question nobody asked. The same model with the instruction scores 0.7958, and the two intervals do not overlap. **The followed-up turn is the weak half**: 21 of 42 chain attempts, against 170 of 198 single ones, and 17 tasks are never right in three attempts. **The lexical arm never refuses** \u2014 0 of 20 no-tool tasks \u2014 so a router compared on this set is compared on 80 % of it. **Descriptions are not established as mattering**: full against names-only is 5 wins to 2, p = 0.4531, which is a null result and not a demonstration that they do not.",
       "metrics": {
         "tasks": 100,
         "singleTools": 66,
@@ -216,7 +216,30 @@
         "noTool": 20,
         "decoyed": 80,
         "withExecutionAssertion": 31,
-        "toolsExercised": 51
+        "toolsExercised": 51,
+        "fullDecoyedRate": 0.7958,
+        "fullDecoyedLower": 0.7404,
+        "fullDecoyedUpper": 0.842,
+        "fullOverallRate": 0.8367,
+        "fullOverallLower": 0.7906,
+        "fullOverallUpper": 0.8742,
+        "fullPassEvery": 0.83,
+        "fullChainRate": 0.5,
+        "fullRefusalRate": 1,
+        "fullSchemaRate": 1,
+        "fullGroundingRate": 0.92,
+        "fullAssertedRate": 1,
+        "namesOnlyDecoyedRate": 0.7708,
+        "namesOnlyOverallRate": 0.8167,
+        "lexicalDecoyedRate": 0.35,
+        "lexicalOverallRate": 0.28,
+        "lexicalRefusalRate": 0,
+        "fullVsLexicalOnlyA": 60,
+        "fullVsLexicalOnlyB": 5,
+        "fullVsLexicalPValue": 4.87e-13,
+        "fullVsNamesOnlyOnlyA": 5,
+        "fullVsNamesOnlyOnlyB": 2,
+        "fullVsNamesOnlyPValue": 0.4531
       }
     }
   }

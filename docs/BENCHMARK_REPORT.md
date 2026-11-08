@@ -1,6 +1,6 @@
 # Code Analyzer — Benchmark Report
 
-<!-- figures: citations:internal-suite-2026-08,owasp-benchmark-1.2,cosqa-retrieval,paraphrase-search,cross-repo-matrix,aacr-bench,lca-bug-localization -->
+<!-- figures: citations:internal-suite-2026-08,owasp-benchmark-1.2,cosqa-retrieval,paraphrase-search,cross-repo-matrix,aacr-bench,lca-bug-localization,agentic-tools -->
 
 **Date:** 2026-08-07
 **Version:** v0.1.0
@@ -109,6 +109,97 @@ To contribute new benchmark fixtures:
 2. Annotate ground-truth issues in `tests/benchmarks/ca-bench/fixtures/*/ground-truth.json`
 3. Ensure the format matches `GroundTruthIssue` from `tests/benchmarks/ca-bench/suites/real-world-benchmark.ts`
 4. Run `pnpm test:bench` to validate the new fixtures integrate correctly
+
+---
+
+## Layer L4 — does an agent pick the right tool?
+
+The sections above measure what the analyser says about code. This one measures something the product does rather than
+says: **an agent is given the live catalog of 51 MCP tools and one sentence a developer would type, and must choose the
+tool and state the call.** It is the only layer where a wrong answer changes state rather than contributing a comment,
+and until this iteration it had no measurement at all — the contract named it as the largest open gap.
+
+| what                    | where                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| the harness             | `scripts/agentic-tools.ts`                                                          |
+| the artifact            | `benchmarks/agentic-tools.json` — 100 tasks, every choice, every failure            |
+| what runs on every push | `npm run docs:agentic` — `--check` and `--self-test`, no key, no network            |
+| what needs a key        | `.github/workflows/agentic-tools.yml` — the two model arms, three attempts per task |
+| the model               | `deepseek-chat`, temperature 0.2, three attempts per task                           |
+
+**One hundred tasks: 66 single-tool, 14 two-step chains, 20 where no tool fits and the correct answer is to refuse.** All
+51 tools are the gold answer at least once, so the set cannot be passed by memorising a dozen names.
+
+**The headline is the decoyed subset, and it is 80 of the 100 tasks.** A task whose gold tool is the only plausible one
+measures nothing — the name is in the request. A decoyed task names a real tool with a similar name that a keyword
+matcher picks and that is wrong for the stated intent. Accuracy there is the only figure where being right is
+distinguishable from being lucky.
+
+| arm                                                        | decoyed — the headline                | all 100 tasks                     | right on every attempt |
+| ---------------------------------------------------------- | ------------------------------------- | --------------------------------- | ---------------------- |
+| **full** — the real catalog, three attempts                | **191/240 = 0.7958** [0.7404, 0.8420] | 251/300 = 0.8367 [0.7906, 0.8742] | 83/100                 |
+| names-only — every description replaced by the tool's name | 185/240 = 0.7708 [0.7136, 0.8195]     | 245/300 = 0.8167                  | 80/100                 |
+| lexical — BM25 over the catalog, no model, one attempt     | 28/80 = 0.3500 [0.2545, 0.4592]       | 28/100 = 0.2800                   | —                      |
+
+Paired, on the same tasks: **full against lexical is 60 wins to 5, p = 4.87 × 10⁻¹³** (exact McNemar over the tasks both
+arms answered). **Full against names-only is 5 to 2, p = 0.4531** — a null result, and it is reported as one: removing
+every description from the catalog changes nothing this sample can detect. The descriptions are not shown to help here,
+and this document does not claim they do.
+
+### Three runs, and the first two measured a model that had been told nothing
+
+| run   | commit    | instruction sent to the model | decoyed                               | all 100 tasks        |
+| ----- | --------- | ----------------------------- | ------------------------------------- | -------------------- |
+| 1     | `84a946c` | no                            | 26/240 = 0.1083                       | 76/300 = 0.2533      |
+| 2     | `351333f` | no                            | 30/240 = 0.1250 [0.0890, 0.1728]      | 82/300 = 0.2733      |
+| **3** | `e8ea0e3` | **yes**                       | **191/240 = 0.7958** [0.7404, 0.8420] | **251/300 = 0.8367** |
+
+**In the first two runs the model scored below the keyword router it was supposed to beat** — 0.1250 against 0.3500 on
+the decoyed subset. That is not a model failing at tool selection; it is the harness failing to ask. The system prompt
+was built — role, project id, "call the most appropriate tool", "say so if nothing fits" — and then never passed to the
+provider, which sends one `user` message. The instruction reached the model in run 3 and the rate moved 6.4×, with the
+two intervals disjoint.
+
+**What proved it was the histogram, not the rate.** The artifact records every choice, and in run 2 the model picked
+`list_projects` in **205 of 360 steps** — 57 % of everything it did. A model choosing a tool it can see no reason for is
+a model with nothing to go on, and the number alone could not say that. In run 3 the most frequent answer is _no call_
+at 77 of 342 steps, which decomposes exactly into the 60 refusals the task set asks for and the 17 refusals that were
+wrong — a distribution over the catalog instead of one tool absorbing the question.
+
+### Where it fails, stated with the same precision
+
+| slice                      | result             | reading                                                                                    |
+| -------------------------- | ------------------ | ------------------------------------------------------------------------------------------ |
+| one request, one call      | 170/198 = 0.8586   | the easy half                                                                              |
+| two dependent calls        | **21/42 = 0.5000** | the follow-up turn is where it breaks: after a real tool result the model drifts           |
+| refusing when nothing fits | 60/60 = 1.0000     | every refusal correct, and the lexical arm is 0/20 because a router always names something |
+| schema-valid call          | 232/232            | never a malformed argument                                                                 |
+| grounded in the fixture    | 69/75 = 0.9200     | three attempts named an entity the indexed code does not have                              |
+| execution assertion held   | 90/90              | when the call is right, the result is what the task predicted                              |
+
+**Failures across 300 attempts: 29 wrong tool, 17 no call where one was expected, 3 ungrounded, 0 malformed.** The 17
+refusals are the interesting ones — "turn the review findings into patches", "format the review results" — where a tool
+exists and the model decided nothing fit. `passEvery` is 83 of 100: **seventeen tasks were never right in three
+attempts**, which is why the per-attempt rate and the every-attempt rate are both printed.
+
+### What this figure may and may not be quoted as
+
+> On 80 tasks where a keyword router goes wrong, this repository's `deepseek-chat` agent chose the right tool and stated
+> a call that passed its own schema **0.7958** of the time over three attempts, against **0.3500** for BM25 over the same
+> catalog.
+
+It may not be quoted as "the agent is safe". There is no injection arm, no privilege-escalation arm and no state
+assertion — a call that is schema-valid and lands on the right tool can still be an unauthorised one, and that harness
+does not exist yet. It is also this repository's own code: the fixture is `packages/intelligence/src/search` plus
+`packages/intelligence/src/review/llm` indexed by the product pipeline into a temporary checkout, so a grounding value
+is checkable against a file and a task naming an entity the code no longer has fails the gate rather than scoring zero.
+
+**Two gates hold the set itself, and neither needs a key.** `--check` proves every gold and decoy tool exists in the
+live registry, every grounding value appears in the fixture, every gold call passes its own tool's schema, the class
+floors hold and no id repeats — and it now also builds the text the model is sent, because the third run died on
+`firstTurn is not defined` while `--check` and `--self-test` were green. `--self-test` runs the answer key through the
+same execution and scoring path a model's calls take and requires 100 of 100: **if a correct answer would not have scored
+1.0, the number above is capped by the harness rather than by the model.**
 
 ---
 

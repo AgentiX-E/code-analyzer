@@ -15,17 +15,21 @@ and each names its own corpus, its own judge and its own artifact. This page say
 A measurement answers a question at one layer. **A number from one layer may not be quoted as if it came from
 another**, which is the mistake that produced a four-column table of vendor figures beside our own.
 
-| layer                    | subject                                                                                            | the question                                                                                | what can falsify it                                                                   |
-| ------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| **L0 — declaration**     | every Markdown file                                                                                | does every figure resolve to an artifact, and does every artifact still support the figure? | `numbers-gate.js`, `benchmark-dataset-gate.js`, `docs:code-sync`, `baselines:anchors` |
-| **L2 — regression**      | the 19-phase pipeline, 32 providers, the graph and the search stack                                | did this commit change what the product returns?                                            | the golden results under `tests/` and `packages/*/src/**/__tests__`                   |
-| **L4 — agent surface**   | 51 MCP tools, the permission model                                                                 | does an agent pick the right tool, refuse the wrong one, and stay inside its role?          | `tests/benchmarks/mcp/` — **currently empty; this is the largest open gap**           |
-| **L1 — external parity** | OWASP Benchmark, CoSQA, Long Code Arena, Martian, Alibaba `aacr-bench`, 100 public bug-fix commits | how do we stand on corpora we did not author?                                               | the artifact each harness writes, and its gate                                        |
-| **L3 / L5**              | retrieval-augmented generation, live traffic                                                       | not applicable                                                                              | the product has no generation path and no deployment                                  |
+| layer                    | subject                                                                                            | the question                                                                                | what can falsify it                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **L0 — declaration**     | every Markdown file                                                                                | does every figure resolve to an artifact, and does every artifact still support the figure? | `numbers-gate.js`, `benchmark-dataset-gate.js`, `docs:code-sync`, `baselines:anchors`                                                 |
+| **L2 — regression**      | the 19-phase pipeline, 32 providers, the graph and the search stack                                | did this commit change what the product returns?                                            | the golden results under `tests/` and `packages/*/src/**/__tests__`                                                                   |
+| **L4 — agent surface**   | 51 MCP tools, the permission model                                                                 | does an agent pick the right tool, refuse the wrong one, and stay inside its role?          | `scripts/agentic-tools.ts` over `benchmarks/agentic-tools.json`; `docs:agentic` on every push, `agentic-tools.yml` for the model arms |
+| **L1 — external parity** | OWASP Benchmark, CoSQA, Long Code Arena, Martian, Alibaba `aacr-bench`, 100 public bug-fix commits | how do we stand on corpora we did not author?                                               | the artifact each harness writes, and its gate                                                                                        |
+| **L3 / L5**              | retrieval-augmented generation, live traffic                                                       | not applicable                                                                              | the product has no generation path and no deployment                                                                                  |
 
 **L4 is a main layer, not a stretch goal.** The tools are the product's action space: a wrong tool call changes state,
-where a missed bad-practice comment does not. It is also the only layer with no measurement at all, which is why it is
-written down here as a gap rather than omitted.
+where a missed bad-practice comment does not. It was the only layer with no measurement at all for four iterations and
+is written down here as a gap no longer: `scripts/agentic-tools.ts` asks a model 100 questions over the live catalog and
+scores the tool it chose, and `benchmarks/agentic-tools.json` is the artifact. **What it measures is a decision** — one
+choice among 51 tools on this repository's own code — and `benchmarks/citations.json` states what that cannot be
+compared with. The permission half of the layer is still unmeasured: a call can be schema-valid, land on the right tool
+and be one the caller had no right to make, and no arm here asserts that.
 
 ---
 
@@ -100,7 +104,13 @@ exists so each part is compared in its own unit before anything is summed.
 
 Written here so that the absence is a decision rather than an oversight:
 
-1. **L4 has no measurement.** 51 tools, 5 roles, zero tool-selection records. The next iteration's first deliverable.
+1. **L4's selection half is measured; its permission half is not.** 100 tasks over the live catalog: **191 of 240 decoyed
+   attempts chose the right tool and stated a schema-valid call (0.7958), against 28 of 80 for BM25 over the same catalog
+   (0.3500)**, paired at p = 4.87 × 10⁻¹³; the chain half is 21 of 42 and 17 tasks were never right in three attempts.
+   **Two of the three runs behind that figure measured a model that had been told nothing** — the system prompt was built
+   and never sent — so the honest description of the first two numbers is "a failure of the harness", not a model result.
+   **What is still missing is the role**: whether a call that is right about intent is one the caller may make. No arm
+   here asserts that, so the rate may not be quoted as safety. Details in `docs/BENCHMARK_REPORT.md` under layer L4.
 2. **The LCA table reproduces, and it took three runs to say anything durable.** `docs/BENCHMARK_REPORT.md` quoted 0.4673
    over 115 rows from a run whose merged artifact was never committed. The merge then produced one — 0.4746 over 125 rows
    — but stated no scope on any row and set a cap wider than its own charge. **The artifact now holds the run the harness

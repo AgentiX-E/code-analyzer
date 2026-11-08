@@ -31,7 +31,13 @@
     "MCP Server": {
       "status": "tested",
       "evidence": "packages/mcp/src/__tests__ and tests/e2e/mcp-e2e.test.ts (23 cases); 51 tools, 15 resources, 5 prompts",
-      "note": "**This entry was `partial` because the counts did not agree, and the disagreement is gone.** It recorded 48 `registry.register(...)` calls against 46 distinct names, with the gap either two duplicate registrations or two names the parser could not read. `scripts/doc-code-sync-gate.js` now computes **51 calls, 51 distinct names**, and `createToolRegistry().list()` returns 51, so the parser and the code agree. **`tested` is not the same as measured**: what the tools do is covered, and whether an agent picks the right one is not - there is no tool-selection artifact in this repository yet, and `docs/EVAL-CONTRACT.md` records that as the open gap in layer L4."
+      "note": "**This entry was `partial` because the counts did not agree, and the disagreement is gone.** It recorded 48 `registry.register(...)` calls against 46 distinct names, with the gap either two duplicate registrations or two names the parser could not read. `scripts/doc-code-sync-gate.js` now computes **51 calls, 51 distinct names**, and `createToolRegistry().list()` returns 51, so the parser and the code agree. **`tested` is not the same as measured**: what the tools do is covered, and whether an agent picks the right one is recorded separately under `Agent Tool Selection`, which is the layer this entry used to say had no artifact."
+    },
+    "Agent Tool Selection": {
+      "status": "verified",
+      "artifact": "benchmarks/agentic-tools.json",
+      "evidence": "scripts/agentic-tools.ts — 100 tasks (66 single-tool, 14 chains, 20 refusals) over the live 51-tool catalog, three attempts each; `npm run docs:agentic` checks the set and the answer key on every push, `.github/workflows/agentic-tools.yml` runs the model arms",
+      "note": "**`verified` here means one thing and not another.** The artifact records, for `deepseek-chat` at temperature 0.2, **191 of 240 decoyed attempts choosing the right tool and stating a schema-valid call (0.7958) against 28 of 80 for BM25 over the same catalog (0.3500)**, paired at p = 4.87 × 10⁻¹³. The decoyed subset is the one quoted because a task whose gold tool is the only plausible one measures nothing. **It is not evidence of safety**: no arm asserts that a right-intent call is one the caller may make, so injection and privilege escalation remain unmeasured. **And the figure is the third run**: the first two measured a model whose system prompt was built and never sent, which is why they read 0.1250 and the artifact documents all three."
     },
     "VS Code Extension": {
       "status": "tested",

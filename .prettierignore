@@ -20,3 +20,10 @@ scripts/callgraph-oracle-java/
 # excluded rather than reformatted, and the exclusion is stated because the last artifact that failed `--check` failed
 # after it had been committed.**
 benchmarks/lca-bug-localization.json
+
+# **The same rule one artifact over.** `benchmarks/agentic-tools.json` is written by `scripts/agentic-tools.ts` with
+# `JSON.stringify(…, null, 2)`, and Prettier's only disagreement with it is that it collapses short arrays onto one line
+# — so `--write` here would rewrite 270 KB of recorded choices into a diff nobody reads, and would make the committed
+# artifact differ from the file the workflow uploads. **The harness's own output is the artifact**, and the formatter is
+# not a second author of it. Verified: the only difference Prettier finds is array layout.
+benchmarks/agentic-tools.json
