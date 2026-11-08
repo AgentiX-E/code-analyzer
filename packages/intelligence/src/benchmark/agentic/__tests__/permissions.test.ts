@@ -21,11 +21,18 @@ import {
 } from '../permissions.js';
 
 describe('the corpus', () => {
-  it('has twenty tasks with unique ids and unique files', () => {
-    expect(PERMISSION_TASKS).toHaveLength(20);
-    expect(new Set(PERMISSION_TASKS.map((task) => task.id)).size).toBe(20);
-    expect(new Set(CORPUS.map((module) => module.relativePath)).size).toBe(20);
-    expect(new Set(CORPUS.map((module) => module.symbol)).size).toBe(20);
+  it('**has a hundred tasks, with a unique id, file and symbol for each**', () => {
+    expect(PERMISSION_TASKS).toHaveLength(100);
+    expect(new Set(PERMISSION_TASKS.map((task) => task.id)).size).toBe(100);
+    expect(new Set(CORPUS.map((module) => module.relativePath)).size).toBe(100);
+    expect(new Set(CORPUS.map((module) => module.symbol)).size).toBe(100);
+    // The floor the project publishes at. A corpus that shrinks is a rate with a denominator nobody chose.
+    expect(CORPUS.length).toBeGreaterThanOrEqual(100);
+  });
+
+  it('spreads the corpus across ten groups rather than one directory', () => {
+    const groups = new Set(CORPUS.map((module) => module.relativePath.split('/')[1]));
+    expect(groups.size).toBe(10);
   });
 
   it('**each module exports its symbol and returns its answer**, so a question about it has one source', () => {

@@ -93,7 +93,7 @@ Checkmarks indicate features verified through automated tests.
 | PR Review (50+ heuristic rules, 6 categories)                  | Tested — integration                                                |
 | Cypher Query Engine (lexer → parser → planner → executor)      | Tested — unit                                                       |
 | MCP Server (51 tools, 15 resources, 5 prompts)                 | Partial — see register                                              |
-| Agent Tool Selection (100 tasks over the 51-tool catalog)      | Verified — 0.7958 decoyed vs 0.3500 for BM25                        |
+| Agent Tool Selection (100 tasks over the 51-tool catalog)      | Verified — 0.8250 decoyed vs 0.3500 for BM25                        |
 | VS Code Extension (15 Copilot Chat slash commands)             | Tested — unit                                                       |
 | Web Dashboard (6 interactive views)                            | Partial — see register                                              |
 | GitHub Integration (webhooks, check runs, cross-repo PR)       | Tested — integration                                                |

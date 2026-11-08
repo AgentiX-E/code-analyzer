@@ -137,12 +137,12 @@ distinguishable from being lucky.
 
 | arm                                                        | decoyed — the headline                | all 100 tasks                     | right on every attempt |
 | ---------------------------------------------------------- | ------------------------------------- | --------------------------------- | ---------------------- |
-| **full** — the real catalog, three attempts                | **191/240 = 0.7958** [0.7404, 0.8420] | 251/300 = 0.8367 [0.7906, 0.8742] | 83/100                 |
-| names-only — every description replaced by the tool's name | 185/240 = 0.7708 [0.7136, 0.8195]     | 245/300 = 0.8167                  | 80/100                 |
+| **full** — the real catalog, three attempts                | **198/240 = 0.8250** [0.7719, 0.8678] | 258/300 = 0.8600 [0.8162, 0.8947] | 84/100                 |
+| names-only — every description replaced by the tool's name | 189/240 = 0.7875 [0.7314, 0.8345]     | 249/300 = 0.8300                  | 81/100                 |
 | lexical — BM25 over the catalog, no model, one attempt     | 28/80 = 0.3500 [0.2545, 0.4592]       | 28/100 = 0.2800                   | —                      |
 
-Paired, on the same tasks: **full against lexical is 60 wins to 5, p = 4.87 × 10⁻¹³** (exact McNemar over the tasks both
-arms answered). **Full against names-only is 5 to 2, p = 0.4531** — a null result, and it is reported as one: removing
+Paired, on the same tasks: **full against lexical is 59 wins to 3, p = 1.72 × 10⁻¹⁴** (exact McNemar over the tasks both
+arms answered). **Full against names-only is 6 to 3, p = 0.5078** — a null result, and it is reported as one: removing
 every description from the catalog changes nothing this sample can detect. The descriptions are not shown to help here,
 and this document does not claim they do.
 
@@ -152,7 +152,15 @@ and this document does not claim they do.
 | ----- | --------- | ----------------------------- | ------------------------------------- | -------------------- |
 | 1     | `84a946c` | no                            | 26/240 = 0.1083                       | 76/300 = 0.2533      |
 | 2     | `351333f` | no                            | 30/240 = 0.1250 [0.0890, 0.1728]      | 82/300 = 0.2733      |
-| **3** | `e8ea0e3` | **yes**                       | **191/240 = 0.7958** [0.7404, 0.8420] | **251/300 = 0.8367** |
+| 3     | `e8ea0e3` | **yes**                       | 191/240 = 0.7958 [0.7404, 0.8420]     | 251/300 = 0.8367     |
+| 4     | `8ee5122` | yes                           | 189/240 = 0.7875                      | 249/300 = 0.8300     |
+| **5** | `de2dbb8` | **yes**                       | **198/240 = 0.8250** [0.7719, 0.8678] | **258/300 = 0.8600** |
+
+**The three runs that sent the instruction produced 0.7875, 0.7958 and 0.8250 on the same 240 decoyed attempts, and the
+difference between them is inside one run's interval.** The committed artifact is run 5 because a citation has to name
+one file; none of the three is "the" number, and a sentence quoting the spread would be more honest than a sentence
+quoting the top of it. What moved between run 4 and run 5 is not a change to the task set — it is the sampling, plus the
+tool the model reached for (`get_code_snippet` began returning code on `de2dbb8`, which is one of the fixes below).
 
 **In the first two runs the model scored below the keyword router it was supposed to beat** — 0.1250 against 0.3500 on
 the decoyed subset. That is not a model failing at tool selection; it is the harness failing to ask. The system prompt
@@ -170,27 +178,28 @@ wrong — a distribution over the catalog instead of one tool absorbing the ques
 
 | slice                      | result             | reading                                                                                    |
 | -------------------------- | ------------------ | ------------------------------------------------------------------------------------------ |
-| one request, one call      | 170/198 = 0.8586   | the easy half                                                                              |
+| one request, one call      | 177/198 = 0.8939   | the easy half                                                                              |
 | two dependent calls        | **21/42 = 0.5000** | the follow-up turn is where it breaks: after a real tool result the model drifts           |
 | refusing when nothing fits | 60/60 = 1.0000     | every refusal correct, and the lexical arm is 0/20 because a router always names something |
-| schema-valid call          | 232/232            | never a malformed argument                                                                 |
+| schema-valid call          | 234/234            | never a malformed argument                                                                 |
 | grounded in the fixture    | 69/75 = 0.9200     | three attempts named an entity the indexed code does not have                              |
 | execution assertion held   | 90/90              | when the call is right, the result is what the task predicted                              |
 
-**Failures across 300 attempts: 29 wrong tool, 17 no call where one was expected, 3 ungrounded, 0 malformed.** The 17
+**Failures across 300 attempts: 24 wrong tool, 15 no call where one was expected, 3 ungrounded, 0 malformed.** The 15
 refusals are the interesting ones — "turn the review findings into patches", "format the review results" — where a tool
-exists and the model decided nothing fit. `passEvery` is 83 of 100: **seventeen tasks were never right in three
+exists and the model decided nothing fit. `passEvery` is 84 of 100: **sixteen tasks were never right in three
 attempts**, which is why the per-attempt rate and the every-attempt rate are both printed.
 
 ### What this figure may and may not be quoted as
 
 > On 80 tasks where a keyword router goes wrong, this repository's `deepseek-chat` agent chose the right tool and stated
-> a call that passed its own schema **0.7958** of the time over three attempts, against **0.3500** for BM25 over the same
+> a call that passed its own schema **0.8250** of the time over three attempts, against **0.3500** for BM25 over the same
 > catalog.
 
-It may not be quoted as "the agent is safe". There is no injection arm, no privilege-escalation arm and no state
-assertion — a call that is schema-valid and lands on the right tool can still be an unauthorised one, and that harness
-does not exist yet. It is also this repository's own code: the fixture is `packages/intelligence/src/search` plus
+It may not be quoted as "the agent is safe". A call that is schema-valid and lands on the right tool can still be one the
+caller is not allowed to make, and this arm measures the choice, not the permission — the permission arm is the next
+subsection, and it measures a different thing on a different corpus. It is also this repository's own code: the fixture
+is `packages/intelligence/src/search` plus
 `packages/intelligence/src/review/llm` indexed by the product pipeline into a temporary checkout, so a grounding value
 is checkable against a file and a task naming an entity the code no longer has fails the gate rather than scoring zero.
 

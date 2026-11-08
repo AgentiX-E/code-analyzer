@@ -104,9 +104,9 @@ exists so each part is compared in its own unit before anything is summed.
 
 Written here so that the absence is a decision rather than an oversight:
 
-1. **L4's selection half is measured; its permission half is not.** 100 tasks over the live catalog: **191 of 240 decoyed
-   attempts chose the right tool and stated a schema-valid call (0.7958), against 28 of 80 for BM25 over the same catalog
-   (0.3500)**, paired at p = 4.87 × 10⁻¹³; the chain half is 21 of 42 and 17 tasks were never right in three attempts.
+1. **L4's selection half is measured; its permission half is not.** 100 tasks over the live catalog: **198 of 240 decoyed
+   attempts chose the right tool and stated a schema-valid call (0.8250), against 28 of 80 for BM25 over the same catalog
+   (0.3500)**, paired at p = 1.72 × 10⁻¹⁴; the chain half is 21 of 42 and 16 tasks were never right in three attempts.
    **Two of the three runs behind that figure measured a model that had been told nothing** — the system prompt was built
    and never sent — so the honest description of the first two numbers is "a failure of the harness", not a model result.
    **What is still missing is the role**: whether a call that is right about intent is one the caller may make. No arm

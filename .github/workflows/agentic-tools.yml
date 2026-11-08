@@ -19,7 +19,7 @@ name: Agentic surface — L4
 # 3. `lexical` — no model at all. BM25 over the catalog, one deterministic attempt, which is the honest stand-in for the
 #    description-index router a product without an agent loop ships. It is the null the model has to clear.
 #
-# **The headline is the decoyed subset.** 50 of the 64 tasks name a decoy: a real tool in the same family whose name and
+# **The headline is the decoyed subset.** 80 of the 100 tasks name a decoy: a real tool in the same family whose name and
 # description are close enough that a keyword router picks it and that is wrong for the stated intent. A task whose gold
 # tool is the only plausible one measures nothing, so accuracy on the decoyed subset — where being right is
 # distinguishable from being lucky — is the number this workflow exists to produce.
@@ -124,6 +124,9 @@ jobs:
           fi
           node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
           const a = require('./benchmarks/agentic-tools.json');
+          // **A p of 1.7e-14 printed with four decimals is a p of 0.0000**, which reads as impossible rather than as
+          // overwhelming. Anything below 1e-4 is printed in exponential notation.
+          const fmtP = (p) => (p < 1e-4 && p > 0 ? p.toExponential(2) : p.toFixed(4));
           const row = (name, arm) => {
             const p = arm.decoyed;
             const f = (x) => (x === null ? '—' : x.toFixed(4));
@@ -138,9 +141,9 @@ jobs:
           for (const [name, arm] of Object.entries(a.arms)) console.log(row(name, arm));
           console.log('');
           const c = a.comparison;
-          console.log(`McNemar against the null: full vs lexical — only-full ${c.full_vs_lexical.onlyA}, only-lexical ${c.full_vs_lexical.onlyB}, p = ${c.full_vs_lexical.pValue.toFixed(4)}`);
+          console.log(`McNemar against the null: full vs lexical — only-full ${c.full_vs_lexical.onlyA}, only-lexical ${c.full_vs_lexical.onlyB}, p = ${fmtP(c.full_vs_lexical.pValue)}`);
           console.log('');
-          console.log(`McNemar on the description ablation: full vs names-only — only-full ${c.full_vs_names_only.onlyA}, only-names ${c.full_vs_names_only.onlyB}, p = ${c.full_vs_names_only.pValue.toFixed(4)}`);
+          console.log(`McNemar on the description ablation: full vs names-only — only-full ${c.full_vs_names_only.onlyA}, only-names ${c.full_vs_names_only.onlyB}, p = ${fmtP(c.full_vs_names_only.pValue)}`);
           console.log('');
           // **What it chose, not only whether it was right.** A rate says how often; the histogram says whether the
           // answer key is narrow (one tool absorbing everything) or the model is diffuse (a different tool per attempt).
@@ -220,8 +223,11 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           AGENTIC_MODEL: deepseek-chat
         run: |
+          # **One attempt, a hundred sites.** Repetition would quote the same hundred files three times; breadth moves
+          # the interval on a zero from 6.0 % to 3.6 %, and the interval is the whole claim. `--limit` exists for a
+          # smoke run, not for a published one.
           TSX_TSCONFIG_PATH=tsconfig.tests.json npx tsx scripts/agentic-permissions.ts --run \
-            --attempts "${{ github.event.inputs.attempts || '3' }}" \
+            --attempts 1 \
             --write
 
       - name: Record the figures in the job summary
@@ -247,7 +253,8 @@ jobs:
           console.log('');
           const c = a.comparison;
           for (const [key, value] of Object.entries(c)) {
-            console.log(`- \`${key}\`: only-A ${value.onlyA}, only-B ${value.onlyB}, both ${value.both}, neither ${value.neither}, p = ${value.pValue.toFixed(4)}`);
+            const p = value.pValue < 1e-4 && value.pValue > 0 ? value.pValue.toExponential(2) : value.pValue.toFixed(4);
+            console.log(`- \`${key}\`: only-A ${value.onlyA}, only-B ${value.onlyB}, both ${value.both}, neither ${value.neither}, p = ${p}`);
           }
           console.log('');
           console.log(`**Fence replay.** The model's own destructive calls, ${a.fence.replayed} of them, replayed against the two restricted configurations: executed on an open server ${a.fence.executed}, refused by a read-only client ${a.fence.readOnlyRefused}, refused by a \`scout\` profile ${a.fence.scoutRefused}.`);
