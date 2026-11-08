@@ -872,6 +872,17 @@ export const getCodeSnippetSchema = {
   required: ['filePath', 'projectId'],
 };
 
+/**
+ * How much of a file a call that names no range may pull.
+ *
+ * **A number with a reason.** A model asking `get_code_snippet` for a path and nothing else wants the code in the file,
+ * and the two ways to be wrong are symmetric: return six lines and the function it asked about is missing, return a
+ * five-thousand-line generated module and the rest of the conversation is squeezed out of the window. Four hundred
+ * lines is most of a file a person wrote and a small part of one a machine wrote, and the answer says `truncated` with
+ * the line numbers it returned, so a caller that needs the rest can ask for it.
+ */
+const DEFAULT_FILE_LINES = 400;
+
 export async function getCodeSnippet(
   args: Record<string, unknown>,
   store?: unknown,
@@ -881,6 +892,13 @@ export async function getCodeSnippet(
   const startLine = params.startLine ?? 1;
   const endLine = params.endLine ?? startLine;
   const contextLines = params.contextLines ?? 5;
+  /**
+   * **Whether the caller named a range at all.** It changes the question: a named range is "these lines and some
+   * context around them", and no range is "this file". Defaulting the second to the first answered with line one and a
+   * five-line margin, so every call that named only a path got the import block and `symbolsInRange` was empty — the
+   * graph's symbols start below line six.
+   */
+  const namedRange = params.startLine !== undefined || params.endLine !== undefined;
 
   try {
     const context = getContext(store);
@@ -927,11 +945,16 @@ export async function getCodeSnippet(
       if (existsSync(target)) {
         const text = readFileSync(target, 'utf8');
         const lines = text.split('\n');
-        const from = Math.max(1, startLine - contextLines);
-        const to = Math.min(lines.length, endLine + contextLines);
+        const from = namedRange ? Math.max(1, startLine - contextLines) : 1;
+        const to = namedRange
+          ? Math.min(lines.length, endLine + contextLines)
+          : Math.min(lines.length, DEFAULT_FILE_LINES);
         // **The graph stores the path the pipeline was given, which is absolute**, and the caller names the file as it
         // appears in an import. Both resolve to the same file, so the comparison accepts either rather than making the
         // caller guess which spelling the index used.
+        // **The range compared against is the one returned, not the one requested.** A caller who asked for line 4 with
+        // five lines of context is shown lines 1 to 9, and a symbol at line 7 is in the answer; filtering by the
+        // request would omit it from the one field that says what the code around it is.
         const symbolsInRange = context.store
           .getAllNodes()
           .filter(
@@ -940,8 +963,8 @@ export async function getCodeSnippet(
               n.projectId === params.projectId &&
               n.startLine !== null &&
               n.endLine !== null &&
-              n.startLine <= endLine &&
-              n.endLine >= startLine,
+              n.startLine <= to &&
+              n.endLine >= from,
           )
           .map((n) => ({
             name: n.name,

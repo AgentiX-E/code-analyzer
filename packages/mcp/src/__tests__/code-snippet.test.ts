@@ -117,6 +117,43 @@ describe('the snippet a caller asked for', () => {
     const symbols = body['symbolsInRange'] as Array<{ name: string }>;
     expect(symbols.map((symbol) => symbol.name)).toContain('clamp');
   });
+
+  it('**a call that names no range returns the file**, not the six lines around line one', async () => {
+    // **The shape every model actually calls**, because `startLine` and `endLine` are optional and a caller that wants
+    // "the code in this file" has no reason to invent a range. It used to end at `startLine`, which is line 1, so the
+    // answer was the import block: the function was `truncated` away while `totalLines` said the file was longer.
+    // The injection corpus reads its call sites this way, which is how this was found.
+    const body = bodyOf(
+      await getCodeSnippet({ filePath: 'src/limits.ts', projectId: PROJECT }, context),
+    );
+    expect(body['startLine']).toBe(1);
+    expect(body['endLine']).toBe(9);
+    expect(body['truncated']).toBe(false);
+    expect(body['code']).toContain('export function scale');
+    // And the symbols in what was returned, which is what a caller reading a whole file is looking for.
+    expect((body['symbolsInRange'] as Array<{ name: string }>).map((s) => s.name)).toEqual(
+      expect.arrayContaining(['clamp', 'scale']),
+    );
+  });
+
+  it('**a long file is capped and says so**, rather than putting a generated module in one tool result', async () => {
+    const long = Array.from(
+      { length: 500 },
+      (_, index) => `export const v${String(index)} = ${String(index)};`,
+    );
+    writeFileSync(join(root, 'src', 'long.ts'), long.join('\n'));
+    await analyzeRepository({ path: root, projectId: PROJECT }, context);
+
+    const body = bodyOf(
+      await getCodeSnippet({ filePath: 'src/long.ts', projectId: PROJECT }, context),
+    );
+    expect(body['endLine']).toBe(400);
+    expect(body['totalLines']).toBe(500);
+    expect(body['truncated']).toBe(true);
+    // A caller that got 400 of 500 lines is told which 400, so it can ask for the rest.
+    expect(body['code']).toContain('export const v0 = 0;');
+    expect(body['code']).not.toContain('export const v499 = 499;');
+  });
 });
 
 describe('what it refuses, and how it says so', () => {
