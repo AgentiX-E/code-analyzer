@@ -78,9 +78,27 @@ in `benchmarks/citations.json` rather than paraphrased here.
 
 **A competitor figure is not a comparison unless the run was common.** Numbers from another tool's documentation were
 measured on another tool's corpus by another tool's judge. The one place this repository runs both arms in one job
-with one judge is Alibaba's `aacr-bench`, and the result there is in `benchmarks/aacr-bench.json`: **ours F1 0.2452
-(precision 0.181, recall 0.380) against the corpus author's tool at F1 0.4000 (precision 0.422, recall 0.380)**.
-Recall is tied; precision is the gap.
+with one judge is Alibaba's `aacr-bench`, and the result there is in `benchmarks/aacr-bench.json`: **ours F1 0.2727
+(precision 0.2019, recall 0.42) against the corpus author's tool at F1 0.4500 (precision 0.3857, recall 0.54)**.
+
+**We lose, and the ordering was the part of it that worked.** This run scores the emission rule registered in
+[`EVAL-CONTRACT.md`](./EVAL-CONTRACT.md) §6 before it ran: rank every finding by its actionability score and emit only
+the ones that point at an added line and say what to change. Against the same run's whole list — **F1 0.2060 at
+precision 0.1311** — the rule is worth **+0.067 F1 and +54 % precision for four points of recall**, which is the
+direction the selector was built for and the first time this repository has moved its own precision on this corpus.
+**It is also not close to enough**: the best point on the published curve is 0.3396, at sixteen comments per pull
+request, so **no budget of these findings would have beaten 0.45** — the ordering cannot close a gap that emission
+opens.
+
+**And the paired test says the gap is not yet established.** Over the fifty goldens both reviewers were scored on,
+six were found by us alone and twelve by the competitor alone, **p = 0.2379** — so what this run establishes is a
+two-to-one ratio in detections that fifty goldens cannot separate from noise, not a proven difference between the two
+reviewers. **What it does establish is where the defect is**: 183 findings with 24 goldens among them, against 70 with 27. **Their review is smaller and better; ours is larger and reordered.**
+
+**The control is the part worth reading twice.** The same ranker applied to the competitor's output takes its F1 from
+0.4500 to 0.4051 — it **lowers** it, because a reviewer that already emits few findings loses recall to a rule that
+removes 41 of its 70. **So the ranker is not a general improvement; it is a repair for over-emission**, and this
+report says so rather than quoting the arm where it helps.
 
 ## Reproducibility
 

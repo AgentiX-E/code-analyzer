@@ -10,7 +10,7 @@
     "absolute precision is 33.9%**, so **their 33.90-versus-7.23 gap and their 9x token claim are their measurements",
     "on their corpus, not runs reproduced here.**"
   ],
-  "measuredAt": "2026-11-07",
+  "measuredAt": "2026-11-08",
   "where": "github-actions",
   "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
   "judge": {
@@ -18,32 +18,177 @@
     "endpoint": "https://api.deepseek.com/v1"
   },
   "route": "our engine reading each PR diff; no bot account installed",
-  "comparisonBasis": "both arms run in this job by .github/workflows/aacr-bench.yml, one judge for both: our engine reading each PR diff, and the corpus author's tool run through the same harness; neither number is taken from a publication",
+  "comparisonBasis": "their published figures, not a run we performed",
   "dedupThreshold": 0.8,
+  "scoring": {
+    "protocol": "one judge verdict per (finding, golden) pair, then a maximum bipartite matching per pull request; the same protocol for both reviewers in the same job",
+    "emissionRule": "actionability gate: the range covers an added line AND (the suggestion names an action OR the finding quotes added code)",
+    "emissionRuleRegisteredBeforeRun": true,
+    "judgeConcurrency": 6,
+    "pairsJudged": 4288,
+    "weights": {
+      "grounded": 0.3,
+      "proposesChange": 0.2,
+      "quotesDiff": 0.14,
+      "namesSymbol": 0.08,
+      "agreement": 0.1,
+      "severity": 0.12,
+      "lane": 0.06,
+      "hedgePenalty": 0.1
+    },
+    "changedFrom": "the previous protocol consumed each golden with the first finding that matched it, in judging order"
+  },
   "prsInDataset": 5,
   "prsReviewed": 5,
   "prsWithoutDiff": 0,
   "positiveSamples": 196,
   "negativeSamples": 155,
-  "truePositives": 19,
-  "falsePositives": 86,
-  "falseNegatives": 31,
+  "truePositives": 21,
+  "falsePositives": 83,
+  "falseNegatives": 29,
   "judgeUnanswered": 0,
-  "precision": 0.181,
-  "recall": 0.38,
+  "precision": 0.2019,
+  "recall": 0.42,
+  "f1": 0.2727,
+  "fullEmission": {
+    "k": 183,
+    "truePositives": 24,
+    "falsePositives": 159,
+    "falseNegatives": 26,
+    "precision": 0.1311,
+    "recall": 0.48,
+    "f1": 0.206
+  },
+  "byBudgetPerPullRequest": [
+    {
+      "budgetPerPullRequest": 1,
+      "k": 5,
+      "truePositives": 0,
+      "falsePositives": 5,
+      "falseNegatives": 50,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0
+    },
+    {
+      "budgetPerPullRequest": 2,
+      "k": 10,
+      "truePositives": 1,
+      "falsePositives": 9,
+      "falseNegatives": 49,
+      "precision": 0.1,
+      "recall": 0.02,
+      "f1": 0.0333
+    },
+    {
+      "budgetPerPullRequest": 3,
+      "k": 15,
+      "truePositives": 3,
+      "falsePositives": 12,
+      "falseNegatives": 47,
+      "precision": 0.2,
+      "recall": 0.06,
+      "f1": 0.0923
+    },
+    {
+      "budgetPerPullRequest": 4,
+      "k": 19,
+      "truePositives": 4,
+      "falsePositives": 15,
+      "falseNegatives": 46,
+      "precision": 0.2105,
+      "recall": 0.08,
+      "f1": 0.1159
+    },
+    {
+      "budgetPerPullRequest": 6,
+      "k": 26,
+      "truePositives": 7,
+      "falsePositives": 19,
+      "falseNegatives": 43,
+      "precision": 0.2692,
+      "recall": 0.14,
+      "f1": 0.1842
+    },
+    {
+      "budgetPerPullRequest": 8,
+      "k": 32,
+      "truePositives": 10,
+      "falsePositives": 22,
+      "falseNegatives": 40,
+      "precision": 0.3125,
+      "recall": 0.2,
+      "f1": 0.2439
+    },
+    {
+      "budgetPerPullRequest": 12,
+      "k": 44,
+      "truePositives": 13,
+      "falsePositives": 31,
+      "falseNegatives": 37,
+      "precision": 0.2955,
+      "recall": 0.26,
+      "f1": 0.2766
+    },
+    {
+      "budgetPerPullRequest": 16,
+      "k": 56,
+      "truePositives": 18,
+      "falsePositives": 38,
+      "falseNegatives": 32,
+      "precision": 0.3214,
+      "recall": 0.36,
+      "f1": 0.3396
+    },
+    {
+      "budgetPerPullRequest": 24,
+      "k": 72,
+      "truePositives": 19,
+      "falsePositives": 53,
+      "falseNegatives": 31,
+      "precision": 0.2639,
+      "recall": 0.38,
+      "f1": 0.3115
+    },
+    {
+      "budgetPerPullRequest": 32,
+      "k": 88,
+      "truePositives": 21,
+      "falsePositives": 67,
+      "falseNegatives": 29,
+      "precision": 0.2386,
+      "recall": 0.42,
+      "f1": 0.3043
+    },
+    {
+      "budgetPerPullRequest": null,
+      "k": 183,
+      "truePositives": 24,
+      "falsePositives": 159,
+      "falseNegatives": 26,
+      "precision": 0.1311,
+      "recall": 0.48,
+      "f1": 0.206
+    }
+  ],
+  "mcnemar": {
+    "oursOnly": 6,
+    "theirsOnly": 12,
+    "pValue": 0.2379,
+    "verdict": "not significant at 0.05"
+  },
   "wholePrArm": {
     "view": "one call over the whole pull request diff",
     "lanes": 25,
-    "findings": 5,
-    "truePositives": 3,
-    "falsePositives": 2,
-    "falseNegatives": 47,
+    "findings": 15,
+    "truePositives": 6,
+    "falsePositives": 9,
+    "falseNegatives": 44,
     "judgeUnanswered": 0,
-    "precision": 0.6,
-    "recall": 0.06,
-    "f1": 0.1091
+    "precision": 0.4,
+    "recall": 0.12,
+    "f1": 0.1846
   },
-  "f1": 0.2452,
   "reviewCategories": {
     "Performance": 5,
     "Maintainability and Readability": 28,
@@ -59,44 +204,6723 @@
     "prsAttempted": 5,
     "prsFailed": 0,
     "firstFailure": null,
-    "findings": 45,
-    "truePositives": 19,
-    "falsePositives": 26,
-    "falseNegatives": 31,
+    "findings": 70,
+    "truePositives": 27,
+    "falsePositives": 43,
+    "falseNegatives": 23,
     "judgeUnanswered": 0,
     "outputKeys": null,
-    "outputChars": 13909,
+    "outputChars": 15309,
     "firstOutputHead": null,
     "firstOutputFile": null,
     "extraction": "prose",
-    "declaredCount": 1,
-    "parsedCount": 1,
+    "declaredCount": 3,
+    "parsedCount": 3,
     "countsAgree": true,
-    "firstFinding": "{\"path\":\"src/App/FeaturePython.h\",\"startLine\":165,\"endLine\":165,\"category\":\"documentation\",\"severity\":\"low\",\"body\":\"The replacement wording is still grammatically awkward: \\\"allows one to behave\\nevery DocumentObject derived class as Python",
+    "firstFinding": "{\"path\":\"src/Gui/ViewProviderExtensionPython.h\",\"startLine\":33,\"endLine\":33,\"category\":\"documentation\",\"severity\":\"low\",\"body\":\"The reworded comment is still grammatically awkward (\\\"allows one to behave\\nevery extension derived class as Py",
     "creditExhausted": false,
-    "logLines": 92,
-    "precision": 0.4222,
-    "recall": 0.38,
-    "f1": 0.4
+    "logLines": 115,
+    "k": 70,
+    "precision": 0.3857,
+    "recall": 0.54,
+    "f1": 0.45,
+    "withTheSameRanker": {
+      "k": 29,
+      "truePositives": 16,
+      "falsePositives": 13,
+      "falseNegatives": 34,
+      "precision": 0.5517,
+      "recall": 0.32,
+      "f1": 0.4051
+    },
+    "findingsAtItsOwnOperatingPoint": [
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+        "startLine": 391,
+        "endLine": 396,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          10,
+          11,
+          12
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+        "startLine": 635,
+        "endLine": 639,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          10,
+          11,
+          12
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+        "startLine": 433,
+        "endLine": 437,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          10,
+          11,
+          12
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+        "startLine": 433,
+        "endLine": 438,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.7793,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          10,
+          11,
+          12
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+        "startLine": 1138,
+        "endLine": 1139,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.7393,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          7
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1299,
+        "endLine": 1303,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.7393,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          6
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawProjGroup.h",
+        "startLine": 133,
+        "endLine": 134,
+        "severity": "low",
+        "category": "style",
+        "score": 0.6733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          4
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+        "startLine": 200,
+        "endLine": 201,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.6733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          4
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+        "startLine": 1149,
+        "endLine": 1150,
+        "severity": "medium",
+        "category": "bug",
+        "score": 0.6093,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawProjGroup.h",
+        "startLine": 46,
+        "endLine": 48,
+        "severity": "medium",
+        "category": "maintainability",
+        "score": 0.5093,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          3
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1282,
+        "endLine": 1283,
+        "severity": "medium",
+        "category": "bug",
+        "score": 0.5093,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          7
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+        "startLine": 1127,
+        "endLine": 1132,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          1,
+          7
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/Preferences.cpp",
+        "startLine": 181,
+        "endLine": 181,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.4393,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+        "startLine": 568,
+        "endLine": 569,
+        "severity": "medium",
+        "category": "bug",
+        "score": 0.4093,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+        "startLine": 736,
+        "endLine": 737,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.3733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+        "startLine": 83,
+        "endLine": 94,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.3733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+        "startLine": 103,
+        "endLine": 106,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.3733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1322,
+        "endLine": 1324,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.2393,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          7
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1385,
+        "endLine": 1393,
+        "severity": "medium",
+        "category": "maintainability",
+        "score": 0.2093,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          1,
+          5,
+          7
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1321,
+        "endLine": 1321,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.1733,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 96,
+        "endLine": 96,
+        "severity": "low",
+        "category": "style",
+        "score": 0.0933,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": false,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          1,
+          5
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+        "startLine": 1166,
+        "endLine": 1168,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.0733,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          2
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/Gui/Command.cpp",
+        "startLine": 1974,
+        "endLine": 1975,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          13
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1328,
+        "endLine": 1335,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          9
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1310,
+        "endLine": 1322,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.8793,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          0
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/Gui/TaskSweep.cpp",
+        "startLine": 301,
+        "endLine": 302,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.8793,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          16
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 547,
+        "endLine": 547,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.8793,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          0
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1326,
+        "endLine": 1326,
+        "severity": "medium",
+        "category": "performance",
+        "score": 0.8493,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/Gui/Mirroring.cpp",
+        "startLine": 103,
+        "endLine": 104,
+        "severity": "low",
+        "category": "style",
+        "score": 0.8133,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/MeasureClient.cpp",
+        "startLine": 187,
+        "endLine": 193,
+        "severity": "low",
+        "category": "style",
+        "score": 0.8133,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          5
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.h",
+        "startLine": 152,
+        "endLine": 152,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.7133,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+        "startLine": 425,
+        "endLine": 427,
+        "severity": "medium",
+        "category": "bug",
+        "score": 0.7093,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/FeatureRevolution.cpp",
+        "startLine": 98,
+        "endLine": 100,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.6733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          0,
+          3
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/FeatureMirroring.cpp",
+        "startLine": 178,
+        "endLine": 178,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.6733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1306,
+        "endLine": 1306,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.5793,
+        "features": {
+          "grounded": false,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          7
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 788,
+        "endLine": 788,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.5793,
+        "features": {
+          "grounded": false,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          0,
+          15
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/FeatureExtrusion.cpp",
+        "startLine": 177,
+        "endLine": 177,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.5733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1697,
+        "endLine": 1697,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.5133,
+        "features": {
+          "grounded": false,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+        "startLine": 730,
+        "endLine": 735,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.4793,
+        "features": {
+          "grounded": false,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          3
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.h",
+        "startLine": 56,
+        "endLine": 63,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          12
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/Attacher.cpp",
+        "startLine": 884,
+        "endLine": 890,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          15
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+        "startLine": 198,
+        "endLine": 198,
+        "severity": "low",
+        "category": "style",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/FeatureProjectOnSurface.cpp",
+        "startLine": 115,
+        "endLine": 115,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeatures.cpp",
+        "startLine": 147,
+        "endLine": 147,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          3
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1328,
+        "endLine": 1328,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          9
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1103,
+        "endLine": 1103,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.4393,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          0
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 1128,
+        "endLine": 1129,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.4393,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          0
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 858,
+        "endLine": 858,
+        "severity": "high",
+        "category": "bug",
+        "score": 0.4393,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "high",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.h",
+        "startLine": 129,
+        "endLine": 142,
+        "severity": "medium",
+        "category": "maintainability",
+        "score": 0.4093,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+        "startLine": 684,
+        "endLine": 689,
+        "severity": "medium",
+        "category": "bug",
+        "score": 0.4093,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          5
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/FeatureMirroring.cpp",
+        "startLine": 178,
+        "endLine": 178,
+        "severity": "low",
+        "category": "style",
+        "score": 0.3933,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": false,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          15
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+        "startLine": 198,
+        "endLine": 198,
+        "severity": "low",
+        "category": "style",
+        "score": 0.3933,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": false,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+        "startLine": 221,
+        "endLine": 223,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.3733,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          17
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.h",
+        "startLine": 135,
+        "endLine": 137,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.3733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          4
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.h",
+        "startLine": 134,
+        "endLine": 135,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.3733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          12
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 881,
+        "endLine": 891,
+        "severity": "medium",
+        "category": "maintainability",
+        "score": 0.2093,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+        "startLine": 585,
+        "endLine": 590,
+        "severity": "medium",
+        "category": "bug",
+        "score": 0.2093,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          5,
+          15,
+          17
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/PartFeature.cpp",
+        "startLine": 896,
+        "endLine": 898,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.0733,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+        "path": "src/Base/Parameter.cpp",
+        "startLine": 1863,
+        "endLine": 1866,
+        "severity": "medium",
+        "category": "maintainability",
+        "score": 0.6493,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1502,
+        "endLine": 1502,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          0,
+          1,
+          2
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1513,
+        "endLine": 1513,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          2
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1523,
+        "endLine": 1523,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.9033,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          0,
+          1,
+          2
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1504,
+        "endLine": 1510,
+        "severity": "medium",
+        "category": "bug",
+        "score": 0.7493,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "medium",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+        "startLine": 242,
+        "endLine": 244,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.6633,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": true,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          0,
+          1,
+          2
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+        "startLine": 1513,
+        "endLine": 1515,
+        "severity": "low",
+        "category": "maintainability",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          0,
+          1
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawUtil.cpp",
+        "startLine": 1855,
+        "endLine": 1865,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.1833,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": false,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "path": "src/Mod/TechDraw/App/DrawUtil.h",
+        "startLine": 252,
+        "endLine": 254,
+        "severity": "critical",
+        "category": "bug",
+        "score": 0.1833,
+        "features": {
+          "grounded": false,
+          "quotesDiff": false,
+          "namesSymbol": false,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "critical",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": []
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+        "path": "src/Gui/ViewProviderExtensionPython.h",
+        "startLine": 33,
+        "endLine": 33,
+        "severity": "low",
+        "category": "documentation",
+        "score": 0.8133,
+        "features": {
+          "grounded": true,
+          "quotesDiff": true,
+          "namesSymbol": true,
+          "proposesChange": true,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": true,
+        "which": "competitor",
+        "matchedGoldens": [
+          5
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+        "path": "src/Mod/BIM/ArchStairs.py",
+        "startLine": 1271,
+        "endLine": 1271,
+        "severity": "low",
+        "category": "documentation",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          2
+        ]
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+        "path": "src/Mod/BIM/ArchVRM.py",
+        "startLine": 37,
+        "endLine": 37,
+        "severity": "low",
+        "category": "documentation",
+        "score": 0.4733,
+        "features": {
+          "grounded": true,
+          "quotesDiff": false,
+          "namesSymbol": true,
+          "proposesChange": false,
+          "hedged": false,
+          "agreement": 1,
+          "severity": "low",
+          "lane": null
+        },
+        "actionable": false,
+        "which": "competitor",
+        "matchedGoldens": [
+          3
+        ]
+      }
+    ]
   },
+  "rankedFindings": [
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/Preferences.h",
+      "startLine": 44,
+      "endLine": 44,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.946,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DlgPrefsTechDrawAnnotationImp.h",
+      "startLine": 34,
+      "endLine": 34,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.8827,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        3
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+      "startLine": 1279,
+      "endLine": 1290,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 8,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        7
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/BalloonPropEnum.h",
+      "startLine": 36,
+      "endLine": 45,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+      "startLine": 1137,
+      "endLine": 1150,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 6,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGILeaderLine.cpp",
+      "startLine": 426,
+      "endLine": 445,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        8
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/CommandCreateDims.cpp",
+      "startLine": 2384,
+      "endLine": 2470,
+      "severity": "medium",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewDimension.h",
+      "startLine": 102,
+      "endLine": 102,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.746,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawProjGroup.h",
+      "startLine": 46,
+      "endLine": 48,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIArrow.cpp",
+      "startLine": 303,
+      "endLine": 306,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIArrow.cpp",
+      "startLine": 313,
+      "endLine": 337,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.74,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        7
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/LandmarkDimension.h",
+      "startLine": 60,
+      "endLine": 60,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7393,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+      "startLine": 434,
+      "endLine": 439,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.7393,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+      "startLine": 636,
+      "endLine": 641,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.7393,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+      "startLine": 96,
+      "endLine": 168,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.7393,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewDimension.cpp",
+      "startLine": 1546,
+      "endLine": 1584,
+      "severity": "medium",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.7093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        6
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+      "startLine": 1293,
+      "endLine": 1301,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.7093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/Preferences.h",
+      "startLine": 74,
+      "endLine": 74,
+      "severity": "medium",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.7093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIArrow.h",
+      "startLine": 27,
+      "endLine": 27,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.h",
+      "startLine": 60,
+      "endLine": 74,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7067,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/PreferencesGui.cpp",
+      "startLine": 160,
+      "endLine": 164,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.7067,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        8,
+        16
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGISectionLine.cpp",
+      "startLine": 144,
+      "endLine": 150,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7067,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIViewBalloon.cpp",
+      "startLine": 958,
+      "endLine": 960,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7067,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/TaskLinkDim.cpp",
+      "startLine": 93,
+      "endLine": 98,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7067,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+      "startLine": 375,
+      "endLine": 380,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.706,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 6,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/ArrowPropEnum.h",
+      "startLine": 37,
+      "endLine": 46,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.706,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.h",
+      "startLine": 42,
+      "endLine": 58,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+      "startLine": 80,
+      "endLine": 102,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/Preferences.cpp",
+      "startLine": 179,
+      "endLine": 183,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        8,
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/TaskDimRepair.cpp",
+      "startLine": 131,
+      "endLine": 131,
+      "severity": "low",
+      "category": "style",
+      "lane": null,
+      "score": 0.6733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        9,
+        13
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGILeaderLine.cpp",
+      "startLine": 517,
+      "endLine": 548,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.6627,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": false,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "no identifier the diff touches is named"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+      "startLine": 264,
+      "endLine": 306,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.6427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+      "startLine": 724,
+      "endLine": 760,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.6427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIViewDimension.cpp",
+      "startLine": 930,
+      "endLine": 930,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.6067,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+      "startLine": 1105,
+      "endLine": 1134,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.606,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 6,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        7
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+      "startLine": 1318,
+      "endLine": 1370,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.606,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        7
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawProjGroup.h",
+      "startLine": 129,
+      "endLine": 134,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.606,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+      "startLine": 200,
+      "endLine": 203,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.606,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewDimension.h",
+      "startLine": 148,
+      "endLine": 150,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/TaskProjGroup.cpp",
+      "startLine": 447,
+      "endLine": 452,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIArrow.h",
+      "startLine": 57,
+      "endLine": 66,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+      "startLine": 561,
+      "endLine": 570,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        2
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIViewBalloon.h",
+      "startLine": 207,
+      "endLine": 207,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.5733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DlgPrefsTechDrawAnnotationImp.h",
+      "startLine": 57,
+      "endLine": 57,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DlgPrefsTechDrawDimensionsImp.h",
+      "startLine": 33,
+      "endLine": 36,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/PreferencesGui.h",
+      "startLine": 43,
+      "endLine": 45,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIViewBalloon.cpp",
+      "startLine": 788,
+      "endLine": 790,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/QGIViewBalloon.h",
+      "startLine": 45,
+      "endLine": 45,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DlgPrefsTechDrawDimensionsImp.cpp",
+      "startLine": 150,
+      "endLine": 150,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5067,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/ViewProviderDimension.cpp",
+      "startLine": 88,
+      "endLine": 88,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5067,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewDimension.cpp",
+      "startLine": 1834,
+      "endLine": 1864,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/CommandCreateDims.cpp",
+      "startLine": 1104,
+      "endLine": 1104,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewDimension.cpp",
+      "startLine": 1516,
+      "endLine": 1541,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.4427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/DlgPrefsTechDrawAnnotationImp.cpp",
+      "startLine": 169,
+      "endLine": 169,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.4427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/CommandCreateDims.cpp",
+      "startLine": 108,
+      "endLine": 108,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.4093,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/Gui/PreferencesGui.cpp",
+      "startLine": 37,
+      "endLine": 37,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.4093,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+      "startLine": 1155,
+      "endLine": 1163,
+      "severity": "low",
+      "category": "bug",
+      "lane": null,
+      "score": 0.3733,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawViewBalloon.cpp",
+      "startLine": 73,
+      "endLine": 73,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.3733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "path": "src/Mod/TechDraw/App/DrawProjGroupItem.h",
+      "startLine": 35,
+      "endLine": 45,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.0593,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": false,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "no identifier the diff touches is named",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/TaskCheckGeometry.cpp",
+      "startLine": 446,
+      "endLine": 451,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.946,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureExtrusion.cpp",
+      "startLine": 263,
+      "endLine": 280,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.8827,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureExtrusion.cpp",
+      "startLine": 375,
+      "endLine": 380,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.8493,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/Command.cpp",
+      "startLine": 1975,
+      "endLine": 1981,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 8,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        13
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.h",
+      "startLine": 148,
+      "endLine": 156,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 6,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/TaskSweep.cpp",
+      "startLine": 298,
+      "endLine": 305,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 6,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        16
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+      "startLine": 718,
+      "endLine": 728,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureLoft.cpp",
+      "startLine": 80,
+      "endLine": 96,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 6,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Import/App/ExportOCAF2.cpp",
+      "startLine": 384,
+      "endLine": 389,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureProjectOnSurface.cpp",
+      "startLine": 111,
+      "endLine": 114,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        4
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgExtrusion.cpp",
+      "startLine": 80,
+      "endLine": 90,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureOffset.cpp",
+      "startLine": 88,
+      "endLine": 88,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        18
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureBoolean.cpp",
+      "startLine": 110,
+      "endLine": 110,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0,
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureExtrude.cpp",
+      "startLine": 517,
+      "endLine": 520,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/Gui/TaskDressUpParameters.cpp",
+      "startLine": 154,
+      "endLine": 155,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Sketcher/App/SketchObject.cpp",
+      "startLine": 7102,
+      "endLine": 7104,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0,
+        4,
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/Attacher.cpp",
+      "startLine": 881,
+      "endLine": 891,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeaturePartCommon.cpp",
+      "startLine": 88,
+      "endLine": 95,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.h",
+      "startLine": 48,
+      "endLine": 57,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgRevolution.cpp",
+      "startLine": 77,
+      "endLine": 77,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/ViewProviderExt.cpp",
+      "startLine": 943,
+      "endLine": 946,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/Gui/DrawGuiUtil.cpp",
+      "startLine": 648,
+      "endLine": 651,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Measure/App/ShapeFinder.cpp",
+      "startLine": 117,
+      "endLine": 118,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureMirroring.cpp",
+      "startLine": 260,
+      "endLine": 265,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureOffset.cpp",
+      "startLine": 135,
+      "endLine": 135,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeaturePartBoolean.cpp",
+      "startLine": 119,
+      "endLine": 125,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureRevolution.cpp",
+      "startLine": 153,
+      "endLine": 156,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeatures.cpp",
+      "startLine": 300,
+      "endLine": 330,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgExtrusion.cpp",
+      "startLine": 393,
+      "endLine": 405,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgProjectionOnSurface.cpp",
+      "startLine": 1439,
+      "endLine": 1439,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/Mirroring.cpp",
+      "startLine": 256,
+      "endLine": 263,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/TaskSweep.cpp",
+      "startLine": 228,
+      "endLine": 228,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Surface/App/Blending/FeatureBlendCurve.cpp",
+      "startLine": 139,
+      "endLine": 147,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        18
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/DimensionAutoCorrect.cpp",
+      "startLine": 531,
+      "endLine": 538,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/ShapeExtractor.cpp",
+      "startLine": 469,
+      "endLine": 474,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.7427,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgFilletEdges.cpp",
+      "startLine": 629,
+      "endLine": 629,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.74,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Import/App/ImportOCAF2.cpp",
+      "startLine": 560,
+      "endLine": 562,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.716,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.cpp",
+      "startLine": 1319,
+      "endLine": 1330,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.716,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureProjectOnSurface.cpp",
+      "startLine": 126,
+      "endLine": 136,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/Command.cpp",
+      "startLine": 320,
+      "endLine": 460,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgExtrusion.cpp",
+      "startLine": 355,
+      "endLine": 360,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.7093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeatures.cpp",
+      "startLine": 93,
+      "endLine": 93,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.6827,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        3,
+        4
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/MeasureClient.cpp",
+      "startLine": 130,
+      "endLine": 136,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        3,
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/Mirroring.cpp",
+      "startLine": 103,
+      "endLine": 108,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/DimensionReferences.cpp",
+      "startLine": 312,
+      "endLine": 312,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Measure/App/Measurement.cpp",
+      "startLine": 125,
+      "endLine": 136,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/MeasureClient.cpp",
+      "startLine": 101,
+      "endLine": 107,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        3,
+        5,
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/MeasureClient.cpp",
+      "startLine": 191,
+      "endLine": 197,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.cpp",
+      "startLine": 897,
+      "endLine": 915,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.6733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/Gui/DrawGuiUtil.cpp",
+      "startLine": 653,
+      "endLine": 656,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.6293,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": false,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "no identifier the diff touches is named"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeatures.cpp",
+      "startLine": 143,
+      "endLine": 148,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.616,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        3
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+      "startLine": 577,
+      "endLine": 585,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.616,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/Command.cpp",
+      "startLine": 263,
+      "endLine": 285,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.6093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/ShapeExtractor.cpp",
+      "startLine": 281,
+      "endLine": 287,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.6093,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgRevolution.cpp",
+      "startLine": 542,
+      "endLine": 550,
+      "severity": "low",
+      "category": "test",
+      "lane": null,
+      "score": 0.5933,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": false,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "no identifier the diff touches is named"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureFillet.cpp",
+      "startLine": 57,
+      "endLine": 58,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureMirroring.cpp",
+      "startLine": 173,
+      "endLine": 178,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgScale.cpp",
+      "startLine": 126,
+      "endLine": 126,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/TaskLoft.cpp",
+      "startLine": 102,
+      "endLine": 102,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/ViewProviderExt.cpp",
+      "startLine": 567,
+      "endLine": 567,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureBase.cpp",
+      "startLine": 72,
+      "endLine": 72,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0,
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureHole.cpp",
+      "startLine": 1855,
+      "endLine": 1861,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/MeshPart/Gui/Tessellation.cpp",
+      "startLine": 220,
+      "endLine": 224,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/AppPartPy.cpp",
+      "startLine": 2288,
+      "endLine": 2304,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureChamfer.cpp",
+      "startLine": 51,
+      "endLine": 52,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureRevolution.cpp",
+      "startLine": 94,
+      "endLine": 101,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        4
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgScale.cpp",
+      "startLine": 219,
+      "endLine": 219,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+      "startLine": 416,
+      "endLine": 431,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureSketchBased.h",
+      "startLine": 134,
+      "endLine": 137,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/DimensionAutoCorrect.cpp",
+      "startLine": 345,
+      "endLine": 355,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/ShapeExtractor.cpp",
+      "startLine": 228,
+      "endLine": 229,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Import/App/ExportOCAF2.cpp",
+      "startLine": 420,
+      "endLine": 428,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureCompound.cpp",
+      "startLine": 66,
+      "endLine": 66,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureExtrusion.cpp",
+      "startLine": 170,
+      "endLine": 180,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        4
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgRevolution.cpp",
+      "startLine": 347,
+      "endLine": 355,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/MeshPart/Gui/Tessellation.cpp",
+      "startLine": 252,
+      "endLine": 268,
+      "severity": "low",
+      "category": "test",
+      "lane": null,
+      "score": 0.5733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/DrawComplexSection.cpp",
+      "startLine": 1090,
+      "endLine": 1132,
+      "severity": "low",
+      "category": "test",
+      "lane": null,
+      "score": 0.5733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.cpp",
+      "startLine": 1101,
+      "endLine": 1119,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.5493,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.cpp",
+      "startLine": 868,
+      "endLine": 878,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5393,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureMirroring.cpp",
+      "startLine": 185,
+      "endLine": 186,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.5133,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        3,
+        4
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/DlgExtrusion.cpp",
+      "startLine": 472,
+      "endLine": 476,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.5093,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/TaskSweep.cpp",
+      "startLine": 162,
+      "endLine": 168,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.5093,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Measure/App/Measurement.cpp",
+      "startLine": 759,
+      "endLine": 763,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.5067,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/TaskSweep.cpp",
+      "startLine": 83,
+      "endLine": 83,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.5067,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.cpp",
+      "startLine": 1265,
+      "endLine": 1275,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.506,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 6,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/CrossSections.cpp",
+      "startLine": 218,
+      "endLine": 220,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.476,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/ShapeBinder.cpp",
+      "startLine": 673,
+      "endLine": 676,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.476,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureScale.cpp",
+      "startLine": 154,
+      "endLine": 154,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.476,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/DrawComplexSection.cpp",
+      "startLine": 594,
+      "endLine": 597,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.476,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/ShapeExtractor.cpp",
+      "startLine": 138,
+      "endLine": 138,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.476,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 4,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0,
+        15
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeatureFace.cpp",
+      "startLine": 68,
+      "endLine": 74,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.476,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/FeaturePartFuse.cpp",
+      "startLine": 95,
+      "endLine": 97,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.476,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/AppPartPy.cpp",
+      "startLine": 864,
+      "endLine": 864,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeatures.cpp",
+      "startLine": 220,
+      "endLine": 226,
+      "severity": "low",
+      "category": "performance",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/MeshPart/Gui/Tessellation.cpp",
+      "startLine": 574,
+      "endLine": 582,
+      "severity": "medium",
+      "category": "performance",
+      "lane": null,
+      "score": 0.4427,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/PartDesign/App/FeatureBoolean.cpp",
+      "startLine": 111,
+      "endLine": 112,
+      "severity": "low",
+      "category": "test",
+      "lane": null,
+      "score": 0.3733,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/TechDraw/App/DrawComplexSection.cpp",
+      "startLine": 709,
+      "endLine": 709,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.3093,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.cpp",
+      "startLine": 1262,
+      "endLine": 1262,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.2427,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/Gui/TaskSweep.cpp",
+      "startLine": 225,
+      "endLine": 225,
+      "severity": "medium",
+      "category": "bug",
+      "lane": null,
+      "score": 0.2093,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "path": "src/Mod/Part/App/PartFeature.h",
+      "startLine": 158,
+      "endLine": 158,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.1733,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+      "path": "src/Base/Parameter.cpp",
+      "startLine": 1878,
+      "endLine": 1918,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 7,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+      "path": "src/Base/Parameter.cpp",
+      "startLine": 1863,
+      "endLine": 1871,
+      "severity": "high",
+      "category": "bug",
+      "lane": null,
+      "score": 0.806,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 5,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+      "path": "src/Base/PreCompiled.h",
+      "startLine": 107,
+      "endLine": 107,
+      "severity": "low",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.6733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+      "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+      "startLine": 242,
+      "endLine": 244,
+      "severity": "medium",
+      "category": "test",
+      "lane": null,
+      "score": 0.776,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 3,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+      "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+      "startLine": 1501,
+      "endLine": 1530,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.676,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 7,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+      "path": "src/Mod/TechDraw/App/CosmeticExtension.cpp",
+      "startLine": 69,
+      "endLine": 80,
+      "severity": "medium",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.576,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 7,
+        "severity": "medium",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+      "path": "src/Mod/TechDraw/App/DrawUtil.cpp",
+      "startLine": 1855,
+      "endLine": 1889,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.326,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": false,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 5,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "no quoted code from the added lines",
+        "no identifier the diff touches is named",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+      "path": "src/Mod/TechDraw/App/DrawUtil.h",
+      "startLine": 249,
+      "endLine": 255,
+      "severity": "high",
+      "category": "architecture",
+      "lane": null,
+      "score": 0.1927,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": false,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 2,
+        "severity": "high",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "no identifier the diff touches is named"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/OpenSCAD/replaceobj.py",
+      "startLine": 27,
+      "endLine": 27,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.8133,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": true,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/BIM/ArchStairs.py",
+      "startLine": 1271,
+      "endLine": 1271,
+      "severity": "low",
+      "category": "maintainability",
+      "lane": null,
+      "score": 0.6733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/PartDesign/Gui/TaskShapeBinder.cpp",
+      "startLine": 95,
+      "endLine": 95,
+      "severity": "low",
+      "category": "style",
+      "lane": null,
+      "score": 0.6733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        5
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/CAM/Gui/Resources/translations/CAM_gl.ts",
+      "startLine": 2984,
+      "endLine": 2985,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.5733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/TechDraw/App/DrawTile.cpp",
+      "startLine": 46,
+      "endLine": 46,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.5733,
+      "actionable": true,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": true,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        4,
+        5
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/App/FeaturePython.h",
+      "startLine": 165,
+      "endLine": 165,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Gui/DlgOnlineHelpImp.h",
+      "startLine": 35,
+      "endLine": 35,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        0,
+        1
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Gui/GraphicsViewZoom.h",
+      "startLine": 46,
+      "endLine": 46,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        3,
+        5
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Gui/MainWindow.cpp",
+      "startLine": 2299,
+      "endLine": 2299,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Gui/ViewProviderExtensionPython.h",
+      "startLine": 33,
+      "endLine": 33,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/CAM/Gui/Resources/panels/DogboneEdit.ui",
+      "startLine": 114,
+      "endLine": 114,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/PartDesign/App/FeaturePad.cpp",
+      "startLine": 66,
+      "endLine": 66,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        2,
+        3
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/PartDesign/App/FeaturePocket.cpp",
+      "startLine": 67,
+      "endLine": 67,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        2,
+        3
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/PartDesign/Gui/TaskExtrudeParameters.cpp",
+      "startLine": 928,
+      "endLine": 928,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.4733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/App/FeaturePythonPyImp.inl",
+      "startLine": 114,
+      "endLine": 114,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.3733,
+      "actionable": false,
+      "features": {
+        "grounded": true,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": true,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines",
+        "hedged language, which is a claim the model declined to make"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": [
+        5
+      ]
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "path": "src/Mod/CAM/Gui/Resources/translations/CAM_id.ts",
+      "startLine": 1,
+      "endLine": 1,
+      "severity": "low",
+      "category": "documentation",
+      "lane": null,
+      "score": 0.1733,
+      "actionable": false,
+      "features": {
+        "grounded": false,
+        "quotesDiff": false,
+        "namesSymbol": true,
+        "proposesChange": false,
+        "hedged": false,
+        "agreement": 1,
+        "severity": "low",
+        "lane": null
+      },
+      "why": [
+        "the range covers no added line, so the comment is not about this change",
+        "the suggestion names no action and shows no replacement",
+        "no quoted code from the added lines"
+      ],
+      "which": "agentix-e",
+      "matchedGoldens": []
+    }
+  ],
   "credit": {
     "before": {
       "probed": true,
       "ok": true,
       "isAvailable": true,
       "currency": "CNY",
-      "totalBalance": "144.26",
+      "totalBalance": "244.98",
       "grantedBalance": "0.00",
-      "toppedUpBalance": "144.26"
+      "toppedUpBalance": "244.98"
     },
     "after": {
       "probed": true,
       "ok": true,
       "isAvailable": true,
       "currency": "CNY",
-      "totalBalance": "142.03",
+      "totalBalance": "228.49",
       "grantedBalance": "0.00",
-      "toppedUpBalance": "142.03"
+      "toppedUpBalance": "228.49"
     }
   },
   "engineCounters": {
@@ -108,19 +6932,19 @@
       "attempted": 995,
       "succeeded": 995,
       "failed": 0,
-      "findings": 105,
+      "findings": 183,
       "firstError": null
     },
     "dedup": {
-      "before": 476,
-      "after": 105,
-      "dropped": 371
+      "before": 507,
+      "after": 183,
+      "dropped": 324
     },
     "filterDrops": {
-      "parsed": 195,
-      "kept": 195,
+      "parsed": 199,
+      "kept": 199,
       "invalidLine": 0,
-      "beyondDiffLength": 194,
+      "beyondDiffLength": 31,
       "lanes": 199
     }
   },

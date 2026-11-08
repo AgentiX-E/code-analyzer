@@ -184,3 +184,31 @@ and a selection rule is exactly the kind of thing that can be tuned into a win a
 
 **What would falsify it.** The emitted set's F1 at or below the competitor's F1, measured in the same job — in which case
 the rule is not doing what it claims and the honest next step is a calibration split, not a lower threshold.
+
+### 6.1 What the registered run then said
+
+**The rule improved the number it was aimed at and lost the comparison it was registered for.** Both halves are recorded,
+because the second is the one that would have been left out of a report written from the first:
+
+| figure                                                             | value                      |
+| ------------------------------------------------------------------ | -------------------------- |
+| emitted set — precision / recall / F1                              | 0.2019 / 0.42 / **0.2727** |
+| the same run's whole list — precision / recall / F1                | 0.1311 / 0.48 / 0.2060     |
+| the competitor, same job, same judge, same matcher                 | 0.3857 / 0.54 / **0.4500** |
+| the competitor with this repository's ranker applied to its output | 0.5517 / 0.32 / 0.4051     |
+| best point on the published curve (16 comments per pull request)   | 0.3396                     |
+| paired test over detected goldens: ours-only / theirs-only / p     | 6 / 12 / 0.2379            |
+
+**So the ordering is worth +0.067 F1 and +54 % precision against the same reviewer's own list, and the reviewer still
+loses.** `EXTERNAL PARITY`'s floor is not met on this corpus, no figure here may be written as a win, and the next
+iteration's target is stated by the curve rather than by an opinion: **0.3396 is the best any budget of these findings
+reaches, so the defect is emission — 183 findings carrying 24 goldens, against 70 carrying 27.**
+
+**What the control rules out.** The ranker raised our F1 and _lowered_ the competitor's, so **it is a repair for
+over-emission and not a better reviewer**; a future report that quotes the gate's gain as evidence of review quality
+would be quoting a number that this paragraph already explains.
+
+**What the paired test rules out.** With six discordant goldens one way and twelve the other, **the difference in what
+each reviewer detects is not distinguishable from chance on fifty goldens**. That is not a defence of our number — our
+F1 is half theirs — it is a bound on what fifty goldens can say, and it is the reason the next measurement needs more
+pull requests rather than a lower threshold.
