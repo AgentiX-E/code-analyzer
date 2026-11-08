@@ -298,6 +298,13 @@ jobs:
       - name: Enforce that every published number is cited
         run: npm run docs:numbers
 
+      # **The figures a reader quotes are rendered from the artifact, not typed beside it.** The Long Code Arena tables
+      # in `docs/BENCHMARK_REPORT.md` sit between markers and are written by `scripts/lca-report.js`; this step fails when
+      # the report and `benchmarks/lca-bug-localization.json` disagree, which is the only version of that section that
+      # cannot drift when the artifact is re-merged. It reads two committed files and needs no corpus.
+      - name: Enforce that the corpus figures are rendered from their artifact
+        run: npm run docs:lca
+
       - name: Enforce that every status claim is backed by a record
         run: npm run docs:status
 

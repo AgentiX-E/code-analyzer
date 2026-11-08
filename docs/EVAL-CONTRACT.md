@@ -111,8 +111,11 @@ Written here so that the absence is a decision rather than an oversight:
    states: a mean without its denominator is not a figure. **What the re-run did not settle is whether the lead is
    real**: the bootstrap interval against BM25 excludes zero and the sign test over the same 125 pairs does not
    (p = 0.5154), and **the two controls swapped which of them is beaten between runs** (BM25 p = 0.657 → 0.5154, TF-IDF
-   p = 0.069 → 0.0013). A paired test that reports two answers has reported one answer, namely "not established". The
-   tables in that section that are older than the artifact are still hand-written rather than generated from it.
+   p = 0.069 → 0.0013). A paired test that reports two answers has reported one answer, namely "not established". **The
+   current figures in that section are now rendered from the artifact** by `scripts/lca-report.js`, delimited by markers,
+   with `--check` in CI refusing a report and an artifact that disagree — the four tables a reader quotes can no longer be
+   typed by hand. The narratives older than the artifact are still prose: they are analyses of the earlier run's rows, and
+   each says so.
 3. **OWASP has no official scorecard.** The labels are the benchmark's and the formula is the scorecard's, but the
    implementation has never been diffed against `BenchmarkUtils`. A reimplementation nobody has compared is a
    hypothesis.

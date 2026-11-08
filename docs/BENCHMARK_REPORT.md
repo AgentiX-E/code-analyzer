@@ -135,16 +135,69 @@ intermediates, so a merge that was never run left the report citing a file that 
 was audited, `benchmarks/lca-bug-localization.json` now holds the figure: **125 of 150 rows measured, MAP 0.4746** over
 those 125, **0.5867 recall at ten files with precision 0.1728 and F1 0.2375**.
 
-**Three denominators and one headline.** The same run scores **0.4746** over the 125 rows the analysis ran on,
-**0.4499** over all 150 with a refused row taking the file-level fallback's figure, and **0.3955** over all 150 with
-every refusal scored zero. **The 0.3955 that an earlier audit read as a rival measurement of another run is the third of
-these columns of this one**, and the correction matters more than the number: a figure that looks like a disagreement
-between two runs was one artifact read at two denominators. The paired controls, same rows, same ruler:
+<!-- lca:figures:begin — written by `node scripts/lca-report.js --write`, checked by `--check` in CI -->
 
-| control             | rows | control's mean on all 150 | control's mean on the 125 we measured | ours       | Δ           | 95 % interval      | W / L / T    | sign test  |
-| ------------------- | ---- | ------------------------- | ------------------------------------- | ---------- | ----------- | ------------------ | ------------ | ---------- |
-| BM25                | 150  | 0.4242                    | 0.4383                                | **0.4746** | **+0.0363** | [+0.0069, +0.0656] | 46 / 39 / 40 | p = 0.5154 |
-| **TF-IDF (cosine)** | 150  | 0.3800                    | 0.3989                                | **0.4746** | **+0.0757** | [+0.0327, +0.1182] | 63 / 31 / 31 | p = 0.0013 |
+**Every figure in this block is rendered from `benchmarks/lca-bug-localization.json`.** The tables below it are the
+argument; these are the numbers, and a change to either without the other fails the check.
+
+Measured 2026-11-08 over 150 planned instances, 150 attempted, 125 measured.
+
+### Three denominators
+
+<!-- prettier-ignore -->
+| how a refusal is scored | rows | MAP | recall@10 | precision@10 | F1@10 | field |
+| --- | --- | --- | --- | --- | --- | --- |
+| not scored at all — the rows the analysis ran on | 125 of 150 | **0.4746** | 0.5867 | 0.1728 | 0.2375 | `overall.map.value` |
+| the file-level fallback arm's figure | 150 | 0.4499 | — | — | — | `fusion.overall.value` |
+| zero | 150 | 0.3955 | — | — | — | `sample.worstCaseMap` |
+
+<!-- prettier-ignore -->
+| cut | recall | precision | F1 | false positive rate |
+| --- | --- | --- | --- | --- |
+| @1 | 0.3360 | 0.6160 | 0.3970 | 0.0040 |
+| @3 | 0.4307 | 0.3213 | 0.3260 | 0.0317 |
+| @5 | 0.4951 | 0.2536 | 0.2971 | 0.0542 |
+| @10 | 0.5867 | 0.1728 | 0.2375 | 0.1112 |
+
+### The two controls, paired
+
+<!-- prettier-ignore -->
+| control | rows (all) | its mean there | paired rows | its mean there | ours | Δ | 95 % interval | W / L / T | sign test |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| BM25 | 150 | 0.4242 | 125 | 0.4383 | 0.4746 | +0.0363 | [0.0069, 0.0656] | 46 / 39 / 40 | 0.5154 |
+| **TF-IDF (cosine)** | 150 | 0.3800 | 125 | 0.3989 | 0.4746 | +0.0757 | [0.0327, 0.1182] | 63 / 31 / 31 | 0.0013 |
+
+### By split
+
+<!-- prettier-ignore -->
+| split | measured | MAP | recall@10 | F1@10 |
+| --- | --- | --- | --- | --- |
+| py | 42 of 50 | 0.5366 | 0.6668 | 0.2588 |
+| java | 36 of 50 | 0.5020 | 0.5827 | 0.2608 |
+| kt | 47 of 50 | 0.3983 | 0.5182 | 0.2007 |
+
+### By checkout size
+
+<!-- prettier-ignore -->
+| checkout size | attempted | measured | ours | BM25 | Δ | fallback arm | fused (all attempted) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0-50 files | 22 | 22 | 0.6714 | 0.6922 | −0.0208 | 0.4527 | 0.6714 |
+| 50-200 files | 52 | 49 | 0.4513 | 0.4058 | +0.0455 | 0.3481 | 0.4550 |
+| 200-500 files | 37 | 32 | 0.4784 | 0.4353 | +0.0431 | 0.4056 | 0.4828 |
+| 500-2000 files | 31 | 22 | 0.3242 | 0.2612 | +0.0630 | 0.1413 | 0.2992 |
+| 2000+ files | 8 | 0 | — | — | — | 0.1346 | 0.2396 |
+
+### The run in two lines
+
+<!-- prettier-ignore -->
+| property | this run |
+| --- | --- |
+| rows stating what the analysis was allowed to read | 0 of 150 — **the whole checkout on every row** |
+| file cap against the charge it publishes | 4000 files against floor(237796 / 120) = 1981 — **wider than its own charge** |
+
+<!-- lca:figures:end -->
+
+**The three denominators are the table above, and they are one run.** 0.4746 is the figure computed over the rows that produced a ranking; the other two answer what a refusal costs, and the audit that read 0.3955 as another run's figure read it without its denominator. **The report no longer types any of these numbers**: the block is written by `node scripts/lca-report.js --write` and `--check` fails in CI when the artifact and the report disagree, which is the only version of this section that cannot drift on the next run.
 
 **Both controls are behind, and only one of the two leads survives its own significance test.** The bootstrap interval
 against BM25 excludes zero and the exact sign test over the same 125 pairs does not (**p = 0.5154**), so on this run the
@@ -166,9 +219,11 @@ the bound.
 
 > **Everything from here to the end of this section was measured on the run that this artifact replaced** — 150
 > attempted, 115 measured, MAP 0.4673. Those tables are kept because each one records a decision that was taken from it,
-> not because it is this product's current figure. **Regenerating them from the artifact that now exists is the next
-> iteration's first task**; until it is done, this section has one current table (above), one current rank table (below,
-> whose paper rows are independent of our run), and several historical ones.
+> not because it is this product's current figure. **The current figures are the generated block above**, written from the
+> artifact and checked against it in CI; the narratives below are the record of how the current configuration was chosen,
+> and **a number in one of them is not a figure to quote** — the block is. Regenerating these too is a further step, and
+> naming it here is what keeps it from being an omission: they are analyses, not tables, and their inputs are the earlier
+> run's rows.
 
 | rank | system                                       | MAP        | measured over          |
 | ---- | -------------------------------------------- | ---------- | ---------------------- |
