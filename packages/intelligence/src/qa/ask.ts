@@ -338,6 +338,8 @@ export async function askCodebase(input: AskInput): Promise<AnswerResult> {
     const completion = await input.provider.complete(answerPrompt(input.question, blocks), {
       maxTokens: options.maxAnswerTokens ?? 700,
       temperature: 0,
+      // **The answer is the one call a user causes directly**, so it is the tag a per-question cost is built from.
+      tag: 'qa:answer',
       ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
     });
     answer = completion.content.trim();

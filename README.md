@@ -109,6 +109,7 @@ Checkmarks indicate features verified through automated tests.
 | Rate Limiting (sliding window)                                 | Tested — unit                                                       |
 | Health Checks + Graceful Shutdown                              | Tested — integration                                                |
 | Benchmark Framework (ca-bench, real-world PR suite)            | Partial — see register                                              |
+| Cost Accounting (per-call ledger, tag totals, spend ceiling)   | Tested — unit and end-to-end                                        |
 
 ---
 
