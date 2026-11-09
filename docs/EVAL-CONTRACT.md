@@ -298,3 +298,52 @@ arithmetic unchanged: 16 findings per pull request, precision above 0.375, F1 ab
 two runs of the same protocol** — no code change to the file scope, same judge, same goldens, temperature 0.3. **That is
 ±0.04 of run-to-run movement, larger than several differences this project has quoted**, and it is the reason the two
 arms are compared by a paired test inside one job rather than by two figures printed side by side in two reports.
+
+### 7.2 What the corrected run said, and the premise the rule was built on
+
+**Run 2 measured the registered rule on code that implements it, and the rule lost again — by more.**
+
+| figure                                                   | run 1 (defective)      | run 2 (corrected)               |
+| -------------------------------------------------------- | ---------------------- | ------------------------------- |
+| pull-request arm — precision / recall / F1               | 0.2121 / 0.14 / 0.1687 | 0.1786 / 0.10 / **0.1282**      |
+| file arm, same job                                       | 0.1765 / 0.36 / 0.2368 | 0.2079 / 0.42 / **0.2781**      |
+| paired test: both / pull-request only / file only / p    | 5 / 2 / 16 / 0.0013    | 5 / **0** / **18** / **0.0000** |
+| pull-request arm findings, kept from parsed              | 33 from 120            | **28 from 109**                 |
+| dropped as `unknownPath` / `beyondDiffLength` / `capped` | 31 / 6 / 0             | 18 / 6 / **0**                  |
+
+**The correction worked and did not rescue the hypothesis.** The truncation now shows every file a share, the merge
+has a distance, and a rename is one file under two names — and the arm still emitted **5.6 findings per pull request
+when its budget allowed 16**, with `capped` at zero in both runs. **The budget was never the binding constraint**, so
+the rule's mechanism was never exercised: the lanes simply do not write sixteen things about a whole pull request.
+
+**And the premise the rule was registered on does not survive its own arithmetic.** The registration rested on
+_"precision 0.40 for the pull-request scope against 0.20 for the file scope at the same fifteen findings"_. **Fifteen
+findings is six true positives and nine false positives**, whose 95 % interval for the proportion runs from about
+**0.20 to 0.64** — **an interval that contains the file scope's 0.21.** The factor of two was **six against three
+findings**, and it was treated as a measurement. **That is the error this section exists to record**, and it is the same
+error in a new costume as the ones §2 forbids: a figure quoted without the range it was measured over.
+
+**What the three runs jointly establish, and it is worth more than the rule was.**
+
+- **The file scope's F1 over this corpus is 0.2727, 0.2368 and 0.2781** — three runs, no change to it, same judge, same
+  goldens. **So the instrument's resolution is ±0.04, and any difference smaller than that cannot be read as a
+  difference between reviewers.**
+- **The pull-request scope is worse here, and the paired test says so twice** (p = 0.0013 and p = 0.0000, with 18 goldens
+  found only by the file scope and none only by the other way in run 2). **This corpus does not reward the scope**, and
+  the honest next statement is about why rather than about a threshold: its pull requests are C++ changes whose defects
+  sit inside one file, so a shared conversation adds cross-file vocabulary and loses per-file attention.
+- **The scope stays in the product and out of the figure.** `reviewPullRequest` is a feature with four rules and a
+  suite; it is not the benchmark's operating point, and `benchmarks/aacr-bench.json` records both.
+
+### 7.3 What the next rule would have to be
+
+**Not another budget.** Two runs with `capped` at zero say the budget is not where the loss is. **The next lever is the
+one the competitor's source shows and this repository does not have**: a **per-language defect checklist carrying
+explicit do-not-report conditions**, injected into the lanes — `internal/config/rules/rule_docs/java.md` in their tree
+is 41 lines of defect classes where every class ends in _"do not report in the following cases"_. **That is a precision
+device that does not depend on the budget or the scope**, which is exactly what the evidence now points at: our
+precision is 0.21 and theirs is 0.3857 on the same goldens.
+
+**And a condition on quoting it.** At ±0.04 resolution on five pull requests, **a checklist that moves F1 by less than
+0.04 will not be measurable here.** The next registration therefore has to come with more pull requests — about nine
+more would take the golden count to ~140 — or it will be a rule that cannot fail, which §6 was written to prevent.
