@@ -5,6 +5,10 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
+import { DEFAULT_STANDARDS } from '@code-analyzer/intelligence';
+
+import type { ProjectStandard, StandardRule } from '@code-analyzer/shared';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -28,27 +32,34 @@ export interface InitResult {
 // Default templates
 // ---------------------------------------------------------------------------
 
-const DEFAULT_STANDARDS = {
-  name: 'Project Standards',
-  description: 'Custom code review standards for this project',
-  version: '0.1.0',
-  rules: [
-    {
-      id: 'no-console-log',
-      category: 'quality',
-      severity: 'warning',
-      description: 'Avoid console.log in production code',
-      enabled: true,
-    },
-    {
-      id: 'no-debugger',
-      category: 'quality',
-      severity: 'error',
-      description: 'Remove debugger statements',
-      enabled: true,
-    },
-  ],
-};
+/**
+ * The standards file `init` writes, **in the format the standards engine reads**.
+ *
+ * This used to be a flat `{ name, rules: [{ id, category, severity, description, enabled }] }`, which no engine could
+ * consume: `StandardsEngine.checkRule` dispatches on `rule.checkType`, and a rule without one is a rule that matches
+ * nothing. A project initialised that way, and then reviewed with `--standards .code-analyzer/standards.json`, got a
+ * clean report over a rule set that was never applied — the most expensive kind of wrong answer, because it looks
+ * like a pass.
+ *
+ * The rules are the ones this product already ships as its defaults, so `init` and `standards check` agree about what
+ * "the default standard" means instead of each keeping a list.
+ */
+export function projectStandard(): ProjectStandard {
+  const rules = new Map<string, StandardRule>();
+  for (const standard of DEFAULT_STANDARDS) {
+    // Later definitions win, matching `StandardsEngine.composeStandards`: one rule id, one behaviour, everywhere.
+    for (const rule of standard.rules) rules.set(rule.id, rule);
+  }
+  return {
+    id: 'project-standards',
+    name: 'Project Standards',
+    version: '1.0.0',
+    category: 'custom',
+    description: 'The rule set this project reviews against, seeded from the standards Code Analyzer ships.',
+    rules: [...rules.values()],
+    examples: [],
+  };
+}
 
 const DEFAULT_CONFIG = {
   version: '0.1.0',
@@ -106,7 +117,7 @@ export function initProject(options: InitOptions = {}): InitResult {
   // standards.json
   const standardsPath = join(configDir, 'standards.json');
   if (!existsSync(standardsPath) || force) {
-    writeFileSync(standardsPath, JSON.stringify(DEFAULT_STANDARDS, null, 2) + '\n');
+    writeFileSync(standardsPath, JSON.stringify(projectStandard(), null, 2) + '\n');
     filesCreated.push('standards.json');
   } else {
     filesExisting.push('standards.json');
