@@ -50,6 +50,8 @@ describe('the rule corpus', () => {
       'kotlin',
       'swift',
       'arkts',
+      'cpp',
+      'go',
     ]);
   });
 
@@ -104,7 +106,19 @@ describe('selecting a language from a path', () => {
 
   it('selects nothing for a language the corpus does not carry', () => {
     expect(languageOf('src/main.rs')).toBeUndefined();
-    expect(languageOf('src/app.go')).toBeUndefined();
+    expect(languageOf('src/analysis.rb')).toBeUndefined();
+    expect(languageOf('README.md')).toBeUndefined();
+  });
+
+  it('covers the languages the benchmark corpus is written in', () => {
+    // **Why this is an assertion and not a comment.** The registered comparison reads a corpus of C++ and Go pull
+    // requests, and the checklist was first written for the eleven priority languages only - which made it **silent on
+    // two thirds of the files it was registered to be measured on**. Counting the corpus's extensions is what caught
+    // it, so the coverage is pinned here.
+    expect(languageOf('src/Mod/Part/App/Feature.cpp')?.language).toBe('cpp');
+    expect(languageOf('src/Mod/Part/App/Feature.h')?.language).toBe('cpp');
+    expect(languageOf('internal/checker/checker.go')?.language).toBe('go');
+    expect(languageOf('src/Mod/Part/Gui/Widget.ui')?.language).toBe('xml');
   });
 
   it('selects YAML for both spellings', () => {
