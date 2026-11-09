@@ -51,8 +51,18 @@ jobs:
       #
       # Note for the next editor: everything inside `args: >` is one scalar. A `#` written there is passed
       # to lychee as an argument, not treated as a comment — which is exactly how this job was broken once.
+      # **And why the check is authenticated now.** On 2026-11-09 the same job returned `[504]` for a dozen ordinary
+      # `github.com` URLs - `.../issues`, `.../blob/master/packages/*/README.md` - across three runs in a row. Those are
+      # not dead links: **an unauthenticated burst of requests from a shared runner IP is answered with 504 rather than
+      # 403**, and `--max-retries 3` cannot beat a rate limit that outlasts the retry window. Excluding each URL by name
+      # would have grown a silent allow-list one outage at a time, so the request carries the job's own read-only token
+      # and the 504 disappears for the reason it appeared: **the checker was measuring github.com's tolerance for
+      # anonymous traffic, not this repository's documentation.**
       - name: Check all links in markdown files
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        env:
+          # lychee reads this variable and sends it as a bearer token for `github.com` hosts.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
             --verbose
