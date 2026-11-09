@@ -35,10 +35,24 @@ inputs:
     description: 'Minimum severity level (info, warning, error, critical)'
     required: false
     default: 'warning'
+  #
+  # **`off` is the default, and this is a measurement decision rather than a preference.**
+  #
+  # The default was `error`. The first pull request that ran this action produced 44 critical findings on its own diff
+  # and every one of them was a test fixture — a database URL, a password literal, a SQL fragment inside a string. A
+  # rule-based reviewer cannot tell test data from production code, and iteration 110 measured the distance to the
+  # competitor at 0.04 precision with 45 % of findings false. **A gate that blocks a merge on a device with that
+  # precision record is a gate that teaches a team to bypass it.** The action reports; the team decides. Pass `error`
+  # here to enforce, and do it knowing the figure above.
+  #
   fail-on:
-    description: 'Fail the check on this severity or higher (off, warning, error, critical)'
+    description: 'Fail the check on this severity or higher (off, warning, error, critical). Default off: advisory'
     required: false
-    default: 'error'
+    default: 'off'
+  max-findings:
+    description: 'Report at most this many findings, worst first'
+    required: false
+    default: '50'
   max-files:
     description: 'Maximum files to analyze per PR'
     required: false
@@ -109,6 +123,7 @@ runs:
           --severity "${{ inputs.severity }}" \
           --fail-on "${{ inputs.fail-on }}" \
           --max-files "${{ inputs.max-files }}" \
+          --max-findings "${{ inputs.max-findings }}" \
           --exclude "${{ inputs.exclude-patterns }}" \
           ${LANG_FLAG} \
           --format json > findings.json

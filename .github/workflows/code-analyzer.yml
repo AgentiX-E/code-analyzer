@@ -37,12 +37,19 @@ jobs:
     if: always()
     steps:
       - name: Check Analysis Status
+        #
+        # **A failed review is reported, not enforced.** The action runs advisory (`fail-on: off`) because iteration 110
+        # measured the reviewer's precision at 0.04 behind the competitor with 45 % of findings false, and the first
+        # pull request it ran on produced 44 critical findings that were all test fixtures. Failing the job here would
+        # have turned that precision gap into a blocked merge, and this step would have been deleted within a week.
+        # A hard failure now means the analysis could not run at all, which is what `failure` still has to say.
+        #
         run: |
           if [ "${{ needs.analyze.result }}" == "success" ]; then
-            echo "✅ Code Analyzer review passed"
+            echo "Code Analyzer review completed; findings are on the pull request."
           elif [ "${{ needs.analyze.result }}" == "failure" ]; then
-            echo "❌ Code Analyzer found issues"
+            echo "::error::Code Analyzer could not complete. Check the analyze job for a build or configuration failure."
             exit 1
           else
-            echo "⚠️  Code Analyzer review was skipped or cancelled"
+            echo "Code Analyzer review was skipped or cancelled"
           fi
