@@ -115,11 +115,15 @@ jobs:
       - name: Run Code Analyzer
         id: analyzer
         run: |
-          # Analyze PR changes — output JSON for parsing
+          # Analyze PR changes — output JSON for parsing.
+          #
+          # **`--max-findings 50` because a reviewer that posts five hundred comments is a reviewer nobody reads.**
+          # The cap keeps the worst fifty: the report is ordered by severity, then by file, then down the file.
           node packages/cli/dist/index.js review pr \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }} \
             --token ${{ secrets.GITHUB_TOKEN }} \
+            --max-findings 50 \
             --format json \
             --output review-report.json
 
@@ -128,6 +132,7 @@ jobs:
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }} \
             --token ${{ secrets.GITHUB_TOKEN }} \
+            --max-findings 50 \
             --format markdown \
             --output review-report.md
 
