@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, readFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { initProject } from '../commands/init.js';
@@ -12,11 +12,10 @@ describe('initProject', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = resolve(
-      tmpdir(),
-      `code-analyzer-init-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-    mkdirSync(testDir, { recursive: true });
+    // **`mkdtempSync`, not a name built from a timestamp.** The platform creates the directory atomically with a
+    // name nobody can predict, which is what makes it a temporary directory rather than a shareable one — and it is
+    // also the difference CodeQL's `js/insecure-temporary-file` is describing when it follows `tmpdir()` into a write.
+    testDir = mkdtempSync(join(tmpdir(), 'code-analyzer-init-test-'));
   });
 
   afterEach(() => {
@@ -138,11 +137,7 @@ describe('initProject — .gitignore write failure', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = resolve(
-      tmpdir(),
-      `code-analyzer-init-gitignore-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-    mkdirSync(testDir, { recursive: true });
+    testDir = mkdtempSync(join(tmpdir(), 'code-analyzer-init-gitignore-'));
   });
 
   afterEach(() => {
@@ -167,12 +162,9 @@ describe('initProject — .gitignore write failure', () => {
 
 describe('initProject — a config path that exists but is not writable as a file', () => {
   it('surfaces the failure instead of calling the path existing', () => {
-    const dir = resolve(
-      tmpdir(),
-      `code-analyzer-init-dir-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
+    const dir = mkdtempSync(join(tmpdir(), 'code-analyzer-init-dir-'));
     try {
-      // A directory where `standards.json` should be. `existsSync` says yes; `writeFileSync` with `wx` says EISDIR.
+      // A directory where `standards.json` should be: `O_CREAT|O_EXCL` reports EEXIST, and what is there is not a file.
       mkdirSync(join(dir, '.code-analyzer', 'standards.json'), { recursive: true });
 
       // **Reported, not swallowed.** The previous implementation asked `existsSync` first and then wrote, so a path that
