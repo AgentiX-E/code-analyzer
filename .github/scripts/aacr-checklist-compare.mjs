@@ -133,7 +133,7 @@ function summarise(on, off) {
       truePositives: on.truePositives,
       falsePositives: on.falsePositives,
       falseNegatives: on.falseNegatives,
-      findings: on.fullEmission?.emitted ?? null,
+      findings: on.fullEmission?.k ?? on.fullEmission?.emitted ?? null,
     },
     withoutChecklist: {
       precision: off.precision,
@@ -142,7 +142,7 @@ function summarise(on, off) {
       truePositives: off.truePositives,
       falsePositives: off.falsePositives,
       falseNegatives: off.falseNegatives,
-      findings: off.fullEmission?.emitted ?? null,
+      findings: off.fullEmission?.k ?? off.fullEmission?.emitted ?? null,
     },
     delta: {
       precision: round(precisionGain),
@@ -150,7 +150,9 @@ function summarise(on, off) {
       f1: round(gain),
       truePositives: on.truePositives - off.truePositives,
       falsePositives: on.falsePositives - off.falsePositives,
-      findings: (on.fullEmission?.emitted ?? 0) - (off.fullEmission?.emitted ?? 0),
+      findings:
+        (on.fullEmission?.k ?? on.fullEmission?.emitted ?? 0) -
+        (off.fullEmission?.k ?? off.fullEmission?.emitted ?? 0),
     },
     /**
      * **The paired test, because the two runs read the same goldens.**
