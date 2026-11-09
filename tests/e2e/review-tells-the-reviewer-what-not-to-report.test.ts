@@ -130,6 +130,13 @@ function recordingProvider(): { provider: LLMProvider; prompts: string[] } {
         usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       };
     },
+    // **The two methods the interface has and this story does not exercise**, implemented rather than cast away:
+    // a tool-calling provider and a health probe are part of the provider contract, and a stub that omits them is a
+    // stub the type checker rejects - which is how this was found.
+    completeWithTools: async () => {
+      throw new Error('not used in this story');
+    },
+    healthCheck: async () => true,
   };
   return { provider, prompts };
 }
