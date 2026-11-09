@@ -789,6 +789,7 @@ async function runAttempt(
       // **Each turn of a ReAct loop is a call**, so the tag is what turns "200 tasks" into a figure a budget can be set
       // from - three steps per task here, and the loop is the reason a harness bill is larger than its task count.
       tag: 'agentic:permissions',
+    });
     finalText = completion.content ?? '';
     const made = (completion.toolCalls ?? []).map((call) => ({
       name: call.name,
