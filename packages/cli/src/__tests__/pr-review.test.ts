@@ -99,7 +99,11 @@ describe('runPrReview — the pull request user story', () => {
   });
 
   it('reports no standards by default, because a standard is something the caller names', async () => {
-    const run = await runPrReview({ repo: repo.dir, targetBranch: 'main', sourceBranch: 'feature' });
+    const run = await runPrReview({
+      repo: repo.dir,
+      targetBranch: 'main',
+      sourceBranch: 'feature',
+    });
     if (!run.ok) throw new Error(run.error);
     expect(run.report.standardsApplied).toEqual([]);
   });
@@ -159,13 +163,19 @@ describe('runPrReview — the pull request user story', () => {
     if (!all.ok || !criticalOnly.ok) throw new Error('fixture failed');
 
     expect(all.report.findings.length).toBeGreaterThanOrEqual(criticalOnly.report.findings.length);
-    expect(criticalOnly.report.findings.every((finding) => finding.severity === 'critical')).toBe(true);
+    expect(criticalOnly.report.findings.every((finding) => finding.severity === 'critical')).toBe(
+      true,
+    );
     // The decision still reflects what was measured, so a quiet report cannot hide a blocking state.
     expect(criticalOnly.report.decision).toBeDefined();
   });
 
   it('caps the findings it prints and reports how many it did not', async () => {
-    const all = await runPrReview({ repo: repo.dir, targetBranch: 'main', sourceBranch: 'feature' });
+    const all = await runPrReview({
+      repo: repo.dir,
+      targetBranch: 'main',
+      sourceBranch: 'feature',
+    });
     if (!all.ok) throw new Error(all.error);
     expect(all.report.findings.length).toBeGreaterThan(1);
 
@@ -183,7 +193,11 @@ describe('runPrReview — the pull request user story', () => {
 
   it('honours the documented CODE_ANALYZER_REVIEW_MAX_COMMENTS, because a documented variable that does nothing is a lie', async () => {
     process.env['CODE_ANALYZER_REVIEW_MAX_COMMENTS'] = '1';
-    const run = await runPrReview({ repo: repo.dir, targetBranch: 'main', sourceBranch: 'feature' });
+    const run = await runPrReview({
+      repo: repo.dir,
+      targetBranch: 'main',
+      sourceBranch: 'feature',
+    });
     if (!run.ok) throw new Error(run.error);
     expect(run.report.findings).toHaveLength(1);
   });
@@ -202,13 +216,21 @@ describe('runPrReview — the pull request user story', () => {
 
   it('reads the project id from the environment when the flag is absent', async () => {
     process.env['CODE_ANALYZER_PROJECT_ID'] = 'from-env';
-    const run = await runPrReview({ repo: repo.dir, targetBranch: 'main', sourceBranch: 'feature' });
+    const run = await runPrReview({
+      repo: repo.dir,
+      targetBranch: 'main',
+      sourceBranch: 'feature',
+    });
     if (!run.ok) throw new Error(run.error);
     expect(run.report.projectId).toBe('from-env');
   });
 
   it('exits 0 when advisory and 1 when asked to fail at critical', async () => {
-    const advisory = await runPrReview({ repo: repo.dir, targetBranch: 'main', sourceBranch: 'feature' });
+    const advisory = await runPrReview({
+      repo: repo.dir,
+      targetBranch: 'main',
+      sourceBranch: 'feature',
+    });
     const enforcing = await runPrReview({
       repo: repo.dir,
       targetBranch: 'main',
@@ -290,7 +312,11 @@ describe('runPrReview — refusals', () => {
     const clean = createRepo();
     try {
       clean.branch('noop');
-      const run = await runPrReview({ repo: clean.dir, targetBranch: 'main', sourceBranch: 'noop' });
+      const run = await runPrReview({
+        repo: clean.dir,
+        targetBranch: 'main',
+        sourceBranch: 'noop',
+      });
       if (!run.ok) throw new Error(run.error);
       expect(run.report.summary.totalFindings).toBe(0);
       expect(run.exitCode).toBe(EXIT_OK);
@@ -356,7 +382,11 @@ describe('review presentation', () => {
     const repo = createRepo();
     try {
       repo.branch('empty');
-      const run = await runPrReview({ repo: repo.dir, targetBranch: 'main', sourceBranch: 'empty' });
+      const run = await runPrReview({
+        repo: repo.dir,
+        targetBranch: 'main',
+        sourceBranch: 'empty',
+      });
       if (!run.ok) throw new Error(run.error);
       expect(formatPrReviewMarkdown(run.report)).toContain(
         'No findings at or above the reported severity.',
@@ -402,7 +432,9 @@ describe('runPrReview — a pull request read over the API', () => {
   });
 
   it('names the repository, the pull request, and a project id derived from the slug', async () => {
-    const stub = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(diff, { status: 200 }));
+    const stub = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(diff, { status: 200 }));
     try {
       const run = await runPrReview({ repo: repo.dir, pr: 42, token: 'token' });
       if (!run.ok) throw new Error(run.error);
@@ -441,7 +473,9 @@ describe('runPrReview — a pull request read over the API', () => {
       if (!run.ok) throw new Error(run.error);
 
       expect(run.report.summary.unreadable).toContain('src/absent.ts');
-      expect(formatPrReviewMarkdown(run.report)).toContain('could not be read, so the findings below do not cover');
+      expect(formatPrReviewMarkdown(run.report)).toContain(
+        'could not be read, so the findings below do not cover',
+      );
       expect(formatPrReviewText(run.report)).toContain('could not be read');
     } finally {
       stub.mockRestore();
@@ -453,7 +487,10 @@ describe('runPrReview — findings on lines the change did not touch', () => {
   it('marks them so an inline comment is never attempted, and says how many there were', async () => {
     const repo = createRepo();
     try {
-      const body = Array.from({ length: 12 }, (_, i) => `export function f${i + 1}() { return ${i + 1}; }`);
+      const body = Array.from(
+        { length: 12 },
+        (_, i) => `export function f${i + 1}() { return ${i + 1}; }`,
+      );
       repo.write('src/many.ts', `${body.join('\n')}\n`);
       repo.commit('twelve functions');
 
@@ -487,7 +524,11 @@ describe('runPrReview — edge inputs a workflow can produce', () => {
     const repo = pullRequestFixture();
     try {
       process.env['CODE_ANALYZER_REVIEW_MAX_COMMENTS'] = 'not-a-number';
-      const run = await runPrReview({ repo: repo.dir, targetBranch: 'main', sourceBranch: 'feature' });
+      const run = await runPrReview({
+        repo: repo.dir,
+        targetBranch: 'main',
+        sourceBranch: 'feature',
+      });
       if (!run.ok) throw new Error(run.error);
       expect(run.report.findings.length).toBeGreaterThan(1);
     } finally {
@@ -651,8 +692,14 @@ describe('runPrReview — a change in more than one file', () => {
     const repo = createRepo();
     try {
       repo.branch('two-files');
-      repo.write('src/b-second.ts', 'export function b() {\n  const password = "hunter2-hardcoded";\n  return password;\n}\n');
-      repo.write('src/a-first.ts', 'export function a() {\n  const password = "hunter2-hardcoded";\n  return password;\n}\n');
+      repo.write(
+        'src/b-second.ts',
+        'export function b() {\n  const password = "hunter2-hardcoded";\n  return password;\n}\n',
+      );
+      repo.write(
+        'src/a-first.ts',
+        'export function a() {\n  const password = "hunter2-hardcoded";\n  return password;\n}\n',
+      );
       repo.commit('two files with the same problem');
       // Left on the branch, so both files can be read: the point of this case is truncation, not an unreadable checkout.
 

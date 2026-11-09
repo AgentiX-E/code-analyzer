@@ -17,11 +17,7 @@ import {
   locateRepository,
   type LocateCommandOptions,
 } from './commands/locate.js';
-import {
-  formatPrReviewReport,
-  runPrReview,
-  type PrReviewOptions,
-} from './commands/pr-review.js';
+import { formatPrReviewReport, runPrReview, type PrReviewOptions } from './commands/pr-review.js';
 import { reviewCode, formatReviewResult, type ReviewOptions } from './commands/review.js';
 import { searchGraph, formatSearchResult, type SearchOptions } from './commands/search.js';
 import { describeSeverityLabels } from './commands/severity.js';
@@ -158,7 +154,10 @@ program
     }
 
     const target = textOption(opts['repo']) ?? repoPath;
-    const include = [...(opts['include'] as string[]), ...extensions.map((extension) => `**/*${extension}`)];
+    const include = [
+      ...(opts['include'] as string[]),
+      ...extensions.map((extension) => `**/*${extension}`),
+    ];
     const exclude = opts['exclude'] as string[];
     const options: AnalyzeOptions = {
       path: target,
@@ -335,9 +334,26 @@ interface ScopeOptionBag {
 }
 
 /** Build the change-scope half of a review request, or the reason it cannot be built. */
-function scopeOf(
-  opts: ScopeOptionBag,
-): { scope?: Pick<PrReviewOptions, 'repo' | 'pr' | 'token' | 'targetBranch' | 'sourceBranch' | 'standards' | 'standardsFile' | 'severity' | 'failOn' | 'maxFiles' | 'maxFindings' | 'exclude' | 'languages' | 'projectId'>; error?: string } {
+function scopeOf(opts: ScopeOptionBag): {
+  scope?: Pick<
+    PrReviewOptions,
+    | 'repo'
+    | 'pr'
+    | 'token'
+    | 'targetBranch'
+    | 'sourceBranch'
+    | 'standards'
+    | 'standardsFile'
+    | 'severity'
+    | 'failOn'
+    | 'maxFiles'
+    | 'maxFindings'
+    | 'exclude'
+    | 'languages'
+    | 'projectId'
+  >;
+  error?: string;
+} {
   const pr = readPositiveInt(opts.pr, 'pr');
   if (pr.error !== undefined) return { error: pr.error };
   const maxFiles = readPositiveInt(opts.maxFiles, 'max-files');
@@ -385,14 +401,29 @@ function emit(text: string, output: unknown): void {
 /** The options `review pr` and `review-pr` share, declared once so the two spellings cannot drift apart. */
 function prReviewOptionFlags(command: Command): Command {
   return command
-    .option('--repo <path-or-slug>', 'Checkout to review, or owner/name. Inferred from origin when omitted')
-    .option('--pr <number>', 'Pull request number. Needs --token, or GITHUB_TOKEN in the environment')
+    .option(
+      '--repo <path-or-slug>',
+      'Checkout to review, or owner/name. Inferred from origin when omitted',
+    )
+    .option(
+      '--pr <number>',
+      'Pull request number. Needs --token, or GITHUB_TOKEN in the environment',
+    )
     .option('--token <token>', 'GitHub token for reading the pull request (default: $GITHUB_TOKEN)')
     .option('--target-branch <ref>', 'Base ref, for a review inside a clone (e.g. origin/main)')
     .option('--source-branch <ref>', 'Head ref, for a review inside a clone (e.g. HEAD)')
-    .option('--standard <id>', 'Standard to apply as well (repeatable)', collectValues, [] as string[])
+    .option(
+      '--standard <id>',
+      'Standard to apply as well (repeatable)',
+      collectValues,
+      [] as string[],
+    )
     .option('--standards <path>', 'Standards JSON file to apply as well')
-    .option('-s, --severity <level>', `Minimum severity to report: ${describeSeverityLabels()}`, 'warning')
+    .option(
+      '-s, --severity <level>',
+      `Minimum severity to report: ${describeSeverityLabels()}`,
+      'warning',
+    )
     .option('--fail-on <level>', `Exit 1 at this severity or above, or "off" (default: off)`, 'off')
     .option('--max-files <number>', 'Analyze at most this many changed files (default: no limit)')
     .option('--max-findings <number>', 'Report at most this many findings (default: no limit)')
@@ -403,9 +434,16 @@ function prReviewOptionFlags(command: Command): Command {
       [] as string[],
     )
     .option('-l, --languages <list>', 'Comma-separated languages, e.g. typescript,python')
-    .option('-p, --project-id <id>', 'Project identifier for graph lookups (default: $CODE_ANALYZER_PROJECT_ID)')
+    .option(
+      '-p, --project-id <id>',
+      'Project identifier for graph lookups (default: $CODE_ANALYZER_PROJECT_ID)',
+    )
     .option('-f, --format <format>', 'Output format: text, json, or markdown', 'text')
-    .option('-o, --output <file>', 'Write the report to this file instead of stdout');
+    .option('-o, --output <file>', 'Write the report to this file instead of stdout')
+    .option(
+      '--summary <file>',
+      'Also write this run as Markdown here — one analysis, two renderings',
+    );
 }
 
 /** Run `review pr` and print what came back. Returns nothing; it exits. */
@@ -422,7 +460,9 @@ async function reviewPullRequest(opts: Record<string, unknown>): Promise<void> {
 
   const format = textOption(opts['format']) ?? 'text';
   if (format !== 'text' && format !== 'json' && format !== 'markdown') {
-    console.error(`[code-analyzer] --format ${format} is not a format. Use text, json, or markdown`);
+    console.error(
+      `[code-analyzer] --format ${format} is not a format. Use text, json, or markdown`,
+    );
     process.exit(2);
   }
 
@@ -432,6 +472,12 @@ async function reviewPullRequest(opts: Record<string, unknown>): Promise<void> {
     process.exit(run.exitCode);
   }
   emit(formatPrReviewReport(run.report, format), opts['output']);
+  // **One analysis, two renderings.** `.github/workflows/pr-review.yml` and the composite action both want the JSON for
+  // their readers and the Markdown for the comment, and both used to get them by running the review twice. That is two
+  // full scans of the same change to render a report that was already in memory — and two chances for the comment and
+  // the artifacts to describe different runs.
+  const summaryPath = textOption(opts['summary']);
+  if (summaryPath !== undefined) emit(formatPrReviewReport(run.report, 'markdown'), summaryPath);
   process.exit(run.exitCode);
 }
 
@@ -471,7 +517,9 @@ const reviewCommand = program
 prReviewOptionFlags(
   reviewCommand
     .command('pr')
-    .description('Review a pull request, or a branch range, against the review lenses and project standards'),
+    .description(
+      'Review a pull request, or a branch range, against the review lenses and project standards',
+    ),
 ).action(async (opts: Record<string, unknown>) => {
   await reviewPullRequest(opts);
 });
@@ -503,14 +551,29 @@ program
   .description('Check code against project standards')
   .command('check')
   .description('Check a checkout, a branch range, or a pull request against one or more standards')
-  .option('--repo <path-or-slug>', 'Checkout to judge, or owner/name. Defaults to the working directory')
+  .option(
+    '--repo <path-or-slug>',
+    'Checkout to judge, or owner/name. Defaults to the working directory',
+  )
   .option('--pr <number>', 'Pull request number, to judge only what it changed')
   .option('--token <token>', 'GitHub token for reading the pull request (default: $GITHUB_TOKEN)')
   .option('--target-branch <ref>', 'Base ref, to judge only what the head added')
   .option('--source-branch <ref>', 'Head ref')
-  .option('--standard <id>', 'Standard to apply (repeatable; default: the built-in set)', collectValues, [] as string[])
-  .option('--standards <path>', 'Standards JSON file to apply (repeatable in effect: it may hold an array)')
-  .option('-s, --severity <level>', `Minimum severity to list: ${describeSeverityLabels()}`, 'warning')
+  .option(
+    '--standard <id>',
+    'Standard to apply (repeatable; default: the built-in set)',
+    collectValues,
+    [] as string[],
+  )
+  .option(
+    '--standards <path>',
+    'Standards JSON file to apply (repeatable in effect: it may hold an array)',
+  )
+  .option(
+    '-s, --severity <level>',
+    `Minimum severity to list: ${describeSeverityLabels()}`,
+    'warning',
+  )
   .option('--fail-on <level>', 'Exit 1 at this severity or above, or "off" (default: off)', 'off')
   .option('--max-files <number>', 'Judge at most this many files (default: no limit)')
   .option(
@@ -522,6 +585,7 @@ program
   .option('-l, --languages <list>', 'Comma-separated languages, e.g. typescript,python')
   .option('-f, --format <format>', 'Output format: text, json, or markdown', 'text')
   .option('-o, --output <file>', 'Write the report to this file instead of stdout')
+  .option('--summary <file>', 'Also write this run as Markdown here — one analysis, two renderings')
   .action(async (opts: Record<string, unknown>) => {
     const { scope, error } = scopeOf(opts);
     if (error !== undefined) {
@@ -535,7 +599,9 @@ program
 
     const format = textOption(opts['format']) ?? 'text';
     if (format !== 'text' && format !== 'json' && format !== 'markdown') {
-      console.error(`[code-analyzer] --format ${format} is not a format. Use text, json, or markdown`);
+      console.error(
+        `[code-analyzer] --format ${format} is not a format. Use text, json, or markdown`,
+      );
       process.exit(2);
     }
 
@@ -560,6 +626,11 @@ program
       process.exit(run.exitCode);
     }
     emit(formatStandardsReport(run.entries, format), opts['output']);
+    // Same contract as `review pr --summary`: the JSON is what a workflow parses, the Markdown is what it posts, and
+    // both describe one run of the engine rather than two.
+    const summaryPath = textOption(opts['summary']);
+    if (summaryPath !== undefined)
+      emit(formatStandardsReport(run.entries, 'markdown'), summaryPath);
     process.exit(run.exitCode);
   });
 

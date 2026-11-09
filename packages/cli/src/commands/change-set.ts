@@ -140,7 +140,9 @@ function git(args: string[], cwd: string): string {
     });
   } catch (err) {
     const stderr = (err as { stderr?: string }).stderr?.trim();
-    throw new ChangeSetError(`git ${args.join(' ')} failed in ${cwd}${stderr ? `: ${stderr}` : ''}`);
+    throw new ChangeSetError(
+      `git ${args.join(' ')} failed in ${cwd}${stderr ? `: ${stderr}` : ''}`,
+    );
   }
 }
 
@@ -153,7 +155,8 @@ function keep(path: string, exclude: readonly string[], extensions: readonly str
     const regex = globToRegExp(pattern);
     if (regex.test(posix) || regex.test(name)) return false;
   }
-  if (extensions.length > 0 && !extensions.some((extension) => posix.endsWith(extension))) return false;
+  if (extensions.length > 0 && !extensions.some((extension) => posix.endsWith(extension)))
+    return false;
   return true;
 }
 
@@ -185,7 +188,40 @@ function select(
   const extensions = request.extensions ?? [];
   const kept = files.filter((file) => keep(file, excluded, extensions));
   const selected = request.maxFiles === undefined ? kept : kept.slice(0, request.maxFiles);
-  return { files: selected, filtered: files.length - kept.length, truncated: kept.length - selected.length };
+  return {
+    files: selected,
+    filtered: files.length - kept.length,
+    truncated: kept.length - selected.length,
+  };
+}
+
+/**
+ * A predicate answering "is this line inside a changed hunk".
+ *
+ * **This lives beside the diff because the ranges are the diff's.** Two commands ask the question — `review pr` before
+ * it reports a finding, `standards check` before it publishes one — and both are asking whether GitHub will accept an
+ * inline comment at that position. GitHub answers 422 and rejects the **whole review** when any comment in it names a
+ * line outside the diff, so a single unqualified finding does not degrade the report, it replaces it with an error.
+ *
+ * In `tree` mode the answer is `false` for every line, which is not a special case: there is no diff, so no line is in
+ * one. `standards check` uses `mode` rather than this predicate to decide whether the report carries the field at all —
+ * "not in the diff" would describe a change nobody made.
+ *
+ * Built once from the change set's own ranges rather than by scanning the diff per finding: a review of a thousand-file
+ * change would otherwise walk the diff a thousand times to answer the same question.
+ */
+export function diffMembership(change: ChangeSet): (file: string, line: number) => boolean {
+  const ranges = new Map<string, [number, number][]>();
+  for (const diff of change.diffs) {
+    const list = ranges.get(diff.filePath) ?? [];
+    for (const range of diff.ranges) list.push([range.newStart, range.newEnd]);
+    ranges.set(diff.filePath, list);
+  }
+  return (file, line) => {
+    const list = ranges.get(file);
+    if (list === undefined) return false;
+    return list.some(([start, end]) => line >= start && line <= end);
+  };
 }
 
 /**
@@ -209,9 +245,14 @@ export async function resolveChangeSet(
   // ---- github: a pull request, over the API ----------------------------------------------------------------
   if (request.pr !== undefined) {
     if (request.token === undefined || request.token.length === 0) {
-      throw new ChangeSetError('--pr needs --token: reading a pull request means authenticating to the API');
+      throw new ChangeSetError(
+        '--pr needs --token: reading a pull request means authenticating to the API',
+      );
     }
-    const slug = repositorySlug(request.repo) ?? (request.repo === undefined ? undefined : slugFromRemote(resolve(request.repo))) ?? slugFromRemote(checkout);
+    const slug =
+      repositorySlug(request.repo) ??
+      (request.repo === undefined ? undefined : slugFromRemote(resolve(request.repo))) ??
+      slugFromRemote(checkout);
     if (slug === undefined) {
       throw new ChangeSetError(
         '--pr needs a repository: pass --repo owner/name, or run inside a checkout whose origin is on GitHub',
@@ -256,7 +297,9 @@ export async function resolveChangeSet(
   // fall-through that made a slug mean "here" made a mistyped path mean "here", which is indistinguishable from a
   // correct run until somebody reads the report and finds it is about another repository.
   if (request.repo !== undefined && repoDirectory === undefined) {
-    throw new ChangeSetError(`--repo ${request.repo} is neither a path that exists nor an owner/name slug`);
+    throw new ChangeSetError(
+      `--repo ${request.repo} is neither a path that exists nor an owner/name slug`,
+    );
   }
 
   const directory = repoDirectory ?? checkout;

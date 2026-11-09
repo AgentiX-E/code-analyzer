@@ -28,9 +28,9 @@ import {
   type SwarmDecision,
 } from '@code-analyzer/intelligence';
 
-
 import {
   describeLanguages,
+  diffMembership,
   extensionsForLanguages,
   resolveChangeSet,
   type ChangeMode,
@@ -195,7 +195,17 @@ export const EXIT_USAGE = 2;
  */
 export function joinLensFindings(
   result: {
-    comments: readonly { id: string; path: string; content: string; startLine: number; endLine: number; severity: Severity; category: string; existingCode: string; suggestionCode?: string }[];
+    comments: readonly {
+      id: string;
+      path: string;
+      content: string;
+      startLine: number;
+      endLine: number;
+      severity: Severity;
+      category: string;
+      existingCode: string;
+      suggestionCode?: string;
+    }[];
     lensReports: readonly { findings: readonly LensFinding[] }[];
   },
   inDiff: (file: string, line: number) => boolean,
@@ -267,24 +277,11 @@ function standardsFindings(
 }
 
 /**
- * A predicate answering "is this line inside a changed hunk".
- *
- * Built once from the change set's own ranges rather than by scanning the diff per finding: a review of a thousand-file
- * change would otherwise walk the diff a thousand times to answer the same question.
+ * **`diffMembership` moved to `change-set.ts`**, which owns the ranges it reads. It stayed here first, and
+ * `standards check` grew a second copy of the same eleven lines rather than a second idea about which lines GitHub will
+ * accept a comment on — the duplicate is the version of this that drifts.
  */
-export function diffMembership(change: ChangeSet): (file: string, line: number) => boolean {
-  const ranges = new Map<string, [number, number][]>();
-  for (const diff of change.diffs) {
-    const list = ranges.get(diff.filePath) ?? [];
-    for (const range of diff.ranges) list.push([range.newStart, range.newEnd]);
-    ranges.set(diff.filePath, list);
-  }
-  return (file, line) => {
-    const list = ranges.get(file);
-    if (list === undefined) return false;
-    return list.some(([start, end]) => line >= start && line <= end);
-  };
-}
+export { diffMembership };
 
 /**
  * Order findings the way a reviewer reads them: worst first, then by file, then down the file.
@@ -445,7 +442,9 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
 
   // **The threshold filters, it does not discard the count.** `--severity` decides what is reported; the number that
   // did not reach the report is kept so a reader can lower the bar instead of wondering where the findings went.
-  const reported = merged.filter((finding) => severityRank(finding.severity) >= severityRank(severity));
+  const reported = merged.filter(
+    (finding) => severityRank(finding.severity) >= severityRank(severity),
+  );
   const cap = maxFindingsOf(options);
   const findings = cap === undefined ? reported : reported.slice(0, cap);
 
@@ -575,7 +574,9 @@ export function formatPrReviewMarkdown(report: PrReviewReport): string {
     lines.push('No findings at or above the reported severity.');
     if (report.summary.truncatedFindings > 0) {
       lines.push('');
-      lines.push(`_${report.summary.truncatedFindings} finding(s) beyond \`--max-findings\` were not reported._`);
+      lines.push(
+        `_${report.summary.truncatedFindings} finding(s) beyond \`--max-findings\` were not reported._`,
+      );
     }
     return lines.join('\n');
   }
@@ -604,7 +605,9 @@ export function formatPrReviewMarkdown(report: PrReviewReport): string {
 
   if (report.summary.truncatedFindings > 0) {
     lines.push('');
-    lines.push(`_${report.summary.truncatedFindings} finding(s) beyond \`--max-findings\` were not reported._`);
+    lines.push(
+      `_${report.summary.truncatedFindings} finding(s) beyond \`--max-findings\` were not reported._`,
+    );
   }
 
   if (report.summary.outsideDiff > 0) {
@@ -661,7 +664,9 @@ export function formatPrReviewText(report: PrReviewReport): string {
 
   if (report.summary.truncatedFindings > 0) {
     lines.push('');
-    lines.push(`${report.summary.truncatedFindings} finding(s) beyond --max-findings were not reported.`);
+    lines.push(
+      `${report.summary.truncatedFindings} finding(s) beyond --max-findings were not reported.`,
+    );
   }
   return lines.join('\n');
 }
