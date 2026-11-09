@@ -175,6 +175,9 @@ export async function rerankCandidates<T extends { rank: number }>(
         // **Derived from the pool, not declared**: see `answerBudget`.
         maxTokens: options.maxTokens ?? answerBudget(candidates.length),
         temperature: 0,
+        // **One tag for the whole ranker**, so the ledger can say whether ordering the answer costs more than answering
+        // it - a question this product could not ask before, and the one that decides whether the reranker ships on.
+        tag: 'search:rerank',
         ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
       },
     );

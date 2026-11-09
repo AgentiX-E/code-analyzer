@@ -102,24 +102,55 @@ interface ReviewComment {
 
 ## Standards Engine
 
-> **Alpha Status**: The standards engine architecture is designed but not yet functional. The 10 built-in templates are defined but rule execution returns empty results. The MCP tool `check_standards` returns placeholder data. This section documents the planned design.
+The standards engine is **functional, and this section describes what it does rather than what it would** — the note
+that used to sit here said the ten templates were "defined but rule execution returns empty results", which was true of
+no template: each rule below carries a `checkType` the engine dispatches on. `code-analyzer standards check` runs them
+and reports the violations, and `.github/workflows/pr-review.yml` posts them as review comments.
 
-Code Analyzer includes a standards engine with 10 built-in templates planned for implementation and support for custom project standards.
+Two sets exist and they are different things:
 
-### 10 Built-in Templates
+- **The default standards** (`DEFAULT_STANDARDS`, seven of them: `std-func-length`, `std-nesting-depth`, `std-naming`,
+  `std-error-handling`, `std-security`, `std-security-essentials`, `std-general`) are what `standards check` applies when
+  the caller names no standard, and what `code-analyzer init` writes into a project.
+- **The templates** are a catalogue a project can adopt by id with `--standard <id>`. There are thirty-two:
 
-| Standard ID             | Name                            | Category         | Language   |
-| ----------------------- | ------------------------------- | ---------------- | ---------- |
-| `typescript-coding`     | TypeScript Coding Standards     | `code-style`     | TypeScript |
-| `python-pep8`           | Python PEP8 Standards           | `code-style`     | Python     |
-| `go-idiomatic`          | Go Idiomatic Standards          | `code-style`     | Go         |
-| `security-baseline`     | Security Baseline               | `security`       | Any        |
-| `api-design`            | API Design Standards            | `api-design`     | Any        |
-| `testing-standards`     | Testing Standards               | `testing`        | Any        |
-| `error-handling`        | Error Handling Standards        | `error-handling` | Any        |
-| `documentation`         | Documentation Standards         | `documentation`  | Any        |
-| `architecture-layered`  | Architecture Layered Standards  | `architecture`   | Any        |
-| `dependency-management` | Dependency Management Standards | `dependency`     | Any        |
+| Standard ID                | Name                                | Category         | Rules |
+| -------------------------- | ----------------------------------- | ---------------- | ----- |
+| typescript-coding          | TypeScript Coding Standards         | `code-style`     | 7     |
+| python-pep8                | Python PEP8 Standards               | `code-style`     | 5     |
+| go-idiomatic               | Go Idiomatic Standards              | `code-style`     | 4     |
+| security-baseline          | Security Baseline                   | `security`       | 5     |
+| security-essentials        | Security Essentials                 | `security`       | 9     |
+| api-design                 | API Design Standards                | `api-design`     | 4     |
+| testing-standards          | Testing Standards                   | `testing`        | 3     |
+| error-handling             | Error Handling Standards            | `error-handling` | 3     |
+| documentation              | Documentation Standards             | `documentation`  | 3     |
+| architecture-layered       | Architecture Layered Standards      | `architecture`   | 3     |
+| dependency-management      | Dependency Management Standards     | `dependency`     | 3     |
+| owasp-top10                | OWASP Top 10 Standards              | `security`       | 10    |
+| api-security               | API Security Standards              | `security`       | 6     |
+| dependency-security        | Dependency Security Standards       | `security`       | 4     |
+| container-security         | Container Security Standards        | `security`       | 5     |
+| data-privacy               | Data Privacy Standards              | `security`       | 5     |
+| error-handling-standard    | Error Handling Extended Standards   | `error-handling` | 5     |
+| testing-standard           | Testing Extended Standards          | `testing`        | 5     |
+| logging-standard           | Logging Standards                   | `code-style`     | 5     |
+| api-design-standard        | API Design Extended Standards       | `api-design`     | 5     |
+| configuration-management   | Configuration Management Standards  | `code-style`     | 5     |
+| typescript-best-practices  | TypeScript Best Practices Extended  | `code-style`     | 6     |
+| javascript-best-practices  | JavaScript Best Practices           | `code-style`     | 6     |
+| python-pep8-extended       | Python PEP8 Extended Standards      | `code-style`     | 6     |
+| go-idiomatic-extended      | Go Idiomatic Extended Standards     | `code-style`     | 5     |
+| rust-best-practices        | Rust Best Practices                 | `code-style`     | 5     |
+| java-best-practices        | Java Best Practices                 | `code-style`     | 5     |
+| microservices-patterns     | Microservices Patterns Standards    | `architecture`   | 6     |
+| event-driven-architecture  | Event-Driven Architecture Standards | `architecture`   | 5     |
+| clean-architecture         | Clean Architecture Standards        | `architecture`   | 5     |
+| ml-pipeline-best-practices | ML Pipeline Best Practices          | `custom`         | 6     |
+| ai-agent-code-patterns     | AI Agent Code Patterns              | `custom`         | 6     |
+
+Rule execution is deterministic and reads file text; `llm-check` rules are the one check type that calls a model, and
+they are absent from every default so that `standards check` never depends on a provider being reachable.
 
 ### Rule Check Types
 

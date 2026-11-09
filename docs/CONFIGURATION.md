@@ -1,19 +1,31 @@
-# Configuration Reference
+# Configuring Code Analyzer
 
-> Complete configuration reference for Code Analyzer — all options, environment variables, file formats, and CI/CD examples.
+> The guide: where configuration lives, which layer wins, how to prove it, and the CI examples this repository actually
+> runs. The exhaustive key-by-key table is in [configuration-reference.md](./configuration-reference.md).
 
 ---
 
 ## Configuration Sources
 
+> **This is the guide; the exact schema is in [configuration-reference.md](./configuration-reference.md).** One file is
+> read: `.code-analyzer/config.json`, which `code-analyzer init` writes. `code-analyzer config` prints the result of the
+> merge, key by key, with the layer that set each value — so every claim below can be checked against your own checkout
+> instead of being taken on trust.
+
 Code Analyzer merges configuration from four sources in order of increasing precedence:
 
-1. **Defaults** — Built-in defaults from `@code-analyzer/core`
+1. **Defaults** — built into `@code-analyzer/core`
 2. **Global config** — `~/.code-analyzer/config.json` (user-level)
-3. **Project config** — `.code-analyzer.json` in the project root
+3. **Project config** — `.code-analyzer/config.json` in the project root, or the older `.code-analyzer.json` when the
+   canonical file is absent
 4. **Environment variables** — `CODE_ANALYZER_*` prefixed variables
 
-Configuration is deep-merged: objects are recursively combined, arrays are replaced (not concatenated).
+A command's own flags win over all four, because a flag is a decision about one run and a file is a decision about the
+project.
+
+Configuration is deep-merged: objects are recursively combined, arrays are replaced (not concatenated). **The two project
+paths are not merged with each other** — the canonical file wins and the legacy one is named in a warning, because a
+configuration assembled from two documents cannot be reasoned about by the person editing either of them.
 
 ---
 
@@ -21,10 +33,14 @@ Configuration is deep-merged: objects are recursively combined, arrays are repla
 
 ### File Format
 
-Code Analyzer supports JSON configuration files:
+JSON, and only JSON:
 
 - **Global**: `~/.code-analyzer/config.json`
-- **Project**: `.code-analyzer.json` (in project root)
+- **Project**: `.code-analyzer/config.json` — written by `code-analyzer init`
+- **Legacy**: `.code-analyzer.json` in the project root, read only when the canonical file is absent
+
+**A complete file, including the blocks `analyze` does not read.** The keys below `mcp`, `review`, `embed` and `pruner`
+belong to the MCP server, the review pipeline and the embedding backends; [configuration-reference.md](./configuration-reference.md#keys) says which code path consumes each one, and marks the four that nothing consumes yet.
 
 ```json
 {
@@ -247,6 +263,11 @@ Patterns support glob syntax:
 - Each pattern is tested against the repository-relative path **and** against the bare basename, so `*.kt` finds
   `src/main/A.kt`
 - An empty `includePatterns` includes everything, which is the default
+- **An exclusion wins over an inclusion that also matches**, so
+  `--include "**/*.ts" --exclude "**/*.test.ts"` analyses the TypeScript that is not a test
+
+Both lists are applied **before** a file is opened, and both are read from the configuration file as well as from the
+command line — a project that writes `excludePatterns` gets that exclusion from `analyze` with no flags at all.
 
 `includePatterns` is what an analysis costs: the filter is applied **before** a file is read, so a checkout of fifteen
 thousand Java files that holds a hundred and twenty-eight Kotlin files costs the hundred and twenty-eight. The same list
@@ -360,7 +381,8 @@ code-analyzer-review:
   script:
     - npm install -g @code-analyzer/cli
     - code-analyzer analyze .
-    - code-analyzer review diff --from-ref $CI_MERGE_REQUEST_DIFF_BASE_SHA
+    # The merge request's base is a ref, and `review-pr` is the spelling that takes two of them.
+    - code-analyzer review-pr --from "$CI_MERGE_REQUEST_DIFF_BASE_SHA" --to HEAD --format json --output review-report.json
   only:
     - merge_requests
   artifacts:
@@ -400,25 +422,27 @@ const manualConfig: Partial<CodeAnalyzerConfig> = {
 ### Configuration Loading Order
 
 ```typescript
-// packages/core/src/config/loader.ts
-export async function loadConfig(rootPath: string): Promise<CodeAnalyzerConfig> {
-  // Layer 1: defaults
-  const config = getDefaultConfig();
-
-  // Layer 2: global config (~/.code-analyzer/config.json)
-  const globalConfig = await loadJsonFile(getGlobalConfigPath());
-  if (globalConfig) deepMerge(config, globalConfig);
-
-  // Layer 3: project config (.code-analyzer.json)
-  const projectConfig = await loadJsonFile(getProjectConfigPath(rootPath));
-  if (projectConfig) deepMerge(config, projectConfig);
-
-  // Layer 4: environment variables (CODE_ANALYZER_*)
-  applyEnvOverrides(config);
-
-  return config;
+// packages/core/src/config/loader.ts — the shape, not the body
+export async function loadConfigWithDiagnostics(
+  rootPath: string,
+  options?: LoadConfigOptions,
+): Promise<LoadedConfig> {
+  // Layer 1: defaults, recorded as the origin of every key they hold
+  // Layer 2: ~/.code-analyzer/config.json          → origin 'global'
+  // Layer 3: {rootPath}/.code-analyzer/config.json → origin 'project'
+  //          (or the explicit --config file       → origin 'explicit')
+  // Layer 4: CODE_ANALYZER_*                       → origin 'env:CODE_ANALYZER_MAX_FILES'
+  // Unknown keys are collected, never merged; a value of the wrong type throws.
+  return { config, origin, layers, ignored, warnings };
 }
+
+// The one-line form, for callers that only need the values.
+export async function loadConfig(rootPath: string): Promise<CodeAnalyzerConfig>;
 ```
+
+`loadConfig` had **no caller for the entire life of the feature**: the four layers were merged by a function that no CLI
+command invoked, and `init` wrote a different file at a different path with a different schema. `code-analyzer config` is
+the caller that makes the merge observable, and `analyze` is the caller that makes it matter.
 
 ---
 

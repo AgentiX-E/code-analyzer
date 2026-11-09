@@ -40,12 +40,14 @@ code-analysis:
   script:
     # Full codebase analysis
     - npx code-analyzer analyze --repo . --output analysis.json
-    # Knowledge graph generation
-    - npx code-analyzer graph build --repo . --output graph.db
+    # **The graph is built by `analyze` and reported by it.** The previous line called `graph build`, which is not a
+    # command: this sample could not have run. `analyze` already builds the graph and its `--output` records the
+    # figures the next stage reads.
+    - npx code-analyzer analyze --repo . --format json --output graph.json
   artifacts:
     paths:
       - analysis.json
-      - graph.db
+      - graph.json
     expire_in: 30 days
 
 # ── PR Review (only on merge requests) ───────────────────────────────────────
@@ -96,20 +98,13 @@ generate-report:
   image: node:${NODE_VERSION}
   needs: [code-analysis]
   script:
-    # Generate HTML report with trends
-    - npx code-analyzer report generate \
-      --input analysis.json \
-      --format html \
-      --output codebase-report.html
-    # Generate actionable recommendations
-    - npx code-analyzer report recommend \
-      --input analysis.json \
-      --format markdown \
-      --output recommendations.md
+    # **There is no `report` verb.** Rendering a formatted report and deriving recommendations are the MCP tools
+    # `generate_report` and `get_recommendations`; this stage publishes the analysis itself, which is the artifact both
+    # of them read.
+    - npx @code-analyzer/cli analyze . --format json --output codebase-report.json
   artifacts:
     paths:
-      - codebase-report.html
-      - recommendations.md
+      - codebase-report.json
     expire_in: 30 days
 
 # ── Security ─────────────────────────────────────────────────────────────────

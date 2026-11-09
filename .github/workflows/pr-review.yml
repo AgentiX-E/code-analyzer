@@ -103,24 +103,33 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm turbo build
 
+      # **Why this calls the built entry point instead of `pnpm code-analyzer`.**
+      #
+      # `pnpm code-analyzer` resolves a script or a binary in `node_modules/.bin`, and the CLI's bin is linked by the
+      # CLI package's own manifest — which points at `dist/index.js`, a file that does not exist until the build runs.
+      # On every pull request on 2026-11-09 the step therefore failed with `ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL Command
+      # "code-analyzer" not found`, **after** `pnpm turbo build` had succeeded and written exactly that file. The build
+      # was never the problem; the name was. **A workflow that reviews pull requests and cannot run on a pull request is
+      # the one failure this repository could not afford to leave in place**, and it stayed invisible because every
+      # recent change was pushed straight to the default branch.
       - name: Run Code Analyzer
         id: analyzer
         run: |
-          # Analyze PR changes — output JSON for parsing
-          pnpm code-analyzer review pr \
+          # Analyze PR changes — output JSON for parsing, Markdown for the summary comment.
+          #
+          # **`--max-findings 50` because a reviewer that posts five hundred comments is a reviewer nobody reads.**
+          # The cap keeps the worst fifty: the report is ordered by severity, then by file, then down the file.
+          #
+          # **`--summary` rather than a second invocation.** This step used to call the CLI twice — once for JSON, once
+          # for Markdown — which scanned the same change twice to render a report that was already in memory.
+          node packages/cli/dist/index.js review pr \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }} \
             --token ${{ secrets.GITHUB_TOKEN }} \
+            --max-findings 50 \
             --format json \
-            --output review-report.json
-
-          # Also generate markdown for the summary comment
-          pnpm code-analyzer review pr \
-            --repo ${{ github.repository }} \
-            --pr ${{ github.event.pull_request.number }} \
-            --token ${{ secrets.GITHUB_TOKEN }} \
-            --format markdown \
-            --output review-report.md
+            --output review-report.json \
+            --summary review-report.md
 
       #
       # Evidence-required check: ensure each finding has a code reference
@@ -227,6 +236,16 @@ jobs:
               if (!finding.file || !finding.line) {
                 // Skip findings without file/line references — those go to summary only
                 console.log(`Skipping finding without file/line: ${finding.id || finding.rule}`);
+                skippedFindings.push(finding);
+                continue;
+              }
+
+              // **A pull request can only carry a comment on a line inside the diff.** The lenses read whole files and
+              // legitimately report findings on lines the change did not touch; sending one of those fails the entire
+              // review with a 422, which loses every other comment with it. The CLI decides this (`inDiff`) because it
+              // has the hunks; guessing here would mean re-deriving what it already knows.
+              if (finding.inDiff === false) {
+                console.log(`Skipping finding outside the diff, kept for the summary: ${finding.file}:${finding.line}`);
                 skippedFindings.push(finding);
                 continue;
               }
@@ -414,21 +433,15 @@ jobs:
       - name: Run Standards Check
         id: standards
         run: |
-          # Check PR changes against project standards — JSON for inline comments
-          pnpm code-analyzer standards check \
+          # Check PR changes against project standards — JSON for inline comments, Markdown for the summary comment.
+          # One invocation: `--summary` renders the same run rather than measuring the change a second time.
+          node packages/cli/dist/index.js standards check \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }} \
             --token ${{ secrets.GITHUB_TOKEN }} \
             --format json \
-            --output standards-report.json
-
-          # Also generate markdown for summary
-          pnpm code-analyzer standards check \
-            --repo ${{ github.repository }} \
-            --pr ${{ github.event.pull_request.number }} \
-            --token ${{ secrets.GITHUB_TOKEN }} \
-            --format markdown \
-            --output standards-report.md
+            --output standards-report.json \
+            --summary standards-report.md
 
       - name: Post Standards Inline Comments
         if: success()
@@ -446,7 +459,12 @@ jobs:
               return;
             }
 
-            const violations = report.violations || report.findings || [];
+            // **The report is an array of per-standard results** — the shape `docs/CODE-REVIEW.md` iterates with
+            // `for (const s of standards)` and `docs/CONFIGURATION.md` filters with `jq '.[]'`. This step used to read
+            // `.violations` off a top-level object, which the CLI never wrote: it would have found zero violations
+            // while the file was full of them, and posted an empty review over a failing one.
+            const entries = Array.isArray(report) ? report : [];
+            const violations = entries.flatMap(entry => entry.violations || []);
             if (violations.length === 0) {
               console.log('No standards violations to report.');
               return;
@@ -479,9 +497,29 @@ jobs:
               return;
             }
 
-            console.log(`Posting ${newViolations.length} new standards inline comments.`);
+            // **A comment on a line outside the diff fails the whole review.** `pulls.createReview` rejects every
+            // comment in the request with `422 Unprocessable Entity: Line could not be resolved` — not the offending
+            // ones — so a single violation reported against an untouched line posted nothing at all and failed the job
+            // with the same six words repeated. The engine reads whole files; the diff decides what may be anchored,
+            // which is what `inDiff` is for.
+            const anchorable = [];
+            const unanchorable = [];
+            for (const violation of newViolations) {
+              (violation.inDiff === false ? unanchorable : anchorable).push(violation);
+            }
+            if (unanchorable.length > 0) {
+              console.log(
+                `${unanchorable.length} violation(s) name a line this change did not touch; they go in the summary only.`,
+              );
+            }
+            if (anchorable.length === 0) {
+              console.log('No standards violations can be anchored in this diff. Skipping inline comments.');
+              return;
+            }
 
-            const comments = newViolations.map(v => ({
+            console.log(`Posting ${anchorable.length} new standards inline comments.`);
+
+            const comments = anchorable.map(v => ({
               path: v.file,
               line: v.line,
               side: 'RIGHT',
@@ -544,19 +582,29 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run npm audit
+        # **Advisory here, and the comment is the point**: `security-audit.yml` is the workflow that gates on advisories.
+        # A second gate on the same data would fail pull requests for CVEs in dev dependencies that no change of theirs
+        # could fix, which is how a security signal becomes noise people turn off.
         run: pnpm audit --audit-level=high
         continue-on-error: true
 
+      # **`anchore/syft`, the way `security-audit.yml` already does it.** The previous step ran
+      # `@cyclonedx/cyclonedx-npm`, which shells out to `npm ls`; against a pnpm workspace that command reports every
+      # pnpm-only dependency as `extraneous` or `invalid` and exits non-zero, so this job failed on every pull request
+      # for a reason that had nothing to do with the change. Syft reads the lockfile instead of asking npm to describe a
+      # tree it did not build.
       - name: Generate SBOM
         run: |
-          npx @cyclonedx/cyclonedx-npm --output-file sbom.json
-          npx @cyclonedx/cyclonedx-npm --output-format xml --output-file sbom.xml
+          docker run --rm -v "$PWD:/src" -w /src anchore/syft:v1.42.3 dir:. -o spdx-json=sbom.spdx.json
+          docker run --rm -v "$PWD:/src" -w /src anchore/syft:v1.42.3 dir:. -o cyclonedx-json=sbom.cdx.json
+          test -s sbom.spdx.json
+          test -s sbom.cdx.json
 
       - name: Upload SBOM
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sbom
           path: |
-            sbom.json
-            sbom.xml
+            sbom.spdx.json
+            sbom.cdx.json
           retention-days: 90
