@@ -50,23 +50,28 @@ GitHub PR Event
 ### 1. Configure a Repository Group
 
 ```bash
-# Via the Web Dashboard (Repo Groups tab)
-# Or via MCP tool:
-code-analyzer mcp call manage_repo_group '{
-  "action": "create",
-  "id": "my-services",
-  "name": "My Microservices",
-  "description": "Core platform services"
-}'
+# Via the Web Dashboard (Repo Groups tab), or as an MCP tool call — `manage_repo_group` is a tool, not a CLI verb:
+{
+  "tool": "manage_repo_group",
+  "arguments": {
+    "action": "create",
+    "id": "my-services",
+    "name": "My Microservices",
+    "description": "Core platform services"
+  }
+}
 
 # Add repos to the group
-code-analyzer mcp call manage_repo_group '{
-  "action": "add_repo",
-  "groupId": "my-services",
-  "owner": "my-org",
-  "name": "api-gateway",
-  "role": "primary"
-}'
+{
+  "tool": "manage_repo_group",
+  "arguments": {
+    "action": "add_repo",
+    "groupId": "my-services",
+    "owner": "my-org",
+    "name": "api-gateway",
+    "role": "primary"
+  }
+}
 ```
 
 ### 2. Start the Server with Webhook Support

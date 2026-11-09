@@ -72,6 +72,7 @@
     "docs:permissions": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-permissions.ts --check && TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-permissions.ts --self-test && TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-permissions.ts --dry-run",
     "docs:status": "node scripts/readme-status-gate.js",
     "docs:code-sync": "node scripts/doc-code-sync-gate.js",
+    "docs:cli-gate": "node scripts/docs-cli-gate.js",
     "baselines:anchors": "node scripts/baseline-anchors-gate.js",
     "embeddings:status": "node scripts/embedding-backend-status.js",
     "impact": "node scripts/impact-of-change.mjs --changed",

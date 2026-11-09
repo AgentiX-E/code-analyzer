@@ -350,13 +350,20 @@ describe('every module a package compiles is reachable from an entry its manifes
     const counts = Object.fromEntries(NAMES.map((name) => [name, MEASURED[name]!.modules.length]));
     expect(counts).toEqual({
       analyzer: 90,
-      cli: 9,
+      // **14 since iteration 112**, which added `commands/config.ts`: the command that prints the configuration and
+      // where every value in it came from. The register is why it is written down here rather than inferred: a command
+      // surface that grows is a decision, and this is where it is recorded. (13 was iteration 111, which added the three
+      // commands five documents already called — `change-set.ts`, `pr-review.ts`, `standards-check.ts` — and the
+      // severity bridge they share.)
+      cli: 14,
       core: 45,
       infra: 29,
-      // **157 since iteration 110**, which added `review/llm/language-rules.ts`: the per-language checklist is a
-      // module of its own because it is content rather than plumbing, and this register is what makes that a decision
-      // somebody took rather than a file that appeared.
-      intelligence: 157,
+      // **158 since iteration 113**, which added `review/llm/cost.ts`: the price table, the ledger and the ceiling are
+      // one module because they are one question - what did this run spend - and **a ledger that lived beside the
+      // provider it accounts for would have been a second place to look for a bill.** (157 was iteration 110, which
+      // added `review/llm/language-rules.ts`: the per-language checklist is content rather than plumbing, and this
+      // register is what makes that a decision somebody took rather than a file that appeared.)
+      intelligence: 158,
       mcp: 39,
       server: 24,
       shared: 10,

@@ -530,3 +530,62 @@ idioms the checklist was written to suppress, and the two devices cannot be comb
 **And the size.** The corpus stays at fourteen pull requests, because the comparison is paired and the paired test is
 what decides; **but the F1 prediction above is deliberately set 0.02 above the band**, so that a gain that only the
 paired test can see is not mistaken for the one the registration named.
+
+---
+
+## 9. A fourth rule, registered before its run: the same diff, one prefix
+
+**Registered 2026-11-10, iteration 113, before the change it describes exists.** A prompt device can only be settled by
+running the corpus with it and without it, so **the rule is written here first and the device is built in the next
+iteration.**
+
+### 9.1 The device
+
+**The five lane prompts currently disagree at the first character.** `SECURITY_REVIEW_PROMPT` opens *"You are an expert
+security reviewer…"*, `PERFORMANCE_REVIEW_PROMPT` opens *"You are an expert performance engineer…"*, and **the diff —
+the largest block of every prompt and the identical one in all five — sits after both**. The provider's context cache
+matches **prefixes**, so a review of one file pays for that diff **five times at the miss price**, where the miss price is
+**fifty times** the hit price on the published table.
+
+**The device**: move the target description and the diff to the **front** of every lane prompt, so the five calls share a
+byte-identical prefix, and leave the lane instruction, the checklist and the few-shot examples after it.
+
+### 9.2 The measurement, and where it comes from
+
+`SpendSummary` in the benchmark artifact (`spend.cacheHitRatio`, `spend.costUsd`, `spend.byTag`) — **written this
+iteration, populated by the next run of the job.** Before iteration 113 this rule could not have been tested at all: the
+client discarded `prompt_cache_hit_tokens`, so no figure in this repository could distinguish a run that reused a prefix
+from one that paid for it twice.
+
+### 9.3 The prediction
+
+1. **`spend.cacheHitRatio` ≥ 0.5** on the file arm of a 14-pull-request job. The bound is not 0.8 because the first two
+   requests of a prefix build the cache rather than hit it, and the vendor persists a common prefix only after it has
+   seen it twice.
+2. **`spend.costUsd` for the reviewer falls by at least 35 %** on an unchanged corpus at an unchanged hour.
+3. **F1 does not move by more than 0.04**, which is the corpus's own resolution measured across three runs of an
+   unchanged arm (0.2727, 0.2368, 0.2781).
+
+### 9.4 What falsifies it
+
+- **A cache-hit ratio below 0.5 with the cost unchanged** means the vendor's cache did not treat the concatenation as a
+  shared prefix, and the device is worth nothing on this provider — **the next lever is then the single-call scope
+  (P0-1), not the prompt.**
+- **A cost fall with F1 below 0.19** means the reorder moved the model's attention away from the instruction, and the
+  device trades correctness for price. **It would then be reported as a regression and reverted**, which is the rule this
+  project applies to every change whose rationale is plausible and whose figure is worse.
+- **A cache-hit ratio above 0.5 with no cost fall** means the price table is wrong about which class the hits are billed
+  in — **a defect in the instrument, to be fixed before any figure from it is published.**
+
+### 9.5 The size, and the hour
+
+**Fourteen pull requests, both arms, one judge**, because the claim is about cost and the corpus's F1 resolution is
+already known at that size. **And the job is scheduled off-peak** for the measurement: the vendor halves every price
+outside 01:00–04:00 and 06:00–10:00 UTC on weekdays, so **a comparison taken across a peak boundary would be a comparison
+of two prices rather than of two prompts.**
+
+### 9.6 What this registration does not claim
+
+**It does not claim the product gets cheaper for a user.** It claims the *same* answers cost less, and the figure that
+would say otherwise is the third prediction above. **A cost reduction that changes the answer is not a cost reduction;
+it is a different product sold at a lower price.**

@@ -93,6 +93,9 @@ export async function expandQuestion(
   const completion = await provider.complete(hydePrompt(question), {
     maxTokens: options.maxTokens ?? 220,
     temperature: options.temperature ?? 0,
+    // **Tagged, because a HyDE call is spent before the search that uses it** and a bill that mixed it with the answer
+    // would hide the cheaper of the two.
+    tag: 'search:expand',
     ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
   });
   return { question, hypothesis: cleanHypothesis(completion.content) };

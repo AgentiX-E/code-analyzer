@@ -142,25 +142,28 @@ code-analyzer analyze . --project-id monorepo
 
 ### Step 3: Map Cross-Package Dependencies
 
-```bash
-# See what packages depend on each other
-code-analyzer search --cypher "
-  MATCH (p1:Package)-[:IMPORTS]->(p2:Package)
-  RETURN p1.name AS consumer, p2.name AS dependency
-  ORDER BY consumer
-"
+```json
+{
+  "tool": "pdg_query",
+  "arguments": {
+    "query": "MATCH (p1:Package)-[:IMPORTS]->(p2:Package) RETURN p1.name AS consumer, p2.name AS dependency ORDER BY consumer"
+  }
+}
+```
 
-# Find all usage of shared package
-code-analyzer search "shared/utils" --project-id monorepo
+```bash
+# Find all usage of a shared package. The project was selected when it was indexed (`analyze --project-id`), so the
+# query does not name it again: `search` has no --project-id option.
+code-analyzer search "shared/utils"
 ```
 
 ### Step 4: Cross-Repo Impact Analysis
 
-```bash
-# If I change shared package, what breaks?
-code-analyzer analyze_cross_repo_impact \
-  --symbol "shared/types" \
-  --repo-group monorepo
+```json
+{
+  "tool": "cross_repo_impact",
+  "arguments": { "symbol": "shared/types", "group": "monorepo" }
+}
 ```
 
 **Expected output** shows which packages consume each shared module and the blast radius of proposed changes.
@@ -187,16 +190,16 @@ security:
 ### Step 2: Run the Audit
 
 ```bash
-# Full security audit
-code-analyzer audit_security . --format json --output security-report.json
+# Every lens over the tree, security among them, written where a CI job can read it
+code-analyzer review . --mode dir --severity high --format json > security-report.json
 
-# Focus on specific vulnerability classes
-code-analyzer audit_security . \
-  --cwe-filter CWE-89,CWE-79,CWE-22,CWE-352,CWE-502 \
-  --severity high \
-  --format markdown \
-  --output security-report.md
+# The same review as a report a person reads
+code-analyzer review . --mode dir --severity high --format markdown > security-report.md
 ```
+
+> **There is no `audit_security` command and no `--cwe-filter` option.** Security findings come from the review lenses,
+> and each finding names its class; filtering by CWE is a `jq` over the JSON report. **Taint analysis is deeper and is
+> the MCP tool `taint_analysis`**, which walks source-to-sink paths rather than pattern-matching lines.
 
 ### Step 3: Interpret CWE Findings
 
@@ -212,14 +215,20 @@ code-analyzer audit_security . \
 
 For deeper analysis, trace the flow of user input to dangerous functions:
 
-```bash
-# Find taint paths from request handlers to file system operations
-code-analyzer search --cypher "
-  MATCH path = (src)-[:TAINTED|TAINT_PATH*]->(sink:Sink)
-  WHERE src.name CONTAINS 'req'
-  RETURN path
-  LIMIT 20
-"
+```json
+{
+  "tool": "taint_analysis",
+  "arguments": { "source": "req", "sink": "fs" }
+}
+```
+
+```json
+{
+  "tool": "pdg_query",
+  "arguments": {
+    "query": "MATCH path = (src)-[:TAINTED|TAINT_PATH*]->(sink:Sink) WHERE src.name CONTAINS 'req' RETURN path LIMIT 20"
+  }
+}
 ```
 
 ### Step 5: Remediation
@@ -244,11 +253,12 @@ See also: [Security MCP tools](mcp-tool-reference.md#12-security-2-tools)
 
 ### Step 1: Get High-Level Overview
 
-```bash
-code-analyzer explore_architecture . --level overview
+```json
+{ "tool": "get_architecture", "arguments": { "projectId": "my-project", "level": "overview" } }
 ```
 
-This produces a summary of modules, layers, and key entry points.
+This produces a summary of modules, layers, and key entry points. Architecture summarisation is an MCP capability;
+`code-analyzer` has no `explore_architecture` verb, and the graph it summarises is the one `analyze` built.
 
 ### Step 2: Map Module Dependencies
 
@@ -332,12 +342,9 @@ jobs:
       - name: Index and analyze
         run: code-analyzer analyze . --format json --output analysis.json
 
-      - name: Security audit
+      - name: Security review
         run: |
-          code-analyzer audit_security . \
-            --severity high \
-            --format json \
-            --output security.json
+          code-analyzer review . --mode dir --severity high --format json > security.json
 
       - name: Quality gate
         run: |
@@ -400,8 +407,8 @@ code-analysis:
   script:
     - npm install -g @code-analyzer/cli
     - code-analyzer analyze .
-    - code-analyzer audit_security . --severity high --format json --output security.json
-    - code-analyzer review diff --from-ref $CI_MERGE_REQUEST_DIFF_BASE_SHA
+    - code-analyzer review . --mode dir --severity high --format json > security.json
+    - code-analyzer review-pr --from "$CI_MERGE_REQUEST_DIFF_BASE_SHA" --to HEAD --format json > review-report.json
   artifacts:
     reports:
       codequality: security.json
@@ -522,7 +529,8 @@ For detailed per-client setup, see the [Getting Started - MCP Setup](getting-sta
 - **Pre-index project** before connecting the agent to avoid warm-up delays.
 - **Use `analysis` tool profile** (28 tools) if the full 45-tool list is noisy.
 - **Pin `CODE_ANALYZER_PROJECT_DIR`** to an absolute path for desktop agents.
-- **Enable incremental indexing** for ongoing development: `code-analyzer reindex_project my-app`.
+- **Re-index after a large change**: `code-analyzer analyze my-app` — there is no `reindex_project` verb, and `analyze`
+  over an existing project updates the graph rather than duplicating it.
 
 ---
 

@@ -216,6 +216,16 @@ export interface WalkOptions {
    * the file is read, so an excluded file is never opened at all.
    */
   readonly includePatterns?: readonly string[];
+  /**
+   * Globs that take a file out of the analysis. **Empty means nothing is excluded**, and an exclusion wins over an
+   * inclusion that also matches.
+   *
+   * **This is `--exclude` and `excludePatterns`, which until now were merged into a configuration field that no walk
+   * read.** The flag parsed, the configuration accepted it, and the discovery phase discovered the files anyway: a
+   * documented option with nothing behind it, which is the same defect class as a documented command with nothing behind
+   * it. Applied before the read, for the same reason the include list is.
+   */
+  readonly excludePatterns?: readonly string[];
 }
 
 export async function walkDirectory(
@@ -229,6 +239,7 @@ export async function walkDirectory(
 ): Promise<void> {
   const readSource = options.readSource ?? readSourceFromDisk;
   const includePatterns = options.includePatterns ?? [];
+  const excludePatterns = options.excludePatterns ?? [];
   if (results.length >= maxFiles) return;
 
   const entries = await readdir(currentPath, { withFileTypes: true });
@@ -254,8 +265,15 @@ export async function walkDirectory(
     } else if (entry.isFile()) {
       if (shouldSkipFile(fullPath, relPath)) continue;
       if (matchesGitignore(relPath, gitignorePatterns)) continue;
-      // **Before the language lookup and before the read**, because the point of the list is the file that is never
-      // opened: a filter applied after `readSource` would cost the same as no filter at all.
+      // **Before the language lookup and before the read**, because the point of the lists is the file that is never
+      // opened: a filter applied after `readSource` would cost the same as no filter at all. The exclusion is asked
+      // first, so `--include "**/*.ts" --exclude "**/*.test.ts"` means what it reads as.
+      //
+      // **The length check is not defensive padding.** `matchesIncludePattern` answers *true* for an empty list — the
+      // right answer for an inclusion, where no filter means everything, and the catastrophically wrong one for an
+      // exclusion, where it means the opposite. Written as a bare call, an empty exclude list excluded the entire
+      // checkout, and every walk in the suite discovered nothing.
+      if (excludePatterns.length > 0 && matchesIncludePattern(relPath, excludePatterns)) continue;
       if (!matchesIncludePattern(relPath, includePatterns)) continue;
 
       const language = getLanguageFromFilename(fullPath);

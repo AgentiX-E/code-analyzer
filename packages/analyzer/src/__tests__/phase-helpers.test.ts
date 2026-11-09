@@ -372,6 +372,73 @@ describe('walkDirectory', () => {
     });
   });
 
+  // **The exclude list, which is the other half of the same promise.** `excludePatterns` is in the schema, in the
+  // configuration file `init` writes, and in the `--exclude` flag's own documentation — and until this list was read,
+  // `analyze --exclude "**/*.test.ts"` discovered the test files anyway. The flag was not ignored politely: it was
+  // parsed, merged into the configuration, and then dropped by the only code that could have acted on it.
+  it('skips the files the exclude list names', async () => {
+    await withTempDir(async (dir) => {
+      writeFileSync(join(dir, 'app.ts'), 'export const a = 1;\n');
+      writeFileSync(join(dir, 'app.test.ts'), 'export const b = 2;\n');
+      writeFileSync(join(dir, 'notes.md'), '# notes\n');
+
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        excludePatterns: ['**/*.test.ts'],
+      });
+      // **`notes.md` stays, and that is the assertion.** An exclusion names exactly what it excludes; a list that also
+      // swallowed a file nobody mentioned would be indistinguishable from a broken include list.
+      expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['app.ts', 'notes.md']);
+    });
+  });
+
+  it('excludes by directory prefix', async () => {
+    await withTempDir(async (dir) => {
+      mkdirSync(join(dir, 'generated'), { recursive: true });
+      writeFileSync(join(dir, 'src.ts'), 'export const a = 1;\n');
+      writeFileSync(join(dir, 'generated', 'schema.ts'), 'export const b = 2;\n');
+
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        excludePatterns: ['generated/**'],
+      });
+      expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['src.ts']);
+    });
+  });
+
+  it('**never reads a file the exclude list names**', async () => {
+    await withTempDir(async (dir) => {
+      writeFileSync(join(dir, 'app.ts'), 'export const a = 1;\n');
+      writeFileSync(join(dir, 'bundle.ts'), 'export const b = 2;\n');
+
+      const read: string[] = [];
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        excludePatterns: ['bundle.ts'],
+        readSource: async (filePath) => {
+          read.push(filePath.split('/').pop()!);
+          return readFileSync(filePath, 'utf-8');
+        },
+      });
+      expect(read).toEqual(['app.ts']);
+      expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['app.ts']);
+    });
+  });
+
+  it('an exclusion wins over an inclusion that also matches', async () => {
+    await withTempDir(async (dir) => {
+      writeFileSync(join(dir, 'keep.kt'), 'class Keep\n');
+      writeFileSync(join(dir, 'skip.kt'), 'class Skip\n');
+
+      const results: DiscoveredFile[] = [];
+      await walkDirectory(dir, dir, results, [], 1024 * 1024, 1000, {
+        includePatterns: ['**/*.kt'],
+        excludePatterns: ['skip.kt'],
+      });
+      expect(results.map((f) => f.filePath.split('/').pop())).toEqual(['keep.kt']);
+    });
+  });
+
   it('honors gitignore directory and file patterns', async () => {
     await withTempDir(async (dir) => {
       mkdirSync(join(dir, 'ignored-dir'));

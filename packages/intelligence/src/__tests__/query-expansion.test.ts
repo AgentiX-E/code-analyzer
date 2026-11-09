@@ -97,7 +97,9 @@ describe('expandQuestion', () => {
   it('defaults to a short, deterministic completion request', async () => {
     const { provider, options } = answering('const a = 1;');
     await expandQuestion('q', provider);
-    expect(options[0]).toEqual({ maxTokens: 220, temperature: 0 });
+    // **The tag is part of the request now**, because the ledger groups a bill by it and a call without one is a call
+    // nobody can attribute - so the assertion names it rather than being loosened to accept anything.
+    expect(options[0]).toEqual({ maxTokens: 220, temperature: 0, tag: 'search:expand' });
   });
 });
 

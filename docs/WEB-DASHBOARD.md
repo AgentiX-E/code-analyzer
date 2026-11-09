@@ -5,12 +5,13 @@
 ## Quick Start
 
 ```bash
-# Start the code-analyzer server
-code-analyzer start
+# Start the API server (packages/server declares the `code-analyzer-server` binary)
+pnpm --filter @code-analyzer/cli... build
+pnpm --filter @code-analyzer/server build
+node packages/server/dist/start.js
 
 # In another terminal, start the web dashboard
-cd packages/web
-pnpm dev
+pnpm --filter @code-analyzer/web dev
 ```
 
 The dashboard opens at `http://localhost:5173` with the dev server proxying API calls to the backend at `http://localhost:3000`.

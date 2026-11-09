@@ -8,7 +8,7 @@ Windsurf is Codeium's AI-powered IDE. Code Analyzer integrates via MCP stdio tra
 
 ```bash
 npm install -g @code-analyzer/cli
-code-analyzer setup --agent windsurf
+code-analyzer agent configure --target windsurf
 ```
 
 ## Manual Configuration
