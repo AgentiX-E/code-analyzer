@@ -353,7 +353,10 @@ describe('every module a package compiles is reachable from an entry its manifes
       cli: 9,
       core: 45,
       infra: 29,
-      intelligence: 156,
+      // **157 since iteration 110**, which added `review/llm/language-rules.ts`: the per-language checklist is a
+      // module of its own because it is content rather than plumbing, and this register is what makes that a decision
+      // somebody took rather than a file that appeared.
+      intelligence: 157,
       mcp: 39,
       server: 24,
       shared: 10,

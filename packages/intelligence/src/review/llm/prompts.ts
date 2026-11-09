@@ -1,13 +1,14 @@
 // @code-analyzer/intelligence — LLM Review Prompt Templates
 // Structured prompts for each review lane with few-shot examples.
 
+import { defectChecklist } from './language-rules.js';
+
 import type { ReviewCategory, Severity } from '@code-analyzer/shared';
 
 // **The checklist is a separate module because it is content, not plumbing.** Eleven languages of rules read as one
 // file of rules; keeping them beside the five lane templates would have made this file the place both the contract and
 // the corpus of language knowledge change, and **the two change for different reasons** - the contract when a
 // measurement moves, the rules when a language does.
-import { defectChecklist } from './language-rules.js';
 
 // ---------------------------------------------------------------------------
 // Types
