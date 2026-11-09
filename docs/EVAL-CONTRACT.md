@@ -212,3 +212,210 @@ would be quoting a number that this paragraph already explains.
 each reviewer detects is not distinguishable from chance on fifty goldens**. That is not a defence of our number — our
 F1 is half theirs — it is a bound on what fifty goldens can say, and it is the reason the next measurement needs more
 pull requests rather than a lower threshold.
+
+## 7. A second rule, registered before its run
+
+**§6's registered run answered its question and lost its comparison.** The ordering raised the same reviewer's
+precision by half and F1 by 0.067, and the reviewer still lost 0.2727 to 0.4500 — and the curve said why in one line:
+**no budget of those findings reaches 0.45**, because 183 findings carried 24 goldens while the competitor's 70 carried 27. **Ordering cannot close a gap that emission opens.**
+
+**So this rule changes what is emitted, not what is ordered**, and it is registered in this file before the run for the
+same reason as the last one: **a rule chosen after seeing the curve is a rule tuned on the test set.**
+
+| field                 | value                                                                                                                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| order                 | one call per lane **for the whole pull request**, at most **16 findings for the pull request**, each naming a file the call showed; ranges judged against **that file's** own hunks |
+| control               | the file arm in the same job — one call per file per lane, three findings per file per lane: **183 findings, 0.2019 / 0.42 / 0.2727**                                               |
+| primary figure        | the pull-request arm's F1 at 16 findings per pull request, **greater than 0.4500**                                                                                                  |
+| secondary figure      | the arm's own budget curve at 1–16 findings per pull request, and the paired test against the file arm on the same 50 goldens                                                       |
+| what would falsify it | the arm's precision below **0.375** at 80 emitted findings, which is the value at which 30 true positives — and F1 0.45 — stop being reachable                                      |
+
+**Why 16, stated as arithmetic rather than as a preference.** With 50 goldens, F1 > 0.45 requires `2·TP / (emitted + 50) > 0.45`. At 80 emitted findings that is **30 true positives**, which is a precision of **0.375**. **The pull-request scope has already demonstrated 0.40** — measured at 15 findings per pull request, against the file arm's **0.20 at the same 15 findings**: **the same budget, two scopes, a factor of two in precision.** The rule therefore says something narrow and checkable: **a modest decay from 0.40 is survivable and a collapse is not.**
+
+**What this rule does not claim.** It does not claim the scope is why the competitor wins — their reviews are also one
+pull request at a time, which is why the two arms are the right experiment rather than a hopeful one. It does not claim
+16 is optimal; the curve is published with it so that the claim it makes can be checked against the neighbouring
+budgets. And it does not retire the file arm: **a scope that wins on this corpus and loses on a monorepo pull request
+that touches two hundred files is a scope with a condition attached**, and the file arm is how that condition would be
+found.
+
+### 7.1 What this rule would make the product say
+
+A pull request review in this repository would then have two documented scopes rather than one:
+
+- **`reviewDiff`** — one file, three findings, the unit that a pre-commit hook and an editor integration need;
+- **`reviewPullRequest`** — one pull request, a budget, and **every finding naming the file it is about**, which is the
+  unit a code review is actually conducted in.
+
+**And the second is not a scale-up of the first**: it requires a path per finding, judges ranges against per-file
+hunks, refuses to file a finding against a file the model was not shown, and does not merge two files' findings on the
+strength of a shared line number. **Those four differences are the feature**, and each has a test in
+`pull-request-review.test.ts` rather than a paragraph here.
+
+### 7.1 What the registered run then said, and why it is not the figure
+
+**The run falsified the rule and convicted its implementation.** Both halves belong in the record, and they arrived in
+that order — the figure first:
+
+| figure                                                   | value                                    |
+| -------------------------------------------------------- | ---------------------------------------- |
+| pull-request arm — precision / recall / F1               | 0.2121 / 0.14 / **0.1687**               |
+| file arm, same job, same judge, same goldens             | 0.1765 / 0.36 / **0.2368**               |
+| paired test over detected goldens: both / ours / theirs  | 5 / 2 / 16, exact McNemar **p = 0.0013** |
+| pull-request arm findings kept / parsed                  | 33 / 120                                 |
+| dropped as `unknownPath` / `beyondDiffLength` / `capped` | **31** / 6 / 0                           |
+| five lanes' 83 surviving findings, after deduplication   | **33** — 6.6 comments per pull request   |
+
+**Two of those rows are not a result, they are a defect report**, and each explains a different part of the loss:
+
+1. **The arm was not shown the pull request.** `maxDiffLength` is sized for one file, and the pull-request scope reused
+   it: 8 000 characters, keeping the first four thousand and the last four thousand. **On a hundred-file pull request
+   that is two files shown perfectly and ninety-eight not shown at all**, so the arm differed from the control by a clip
+   as well as by a scope. The scope now has its own budget, spends it **per section** so that every file is shown
+   something, redistributes the share a small file did not need, and annotates a clipped section by name and in
+   characters — because a model that is not told what it was not shown reports the absence as a finding.
+2. **Deduplication was merging by vocabulary and not by location.** The wording-only merge existed for the case where
+   two lanes describe one defect in different words, and it had **no distance constraint**: _"this value is not
+   checked"_ is one string at line 20 and at line 900. Five lanes over one pull request produced 83 survivors and the
+   merge left 33 — **6.6 comments for a pull request whose budget allowed 16**, so **the budget never bound and the arm
+   could not spend it.** The merge now requires the two findings to be in the same file **and within thirty lines**,
+   which is a function rather than a file.
+
+**And a third defect that the counters named rather than the figure.** Of 120 parsed findings, **31 named a path the
+call did not show**, and nothing in the artifact could say which paths they were. **A counter that cannot be explained
+is a counter that gets explained by whoever writes the report**, so the artifact now carries the first twenty of them,
+with the path and the rule. One mechanism is already known and fixed: **a rename names one file twice** — `a/old.ts`,
+`b/new.ts` — and the scope registered only the right-hand side, so a finding about a renamed file was a finding about a
+file the call had not shown. Both sides are now accepted and the right-hand one is stored, because that is where a
+comment anchors.
+
+**What run 1 therefore is.** A run that measured a clip, a merge without a location, and one path rule too narrow. **It
+is recorded here in full and it is not the figure**, because the rule it registered is about where the budget sits and
+that question was not asked. **Run 2 measures the same registered rule on code that implements it**, with the amended
+arithmetic unchanged: 16 findings per pull request, precision above 0.375, F1 above 0.4500.
+
+**And one number that run 1 establishes independently of the rule.** The file arm moved from **0.2727 to 0.2368 between
+two runs of the same protocol** — no code change to the file scope, same judge, same goldens, temperature 0.3. **That is
+±0.04 of run-to-run movement, larger than several differences this project has quoted**, and it is the reason the two
+arms are compared by a paired test inside one job rather than by two figures printed side by side in two reports.
+
+### 7.2 What the corrected run said, and the premise the rule was built on
+
+**Run 2 measured the registered rule on code that implements it, and the rule lost again — by more.**
+
+| figure                                                   | run 1 (defective)      | run 2 (corrected)               |
+| -------------------------------------------------------- | ---------------------- | ------------------------------- |
+| pull-request arm — precision / recall / F1               | 0.2121 / 0.14 / 0.1687 | 0.1786 / 0.10 / **0.1282**      |
+| file arm, same job                                       | 0.1765 / 0.36 / 0.2368 | 0.2079 / 0.42 / **0.2781**      |
+| paired test: both / pull-request only / file only / p    | 5 / 2 / 16 / 0.0013    | 5 / **0** / **18** / **0.0000** |
+| pull-request arm findings, kept from parsed              | 33 from 120            | **28 from 109**                 |
+| dropped as `unknownPath` / `beyondDiffLength` / `capped` | 31 / 6 / 0             | 18 / 6 / **0**                  |
+
+**The correction worked and did not rescue the hypothesis.** The truncation now shows every file a share, the merge
+has a distance, and a rename is one file under two names — and the arm still emitted **5.6 findings per pull request
+when its budget allowed 16**, with `capped` at zero in both runs. **The budget was never the binding constraint**, so
+the rule's mechanism was never exercised: the lanes simply do not write sixteen things about a whole pull request.
+
+**And the premise the rule was registered on does not survive its own arithmetic.** The registration rested on
+_"precision 0.40 for the pull-request scope against 0.20 for the file scope at the same fifteen findings"_. **Fifteen
+findings is six true positives and nine false positives**, whose 95 % interval for the proportion runs from about
+**0.20 to 0.64** — **an interval that contains the file scope's 0.21.** The factor of two was **six against three
+findings**, and it was treated as a measurement. **That is the error this section exists to record**, and it is the same
+error in a new costume as the ones §2 forbids: a figure quoted without the range it was measured over.
+
+**What the three runs jointly establish, and it is worth more than the rule was.**
+
+- **The file scope's F1 over this corpus is 0.2727, 0.2368 and 0.2781** — three runs, no change to it, same judge, same
+  goldens. **So the instrument's resolution is ±0.04, and any difference smaller than that cannot be read as a
+  difference between reviewers.**
+- **The pull-request scope is worse here, and the paired test says so twice** (p = 0.0013 and p = 0.0000, with 18 goldens
+  found only by the file scope and none only by the other way in run 2). **This corpus does not reward the scope**, and
+  the honest next statement is about why rather than about a threshold: its pull requests are C++ changes whose defects
+  sit inside one file, so a shared conversation adds cross-file vocabulary and loses per-file attention.
+- **The scope stays in the product and out of the figure.** `reviewPullRequest` is a feature with four rules and a
+  suite; it is not the benchmark's operating point, and `benchmarks/aacr-bench.json` records both.
+
+### 7.3 What the next rule would have to be
+
+**Not another budget.** Two runs with `capped` at zero say the budget is not where the loss is. **The next lever is the
+one the competitor's source shows and this repository does not have**: a **per-language defect checklist carrying
+explicit do-not-report conditions**, injected into the lanes — `internal/config/rules/rule_docs/java.md` in their tree
+is 41 lines of defect classes where every class ends in _"do not report in the following cases"_. **That is a precision
+device that does not depend on the budget or the scope**, which is exactly what the evidence now points at: our
+precision is 0.21 and theirs is 0.3857 on the same goldens.
+
+**And a condition on quoting it.** At ±0.04 resolution on five pull requests, **a checklist that moves F1 by less than
+0.04 will not be measurable here.** The next registration therefore has to come with more pull requests — about nine
+more would take the golden count to ~140 — or it will be a rule that cannot fail, which §6 was written to prevent.
+
+## 8. A third rule, registered before its run: a device and a size
+
+**§7.3 named the next lever and the condition on quoting it, and this section registers both before either is built.**
+
+### 8.1 The device
+
+**A per-language defect checklist in which every rule carries an explicit "do not report when" clause**, added to all
+five lanes in both scopes. The shape comes from the competitor's own tree — `internal/config/rules/rule_docs/java.md`
+is 41 lines of defect classes where each class ends in _"do not report in the following cases"_ — and the mechanism is
+**precision**: a lane told only what to look for spends its budget on the language's ordinary idioms, and **an idiom
+reported as a defect is a false positive with a citation.**
+
+Eleven languages, selected by the extension of the files a call covers, most-represented first, at most three per call:
+
+| language              | rules | the exclusion that does the work                                    |
+| --------------------- | ----- | ------------------------------------------------------------------- |
+| Java                  | 7     | a stream **returned to the caller** is not a leak                    |
+| JavaScript            | 7     | `x == null` is the idiom; `x === null` is the bug                    |
+| TypeScript            | 7     | an `!` dominated by a check in the same hunk is not an assertion     |
+| Python                | 7     | a handler that logs or re-raises is not a swallow                    |
+| Groovy / Gradle       | 6     | work inside `doLast` or a `Provider` is not eager configuration      |
+| XML / descriptors     | 6     | a factory from a hardened helper has already disabled entities       |
+| YAML / CI             | 7     | a reference to a full 40-character SHA is pinned                      |
+| JSON                  | 5     | a JSONC file may carry the comment the strict parser rejects         |
+| Kotlin                | 6     | `!!` dominated by a check in the same hunk is not an assertion        |
+| Swift                 | 6     | a `[weak self]` capture list already breaks the cycle                |
+| ArkTS                 | 5     | a `.ts` interop file behind a typed wrapper is not strict ArkTS      |
+
+### 8.2 The size, and why the rule may not be quoted without it
+
+**±0.04 is this instrument's resolution at five pull requests** (§7.2: three runs, no change, 0.2727 / 0.2368 / 0.2781).
+A device expected to be worth less than that **cannot fail here**, and §6 exists to prevent registering a rule whose
+failure is indistinguishable from its success. **So the corpus moves from five pull requests to fourteen** — about
+140 goldens — in the same change as the device, and **the comparison is internal to one workflow run**, so the corpus
+change cannot explain the difference: both arms read the same fourteen pull requests.
+
+**What the resolution at fourteen pull requests is, is not claimed.** It is one measurement, and **the reading that does
+not depend on it is the paired test**, which counts only the goldens one arm found and the other did not.
+
+### 8.3 The design: two runs, one variable, and a comparison that cannot call a model
+
+| element           | file arm, checklist on                   | file arm, checklist off                  |
+| ----------------- | ---------------------------------------- | ---------------------------------------- |
+| job               | `aacr-bench` matrix, `checklist: with`   | `aacr-bench` matrix, `checklist: without`|
+| corpus            | 14 pull requests, ~140 goldens           | identical                                |
+| judge             | `deepseek-chat`, same endpoint           | identical                                |
+| engine            | same commit, `languageChecklist: true`   | same commit, `languageChecklist: false`  |
+| difference        | **the prompt section and nothing else**   | —                                        |
+
+**And the difference is asserted, not assumed**: a test computes the common prefix and common suffix of the two prompts
+for one change and requires everything between them to be the checklist — so "one variable" is a property of the code
+rather than a sentence in a report. The `compare` job runs on a runner with **no provider credentials and no corpus
+checkout**, so the number it produces cannot have come from a model.
+
+### 8.4 The prediction, written before the run
+
+1. **F1 with the checklist is at least 0.04 above F1 without it**, on the same fourteen pull requests.
+2. **The mechanism is precision**: precision rises, and recall does not fall by more than one golden.
+3. **Fewer findings are emitted for the same coverage** — the device's whole claim is that it removes false positives
+   rather than adding true ones.
+4. **The paired test is reported either way**, including when it is not significant at this size, because **§7.2's
+   lesson was that a magnitude without a test is a story**.
+
+**What falsifies it.** A gain below 0.04 falsifies prediction 1 and the section will say so in those words. A gain above
+0.04 with precision flat or falling falsifies prediction 2 and the artifact records the split verdict — **a device that
+moved the number for a reason other than the one it was registered for is not the device that was registered.**
+
+**And what would be concluded if it loses.** That the prompt's *specificity* is not this engine's constraint either, in
+which case the remaining difference against the competitor is not in the prompt at all but in **what the two systems do
+with a finding after the model produces it** — their review walks a repository and this one reads a diff — and the next
+registration would be about **retrieval**, not about wording.
