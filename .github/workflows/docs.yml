@@ -51,8 +51,40 @@ jobs:
       #
       # Note for the next editor: everything inside `args: >` is one scalar. A `#` written there is passed
       # to lychee as an argument, not treated as a comment — which is exactly how this job was broken once.
+      # **The links that point into this repository are checked against the checkout, not the network.**
+      #
+      # On 2026-11-09 github.com answered `[504]` to nearly every request from the runner for the better part of an hour -
+      # the CodeQL bundle download failed the same way in the same window, which is how the outage was told apart from a
+      # documentation defect. Every failing link was into this repository, and **a link to a file in this checkout does
+      # not need github.com to tell us whether the file is there.**
+      #
+      # It is also a stronger check than the one it replaces: the filesystem answers in milliseconds, needs no token, and
+      # **catches the case an HTTP check cannot distinguish from a transient error** - a link to a file that was renamed
+      # or deleted.
+      - name: Check links into this repository against the checkout
+        run: |
+          set -e
+          node scripts/check-self-links.mjs --self-test
+          node scripts/check-self-links.mjs
+
+      # **And why the check is authenticated now.** On 2026-11-09 the same job returned `[504]` for a dozen ordinary
+      # `github.com` URLs - `.../issues`, `.../blob/master/packages/*/README.md` - across three runs in a row. Those are
+      # not dead links: **an unauthenticated burst of requests from a shared runner IP is answered with 504 rather than
+      # 403**, and `--max-retries 3` cannot beat a rate limit that outlasts the retry window. Excluding each URL by name
+      # would have grown a silent allow-list one outage at a time, so the request carries the job's own read-only token
+      # and the 504 disappears for the reason it appeared: **the checker was measuring github.com's tolerance for
+      # anonymous traffic, not this repository's documentation.**
       - name: Check all links in markdown files
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        env:
+          # lychee reads this variable and sends it as a bearer token for `github.com` hosts.
+          #
+          # **And it was not enough**, which is worth recording: with the token in place the `/blob/...` links passed and
+          # the bare `.../issues` URL still returned `[504]` on every run, including one at 08:00 after a ten-minute
+          # wait. **A URL that points at this repository's own issue tracker cannot be broken in a way a link checker
+          # could find** - if the repository is renamed, every link in it breaks at once and this job is not what notices
+          # - so the path is excluded by exact anchor, beside the numbered-issue exclusion that predates it.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
             --verbose
@@ -61,6 +93,8 @@ jobs:
             --timeout 30
             --accept 200,201,202,203,204,206,301,302,304,307,308
             --exclude '^https://github.com/AgentiX-E/code-analyzer/(issues|pulls)/\d+'
+            --exclude '^https://github.com/AgentiX-E/code-analyzer/issues/?$'
+            --exclude '^https://github.com/AgentiX-E/code-analyzer/(blob|tree)/'
             --exclude '^https://codecov.io/.*'
             --exclude '^https://img.shields.io/.*'
             --exclude '^http://localhost:.*'

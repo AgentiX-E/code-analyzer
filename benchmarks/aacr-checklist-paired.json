@@ -1,0 +1,57 @@
+{
+  "measuredAt": "2026-11-09",
+  "where": "github-actions",
+  "compared": true,
+  "protocol": "two runs of the same job over the same pull requests, the same goldens and the same judge, differing in AACR_CHECKLIST",
+  "registration": {
+    "claim": "the per-language defect checklist raises the file arm F1 by at least 0.04",
+    "registeredGain": 0.04,
+    "resolution": 0.04,
+    "mechanism": "precision rises, recall does not fall"
+  },
+  "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
+  "pullRequests": 14,
+  "goldens": 170,
+  "withChecklist": {
+    "precision": 0.2893,
+    "recall": 0.2059,
+    "f1": 0.2405,
+    "truePositives": 35,
+    "falsePositives": 86,
+    "falseNegatives": 135,
+    "findings": 199
+  },
+  "withoutChecklist": {
+    "precision": 0.2189,
+    "recall": 0.2588,
+    "f1": 0.2372,
+    "truePositives": 44,
+    "falsePositives": 157,
+    "falseNegatives": 126,
+    "findings": 339
+  },
+  "delta": {
+    "precision": 0.0704,
+    "recall": -0.0529,
+    "f1": 0.0033,
+    "truePositives": -9,
+    "falsePositives": -71,
+    "findings": -140
+  },
+  "pairedTest": {
+    "view": "the registered operating point of each run, paired on pull request and golden index",
+    "both": 27,
+    "withOnly": 8,
+    "withoutOnly": 17,
+    "pValue": 0.1078,
+    "verdict": "not significant at 0.05"
+  },
+  "verdict": {
+    "registeredGain": 0.04,
+    "observedGain": 0.0033,
+    "magnitudeMet": false,
+    "mechanismMet": false,
+    "outcome": "falsified: the gain is inside the instrument resolution",
+    "insideResolution": true
+  }
+}
