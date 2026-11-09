@@ -4,8 +4,10 @@
 
 import {
   appendFileSync,
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
   statSync,
   writeFileSync,
@@ -171,16 +173,23 @@ export function initProject(options: InitOptions = {}): InitResult {
   // Append to .gitignore
   const gitignorePath = join(targetDir, '.gitignore');
   try {
-    const existing = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf-8') : '';
-    if (!existing.includes('.code-analyzer/data/')) {
-      // **`appendFileSync`, not a read-modify-write.** The read above decides *whether* to add the entry; the append is
-      // what adds it, so a line another process wrote in between survives instead of being replaced by a copy of this
-      // file as it looked a moment earlier.
-      appendFileSync(gitignorePath, (existing.trimEnd() + GITIGNORE_ENTRY).trimEnd() + '\n');
-      // `filesCreated` only ever holds 'standards.json', 'config.json' and
-      // '.gitignore (updated)', none of which equals '.gitignore', so the
-      // containment check that used to guard this push was always true.
-      filesCreated.push('.gitignore (updated)');
+    // **One descriptor, so the read and the append are the same file.** Reading by path and then appending by path is
+    // the shape CodeQL reports as `js/file-system-race`: between the two calls the path can be replaced by a symlink, and
+    // the append would then land wherever it points. `open` resolves the path once, and `a+` gives a handle that can be
+    // read and appended to; `O_APPEND` still puts every write at the end, so another process's lines are never
+    // overwritten by a copy of this file as it looked a moment earlier.
+    const handle = openSync(gitignorePath, 'a+');
+    try {
+      const existing = readFileSync(handle, 'utf-8');
+      if (!existing.includes('.code-analyzer/data/')) {
+        appendFileSync(handle, (existing.trimEnd() + GITIGNORE_ENTRY).trimEnd() + '\n');
+        // `filesCreated` only ever holds 'standards.json', 'config.json' and
+        // '.gitignore (updated)', none of which equals '.gitignore', so the
+        // containment check that used to guard this push was always true.
+        filesCreated.push('.gitignore (updated)');
+      }
+    } finally {
+      closeSync(handle);
     }
   } catch {
     // .gitignore write failed — non-critical
