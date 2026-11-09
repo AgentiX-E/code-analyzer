@@ -78,22 +78,39 @@ in `benchmarks/citations.json` rather than paraphrased here.
 
 **A competitor figure is not a comparison unless the run was common.** Numbers from another tool's documentation were
 measured on another tool's corpus by another tool's judge. The one place this repository runs both arms in one job
-with one judge is Alibaba's `aacr-bench`, and the result there is in `benchmarks/aacr-bench.json`: **ours F1 0.2727
-(precision 0.2019, recall 0.42) against the corpus author's tool at F1 0.4500 (precision 0.3857, recall 0.54)**.
+with one judge is Alibaba's `aacr-bench`, and the result there is in `benchmarks/aacr-bench.json`: **ours F1 0.2781
+(precision 0.2079, recall 0.42) against the corpus author's tool at F1 0.4500 (precision 0.3857, recall 0.54)**.
 
-**We lose, and the ordering was the part of it that worked.** This run scores the emission rule registered in
+**We lose, and the ordering was the part of it that worked.** The figure above scores the emission rule registered in
 [`EVAL-CONTRACT.md`](./EVAL-CONTRACT.md) §6 before it ran: rank every finding by its actionability score and emit only
-the ones that point at an added line and say what to change. Against the same run's whole list — **F1 0.2060 at
-precision 0.1311** — the rule is worth **+0.067 F1 and +54 % precision for four points of recall**, which is the
-direction the selector was built for and the first time this repository has moved its own precision on this corpus.
-**It is also not close to enough**: the best point on the published curve is 0.3396, at sixteen comments per pull
-request, so **no budget of these findings would have beaten 0.45** — the ordering cannot close a gap that emission
-opens.
+the ones that point at an added line and say what to change. In the run that introduced it, against the same run's
+whole list — **F1 0.2060 at precision 0.1311** — the rule was worth **+0.067 F1 and +54 % precision for four points of
+recall**, and the best point on that run's curve was 0.3396 at sixteen comments per pull request. **No budget of those
+183 findings would have beaten 0.45**, so the ordering could not close a gap that emission opens.
 
-**And the paired test says the gap is not yet established.** Over the fifty goldens both reviewers were scored on,
-six were found by us alone and twelve by the competitor alone, **p = 0.2379** — so what this run establishes is a
-two-to-one ratio in detections that fifty goldens cannot separate from noise, not a proven difference between the two
-reviewers. **What it does establish is where the defect is**: 183 findings with 24 goldens among them, against 70 with 27. **Their review is smaller and better; ours is larger and reordered.**
+**The next attempt failed, and its failure is the most useful figure on this page.** §7 of the same document registered
+a **pull-request scope** — one call per lane for the whole pull request, one budget for the pull request — on the
+strength of _"precision 0.40 against 0.20 at the same fifteen findings"_. It was measured twice, in the same job as the
+file arm, and lost twice: **F1 0.1687 (defective implementation) and 0.1282 (corrected)**, against the file arm's
+0.2368 and 0.2781. **The second paired test found eighteen goldens the file scope saw and none the other way, p =
+0.0000.** The scope is a feature and is not this benchmark's operating point.
+
+**And the reason it was registered turns out to be an arithmetic error worth naming.** Fifteen findings is **six true
+positives and nine false positives**, whose 95 % interval for the proportion runs from about **0.20 to 0.64** — an
+interval that contains the file scope's 0.21. **The factor of two was six findings against three**, quoted as though it
+were a measurement. §7.2 of `EVAL-CONTRACT.md` records it, because a report that only publishes the figures that
+survived would never publish this one.
+
+**What the corpus can and cannot resolve, stated as a number.** The file arm's F1 over three runs of this job with no
+change to it — same judge, same fifty goldens, temperature 0.3 — is **0.2727, 0.2368, 0.2781**. **So the instrument's
+resolution is ±0.04, and no difference smaller than that may be quoted from it.** That is why the two reviewers are
+compared by a paired test inside one job, and why the next registration has to bring more pull requests with it.
+
+**And the paired test on the original comparison says the gap is not yet established.** Over the fifty goldens both
+reviewers were scored on, six were found by us alone and twelve by the competitor alone, **p = 0.2379** — what that run
+establishes is a two-to-one ratio in detections that fifty goldens cannot separate from noise, not a proven difference
+between the two reviewers. **What it does establish is where the defect is**: 183 findings with 24 goldens among them,
+against 70 with 27. **Their review is smaller and better; ours is larger and reordered.**
 
 **The control is the part worth reading twice.** The same ranker applied to the competitor's output takes its F1 from
 0.4500 to 0.4051 — it **lowers** it, because a reviewer that already emits few findings loses recall to a rule that

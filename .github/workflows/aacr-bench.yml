@@ -36,11 +36,30 @@ concurrency:
 permissions:
   contents: read
 
+#
+# **And why this job runs twice, in parallel, differing in one environment variable.**
+#
+# `docs/EVAL-CONTRACT.md` §8 registers a claim before its run: **the per-language defect checklist raises this engine's
+# F1 on this corpus by at least 0.04.** A claim about a prompt device can only be settled by turning the device off, so
+# the matrix below runs the identical job with `AACR_CHECKLIST=on` and `=off` over the same pull requests, the same
+# goldens and the same judge - and the `compare` job, which has no credentials and therefore cannot call a model,
+# computes the paired difference. **Two runs in one workflow rather than one run today and another next week**, because
+# a comparison across commits is a comparison across everything else that changed in between.
 jobs:
   aacr-bench:
-    name: Our reviews on a direct competitor's corpus
+    name: Our reviews on a direct competitor's corpus (${{ matrix.checklist }} the checklist)
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
+    # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
+    # that is the only reason this number moved, and **a timeout raised because a job is close to it would hide the
+    # slowdown rather than accommodate the corpus.**
+    timeout-minutes: 300
+    strategy:
+      # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to
+      # report that rather than a one-sided figure.
+      fail-fast: false
+      matrix:
+        checklist: [with, without]
 
     steps:
       - name: Checkout
@@ -101,6 +120,10 @@ jobs:
           MARTIAN_BASE_URL: https://api.deepseek.com/v1
           MARTIAN_MODEL: deepseek-chat
           AACR_DIR: /tmp/aacr-bench
+          # **The one variable this matrix exists for.** `MAX_PRS` is the corpus size the registration was written
+          # against - roughly 140 goldens - and `AACR_CHECKLIST` picks the arm.
+          MAX_PRS: '14'
+          AACR_CHECKLIST: ${{ matrix.checklist == 'with' && 'on' || 'off' }}
           # **And the second reviewer's own configuration**, pointing at the same provider the judge uses - so
           # **the reviewer and the judge are the same model, which is requirement 2 satisfied by construction.**
           OCR_LLM_URL: https://api.deepseek.com/anthropic
@@ -112,11 +135,65 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: aacr-bench
+          name: aacr-bench-${{ matrix.checklist }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
           path: |
             benchmarks/aacr-bench.json
             benchmarks/runnable-competitors-outputs/
+          if-no-files-found: warn
+          retention-days: 90
+
+  # **The comparison, computed where no model can be called.**
+  #
+  # This job downloads the two artifacts and does arithmetic on them. It has no `secrets.`, no provider endpoint and no
+  # corpus checkout, so **the number it produces cannot have been produced by a model** - which is the property a
+  # comparison needs and a benchmark arm does not have.
+  compare:
+    name: The two runs, paired
+    needs: aacr-bench
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      # **The arithmetic before the answer**, for the same reason the bench job has `--dry-run`: this script's
+      # "no effect" branch is the branch a device that does nothing would take, and **a comparison whose null branch is
+      # wrong reports null results that read as science.**
+      - name: Prove the comparison's arithmetic on fixtures
+        run: node .github/scripts/aacr-checklist-compare.mjs --self-test
+
+      - name: Download the run with the checklist
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aacr-bench-with
+          path: /tmp/with
+
+      - name: Download the run without it
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: aacr-bench-without
+          path: /tmp/without
+
+      # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,
+      # and a refusal is written into the artifact rather than swallowed. A missing artifact fails the job here, which
+      # is the correct outcome - **a comparison of one run is not a comparison.**
+      - name: Compare them, paired
+        run: |
+          set -e
+          node .github/scripts/aacr-checklist-compare.mjs /tmp/with/aacr-bench.json /tmp/without/aacr-bench.json
+
+      - name: Upload the comparison
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: aacr-checklist-paired
+          path: benchmarks/aacr-checklist-paired.json
           if-no-files-found: warn
           retention-days: 90

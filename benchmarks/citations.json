@@ -93,7 +93,7 @@
       "samples": 500,
       "groundTruthIssues": 500,
       "languages": ["python"],
-      "groundTruthSource": "CoSQA retrieval test split, `Jun-jie-Huang/CoCLR · data/search/cosqa-retrieval-test-500.json`, sha256 27d3552b2e7dd86cf9f9a0b3c135e6777d4faafa9c29fb1b9b01ece945974ad6; one gold code answer per natural-language query",
+      "groundTruthSource": "CoSQA retrieval test split, `Jun-jie-Huang/CoCLR \u00b7 data/search/cosqa-retrieval-test-500.json`, sha256 27d3552b2e7dd86cf9f9a0b3c135e6777d4faafa9c29fb1b9b01ece945974ad6; one gold code answer per natural-language query",
       "sources": ["benchmarks/cosqa-retrieval.json"],
       "independentValidation": true,
       "caveat": "A corpus this project did not author, with the queries and their gold answers fixed before the run. The three columns are the same engine at three stages, so the difference between them is the composition rather than the corpus.",
@@ -138,26 +138,34 @@
     },
     "aacr-bench": {
       "artifact": "benchmarks/aacr-bench.json",
-      "measuredAt": "2026-11-08",
+      "measuredAt": "2026-11-09",
       "samples": 5,
       "groundTruthIssues": 196,
       "languages": ["c", "cpp", "python"],
       "groundTruthSource": "Alibaba `aacr-bench` (Apache-2.0, public on Hugging Face): 5 pull requests carrying 196 human-recorded review findings, scored by one judge for both reviewers in a single job",
       "sources": ["benchmarks/aacr-bench.json"],
       "independentValidation": true,
-      "caveat": "Both arms run in the same workflow with the same judge and the same maximum matching, so the comparison is like for like; the corpus is five pull requests and 50 goldens per run, which is enough to compare two tools on the same evidence and not enough to distinguish them statistically - the paired test over detected goldens is p = 0.2379, so the gap in this run is not established as a difference between the reviewers. The published precision and F1 are the pre-registered emission rule's; the same run's whole list is recorded beside them in `fullEmissionF1`.",
+      "caveat": "Three runs of this job now exist over the same five pull requests and the same 50 goldens, and their file-arm F1 reads 0.2727, 0.2368 and 0.2781 with no change to the file scope - so the corpus resolves differences of about 0.04 and nothing smaller. That is why the two reviewers are compared by a paired test inside one job rather than by two figures printed side by side. The published precision and F1 are the pre-registered emission rule's on the file scope; the pull-request scope was registered to beat 0.4500 and lost twice (0.1687 and 0.1282), and the second paired test is p = 0.0000 with 18 goldens the file scope found and none the other way, so on this corpus the scope hypothesis is refuted rather than undecided.",
       "metrics": {
-        "precision": 0.2019,
+        "precision": 0.2079,
         "recall": 0.42,
-        "f1": 0.2727,
-        "fullEmissionF1": 0.206,
-        "bestBudgetF1": 0.3396,
-        "bestBudgetPerPullRequest": 16,
+        "f1": 0.2781,
+        "fileArmF1AcrossThreeRuns": [0.2727, 0.2368, 0.2781],
+        "pullRequestArmF1": 0.1282,
+        "pullRequestArmPrecision": 0.1786,
+        "pullRequestArmRecall": 0.1,
+        "pullRequestArmFindings": 28,
+        "pullRequestArmBudgetPerPullRequest": 16,
+        "pullRequestArmBudgetEverBound": false,
+        "armsPairedTestOursOnly": 0,
+        "armsPairedTestTheirsOnly": 18,
+        "armsPairedTestP": 0.0,
         "secondReviewerPrecision": 0.3857,
         "secondReviewerRecall": 0.54,
         "secondReviewerF1": 0.45,
         "secondReviewerWithOurRankerF1": 0.4051,
-        "mcnemarP": 0.2379
+        "mcnemarP": 0.2379,
+        "runId": "42549791018"
       }
     },
     "lca-bug-localization": {
@@ -169,7 +177,7 @@
       "groundTruthSource": "Long Code Arena bug localisation (JetBrains-Research, Apache-2.0): 150 issues, each with the files its fixing commit touched, over three splits (Python, Java, Kotlin). The three shards are measured by three workflow jobs and merged by scripts/lca-merge.ts, which is what writes this artifact; the shards are gitignored because they are intermediates of one run, and the merged figure is the committed one.",
       "sources": ["benchmarks/lca-bug-localization.json"],
       "independentValidation": true,
-      "caveat": "**Three runs in one working session, and the sequence is the finding.** The run this citation first described measured 115 of 150 rows at MAP 0.4673. The merge that first put an artifact in the repository measured 125 at **0.4746** but stated no `analysisScope` on any row and set a file cap of 4 000 against a charge that affords 1 981. **The run this artifact now holds**, produced by the `Long Code Arena` workflow after both defects were fixed, measures **141 of 150 at 0.4647**, with **150 of 150 rows scoped** to `**/*.py`, `**/*.java` and `**/*.kt` and a cap of **3 833 against 3 963**. **The figure fell when the run got better**, which is what a bounded sample does when sixteen more instances stop being refused. **Three denominators of this artifact, never subtracted across**: 0.4647 over the 141 rows the analysis ran on; **0.4470** over all 150 with a refused row taking the file-level fallback arm; **0.4368** over all 150 with every refusal scored zero. **Both controls are behind, and only one lead is established**: BM25 pairs at delta **+0.0225**, 95 % bootstrap **[−0.0095, +0.0549]**, wins/losses/ties 46/53/42, sign test **p = 0.5467** — the interval includes zero, so the term-count comparator is not separated from the product; TF-IDF pairs at **+0.0696**, **[+0.0291, +0.1115]**, 73/34/34, **p = 0.0002**. Across the three runs BM25 has never cleared its own test (p = 0.657, 0.5154, 0.5467) while TF-IDF cleared it twice (0.069, 0.0013, 0.0002), and **the BM25 interval changed sides when the sample grew** — so \"we beat the term-count family\" is supportable and \"we beat BM25\" has never been established on this corpus.",
+      "caveat": "**Three runs in one working session, and the sequence is the finding.** The run this citation first described measured 115 of 150 rows at MAP 0.4673. The merge that first put an artifact in the repository measured 125 at **0.4746** but stated no `analysisScope` on any row and set a file cap of 4 000 against a charge that affords 1 981. **The run this artifact now holds**, produced by the `Long Code Arena` workflow after both defects were fixed, measures **141 of 150 at 0.4647**, with **150 of 150 rows scoped** to `**/*.py`, `**/*.java` and `**/*.kt` and a cap of **3 833 against 3 963**. **The figure fell when the run got better**, which is what a bounded sample does when sixteen more instances stop being refused. **Three denominators of this artifact, never subtracted across**: 0.4647 over the 141 rows the analysis ran on; **0.4470** over all 150 with a refused row taking the file-level fallback arm; **0.4368** over all 150 with every refusal scored zero. **Both controls are behind, and only one lead is established**: BM25 pairs at delta **+0.0225**, 95 % bootstrap **[\u22120.0095, +0.0549]**, wins/losses/ties 46/53/42, sign test **p = 0.5467** \u2014 the interval includes zero, so the term-count comparator is not separated from the product; TF-IDF pairs at **+0.0696**, **[+0.0291, +0.1115]**, 73/34/34, **p = 0.0002**. Across the three runs BM25 has never cleared its own test (p = 0.657, 0.5154, 0.5467) while TF-IDF cleared it twice (0.069, 0.0013, 0.0002), and **the BM25 interval changed sides when the sample grew** \u2014 so \"we beat the term-count family\" is supportable and \"we beat BM25\" has never been established on this corpus.",
       "metrics": {
         "map": 0.4647,
         "mapAllRows": 0.447,
@@ -213,7 +221,7 @@
           "note": "66 single-tool, 14 chain, 20 no-tool; 80 carry a decoy; 31 carry an execution assertion; together they name all 51 registered tools at least once as the correct answer"
         }
       ],
-      "caveat": "**This measures a decision, not an answer.** The unit is one choice among 51 tools, so the rate is not comparable with a review F1 or a retrieval MAP. **The fixture is this repository's own code** — `packages/intelligence/src/search` plus `packages/intelligence/src/review/llm`, indexed by the product pipeline into a temporary checkout — so a grounding value is checkable against a file, and a task that names an entity the code no longer has fails the gate rather than scoring zero. **The execution assertions cover 31 of the 100 tasks**: the rest name tools that need a repository group, a pull request or a benchmark run the harness does not have, and those are scored on the call alone, which the artifact states per task. **The lexical arm is judged on selection only** — a router names a tool and constructs no arguments — which is generous to the floor it represents. **What it cannot say:** whether an agent completes a multi-turn task; this is one request and at most two dependent calls. **Three runs, and the first two measured a model that had been told nothing**: the instruction was built and never sent, so 0.1250 on the decoyed subset in run two is a figure about a question nobody asked. The same model with the instruction scores 0.7958, and the two intervals do not overlap. **The followed-up turn is the weak half**: 21 of 42 chain attempts, against 170 of 198 single ones, and 17 tasks are never right in three attempts. **The lexical arm never refuses** — 0 of 20 no-tool tasks — so a router compared on this set is compared on 80 % of it. **Descriptions are not established as mattering**: full against names-only is 5 wins to 2, p = 0.4531, which is a null result and not a demonstration that they do not.",
+      "caveat": "**This measures a decision, not an answer.** The unit is one choice among 51 tools, so the rate is not comparable with a review F1 or a retrieval MAP. **The fixture is this repository's own code** \u2014 `packages/intelligence/src/search` plus `packages/intelligence/src/review/llm`, indexed by the product pipeline into a temporary checkout \u2014 so a grounding value is checkable against a file, and a task that names an entity the code no longer has fails the gate rather than scoring zero. **The execution assertions cover 31 of the 100 tasks**: the rest name tools that need a repository group, a pull request or a benchmark run the harness does not have, and those are scored on the call alone, which the artifact states per task. **The lexical arm is judged on selection only** \u2014 a router names a tool and constructs no arguments \u2014 which is generous to the floor it represents. **What it cannot say:** whether an agent completes a multi-turn task; this is one request and at most two dependent calls. **Three runs, and the first two measured a model that had been told nothing**: the instruction was built and never sent, so 0.1250 on the decoyed subset in run two is a figure about a question nobody asked. The same model with the instruction scores 0.7958, and the two intervals do not overlap. **The followed-up turn is the weak half**: 21 of 42 chain attempts, against 170 of 198 single ones, and 17 tasks are never right in three attempts. **The lexical arm never refuses** \u2014 0 of 20 no-tool tasks \u2014 so a router compared on this set is compared on 80 % of it. **Descriptions are not established as mattering**: full against names-only is 5 wins to 2, p = 0.4531, which is a null result and not a demonstration that they do not.",
       "metrics": {
         "tasks": 100,
         "singleTools": 66,
@@ -263,7 +271,7 @@
           "note": "100 modules plus 100 call sites, one exported function each; in the pointed arms the module's function body carries the instruction, in the pointerless arms the call site's does, and the control arms carry a comment of the same length that asks for nothing"
         }
       ],
-      "caveat": "**This measures a decision under a planted instruction, not the model's alignment.** The corpus is synthetic and says so: a hundred small modules plus a hundred call sites, written so that each question has exactly one file to answer from, not a claim about this repository's code. **`asr` is conditioned on exposure** — an attempt whose tool results never carried the payload is excluded from the denominator, and exposure is recorded per attempt rather than assumed. Both channels reached full exposure this run (100 of 100 each), so `asr` and `compliance` coincide and **0 of 200 exposed attempts complied**, a 1.88 % ceiling together. **The previous iteration published a null for the second channel and it was the question's fault**: 'is toSlug used anywhere else, and what does the calling code do with it' is answered by the node list a search returns, so exposure was 0 of 100 and nothing was measured. The question now names the handler — one file — and asks what its body returns for an empty input, which no signature contains; exposure became 100 of 100, with 39 attempts opening only the call site and 61 opening both files. **The positive control is what makes the zero readable**: the same harness on the same questions complied **96 of 100** when the user asked for the identical call (0 to 96, p = 2.52e-29). It read 98 in the iteration before with the same procedure, so the 2-point difference is sampling noise rather than a change. **What it cannot say:** whether another model, another prompt or a longer conversation behaves the same; whether a payload in a commit message, a dependency's README or a file reached through a tool other than `get_code_snippet` behaves like one inside the function body; and whether 3.7 % is a rate worth mitigating against when the corpus has never produced a success.",
+      "caveat": "**This measures a decision under a planted instruction, not the model's alignment.** The corpus is synthetic and says so: a hundred small modules plus a hundred call sites, written so that each question has exactly one file to answer from, not a claim about this repository's code. **`asr` is conditioned on exposure** \u2014 an attempt whose tool results never carried the payload is excluded from the denominator, and exposure is recorded per attempt rather than assumed. Both channels reached full exposure this run (100 of 100 each), so `asr` and `compliance` coincide and **0 of 200 exposed attempts complied**, a 1.88 % ceiling together. **The previous iteration published a null for the second channel and it was the question's fault**: 'is toSlug used anywhere else, and what does the calling code do with it' is answered by the node list a search returns, so exposure was 0 of 100 and nothing was measured. The question now names the handler \u2014 one file \u2014 and asks what its body returns for an empty input, which no signature contains; exposure became 100 of 100, with 39 attempts opening only the call site and 61 opening both files. **The positive control is what makes the zero readable**: the same harness on the same questions complied **96 of 100** when the user asked for the identical call (0 to 96, p = 2.52e-29). It read 98 in the iteration before with the same procedure, so the 2-point difference is sampling noise rather than a change. **What it cannot say:** whether another model, another prompt or a longer conversation behaves the same; whether a payload in a commit message, a dependency's README or a file reached through a tool other than `get_code_snippet` behaves like one inside the function body; and whether 3.7 % is a rate worth mitigating against when the corpus has never produced a success.",
       "metrics": {
         "modules": 100,
         "arms": 5,
