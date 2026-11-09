@@ -5,23 +5,54 @@ branding:
   icon: 'search'
   color: 'blue'
 
+#
+# **This action builds the CLI from the checkout it lives in, and that is a decision, not a shortcut.**
+#
+# It used to run `npm install -g @code-analyzer/cli`. That package has never been published: the registry answers 404,
+# so every run of `.github/workflows/code-analyzer.yml` failed at the install step with
+# `npm error code E404 ... @code-analyzer%2fcli`, before a single line of code was reviewed. An action that installs an
+# unpublished package cannot be made to work by retrying it — the only honest options are to publish, or to run what the
+# repository already has. Since this action is used by this repository, and `pnpm turbo build` has already proven it can
+# produce `packages/cli/dist/index.js`, it runs that.
+#
+# `cli-path` exists so the other option stays open: point it at a global install once there is one.
+#
+
 inputs:
   github-token:
     description: 'GitHub token for API access'
     required: true
     default: ${{ github.token }}
+  cli-path:
+    description: 'Path to the built CLI entry point, relative to the workspace'
+    required: false
+    default: 'packages/cli/dist/index.js'
   standards:
-    description: 'Path to project standards JSON file'
+    description: 'Path to project standards JSON file (skipped when the file is absent)'
     required: false
     default: '.code-analyzer/standards.json'
   severity:
     description: 'Minimum severity level (info, warning, error, critical)'
     required: false
     default: 'warning'
+  #
+  # **`off` is the default, and this is a measurement decision rather than a preference.**
+  #
+  # The default was `error`. The first pull request that ran this action produced 44 critical findings on its own diff
+  # and every one of them was a test fixture — a database URL, a password literal, a SQL fragment inside a string. A
+  # rule-based reviewer cannot tell test data from production code, and iteration 110 measured the distance to the
+  # competitor at 0.04 precision with 45 % of findings false. **A gate that blocks a merge on a device with that
+  # precision record is a gate that teaches a team to bypass it.** The action reports; the team decides. Pass `error`
+  # here to enforce, and do it knowing the figure above.
+  #
   fail-on:
-    description: 'Fail the check on this severity or higher (off, warning, error, critical)'
+    description: 'Fail the check on this severity or higher (off, warning, error, critical). Default off: advisory'
     required: false
-    default: 'error'
+    default: 'off'
+  max-findings:
+    description: 'Report at most this many findings, worst first'
+    required: false
+    default: '50'
   max-files:
     description: 'Maximum files to analyze per PR'
     required: false
@@ -47,66 +78,124 @@ runs:
   using: 'composite'
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
       with:
-        node-version: '20'
+        # **`.nvmrc`, not a literal**, so the action runs on the version the package's `engines` field requires. It used
+        # to pin 20 while every package demands `>=22.14.0`.
+        node-version-file: .nvmrc
 
-    - name: Install Code Analyzer
+    - name: Setup pnpm
+      uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      with:
+        version: 9.15.0
+
+    - name: Build the CLI
       shell: bash
-      run: npm install -g @code-analyzer/cli
+      run: |
+        set -euo pipefail
+        if [ ! -f "${{ inputs.cli-path }}" ]; then
+          pnpm install --frozen-lockfile
+          pnpm --filter "@code-analyzer/cli..." build
+        fi
+        test -f "${{ inputs.cli-path }}"
 
     - name: Run Analysis
       id: review
       shell: bash
       run: |
+        set -euo pipefail
+
+        STANDARDS_FLAG=""
+        if [ -f "${{ inputs.standards }}" ]; then
+          STANDARDS_FLAG="--standards ${{ inputs.standards }}"
+        fi
+
         LANG_FLAG=""
         if [ -n "${{ inputs.languages }}" ]; then
           LANG_FLAG="--languages ${{ inputs.languages }}"
         fi
 
-        code-analyzer review-pr \
+        # **One analysis, two renderings, and the exit code kept.** `--fail-on` exits 1 when the threshold is met, which
+        # is a verdict rather than a failure: the comment still has to be posted and the artifact still has to be
+        # uploaded, so the code is recorded and re-raised at the end of the job. Any other non-zero code is a real error
+        # and stops here.
+        set +e
+        node "${{ inputs.cli-path }}" review-pr \
           --token "${{ inputs.github-token }}" \
           --repo "${{ github.repository }}" \
           --pr "${{ github.event.pull_request.number }}" \
-          --standards "${{ inputs.standards }}" \
+          ${STANDARDS_FLAG} \
           --severity "${{ inputs.severity }}" \
           --fail-on "${{ inputs.fail-on }}" \
           --max-files "${{ inputs.max-files }}" \
+          --max-findings "${{ inputs.max-findings }}" \
           --exclude "${{ inputs.exclude-patterns }}" \
           ${LANG_FLAG} \
-          --format json > findings.json
+          --format json \
+          --output findings.json \
+          --summary review.md
+        STATUS=$?
+        set -e
+        if [ "$STATUS" -ne 0 ] && [ "$STATUS" -ne 1 ]; then
+          echo "::error::Code Analyzer could not review this change (exit $STATUS)."
+          exit "$STATUS"
+        fi
+        echo "gate-status=$STATUS" >> "$GITHUB_OUTPUT"
 
-        FINDINGS=$(cat findings.json)
-        echo "findings<<EOF" >> "$GITHUB_OUTPUT"
-        echo "$FINDINGS" >> "$GITHUB_OUTPUT"
-        echo "EOF" >> "$GITHUB_OUTPUT"
+        # **A delimiter nobody's content can contain, rather than `EOF`.** The value is a JSON report of a code review,
+        # and a review of a file that itself contains a line reading `EOF` would otherwise end the heredoc early and
+        # truncate the output into an unparseable half.
+        DELIMITER="FINDINGS_$(date +%s%N)"
+        {
+          echo "findings<<${DELIMITER}"
+          cat findings.json
+          echo "${DELIMITER}"
+        } >> "$GITHUB_OUTPUT"
+
+        # The declared `summary` output is the Markdown this run rendered, not a second invocation's. It is read from
+        # the file for the same reason: whatever `--summary` wrote is what the output is, by construction.
+        SUMMARY_DELIMITER="SUMMARY_$(date +%s%N)"
+        {
+          echo "summary<<${SUMMARY_DELIMITER}"
+          cat review.md
+          echo "${SUMMARY_DELIMITER}"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Upload Findings
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
       with:
         name: code-analyzer-findings
-        path: findings.json
+        path: |
+          findings.json
+          review.md
+        if-no-files-found: warn
 
     - name: Post PR Comment
       if: github.event_name == 'pull_request'
       shell: bash
       run: |
-        SUMMARY=$(code-analyzer review-pr \
-          --token "${{ inputs.github-token }}" \
-          --repo "${{ github.repository }}" \
-          --pr "${{ github.event.pull_request.number }}" \
-          --format markdown 2>/dev/null || echo "Analysis completed")
-
-        cat >> comment.md << 'COMMENT_EOF'
-        ### 🤖 Code Analyzer Review
-
-        COMMENT_EOF
-        echo "$SUMMARY" >> comment.md
-        echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+        set -euo pipefail
+        # **`review.md` is the run that was already made.** This step used to call `review-pr --format markdown` again,
+        # suppressing its stderr with `2>/dev/null` and papering over any failure with `|| echo "Analysis completed"` —
+        # so a review that crashed posted a comment saying it had finished.
+        {
+          echo '### Code Analyzer Review'
+          echo
+          cat review.md
+        } > comment.md
 
         gh pr comment "${{ github.event.pull_request.number }}" \
           --repo "${{ github.repository }}" \
           --body-file comment.md
       env:
         GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Enforce the gate
+      shell: bash
+      run: |
+        # The verdict `--fail-on` produced, applied after everything that reports on it has run.
+        if [ "${{ steps.review.outputs.gate-status }}" = "1" ]; then
+          echo "::error::Findings at or above the configured severity were reported and fail-on is not off."
+          exit 1
+        fi

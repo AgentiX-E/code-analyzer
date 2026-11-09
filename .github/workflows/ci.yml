@@ -70,6 +70,13 @@ jobs:
       # A figure that names a directory has named a moving thing. This requires it to say which version.
       - name: Does every figure that names a corpus name its version?
         run: npm run -s gate:corpus
+      # **Nine files documented three commands that did not exist, and every one of those invocations failed.** This asks
+      # the binary, not a list — so the answer cannot go stale with the parser. It needs the CLI built, because `--help`
+      # is the only description of the command tree that is generated from it.
+      - name: Build the CLI, so its command tree can be asked
+        run: pnpm --filter "@code-analyzer/cli..." build
+      - name: Does every documented invocation exist?
+        run: npm run -s docs:cli-gate
 
   # ── Type Check ────────────────────────────────────────────────────────────
   typecheck:
