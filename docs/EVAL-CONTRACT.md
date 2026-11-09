@@ -362,21 +362,21 @@ reported as a defect is a false positive with a citation.**
 
 Eleven languages, selected by the extension of the files a call covers, most-represented first, at most three per call:
 
-| language              | rules | the exclusion that does the work                                    |
-| --------------------- | ----- | ------------------------------------------------------------------- |
-| Java                  | 7     | a stream **returned to the caller** is not a leak                    |
-| JavaScript            | 7     | `x == null` is the idiom; `x === null` is the bug                    |
-| TypeScript            | 7     | an `!` dominated by a check in the same hunk is not an assertion     |
-| Python                | 7     | a handler that logs or re-raises is not a swallow                    |
-| Groovy / Gradle       | 6     | work inside `doLast` or a `Provider` is not eager configuration      |
-| XML / descriptors     | 6     | a factory from a hardened helper has already disabled entities       |
-| YAML / CI             | 7     | a reference to a full 40-character SHA is pinned                      |
-| JSON                  | 5     | a JSONC file may carry the comment the strict parser rejects         |
-| Kotlin                | 6     | `!!` dominated by a check in the same hunk is not an assertion        |
-| Swift                 | 6     | a `[weak self]` capture list already breaks the cycle                |
-| ArkTS                 | 5     | a `.ts` interop file behind a typed wrapper is not strict ArkTS      |
-| C and C++             | 8     | a pointer handed to a smart pointer is not a leak                    |
-| Go                    | 7     | a goroutine that ends when its input is closed needs no done channel |
+| language          | rules | the exclusion that does the work                                     |
+| ----------------- | ----- | -------------------------------------------------------------------- |
+| Java              | 7     | a stream **returned to the caller** is not a leak                    |
+| JavaScript        | 7     | `x == null` is the idiom; `x === null` is the bug                    |
+| TypeScript        | 7     | an `!` dominated by a check in the same hunk is not an assertion     |
+| Python            | 7     | a handler that logs or re-raises is not a swallow                    |
+| Groovy / Gradle   | 6     | work inside `doLast` or a `Provider` is not eager configuration      |
+| XML / descriptors | 6     | a factory from a hardened helper has already disabled entities       |
+| YAML / CI         | 7     | a reference to a full 40-character SHA is pinned                     |
+| JSON              | 5     | a JSONC file may carry the comment the strict parser rejects         |
+| Kotlin            | 6     | `!!` dominated by a check in the same hunk is not an assertion       |
+| Swift             | 6     | a `[weak self]` capture list already breaks the cycle                |
+| ArkTS             | 5     | a `.ts` interop file behind a typed wrapper is not strict ArkTS      |
+| C and C++         | 8     | a pointer handed to a smart pointer is not a leak                    |
+| Go                | 7     | a goroutine that ends when its input is closed needs no done channel |
 
 ### 8.2 The size, and why the rule may not be quoted without it
 
@@ -391,13 +391,13 @@ not depend on it is the paired test**, which counts only the goldens one arm fou
 
 ### 8.3 The design: two runs, one variable, and a comparison that cannot call a model
 
-| element           | file arm, checklist on                   | file arm, checklist off                  |
-| ----------------- | ---------------------------------------- | ---------------------------------------- |
-| job               | `aacr-bench` matrix, `checklist: with`   | `aacr-bench` matrix, `checklist: without`|
-| corpus            | 14 pull requests, ~140 goldens           | identical                                |
-| judge             | `deepseek-chat`, same endpoint           | identical                                |
-| engine            | same commit, `languageChecklist: true`   | same commit, `languageChecklist: false`  |
-| difference        | **the prompt section and nothing else**   | —                                        |
+| element    | file arm, checklist on                  | file arm, checklist off                   |
+| ---------- | --------------------------------------- | ----------------------------------------- |
+| job        | `aacr-bench` matrix, `checklist: with`  | `aacr-bench` matrix, `checklist: without` |
+| corpus     | 14 pull requests, ~140 goldens          | identical                                 |
+| judge      | `deepseek-chat`, same endpoint          | identical                                 |
+| engine     | same commit, `languageChecklist: true`  | same commit, `languageChecklist: false`   |
+| difference | **the prompt section and nothing else** | —                                         |
 
 **And the difference is asserted, not assumed**: a test computes the common prefix and common suffix of the two prompts
 for one change and requires everything between them to be the checklist — so "one variable" is a property of the code
@@ -417,7 +417,7 @@ checkout**, so the number it produces cannot have come from a model.
 0.04 with precision flat or falling falsifies prediction 2 and the artifact records the split verdict — **a device that
 moved the number for a reason other than the one it was registered for is not the device that was registered.**
 
-**And what would be concluded if it loses.** That the prompt's *specificity* is not this engine's constraint either, in
+**And what would be concluded if it loses.** That the prompt's _specificity_ is not this engine's constraint either, in
 which case the remaining difference against the competitor is not in the prompt at all but in **what the two systems do
 with a finding after the model produces it** — their review walks a repository and this one reads a diff — and the next
 registration would be about **retrieval**, not about wording.
@@ -429,17 +429,17 @@ registration would be about **retrieval**, not about wording.
 Counting the file extensions of the first fourteen pull requests through the GitHub API — one call per pull request,
 before either arm had produced an artifact — gives:
 
-| extension                      | files |
-| ------------------------------ | ----- |
-| `.cpp`                         | 152   |
-| `.h`                           | 64    |
-| `.go`                          | 38    |
-| `.py`                          | 22    |
-| `.txt`                         | 19    |
-| `.diff`                        | 18    |
-| `.ui`                          | 10    |
-| `.ts`                          | 4     |
-| others                         | 5     |
+| extension | files |
+| --------- | ----- |
+| `.cpp`    | 152   |
+| `.h`      | 64    |
+| `.go`     | 38    |
+| `.py`     | 22    |
+| `.txt`    | 19    |
+| `.diff`   | 18    |
+| `.ui`     | 10    |
+| `.ts`     | 4     |
+| others    | 5     |
 
 **Two thirds of the treatment's own subject had no rules.** The first two runs of the matrix
 (`42566825132`, `42568662388`) were cancelled for that reason, and **neither had written an artifact** — so this
@@ -452,3 +452,81 @@ prediction and the falsification tests, all of which remain exactly as §8.1–�
 
 **And what the amendment buys the measurement**: the checklist now applies to about 95 % of the corpus's files rather
 than 9 %, so the run measures the device instead of measuring a device that was not there.
+
+### 8.6 What the run said
+
+**Run `42569985626`, 2026-11-09, fourteen pull requests, 170 goldens, one judge, two arms.** The comparison artifact is
+`benchmarks/aacr-checklist-paired.json`; the default configuration's figure is `benchmarks/aacr-bench.json`.
+
+| figure                                         | with the checklist  | without it | difference     |
+| ---------------------------------------------- | ------------------- | ---------- | -------------- |
+| precision                                      | **0.2893**          | 0.2189     | **+0.0704**    |
+| recall                                         | 0.2059              | **0.2588** | **−0.0529**    |
+| F1                                             | 0.2405              | 0.2372     | **+0.0033**    |
+| true positives                                 | 35                  | 44         | −9             |
+| false positives                                | **86**              | 157        | **−71**        |
+| findings emitted, after the actionable gate    | **199**             | 339        | **−140**       |
+| findings the five lanes produced, before merge | **406**             | 928        | **−522**       |
+| merged away as duplicates                      | 207                 | 589        | −382           |
+| paired test — both / with only / without only  | 27 / **8** / **17** | —          | p = **0.1078** |
+
+**The registered magnitude is falsified, and the report says so in the registration's own words.** The gain is
+**+0.0033**, which is **twelve times smaller than the 0.04** the registration named, and inside the instrument's
+resolution.
+
+**The mechanism prediction is also falsified, and for a more interesting reason.** §8.4 said _"precision rises and recall
+does not fall by more than one golden"_. Precision did rise, by 0.070 — **two thirds of the distance the device had to
+travel, from 0.219 to the competitor's 0.329** — and recall fell by **nine goldens, not one**. So **the device works exactly as designed
+and the design was the wrong bet**: it buys precision at a price in recall that, on this corpus, is the same size as the
+gain.
+
+**What is left, stated as the two facts that survive the falsification.**
+
+1. **The checklist is a real precision device.** False positives fell from 157 to 86 — **45 % fewer wrong findings** —
+   and the lanes produced 56 % fewer findings overall (928 → 406). **That is not a wash and it is not noise; it is the
+   largest single move any device has made on this corpus.**
+2. **It suppressed true positives with the false ones.** Nine goldens that the lanes found without the checklist were
+   not found with it. Per pull request: **three better, eight worse, three tied** — and the eight include the two
+   pull requests that carry the most goldens (32 and 15).
+
+**And the figure that makes the trade visible before the gate.** On the whole emitted list, not the registered operating
+point, F1 moves **0.2043 → 0.2222**. So **before the actionable gate the checklist helps**, and the gate — which removes
+findings from both arms by the same rule — is where the nine goldens were already the ones that survived.
+
+**Compared with the second reviewer, on the same fourteen pull requests and the same judge** (its artifact is in the
+run; one pull request failed to parse and its goldens are outside its denominator):
+
+| reviewer                    | precision | recall | F1         | findings | goldens scored |
+| --------------------------- | --------- | ------ | ---------- | -------- | -------------- |
+| `open-code-review`          | 0.3289    | 0.3185 | **0.3236** | 152      | 157            |
+| this repository, with rules | 0.2893    | 0.2059 | **0.2405** | 199      | 170            |
+| this repository, without    | 0.2189    | 0.2588 | 0.2372     | 339      | 170            |
+
+**The precision gap is now 0.04 and the recall gap is 0.11.** On the five-pull-request corpus the same two gaps were
+**0.18 and 0.12** — so **the precision gap closed by 64 % and the recall gap did not move**. **The device did what it was
+aimed at and the constraint moved**: the question is no longer _"are our findings wrong"_, it is **"do we find enough of
+them"**.
+
+### 8.7 The next rule, registered here and run later
+
+**The checklist and the per-file slot count interact, and this run shows the direction of the interaction.** The file
+arm allows three findings **per file per lane**; the lanes that were given the checklist used **less than half of the
+slots they had** (928 → 406 raw findings), because a rule list ending in _"do not report when"_ teaches the model to
+withhold. **The device's recall cost is therefore not a limit of what it can see — it is a limit of what it will say.**
+
+**So the next registration is the pair, not the device:** keep the checklist on and **raise the per-file slot count from
+three to six**. The prediction:
+
+1. **Recall returns to at least 0.25** — within 0.01 of the no-checklist arm — while precision stays above **0.27**.
+2. **F1 therefore exceeds 0.26**, which would be **the first figure on this corpus above the ±0.04 band around 0.24**.
+3. **The paired test against the competitor's 0.3236 narrows to below the significance threshold**, which is a
+   _falsifiable_ claim about a comparison rather than a claim about our own number.
+
+**What falsifies it.** Recall that does not return means the checklist removes findings the model would otherwise make
+and no slot count recovers them — the device is a filter, not a gate, and the next iteration builds the filter _after_
+the model rather than inside the prompt. Precision that falls below 0.27 means the extra slots are being filled with the
+idioms the checklist was written to suppress, and the two devices cannot be combined.
+
+**And the size.** The corpus stays at fourteen pull requests, because the comparison is paired and the paired test is
+what decides; **but the F1 prediction above is deliberately set 0.02 above the band**, so that a gain that only the
+paired test can see is not mistaken for the one the registration named.
