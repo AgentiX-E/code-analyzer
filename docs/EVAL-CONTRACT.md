@@ -347,3 +347,75 @@ precision is 0.21 and theirs is 0.3857 on the same goldens.
 **And a condition on quoting it.** At ±0.04 resolution on five pull requests, **a checklist that moves F1 by less than
 0.04 will not be measurable here.** The next registration therefore has to come with more pull requests — about nine
 more would take the golden count to ~140 — or it will be a rule that cannot fail, which §6 was written to prevent.
+
+## 8. A third rule, registered before its run: a device and a size
+
+**§7.3 named the next lever and the condition on quoting it, and this section registers both before either is built.**
+
+### 8.1 The device
+
+**A per-language defect checklist in which every rule carries an explicit "do not report when" clause**, added to all
+five lanes in both scopes. The shape comes from the competitor's own tree — `internal/config/rules/rule_docs/java.md`
+is 41 lines of defect classes where each class ends in _"do not report in the following cases"_ — and the mechanism is
+**precision**: a lane told only what to look for spends its budget on the language's ordinary idioms, and **an idiom
+reported as a defect is a false positive with a citation.**
+
+Eleven languages, selected by the extension of the files a call covers, most-represented first, at most three per call:
+
+| language              | rules | the exclusion that does the work                                    |
+| --------------------- | ----- | ------------------------------------------------------------------- |
+| Java                  | 7     | a stream **returned to the caller** is not a leak                    |
+| JavaScript            | 7     | `x == null` is the idiom; `x === null` is the bug                    |
+| TypeScript            | 7     | an `!` dominated by a check in the same hunk is not an assertion     |
+| Python                | 7     | a handler that logs or re-raises is not a swallow                    |
+| Groovy / Gradle       | 6     | work inside `doLast` or a `Provider` is not eager configuration      |
+| XML / descriptors     | 6     | a factory from a hardened helper has already disabled entities       |
+| YAML / CI             | 7     | a reference to a full 40-character SHA is pinned                      |
+| JSON                  | 5     | a JSONC file may carry the comment the strict parser rejects         |
+| Kotlin                | 6     | `!!` dominated by a check in the same hunk is not an assertion        |
+| Swift                 | 6     | a `[weak self]` capture list already breaks the cycle                |
+| ArkTS                 | 5     | a `.ts` interop file behind a typed wrapper is not strict ArkTS      |
+
+### 8.2 The size, and why the rule may not be quoted without it
+
+**±0.04 is this instrument's resolution at five pull requests** (§7.2: three runs, no change, 0.2727 / 0.2368 / 0.2781).
+A device expected to be worth less than that **cannot fail here**, and §6 exists to prevent registering a rule whose
+failure is indistinguishable from its success. **So the corpus moves from five pull requests to fourteen** — about
+140 goldens — in the same change as the device, and **the comparison is internal to one workflow run**, so the corpus
+change cannot explain the difference: both arms read the same fourteen pull requests.
+
+**What the resolution at fourteen pull requests is, is not claimed.** It is one measurement, and **the reading that does
+not depend on it is the paired test**, which counts only the goldens one arm found and the other did not.
+
+### 8.3 The design: two runs, one variable, and a comparison that cannot call a model
+
+| element           | file arm, checklist on                   | file arm, checklist off                  |
+| ----------------- | ---------------------------------------- | ---------------------------------------- |
+| job               | `aacr-bench` matrix, `checklist: with`   | `aacr-bench` matrix, `checklist: without`|
+| corpus            | 14 pull requests, ~140 goldens           | identical                                |
+| judge             | `deepseek-chat`, same endpoint           | identical                                |
+| engine            | same commit, `languageChecklist: true`   | same commit, `languageChecklist: false`  |
+| difference        | **the prompt section and nothing else**   | —                                        |
+
+**And the difference is asserted, not assumed**: a test computes the common prefix and common suffix of the two prompts
+for one change and requires everything between them to be the checklist — so "one variable" is a property of the code
+rather than a sentence in a report. The `compare` job runs on a runner with **no provider credentials and no corpus
+checkout**, so the number it produces cannot have come from a model.
+
+### 8.4 The prediction, written before the run
+
+1. **F1 with the checklist is at least 0.04 above F1 without it**, on the same fourteen pull requests.
+2. **The mechanism is precision**: precision rises, and recall does not fall by more than one golden.
+3. **Fewer findings are emitted for the same coverage** — the device's whole claim is that it removes false positives
+   rather than adding true ones.
+4. **The paired test is reported either way**, including when it is not significant at this size, because **§7.2's
+   lesson was that a magnitude without a test is a story**.
+
+**What falsifies it.** A gain below 0.04 falsifies prediction 1 and the section will say so in those words. A gain above
+0.04 with precision flat or falling falsifies prediction 2 and the artifact records the split verdict — **a device that
+moved the number for a reason other than the one it was registered for is not the device that was registered.**
+
+**And what would be concluded if it loses.** That the prompt's *specificity* is not this engine's constraint either, in
+which case the remaining difference against the competitor is not in the prompt at all but in **what the two systems do
+with a finding after the model produces it** — their review walks a repository and this one reads a diff — and the next
+registration would be about **retrieval**, not about wording.
