@@ -174,6 +174,10 @@ export type { CompressionConfig } from './compression/memory-compressor.js';
 // Standards Engine
 export { StandardsEngine } from './standards/engine.js';
 export type { AutoFix, CheckViolation, ComplianceReport } from './standards/engine.js';
+// **The default rule set is public**, because `code-analyzer init` writes it into a project and `standards check`
+// judges that project against it: a private constant here and a copy there would be two answers to "what are our
+// defaults".
+export { DEFAULT_STANDARDS } from './review/standards-defaults.js';
 export { STANDARD_TEMPLATES, getTemplate, listTemplates } from './standards/templates.js';
 export type { StandardTemplate } from './standards/templates.js';
 

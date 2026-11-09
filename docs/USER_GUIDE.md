@@ -42,13 +42,22 @@ Copilot Chat Participant: `@code-analyzer /review`, `/explain`, `/impact`, `/fin
 ## CLI
 
 ```bash
-code-analyzer analyze ./project    # Index a repository
-code-analyzer search "function"    # Search knowledge graph
-code-analyzer review ./src --diff  # Review staged changes
+code-analyzer init .                       # Write .code-analyzer/ (standards + config)
+code-analyzer analyze ./project --languages typescript,python
+code-analyzer search "function"            # Search knowledge graph
+code-analyzer locate "where is auth handled"   # Rank files a question is about, no index needed
+code-analyzer review ./src --diff          # Review staged changes
+code-analyzer review pr --repo . --pr 12 --token "$GITHUB_TOKEN" --format markdown
 code-analyzer review-pr --from main --to feature
-code-analyzer group create svcs    # Create cross-repo group
-code-analyzer web --port 8080      # Start dashboard
+code-analyzer standards check --repo . --standard typescript-coding --format json
+code-analyzer status                       # What is indexed, what is not
 ```
+
+> **Two commands leave this list before they can be documented as facts.** A cross-repository group and a `web`
+> dashboard are capabilities of the MCP server and of `packages/web`, not of this CLI: `code-analyzer group create` and
+> `code-analyzer web` are not commands, and a manual that lists them teaches a reader to type something that fails.
+> Their absence is recorded with the other omissions in
+> `code-analyzer-docs/audits/2026-11-09-deliberate-omissions.md`.
 
 ## Code Review Rules (46+)
 

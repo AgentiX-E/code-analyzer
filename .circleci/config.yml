@@ -25,12 +25,13 @@ jobs:
           name: Analyze Codebase
           command: |
             npx code-analyzer analyze --repo . --output analysis.json
-            npx code-analyzer graph build --repo . --output graph.db
+            # `analyze` builds the graph; there is no separate `graph build` command.
+            npx code-analyzer analyze --repo . --format json --output graph.json
       - persist_to_workspace:
           root: .
           paths:
             - analysis.json
-            - graph.db
+            - graph.json
 
   # ── PR Review ──────────────────────────────────────────────────────────────
 
