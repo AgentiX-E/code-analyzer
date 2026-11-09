@@ -301,7 +301,11 @@ export {
   LANGUAGES,
   MAX_LANGUAGES_PER_CALL,
 } from './review/llm/language-rules.js';
-export type { LanguageDefinition, LanguageRule, RuleLanguage } from './review/llm/language-rules.js';
+export type {
+  LanguageDefinition,
+  LanguageRule,
+  RuleLanguage,
+} from './review/llm/language-rules.js';
 export type { LLMFinding, PromptContext, ReviewLane } from './review/llm/prompts.js';
 
 export { LLMReviewEngine } from './review/llm/llm-review-engine.js';
