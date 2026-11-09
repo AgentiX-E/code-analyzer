@@ -33,16 +33,24 @@ describe('CLI E2E — Full Workflow', () => {
     const { initProject } = await import('../commands/init.js');
     const { getStatus, formatStatusReport } = await import('../commands/status.js');
 
-    // Init
-    const initResult = initProject({ directory: '/tmp/code-analyzer-e2e', force: true });
-    expect(initResult.success).toBe(true);
+    // **A directory the platform named, not a fixed path under `/tmp`.** A literal `/tmp/code-analyzer-e2e` is shared by
+    // every process on the machine, so two runs collide and anyone can pre-create it; `mkdtempSync` is unique and
+    // created atomically, which is what makes this a temporary directory rather than a predictable one.
+    const projectDir = mkdtempSync(join(tmpdir(), 'code-analyzer-e2e-'));
+    try {
+      // Init
+      const initResult = initProject({ directory: projectDir, force: true });
+      expect(initResult.success).toBe(true);
 
-    // Status
-    const statusReport = getStatus({ directory: '/tmp/code-analyzer-e2e' });
-    expect(statusReport.project.initialized).toBe(true);
+      // Status
+      const statusReport = getStatus({ directory: projectDir });
+      expect(statusReport.project.initialized).toBe(true);
 
-    const formatted = formatStatusReport(statusReport, 'text');
-    expect(formatted).toContain('Initialized');
+      const formatted = formatStatusReport(statusReport, 'text');
+      expect(formatted).toContain('Initialized');
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
   });
 
   it('should execute analyze → search workflow', { timeout: 30_000 }, async () => {

@@ -42,11 +42,14 @@ export class ScanPhase implements ExecutablePhase {
         gitignorePatterns,
         ctx.config.maxFileSize,
         ctx.config.maxFiles,
-        // **The include list the configuration has always carried and no phase ever read.** `docs/CONFIGURATION.md`
-        // has documented `includePatterns` as "glob patterns to restrict which files are analyzed" since the schema
-        // was written, and until this line the pipeline discovered every file the excludes allowed: a reader who
-        // asked for `src/**` paid for `docs/**` and got an index of both.
-        { includePatterns: ctx.config.includePatterns },
+        // **The include and exclude lists the configuration has always carried.** `docs/CONFIGURATION.md` has
+        // documented both as "glob patterns to restrict which files are analyzed" since the schema was written, and
+        // until this line the pipeline discovered every file: a reader who asked for `src/**` paid for `docs/**`, and a
+        // reader who wrote `analyze --exclude "**/*.test.ts"` got the test files in the index anyway.
+        {
+          includePatterns: ctx.config.includePatterns,
+          excludePatterns: ctx.config.excludePatterns,
+        },
       );
 
       // Store in phaseData

@@ -8,7 +8,7 @@ Cline is the autonomous coding agent for VS Code. Code Analyzer provides deep co
 
 ```bash
 npm install -g @code-analyzer/cli
-code-analyzer setup --agent cline
+code-analyzer agent configure --target cline
 ```
 
 ## Manual Configuration
@@ -102,4 +102,4 @@ Cline should use the relevant MCP tools to perform the search and report finding
 - **Tools not appearing**: Check `~/.cline/mcp_settings.json` syntax and restart VS Code
 - **Permission prompts**: Add commonly used tools to `autoApprove` list
 - **Connection errors**: Verify `npx @code-analyzer/mcp` works from terminal first
-- **Indexing timeout**: Build the index first with `code-analyzer index` before using Cline
+- **Indexing timeout**: Build the index first with `code-analyzer analyze .` before using Cline

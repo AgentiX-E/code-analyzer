@@ -8,7 +8,7 @@ Aider is the AI pair programming tool that works in your terminal. Code Analyzer
 
 ```bash
 npm install -g @code-analyzer/cli
-code-analyzer setup --agent aider
+code-analyzer agent configure --target aider
 ```
 
 ## Manual Configuration
