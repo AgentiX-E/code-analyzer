@@ -14,10 +14,10 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import { DEFAULT_STANDARDS, StandardsEngine } from '@code-analyzer/intelligence';
 
-
 import {
   ChangeSetError,
   describeLanguages,
+  diffMembership,
   extensionsForLanguages,
   resolveChangeSet,
   type ChangeMode,
@@ -48,6 +48,17 @@ export interface StandardsViolation {
   fixSuggestion?: string;
   snippet: string;
   autoFixable: boolean;
+  /**
+   * Whether the line this violation names is inside the change's diff.
+   *
+   * **Present only when the change has a diff**, and `false` is the value that matters: `pulls.createReview` rejects the
+   * entire review with 422 when any comment names a line outside the diff, so the poster has to be able to say which
+   * ones it may use. On 2026-11-09 this report had no such field, every violation in a pull request's review named a
+   * line in a file it had scanned whole, and `Project Standards Check` failed with
+   * `HttpError: Unprocessable Entity: Line could not be resolved, Line could not be resolved, …` — a wall of the same
+   * six words, with nothing to act on.
+   */
+  inDiff?: boolean;
 }
 
 /**
@@ -235,15 +246,29 @@ function readableFiles(change: ChangeSet): { path: string; content: string }[] {
  *
  * **Severity is read from the rule, not the violation**, because a violation does not carry one: the engine records how
  * bad a rule's failures are once, on the rule, and every violation of that rule inherits it.
+ *
+ * `inDiff` is `undefined` when the change has no diff, which is why it is a parameter rather than a computed default: a
+ * report that said `false` for a `standards check --repo .` would be describing a change nobody made.
  */
 export function flattenViolations(
   result: StandardsCheckResult,
   standardId: string,
+  inDiff?: (file: string, line: number) => boolean,
 ): StandardsViolation[] {
   const violations: StandardsViolation[] = [];
   for (const ruleResult of result.ruleResults) {
     for (const violation of ruleResult.violations) {
-      violations.push(toViolation(violation, standardId, ruleResult.ruleId, ruleResult.severity, ruleResult.autoFixable, ruleResult.ruleDescription));
+      violations.push(
+        toViolation(
+          violation,
+          standardId,
+          ruleResult.ruleId,
+          ruleResult.severity,
+          ruleResult.autoFixable,
+          ruleResult.ruleDescription,
+          inDiff,
+        ),
+      );
     }
   }
   return violations;
@@ -256,6 +281,7 @@ function toViolation(
   severity: Severity,
   autoFixable: boolean,
   ruleDescription: string,
+  inDiff?: (file: string, line: number) => boolean,
 ): StandardsViolation {
   const fix = violation.suggestion ?? violation.autoFix;
   return {
@@ -268,6 +294,7 @@ function toViolation(
     ...(fix === undefined ? {} : { fixSuggestion: fix }),
     snippet: violation.codeSnippet,
     autoFixable,
+    ...(inDiff === undefined ? {} : { inDiff: inDiff(violation.filePath, violation.lineNumber) }),
   };
 }
 
@@ -354,9 +381,12 @@ export async function runStandardsCheck(
 
   const results = checkStandards(engine, standards, change);
   const changed = change.changedFileCount;
+  // **A tree has no diff, so the report does not claim to know which lines are in one.** Every other mode does, and the
+  // workflow that posts inline comments needs it: see `StandardsViolation.inDiff`.
+  const membership = change.mode === 'tree' ? undefined : diffMembership(change);
 
   const entries: StandardsReportEntry[] = results.map((result) => {
-    const violations = flattenViolations(result, result.standardId).filter(
+    const violations = flattenViolations(result, result.standardId, membership).filter(
       (violation) => severityRank(violation.severity) >= severityRank(severity),
     );
     return {
@@ -373,7 +403,9 @@ export async function runStandardsCheck(
     };
   });
 
-  const reported = entries.flatMap((entry) => entry.violations.map((violation) => violation.severity));
+  const reported = entries.flatMap((entry) =>
+    entry.violations.map((violation) => violation.severity),
+  );
 
   return {
     ok: true,
@@ -413,7 +445,9 @@ export function formatStandardsMarkdown(entries: readonly StandardsReportEntry[]
     if (files.unreadable.length > 0) notes.push(`${files.unreadable.length} unreadable`);
     if (notes.length > 0) {
       lines.push('');
-      lines.push(`_Judged over ${files.changed - files.filtered - files.truncated} of ${files.changed} changed file(s): ${notes.join('; ')}._`);
+      lines.push(
+        `_Judged over ${files.changed - files.filtered - files.truncated} of ${files.changed} changed file(s): ${notes.join('; ')}._`,
+      );
     }
   }
 
@@ -426,6 +460,17 @@ export function formatStandardsMarkdown(entries: readonly StandardsReportEntry[]
 
   lines.push('');
   lines.push('### Violations');
+  // **A violation GitHub cannot anchor is still a violation.** The inline poster skips these — a review that names one
+  // line outside the diff is rejected whole — so the comment is where they have to appear, and the count is what says
+  // how much of the list a reader is not seeing beside the code.
+  const outside = violations.filter((violation) => violation.inDiff === false).length;
+  if (outside > 0) {
+    lines.push('');
+    lines.push(
+      `_${outside} of these ${violations.length} are on lines this change did not touch, so they are listed here and ` +
+        'not as inline comments._',
+    );
+  }
   for (const violation of violations) {
     lines.push('');
     lines.push(

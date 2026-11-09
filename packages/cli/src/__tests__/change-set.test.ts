@@ -9,13 +9,13 @@ import { createRepo, type GitFixture } from './git-fixture.js';
 import {
   ChangeSetError,
   describeLanguages,
+  diffMembership,
   extensionsForLanguages,
   readIfPresent,
   repositorySlug,
   resolveChangeSet,
   slugFromRemote,
 } from '../commands/change-set.js';
-
 
 describe('repositorySlug', () => {
   it('accepts owner/name and nothing else', () => {
@@ -263,7 +263,24 @@ describe('resolveChangeSet — tree mode', () => {
   });
 
   it('refuses a slug without a pull request instead of reviewing the current directory', async () => {
-    await expect(resolveChangeSet({ repo: 'owner/name' })).rejects.toThrow(/names a repository on GitHub/);
+    await expect(resolveChangeSet({ repo: 'owner/name' })).rejects.toThrow(
+      /names a repository on GitHub/,
+    );
+  });
+
+  it('answers "not in a diff" for every line when there is no diff', async () => {
+    const repo = createRepo();
+    try {
+      const change = await resolveChangeSet({ repo: repo.dir });
+      const inDiff = diffMembership(change);
+
+      // **Not an exception and not a special case at the call site.** A tree has no hunks, so no line is in one; the
+      // question has a correct answer and asking it should not require the caller to know the mode first.
+      expect(inDiff('src/base.ts', 1)).toBe(false);
+      expect(inDiff('src/anything.ts', 42)).toBe(false);
+    } finally {
+      repo.cleanup();
+    }
   });
 
   it('refuses a path that does not exist instead of reviewing the current directory', async () => {

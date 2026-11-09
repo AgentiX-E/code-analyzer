@@ -115,6 +115,11 @@ runs:
           LANG_FLAG="--languages ${{ inputs.languages }}"
         fi
 
+        # **One analysis, two renderings, and the exit code kept.** `--fail-on` exits 1 when the threshold is met, which
+        # is a verdict rather than a failure: the comment still has to be posted and the artifact still has to be
+        # uploaded, so the code is recorded and re-raised at the end of the job. Any other non-zero code is a real error
+        # and stops here.
+        set +e
         node "${{ inputs.cli-path }}" review-pr \
           --token "${{ inputs.github-token }}" \
           --repo "${{ github.repository }}" \
@@ -126,19 +131,44 @@ runs:
           --max-findings "${{ inputs.max-findings }}" \
           --exclude "${{ inputs.exclude-patterns }}" \
           ${LANG_FLAG} \
-          --format json > findings.json
+          --format json \
+          --output findings.json \
+          --summary review.md
+        STATUS=$?
+        set -e
+        if [ "$STATUS" -ne 0 ] && [ "$STATUS" -ne 1 ]; then
+          echo "::error::Code Analyzer could not review this change (exit $STATUS)."
+          exit "$STATUS"
+        fi
+        echo "gate-status=$STATUS" >> "$GITHUB_OUTPUT"
 
-        FINDINGS=$(cat findings.json)
-        echo "findings<<EOF" >> "$GITHUB_OUTPUT"
-        echo "$FINDINGS" >> "$GITHUB_OUTPUT"
-        echo "EOF" >> "$GITHUB_OUTPUT"
+        # **A delimiter nobody's content can contain, rather than `EOF`.** The value is a JSON report of a code review,
+        # and a review of a file that itself contains a line reading `EOF` would otherwise end the heredoc early and
+        # truncate the output into an unparseable half.
+        DELIMITER="FINDINGS_$(date +%s%N)"
+        {
+          echo "findings<<${DELIMITER}"
+          cat findings.json
+          echo "${DELIMITER}"
+        } >> "$GITHUB_OUTPUT"
+
+        # The declared `summary` output is the Markdown this run rendered, not a second invocation's. It is read from
+        # the file for the same reason: whatever `--summary` wrote is what the output is, by construction.
+        SUMMARY_DELIMITER="SUMMARY_$(date +%s%N)"
+        {
+          echo "summary<<${SUMMARY_DELIMITER}"
+          cat review.md
+          echo "${SUMMARY_DELIMITER}"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Upload Findings
       if: always()
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
       with:
         name: code-analyzer-findings
-        path: findings.json
+        path: |
+          findings.json
+          review.md
         if-no-files-found: warn
 
     - name: Post PR Comment
@@ -146,22 +176,26 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        SUMMARY=$(node "${{ inputs.cli-path }}" review-pr \
-          --token "${{ inputs.github-token }}" \
-          --repo "${{ github.repository }}" \
-          --pr "${{ github.event.pull_request.number }}" \
-          --format markdown 2>/dev/null || echo "Analysis completed")
-
+        # **`review.md` is the run that was already made.** This step used to call `review-pr --format markdown` again,
+        # suppressing its stderr with `2>/dev/null` and papering over any failure with `|| echo "Analysis completed"` —
+        # so a review that crashed posted a comment saying it had finished.
         {
           echo '### Code Analyzer Review'
           echo
-          echo "$SUMMARY"
+          cat review.md
         } > comment.md
-
-        echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
 
         gh pr comment "${{ github.event.pull_request.number }}" \
           --repo "${{ github.repository }}" \
           --body-file comment.md
       env:
         GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Enforce the gate
+      shell: bash
+      run: |
+        # The verdict `--fail-on` produced, applied after everything that reports on it has run.
+        if [ "${{ steps.review.outputs.gate-status }}" = "1" ]; then
+          echo "::error::Findings at or above the configured severity were reported and fail-on is not off."
+          exit 1
+        fi

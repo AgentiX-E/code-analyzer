@@ -2,7 +2,14 @@
 // @code-analyzer/cli — Initialize project configuration
 // Creates .code-analyzer/ directory with default standards.json and config
 
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { resolve, join } from 'node:path';
 
 import { DEFAULT_STANDARDS } from '@code-analyzer/intelligence';
@@ -55,7 +62,8 @@ export function projectStandard(): ProjectStandard {
     name: 'Project Standards',
     version: '1.0.0',
     category: 'custom',
-    description: 'The rule set this project reviews against, seeded from the standards Code Analyzer ships.',
+    description:
+      'The rule set this project reviews against, seeded from the standards Code Analyzer ships.',
     rules: [...rules.values()],
     examples: [],
   };
@@ -81,6 +89,36 @@ const DEFAULT_CONFIG = {
 };
 
 const GITIGNORE_ENTRY = '\n# Code Analyzer\n.code-analyzer/data/\n';
+
+/**
+ * Write `contents` to `path`, or report that the file is already there.
+ *
+ * **The check and the write are one operation.** This used to read `existsSync(path) || force` and then write, which is
+ * a time-of-check to time-of-use race: the file can appear between the two, and the write then silently destroys
+ * whatever was written in between — a standards file someone had just edited, in the case that matters. CodeQL reported
+ * it as `js/file-system-race` on `standards.json` and the fix is not to suppress the alert but to use the flag the
+ * kernel already offers: `wx` creates and fails with `EEXIST` atomically.
+ *
+ * @returns whether the file was written (true) or already existed (false).
+ */
+function writeIfAbsent(path: string, contents: string, force: boolean): boolean {
+  if (force) {
+    writeFileSync(path, contents);
+    return true;
+  }
+  try {
+    writeFileSync(path, contents, { flag: 'wx' });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    // **`EEXIST` means "that path is taken", not "that file is here".** `O_EXCL` fails on a directory too, and calling a
+    // directory an existing standards file sends a reader to edit something that is not a file.
+    if (!statSync(path).isFile()) {
+      throw new Error(`${path} exists and is not a regular file`);
+    }
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Implementation
@@ -116,8 +154,7 @@ export function initProject(options: InitOptions = {}): InitResult {
 
   // standards.json
   const standardsPath = join(configDir, 'standards.json');
-  if (!existsSync(standardsPath) || force) {
-    writeFileSync(standardsPath, JSON.stringify(projectStandard(), null, 2) + '\n');
+  if (writeIfAbsent(standardsPath, JSON.stringify(projectStandard(), null, 2) + '\n', force)) {
     filesCreated.push('standards.json');
   } else {
     filesExisting.push('standards.json');
@@ -125,8 +162,7 @@ export function initProject(options: InitOptions = {}): InitResult {
 
   // config.json
   const configPath = join(configDir, 'config.json');
-  if (!existsSync(configPath) || force) {
-    writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
+  if (writeIfAbsent(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n', force)) {
     filesCreated.push('config.json');
   } else {
     filesExisting.push('config.json');
@@ -137,7 +173,10 @@ export function initProject(options: InitOptions = {}): InitResult {
   try {
     const existing = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf-8') : '';
     if (!existing.includes('.code-analyzer/data/')) {
-      writeFileSync(gitignorePath, (existing.trimEnd() + GITIGNORE_ENTRY).trimEnd() + '\n');
+      // **`appendFileSync`, not a read-modify-write.** The read above decides *whether* to add the entry; the append is
+      // what adds it, so a line another process wrote in between survives instead of being replaced by a copy of this
+      // file as it looked a moment earlier.
+      appendFileSync(gitignorePath, (existing.trimEnd() + GITIGNORE_ENTRY).trimEnd() + '\n');
       // `filesCreated` only ever holds 'standards.json', 'config.json' and
       // '.gitignore (updated)', none of which equals '.gitignore', so the
       // containment check that used to guard this push was always true.

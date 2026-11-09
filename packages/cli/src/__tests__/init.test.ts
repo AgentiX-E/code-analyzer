@@ -164,3 +164,24 @@ describe('initProject — .gitignore write failure', () => {
     expect(result.filesCreated).not.toContain('.gitignore (updated)');
   });
 });
+
+describe('initProject — a config path that exists but is not writable as a file', () => {
+  it('surfaces the failure instead of calling the path existing', () => {
+    const dir = resolve(
+      tmpdir(),
+      `code-analyzer-init-dir-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    try {
+      // A directory where `standards.json` should be. `existsSync` says yes; `writeFileSync` with `wx` says EISDIR.
+      mkdirSync(join(dir, '.code-analyzer', 'standards.json'), { recursive: true });
+
+      // **Reported, not swallowed.** The previous implementation asked `existsSync` first and then wrote, so a path that
+      // existed as a directory was reported as an existing standards file — an init claiming to have found
+      // configuration nobody could read. `wx` makes the write the check; `EEXIST` alone cannot tell a file from a
+      // directory, so the branch that recovers from it asks what is actually there.
+      expect(() => initProject({ directory: dir })).toThrow(/exists and is not a regular file/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

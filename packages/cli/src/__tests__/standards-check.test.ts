@@ -6,7 +6,6 @@
 import { DEFAULT_STANDARDS } from '@code-analyzer/intelligence';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-
 import { createRepo, type GitFixture } from './git-fixture.js';
 import { projectStandard } from '../commands/init.js';
 import {
@@ -24,7 +23,6 @@ import {
   resolveStandards,
   runStandardsCheck,
 } from '../commands/standards-check.js';
-
 
 /** A file with a hardcoded credential, which several shipped standards are written to catch. */
 const SECRET_SOURCE = [
@@ -82,7 +80,9 @@ describe('parseStandardsFile', () => {
 
   it('refuses a JSON value that is not a standard', () => {
     expect(() => parseStandardsFile('42', 'n.json')).toThrow(/expected an object/);
-    expect(() => parseStandardsFile('{"rules":[]}', 'n.json')).toThrow(/expected an object with "id"/);
+    expect(() => parseStandardsFile('{"rules":[]}', 'n.json')).toThrow(
+      /expected an object with "id"/,
+    );
   });
 });
 
@@ -111,7 +111,11 @@ describe('readStandardsFile', () => {
 describe('resolveStandards', () => {
   it('resolves ids in the order asked for', () => {
     const engine = createStandardsEngine();
-    const standards = resolveStandards(engine, ['std-security-essentials', 'std-naming'], undefined);
+    const standards = resolveStandards(
+      engine,
+      ['std-security-essentials', 'std-naming'],
+      undefined,
+    );
     expect(standards.map((s) => s.id)).toEqual(['std-security-essentials', 'std-naming']);
   });
 
@@ -136,7 +140,9 @@ describe('resolveStandards', () => {
   it('refuses a file standard that shadows a shipped one, rather than letting an id mean two things', () => {
     const engine = createStandardsEngine();
     const text = JSON.stringify({ ...projectStandard(), id: 'security-baseline' });
-    expect(() => resolveStandards(engine, [], { path: 's.json', text })).toThrow(/security-baseline/);
+    expect(() => resolveStandards(engine, [], { path: 's.json', text })).toThrow(
+      /security-baseline/,
+    );
   });
 });
 
@@ -216,13 +222,16 @@ describe('runStandardsCheck', () => {
     // The threshold decides what is listed. It must never make a standard look more compliant than it is.
     expect(strict.entries[0]?.summary.critical).toBe(lenient.entries[0]?.summary.critical);
     expect(strict.entries[0]?.complianceScore).toBe(lenient.entries[0]?.complianceScore);
-    expect((strict.entries[0]?.violations.length ?? 0) <= (lenient.entries[0]?.violations.length ?? 0)).toBe(
-      true,
-    );
+    expect(
+      (strict.entries[0]?.violations.length ?? 0) <= (lenient.entries[0]?.violations.length ?? 0),
+    ).toBe(true);
   });
 
   it('exits 0 when advisory and 1 when the caller asked to fail', async () => {
-    const advisory = await runStandardsCheck({ repo: repo.dir, standards: ['std-security-essentials'] });
+    const advisory = await runStandardsCheck({
+      repo: repo.dir,
+      standards: ['std-security-essentials'],
+    });
     const enforcing = await runStandardsCheck({
       repo: repo.dir,
       standards: ['std-security-essentials'],
@@ -291,7 +300,11 @@ describe('standards presentation', () => {
     const parsed = JSON.parse(formatStandardsJson(entries.entries)) as unknown[];
     expect(Array.isArray(parsed)).toBe(true);
 
-    const first = parsed[0] as { standardId: string; complianceScore: number; summary: { critical: number } };
+    const first = parsed[0] as {
+      standardId: string;
+      complianceScore: number;
+      summary: { critical: number };
+    };
     expect(typeof first.standardId).toBe('string');
     expect(typeof first.complianceScore).toBe('number');
     expect(typeof first.summary.critical).toBe('number');
@@ -312,7 +325,11 @@ describe('standards presentation', () => {
       'std-naming',
     );
     const markdown = formatStandardsMarkdown([
-      { ...clean, violations: flattenViolations(clean, clean.standardId), files: { changed: 1, filtered: 0, truncated: 0, unreadable: [] } },
+      {
+        ...clean,
+        violations: flattenViolations(clean, clean.standardId),
+        files: { changed: 1, filtered: 0, truncated: 0, unreadable: [] },
+      },
     ]);
     expect(markdown).toContain('No violations at or above the reported severity.');
   });
@@ -328,14 +345,27 @@ describe('standards presentation', () => {
 
 describe('parseStandardsFile — the shapes a hand-written file takes', () => {
   it('refuses an object with an id but no rules array', () => {
-    expect(() => parseStandardsFile('{"id":"x"}', 'x.json')).toThrow(/expected an object with "id" and "rules"/);
+    expect(() => parseStandardsFile('{"id":"x"}', 'x.json')).toThrow(
+      /expected an object with "id" and "rules"/,
+    );
   });
 
   it('refuses an object with rules but no id, once the rules themselves are well formed', () => {
     const text = JSON.stringify({
-      rules: [{ id: 'r', description: 'd', checkType: 'regex', checkConfig: { pattern: 'x' }, severity: 'low', autoFixable: false }],
+      rules: [
+        {
+          id: 'r',
+          description: 'd',
+          checkType: 'regex',
+          checkConfig: { pattern: 'x' },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
     });
-    expect(() => parseStandardsFile(text, 'x.json')).toThrow(/expected an object with "id" and "rules"/);
+    expect(() => parseStandardsFile(text, 'x.json')).toThrow(
+      /expected an object with "id" and "rules"/,
+    );
   });
 });
 
@@ -353,7 +383,10 @@ describe('readStandardsFile — a path that exists but is not a file', () => {
 describe('formatStandardsMarkdown — coverage a reader is owed', () => {
   it('says how much of the change the verdict covers, when it is not all of it', () => {
     const engine = createStandardsEngine();
-    const clean = engine.checkFiles([{ path: 'a.ts', content: 'export const a = 1;\n' }], 'std-naming');
+    const clean = engine.checkFiles(
+      [{ path: 'a.ts', content: 'export const a = 1;\n' }],
+      'std-naming',
+    );
     const markdown = formatStandardsMarkdown([
       {
         ...clean,
@@ -373,7 +406,11 @@ describe('standards presentation — the cases a report must survive', () => {
     const engine = createStandardsEngine();
     const result = engine.checkFiles([{ path: 'a.ts', content: 'TODO later\n' }], 'std-general');
     const entries = [
-      { ...result, violations: flattenViolations(result, result.standardId), files: { changed: 1, filtered: 0, truncated: 0, unreadable: [] } },
+      {
+        ...result,
+        violations: flattenViolations(result, result.standardId),
+        files: { changed: 1, filtered: 0, truncated: 0, unreadable: [] },
+      },
     ];
     const noisy = entries.map((entry) => ({
       ...entry,
@@ -387,7 +424,9 @@ describe('standards presentation — the cases a report must survive', () => {
 
   it('says there was nothing to check when there were no entries', () => {
     expect(formatStandardsText([])).toContain('No standards were checked.');
-    expect(formatStandardsMarkdown([])).toContain('No violations at or above the reported severity.');
+    expect(formatStandardsMarkdown([])).toContain(
+      'No violations at or above the reported severity.',
+    );
   });
 });
 
@@ -438,7 +477,13 @@ describe('standards presentation — a violation with nothing to say', () => {
           severity: 'medium' as const,
           autoFixable: false,
           violations: [
-            { filePath: 'a.ts', lineNumber: 2, message: '', codeSnippet: 'const a = 1;', standardRef: 'terse-rule' },
+            {
+              filePath: 'a.ts',
+              lineNumber: 2,
+              message: '',
+              codeSnippet: 'const a = 1;',
+              standardRef: 'terse-rule',
+            },
           ],
         },
       ],
@@ -446,5 +491,83 @@ describe('standards presentation — a violation with nothing to say', () => {
 
     const violations = flattenViolations(synthetic, 'handmade');
     expect(violations[0]?.description).toBe('The rule that fired');
+  });
+});
+
+describe('runStandardsCheck — which violations a pull request can carry', () => {
+  let repo: GitFixture;
+
+  // Line 2 is a `console.log` the change never touches, and there are enough lines after it that the hunk's context
+  // cannot reach it; the appended function adds one inside the hunk. Same rule, same severity — the only thing telling
+  // the two apart is where they land.
+  const BASE = [
+    'export const answer = 42;',
+    "console.log('outside the change');",
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `export const filler${n} = ${n};`),
+    '',
+  ].join('\n');
+  const HEAD = [
+    BASE,
+    'export function report(): void {',
+    "  console.log('inside the change');",
+    '}',
+    '',
+  ].join('\n');
+
+  beforeAll(() => {
+    repo = createRepo();
+    repo.write('src/logging.ts', BASE);
+    repo.commit('a file with a console.log in it');
+    repo.branch('with-a-change');
+    repo.write('src/logging.ts', HEAD);
+    repo.commit('append a function that logs');
+  });
+
+  afterAll(() => {
+    repo.cleanup();
+  });
+
+  it('marks the one inside the diff and the one outside it, because GitHub can anchor only the first', async () => {
+    const run = await runStandardsCheck({
+      repo: repo.dir,
+      targetBranch: 'main',
+      sourceBranch: 'with-a-change',
+      standards: ['std-security'],
+      severity: 'info',
+    });
+    if (!run.ok) throw new Error(run.error);
+
+    const violations = run.entries.flatMap((entry) => entry.violations);
+    const untouched = violations.find((violation) => violation.line === 2);
+    const appended = violations.find((violation) => violation.line === 13);
+
+    expect(untouched?.rule).toBe('no-console-log');
+    expect(untouched?.inDiff).toBe(false);
+    expect(appended?.line).toBe(13);
+    expect(appended?.inDiff).toBe(true);
+  });
+
+  it('does not claim to know which lines are in a diff when there is no diff', async () => {
+    const run = await runStandardsCheck({ repo: repo.dir, standards: ['std-security'] });
+    if (!run.ok) throw new Error(run.error);
+
+    const violations = run.entries.flatMap((entry) => entry.violations);
+    expect(violations.length).toBeGreaterThan(0);
+    // Absent, not `false`: a tree has no changed lines, and `false` would describe a change nobody made.
+    expect(violations.every((violation) => !('inDiff' in violation))).toBe(true);
+  });
+
+  it('counts the violations a reader will not see beside the code', async () => {
+    const run = await runStandardsCheck({
+      repo: repo.dir,
+      targetBranch: 'main',
+      sourceBranch: 'with-a-change',
+      standards: ['std-security'],
+      severity: 'info',
+    });
+    if (!run.ok) throw new Error(run.error);
+
+    const markdown = formatStandardsMarkdown(run.entries);
+    expect(markdown).toMatch(/_1 of these 2 are on lines this change did not touch/);
   });
 });
