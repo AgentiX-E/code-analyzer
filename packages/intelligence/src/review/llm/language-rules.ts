@@ -36,7 +36,9 @@ export type RuleLanguage =
   | 'json'
   | 'kotlin'
   | 'swift'
-  | 'arkts';
+  | 'arkts'
+  | 'cpp'
+  | 'go';
 
 /**
  * One defect pattern and the condition under which it is not a defect.
@@ -337,7 +339,7 @@ const GROOVY: LanguageDefinition = {
 const XML: LanguageDefinition = {
   language: 'xml',
   label: 'XML and build descriptors',
-  extensions: ['.xml', '.pom', '.xsd', '.xsl', '.xslt'],
+  extensions: ['.xml', '.pom', '.xsd', '.xsl', '.xslt', '.ui'],
   rules: [
     {
       id: 'xml.xxe',
@@ -607,6 +609,124 @@ const ARKTS: LanguageDefinition = {
   ],
 };
 
+const CPP: LanguageDefinition = {
+  language: 'cpp',
+  label: 'C and C++',
+  extensions: ['.c', '.h', '.cc', '.cpp', '.cxx', '.hpp', '.hxx', '.hh', '.inl'],
+  rules: [
+    {
+      id: 'cpp.raw-owning-pointer',
+      report:
+        'A `new` or `malloc` result stored in a raw pointer that no destructor, `delete` or owner covers on every path out of the function, including the throw path.',
+      notWhen:
+        'the pointer is handed to a smart pointer, returned to a caller that owns it, or stored in a member whose destructor frees it in the same class.',
+    },
+    {
+      id: 'cpp.dangling-reference',
+      report:
+        'A reference or pointer taken from a container or a temporary that the same hunk then invalidates by inserting, erasing or destroying it.',
+      notWhen:
+        'the container has reserved capacity and is not reallocated by the operation, or the reference is re-acquired after the mutation.',
+    },
+    {
+      id: 'cpp.buffer-length-mismatch',
+      report:
+        'A memcpy, strncpy or sprintf whose length comes from a different buffer than the destination.',
+      notWhen:
+        'the length is `sizeof(dst)` or a constant the same hunk shows is at most the destination size.',
+    },
+    {
+      id: 'cpp.uninitialised-read',
+      report:
+        'A local read on a path where no assignment precedes it, on a scalar or trivial type.',
+      notWhen:
+        'the type has a default constructor that initialises the member, or a guard on the same path assigns it before the read.',
+    },
+    {
+      id: 'cpp.non-virtual-destructor',
+      report: 'A polymorphic base class whose destructor is neither virtual nor protected.',
+      notWhen:
+        'the class is never destroyed through a base pointer by contract, or the destructor is protected so that deleting through the base does not compile.',
+    },
+    {
+      id: 'cpp.signed-unsigned-mix',
+      report:
+        'A signed value compared with, or subtracted from, a `size()` or `sizeof` result, where a negative value becomes a very large unsigned one.',
+      notWhen:
+        'the signed value is proven non-negative in the same hunk (a guard, a cast checked just above).',
+    },
+    {
+      id: 'cpp.slice-on-catch',
+      report:
+        'An exception caught by value where the type is polymorphic, which slices the derived part.',
+      notWhen:
+        'the exception type is final, or the handler only uses what the base carries and says so.',
+    },
+    {
+      id: 'cpp.header-definition',
+      report:
+        'A non-inline function or a non-inline variable defined in a header, which every translation unit including it defines again.',
+      notWhen:
+        'the definition is `inline`, a template, a member of a class body, or inside an unnamed namespace.',
+    },
+  ],
+};
+
+const GO: LanguageDefinition = {
+  language: 'go',
+  label: 'Go',
+  extensions: ['.go'],
+  rules: [
+    {
+      id: 'go.discarded-error',
+      report:
+        'An error returned by a call and then discarded by assigning it to `_` or by not using it.',
+      notWhen:
+        'the call is documented never to return a non-nil error, or the discard carries a comment saying why, or the error is checked on the next line.',
+    },
+    {
+      id: 'go.goroutine-without-exit',
+      report:
+        'A goroutine started with no way for the caller to make it stop: no context, no done channel, no close.',
+      notWhen:
+        'the goroutine returns when a channel the caller closes is closed, or it ends when its input is exhausted and the input is finite.',
+    },
+    {
+      id: 'go.mutex-copied',
+      report:
+        'A struct containing a sync.Mutex, sync.Once or sync.WaitGroup copied by value, which copies the lock.',
+      notWhen:
+        'the copy is of a type that deliberately embeds the lock behind a pointer, or the copy is a snapshot of immutable fields only.',
+    },
+    {
+      id: 'go.nil-map-write',
+      report: 'An assignment into a map that can be nil on that path, which panics at run time.',
+      notWhen:
+        'the map is initialised in the same function, or by the constructor the same hunk calls, or it is read-only here.',
+    },
+    {
+      id: 'go.loop-variable-captured',
+      report:
+        'A loop variable captured by a goroutine or a closure that outlives the iteration, in a module whose go directive predates 1.22.',
+      notWhen:
+        'the module declares go 1.22 or later, or the variable is re-bound inside the loop body.',
+    },
+    {
+      id: 'go.defer-in-loop',
+      report:
+        'A defer inside a loop body, which holds every resource until the enclosing function returns.',
+      notWhen:
+        'the loop is bounded by a constant small enough that the accumulation is bounded, and the hunk shows it.',
+    },
+    {
+      id: 'go.context-not-first',
+      report: 'A function taking a context.Context anywhere but as its first parameter.',
+      notWhen:
+        'the function is an adapter required by an interface whose signature the repository does not own.',
+    },
+  ],
+};
+
 /** Every definition, in the order the audit lists the priority languages. */
 export const LANGUAGES: readonly LanguageDefinition[] = [
   JAVA,
@@ -620,6 +740,14 @@ export const LANGUAGES: readonly LanguageDefinition[] = [
   KOTLIN,
   SWIFT,
   ARKTS,
+  // **Added by the §8 amendment, and the order says why.** The priority list is eleven languages this product supports
+  // first; **the corpus the registered comparison reads is not written in them** - of the first fourteen pull requests,
+  // 216 of its files are `.cpp`/`.h`, 38 are `.go`, and 28 are the eleven. So the device as first written would have
+  // been **silent on two thirds of the files it was registered to be measured on**, and the run would have reported a
+  // gain diluted to nothing rather than a device that does not work. That was found by counting the corpus's file
+  // extensions **before** either arm produced an artifact, and the amendment is recorded in §8.5 of the contract.
+  CPP,
+  GO,
 ];
 
 /**
