@@ -557,3 +557,182 @@ describe('a path quoted, absolute, or answered by a lane that failed', () => {
     expect(engine.lastCounts?.kept).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The diff a pull request is allowed to show
+// ---------------------------------------------------------------------------
+
+describe('a pull request larger than the diff budget', () => {
+  /** A section of a given path whose text is long enough to be clipped. */
+  const long = (path: string, lines: number) => ({
+    path,
+    diffText: [
+      `diff --git a/${path} b/${path}`,
+      `--- a/${path}`,
+      `+++ b/${path}`,
+      `@@ -1,1 +1,${lines} @@`,
+      ...Array.from({ length: lines }, (_, at) => `+const value${at} = ${at};`),
+    ].join('\n'),
+  });
+
+  it('shows every file something rather than showing the first one perfectly', async () => {
+    const sections = ['a.ts', 'b.ts', 'c.ts', 'd.ts'].map((path) => long(path, 120));
+    const { provider, prompts } = providerReturning(payload([]));
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      maxDiffLengthPerPullRequest: 4000,
+    });
+
+    await engine.reviewPullRequest(sections);
+
+    // **The default `maxDiffLength` kept the first four thousand characters and the last four thousand**, which on a
+    // pull request of four files is the first one and part of the last. **Each of the four has to be named in the
+    // prompt it is reviewed from**, or the review is of one file wearing a pull request's name.
+    for (const path of ['a.ts', 'b.ts', 'c.ts', 'd.ts']) {
+      expect(prompts[0]).toContain(path);
+    }
+  });
+
+  it('says which file was clipped and by how much, because silence reads as absence', async () => {
+    const sections = [long('a.ts', 400), long('b.ts', 10)];
+    const { provider, prompts } = providerReturning(payload([]));
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      maxDiffLengthPerPullRequest: 3000,
+    });
+
+    await engine.reviewPullRequest(sections);
+
+    expect(prompts[0]).toMatch(/\[\d+ characters of a\.ts not shown\]/);
+    // **The small file is shown whole**, because the share the large one did not need went to the one that did.
+    expect(prompts[0]).not.toContain('characters of b.ts not shown');
+  });
+
+  it('shows a pull request that fits in one piece, with no annotation at all', async () => {
+    const { provider, prompts } = providerReturning(payload([]));
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      maxDiffLengthPerPullRequest: 100_000,
+    });
+
+    await engine.reviewPullRequest([long('a.ts', 5), long('b.ts', 5)]);
+
+    expect(prompts[0]).not.toContain('not shown');
+  });
+});
+
+describe('a renamed file, and the two names a diff gives it', () => {
+  const renamedSection = {
+    path: 'src/new-name.ts',
+    diffText: [
+      'diff --git a/src/old-name.ts b/src/new-name.ts',
+      'similarity index 90%',
+      'rename from src/old-name.ts',
+      'rename to src/new-name.ts',
+      '--- a/src/old-name.ts',
+      '+++ b/src/new-name.ts',
+      '@@ -4,2 +4,3 @@',
+      ' const kept = 1;',
+      '+const added = 2;',
+    ].join('\n'),
+  };
+
+  it('accepts the left-hand name as the same file and stores the right-hand one', async () => {
+    const { provider } = providerReturning(
+      payload([finding({ path: 'src/old-name.ts', startLine: 5, endLine: 5 })]),
+    );
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+
+    const results = await engine.reviewPullRequest([renamedSection]);
+
+    // **One file, two names.** A finding that used the name from before the rename is about the file the pull request
+    // changed, so it is kept - **and it is stored under the name the file has now**, which is where a comment goes.
+    expect(results[0]!.findings).toHaveLength(1);
+    expect(results[0]!.findings[0]!.path).toBe('src/new-name.ts');
+    expect(engine.lastCounts?.dropped.unknownPath).toBe(0);
+  });
+
+  it('keeps a sample of what each rule removed, with the path the model claimed', async () => {
+    const { provider } = providerReturning(
+      payload([finding({ path: 'src/nowhere.ts' }), finding({ path: '' })]),
+    );
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+
+    await engine.reviewPullRequest([renamedSection]);
+
+    // **A count that cannot be explained is a count that gets explained by whoever writes the report**, so the first
+    // few findings a rule removed travel with the counts.
+    expect(engine.lastCounts?.dropped.samples).toEqual([
+      { path: 'src/nowhere.ts', title: 'Retries are derived from the limit', rule: 'unknownPath' },
+      { path: '', title: 'Retries are derived from the limit', rule: 'missingPath' },
+    ]);
+  });
+});
+
+describe('two lanes saying the same sentence in the same file', () => {
+  /** One file, two hunks far apart, so a claim can be made twice at two distances. */
+  const spread = {
+    path: 'src/limit.ts',
+    diffText: [
+      'diff --git a/src/limit.ts b/src/limit.ts',
+      '--- a/src/limit.ts',
+      '+++ b/src/limit.ts',
+      '@@ -8,2 +8,3 @@',
+      ' const limit = 10;',
+      '+const retries = limit;',
+      '@@ -398,2 +399,3 @@',
+      ' function later() {',
+      '+  return limit;',
+    ].join('\n'),
+  };
+
+  const claim = (startLine: number) =>
+    finding({
+      path: 'src/limit.ts',
+      startLine,
+      endLine: startLine,
+      title: 'The limit is not validated',
+      description: 'The limit arrives from configuration and nothing checks it before use.',
+    });
+
+  it('merges them when they are one construct apart', async () => {
+    const { provider } = providerReturning(payload([claim(9)]), payload([claim(12)]));
+    const engine = new LLMReviewEngine(provider, { lanes: ['security', 'maintainability'] });
+
+    const results = await engine.reviewPullRequest([spread]);
+    const kept = results.flatMap((result) => result.findings);
+
+    // Three lines apart, one sentence: **that is two lanes describing one defect**, and the agreement is worth keeping.
+    expect(kept).toHaveLength(1);
+    expect(kept[0]!.agreement).toBe(2);
+  });
+
+  it('keeps both when the same sentence describes two different places', async () => {
+    const { provider } = providerReturning(payload([claim(9)]), payload([claim(400)]));
+    const engine = new LLMReviewEngine(provider, { lanes: ['security', 'maintainability'] });
+
+    const results = await engine.reviewPullRequest([spread]);
+    const kept = results.flatMap((result) => result.findings);
+
+    // **Four hundred lines apart and the same wording is a shared vocabulary, not a shared defect** - and the first
+    // pull-request run merged half its surviving findings this way, leaving 6.6 comments for a pull request whose
+    // budget allowed 16.
+    expect(kept).toHaveLength(2);
+    expect(kept.map((f) => f.startLine).sort((a, b) => a - b)).toEqual([9, 400]);
+  });
+});
+
+describe('more drops than the sample keeps', () => {
+  it('counts every one and keeps the first twenty, because a sample is not a log', async () => {
+    const many = Array.from({ length: 25 }, (_, at) =>
+      finding({ path: `src/missing-${at}.ts`, title: `Claim ${at}` }),
+    );
+    const { provider } = providerReturning(payload(many));
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+
+    await engine.reviewPullRequest([LIMIT, BUDGET]);
+
+    expect(engine.lastCounts?.dropped.unknownPath).toBe(25);
+    expect(engine.lastCounts?.dropped.samples).toHaveLength(20);
+  });
+});

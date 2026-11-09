@@ -1380,6 +1380,17 @@ async function main() {
           capped: own.capped,
         };
       }
+      // **And the findings the rules removed, by path and by rule**, because the first run of this arm dropped 31 of
+      // 120 as `unknownPath` and **the artifact could not say which paths they named**.
+      const samples = engine.lastCounts.dropped.samples ?? [];
+      for (const sample of samples) {
+        if (!engineCounters.pullRequestArm.droppedSamples) {
+          engineCounters.pullRequestArm.droppedSamples = [];
+        }
+        if (engineCounters.pullRequestArm.droppedSamples.length < 20) {
+          engineCounters.pullRequestArm.droppedSamples.push(sample);
+        }
+      }
     }
 
     reviewed += 1;

@@ -28,6 +28,17 @@ export interface LLMReviewOptions {
   parallel?: boolean;
   /** Maximum diff content length in characters before truncation. Defaults to 8000. */
   maxDiffLength?: number;
+  /**
+   * **Maximum diff content a pull-request call may show, in characters.** Defaults to 48000.
+   *
+   * **Why a pull request needs its own number.** `maxDiffLength` is sized for one file, and a pull request that
+   * touches a hundred files exceeds it by an order of magnitude. **The first version of the pull-request scope reused
+   * it, and the truncation kept the first four thousand characters and the last four thousand** - which on a
+   * hundred-file pull request is **two files out of a hundred, shown perfectly, and ninety-eight not shown at all.**
+   * The arms would then have differed by a truncation rather than by a scope, and the figure would have been a
+   * measurement of the clip.
+   */
+  maxDiffLengthPerPullRequest?: number;
   /** LLM temperature for completions. Defaults to 0.3. */
   temperature?: number;
   /** Timeout per lane request in milliseconds. Defaults to 120000. */
@@ -100,13 +111,23 @@ export interface PullRequestReviewOptions {
   maxFindingsPerPullRequest?: number;
 }
 
-const DEFAULT_PULL_REQUEST_BUDGET = 12;
+const DEFAULT_PULL_REQUEST_BUDGET = 16;
+
+/**
+ * **How far apart two findings may sit and still be the same construct.**
+ *
+ * The wording-only merge has no location evidence by definition - it exists for the case where two lanes describe one
+ * defect in different words, and their ranges disagree because they disagree about where it starts. **Thirty lines is
+ * a function, not a file**: past that, a shared sentence is a shared vocabulary rather than a shared defect.
+ */
+const sameConstructLines = 30;
 
 const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   lanes: ['security', 'architecture', 'performance', 'maintainability', 'testing'],
   maxTokensPerLane: 4096,
   parallel: true,
   maxDiffLength: 8000,
+  maxDiffLengthPerPullRequest: 48_000,
   temperature: 0.3,
   laneTimeout: 120_000,
   // **The content-word overlap at which two findings are the same one.**
@@ -261,11 +282,19 @@ export class LLMReviewEngine {
           ? sameLocation
           : survivors.findIndex(
               (k) =>
-                // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range
-                // is a hint that this iteration already watched a filter discard 207 findings over.
-                // **And only within one file**, because **two files each with an unfixed null check are two comments a
-                // developer has to make**, and a merge keyed on wording alone turns them into one.
+                // **Or the same shape of sentence, close enough to be the same construct**, because **two lanes do not
+                // word a defect identically** and a range is a hint that this iteration already watched a filter
+                // discard 207 findings over.
+                //
+                // **Both constraints are load-bearing, and the second was missing.** Within one file, because **two
+                // files each with an unfixed null check are two comments a developer has to make**; and within
+                // `sameConstructLines` of each other, because **a five-lane review of one pull request writes the same
+                // sentence about different defects** - "this value is not checked" is one string at line 20 and at line
+                // 900 - and **the first pull-request run merged 50 of 83 surviving findings this way, leaving 6.6
+                // comments for a whole pull request when the budget allowed 16.** That is a merge keyed on vocabulary,
+                // and vocabulary does not know which defect it is describing.
                 fileOf(k) === fileOf(entry) &&
+                Math.abs(k.finding.startLine - entry.finding.startLine) <= sameConstructLines &&
                 shares(k.words, entry.words) >= this.options.dedupThreshold,
             );
       const survivor = duplicateAt === -1 ? undefined : survivors[duplicateAt];
@@ -354,6 +383,8 @@ export class LLMReviewEngine {
     options?: PullRequestReviewOptions,
   ): Promise<LLMReviewResult[]> {
     const paths = sections.map((section) => section.path);
+    // **Each call explains itself**, so a sample from the previous pull request cannot be read as this one's.
+    this.droppedSamples = [];
     // **A pull request with no file sections is a review of nothing**, and running five lanes over an empty diff would
     // spend five calls to be told so.
     if (paths.length === 0) {
@@ -373,7 +404,7 @@ export class LLMReviewEngine {
       return [];
     }
     const budget = options?.maxFindingsPerPullRequest ?? DEFAULT_PULL_REQUEST_BUDGET;
-    const diffContent = sections.map((section) => section.diffText).join('\n');
+    const diffContent = this.showPullRequestDiff(sections);
 
     const ctx: PromptContext = {
       diffContent: this.truncateDiff(diffContent),
@@ -430,7 +461,7 @@ export class LLMReviewEngine {
     this.lastCounts = {
       parsed,
       kept: deduplicated.reduce((sum, result) => sum + result.findings.length, 0),
-      dropped: { ...dropped, kept: 0, total: parsed },
+      dropped: { ...dropped, kept: 0, total: parsed, samples: this.droppedSamples },
     };
     return deduplicated;
   }
@@ -538,6 +569,8 @@ export class LLMReviewEngine {
       capped: number;
       kept: number;
       total: number;
+      /** **The first few findings a rule removed**, so a count can be explained rather than guessed at. */
+      samples?: Array<{ path?: string; title: string; rule: string }>;
     };
   } | null = null;
 
@@ -550,6 +583,21 @@ export class LLMReviewEngine {
     kept: 0,
     total: 0,
   };
+
+  /**
+   * **The first few findings each rule removed, with the path they claimed**, so a count can be explained rather than
+   * guessed at.
+   *
+   * **Why this exists, in one number.** The first pull-request run dropped **31 of 120** parsed findings as
+   * `unknownPath`, and nothing in the artifact said which paths they named - so the next reader could only hypothesise
+   * about renames, separators or prefixes. **A counter that cannot be explained is a counter that gets explained by
+   * whoever is writing the report.**
+   */
+  private droppedSamples: Array<{ path?: string; title: string; rule: string }> = [];
+
+  private noteDrop(sample: { path?: string; title: string; rule: string }): void {
+    if (this.droppedSamples.length < 20) this.droppedSamples.push(sample);
+  }
 
   /** **What each lane parsed and what it lost**, kept per lane so a pull-request call can report the whole call. */
   private readonly parsedByLane = new Map<ReviewLane, number>();
@@ -592,12 +640,25 @@ export class LLMReviewEngine {
     // every hunk of that section pushes into the same one, so **a file whose section holds no hunk is still present
     // with no ranges** - which is the answer a rename needs, and which a lookup-per-hunk could not tell apart from a
     // file the diff never mentioned.
+    /**
+     * **Both spellings a section can be named by, and the one it is stored under.**
+     *
+     * `diff --git a/old.ts b/new.ts` names one file twice, and **a finding about a renamed file may name either** - so a
+     * path that matches the left-hand side is the same file rather than a file the call did not show. **The stored
+     * spelling is the right-hand one**, because that is the file a comment can anchor on.
+     */
+    const canonicalOf = new Map<string, string>();
     let section: Array<{ start: number; end: number }> | null = null;
     for (const raw of String(ctx.diffContent).split('\n')) {
       const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(raw);
       if (header) {
+        const canonical = normaliseReviewPath(String(header[2]));
         section = [];
-        rangesByPath.set(normaliseReviewPath(String(header[2])), section);
+        rangesByPath.set(canonical, section);
+        canonicalOf.set(canonical, canonical);
+        // Only when the two sides differ, so the ordinary case adds nothing a reader has to hold.
+        const before = normaliseReviewPath(String(header[1]));
+        if (before !== canonical) canonicalOf.set(before, canonical);
         continue;
       }
       const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(raw);
@@ -635,14 +696,16 @@ export class LLMReviewEngine {
         if (pullRequestScope) {
           if (typeof f.path !== 'string' || f.path === '') {
             dropped.missingPath += 1;
+            this.noteDrop({ path: f.path, title: f.title, rule: 'missingPath' });
             return false;
           }
-          const canonical = normaliseReviewPath(f.path);
           // **One lookup that both validates and resolves**, rather than a `has` followed by a `get` whose fallback no
           // path could ever take: a branch that cannot be reached is a branch a reader has to prove is unreachable.
-          const ownRanges = rangesByPath.get(canonical);
-          if (!ownRanges) {
+          const canonical = canonicalOf.get(normaliseReviewPath(f.path));
+          const ownRanges = canonical === undefined ? undefined : rangesByPath.get(canonical);
+          if (canonical === undefined || ownRanges === undefined) {
             dropped.unknownPath += 1;
+            this.noteDrop({ path: f.path, title: f.title, rule: 'unknownPath' });
             return false;
           }
           // **The path is rewritten to the spelling the diff used**, which is the same file rather than a relocated
@@ -760,6 +823,52 @@ export class LLMReviewEngine {
   }
 
   /** Truncate diff content to fit within the configured context window. */
+  /**
+   * **Every file gets a share of the budget, because a review of a pull request that shows two files is not a review of
+   * the pull request.**
+   *
+   * The clipping is per section and the leftover is redistributed once, so **a pull request of ninety-nine small files
+   * and one large one shows the small ones whole and clips the large one**, rather than clipping everything to equal
+   * length. **A clipped section says so, by name and in characters**, because a model that is not told what it was not
+   * shown will report the absence as a finding.
+   */
+  private showPullRequestDiff(sections: ReadonlyArray<DiffSection>): string {
+    const budget = this.options.maxDiffLengthPerPullRequest;
+    const total = sections.reduce((sum, section) => sum + section.diffText.length, 0);
+    if (total <= budget) return sections.map((section) => section.diffText).join('\n');
+
+    // **Every section's allowance starts at an equal share, and the share nobody used is not thrown away.**
+    const share = Math.floor(budget / sections.length);
+    const allowance = sections.map((section) => Math.min(section.diffText.length, share));
+    // **Only the share a section did not need is spare** - the difference the other way is demand, and spending demand
+    // as if it were supply is how a budget silently becomes four times its size.
+    let spare = sections.reduce(
+      (sum, _section, at) => sum + Math.max(0, share - allowance[at]!),
+      0,
+    );
+    // **And the spare fills the clipped sections in file order, to completion, before the next one.** A proportional
+    // split would leave every large file equally short, which is the one outcome that shows nothing in full; this way a
+    // pull request of ninety-nine small files and one large one shows the small ones whole.
+    for (let at = 0; at < sections.length && spare > 0; at += 1) {
+      const wants = sections[at]!.diffText.length - allowance[at]!;
+      const give = Math.min(spare, wants);
+      allowance[at] = allowance[at]! + give;
+      spare -= give;
+    }
+
+    return sections
+      .map((section, at) => {
+        const shown = allowance[at]!;
+        if (shown >= section.diffText.length) return section.diffText;
+        const half = Math.floor(shown / 2);
+        const hidden = section.diffText.length - half * 2;
+        // **A clipped section says so, by name and in characters**, because **a model that is not told what it was not
+        // shown reports the absence as a finding** - and that finding is about the clip, not the code.
+        return `${section.diffText.slice(0, half)}\n\n... [${hidden} characters of ${section.path} not shown] ...\n\n${section.diffText.slice(section.diffText.length - half)}`;
+      })
+      .join('\n');
+  }
+
   private truncateDiff(content: string): string {
     if (content.length <= this.options.maxDiffLength) {
       return content;

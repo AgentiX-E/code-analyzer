@@ -251,3 +251,50 @@ A pull request review in this repository would then have two documented scopes r
 hunks, refuses to file a finding against a file the model was not shown, and does not merge two files' findings on the
 strength of a shared line number. **Those four differences are the feature**, and each has a test in
 `pull-request-review.test.ts` rather than a paragraph here.
+
+### 7.1 What the registered run then said, and why it is not the figure
+
+**The run falsified the rule and convicted its implementation.** Both halves belong in the record, and they arrived in
+that order — the figure first:
+
+| figure                                                   | value                                    |
+| -------------------------------------------------------- | ---------------------------------------- |
+| pull-request arm — precision / recall / F1               | 0.2121 / 0.14 / **0.1687**               |
+| file arm, same job, same judge, same goldens             | 0.1765 / 0.36 / **0.2368**               |
+| paired test over detected goldens: both / ours / theirs  | 5 / 2 / 16, exact McNemar **p = 0.0013** |
+| pull-request arm findings kept / parsed                  | 33 / 120                                 |
+| dropped as `unknownPath` / `beyondDiffLength` / `capped` | **31** / 6 / 0                           |
+| five lanes' 83 surviving findings, after deduplication   | **33** — 6.6 comments per pull request   |
+
+**Two of those rows are not a result, they are a defect report**, and each explains a different part of the loss:
+
+1. **The arm was not shown the pull request.** `maxDiffLength` is sized for one file, and the pull-request scope reused
+   it: 8 000 characters, keeping the first four thousand and the last four thousand. **On a hundred-file pull request
+   that is two files shown perfectly and ninety-eight not shown at all**, so the arm differed from the control by a clip
+   as well as by a scope. The scope now has its own budget, spends it **per section** so that every file is shown
+   something, redistributes the share a small file did not need, and annotates a clipped section by name and in
+   characters — because a model that is not told what it was not shown reports the absence as a finding.
+2. **Deduplication was merging by vocabulary and not by location.** The wording-only merge existed for the case where
+   two lanes describe one defect in different words, and it had **no distance constraint**: _"this value is not
+   checked"_ is one string at line 20 and at line 900. Five lanes over one pull request produced 83 survivors and the
+   merge left 33 — **6.6 comments for a pull request whose budget allowed 16**, so **the budget never bound and the arm
+   could not spend it.** The merge now requires the two findings to be in the same file **and within thirty lines**,
+   which is a function rather than a file.
+
+**And a third defect that the counters named rather than the figure.** Of 120 parsed findings, **31 named a path the
+call did not show**, and nothing in the artifact could say which paths they were. **A counter that cannot be explained
+is a counter that gets explained by whoever writes the report**, so the artifact now carries the first twenty of them,
+with the path and the rule. One mechanism is already known and fixed: **a rename names one file twice** — `a/old.ts`,
+`b/new.ts` — and the scope registered only the right-hand side, so a finding about a renamed file was a finding about a
+file the call had not shown. Both sides are now accepted and the right-hand one is stored, because that is where a
+comment anchors.
+
+**What run 1 therefore is.** A run that measured a clip, a merge without a location, and one path rule too narrow. **It
+is recorded here in full and it is not the figure**, because the rule it registered is about where the budget sits and
+that question was not asked. **Run 2 measures the same registered rule on code that implements it**, with the amended
+arithmetic unchanged: 16 findings per pull request, precision above 0.375, F1 above 0.4500.
+
+**And one number that run 1 establishes independently of the rule.** The file arm moved from **0.2727 to 0.2368 between
+two runs of the same protocol** — no code change to the file scope, same judge, same goldens, temperature 0.3. **That is
+±0.04 of run-to-run movement, larger than several differences this project has quoted**, and it is the reason the two
+arms are compared by a paired test inside one job rather than by two figures printed side by side in two reports.
