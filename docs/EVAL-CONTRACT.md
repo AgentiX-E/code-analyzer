@@ -212,3 +212,42 @@ would be quoting a number that this paragraph already explains.
 each reviewer detects is not distinguishable from chance on fifty goldens**. That is not a defence of our number — our
 F1 is half theirs — it is a bound on what fifty goldens can say, and it is the reason the next measurement needs more
 pull requests rather than a lower threshold.
+
+## 7. A second rule, registered before its run
+
+**§6's registered run answered its question and lost its comparison.** The ordering raised the same reviewer's
+precision by half and F1 by 0.067, and the reviewer still lost 0.2727 to 0.4500 — and the curve said why in one line:
+**no budget of those findings reaches 0.45**, because 183 findings carried 24 goldens while the competitor's 70 carried 27. **Ordering cannot close a gap that emission opens.**
+
+**So this rule changes what is emitted, not what is ordered**, and it is registered in this file before the run for the
+same reason as the last one: **a rule chosen after seeing the curve is a rule tuned on the test set.**
+
+| field                 | value                                                                                                                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| order                 | one call per lane **for the whole pull request**, at most **16 findings for the pull request**, each naming a file the call showed; ranges judged against **that file's** own hunks |
+| control               | the file arm in the same job — one call per file per lane, three findings per file per lane: **183 findings, 0.2019 / 0.42 / 0.2727**                                               |
+| primary figure        | the pull-request arm's F1 at 16 findings per pull request, **greater than 0.4500**                                                                                                  |
+| secondary figure      | the arm's own budget curve at 1–16 findings per pull request, and the paired test against the file arm on the same 50 goldens                                                       |
+| what would falsify it | the arm's precision below **0.375** at 80 emitted findings, which is the value at which 30 true positives — and F1 0.45 — stop being reachable                                      |
+
+**Why 16, stated as arithmetic rather than as a preference.** With 50 goldens, F1 > 0.45 requires `2·TP / (emitted + 50) > 0.45`. At 80 emitted findings that is **30 true positives**, which is a precision of **0.375**. **The pull-request scope has already demonstrated 0.40** — measured at 15 findings per pull request, against the file arm's **0.20 at the same 15 findings**: **the same budget, two scopes, a factor of two in precision.** The rule therefore says something narrow and checkable: **a modest decay from 0.40 is survivable and a collapse is not.**
+
+**What this rule does not claim.** It does not claim the scope is why the competitor wins — their reviews are also one
+pull request at a time, which is why the two arms are the right experiment rather than a hopeful one. It does not claim
+16 is optimal; the curve is published with it so that the claim it makes can be checked against the neighbouring
+budgets. And it does not retire the file arm: **a scope that wins on this corpus and loses on a monorepo pull request
+that touches two hundred files is a scope with a condition attached**, and the file arm is how that condition would be
+found.
+
+### 7.1 What this rule would make the product say
+
+A pull request review in this repository would then have two documented scopes rather than one:
+
+- **`reviewDiff`** — one file, three findings, the unit that a pre-commit hook and an editor integration need;
+- **`reviewPullRequest`** — one pull request, a budget, and **every finding naming the file it is about**, which is the
+  unit a code review is actually conducted in.
+
+**And the second is not a scale-up of the first**: it requires a path per finding, judges ranges against per-file
+hunks, refuses to file a finding against a file the model was not shown, and does not merge two files' findings on the
+strength of a shared line number. **Those four differences are the feature**, and each has a test in
+`pull-request-review.test.ts` rather than a paragraph here.
