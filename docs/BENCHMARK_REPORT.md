@@ -78,8 +78,14 @@ in `benchmarks/citations.json` rather than paraphrased here.
 
 **A competitor figure is not a comparison unless the run was common.** Numbers from another tool's documentation were
 measured on another tool's corpus by another tool's judge. The one place this repository runs both arms in one job
-with one judge is Alibaba's `aacr-bench`, and the result there is in `benchmarks/aacr-bench.json`: **ours F1 0.2781
-(precision 0.2079, recall 0.42) against the corpus author's tool at F1 0.4500 (precision 0.3857, recall 0.54)**.
+with one judge is Alibaba's `aacr-bench`, and **since iteration 110 that job runs over fourteen pull requests and 170
+goldens rather than five and fifty** — `benchmarks/aacr-bench.json` (ours) and the same run's second reviewer. On that
+corpus: **ours F1 0.2405 (precision 0.2893, recall 0.2059) against the corpus author's tool at F1 0.3236 (precision
+0.3289, recall 0.3185, 157 goldens because one of its pull requests did not parse)**.
+
+**The five-pull-request figures this page used to publish — 0.2781 against 0.4500 — remain in the record below, and they
+are not comparable with the fourteen-pull-request ones**: a different set of pull requests is a different difficulty, and
+the same engine reads 0.2372 on the larger corpus without any change to it.
 
 **We lose, and the ordering was the part of it that worked.** The figure above scores the emission rule registered in
 [`EVAL-CONTRACT.md`](./EVAL-CONTRACT.md) §6 before it ran: rank every finding by its actionability score and emit only
@@ -101,10 +107,36 @@ interval that contains the file scope's 0.21. **The factor of two was six findin
 were a measurement. §7.2 of `EVAL-CONTRACT.md` records it, because a report that only publishes the figures that
 survived would never publish this one.
 
+**The third registration, and the first device that moved precision without moving F1.** §8 of `EVAL-CONTRACT.md`
+registered a **per-language defect checklist in which every rule ends in its do-not-report condition** — the one device
+the competitor's tree has and this repository did not — and ran it as **two arms of the same job, differing in one
+environment variable**, so the difference cannot be a change in corpus, judge or commit. It was measured on the fourteen
+pull requests:
+
+| figure                   | with the checklist | without it     | difference  |
+| ------------------------ | ------------------ | -------------- | ----------- |
+| precision                | **0.2893**         | 0.2189         | **+0.0704** |
+| recall                   | 0.2059             | **0.2588**     | −0.0529     |
+| F1                       | **0.2405**         | 0.2372         | **+0.0033** |
+| false positives          | **86**             | 157            | −71         |
+| findings the lanes wrote | **406**            | 928            | −522        |
+| paired test              | 8 only ours        | 17 only theirs | p = 0.1078  |
+
+**The gain is 0.0033, which is twelve times smaller than the 0.04 the registration named — so the registered rule is
+falsified, and this page publishes it because the registration was.** What survives is more useful than the rule was:
+**the checklist removed 45 % of the false positives and 9 of the 44 true ones**, which is the largest move any device has
+made on this corpus, and it moved the constraint. **The precision gap against the competitor is now 0.04, down from
+0.18; the recall gap is 0.11, unchanged.** The next registration is therefore about the interaction rather than the
+device: **the lanes that were given the checklist used less than half of their slots, so the recall cost is a limit of
+what the checklist will say, not of what it can see** — §8.7 registers six slots per file per lane with the checklist on,
+predicting recall back to 0.25 at precision above 0.27.
+
 **What the corpus can and cannot resolve, stated as a number.** The file arm's F1 over three runs of this job with no
-change to it — same judge, same fifty goldens, temperature 0.3 — is **0.2727, 0.2368, 0.2781**. **So the instrument's
-resolution is ±0.04, and no difference smaller than that may be quoted from it.** That is why the two reviewers are
-compared by a paired test inside one job, and why the next registration has to bring more pull requests with it.
+change to it — same judge, same fifty goldens, temperature 0.3 — is **0.2727, 0.2368, 0.2781**, all three over the
+original five pull requests. **So the instrument's resolution on that corpus is ±0.04, and no difference smaller than
+that may be quoted from it.** That is why the two reviewers are compared by a paired test inside one job, why the
+fourteen-pull-request comparison was run as two arms of one workflow rather than as two commits, and why **the checklist
+registration set its claim at 0.04 rather than at "some improvement"** — a rule that cannot fail is not a rule.
 
 **And the paired test on the original comparison says the gap is not yet established.** Over the fifty goldens both
 reviewers were scored on, six were found by us alone and twelve by the competitor alone, **p = 0.2379** — what that run
