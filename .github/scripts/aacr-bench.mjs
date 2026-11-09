@@ -21,6 +21,8 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { exactMcNemar } from './lib/paired-test.mjs';
+
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
@@ -32,7 +34,25 @@ const KEY =
   process.env['AACR_JUDGE_KEY'] ??
   process.env['MARTIAN_API_KEY'] ??
   process.env['DEEPSEEK_API_KEY'];
-const MAX_PRS = Number(process.env['MAX_PRS'] ?? '5');
+/**
+ * **How many pull requests the run reviews, and why the default rose from five to fourteen.**
+ *
+ * Five was the number that fitted a first reading of the corpus. **It is not the number at which a prompt device can be
+ * measured**: three runs over the same five pull requests and the same fifty goldens moved the file arm's F1 between
+ * 0.2368 and 0.2781, so **±0.04 is this instrument's resolution at that size**, and §8 of `docs/EVAL-CONTRACT.md`
+ * says plainly that a rule expected to move F1 by less than that will not be measured here - it will be a rule that
+ * cannot fail. **Fourteen pull requests is about a hundred and forty goldens**, which is where a 0.04 move stops being
+ * a coin toss, and it is the number the registration was written against rather than a number chosen after the run.
+ */
+const MAX_PRS = Number(process.env['MAX_PRS'] ?? '14');
+
+/**
+ * **The one switch the paired experiment turns.** `AACR_CHECKLIST=off` removes the per-language defect checklist from
+ * every lane prompt; anything else leaves it in place. **A string rather than a boolean**, because the value arrives
+ * from a workflow's `env:` block where everything is a string, and **a flag that reads `"false"` as true is the kind
+ * of bug a comparison would report as a null result.**
+ */
+const CHECKLIST = String(process.env['AACR_CHECKLIST'] ?? 'on').toLowerCase() !== 'off';
 
 /**
  * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
@@ -186,29 +206,6 @@ async function judgeMatrix(texts, goldens) {
     else if (verdict) matches[finding].push(golden);
   });
   return { matches, unanswered };
-}
-
-/** `n choose k`, as a float, because the counts here are tens and the answers are far inside the safe range. */
-function choose(n, k) {
-  let value = 1;
-  for (let i = 0; i < k; i += 1) value = (value * (n - i)) / (i + 1);
-  return value;
-}
-
-/**
- * **Exact McNemar, because the two reviewers are scored on the same fifty goldens and a difference between two
- * proportions drawn on paired data is not a difference between two proportions.**
- *
- * The statistic is the two-sided exact binomial tail over the discordant pairs: **the goldens one reviewer found and
- * the other did not.** Goldens both found and goldens neither found carry no information about which reviewer is
- * better, which is exactly what pairing buys.
- */
-function exactMcNemar(oursOnly, theirsOnly) {
-  const n = oursOnly + theirsOnly;
-  if (n === 0) return 1;
-  let mass = 0;
-  for (let i = 0; i <= Math.min(oursOnly, theirsOnly); i += 1) mass += choose(n, i);
-  return Math.min(1, (2 * mass) / 2 ** n);
 }
 
 /**
@@ -447,8 +444,44 @@ async function dryRun() {
     'one discordant pair is not evidence, and the job must be able to report that',
   );
 
+  // **The switch the registered experiment turns, proved to turn before it costs anything.**
+  //
+  // The comparison in §8 is between two runs of this job that differ in one environment variable. **If that variable did
+  // not reach the prompt, the two runs would be the same run twice** - and the report would say the checklist made no
+  // difference, which is exactly what a broken flag looks like. So the dry run asserts the three properties the two
+  // runs depend on: the checklist is there when it is on, absent when it is off, and absent for a language it does not
+  // carry.
+  const { defectChecklist } =
+    await import('../../packages/intelligence/dist/review/llm/language-rules.js');
+  const checklistOn = defectChecklist({
+    diffContent: diff,
+    filePath: 'src/main/java/com/example/Ledger.java',
+    changeType: 'modified',
+  });
+  const checklistOff = defectChecklist({
+    diffContent: diff,
+    filePath: 'src/main/java/com/example/Ledger.java',
+    changeType: 'modified',
+    languageChecklist: false,
+  });
+  const checklistForeign = defectChecklist({
+    diffContent: diff,
+    filePath: 'src/main/rust/lib.rs',
+    changeType: 'modified',
+  });
+  assert.ok(
+    checklistOn.includes('Do not report when'),
+    'the checklist reaches the prompt when it is on',
+  );
+  assert.equal(checklistOff, '', 'the switch removes the checklist entirely');
+  assert.equal(
+    checklistForeign,
+    '',
+    'a language it does not carry gets no checklist rather than a generic one',
+  );
+
   console.log(
-    `AACR-BENCH dry run ok · full F1 ${full.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')}`,
+    `AACR-BENCH dry run ok · full F1 ${full.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')} · checklist ${checklistOn.length} chars on / ${checklistOff.length} off`,
   );
 }
 
@@ -501,7 +534,8 @@ async function main() {
   const positives = JSON.parse(readFileSync(positive, 'utf8'));
   const negatives =
     negative && existsSync(negative) ? JSON.parse(readFileSync(negative, 'utf8')) : [];
-  const rows = (Array.isArray(positives) ? positives : Object.values(positives)).slice(0, MAX_PRS);
+  const allRows = Array.isArray(positives) ? positives : Object.values(positives);
+  const rows = allRows.slice(0, MAX_PRS);
 
   // **And a second reviewer, on the same ground truth, with the same judge.**
   //
@@ -803,7 +837,10 @@ async function main() {
   // the cheapest next measurement is the same run at a higher threshold**: **0.8 requires four fifths of the content
   // words to agree, so a genuinely different defect in the adjacent line survives.**
   const DEDUP_THRESHOLD = Number(process.env['AACR_DEDUP_THRESHOLD'] ?? 0.8);
-  const engine = new LLMReviewEngine(new DeepSeekProvider(), { dedupThreshold: DEDUP_THRESHOLD });
+  const engine = new LLMReviewEngine(new DeepSeekProvider(), {
+    dedupThreshold: DEDUP_THRESHOLD,
+    languageChecklist: CHECKLIST,
+  });
   console.log(`AACR-BENCH dedup threshold ${DEDUP_THRESHOLD}`);
 
   /**
@@ -1446,6 +1483,9 @@ async function main() {
       key: pr.githubPrUrl ?? `pr-${perPr.length}`,
       matches: ourMatrix.matches,
       goldens: issueTexts.length,
+      // **Which goldens this run covered, so two runs can be paired.** The key is the pull request plus the index
+      // within that pull request's goldens, which is stable while the corpus and its order are - and **a paired test
+      // between two runs is only honest if the pairing key is the same one the within-run test uses.**
       // **The emission rule, fixed before the run and applied per finding** - so the operating point is a statement
       // about a comment rather than a budget chosen from the curve below it.
       keep: ranked.map((entry) => entry.score.actionable),
@@ -1639,8 +1679,49 @@ async function main() {
       changedFrom:
         'the previous protocol consumed each golden with the first finding that matched it, in judging order',
     },
+    /**
+     * **What this run was configured to be, because a figure without its configuration is a figure two runs can
+     * disagree about.**
+     *
+     * The registered comparison of §8 turns exactly one switch, and **this field is how the artifact proves which side
+     * of it the number came from** - a report that says "with the checklist" and an artifact that does not say which
+     * run was which is a report about an unspecified experiment.
+     */
+    configuration: {
+      languageChecklist: CHECKLIST,
+      maxPullRequests: MAX_PRS,
+      judgeModel: MODEL,
+      judgeEndpoint: BASE,
+      dedupThreshold: DEDUP_THRESHOLD,
+      pullRequestBudget: PR_BUDGET,
+    },
+    // **How many pull requests the dataset held, not how many this run read.** `prsInDataset` is the run's choice and
+    // **a choice cannot be told apart from a limit unless both are recorded.**
+    datasetRows: allRows.length,
     prsInDataset: rows.length,
     prsReviewed: reviewed,
+    /**
+     * **Which goldens the registered operating point covered, keyed the way the paired test keys them.**
+     *
+     * This is what makes a comparison **between two runs** possible at all: run A and run B review the same corpus with
+     * the same judge and differ in one configuration flag, and the only thing that carries information about which
+     * configuration is better is **the goldens one covered and the other did not**. Without this field the comparison
+     * would be two F1 values and a story about them, which is the mistake §6 of `EVAL-CONTRACT.md` was written to
+     * stop.
+     */
+    coverage: {
+      protocol: 'per pull request, the golden indices the registered rule covered',
+      byPullRequest: perPr.map((pull) => ({
+        pr: pull.key,
+        goldens: pull.goldens,
+        covered: matchedGoldenIndices(
+          pull.matches.filter((_, at) => pull.keep[at]),
+          pull.goldens,
+        ),
+        emitted: pull.matches.length,
+      })),
+      coveredTotal: gated.truePositives,
+    },
     prsWithoutDiff: unfetched,
     positiveSamples: positives.length ?? rows.length,
     negativeSamples: Array.isArray(negatives) ? negatives.length : null,

@@ -45,6 +45,14 @@ export interface LLMReviewOptions {
   laneTimeout?: number;
   /** **Content-word overlap at which two findings are the same one.** */
   dedupThreshold?: number;
+  /**
+   * **Whether every lane prompt carries the per-language defect checklist.** Defaults to true.
+   *
+   * The switch exists because the checklist is a **claim about precision**, and the only way to settle a claim about a
+   * prompt device is to run the same corpus with it and without it: `AACR_CHECKLIST=off` in the benchmark workflow is
+   * that second run, and it is a product flag rather than a harness hack so that what was measured is what ships.
+   */
+  languageChecklist?: boolean;
 }
 
 /** Result of an LLM review for a single diff. */
@@ -135,6 +143,7 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // measurement has already contradicted rather than a settled one** - and **a constant a measurement has contradicted
   // is a constant that has to become a parameter.**
   dedupThreshold: 0.6,
+  languageChecklist: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -167,6 +176,7 @@ export class LLMReviewEngine {
       filePath: diff.filePath,
       changeType: diff.changeType,
       fileContext,
+      languageChecklist: this.options.languageChecklist,
     };
 
     const lanes = this.options.lanes;
@@ -416,6 +426,7 @@ export class LLMReviewEngine {
       paths,
       maxFindings: budget,
       scope: 'pull-request',
+      languageChecklist: this.options.languageChecklist,
     };
 
     const results = this.options.parallel

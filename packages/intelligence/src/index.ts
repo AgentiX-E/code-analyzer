@@ -290,6 +290,18 @@ export {
   ARCHITECTURE_REVIEW_PROMPT,
 } from './review/llm/prompts.js';
 export { describeTarget, selectionContract } from './review/llm/prompts.js';
+// **The checklist and its selection rules are public**, because a caller that wants to know which language rules a
+// review was given should be able to ask rather than read the prompt - and because the benchmark's artifact records
+// the selection it paid for.
+export {
+  defectChecklist,
+  languageOf,
+  languagesOf,
+  extensionOf,
+  LANGUAGES,
+  MAX_LANGUAGES_PER_CALL,
+} from './review/llm/language-rules.js';
+export type { LanguageDefinition, LanguageRule, RuleLanguage } from './review/llm/language-rules.js';
 export type { LLMFinding, PromptContext, ReviewLane } from './review/llm/prompts.js';
 
 export { LLMReviewEngine } from './review/llm/llm-review-engine.js';

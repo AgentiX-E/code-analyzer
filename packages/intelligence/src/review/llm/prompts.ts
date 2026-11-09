@@ -3,6 +3,12 @@
 
 import type { ReviewCategory, Severity } from '@code-analyzer/shared';
 
+// **The checklist is a separate module because it is content, not plumbing.** Eleven languages of rules read as one
+// file of rules; keeping them beside the five lane templates would have made this file the place both the contract and
+// the corpus of language knowledge change, and **the two change for different reasons** - the contract when a
+// measurement moves, the rules when a language does.
+import { defectChecklist } from './language-rules.js';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -83,6 +89,15 @@ export interface PromptContext {
    * and gives the call one budget instead of one per file.
    */
   scope?: 'file' | 'pull-request';
+  /**
+   * **Whether the call is given the per-language defect checklist, and why this is an option rather than a constant.**
+   *
+   * The checklist in `language-rules.ts` is a claim about precision, and **a claim about a prompt device can only be
+   * settled by turning the device off and re-running the same corpus** - so the switch has to exist in the product
+   * rather than in the harness. `false` removes the section; **undefined means on**, so every existing caller keeps
+   * the behaviour it was measured with.
+   */
+  languageChecklist?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +298,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure. Only include findings you are confident about — an empty findings array is acceptable if no issues are found:
-${selectionContract(ctx)}
+${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — SQL injection:
 Input: diff showing \`db.query("SELECT * FROM users WHERE id = " + userId)\`
@@ -349,7 +364,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${selectionContract(ctx)}
+${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — N+1 query:
 Input: diff showing \`for (const user of users) { const posts = await db.query("SELECT * FROM posts WHERE user_id = $1", [user.id]); }\`
@@ -399,7 +414,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${selectionContract(ctx)}
+${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — magic number:
 Input: diff showing \`if (items.length > 100) { ... }\`
@@ -448,7 +463,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${selectionContract(ctx)}
+${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — weak assertion:
 Input: diff showing \`expect(result).toBeTruthy();\`
@@ -497,7 +512,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${selectionContract(ctx)}
+${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — layer violation:
 Input: diff showing a component importing directly from a database module
