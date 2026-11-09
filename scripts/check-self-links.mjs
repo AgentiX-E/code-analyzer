@@ -19,13 +19,16 @@ import { join, relative, resolve } from 'node:path';
 
 // **The first argument that is not a flag**, because `--self-test` is also an argument and resolving it as a path made
 // the fixture look for `package.json` inside a directory called `--self-test`.
-const ROOT = resolve(process.argv.slice(2).find((argument) => !argument.startsWith('--')) ?? process.cwd());
+const ROOT = resolve(
+  process.argv.slice(2).find((argument) => !argument.startsWith('--')) ?? process.cwd(),
+);
 
 /**
  * **The host and owner are hard-coded on purpose.** A link checker that guesses which links are "self" from the current
  * git remote would silently stop checking the day the remote moves; the repository is named in its own links.
  */
-const SELF = /https:\/\/github\.com\/AgentiX-E\/code-analyzer\/(?:blob|tree)\/[^/\s)\]"']+\/([^\s)\]"'#?]+)/g;
+const SELF =
+  /https:\/\/github\.com\/AgentiX-E\/code-analyzer\/(?:blob|tree)\/[^/\s)\]"']+\/([^\s)\]"'#?]+)/g;
 
 /** Every markdown file, without descending into the directories that hold generated or vendored content. */
 function markdownFiles(dir, found = []) {
@@ -109,13 +112,19 @@ function main() {
     for (const link of selfLinks(readFileSync(file, 'utf8'))) {
       checked += 1;
       if (!exists(link.path)) {
-        missing.push({ file: relative(ROOT, file).split('\\').join('/'), line: link.line, path: link.path });
+        missing.push({
+          file: relative(ROOT, file).split('\\').join('/'),
+          line: link.line,
+          path: link.path,
+        });
       }
     }
   }
 
   if (missing.length > 0) {
-    console.error(`AACR-CHECK-SELF-LINKS ${missing.length} link(s) into this repository point at nothing:`);
+    console.error(
+      `AACR-CHECK-SELF-LINKS ${missing.length} link(s) into this repository point at nothing:`,
+    );
     for (const item of missing) console.error(`  ${item.file}:${item.line} -> ${item.path}`);
     process.exitCode = 1;
     return;
