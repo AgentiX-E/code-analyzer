@@ -1,223 +1,186 @@
 # Configuration Reference
 
-> Complete reference for `.code-analyzerrc` — file formats, all options with defaults, environment variables, VS Code settings, and configuration profiles.
+> **One file, one schema, one loader — and a command that shows which value won.** `.code-analyzer/config.json` is read by
+> `analyze` and printed by `config`. Everything in this page can be checked against a checkout in one command:
+>
+> ```bash
+> npx @code-analyzer/cli config
+> ```
 
 ---
 
-## Configuration File
+## The files, and which one wins
 
-Code Analyzer reads configuration from a `.code-analyzerrc` file in your project root. Three formats are supported:
+| Layer                | Path                           | Written by                       | Read when                              |
+| -------------------- | ------------------------------ | -------------------------------- | -------------------------------------- |
+| **global**           | `~/.code-analyzer/config.json` | you                              | always, when it exists                 |
+| **project**          | `.code-analyzer/config.json`   | `code-analyzer init`             | always, when it exists                 |
+| **project (legacy)** | `.code-analyzer.json`          | an earlier version of these docs | only when the canonical file is absent |
 
-| Format   | Filename                                          | Best For                          |
-| -------- | ------------------------------------------------- | --------------------------------- |
-| **JSON** | `.code-analyzerrc` or `.code-analyzerrc.json`     | Machine-generated config          |
-| **YAML** | `.code-analyzerrc.yaml` or `.code-analyzerrc.yml` | Human-edited config (recommended) |
-| **TOML** | `.code-analyzerrc.toml`                           | Config with deep nesting          |
+Precedence, lowest to highest:
 
-Create one with `code-analyzer init`, which walks you through the options interactively.
-
-### Configuration Precedence
-
-Settings are merged from four sources in order of increasing priority:
-
-1. **Built-in defaults** — Sensible defaults from `@code-analyzer/core`
-2. **Global config** — `~/.code-analyzer/config.json` (user-level)
-3. **Project config** — `.code-analyzerrc` in the project root
-4. **Environment variables** — `CODE_ANALYZER_*` prefixed variables
-
-Objects are deep-merged. Arrays are replaced (not concatenated). Environment variables always win.
-
----
-
-## Basic Example (YAML)
-
-```yaml
-# .code-analyzerrc.yaml
-project:
-  name: my-awesome-project
-  languages:
-    - typescript
-    - python
-
-analysis:
-  maxFileSize: 5242880
-  maxFiles: 30000
-  concurrency: 8
-  skipDirectories:
-    - node_modules
-    - dist
-    - .git
-    - __pycache__
-  skipFilePatterns:
-    - '**/*.test.ts'
-    - '**/*.spec.ts'
-    - '**/generated/**'
-
-review:
-  severity: [high, critical]
-  categories: [security, performance, architecture]
-
-security:
-  scanners: [secrets, taint, dependencies]
-  severity: high
-
-mcp:
-  transport: http
-  port: 3100
-  auth:
-    enabled: true
-
-server:
-  port: 3000
-  cors: true
-  rateLimit: 100
+```
+defaults  <  global  <  project  <  CODE_ANALYZER_* environment  <  command-line flags
 ```
 
----
+Two rules that are worth knowing before they surprise you:
 
-## Full Configuration Options
-
-### Top-Level Options
-
-| Option              | Type       | Default     | Description                                                           |
-| ------------------- | ---------- | ----------- | --------------------------------------------------------------------- |
-| `project.name`      | `string`   | `""`        | Project identifier used in reports                                    |
-| `project.languages` | `string[]` | auto-detect | Languages to analyze (see [language-support.md](language-support.md)) |
-
-### Analysis Options
-
-| Option             | Type       | Default                                                                                   | Description                                   |
-| ------------------ | ---------- | ----------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `maxFileSize`      | `number`   | `10485760` (10 MB)                                                                        | Skip files larger than this (bytes)           |
-| `maxFiles`         | `number`   | `50000`                                                                                   | Maximum files to process per run              |
-| `concurrency`      | `number`   | `CPU cores / 2`                                                                           | Worker threads for parallel parsing           |
-| `skipDirectories`  | `string[]` | `["node_modules",".git","dist","build",".next",".nuxt","__pycache__","target",".gradle"]` | Directory names to skip during file discovery |
-| `skipFilePatterns` | `string[]` | `[]`                                                                                      | Glob patterns to exclude from analysis        |
-| `languages`        | `string[]` | auto-detect                                                                               | Languages to analyze (filters)                |
-| `cacheDir`         | `string`   | `.code-analyzer`                                                                          | Cache and database directory                  |
-
-### Review Options (`review`)
-
-| Option               | Type       | Default                              | Description                                                                                |
-| -------------------- | ---------- | ------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `review.severity`    | `string[]` | `["low","medium","high","critical"]` | Minimum severity to report                                                                 |
-| `review.categories`  | `string[]` | all                                  | Categories to check: `security`, `performance`, `maintainability`, `style`, `architecture` |
-| `review.maxComments` | `number`   | `50`                                 | Maximum comments per review session                                                        |
-| `review.autoFix`     | `boolean`  | `false`                              | Automatically apply safe fixes                                                             |
-
-### Security Options (`security`)
-
-| Option              | Type       | Default       | Description                                                   |
-| ------------------- | ---------- | ------------- | ------------------------------------------------------------- |
-| `security.scanners` | `string[]` | `["secrets"]` | Active scanners: `secrets`, `taint`, `dependencies`, `sast`   |
-| `security.severity` | `string`   | `"medium"`    | Minimum severity to flag: `low`, `medium`, `high`, `critical` |
-
-### MCP Options (`mcp`)
-
-| Option             | Type      | Default   | Description                              |
-| ------------------ | --------- | --------- | ---------------------------------------- |
-| `mcp.transport`    | `string`  | `"stdio"` | Transport protocol: `stdio` or `http`    |
-| `mcp.port`         | `number`  | `3100`    | HTTP port when transport is `http`       |
-| `mcp.auth.enabled` | `boolean` | `false`   | Enable API key authentication            |
-| `mcp.toolProfile`  | `string`  | `"all"`   | Tool profile: `all`, `analysis`, `scout` |
-| `mcp.maxResults`   | `number`  | `100`     | Maximum results per tool call            |
-
-### Server Options (`server`)
-
-| Option             | Type      | Default       | Description               |
-| ------------------ | --------- | ------------- | ------------------------- |
-| `server.port`      | `number`  | `3000`        | HTTP API server port      |
-| `server.cors`      | `boolean` | `true`        | Enable CORS headers       |
-| `server.rateLimit` | `number`  | `100`         | Requests per minute limit |
-| `server.host`      | `string`  | `"localhost"` | Server bind address       |
+- **The two project paths are not merged.** If both exist, `.code-analyzer/config.json` is used and the other file is
+  named in a warning. A merge of two documents cannot be reasoned about by the person editing either of them.
+- **`--config <file>` replaces discovery** rather than adding a layer: the explicit file is the project layer, and no
+  project file is looked for. `--without-config` on `analyze` skips files entirely and uses the built-in defaults.
 
 ---
 
-## Environment Variables
+## Proving which value won
 
-All `CODE_ANALYZER_*` variables override config file values:
+```console
+$ code-analyzer config
+Configuration for /home/you/project
 
-| Variable                          | Config Path        | Example                   |
-| --------------------------------- | ------------------ | ------------------------- |
-| `CODE_ANALYZER_MAX_FILE_SIZE`     | `maxFileSize`      | `5242880`                 |
-| `CODE_ANALYZER_MAX_FILES`         | `maxFiles`         | `25000`                   |
-| `CODE_ANALYZER_CONCURRENCY`       | `concurrency`      | `8`                       |
-| `CODE_ANALYZER_PARSE_WORKERS`     | `concurrency`      | `8`                       |
-| `CODE_ANALYZER_CACHE_DIR`         | `cacheDir`         | `/tmp/ca-cache`           |
-| `CODE_ANALYZER_MCP_TRANSPORT`     | `mcp.transport`    | `http`                    |
-| `CODE_ANALYZER_MCP_PORT`          | `mcp.port`         | `3100`                    |
-| `CODE_ANALYZER_MCP_AUTH_ENABLED`  | `mcp.auth.enabled` | `true`                    |
-| `CODE_ANALYZER_MCP_TOOL_PROFILE`  | `mcp.toolProfile`  | `analysis`                |
-| `CODE_ANALYZER_MCP_MAX_RESULTS`   | `mcp.maxResults`   | `50`                      |
-| `CODE_ANALYZER_SERVER_PORT`       | `server.port`      | `3000`                    |
-| `CODE_ANALYZER_SERVER_CORS`       | `server.cors`      | `false`                   |
-| `CODE_ANALYZER_SERVER_RATE_LIMIT` | `server.rateLimit` | `200`                     |
-| `CODE_ANALYZER_REVIEW_SEVERITY`   | `review.severity`  | `high,critical`           |
-| `CODE_ANALYZER_EXCLUDE_PATTERNS`  | `skipFilePatterns` | `**/test/**,**/mock/**`   |
-| `CODE_ANALYZER_IGNORE_PATHS`      | `skipDirectories`  | `vendor,legacy`           |
-| `CODE_ANALYZER_LOG_LEVEL`         | —                  | `debug` (troubleshooting) |
-| `CODE_ANALYZER_PROJECT_DIR`       | `project.name`     | `/path/to/project`        |
+Layers, in increasing precedence:
+  default   ✓ built in
+  global    · not found
+  project   ✓ /home/you/project/.code-analyzer/config.json
+  explicit  · not found
 
-Boolean values accept `"true"` or `"false"`. Comma-separated values are parsed for array options.
+  flags on the command line win over every layer above.
+
+key              value                                    source
+---------------  ---------------------------------------  ------------
+cacheDir         .code-analyzer                           default
+excludePatterns  node_modules/**, .git/**, … (9 items)    project
+maxFileSize      1048576                                  project
+maxFiles         100                                      project
+projectId        my-project                               project
+```
+
+The `source` column is the answer to "why is this value not what I wrote": `project`, `global`, `explicit`,
+`env:CODE_ANALYZER_MAX_FILES`, or `default`. `code-analyzer config --json` prints the same information as
+`{ config, origin, layers, ignored, warnings }` for a script to read.
+
+**Keys that are present in a file and not in the schema are reported, not dropped:**
+
+```console
+$ code-analyzer config --strict
+Ignored 1 setting(s) — this version has no such key:
+  /home/you/project/.code-analyzer/config.json: index — unknown setting, and this version has no such key
+```
+
+Without `--strict` the exit code is 0 — the configuration is still usable, and the point of printing it is to let you
+decide. With `--strict` an unrecognised key is an error, which is what a CI job should run.
+
+A value of the wrong type is always an error, because it is never usable: `"maxFiles": "100"` fails with
+`...config.json: maxFiles must be a positive integer, got "100"` rather than travelling through the run as a string that
+compares wrong against every number it meets.
 
 ---
 
-## VS Code Extension Settings
+## Keys
 
-Configure via `File > Preferences > Settings` and search for "Code Analyzer":
+`read by` says which code path consumes the key. **A key that no path consumes is listed here anyway**, because hiding it
+would be the defect this table exists to prevent.
 
-| Setting                       | Type       | Default                       | Description                      |
-| ----------------------------- | ---------- | ----------------------------- | -------------------------------- |
-| `codeAnalyzer.indexOnOpen`    | `boolean`  | `true`                        | Auto-index workspace when opened |
-| `codeAnalyzer.languages`      | `string[]` | `["typescript","javascript"]` | Languages to analyze             |
-| `codeAnalyzer.autoReview`     | `boolean`  | `false`                       | Auto-review on file save         |
-| `codeAnalyzer.maxTokens`      | `number`   | `8000`                        | Max tokens for review context    |
-| `codeAnalyzer.ignorePatterns` | `string[]` | `["node_modules","dist"]`     | File patterns to skip            |
-| `codeAnalyzer.standardsPath`  | `string`   | `null`                        | Custom standards file path       |
-| `codeAnalyzer.severityLevel`  | `string`   | `"medium"`                    | Minimum review severity shown    |
+| Key                     | Type            | Default                                              | Environment                                        | Read by                                                                                                                                              |
+| ----------------------- | --------------- | ---------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projectId`             | string          | `""` (derived from the path)                         | `CODE_ANALYZER_PROJECT_ID`                         | `analyze`                                                                                                                                            |
+| `excludePatterns`       | string[]        | 9 globs (`node_modules/**`, `.git/**`, `dist/**`, …) | `CODE_ANALYZER_EXCLUDE_PATTERNS` (comma-separated) | `analyze` (scan)                                                                                                                                     |
+| `includePatterns`       | string[]        | `[]` (everything)                                    | `CODE_ANALYZER_INCLUDE_PATTERNS`                   | `analyze` (scan)                                                                                                                                     |
+| `maxFileSize`           | integer (bytes) | `10485760` (10 MB)                                   | `CODE_ANALYZER_MAX_FILE_SIZE`                      | `analyze` (scan)                                                                                                                                     |
+| `maxFiles`              | integer         | `50000`                                              | `CODE_ANALYZER_MAX_FILES`                          | `analyze` (scan)                                                                                                                                     |
+| `rootPath`              | string          | the working directory                                | `CODE_ANALYZER_ROOT_PATH`                          | **overridden by the run** — `analyze` uses the path it was given, because a configuration that disagrees with the checkout it was found in is a trap |
+| `cacheDir`              | string          | `.code-analyzer`                                     | `CODE_ANALYZER_CACHE_DIR`                          | _nothing yet_ — reserved                                                                                                                             |
+| `parseWorkers`          | integer         | half the CPU count                                   | `CODE_ANALYZER_PARSE_WORKERS`                      | _nothing yet_ — the parallel phases size their own pool                                                                                              |
+| `language`              | string          | _absent_                                             | `CODE_ANALYZER_LANGUAGE`                           | _nothing yet_ — `analyze --languages` is the flag that works                                                                                         |
+| `ignorePaths`           | string[]        | 9 directories                                        | `CODE_ANALYZER_IGNORE_PATHS`                       | _nothing_ — `excludePatterns` is the list the walk reads                                                                                             |
+| `mcp.name`              | string          | _absent_                                             | `CODE_ANALYZER_MCP_NAME`                           | the MCP server's identity                                                                                                                            |
+| `mcp.version`           | string          | _absent_                                             | `CODE_ANALYZER_MCP_VERSION`                        | the MCP server's identity                                                                                                                            |
+| `mcp.toolProfile`       | string          | _absent_                                             | `CODE_ANALYZER_MCP_TOOL_PROFILE`                   | which MCP tools are exposed                                                                                                                          |
+| `mcp.readOnly`          | boolean         | `false`                                              | —                                                  | refuses every `write` and `destroy` tool                                                                                                             |
+| `mcp.maxResults`        | integer         | _absent_                                             | `CODE_ANALYZER_MCP_MAX_RESULTS`                    | result cap                                                                                                                                           |
+| `mcp.enableStreaming`   | boolean         | _absent_                                             | `CODE_ANALYZER_MCP_ENABLE_STREAMING`               | transport                                                                                                                                            |
+| `mcp.enableResources`   | boolean         | _absent_                                             | `CODE_ANALYZER_MCP_ENABLE_RESOURCES`               | capability                                                                                                                                           |
+| `mcp.enablePrompts`     | boolean         | _absent_                                             | `CODE_ANALYZER_MCP_ENABLE_PROMPTS`                 | capability                                                                                                                                           |
+| `review.enabled`        | boolean         | _absent_                                             | `CODE_ANALYZER_REVIEW_ENABLED`                     | review pipeline default                                                                                                                              |
+| `review.maxComments`    | integer         | _absent_                                             | `CODE_ANALYZER_REVIEW_MAX_COMMENTS`                | comment budget                                                                                                                                       |
+| `review.severityFilter` | string[]        | _absent_                                             | —                                                  | which severities survive                                                                                                                             |
+| `review.categoryFilter` | string[]        | _absent_                                             | —                                                  | which categories survive                                                                                                                             |
+| `embed.enabled`         | boolean         | _absent_                                             | `CODE_ANALYZER_EMBED_ENABLED`                      | semantic search                                                                                                                                      |
+| `embed.model`           | string          | _absent_                                             | `CODE_ANALYZER_EMBED_MODEL`                        | embedding backend                                                                                                                                    |
+| `embed.batchSize`       | integer         | _absent_                                             | `CODE_ANALYZER_EMBED_BATCH_SIZE`                   | embedding backend                                                                                                                                    |
+| `embed.dimensions`      | integer         | _absent_                                             | `CODE_ANALYZER_EMBED_DIMENSIONS`                   | embedding backend                                                                                                                                    |
+| `pruner.enabled`        | boolean         | _absent_                                             | `CODE_ANALYZER_PRUNER_ENABLED`                     | context pruning                                                                                                                                      |
+| `pruner.keepTests`      | boolean         | _absent_                                             | `CODE_ANALYZER_PRUNER_KEEP_TESTS`                  | context pruning                                                                                                                                      |
+| `pruner.keepInternal`   | boolean         | _absent_                                             | `CODE_ANALYZER_PRUNER_KEEP_INTERNAL`               | context pruning                                                                                                                                      |
 
-Settings can also be configured per-workspace in `.vscode/settings.json`:
+The `mcp`, `review`, `embed` and `pruner` blocks are consumed **programmatically** — by `@code-analyzer/mcp`, the review
+pipeline and the embedding backends — and are not read by the `analyze` command. Setting them in the project file changes
+what those components do when they are configured from a loaded configuration; the CLI's own review flags
+(`review --severity`, `review pr --max-comments`) are what decide a review run.
+
+---
+
+## A file to start from
+
+`code-analyzer init` writes exactly this, and every value in it is already the default:
 
 ```json
 {
-  "codeAnalyzer.languages": ["typescript", "python"],
-  "codeAnalyzer.autoReview": true,
-  "codeAnalyzer.ignorePatterns": ["node_modules", "dist", "__generated__"]
+  "projectId": "",
+  "excludePatterns": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    ".next/**",
+    ".nuxt/**",
+    "__pycache__/**",
+    "*.pyc",
+    "target/**",
+    ".gradle/**"
+  ],
+  "includePatterns": [],
+  "maxFileSize": 10485760,
+  "maxFiles": 50000
 }
 ```
 
+Two properties of that file are deliberate:
+
+- **It is equivalent to no file at all.** Nothing changes the moment you run `init`; the file is a place to start writing.
+- **Deleting a key restores its default.** A missing key is not "unset"; it falls back through the layers, which is why
+  `code-analyzer config` can always name a source for every key.
+
+`rootPath`, `parseWorkers` and `ignorePaths` are not written: the first two describe the machine that ran `init` rather
+than the project, and the third is a list nothing reads.
+
 ---
 
-## Configuration Profiles
+## Environment variables
 
-**There is no profile flag, and — as things stand — no configuration file is read by any command.** This section used to
-show three presets (strict, balanced, relaxed) passed as a `--profile` option to `init`, which has never had one: its only
-flags are `--directory` and `--force`.
+Every `CODE_ANALYZER_*` variable in the table above is applied after the files, and `code-analyzer config` reports the
+variable **by name** (`env:CODE_ANALYZER_MAX_FILES`), because "the environment overrode it" is not a useful sentence when
+a CI job sets a dozen of them. `code-analyzer config --no-env` ignores all of them.
 
-What is true today:
+A variable that does not parse is an error, not a silent no-op: `CODE_ANALYZER_MAX_FILES=none` fails the run with
+`CODE_ANALYZER_MAX_FILES must be a positive integer, got "none"`.
 
-- **Every option a command acts on arrives as a flag.** `--severity`, `--fail-on`, `--max-files`, `--languages`,
-  `--include`, `--exclude` and the rest are the control surface, and `code-analyzer <command> --help` is the complete
-  list.
-- **`code-analyzer init` writes two files**: `.code-analyzer/standards.json`, which `standards check --standards` and
-  `review pr --standards` do read, and `.code-analyzer/config.json`, which **nothing reads yet**. The second is recorded
-  intent, not a surface: setting `review.maxFiles` to 1000 in it changes no command's behaviour.
-- **`loadConfig` exists and is never called.** `@code-analyzer/core` can merge defaults → `~/.code-analyzer/config.json`
-  → `.code-analyzer.json` → `CODE_ANALYZER_*`, and no CLI command invokes it. That is the largest open gap in this
-  repository's documentation, it is recorded in `code-analyzer-docs` as the next P1, and until it is closed the schema
-  tables in `docs/CONFIGURATION.md` describe what the loader _would_ read rather than a surface a command consults.
+---
 
-The three settings presets are therefore habits rather than flags. Applied as flags, they are:
+## What this page used to claim, and does not
 
-| Intent                   | Flags                                                |
-| ------------------------ | ---------------------------------------------------- |
-| Maximum thoroughness     | `--severity info --fail-on warning --max-files 1000` |
-| Default                  | `--severity warning --fail-on error --max-files 100` |
-| Fast, during development | `--severity error --fail-on critical --max-files 25` |
+An earlier version of this document described a `.code-analyzerrc` file in JSON, YAML **or TOML**; a `--profile` flag that
+selected named profiles; a `code-analyzer init` that "walks you through the options interactively"; and a VS Code settings
+bridge. **None of those has ever existed** — not deprecated, never written. The page named `.code-analyzerrc`, the loader
+read `.code-analyzer.json`, `init` wrote `.code-analyzer/config.json`, and no command called the loader at all, so the
+three could disagree indefinitely without anyone noticing.
 
-## See Also
+If you need one of those shapes, the honest workaround is a small script that writes `.code-analyzer/config.json` from
+whatever your team already keeps.
 
-- [Getting Started](getting-started.md) — First-time setup guide
-- [MCP Tool Reference](mcp-tool-reference.md) — All 45 MCP tools
-- [Scenario Guides](scenario-guides.md) — Task-based workflows
-- [Architecture](architecture.md) — System design details
+---
+
+## See also
+
+- [Configuring Code Analyzer](./CONFIGURATION.md) — the guide: how precedence plays out in a real project, CI examples.
+- [Troubleshooting](./troubleshooting.md) — when a value is not the one you set.

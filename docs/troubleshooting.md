@@ -32,6 +32,38 @@
 
 ---
 
+## "A setting has no effect"
+
+The first thing to run is not the command that is misbehaving — it is the one that says what the command will see:
+
+```bash
+code-analyzer config
+```
+
+It prints every key of the effective configuration with the layer that set it. Read the `source` column:
+
+| What you see                  | What it means                                                                                  |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `default`                     | no file and no variable set it — the value you wrote is not being read from where you wrote it |
+| `global`                      | `~/.code-analyzer/config.json` won; the project file lost                                      |
+| `project`                     | the right file, at the right path                                                              |
+| `env:CODE_ANALYZER_MAX_FILES` | a variable in your shell or CI job overrode the file                                           |
+| `explicit`                    | `--config <file>` was passed, and discovery was skipped                                        |
+
+Three other things the same command tells you:
+
+- **The file it did not read.** `.code-analyzer.json` at the project root is only read when
+  `.code-analyzer/config.json` is absent. If both exist, the report names the ignored one in a warning.
+- **The key it did not understand.** A key this version does not have — a typo, a key from an older document — appears
+  under `Ignored N setting(s)`. Add `--strict` in CI to make an unrecognised key fail the job.
+- **The value of the wrong type.** `"maxFiles": "500"` is an error rather than a string that silently loses every
+  comparison: the run stops with `...config.json: maxFiles must be a positive integer, got "500"`.
+
+`code-analyzer config --json | jq '.origin'` gives the same per-key origins to a script, and
+`code-analyzer config --no-env` answers what the files alone would produce.
+
+---
+
 ## "MCP server won't start"
 
 **Symptom:** `npx @code-analyzer/mcp` fails to start or exits immediately.

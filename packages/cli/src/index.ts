@@ -6,11 +6,13 @@
 import { writeFileSync } from 'node:fs';
 import { EOL } from 'node:os';
 
+import { loadConfigWithDiagnostics, type LoadedConfig } from '@code-analyzer/core';
 import { Command } from 'commander';
 
 import { createAgentCommand } from './commands/agent.js';
 import { analyzeRepository, formatAnalyzeResult, type AnalyzeOptions } from './commands/analyze.js';
 import { extensionsForLanguages } from './commands/change-set.js';
+import { runConfigCommand } from './commands/config.js';
 import { initProject, type InitOptions } from './commands/init.js';
 import {
   formatLocateOutput,
@@ -99,11 +101,16 @@ program
 program
   .command('init')
   .description('Initialize Code Analyzer configuration in a project')
+  // **The positional form, because every document and every reader writes `init .`.** A command that takes one directory
+  // and refuses to accept it as an argument teaches a usage error to the people it is trying to help: `code-analyzer
+  // init .` was documented in this repository's own user guide and failed with "too many arguments for 'init'", which is
+  // exactly the class of defect the invocation gate cannot see — the verb and the flags were all real.
+  .argument('[path]', 'Target directory (same as --directory)', undefined)
   .option('-d, --directory <path>', 'Target directory', process.cwd())
   .option('-f, --force', 'Overwrite existing configuration')
-  .action((opts: { directory?: string; force?: boolean }) => {
+  .action((path: string | undefined, opts: { directory?: string; force?: boolean }) => {
     const options: InitOptions = {
-      directory: opts.directory,
+      directory: path ?? opts.directory,
       force: opts.force,
     };
     const result = initProject(options);
@@ -143,7 +150,13 @@ program
     collectValues,
     [] as string[],
   )
-  .action(async (repoPath: string, opts: Record<string, string | string[]>) => {
+  // **The two flags that decide whether the project configuration is read at all.** Discovery is the default because a
+  // file the reader edited must be the file the run used; `--config` names one explicitly, and `--without-config` is the
+  // escape hatch for a machine where that file is broken — named as a separate flag rather than as `--no-config` so that
+  // it cannot collide with `--config`'s own argument.
+  .option('--config <file>', 'Read this configuration file instead of discovering one')
+  .option('--without-config', 'Ignore configuration files and use the built-in defaults')
+  .action(async (repoPath: string, opts: Record<string, string | string[] | boolean>) => {
     // **`--languages` becomes include globs, read from the engine's own language table**, so
     // `--languages typescript` analyzes exactly the files whose extension that table assigns to TypeScript. An unknown
     // name is a usage error: the alternative is an analysis of nothing while the log says the flag was honoured.
@@ -159,13 +172,36 @@ program
       ...extensions.map((extension) => `**/*${extension}`),
     ];
     const exclude = opts['exclude'] as string[];
+
+    // **The project configuration, read by the command that has something to read it for.** Failures here are fatal and
+    // explicit: a `config.json` with a `maxFiles` of `"500"` is a configuration whose author believed something that was
+    // not true, and the only useful moment to say so is before the analysis, not after it.
+    let loaded: LoadedConfig | undefined;
+    if (opts['withoutConfig'] !== true) {
+      try {
+        loaded = await loadConfigWithDiagnostics(target, {
+          ...(textOption(opts['config']) === undefined
+            ? {}
+            : { file: textOption(opts['config'])! }),
+        });
+      } catch (err) {
+        console.error(`[code-analyzer] ${err instanceof Error ? err.message : String(err)}`);
+        process.exit(2);
+      }
+      for (const warning of loaded.warnings) console.error(`[code-analyzer] ${warning}`);
+      for (const entry of loaded.ignored) {
+        console.error(`[code-analyzer] ${entry.file}: ${entry.key} ${entry.message}`);
+      }
+    }
+
     const options: AnalyzeOptions = {
       path: target,
       format: (opts['format'] as AnalyzeOptions['format']) ?? 'text',
-      projectId: opts['projectId'] as string,
+      projectId: textOption(opts['projectId']),
       timeout: parseInt(opts['timeout'] as string, 10) || 300_000,
       ...(include.length === 0 ? {} : { include }),
       ...(exclude.length === 0 ? {} : { exclude }),
+      ...(loaded === undefined ? {} : { config: loaded.config }),
     };
 
     process.stdout.write(`Analyzing ${target}...${EOL}`);
@@ -173,6 +209,36 @@ program
     const output = formatAnalyzeResult(result, options.format ?? 'text');
     emit(`${output}${EOL}`, opts['output']);
     process.exit(result.success ? 0 : 1);
+  });
+
+// ---------------------------------------------------------------------------
+// config — print the configuration a run would use
+// ---------------------------------------------------------------------------
+program
+  .command('config')
+  .description(
+    'Print the effective configuration, the layer that set each value, and any key this version does not know',
+  )
+  .argument('[path]', 'Project directory whose configuration is being asked about', '.')
+  .option('--config <file>', 'Read this file instead of discovering one')
+  .option('--no-env', 'Ignore CODE_ANALYZER_* environment overrides')
+  .option('--json', 'Machine-readable output: config, origin, layers, ignored')
+  .option('--strict', 'Exit 1 when a configuration file contains a key this version does not know')
+  .action(async (target: string, opts: Record<string, unknown>) => {
+    const result = await runConfigCommand({
+      path: target,
+      ...(textOption(opts['config']) === undefined ? {} : { file: textOption(opts['config'])! }),
+      ...(opts['env'] === false ? { env: false } : {}),
+      ...(opts['json'] === true ? { json: true } : {}),
+      ...(opts['strict'] === true ? { strict: true } : {}),
+    });
+    // **Diagnostics go to stderr only when the report cannot carry them.** The text report has a section for ignored
+    // keys and warnings; printing them twice would make the same key look like two problems.
+    if (opts['json'] === true) {
+      for (const warning of result.warnings) console.error(`[code-analyzer] ${warning}`);
+    }
+    process.stdout.write(result.output);
+    process.exit(result.exitCode);
   });
 
 // ---------------------------------------------------------------------------

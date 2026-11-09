@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { resolve, join } from 'node:path';
 
+import { getDefaultConfig } from '@code-analyzer/core';
 import { DEFAULT_STANDARDS } from '@code-analyzer/intelligence';
 
 import type { ProjectStandard, StandardRule } from '@code-analyzer/shared';
@@ -71,24 +72,38 @@ export function projectStandard(): ProjectStandard {
   };
 }
 
-const DEFAULT_CONFIG = {
-  version: '0.1.0',
-  index: {
-    mode: 'full',
-    maxFileSize: 10485760,
-    excludePatterns: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.min.*'],
-    languages: 'auto',
-  },
-  review: {
-    severity: 'warning',
-    failOn: 'error',
-    maxFiles: 100,
-  },
-  search: {
-    maxResults: 50,
-    includeImports: true,
-  },
-};
+/**
+ * The configuration `init` writes.
+ *
+ * **The shape here is the shape the loader reads, and that is the whole point of this function.** It used to write a
+ * different document — `{ version, index: { mode, maxFileSize, languages }, review: { severity, failOn, maxFiles },
+ * search: { maxResults, includeImports } }` — at a path the loader did not look in. Neither of those was a typo: the two
+ * halves of the feature were written against two different ideas of what the file was, and since nothing read it, nothing
+ * ever disagreed out loud. A project could set `index.maxFileSize` and get no effect, and had no way to find out.
+ *
+ * Three keys from the defaults are deliberately **not** written, and for two different reasons:
+ *
+ * - `rootPath` is an absolute path from the machine that ran `init`, and `parseWorkers` is a function of that machine's
+ *   CPU count. Both would travel with the repository and describe the wrong machine.
+ * - `ignorePaths` is a fourth list of paths beside the two the walk actually reads, and nothing in this product consumes
+ *   it. Writing it into a new project's configuration would recreate, in miniature, exactly the defect this iteration is
+ *   about: a file that looks like it configures something. It stays in the schema because the shared type has it; it does
+ *   not belong in a file a user is meant to edit.
+ *
+ * Every key written here is a value the defaults already have, so the file starts out equivalent to no file at all — the
+ * difference is that it is now a place to change something, and `code-analyzer config` names it as the source of each
+ * value it sets.
+ */
+export function defaultConfigFile(): Record<string, unknown> {
+  const defaults = getDefaultConfig();
+  return {
+    projectId: defaults.projectId,
+    excludePatterns: defaults.excludePatterns,
+    includePatterns: defaults.includePatterns,
+    maxFileSize: defaults.maxFileSize,
+    maxFiles: defaults.maxFiles,
+  };
+}
 
 const GITIGNORE_ENTRY = '\n# Code Analyzer\n.code-analyzer/data/\n';
 
@@ -164,7 +179,7 @@ export function initProject(options: InitOptions = {}): InitResult {
 
   // config.json
   const configPath = join(configDir, 'config.json');
-  if (writeIfAbsent(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n', force)) {
+  if (writeIfAbsent(configPath, JSON.stringify(defaultConfigFile(), null, 2) + '\n', force)) {
     filesCreated.push('config.json');
   } else {
     filesExisting.push('config.json');
@@ -196,6 +211,12 @@ export function initProject(options: InitOptions = {}): InitResult {
   }
 
   const allCreated = filesCreated.length;
+  // **The file is worth nothing if nobody says it is read.** This message is the one place a user is standing when
+  // `config.json` first exists, so it names the command that reads it and the keys that make it work.
+  const configHint = filesCreated.includes('config.json')
+    ? ` Edit ${join(configDir, 'config.json')} to change what a run does; ` +
+      '`code-analyzer config` prints the effective values and which file set each one.'
+    : '';
 
   return {
     success: true,
@@ -204,7 +225,7 @@ export function initProject(options: InitOptions = {}): InitResult {
     filesExisting,
     message:
       allCreated > 0
-        ? `Initialized Code Analyzer in ${configDir}. Created: ${filesCreated.join(', ')}.`
+        ? `Initialized Code Analyzer in ${configDir}. Created: ${filesCreated.join(', ')}.${configHint}`
         : `Code Analyzer already initialized in ${configDir}. Use --force to overwrite.`,
   };
 }

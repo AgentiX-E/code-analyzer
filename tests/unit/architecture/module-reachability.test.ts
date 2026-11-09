@@ -350,10 +350,12 @@ describe('every module a package compiles is reachable from an entry its manifes
     const counts = Object.fromEntries(NAMES.map((name) => [name, MEASURED[name]!.modules.length]));
     expect(counts).toEqual({
       analyzer: 90,
-      // **13 since iteration 111**, which added the three commands five documents already called — `change-set.ts`,
-      // `pr-review.ts`, `standards-check.ts` — and the severity bridge they share. The register is why it is written
-      // down here rather than inferred: a command surface that grows is a decision, and this is where it is recorded.
-      cli: 13,
+      // **14 since iteration 112**, which added `commands/config.ts`: the command that prints the configuration and
+      // where every value in it came from. The register is why it is written down here rather than inferred: a command
+      // surface that grows is a decision, and this is where it is recorded. (13 was iteration 111, which added the three
+      // commands five documents already called — `change-set.ts`, `pr-review.ts`, `standards-check.ts` — and the
+      // severity bridge they share.)
+      cli: 14,
       core: 45,
       infra: 29,
       // **157 since iteration 110**, which added `review/llm/language-rules.ts`: the per-language checklist is a

@@ -6,6 +6,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
+
+import { getDefaultConfig, loadConfigWithDiagnostics } from '@code-analyzer/core';
+
 import { initProject } from '../commands/init.js';
 
 describe('initProject', () => {
@@ -42,14 +45,46 @@ describe('initProject', () => {
     expect(parsed.rules.length).toBeGreaterThan(0);
   });
 
-  it('should create config.json', () => {
+  it('**should create a config.json the loader can actually read**', async () => {
     const result = initProject({ directory: testDir });
     expect(result.filesCreated).toContain('config.json');
     const content = readFileSync(join(testDir, '.code-analyzer', 'config.json'), 'utf-8');
     const parsed = JSON.parse(content);
-    expect(parsed.index).toBeDefined();
-    expect(parsed.review).toBeDefined();
-    expect(parsed.search).toBeDefined();
+
+    // The old file described the checkout with `index`, `review` and `search` blocks, none of which the loader knew and
+    // none of which any command read. Booleans on "the keys are there" would have passed for that file. This one asks
+    // the loader itself: **the schema is whatever it accepts**, and anything it does not accept comes back as ignored.
+    const loaded = await loadConfigWithDiagnostics(testDir, { globalFile: null, env: false });
+    expect(loaded.ignored).toEqual([]);
+    expect(Object.keys(parsed).sort()).toEqual([
+      'excludePatterns',
+      'includePatterns',
+      'maxFileSize',
+      'maxFiles',
+      'projectId',
+    ]);
+
+    // **The file is equivalent to no file at all**, which is what makes it a starting point rather than a surprise: every
+    // value it carries is the default it would have had, and `code-analyzer config` will name this file as the source.
+    const defaults = getDefaultConfig();
+    expect(loaded.config.maxFileSize).toBe(defaults.maxFileSize);
+    expect(loaded.config.maxFiles).toBe(defaults.maxFiles);
+    expect(loaded.config.excludePatterns).toEqual(defaults.excludePatterns);
+    expect(loaded.layers.find((layer) => layer.name === 'project')?.found).toBe(true);
+  });
+
+  it('does not write the machine into the file', () => {
+    initProject({ directory: testDir });
+    const content = readFileSync(join(testDir, '.code-analyzer', 'config.json'), 'utf-8');
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+
+    // `rootPath` would be an absolute path from whichever machine ran `init` — a value that travels with the repository
+    // and contradicts the checkout it is read in. `parseWorkers` is a function of the CPU count, for the same reason.
+    expect(parsed['rootPath']).toBeUndefined();
+    expect(parsed['parseWorkers']).toBeUndefined();
+    // **And it does not write a key nothing reads.** `ignorePaths` is in the shared schema and consumed by no code path;
+    // a new project's configuration file is the last place to put a setting that cannot do anything.
+    expect(parsed['ignorePaths']).toBeUndefined();
   });
 
   it('should create data directory', () => {

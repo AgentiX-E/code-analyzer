@@ -70,24 +70,32 @@ Use Docker when you want a fully isolated environment or need to run Code Analyz
 
 ### 1. Initialize Your Project
 
-Before your first analysis, initialize a configuration:
-
 ```bash
 code-analyzer init
 ```
 
-This creates a `.code-analyzerrc` file in your project root with sensible defaults. You'll be prompted to select:
+This is not interactive. It writes three things into `.code-analyzer/` and appends `.code-analyzer/data/` to
+`.gitignore`:
 
-- Which languages to analyze (TypeScript, Python, Go, Java, Kotlin, C#, Rust)
-- Directories to exclude
-- Review severity preferences
+| Path                            | What it is                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `.code-analyzer/standards.json` | the rule set this project is reviewed against, seeded from the 7 default standards                           |
+| `.code-analyzer/config.json`    | the configuration `analyze` reads — same shape as [configuration-reference.md](./configuration-reference.md) |
+| `.code-analyzer/data/`          | where an index lives, if you build one                                                                       |
 
 **Expected output:**
 
 ```
-✓ Created .code-analyzerrc
-✓ Detected 3 languages: typescript, python, go
-✓ Configuration saved with 8 options
+Initialized Code Analyzer in /home/you/project/.code-analyzer. Created: standards.json, config.json, .gitignore (updated).
+Edit /home/you/project/.code-analyzer/config.json to change what a run does; `code-analyzer config` prints the effective
+values and which file set each one.
+```
+
+Every value in that `config.json` is already the default, so nothing changes until you edit it. To see what a run would
+actually use, and which file set each value:
+
+```bash
+code-analyzer config
 ```
 
 ### 2. Analyze Your Codebase

@@ -43,6 +43,7 @@ Copilot Chat Participant: `@code-analyzer /review`, `/explain`, `/impact`, `/fin
 
 ```bash
 code-analyzer init .                       # Write .code-analyzer/ (standards + config)
+code-analyzer config                       # What a run would use, and which file set each value
 code-analyzer analyze ./project --languages typescript,python
 code-analyzer search "function"            # Search knowledge graph
 code-analyzer locate "where is auth handled"   # Rank files a question is about, no index needed
@@ -52,6 +53,12 @@ code-analyzer review-pr --from main --to feature
 code-analyzer standards check --repo . --standard typescript-coding --format json
 code-analyzer status                       # What is indexed, what is not
 ```
+
+> **`code-analyzer config` answers "why is this not the value I set".** It prints every key with the layer that set it —
+> `project`, `global`, `explicit`, `env:CODE_ANALYZER_MAX_FILES`, `default` — the layers it looked for and did not find,
+> and every key in your file that this version does not know. `--json` gives the same as `{ config, origin, layers,
+ignored }`; `--strict` exits 1 on an unrecognised key, which is what a CI job should run.
+> See [configuration-reference.md](./configuration-reference.md).
 
 > **`--summary <file>` writes the same run as Markdown**, so a workflow that needs JSON for its reader and Markdown for
 > its comment runs the review once instead of twice:
