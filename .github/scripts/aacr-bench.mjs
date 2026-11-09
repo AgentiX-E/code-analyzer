@@ -830,6 +830,15 @@ async function main() {
   } = await import('../../packages/intelligence/dist/review/actionability.js');
   const { DeepSeekProvider } =
     await import('../../packages/intelligence/dist/review/llm/provider.js');
+  // **The ledger, and the ceiling that stops a runaway job.** The balance reading below says what the *account* spent
+  // between two moments; **this says which lane spent it, and refuses the next call once the job has spent what it was
+  // allowed.** The default is a bound the observed job fits inside: a 14-pull-request run with both arms moved the
+  // balance by 62.82 CNY on 2026-11-09, which is about 8.9 USD at 7.1 - so 12 USD admits a legitimate run and stops a
+  // retry storm at roughly one and a third of it. **A ceiling set below the cost of a valid run would be a ceiling that
+  // measures the ceiling.**
+  const { CostLedger } = await import('../../packages/intelligence/dist/review/llm/cost.js');
+  const ledger = new CostLedger();
+  const MAX_USD = Number(process.env['AACR_MAX_USD'] ?? 12);
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
   //
   // **At 0.6 the merge removed 360 of 488 findings, raised precision 2.3 times and lowered recall from 0.56 to 0.36** -
@@ -837,7 +846,7 @@ async function main() {
   // the cheapest next measurement is the same run at a higher threshold**: **0.8 requires four fifths of the content
   // words to agree, so a genuinely different defect in the adjacent line survives.**
   const DEDUP_THRESHOLD = Number(process.env['AACR_DEDUP_THRESHOLD'] ?? 0.8);
-  const engine = new LLMReviewEngine(new DeepSeekProvider(), {
+  const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
     dedupThreshold: DEDUP_THRESHOLD,
     languageChecklist: CHECKLIST,
   });
@@ -1854,6 +1863,10 @@ async function main() {
     // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
     // account is labelled rather than reported as a reviewer's result.**
     credit: { before: creditBefore, after: await creditPosition() },
+    // **And what the reviewer itself spent, decomposed by lane**, which is the figure the credit pair cannot produce:
+    // a balance delta attributes nothing, and **a bill whose largest line nobody can name is a bill nobody can reduce.**
+    // `unpricedCalls` travels with the total because a total containing one is a lower bound.
+    spend: { ceilingUsd: MAX_USD, ...ledger.toJSON().totals, byTag: ledger.toJSON().byTag },
     // **The engine's own account of what it did**, because **a figure that says "one finding" without saying "199
     // files and 199 lanes" is a figure whose cause is not in the file.**
     engineCounters,
@@ -1861,6 +1874,12 @@ async function main() {
   });
   console.log(
     `AACR-BENCH reviewed ${reviewed} PRs · gate tp ${gated.truePositives} fp ${gated.falsePositives} fn ${gated.falseNegatives} · P ${gated.precision} R ${gated.recall} F1 ${gated.f1}`,
+  );
+  // **The bill, printed beside the figure it bought.** `calls` is the number the reviewer made, `cache` is the share of
+  // prompt tokens the provider served from its prefix cache - **the number a prompt reordering has to move, and the one
+  // nothing in this repository could report before the ledger existed.**
+  console.log(
+    `AACR-BENCH spend · calls ${ledger.totals().calls} · failures ${ledger.totals().failures} · unpriced ${ledger.totals().unpricedCalls} · prompt ${ledger.totals().promptTokens} · cache ${ledger.totals().cacheHitTokens} · usd ${ledger.totals().costUsd.toFixed(4)} · ceiling ${MAX_USD}`,
   );
   console.log(
     `AACR-BENCH full list tp ${allEmitted.truePositives} fp ${allEmitted.falsePositives} · P ${allEmitted.precision} R ${allEmitted.recall} F1 ${allEmitted.f1}`,

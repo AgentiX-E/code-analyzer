@@ -8,7 +8,7 @@ GitHub Copilot is the most widely used AI coding assistant. Code Analyzer enhanc
 
 ```bash
 npm install -g @code-analyzer/cli
-code-analyzer setup --agent github-copilot
+code-analyzer agent configure --target github-copilot
 ```
 
 ## Manual Configuration

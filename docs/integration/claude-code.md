@@ -8,7 +8,7 @@ Claude Code is Anthropic's agentic coding tool. Code Analyzer integrates via MCP
 
 ```bash
 npm install -g @code-analyzer/cli
-code-analyzer setup --agent claude-code
+code-analyzer agent configure --target claude-code
 ```
 
 ## Manual Configuration

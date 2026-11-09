@@ -15,7 +15,7 @@ import {
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
-import type { PipelineContext } from '@code-analyzer/shared';
+import type { CodeAnalyzerConfig, PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +43,14 @@ export interface AnalyzeOptions {
   include?: string[];
   /** Extra exclusion globs, **added to the default ones rather than replacing them**. */
   exclude?: string[];
+  /**
+   * The configuration this run resolved — defaults, configuration files and environment, in that order.
+   *
+   * **Absent means the defaults**, which is what every caller did before the CLI learned to read a configuration file.
+   * Present means the values here are what the run uses, with the three flags above still winning, because a flag is a
+   * decision about one run and a file is a decision about the project.
+   */
+  config?: CodeAnalyzerConfig;
 }
 
 export interface AnalyzeOutput {
@@ -89,7 +97,12 @@ async function loadPhases() {
  */
 export async function analyzeRepository(options: AnalyzeOptions): Promise<AnalyzeOutput> {
   const repoPath = resolve(options.path);
-  const projectId = (options.projectId ?? relative(process.cwd(), repoPath)) || 'default';
+  // **A project id in the configuration file is a statement about the project**, so it beats the derived one and loses
+  // to the flag. The derived value (`relative(cwd, repo)`) is what every run used before the file existed.
+  const configuredId = options.config?.projectId ?? '';
+  const projectId =
+    options.projectId ??
+    (configuredId !== '' ? configuredId : relative(process.cwd(), repoPath) || 'default');
   const startTime = Date.now();
   const errors: string[] = [];
 
@@ -119,14 +132,14 @@ export async function analyzeRepository(options: AnalyzeOptions): Promise<Analyz
       // **The configuration is built from the defaults and then amended**, because a partial object handed to the
       // orchestrator is *not* replaced by the defaults (`if (!ctx.config)`), and a `maxFiles` of `undefined` makes
       // `results.length >= undefined` false - an unbounded walk behind a command that looks configured.
-      const defaults = getDefaultConfig();
+      const defaults = options.config ?? getDefaultConfig();
       const config: typeof defaults = {
         ...defaults,
         // **The root, said once more where the schema keeps it.** No phase of this pipeline reads it - they read
         // `ctx.rootPath` - and a configuration whose own root disagrees with the run's is a trap left for the first
         // phase that does.
         rootPath: repoPath,
-        includePatterns: options.include ?? [],
+        includePatterns: options.include ?? defaults.includePatterns,
         excludePatterns:
           options.exclude === undefined
             ? defaults.excludePatterns

@@ -9,7 +9,7 @@
 npm install -g @code-analyzer/cli
 npx embed-code download
 code-analyzer analyze ./your-project
-code-analyzer mcp  # Start MCP server for AI agents
+npx @code-analyzer/mcp  # Start the MCP server for AI agents (stdio by default with MCP_TRANSPORT=stdio)
 ```
 
 ## MCP Server (48 tools)
@@ -42,13 +42,34 @@ Copilot Chat Participant: `@code-analyzer /review`, `/explain`, `/impact`, `/fin
 ## CLI
 
 ```bash
-code-analyzer analyze ./project    # Index a repository
-code-analyzer search "function"    # Search knowledge graph
-code-analyzer review ./src --diff  # Review staged changes
+code-analyzer init .                       # Write .code-analyzer/ (standards + config)
+code-analyzer config                       # What a run would use, and which file set each value
+code-analyzer analyze ./project --languages typescript,python
+code-analyzer search "function"            # Search knowledge graph
+code-analyzer locate "where is auth handled"   # Rank files a question is about, no index needed
+code-analyzer review ./src --diff          # Review staged changes
+code-analyzer review pr --repo . --pr 12 --token "$GITHUB_TOKEN" --format markdown
 code-analyzer review-pr --from main --to feature
-code-analyzer group create svcs    # Create cross-repo group
-code-analyzer web --port 8080      # Start dashboard
+code-analyzer standards check --repo . --standard typescript-coding --format json
+code-analyzer status                       # What is indexed, what is not
 ```
+
+> **`code-analyzer config` answers "why is this not the value I set".** It prints every key with the layer that set it —
+> `project`, `global`, `explicit`, `env:CODE_ANALYZER_MAX_FILES`, `default` — the layers it looked for and did not find,
+> and every key in your file that this version does not know. `--json` gives the same as `{ config, origin, layers,
+ignored }`; `--strict` exits 1 on an unrecognised key, which is what a CI job should run.
+> See [configuration-reference.md](./configuration-reference.md).
+
+> **`--summary <file>` writes the same run as Markdown**, so a workflow that needs JSON for its reader and Markdown for
+> its comment runs the review once instead of twice:
+> `code-analyzer review pr --pr 12 --format json --output review.json --summary review.md`. Both commands have it, and
+> both write the file before exiting, so a `--fail-on` threshold that exits 1 still leaves the comment to post.
+
+> **Two commands leave this list before they can be documented as facts.** A cross-repository group and a `web`
+> dashboard are capabilities of the MCP server and of `packages/web`, not of this CLI: `code-analyzer group create` and
+> `code-analyzer web` are not commands, and a manual that lists them teaches a reader to type something that fails.
+> Their absence is recorded with the other omissions in
+> `code-analyzer-docs/audits/2026-11-09-deliberate-omissions.md`.
 
 ## Code Review Rules (46+)
 
@@ -72,12 +93,19 @@ Architecture (6): Circular deps, layer violations, god classes
 
 ## Cross-Repository
 
-```bash
-code-analyzer group create my-services
-code-analyzer group add my-services frontend ./frontend
-code-analyzer group add my-services backend ./backend
-code-analyzer group sync my-services
-```
+Cross-repository work is a capability of the MCP server, **not of this CLI**: the block that used to sit here showed
+`code-analyzer group create`, `group add` and `group sync`, and no such command has ever existed. Through the server the
+three steps are one call each:
+
+| Step                                                   | MCP tool               |
+| ------------------------------------------------------ | ---------------------- |
+| Search several indexed projects at once                | `cross_repo_search`    |
+| Follow a symbol from one project into another          | `cross_repo_trace`     |
+| See what a change in one project reaches in the others | `cross_repo_impact`    |
+| Review a pull request that spans projects              | `cross_repo_review_pr` |
+
+Each project has to be indexed first (`code-analyzer analyze <path>`), because a cross-repository answer is a join over
+indexes and an unindexed project contributes nothing to it.
 
 ## Troubleshooting
 

@@ -3,6 +3,8 @@
 
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
+import { CostBudget, CostLedger, costUsdOf, type LLMTokenUsage } from './cost.js';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -19,6 +21,14 @@ export interface CompletionOptions {
   stop?: string[];
   /** Timeout in milliseconds for the HTTP request. Defaults to 120000. */
   timeout?: number;
+  /**
+   * **What this call is for, in the caller's own words** - `review:security`, `judge`, `rerank`.
+   *
+   * **The ledger groups by it**, so **this field is the whole difference between a bill that says how much a run cost
+   * and a bill that says which part of the run cost it.** A call without one is recorded as `untagged` rather than
+   * dropped, because **an unattributed call is still a call someone paid for.**
+   */
+  tag?: string;
 }
 
 /** The structured result of an LLM completion call. */
@@ -27,16 +37,25 @@ export interface CompletionResult {
   content: string;
   /** The model used for this completion. */
   model: string;
-  /** Token usage statistics. */
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  /**
+   * Token usage statistics, **with the cache split the vendor reports**, so a caller can price the call.
+   *
+   * The shape is `LLMTokenUsage` rather than a second interface with the same three fields: **two declarations of one
+   * bill is how a figure and its source drift**, and `costUsdOf` takes exactly this type.
+   */
+  usage?: LLMTokenUsage;
   /** ISO timestamp of when the completion was created. */
   createdAt: string;
   /** Reason the completion stopped (stop, length, etc.). */
   finishReason: string;
+  /**
+   * **What this completion cost in USD, when the model is one the price table knows.**
+   *
+   * **`undefined` and not `0` for an unknown model**, because **a zero is absorbed silently by any total** and a bill
+   * that reports an unpriced model as free is worse than one that reports it as unknown. The ledger counts those
+   * separately; this field is the same fact for a caller that reads one completion at a time.
+   */
+  costUsd?: number;
   /**
    * The tools the model asked to call, when it asked for any.
    *
@@ -200,6 +219,15 @@ interface DeepSeekResponse {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+    /**
+     * **The cache split, which the vendor reports and this client used to discard.**
+     *
+     * `prompt_cache_hit_tokens` is billed at one fiftieth of the miss price on the rows in `cost.ts`, so **a client that
+     * throws it away cannot tell a run that reused a prefix from one that paid full price twice** - and cannot show
+     * that a prompt reordering worked.
+     */
+    prompt_cache_hit_tokens?: number;
+    prompt_cache_miss_tokens?: number;
   };
 }
 
@@ -223,17 +251,51 @@ export class DeepSeekProvider implements LLMProvider {
   private readonly defaultTimeout: number;
   private readonly maxRetries: number;
   private logger: PhaseLogger = createNoopPhaseLogger();
+  /** What every completion in this process cost, when a caller asked for one. */
+  private readonly ledger: CostLedger | undefined;
+  /** The ceiling this provider refuses to cross, when a caller set one. */
+  private readonly budget: CostBudget | undefined;
+  /** The clock, injected so a price that depends on the hour can be tested at a chosen hour. */
+  private readonly now: () => Date;
 
   constructor(options?: {
     model?: string;
     baseUrl?: string;
     timeout?: number;
     maxRetries?: number;
+    /**
+     * **Where the cost of every call is recorded.** Optional, because a unit test of a prompt has no budget and no
+     * reason to carry a ledger - and **the default is `undefined` rather than a silently created ledger**, so a caller
+     * that did not ask for accounting cannot mistake an empty ledger for a run that spent nothing.
+     */
+    ledger?: CostLedger;
+    /**
+     * **USD this provider may spend before it refuses to send another call.**
+     *
+     * **A ceiling needs a ledger to mean anything**, so one given without the other is a configuration mistake rather
+     * than a feature: it throws here, at construction, where a test can hold it, instead of at the first call, where the
+     * only evidence is a spent balance.
+     */
+    ceilingUsd?: number;
+    /** The clock. Defaults to `Date`, injected by tests that price a call at a known hour. */
+    now?: () => Date;
   }) {
     this.baseUrl = options?.baseUrl ?? DEFAULT_BASE_URL;
     this.model = options?.model ?? DEFAULT_MODEL;
     this.defaultTimeout = options?.timeout ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = options?.maxRetries ?? MAX_RETRIES;
+    this.ledger = options?.ledger;
+    this.now = options?.now ?? (() => new Date());
+
+    if (options?.ceilingUsd !== undefined) {
+      if (!options.ledger) {
+        throw new Error(
+          'A spend ceiling was given without a ledger. A ceiling is a comparison against recorded spend, ' +
+            'and there is nothing to compare against without one.',
+        );
+      }
+      this.budget = new CostBudget(options.ceilingUsd, options.ledger);
+    }
 
     const apiKey = process.env['DEEPSEEK_API_KEY'];
     if (!apiKey) {
@@ -297,6 +359,7 @@ export class DeepSeekProvider implements LLMProvider {
   ): Promise<CompletionResult> {
     const timeout = options?.timeout ?? this.defaultTimeout;
     const maxRetries = this.maxRetries;
+    const tag = options?.tag ?? 'untagged';
 
     // **Initialised rather than left undefined, so no `??` is needed after the loop.** The loop either returns or
 
@@ -305,6 +368,10 @@ export class DeepSeekProvider implements LLMProvider {
     // unreachable, but satisfy TypeScript*. Initialising it is how the compiler is satisfied without a branch.
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // **The ceiling is checked before the request is built**, so a refused call costs nothing - not the network, not
+      // the tokens, not the retry budget. See `CostBudget` for why this is the only guarantee that can be exact.
+      this.budget?.assertAffordable(tag);
+      const startedAt = Date.now();
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -377,6 +444,40 @@ export class DeepSeekProvider implements LLMProvider {
             .join('\n') ??
           '';
 
+        // **`data.model` rather than `this.model`, because the alias is not always what was billed.** A request sent as
+        // `deepseek-chat` is answered by whichever model serves that name, and pricing the name we asked for instead of
+        // the model that answered would put the wrong row's price on the bill.
+        const billedModel = data.model || this.model;
+        const at = this.now();
+        const usage: LLMTokenUsage | undefined = data.usage
+          ? {
+              promptTokens: data.usage.prompt_tokens,
+              completionTokens: data.usage.completion_tokens,
+              totalTokens: data.usage.total_tokens,
+              // **Spread conditionally, because `undefined` means "the vendor did not report a split"** and a zero would
+              // mean "the vendor reported no cache hits". The two are billed the same way here and must not read the
+              // same in a report.
+              ...(data.usage.prompt_cache_hit_tokens !== undefined
+                ? { cacheHitTokens: data.usage.prompt_cache_hit_tokens }
+                : {}),
+              ...(data.usage.prompt_cache_miss_tokens !== undefined
+                ? { cacheMissTokens: data.usage.prompt_cache_miss_tokens }
+                : {}),
+            }
+          : undefined;
+        const costUsd = usage ? costUsdOf(usage, billedModel, at) : null;
+
+        this.ledger?.record({
+          at: at.toISOString(),
+          model: billedModel,
+          tag,
+          usage: usage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          costUsd,
+          attempt,
+          outcome: 'ok',
+          durationMs: Date.now() - startedAt,
+        });
+
         return {
           content,
           toolCalls: choice.message.tool_calls?.map((tc) => ({
@@ -385,13 +486,10 @@ export class DeepSeekProvider implements LLMProvider {
             arguments: tc.function.arguments,
           })),
           model: data.model,
-          usage: data.usage
-            ? {
-                promptTokens: data.usage.prompt_tokens,
-                completionTokens: data.usage.completion_tokens,
-                totalTokens: data.usage.total_tokens,
-              }
-            : undefined,
+          usage,
+          // **`cond ? value : undefined`, not `value ?? undefined`**: an unpriced call is a fact the caller may want to
+          // act on, and the `??` would have been the same expression with a reader wondering what the difference was.
+          costUsd: costUsd ?? undefined,
           // **`created` is OpenAI's field and DeepSeek does not send it.** `new Date(undefined * 1000)` is
           // `new Date(NaN)`, and `toISOString()` on that throws `RangeError: Invalid time value` - so every
           // completion that succeeded crashed on the way out. Found by a test that answered with a real payload.
@@ -405,6 +503,21 @@ export class DeepSeekProvider implements LLMProvider {
         if (caught.name === 'AbortError') {
           caught = new LLMTimeoutError(timeout);
         }
+
+        // **An attempt that failed is still recorded**, with no tokens and no price: **the retry count is the one figure
+        // that explains a bill larger than the calls it contains**, and a ledger that only counted successes would
+        // report a run of three attempts as one call.
+        this.ledger?.record({
+          at: this.now().toISOString(),
+          model: this.model,
+          tag,
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          costUsd: null,
+          attempt,
+          outcome: 'error',
+          durationMs: Date.now() - startedAt,
+          error: caught.message.slice(0, 200),
+        });
 
         // Don't retry on auth / timeout / rate-limit errors
         if (

@@ -21,10 +21,10 @@ Code Analyzer integrates with every major AI coding agent via the MCP (Model Con
 npm install -g @code-analyzer/cli
 
 # Auto-detect your agent and generate config
-code-analyzer setup --auto
+code-analyzer agent configure --all
 
 # Or manually specify your agent
-code-analyzer setup --agent claude-code
+code-analyzer agent configure --target claude-code
 ```
 
 ## Prerequisites
@@ -62,9 +62,10 @@ If configured correctly, the agent will use Code Analyzer's tools to provide a s
 
 ### Tools return errors
 
-1. Index your project first: `code-analyzer index`
+1. Index your project first: `code-analyzer analyze .`
 2. Check the index status: `code-analyzer status`
-3. View logs: `code-analyzer logs`
+3. Read the server's own log: the MCP server writes to stderr, so whatever launched it — the agent, or a terminal — is
+   where the message is. The CLI has no `logs` verb.
 
 ### Performance issues
 
