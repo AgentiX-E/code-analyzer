@@ -62,6 +62,12 @@ jobs:
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
         env:
           # lychee reads this variable and sends it as a bearer token for `github.com` hosts.
+          #
+          # **And it was not enough**, which is worth recording: with the token in place the `/blob/...` links passed and
+          # the bare `.../issues` URL still returned `[504]` on every run, including one at 08:00 after a ten-minute
+          # wait. **A URL that points at this repository's own issue tracker cannot be broken in a way a link checker
+          # could find** - if the repository is renamed, every link in it breaks at once and this job is not what notices
+          # - so the path is excluded by exact anchor, beside the numbered-issue exclusion that predates it.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
@@ -71,6 +77,7 @@ jobs:
             --timeout 30
             --accept 200,201,202,203,204,206,301,302,304,307,308
             --exclude '^https://github.com/AgentiX-E/code-analyzer/(issues|pulls)/\d+'
+            --exclude '^https://github.com/AgentiX-E/code-analyzer/issues/?$'
             --exclude '^https://codecov.io/.*'
             --exclude '^https://img.shields.io/.*'
             --exclude '^http://localhost:.*'
