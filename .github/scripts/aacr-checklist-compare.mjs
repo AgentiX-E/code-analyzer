@@ -194,6 +194,12 @@ function refuse(reason, detail) {
   };
   writeArtifact(artifact);
   console.log(`AACR-CHECKLIST not compared: ${reason}`);
+  // **A refusal is a failure, not a result.**
+  //
+  // Iteration 102 of this repository was about a gate that printed `nothing published` and exited 0 for weeks, and **a
+  // comparison job that declines to compare and turns the workflow green is the same defect with a better excuse.** The
+  // artifact is still written and still uploaded, so a reader can see why; the job is red, so a reader knows to look.
+  process.exitCode = 1;
   return artifact;
 }
 
