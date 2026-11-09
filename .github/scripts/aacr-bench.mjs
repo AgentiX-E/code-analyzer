@@ -34,6 +34,26 @@ const KEY =
   process.env['DEEPSEEK_API_KEY'];
 const MAX_PRS = Number(process.env['MAX_PRS'] ?? '5');
 
+/**
+ * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
+ *
+ * The file arm fills three slots **per file per lane**; over 199 files it emitted **183 findings carrying 21 goldens**
+ * - precision 0.2019, recall 0.42, F1 0.2727. The same contract applied to a whole pull request fills three slots **per
+ * pull request per lane**; over five pull requests it emitted **15 findings carrying 6** - precision **0.40**, recall
+ * 0.12, F1 0.1846.
+ *
+ * **Those two figures measure the same budget against two scopes, and they are the whole argument.** At fifteen
+ * findings, the file arm's precision on the curve already recorded is **0.20** and the pull-request arm's is **0.40** -
+ * so **the scope is worth a factor of two in precision at equal emission**, and the small arm's problem was never
+ * precision, it was that three slots for a whole pull request buys a tenth of the recall.
+ *
+ * **Sixteen is where the arithmetic crosses the figure to beat.** With 50 goldens and 80 emitted findings, F1 > 0.45
+ * needs **30 true positives**, which is precision **0.375** - *below* the 0.40 this arm has already demonstrated. The
+ * rule this run registers is therefore: **a modest decay from 0.40 is survivable, and a collapse is not.** If precision
+ * lands under 0.375 the registration is falsified and the report says so.
+ */
+const PR_BUDGET = Number(process.env['PR_BUDGET'] ?? '16');
+
 function findSamples(name) {
   const hits = [];
   const walk = (dir, depth) => {
@@ -205,8 +225,14 @@ function exactMcNemar(oursOnly, theirsOnly) {
  */
 async function dryRun() {
   const assert = (await import('node:assert/strict')).default;
-  const { collectDiffFacts, maximumMatchingCount, point, rankFindings, topKCurve } =
-    await import('../../packages/intelligence/dist/review/actionability.js');
+  const {
+    collectDiffFacts,
+    matchedGoldenIndices,
+    maximumMatchingCount,
+    point,
+    rankFindings,
+    topKCurve,
+  } = await import('../../packages/intelligence/dist/review/actionability.js');
 
   const diff = [
     'diff --git a/a.ts b/a.ts',
@@ -377,6 +403,49 @@ async function dryRun() {
 
   assert.equal(exactMcNemar(6, 0) < 0.05, true, 'six discordant pairs one way is significant');
   assert.equal(exactMcNemar(0, 0), 1, 'no discordant pairs is no evidence');
+
+  // **The pull-request arm's budget cut, on the same fixture.**
+  //
+  // The arm emits an ordered list per pull request and the budget keeps its head, so **the arithmetic that decides what
+  // a reader sees is `topKCurve` at the budget** - and it is asserted here rather than trusted, because **a budget
+  // applied to a different order than the one reported is a figure two readers cannot reproduce.**
+  const armCurve = topKCurve(matrix.matches, goldens.length);
+  const atBudget = (budget) => armCurve[Math.min(budget, armCurve.length) - 1];
+  assert.deepEqual(
+    [1, 2, 3].map((budget) => atBudget(budget)?.truePositives),
+    [1, 2, 2],
+    'a budget of one keeps the first finding, of two the first two, and the third adds no golden',
+  );
+  assert.deepEqual(
+    [1, 2, 3].map((budget) => atBudget(budget)?.falsePositives),
+    [0, 0, 1],
+    'the third finding is the first false positive the budget buys',
+  );
+
+  // **And the paired test between the arms, which is the only comparison two arms on one corpus support.**
+  //
+  // The fixture's gate keeps three findings covering goldens 0 and 3; the full list covers 0, 2 and 3. So the arms agree
+  // on 0 and 3, the file arm alone holds 2, and the pull-request arm alone holds nothing: one discordant pair each way
+  // would be p = 1, and here it is one way only.
+  const armPairing = (ours, theirs) => {
+    const a = new Set(matchedGoldenIndices(ours, goldens.length));
+    const b = new Set(matchedGoldenIndices(theirs, goldens.length));
+    let onlyA = 0;
+    let onlyB = 0;
+    for (const at of a) if (!b.has(at)) onlyA += 1;
+    for (const at of b) if (!a.has(at)) onlyB += 1;
+    return { both: a.size - onlyA, onlyA, onlyB, pValue: exactMcNemar(onlyA, onlyB) };
+  };
+  assert.deepEqual(
+    (({ both, onlyA, onlyB }) => ({ both, onlyA, onlyB }))(armPairing(keptMatches, matrix.matches)),
+    { both: 2, onlyA: 0, onlyB: 1 },
+    'the gated arm keeps two of the three goldens the full list covers and adds none of its own',
+  );
+  assert.equal(
+    armPairing(keptMatches, matrix.matches).pValue > 0.05,
+    true,
+    'one discordant pair is not evidence, and the job must be able to report that',
+  );
 
   console.log(
     `AACR-BENCH dry run ok · full F1 ${full.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')}`,
@@ -841,6 +910,9 @@ async function main() {
   let unansweredWhole = 0;
   let wholePrFindingsTotal = 0;
   let wholePrLanesTotal = 0;
+  /** **Per pull request, for the pull-request arm** - a paired test needs the two arms on the same goldens. */
+  const prArmPerPr = [];
+  const prArmDetail = [];
   let reviewed = 0;
   let unfetched = 0;
   const categories = {};
@@ -1253,7 +1325,7 @@ async function main() {
       }
     }
 
-    // **ARM TWO: the whole pull request, in one call - the competitor's view.**
+    // **ARM TWO: the whole pull request, in one call per lane, with one budget for the pull request.**
     //
     // **Why an arm rather than a replacement.** **The structural finding was that 995 lanes each see one file**, and
     // **the ground truth carries Repo Level issues that a single file cannot contain** - so **the hypothesis is that
@@ -1264,18 +1336,51 @@ async function main() {
     // **And it runs in the same job as the per-file arm**, over the same pull requests, judged by the same judge
     // against the same goldens - so **the two numbers differ by the arm and by nothing else.**
     //
-    // **The path is the diff's own first file**, which **the diff names itself** - **not a golden path**, which is what
-    // the defect removed three runs ago.
-    const wholePrLanes = [];
+    // **What changed since the last run, said plainly.** The previous version of this arm called `reviewDiff` with the
+    // whole diff as one file's content, so **every finding came back about a file named `pull-request.diff` and no
+    // finding could be grounded against any real path** - the arm measured a view and forgot to measure a location.
+    // `reviewPullRequest` requires a path per finding and judges each range against **its own file's** hunks, so the
+    // arm now differs from the file arm in the thing it was meant to test and in nothing else.
+    const prSections = sections.map((section) => ({
+      path: section.path,
+      diffText: section.lines.join(String.fromCharCode(10)),
+    }));
+    let wholePrFindings = [];
     try {
-      const wholePath = sections[0]?.path ?? 'pull-request.diff';
-      wholePrLanes.push(...(await engine.reviewDiff(createDiff(wholePath, 'added', diff), diff)));
+      const prLanes = await engine.reviewPullRequest(prSections, {
+        maxFindingsPerPullRequest: PR_BUDGET,
+      });
+      wholePrFindings = prLanes.filter((l) => l.success).flatMap((l) => l.findings);
     } catch (error) {
       engineCounters.wholePrFailure = String(error.message ?? '').slice(0, 200);
     }
-    const wholePrFindings = wholePrLanes.filter((l) => l.success).flatMap((l) => l.findings);
-    wholePrLanesTotal += wholePrLanes.length;
+    wholePrLanesTotal += prSections.length;
     wholePrFindingsTotal += wholePrFindings.length;
+    // **What the arm's own filter did with this pull request**, because **an arm that emits nothing and an arm whose
+    // path check ate the answer produce the same zero.**
+    if (engine.lastCounts) {
+      const acc = engineCounters.pullRequestArm;
+      const own = engine.lastCounts.dropped;
+      if (acc) {
+        acc.parsed += engine.lastCounts.parsed;
+        acc.kept += engine.lastCounts.kept;
+        acc.missingPath += own.missingPath;
+        acc.unknownPath += own.unknownPath;
+        acc.beyondDiffLength += own.beyondDiffLength;
+        acc.invalidLine += own.invalidLine;
+        acc.capped += own.capped;
+      } else {
+        engineCounters.pullRequestArm = {
+          parsed: engine.lastCounts.parsed,
+          kept: engine.lastCounts.kept,
+          missingPath: own.missingPath,
+          unknownPath: own.unknownPath,
+          beyondDiffLength: own.beyondDiffLength,
+          invalidLine: own.invalidLine,
+          capped: own.capped,
+        };
+      }
+    }
 
     reviewed += 1;
     // **Their two context dimensions are recorded per PR**, because **a `Repo Level` issue needs the repository and a
@@ -1349,6 +1454,40 @@ async function main() {
     tpWhole += wholeCovered;
     fpWhole += wholePrFindings.length - wholeCovered;
     fnWhole += issueTexts.length - wholeCovered;
+
+    // **And the pull-request arm's own order**, so its curve and the paired test are arithmetic over verdicts that
+    // were already judged rather than a second run with a second set of samples.
+    const prRanked = rankFindings(
+      wholePrFindings.map((finding) => ({ finding, path: String(finding.path ?? '') })),
+      prFacts,
+    );
+    const detailOf = new Map(wholePrFindings.map((finding, at) => [finding, at]));
+    prRanked.forEach((entry) => {
+      const at = detailOf.get(entry.finding);
+      prArmDetail.push({
+        pr: pr.githubPrUrl ?? null,
+        path: entry.path,
+        startLine: entry.finding.startLine,
+        endLine: entry.finding.endLine,
+        severity: entry.finding.severity,
+        category: entry.finding.category,
+        lane: entry.finding.lane ?? null,
+        score: entry.score.score,
+        features: entry.score.features,
+        which: 'agentix-e-pull-request',
+        matchedGoldens: at === undefined ? [] : wholeMatrix.matches[at],
+      });
+    });
+    prArmPerPr.push({
+      key: pr.githubPrUrl ?? `pr-${prArmPerPr.length}`,
+      // **Re-ordered the same way as the detail**, because a curve cut from a different order than the one reported is
+      // a budget two readers cannot reproduce.
+      matches: prRanked.map((entry) => {
+        const at = detailOf.get(entry.finding);
+        return at === undefined ? [] : wholeMatrix.matches[at];
+      }),
+      goldens: issueTexts.length,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -1467,9 +1606,24 @@ async function main() {
         'actionability gate: the range covers an added line AND (the suggestion names an action OR the finding quotes added code)',
       emissionRuleRegisteredBeforeRun: true,
       judgeConcurrency: JUDGE_CONCURRENCY,
+      /**
+       * **Two arms of this engine, one judge, one set of goldens, one job.**
+       *
+       * The question this run was registered to answer is **where the budget should sit**, and a single figure cannot
+       * answer it: the file arm and the pull-request arm are the same five lanes, the same prompts and the same model,
+       * differing in the unit of review and the budget's denominator. **The paired test between them is in
+       * `armsPairedTest`**, because the two arms read the same pull requests against the same goldens.
+       */
+      arms: {
+        file: 'one call per file per lane, at most 3 findings per file per lane',
+        pullRequest: `one call per lane for the whole pull request, at most ${PR_BUDGET} findings for the pull request`,
+      },
+      registeredRule:
+        'the pull-request arm at 16 findings per pull request exceeds the competitor figure of 0.4500 F1 on the same corpus, same judge, same goldens; the file arm stays in the same job as the control',
       pairsJudged:
         perPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0) +
-        competitorPerPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0),
+        competitorPerPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0) +
+        prArmPerPr.reduce((total, pull) => total + pull.matches.length * pull.goldens, 0),
       weights: ACTIONABILITY_WEIGHTS,
       changedFrom:
         'the previous protocol consumed each golden with the first finding that matched it, in judging order',
@@ -1501,9 +1655,17 @@ async function main() {
           : 'not significant at 0.05',
     },
     // **The control arm, reported beside the first rather than instead of it.**
-    wholePrArm: {
-      view: 'one call over the whole pull request diff',
-      lanes: wholePrLanesTotal,
+    /**
+     * **The second arm: one call per lane over the whole pull request, with one budget for the pull request.**
+     *
+     * **Two arms of one engine, one judge, one set of goldens, one job** - so the two figures differ by the scope and
+     * by nothing else. The artifact carries both because **the question this run answers is not "how good is the
+     * reviewer" but "where should the budget sit"**, and a single figure cannot answer it.
+     */
+    pullRequestArm: {
+      view: 'one call per lane over the whole pull request, one budget for the pull request',
+      budgetPerPullRequest: PR_BUDGET,
+      filesPerArm: wholePrLanesTotal,
       findings: wholePrFindingsTotal,
       truePositives: tpWhole,
       falsePositives: fpWhole,
@@ -1514,7 +1676,69 @@ async function main() {
       f1: round(
         tpWhole + fpWhole + fnWhole > 0 ? (2 * tpWhole) / (2 * tpWhole + fpWhole + fnWhole) : 0,
       ),
+      // **What its own budget did, per pull request**, so a curve over this arm is a cut of the order it reported.
+      byBudgetPerPullRequest: BUDGETS.map((budget) => {
+        let total = zero;
+        for (const pull of prArmPerPr) {
+          const curve = topKCurve(pull.matches, pull.goldens);
+          const at = budget === 0 ? curve.length : Math.min(budget, curve.length);
+          const chosen = curve[at - 1];
+          if (chosen) {
+            total = {
+              tp: total.tp + chosen.truePositives,
+              fp: total.fp + chosen.falsePositives,
+              fn: total.fn + chosen.falseNegatives,
+            };
+          }
+        }
+        const scored = asPoint(total);
+        return { budgetPerPullRequest: budget, ...scored };
+      }),
+      // **And the arm's per-pull-request verdicts**, which is what a paired test against the file arm needs.
+      perPullRequest: prArmPerPr.map((pull) => ({
+        pr: pull.key,
+        findings: pull.matches.length,
+        goldens: pull.goldens,
+        covered: maximumMatchingCount(pull.matches, pull.goldens),
+      })),
+      rankedFindings: prArmDetail,
     },
+    /**
+     * **The paired test between the two arms**, because **they read the same pull requests against the same goldens**
+     * and that is exactly the design McNemar's test is for: only the goldens one arm found and the other did not carry
+     * information about which arm is better.
+     */
+    armsPairedTest: (() => {
+      const ours = new Set();
+      for (const pull of prArmPerPr) {
+        for (const at of matchedGoldenIndices(pull.matches, pull.goldens))
+          ours.add(`${pull.key}#${at}`);
+      }
+      const theirs = new Set();
+      for (const pull of perPr) {
+        for (const at of matchedGoldenIndices(pull.matches, pull.goldens))
+          theirs.add(`${pull.key}#${at}`);
+      }
+      let both = 0;
+      let pullRequestOnly = 0;
+      let fileOnly = 0;
+      for (const key of ours) {
+        if (theirs.has(key)) both += 1;
+        else pullRequestOnly += 1;
+      }
+      for (const key of theirs) if (!ours.has(key)) fileOnly += 1;
+      return {
+        view: 'pull-request arm vs file arm, same pull requests, same goldens, same judge',
+        both,
+        pullRequestOnly,
+        fileOnly,
+        pValue: round(exactMcNemar(pullRequestOnly, fileOnly)),
+        verdict:
+          exactMcNemar(pullRequestOnly, fileOnly) <= 0.05
+            ? 'significant at 0.05'
+            : 'not significant at 0.05',
+      };
+    })(),
     reviewCategories: categories,
     // **The context split, which is the reason this corpus was chosen**: `Repo Level` is cross-file by construction.
     groundTruthContextLevels: contextLevels,

@@ -62,6 +62,46 @@ export interface LLMReviewResult {
 // Defaults
 // ---------------------------------------------------------------------------
 
+/**
+ * **One spelling for a path, so a model's choice can be compared with a diff's header.**
+ *
+ * `git diff` writes `a/src/limit.ts b/src/limit.ts`; a prompt lists `src/limit.ts`; a model may answer `./src/limit.ts`
+ * or `/src/limit.ts`. **All four name one file, and comparing them as strings says they name four.** The strip is
+ * deliberately shallow - the `a/` and `b/` prefixes, a leading `./` and a leading `/` - because a deeper
+ * normalisation (case folding, `..` resolution, symlinks) would start deciding that two different names are the same
+ * file, which is the mistake in the other direction.
+ */
+function normaliseReviewPath(raw: string): string {
+  let path = raw.trim();
+  if (path.startsWith('"') && path.endsWith('"')) path = path.slice(1, -1);
+  while (path.startsWith('./')) path = path.slice(2);
+  if (path.startsWith('a/') || path.startsWith('b/')) path = path.slice(2);
+  if (path.startsWith('/')) path = path.slice(1);
+  return path;
+}
+
+/** One file's slice of a pull request's unified diff. */
+export interface DiffSection {
+  /** The path exactly as `git diff`'s `diff --git a/… b/X` header names it, prefixes stripped. */
+  path: string;
+  /** The section's own text, including its `diff --git` header so the concatenation stays a valid unified diff. */
+  diffText: string;
+}
+
+/** What a pull-request review may spend. */
+export interface PullRequestReviewOptions {
+  /**
+   * **Findings the whole pull request may return, across every lane.**
+   *
+   * Three is the number the file contract's third rule produced when the "file" became a pull request - and it is the
+   * number at which precision was 0.40 and recall 0.12. **The point of the parameter is that this is a budget rather
+   * than a law**: the curve in the artifact says what each budget buys, and a caller that wants recall moves it.
+   */
+  maxFindingsPerPullRequest?: number;
+}
+
+const DEFAULT_PULL_REQUEST_BUDGET = 12;
+
 const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   lanes: ['security', 'architecture', 'performance', 'maintainability', 'testing'],
   maxTokensPerLane: 4096,
@@ -172,6 +212,14 @@ export class LLMReviewEngine {
     };
 
     type Entry = { result: LLMReviewResult; finding: LLMFinding; words: Set<string> };
+    /**
+     * **Which file an entry is about, from the finding first and the result second.**
+     *
+     * A file call has one answer for every finding in the result, so the fallback is the whole truth there. **A
+     * pull-request call has one result per lane and many files**, so a merge key read from the result would compare the
+     * label of the call rather than the file of the finding - and **two files both have a line 10.**
+     */
+    const fileOf = (entry: Entry): string => String(entry.finding.path ?? entry.result.filePath);
     const all: Entry[] = [];
     for (const result of results) {
       for (const finding of result.findings) {
@@ -204,7 +252,7 @@ export class LLMReviewEngine {
       const sameLocation = survivors.findIndex(
         (k) =>
           // **Same file, overlapping ranges** - the same defect has one location.
-          String(k.result.filePath ?? '') === String(entry.result.filePath ?? '') &&
+          fileOf(k) === fileOf(entry) &&
           entry.finding.startLine <= k.finding.endLine &&
           entry.finding.endLine >= k.finding.startLine,
       );
@@ -215,6 +263,9 @@ export class LLMReviewEngine {
               (k) =>
                 // **Or the same shape of sentence**, because **two lanes do not word a defect identically** and a range
                 // is a hint that this iteration already watched a filter discard 207 findings over.
+                // **And only within one file**, because **two files each with an unfixed null check are two comments a
+                // developer has to make**, and a merge keyed on wording alone turns them into one.
+                fileOf(k) === fileOf(entry) &&
                 shares(k.words, entry.words) >= this.options.dedupThreshold,
             );
       const survivor = duplicateAt === -1 ? undefined : survivors[duplicateAt];
@@ -275,6 +326,115 @@ export class LLMReviewEngine {
     return this.convertToReviewComments(diff, results);
   }
 
+  /**
+   * **One review per pull request, with one budget for the whole pull request.**
+   *
+   * **What this is for, in the measurement's own numbers.** The per-file path above, over AACR-Bench's five pull
+   * requests and 199 files, emits **183 findings carrying 21 goldens** - precision 0.2019, F1 0.2727. The same five
+   * lanes given the whole pull request in one call emitted **15 findings carrying 6** - precision **0.40**, F1 0.1846.
+   * **Precision doubled on exactly the same diffs, the same model and the same contract, because the budget has to
+   * compete.** The recall that fell with it is what this method's budget parameter is for: three slots per pull
+   * request was never the intent, it was what the file contract happened to mean when the "file" became a pull
+   * request.
+   *
+   * **Three things are enforced here rather than asked for**, because a prompt is a request:
+   *
+   *   1. **Every finding names a file the call showed.** No path, or a path not in the request, is dropped and counted
+   *      separately - `missingPath` and `unknownPath`. **Neither is defaulted to a neighbouring file**, because a
+   *      comment filed against a file the model did not choose is worse than no comment.
+   *   2. **A range is judged against its own file's hunks.** Two files both have a line 10; a single flat set of
+   *      ranges would answer a question nobody asked, which is the coordinate defect this repository already paid
+   *      for once.
+   *   3. **The budget is filled by the order, not by the model's position in the array** - `rankFindings` scores every
+   *      survivor against the whole pull request's added lines and the lowest-scoring ones are what fall off, counted
+   *      as `capped`.
+   */
+  async reviewPullRequest(
+    sections: ReadonlyArray<DiffSection>,
+    options?: PullRequestReviewOptions,
+  ): Promise<LLMReviewResult[]> {
+    const paths = sections.map((section) => section.path);
+    // **A pull request with no file sections is a review of nothing**, and running five lanes over an empty diff would
+    // spend five calls to be told so.
+    if (paths.length === 0) {
+      this.lastCounts = {
+        parsed: 0,
+        kept: 0,
+        dropped: {
+          invalidLine: 0,
+          beyondDiffLength: 0,
+          missingPath: 0,
+          unknownPath: 0,
+          capped: 0,
+          kept: 0,
+          total: 0,
+        },
+      };
+      return [];
+    }
+    const budget = options?.maxFindingsPerPullRequest ?? DEFAULT_PULL_REQUEST_BUDGET;
+    const diffContent = sections.map((section) => section.diffText).join('\n');
+
+    const ctx: PromptContext = {
+      diffContent: this.truncateDiff(diffContent),
+      // **A label rather than a path**, because there is no single file. `convertToReviewComments` prefers the
+      // finding's own path, so this is only what a caller logs.
+      filePath:
+        paths.length === 1 ? String(paths[0]) : `${String(paths[0])} (+${paths.length - 1} more)`,
+      changeType: 'pull-request',
+      paths,
+      maxFindings: budget,
+      scope: 'pull-request',
+    };
+
+    const results = this.options.parallel
+      ? await this.runLanesParallel(ctx, this.options.lanes)
+      : await this.runLanesSequential(ctx, this.options.lanes);
+
+    const parsed = [...this.parsedByLane.values()].reduce((sum, count) => sum + count, 0);
+    const deduplicated = this.deduplicateAcrossLanes(results);
+
+    // **The budget, spent in score order across every lane at once.** Applying it per lane would give five lanes three
+    // slots each, which is fifteen - the number the file contract happened to produce, and the number this exists to
+    // leave behind.
+    const facts = collectDiffFacts(diffContent);
+    const survivors: Array<{ result: LLMReviewResult; finding: LLMFinding }> = [];
+    for (const result of deduplicated) {
+      if (!result.success) continue;
+      for (const finding of result.findings) survivors.push({ result, finding });
+    }
+    const ranked = rankFindings(
+      survivors.map((entry) => ({ finding: entry.finding, path: String(entry.finding.path) })),
+      facts,
+    );
+    const kept = new Set(ranked.slice(0, budget).map((entry) => entry.finding));
+
+    let capped = 0;
+    for (const result of deduplicated) {
+      const before = result.findings.length;
+      result.findings = result.findings.filter((finding) => kept.has(finding));
+      capped += before - result.findings.length;
+    }
+
+    const dropped = [...this.droppedByLane.values()].reduce(
+      (sum, own) => ({
+        invalidLine: sum.invalidLine + own.invalidLine,
+        beyondDiffLength: sum.beyondDiffLength + own.beyondDiffLength,
+        missingPath: sum.missingPath + own.missingPath,
+        unknownPath: sum.unknownPath + own.unknownPath,
+        capped: 0,
+      }),
+      { invalidLine: 0, beyondDiffLength: 0, missingPath: 0, unknownPath: 0, capped: 0 },
+    );
+    dropped.capped = capped;
+    this.lastCounts = {
+      parsed,
+      kept: deduplicated.reduce((sum, result) => sum + result.findings.length, 0),
+      dropped: { ...dropped, kept: 0, total: parsed },
+    };
+    return deduplicated;
+  }
+
   // -------------------------------------------------------------------------
   // Lane Execution
   // -------------------------------------------------------------------------
@@ -328,6 +488,10 @@ export class LLMReviewEngine {
       // `filterFindings` removing everything produce the same zero and are different defects.**
       const parsedFindings = parseLLMResponse(result.content);
       const findings = this.filterFindings(parsedFindings, ctx);
+      // **Kept per lane as well as last**, because a pull-request call has five lanes and one report, and a caller
+      // reading only the last lane's counters would be reading a fifth of the story.
+      this.parsedByLane.set(lane, parsedFindings.length);
+      this.droppedByLane.set(lane, this.lastDropped);
       this.lastCounts = {
         parsed: parsedFindings.length,
         kept: findings.length,
@@ -366,10 +530,30 @@ export class LLMReviewEngine {
   lastCounts: {
     parsed: number;
     kept: number;
-    dropped: { invalidLine: number; beyondDiffLength: number; kept: number; total: number };
+    dropped: {
+      invalidLine: number;
+      beyondDiffLength: number;
+      missingPath: number;
+      unknownPath: number;
+      capped: number;
+      kept: number;
+      total: number;
+    };
   } | null = null;
 
-  private lastDropped = { invalidLine: 0, beyondDiffLength: 0, kept: 0, total: 0 };
+  private lastDropped = {
+    invalidLine: 0,
+    beyondDiffLength: 0,
+    missingPath: 0,
+    unknownPath: 0,
+    capped: 0,
+    kept: 0,
+    total: 0,
+  };
+
+  /** **What each lane parsed and what it lost**, kept per lane so a pull-request call can report the whole call. */
+  private readonly parsedByLane = new Map<ReviewLane, number>();
+  private readonly droppedByLane = new Map<ReviewLane, typeof this.lastDropped>();
 
   private filterFindings(findings: LLMFinding[], ctx: PromptContext): LLMFinding[] {
     /**
@@ -395,6 +579,34 @@ export class LLMReviewEngine {
         return { start, end: start + Number(match[2] ?? 1) - 1 };
       },
     );
+    /**
+     * **The same ranges, per file, when one call covered more than one.**
+     *
+     * **Two files both have a line 10**, so a pull-request call holding one flat set of ranges cannot answer *is this
+     * line one the model was looking at* - it can only answer *does some file have a line 10*, which is a different
+     * question and the one the discarded first version of this filter accidentally answered. A file call keeps the flat
+     * set, because there one file is the argument and the flat set is that file's.
+     */
+    const rangesByPath = new Map<string, Array<{ start: number; end: number }>>();
+    // **The list the current section appends to, rather than a lookup per hunk.** A header registers an empty list and
+    // every hunk of that section pushes into the same one, so **a file whose section holds no hunk is still present
+    // with no ranges** - which is the answer a rename needs, and which a lookup-per-hunk could not tell apart from a
+    // file the diff never mentioned.
+    let section: Array<{ start: number; end: number }> | null = null;
+    for (const raw of String(ctx.diffContent).split('\n')) {
+      const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(raw);
+      if (header) {
+        section = [];
+        rangesByPath.set(normaliseReviewPath(String(header[2])), section);
+        continue;
+      }
+      const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(raw);
+      if (hunk && section !== null) {
+        const start = Number(hunk[1]);
+        section.push({ start, end: start + Number(hunk[2] ?? 1) - 1 });
+      }
+    }
+    const pullRequestScope = ctx.scope === 'pull-request';
 
     // **And the filter counts what it removes, because it was removing almost everything in silence.**
     //
@@ -403,10 +615,47 @@ export class LLMReviewEngine {
     // `complete` -> `parseLLMResponse` -> `filterFindings`, and the last of the three ran a check with the wrong
     // coordinate system.** **So the counters are per rule**, because **a filter with three rules and one counter cannot
     // say which rule a finding died of** - **the same distinction this repository draws in every other loop.**
-    const dropped = { invalidLine: 0, beyondDiffLength: 0, kept: 0, total: findings.length };
+    const dropped = {
+      invalidLine: 0,
+      beyondDiffLength: 0,
+      missingPath: 0,
+      unknownPath: 0,
+      capped: 0,
+      kept: 0,
+      total: findings.length,
+    };
     this.lastDropped = dropped;
     return findings
       .filter((f) => {
+        // **A pull-request call has to say which file it is about, and the two ways of failing to say it are different
+        // mistakes.** A finding with no path was never attributed; a finding with a path the call did not show was
+        // attributed to something else. **Neither is defaulted**, because the default would be a neighbouring file.
+        // **The ranges this finding is judged against**: its own file's, or the one file the call was given.
+        let own = hunks;
+        if (pullRequestScope) {
+          if (typeof f.path !== 'string' || f.path === '') {
+            dropped.missingPath += 1;
+            return false;
+          }
+          const canonical = normaliseReviewPath(f.path);
+          // **One lookup that both validates and resolves**, rather than a `has` followed by a `get` whose fallback no
+          // path could ever take: a branch that cannot be reached is a branch a reader has to prove is unreachable.
+          const ownRanges = rangesByPath.get(canonical);
+          if (!ownRanges) {
+            dropped.unknownPath += 1;
+            return false;
+          }
+          // **The path is rewritten to the spelling the diff used**, which is the same file rather than a relocated
+          // finding - a comment has to name the path a repository has.
+          f.path = canonical;
+          own = ownRanges;
+        } else {
+          // **A file call's file is the argument, so a path the model volunteered is discarded.** It is not that the
+          // model is wrong - it is that in this scope the field has no meaning, and **a field with no meaning that
+          // nevertheless reaches `deduplicateAcrossLanes` decides which findings are compared with which.** A finding
+          // in a file call is about the file that was passed, and that is the whole truth here.
+          delete f.path;
+        }
         // Must have valid line numbers
         if (f.startLine < 1 || f.endLine < 1) {
           dropped.invalidLine += 1;
@@ -415,8 +664,8 @@ export class LLMReviewEngine {
         // **A hint outside every hunk is counted and left alone.** With no hunk header there is no evidence either
         // way, so nothing is counted: **an unknown extent is not a finding about the finding.**
         const inside = (line: number): boolean =>
-          hunks.some((hunk) => line >= hunk.start && line <= hunk.end);
-        if (hunks.length > 0 && !(inside(f.startLine) && inside(f.endLine))) {
+          own.some((hunk) => line >= hunk.start && line <= hunk.end);
+        if (own.length > 0 && !(inside(f.startLine) && inside(f.endLine))) {
           dropped.beyondDiffLength += 1;
         }
         // Start must be before or equal to end
@@ -459,7 +708,9 @@ export class LLMReviewEngine {
           finding,
           comment: {
             id: `llm-${result.lane}-${built.length}-${Date.now()}`,
-            path: diff.filePath,
+            // **The finding's own file when it named one**, which is the only correct answer in a pull-request call
+            // and the same answer as before in a file call.
+            path: finding.path ?? diff.filePath,
             content: finding.title,
             thinking: `${finding.description}\n\n[Review Lane: ${LANE_LABELS[result.lane]}]`,
             existingCode: rangeText,

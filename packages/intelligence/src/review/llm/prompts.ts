@@ -30,6 +30,16 @@ export interface LLMFinding {
   /** Optional code snippet showing the problematic code. */
   snippet?: string;
   /**
+   * **The file this finding is about, present only when one call covered more than one file.**
+   *
+   * In a file call the path is the argument and repeating it would be a second copy of the same fact. **A pull-request
+   * call has no such argument**: the model is shown several files and chooses which one it is talking about, so the
+   * choice has to travel with the finding or it is lost - and **a lost choice is a comment filed against the wrong
+   * file.** The engine drops a finding that names no file, and one that names a file the call did not show, counting
+   * the two separately.
+   */
+  path?: string;
+  /**
    * **How many findings the engine folded into this one**, set by `deduplicateAcrossLanes` and left undefined when a
    * finding stood alone.
    *
@@ -51,6 +61,28 @@ export interface PromptContext {
   changeType: string;
   /** Surrounding file context (imports, neighboring functions). */
   fileContext?: string;
+  /**
+   * **Every path the diff shows, when the call covers more than one file.**
+   *
+   * A pull-request call concatenates the per-file sections of one unified diff, so the paths are already in
+   * `diffContent` - **and they are listed here as well because the contract has to name the choices, not merely
+   * contain them.** A model told to name a file has to be told which files there are.
+   */
+  paths?: readonly string[];
+  /**
+   * **How many findings this call may return in total.**
+   *
+   * For a file call this is the per-file cap the lanes have always had. **For a pull-request call it is the whole
+   * call's budget**, and that is the one difference the two arms of the AACR measurement differ by: three slots per
+   * file per lane over 199 files is 995 answers and 183 findings; three slots per pull request per lane is 25 answers
+   * and 15 findings, **with twice the precision and a fifth of the recall.**
+   */
+  maxFindings?: number;
+  /**
+   * **What one call covers.** `'file'` is the original scope. `'pull-request'` requires every finding to name its file
+   * and gives the call one budget instead of one per file.
+   */
+  scope?: 'file' | 'pull-request';
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +151,112 @@ How to choose and how many to return - this is part of the contract, not advice:
 `;
 
 // ---------------------------------------------------------------------------
+// The same contract, for a call that covers a whole pull request
+// ---------------------------------------------------------------------------
+
+/**
+ * **Why a pull-request call needs its own contract rather than the file contract with a bigger number.**
+ *
+ * The file contract's third rule is *"at most 3 findings per file"*, and over 199 files that rule is what produced
+ * **183 findings carrying 21 goldens**. The same three slots applied to a whole pull request produced **15 findings
+ * carrying 6** - **precision 0.40 against 0.2019, recall 0.12 against 0.42.** So the difference between the two arms
+ * is not a threshold, it is **where the budget sits**, and a call whose budget sits on the pull request has to say so.
+ *
+ * **The other rule this contract states and the file one cannot** is that a finding must name its file - because in a
+ * file call the file is the argument, and across a pull request it is a choice the model makes and can get wrong.
+ */
+function pullRequestRules(ctx: PromptContext): string {
+  const budget = ctx.maxFindings ?? 3;
+  const paths = ctx.paths ?? [];
+  return `
+This call covers one pull request - ${paths.length} file${paths.length === 1 ? '' : 's'} in one diff - and you return
+at most ${budget} findings for all of it. That is a contract, not advice:
+
+1. **${budget} findings for the pull request, not per file.** The budget is shared: a finding spent in one file is one
+   you cannot spend in another, so spend them where a reviewer would stop the merge. **The measurement behind this
+   sentence**: the same five lanes filling three slots **per file** over 199 files emitted **183 findings and matched
+   21 goldens**; filling three slots **per pull request** over five pull requests they emitted **15 and matched 6**.
+   **Precision doubled and recall fell by two thirds**, and the whole difference is that the budget competes.
+2. **Every finding names its file.** "path" is required and must be exactly one of these strings, character for
+   character:
+${paths.map((path) => `   - ${path}`).join('\n')}
+   **A finding with no "path", or with a path that is not in that list, is discarded before anybody reads it** - it is
+   not moved to a neighbouring file, because **a comment filed against a file the model did not choose is worse than
+   no comment.**
+3. **A defect that spans files is one finding, anchored where the change has to be made.** Seeing several files at once
+   is the reason this scope exists - a contract broken at a call site, a field added in one place and read in another,
+   a rename that missed a reference are **invisible to a review that reads one file**. Report the finding on the file
+   that must change, and name the other files in the description.
+4. **A defect first.** A finding whose category is "bug" or "security" is a defect: the code does something other than
+   what it was meant to do. "maintainability", "style", "test", "documentation" and "architecture" are improvements,
+   and a review that reports only improvements has missed the point of the exercise - **and at this budget an
+   improvement costs a defect.**
+5. **One finding per defect, not one per observation.** Four style problems in one function are at most one finding
+   about its style.
+6. **Lines are required, and must be lines of added code.** "startLine" and "endLine" are lines **in the file "path"
+   names**, and are judged against that file alone: two files both have a line 10, so a range that is real in one and
+   imaginary in the other is a finding about neither. **Extend the range to the whole construct that has to change**,
+   and **keep it inside the lines the diff adds** - a range covering only untouched context is about code this pull
+   request did not change.
+7. **Severity is what a human would stop a merge for.** "critical" is data loss, a security hole or a crash on a
+   common path. "high" is a defect a reviewer would block on. "medium" is a defect worth fixing before release. "low"
+   is an improvement. **"info" is not a defect**, so do not use it for one, and when unsure between two levels choose
+   the lower one.
+8. **An empty findings array is a valid and useful answer.** A pull request that only renames a variable does not
+   contain ${budget} defects, and saying so is the correct output rather than a failure of the exercise.
+`;
+}
+
+/** The schema a pull-request call must answer in: the file call's, plus the file it is about. */
+const PULL_REQUEST_SCHEMA = `{
+  "findings": [
+    {
+      "path": "<one of the paths listed above, exactly>",
+      "startLine": <number>,
+      "endLine": <number>,
+      "severity": "critical" | "high" | "medium" | "low" | "info",
+      "category": "bug" | "security" | "performance" | "maintainability" | "test" | "architecture" | "style" | "documentation" | "other",
+      "title": "<one-line summary>",
+      "description": "<detailed explanation>",
+      "suggestion": "<suggested fix> | null
+    }
+  ]
+}`;
+
+/**
+ * **The contract and the schema, chosen by what the call covers.**
+ *
+ * One function rather than a condition in five lanes: **the two scopes differ in the selection contract and in the
+ * output shape, and a lane that stated either of them differently would be a lane whose numbers could not be compared
+ * with the others'.**
+ */
+export function selectionContract(ctx: PromptContext): string {
+  return ctx.scope === 'pull-request'
+    ? `${pullRequestRules(ctx)}${PULL_REQUEST_SCHEMA}`
+    : `${SELECTION_RULES}${OUTPUT_SCHEMA}`;
+}
+
+/**
+ * **What the call is about, said the way the scope allows.**
+ *
+ * A file call names one file and may carry surrounding context. **A pull-request call names the files it shows**,
+ * because rule 2 of its contract asks the model to choose one of them and **a choice the model cannot read is not a
+ * choice.**
+ */
+export function describeTarget(ctx: PromptContext): string {
+  if (ctx.scope === 'pull-request') {
+    const paths = ctx.paths ?? [];
+    return `Pull request: ${paths.length} file${paths.length === 1 ? '' : 's'} in one diff.
+Paths in this pull request:
+${paths.map((path) => `- ${path}`).join('\n')}
+`;
+  }
+  return `File: ${ctx.filePath}
+Change type: ${ctx.changeType}
+${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}`;
+}
+
+// ---------------------------------------------------------------------------
 // Security Review Prompt
 // ---------------------------------------------------------------------------
 
@@ -137,9 +275,7 @@ Review the following code diff and identify any security issues. Pay attention t
 - Insecure deserialization
 - Exposure of sensitive data in logs/errors
 
-File: ${ctx.filePath}
-Change type: ${ctx.changeType}
-${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}
+${describeTarget(ctx)}
 
 Diff content:
 \`\`\`
@@ -147,7 +283,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure. Only include findings you are confident about — an empty findings array is acceptable if no issues are found:
-${SELECTION_RULES}${OUTPUT_SCHEMA}
+${selectionContract(ctx)}
 
 Few-shot example — SQL injection:
 Input: diff showing \`db.query("SELECT * FROM users WHERE id = " + userId)\`
@@ -205,9 +341,7 @@ Review the following code diff and identify performance problems. Pay attention 
 - Missing lazy loading or pagination
 - Promise.all optimizations (concurrency vs sequential)
 
-File: ${ctx.filePath}
-Change type: ${ctx.changeType}
-${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}
+${describeTarget(ctx)}
 
 Diff content:
 \`\`\`
@@ -215,7 +349,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${SELECTION_RULES}${OUTPUT_SCHEMA}
+${selectionContract(ctx)}
 
 Few-shot example — N+1 query:
 Input: diff showing \`for (const user of users) { const posts = await db.query("SELECT * FROM posts WHERE user_id = $1", [user.id]); }\`
@@ -257,9 +391,7 @@ Review the following code diff and identify maintainability issues. Pay attentio
 - Commented-out code
 - Functions that are hard to test due to tight coupling
 
-File: ${ctx.filePath}
-Change type: ${ctx.changeType}
-${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}
+${describeTarget(ctx)}
 
 Diff content:
 \`\`\`
@@ -267,7 +399,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${SELECTION_RULES}${OUTPUT_SCHEMA}
+${selectionContract(ctx)}
 
 Few-shot example — magic number:
 Input: diff showing \`if (items.length > 100) { ... }\`
@@ -308,9 +440,7 @@ Review the following code diff and identify testing issues. Pay attention to:
 - Mocking issues (over-mocking, missing mocks)
 - Tests that test implementation details rather than behavior
 
-File: ${ctx.filePath}
-Change type: ${ctx.changeType}
-${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}
+${describeTarget(ctx)}
 
 Diff content:
 \`\`\`
@@ -318,7 +448,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${SELECTION_RULES}${OUTPUT_SCHEMA}
+${selectionContract(ctx)}
 
 Few-shot example — weak assertion:
 Input: diff showing \`expect(result).toBeTruthy();\`
@@ -359,9 +489,7 @@ Review the following code diff and identify architecture issues. Pay attention t
 - God modules or classes
 - Inverted dependencies (low-level module depending on high-level)
 
-File: ${ctx.filePath}
-Change type: ${ctx.changeType}
-${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}
+${describeTarget(ctx)}
 
 Diff content:
 \`\`\`
@@ -369,7 +497,7 @@ ${ctx.diffContent}
 \`\`\`
 
 Return a JSON object with this exact structure:
-${SELECTION_RULES}${OUTPUT_SCHEMA}
+${selectionContract(ctx)}
 
 Few-shot example — layer violation:
 Input: diff showing a component importing directly from a database module
@@ -464,11 +592,18 @@ export function parseLLMResponse(raw: string): LLMFinding[] {
           typeof finding['title'] === 'string'
         );
       })
-      .map((f: LLMFinding) => ({
-        ...f,
-        description: f.description ?? '',
-        suggestion: f.suggestion ?? null,
-      }));
+      .map((f: LLMFinding) => {
+        const base: LLMFinding = {
+          ...f,
+          description: f.description ?? '',
+          suggestion: f.suggestion ?? null,
+        };
+        // **A path is passed through only when it is a string.** The spread above copies whatever JSON held, and a
+        // number in that field would be a `path` the type promises is a path. **The engine decides whether the path
+        // names a file the call showed** - this only refuses to carry a value that is not one.
+        const raw: Record<string, unknown> = f as unknown as Record<string, unknown>;
+        return typeof raw['path'] === 'string' ? { ...base, path: raw['path'] } : base;
+      });
   } catch {
     return [];
   }

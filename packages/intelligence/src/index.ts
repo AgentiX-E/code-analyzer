@@ -289,10 +289,16 @@ export {
   TESTING_REVIEW_PROMPT,
   ARCHITECTURE_REVIEW_PROMPT,
 } from './review/llm/prompts.js';
+export { describeTarget, selectionContract } from './review/llm/prompts.js';
 export type { LLMFinding, PromptContext, ReviewLane } from './review/llm/prompts.js';
 
 export { LLMReviewEngine } from './review/llm/llm-review-engine.js';
-export type { LLMReviewOptions, LLMReviewResult } from './review/llm/llm-review-engine.js';
+export type {
+  DiffSection,
+  LLMReviewOptions,
+  LLMReviewResult,
+  PullRequestReviewOptions,
+} from './review/llm/llm-review-engine.js';
 
 // Actionability ranking — the order a reader should meet the findings in.
 export {
