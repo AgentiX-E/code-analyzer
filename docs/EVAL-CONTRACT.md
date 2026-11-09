@@ -375,6 +375,8 @@ Eleven languages, selected by the extension of the files a call covers, most-rep
 | Kotlin                | 6     | `!!` dominated by a check in the same hunk is not an assertion        |
 | Swift                 | 6     | a `[weak self]` capture list already breaks the cycle                |
 | ArkTS                 | 5     | a `.ts` interop file behind a typed wrapper is not strict ArkTS      |
+| C and C++             | 8     | a pointer handed to a smart pointer is not a leak                    |
+| Go                    | 7     | a goroutine that ends when its input is closed needs no done channel |
 
 ### 8.2 The size, and why the rule may not be quoted without it
 
@@ -419,3 +421,34 @@ moved the number for a reason other than the one it was registered for is not th
 which case the remaining difference against the competitor is not in the prompt at all but in **what the two systems do
 with a finding after the model produces it** — their review walks a repository and this one reads a diff — and the next
 registration would be about **retrieval**, not about wording.
+
+### 8.5 The amendment, and the hour it was made
+
+**The list above first held only the eleven priority languages, and that list was wrong for this corpus.**
+
+Counting the file extensions of the first fourteen pull requests through the GitHub API — one call per pull request,
+before either arm had produced an artifact — gives:
+
+| extension                      | files |
+| ------------------------------ | ----- |
+| `.cpp`                         | 152   |
+| `.h`                           | 64    |
+| `.go`                          | 38    |
+| `.py`                          | 22    |
+| `.txt`                         | 19    |
+| `.diff`                        | 18    |
+| `.ui`                          | 10    |
+| `.ts`                          | 4     |
+| others                         | 5     |
+
+**Two thirds of the treatment's own subject had no rules.** The first two runs of the matrix
+(`42566825132`, `42568662388`) were cancelled for that reason, and **neither had written an artifact** — so this
+amendment was made with no figure from either arm in existence, which is the only condition under which amending a
+registration is not choosing the rule after the run.
+
+**What changed:** a C/C++ definition (8 rules) and a Go one (7), added after the eleven, and `.ui` added to the XML
+definition because Qt designer files are XML. **What did not change:** the claim, the corpus size, the design, the
+prediction and the falsification tests, all of which remain exactly as §8.1–§8.4 state them.
+
+**And what the amendment buys the measurement**: the checklist now applies to about 95 % of the corpus's files rather
+than 9 %, so the run measures the device instead of measuring a device that was not there.
