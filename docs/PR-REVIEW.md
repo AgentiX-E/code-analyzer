@@ -72,6 +72,39 @@ rule the benchmark scores.
 **What the ordering is measured on**: `benchmarks/aacr-bench.json` scores it against a direct competitor on the
 competitor's own public corpus, with the top-k curve published beside the operating point.
 
+### Phase 6: Scope (one review per pull request)
+
+**A review is a comment on a pull request, not a comment on a file, and the difference is not bookkeeping.** A field
+renamed in one file and still read in another is invisible to a review that reads one file at a time; so is a contract
+broken at a call site, and so is a migration whose reader was not updated. **Those are the defects a pull request has
+that a file does not.**
+
+```ts
+const engine = new LLMReviewEngine(provider);
+const sections = splitByFile(patch); // [{ path, diffText }, …], one per `diff --git` section
+const results = await engine.reviewPullRequest(sections, { maxFindingsPerPullRequest: 16 });
+// every finding carries `path` — the file it is about, validated against the files the call showed
+```
+
+**Four things this scope enforces that the file scope cannot:**
+
+| rule                                | what it prevents                                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| a path on every finding             | a finding filed against a file the model never chose; counted as `missingPath` instead of defaulted        |
+| the path must be one that was shown | a finding about a file outside the pull request; counted as `unknownPath` and dropped rather than re-filed |
+| ranges judged against its own file  | two files both have a line 10, so one flat set of hunk ranges answers a question nobody asked              |
+| dedup keyed on the finding's path   | two files each with an unfixed null check becoming one comment on whichever file was read first            |
+
+**And a budget instead of a per-file cap.** Three findings per file per lane over 199 files is 995 answers; three
+findings per pull request per lane over five pull requests is 25. **The first emits 183 findings and the second 15**, and
+the second's precision is **twice** the first's at the same emission — which is why the scope is a product decision and
+not only an architecture one. The full arithmetic, the registered prediction and the curve are in
+`docs/EVAL-CONTRACT.md` §7.
+
+**The file scope is not deprecated.** `reviewDiff` is what an editor integration or a pre-commit hook needs, and a
+pull request that touches two hundred files is exactly where a per-file review is the cheaper unit. **The engine offers
+both and the caller picks**, which is why the benchmark job runs both arms on the same corpus against the same goldens.
+
 ## Rule Categories
 
 | Category            | Count | Examples                                                                                                                                                    |
