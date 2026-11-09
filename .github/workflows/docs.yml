@@ -51,6 +51,22 @@ jobs:
       #
       # Note for the next editor: everything inside `args: >` is one scalar. A `#` written there is passed
       # to lychee as an argument, not treated as a comment — which is exactly how this job was broken once.
+      # **The links that point into this repository are checked against the checkout, not the network.**
+      #
+      # On 2026-11-09 github.com answered `[504]` to nearly every request from the runner for the better part of an hour -
+      # the CodeQL bundle download failed the same way in the same window, which is how the outage was told apart from a
+      # documentation defect. Every failing link was into this repository, and **a link to a file in this checkout does
+      # not need github.com to tell us whether the file is there.**
+      #
+      # It is also a stronger check than the one it replaces: the filesystem answers in milliseconds, needs no token, and
+      # **catches the case an HTTP check cannot distinguish from a transient error** - a link to a file that was renamed
+      # or deleted.
+      - name: Check links into this repository against the checkout
+        run: |
+          set -e
+          node scripts/check-self-links.mjs --self-test
+          node scripts/check-self-links.mjs
+
       # **And why the check is authenticated now.** On 2026-11-09 the same job returned `[504]` for a dozen ordinary
       # `github.com` URLs - `.../issues`, `.../blob/master/packages/*/README.md` - across three runs in a row. Those are
       # not dead links: **an unauthenticated burst of requests from a shared runner IP is answered with 504 rather than
@@ -78,6 +94,7 @@ jobs:
             --accept 200,201,202,203,204,206,301,302,304,307,308
             --exclude '^https://github.com/AgentiX-E/code-analyzer/(issues|pulls)/\d+'
             --exclude '^https://github.com/AgentiX-E/code-analyzer/issues/?$'
+            --exclude '^https://github.com/AgentiX-E/code-analyzer/(blob|tree)/'
             --exclude '^https://codecov.io/.*'
             --exclude '^https://img.shields.io/.*'
             --exclude '^http://localhost:.*'
