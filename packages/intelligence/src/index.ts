@@ -282,6 +282,21 @@ export type {
   ToolDefinition,
 } from './review/llm/provider.js';
 
+// **The cost instrument is public**, because the figure a run spent has to be readable by the harness that publishes it,
+// by the CLI that reports it, and by a test that has to hold a ceiling - and **a figure only one package can read is a
+// figure the other packages re-derive, differently.**
+export {
+  CostBudget,
+  CostLedger,
+  LLMBudgetError,
+  LLM_PRICE_TABLE,
+  OFF_PEAK_FACTOR,
+  costUsdOf,
+  isPeakHour,
+  priceFor,
+} from './review/llm/cost.js';
+export type { CostEntry, CostTotals, LLMPriceRow, LLMTokenUsage } from './review/llm/cost.js';
+
 export {
   LANE_PROMPTS,
   LANE_LABELS,

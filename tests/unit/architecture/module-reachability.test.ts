@@ -358,10 +358,12 @@ describe('every module a package compiles is reachable from an entry its manifes
       cli: 14,
       core: 45,
       infra: 29,
-      // **157 since iteration 110**, which added `review/llm/language-rules.ts`: the per-language checklist is a
-      // module of its own because it is content rather than plumbing, and this register is what makes that a decision
-      // somebody took rather than a file that appeared.
-      intelligence: 157,
+      // **158 since iteration 113**, which added `review/llm/cost.ts`: the price table, the ledger and the ceiling are
+      // one module because they are one question - what did this run spend - and **a ledger that lived beside the
+      // provider it accounts for would have been a second place to look for a bill.** (157 was iteration 110, which
+      // added `review/llm/language-rules.ts`: the per-language checklist is content rather than plumbing, and this
+      // register is what makes that a decision somebody took rather than a file that appeared.)
+      intelligence: 158,
       mcp: 39,
       server: 24,
       shared: 10,
