@@ -91,20 +91,14 @@ jobs:
           name: Install Code Analyzer CLI
           command: pnpm add -g @code-analyzer/cli
       - run:
-          name: Generate Reports
+          # **There is no `report` verb.** A formatted report and the recommendations derived from it are the MCP tools
+          # `generate_report` and `get_recommendations`; what a CLI can produce here is the analysis they read.
+          name: Write the analysis artifact
           command: |
-            npx code-analyzer report generate \
-              --input analysis.json \
-              --format html \
-              --output codebase-report.html
-            npx code-analyzer report recommend \
-              --input analysis.json \
-              --format markdown \
-              --output recommendations.md
+            npx @code-analyzer/cli analyze . --format json --output codebase-report.json
       - store_artifacts:
           path:
-            - codebase-report.html
-            - recommendations.md
+            - codebase-report.json
           destination: reports
 
   # ── Security Audit ─────────────────────────────────────────────────────────

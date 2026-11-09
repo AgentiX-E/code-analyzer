@@ -9,7 +9,7 @@
 npm install -g @code-analyzer/cli
 npx embed-code download
 code-analyzer analyze ./your-project
-code-analyzer mcp  # Start MCP server for AI agents
+npx @code-analyzer/mcp  # Start the MCP server for AI agents (stdio by default with MCP_TRANSPORT=stdio)
 ```
 
 ## MCP Server (48 tools)

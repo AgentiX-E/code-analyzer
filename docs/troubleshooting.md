@@ -22,10 +22,12 @@
 
 3. **Language filter is too restrictive.** If you ran `code-analyzer analyze . --languages typescript` but your project is Python, no files will match. Check your language filter or remove it to auto-detect.
 
-4. **Verify with a dry run.** List files that would be analyzed:
+4. **Check what the include and exclude globs actually match.** There is no `--dry-run`: `analyze` reports what it
+   indexed _after_ indexing it, and the population is decided by `--include`/`--exclude` and your ignore files. Ask git,
+   which is the same answer the indexer starts from:
 
    ```bash
-   code-analyzer analyze . --dry-run --format json | jq '.files[].path'
+   git ls-files | grep -E '\.(ts|tsx|py|java|kt)$'
    ```
 
 ---
@@ -42,7 +44,8 @@
    lsof -i :3100
    ```
 
-   Change the port: `code-analyzer mcp --transport http --port 3101`.
+   Change the port: `MCP_PORT=3101 npx @code-analyzer/mcp`. The transport and the port are environment variables
+   (`MCP_TRANSPORT`, `MCP_PORT`), not flags — the server is its own binary, `code-analyzer-mcp`.
 
 2. **Authentication misconfiguration.** If `mcp.auth.enabled` is `true` but no API keys are configured, the server may reject all connections. Either disable auth or add valid keys to your config:
 
@@ -141,10 +144,11 @@
    code-analyzer analyze . --languages typescript,python
    ```
 
-5. **Use incremental indexing.** After the initial full index, subsequent runs will only process changed files:
+5. **Narrow the index.** There is no `--incremental` flag: `analyze` indexes the paths it is given, so the way to
+   process only what changed is to give it only that, which is also what makes a re-index cheap:
 
    ```bash
-   code-analyzer analyze . --incremental
+   code-analyzer analyze ./services/billing --languages typescript
    ```
 
 ---
@@ -201,9 +205,14 @@
 
 1. **Verify the schema.** Check available node types and relationship types:
 
-   ```bash
-   code-analyzer search --cypher "MATCH (n) RETURN DISTINCT labels(n) AS label, count(n) AS count"
+   ```json
+   {
+     "tool": "pdg_query",
+     "arguments": { "query": "MATCH (n) RETURN DISTINCT labels(n) AS label, count(n) AS count" }
+   }
    ```
+
+   Cypher is the MCP tool `pdg_query`; `code-analyzer search` takes a text query and has no `--cypher` option.
 
 2. **Validate relationship types.** Relationship types are case-sensitive. Use the exact names from the schema:
 
@@ -221,8 +230,13 @@
 
 4. **List all relationship types in your graph:**
 
-   ```bash
-   code-analyzer search --cypher "MATCH ()-[r]->() RETURN DISTINCT type(r) AS relationship, count(r) AS count ORDER BY count DESC"
+   ```json
+   {
+     "tool": "pdg_query",
+     "arguments": {
+       "query": "MATCH ()-[r]->() RETURN DISTINCT type(r) AS relationship, count(r) AS count ORDER BY count DESC"
+     }
+   }
    ```
 
 5. **Start simple and build up.** Test with the broadest query first:

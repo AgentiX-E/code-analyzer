@@ -6,7 +6,16 @@
 
 ## Configuration Sources
 
-Code Analyzer merges configuration from four sources in order of increasing precedence:
+> **Nothing in this section is read by a command yet, and this box is here so that the four layers below are not mistaken
+> for a control surface.** `loadConfig` in `@code-analyzer/core` does merge the four sources as described — and no CLI
+> command calls it. `code-analyzer init` writes `.code-analyzer/config.json`, which is a third shape at a third path and
+> is read by nothing. **What a command actually obeys is its flags**; `code-analyzer <command> --help` lists them, and
+> `.code-analyzer/standards.json` is the one project file with a reader.
+>
+> This is the largest open gap in this repository's documentation. It is registered as the next P1 in
+> `code-analyzer-docs`, and closing it means one schema, one path, one loader and a test per command that reads it.
+
+Code Analyzer **can** merge configuration from four sources in order of increasing precedence:
 
 1. **Defaults** — Built-in defaults from `@code-analyzer/core`
 2. **Global config** — `~/.code-analyzer/config.json` (user-level)
@@ -360,7 +369,8 @@ code-analyzer-review:
   script:
     - npm install -g @code-analyzer/cli
     - code-analyzer analyze .
-    - code-analyzer review diff --from-ref $CI_MERGE_REQUEST_DIFF_BASE_SHA
+    # The merge request's base is a ref, and `review-pr` is the spelling that takes two of them.
+    - code-analyzer review-pr --from "$CI_MERGE_REQUEST_DIFF_BASE_SHA" --to HEAD --format json --output review-report.json
   only:
     - merge_requests
   artifacts:

@@ -58,8 +58,8 @@ docker run --rm -v $(pwd):/workspace ghcr.io/agentix-e/code-analyzer:latest \
 
 # Start MCP server via Docker
 docker run --rm -v $(pwd):/workspace -p 3100:3100 \
-  ghcr.io/agentix-e/code-analyzer:latest \
-  code-analyzer mcp --transport http --port 3100
+  -e MCP_TRANSPORT=sse -e MCP_PORT=3100 \
+  ghcr.io/agentix-e/code-analyzer:latest code-analyzer-mcp
 ```
 
 Use Docker when you want a fully isolated environment or need to run Code Analyzer in CI/CD pipelines without installing Node.js.
@@ -127,18 +127,20 @@ Languages detected: typescript (847 files), python (312 files), go (88 files)
 Now that your codebase is indexed, search it:
 
 ```bash
-# Keyword search
+# Keyword search over the graph
 code-analyzer search "authentication"
 
-# Semantic search (what does this code do?)
-code-analyzer search "how does the login flow work" --semantic
+# Filter by node type
+code-analyzer search "handler" --type Function
 
-# Search with filters
-code-analyzer search "handler" --language typescript --type Function
-
-# Cypher graph query
-code-analyzer search --cypher "MATCH (f:Function) WHERE f.name CONTAINS 'auth' RETURN f.name, f.file"
+# Rank the files a question is about, without an index
+code-analyzer locate "how does the login flow work"
 ```
+
+> **Semantic search and Cypher are MCP tools, not CLI flags.** `code-analyzer search` takes a query and four options
+> (`--format`, `--limit`, `--type`, `--verbose`). Embedding-based retrieval is the `semantic_search` tool and Cypher is
+> `pdg_query`, both reached through the MCP server; `code-analyzer locate` is the CLI's own question-to-files ranking,
+> and it needs no index at all.
 
 **Expected output (keyword search):**
 
@@ -165,8 +167,8 @@ code-analyzer review src/auth/login.ts
 # Review staged changes (before committing)
 code-analyzer review src/ --diff
 
-# Review entire directory against standards
-code-analyzer review src/ --standard typescript-best-practices
+# Judge a directory against a standard from the shipped catalogue
+code-analyzer standards check ./src --standard typescript-best-practices
 ```
 
 **Expected output:**

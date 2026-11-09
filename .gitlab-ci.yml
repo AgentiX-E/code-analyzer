@@ -98,20 +98,13 @@ generate-report:
   image: node:${NODE_VERSION}
   needs: [code-analysis]
   script:
-    # Generate HTML report with trends
-    - npx code-analyzer report generate \
-      --input analysis.json \
-      --format html \
-      --output codebase-report.html
-    # Generate actionable recommendations
-    - npx code-analyzer report recommend \
-      --input analysis.json \
-      --format markdown \
-      --output recommendations.md
+    # **There is no `report` verb.** Rendering a formatted report and deriving recommendations are the MCP tools
+    # `generate_report` and `get_recommendations`; this stage publishes the analysis itself, which is the artifact both
+    # of them read.
+    - npx @code-analyzer/cli analyze . --format json --output codebase-report.json
   artifacts:
     paths:
-      - codebase-report.html
-      - recommendations.md
+      - codebase-report.json
     expire_in: 30 days
 
 # ── Security ─────────────────────────────────────────────────────────────────

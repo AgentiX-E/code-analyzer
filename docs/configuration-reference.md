@@ -190,60 +190,30 @@ Settings can also be configured per-workspace in `.vscode/settings.json`:
 
 ## Configuration Profiles
 
-Choose a profile to quickly configure Code Analyzer for your needs:
+**There is no profile flag, and — as things stand — no configuration file is read by any command.** This section used to
+show three presets (strict, balanced, relaxed) passed as a `--profile` option to `init`, which has never had one: its only
+flags are `--directory` and `--force`.
 
-### Strict Profile
+What is true today:
 
-Maximum thoroughness — ideal for security-critical or compliance-sensitive projects:
+- **Every option a command acts on arrives as a flag.** `--severity`, `--fail-on`, `--max-files`, `--languages`,
+  `--include`, `--exclude` and the rest are the control surface, and `code-analyzer <command> --help` is the complete
+  list.
+- **`code-analyzer init` writes two files**: `.code-analyzer/standards.json`, which `standards check --standards` and
+  `review pr --standards` do read, and `.code-analyzer/config.json`, which **nothing reads yet**. The second is recorded
+  intent, not a surface: setting `review.maxFiles` to 1000 in it changes no command's behaviour.
+- **`loadConfig` exists and is never called.** `@code-analyzer/core` can merge defaults → `~/.code-analyzer/config.json`
+  → `.code-analyzer.json` → `CODE_ANALYZER_*`, and no CLI command invokes it. That is the largest open gap in this
+  repository's documentation, it is recorded in `code-analyzer-docs` as the next P1, and until it is closed the schema
+  tables in `docs/CONFIGURATION.md` describe what the loader _would_ read rather than a surface a command consults.
 
-```bash
-code-analyzer init --profile strict
-```
+The three settings presets are therefore habits rather than flags. Applied as flags, they are:
 
-| Setting             | Value                                  |
-| ------------------- | -------------------------------------- |
-| `review.severity`   | `[low, medium, high, critical]`        |
-| `review.categories` | all                                    |
-| `security.scanners` | `[secrets, taint, dependencies, sast]` |
-| `security.severity` | `low`                                  |
-| `maxFileSize`       | `20971520` (20 MB)                     |
-| `concurrency`       | max CPUs                               |
-
-### Balanced Profile (Default)
-
-Good coverage with reasonable performance:
-
-```bash
-code-analyzer init --profile balanced
-```
-
-| Setting             | Value                                   |
-| ------------------- | --------------------------------------- |
-| `review.severity`   | `[medium, high, critical]`              |
-| `review.categories` | `[security, performance, architecture]` |
-| `security.scanners` | `[secrets, taint]`                      |
-| `security.severity` | `medium`                                |
-| `maxFileSize`       | `10485760` (10 MB)                      |
-| `concurrency`       | `CPU cores / 2`                         |
-
-### Relaxed Profile
-
-Fast, lightweight analysis — ideal for rapid development and prototyping:
-
-```bash
-code-analyzer init --profile relaxed
-```
-
-| Setting             | Value              |
-| ------------------- | ------------------ |
-| `review.severity`   | `[high, critical]` |
-| `review.categories` | `[security]`       |
-| `security.scanners` | `[secrets]`        |
-| `security.severity` | `high`             |
-| `maxFileSize`       | `5242880` (5 MB)   |
-| `concurrency`       | `2`                |
-
----
+| Intent                   | Flags                                                |
+| ------------------------ | ---------------------------------------------------- |
+| Maximum thoroughness     | `--severity info --fail-on warning --max-files 1000` |
+| Default                  | `--severity warning --fail-on error --max-files 100` |
+| Fast, during development | `--severity error --fail-on critical --max-files 25` |
 
 ## See Also
 
