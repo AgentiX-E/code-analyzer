@@ -74,7 +74,20 @@ export interface LLMReviewResult {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    /** Prompt tokens the vendor served from its prefix cache, when it reported a split. */
+    cacheHitTokens?: number;
+    /** Prompt tokens the vendor read fresh, when it reported a split. */
+    cacheMissTokens?: number;
   };
+  /**
+   * **What this lane cost, in USD, when the provider could price it.**
+   *
+   * **The field above was declared and never written.** `provider.ts` returned a usage object for every completion and
+   * `executeLane` destructured only `content`, so **a five-lane review of a hundred files made five hundred billable
+   * calls and reported none of them** - which is how a job can move an account balance by sixty-two yuan while every
+   * figure this repository publishes stays silent about it.
+   */
+  costUsd?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +182,7 @@ export class LLMReviewEngine {
    * Runs the specified review lanes and returns aggregated results.
    */
   async reviewDiff(diff: GitDiff, fileContext?: string): Promise<LLMReviewResult[]> {
+    this.resetSpend();
     const diffContent = this.buildDiffContent(diff);
 
     const ctx: PromptContext = {
@@ -199,6 +213,49 @@ export class LLMReviewEngine {
 
   /** **What the last deduplication did**, so a caller can tell a quiet reviewer from a collapsing one. */
   lastDeduplication: { before: number; after: number; dropped: number } | null = null;
+
+  /**
+   * **What the last review spent**, accumulated at the point each lane returns.
+   *
+   * **Why the engine keeps its own figure when the provider already has a ledger.** The ledger answers *"what did this
+   * process cost"*, which is the right question for a bill and the wrong one for a review: **a benchmark job reviews
+   * fourteen pull requests in one process**, and *"this review cost 0.04 USD"* cannot be recovered from a process-wide
+   * total by division when the pull requests differ in size by an order of magnitude. Both figures exist and they answer
+   * different questions - the same reason this repository keeps a per-row figure beside a protocol-wide one.
+   */
+  private readonly spend = {
+    calls: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    cacheHitTokens: 0,
+    costUsd: 0,
+  };
+
+  /** The last review's calls and what they cost, in USD. */
+  costSummary(): {
+    calls: number;
+    promptTokens: number;
+    completionTokens: number;
+    cacheHitTokens: number;
+    costUsd: number;
+    /** `cacheHitTokens / promptTokens`, or `null` when no call reported a cache split. */
+    cacheHitRatio: number | null;
+  } {
+    return {
+      ...this.spend,
+      cacheHitRatio:
+        this.spend.promptTokens > 0 ? this.spend.cacheHitTokens / this.spend.promptTokens : null,
+    };
+  }
+
+  /** Zero the accumulator, at the start of every public review call, so the figure describes one unit of work. */
+  private resetSpend(): void {
+    this.spend.calls = 0;
+    this.spend.promptTokens = 0;
+    this.spend.completionTokens = 0;
+    this.spend.cacheHitTokens = 0;
+    this.spend.costUsd = 0;
+  }
 
   /**
    * **One defect reported by five lanes is one defect.**
@@ -392,6 +449,7 @@ export class LLMReviewEngine {
     sections: ReadonlyArray<DiffSection>,
     options?: PullRequestReviewOptions,
   ): Promise<LLMReviewResult[]> {
+    this.resetSpend();
     const paths = sections.map((section) => section.path);
     // **Each call explains itself**, so a sample from the previous pull request cannot be read as this one's.
     this.droppedSamples = [];
@@ -523,6 +581,9 @@ export class LLMReviewEngine {
         maxTokens: this.options.maxTokensPerLane,
         temperature: this.options.temperature,
         timeout: this.options.laneTimeout,
+        // **The lane, not the file**: the ledger's question is which *part of the product* the money went to, and a tag
+        // that carried a path would produce one row per file and no answer.
+        tag: `review:${lane}`,
       };
 
       const result = await this.provider.complete(prompt, llmOptions);
@@ -540,12 +601,24 @@ export class LLMReviewEngine {
         dropped: this.lastDropped,
       };
 
+      // **The spend is accumulated where the lane returns, so every public entry point reports it** - the file scope,
+      // the ranked scope and the pull-request scope all go through this method.
+      this.spend.calls += 1;
+      if (result.usage) {
+        this.spend.promptTokens += result.usage.promptTokens;
+        this.spend.completionTokens += result.usage.completionTokens;
+        this.spend.cacheHitTokens += result.usage.cacheHitTokens ?? 0;
+      }
+      this.spend.costUsd += result.costUsd ?? 0;
+
       return {
         filePath: ctx.filePath,
         lane,
         findings,
         success: true,
         durationMs: Date.now() - startTime,
+        ...(result.usage ? { tokenUsage: result.usage } : {}),
+        ...(result.costUsd !== undefined ? { costUsd: result.costUsd } : {}),
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

@@ -3,8 +3,24 @@
 
 // Configuration
 export type { CodeAnalyzerConfig } from '@code-analyzer/shared';
-export { getDefaultConfig, loadConfig, deepMerge, validateConfig } from './config/index.js';
-export type { ValidationError } from './config/validator.js';
+export {
+  getDefaultConfig,
+  loadConfig,
+  loadConfigWithDiagnostics,
+  deepMerge,
+  validateConfig,
+  canonicalProjectConfigPath,
+  legacyProjectConfigPath,
+  globalConfigPath,
+} from './config/index.js';
+export type {
+  ConfigLayer,
+  ConfigLayerName,
+  IgnoredSetting,
+  LoadConfigOptions,
+  LoadedConfig,
+  ValidationError,
+} from './config/index.js';
 
 // Logging
 export {

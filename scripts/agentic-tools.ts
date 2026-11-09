@@ -431,6 +431,7 @@ async function runModelArm(
         const completion = await provider.completeWithTools(transcript, tools, {
           temperature: 0.2,
           maxTokens: 700,
+          tag: 'agentic:tools',
         });
         const calls = (completion.toolCalls ?? []).map((call) => ({
           name: call.name,

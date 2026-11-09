@@ -8,7 +8,7 @@ Cursor is the AI-first code editor. Code Analyzer integrates via MCP stdio trans
 
 ```bash
 npm install -g @code-analyzer/cli
-code-analyzer setup --agent cursor
+code-analyzer agent configure --target cursor
 ```
 
 ## Manual Configuration

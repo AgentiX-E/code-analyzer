@@ -8,7 +8,7 @@ Continue.dev is the open-source AI code assistant. Code Analyzer integrates via 
 
 ```bash
 npm install -g @code-analyzer/cli
-code-analyzer setup --agent continue-dev
+code-analyzer agent configure --target continue-dev
 ```
 
 ## Manual Configuration
