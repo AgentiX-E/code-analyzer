@@ -33,11 +33,17 @@ import { requestedPullRequests, spendCeilingUsd } from './lib/run-config.mjs';
 import { DEFAULT_ATTEMPTS, backoffMs, retryAfterMs } from './lib/retry-after.mjs';
 import { exactMcNemar } from './lib/paired-test.mjs';
 import {
+  WITHHELD,
+  compareAgainstCompetitor,
+  describeComparison,
+} from './lib/competitor-comparison.mjs';
+import {
   DEFAULT_BASELINE_PATH,
   corpusFingerprint,
   parseCompetitorMode,
   readBaseline,
   recordedPull,
+  pullFingerprint,
   replayedPull,
   resolveCompetitor,
   startRecording,
@@ -573,6 +579,51 @@ async function dryRun() {
     REJECTION_SHAPES.reduce((sum, shape) => sum + rejectionShapes[shape], 0),
     1,
     'the shape table re-reads the rejected goldens and adds up to them',
+  );
+
+  // **And the comparison, exercised in both of its answers**, because the defect it fixes was invisible precisely
+  // because nothing in this file ever asked what the field says when the competitor arm is absent.
+  // **Nine against one rather than six against one, because the assertion has to be arithmetically true**: the exact
+  // tail over ten discordant pairs is 2(1 + 10)/2^10 = 0.0215, and over seven it is 0.125 - so the first draft of this
+  // line asserted a verdict the statistic does not support, which is the dry run's job to catch and it did.
+  const stated = compareAgainstCompetitor({
+    oursOnly: 9,
+    theirsOnly: 1,
+    coverage: { requested: 3, covered: 3, missing: 0 },
+  });
+  assert.equal(stated.comparable, true, 'a fully covered corpus states a verdict');
+  assert.equal(
+    stated.verdict,
+    'significant at 0.05',
+    'nine against one is a significant difference',
+  );
+  assert.equal(stated.theirsOnly, 1, 'and the discordant pair it lost is carried');
+  const absent = compareAgainstCompetitor({
+    oursOnly: 83,
+    theirsOnly: 0,
+    coverage: { requested: 50, covered: 0, missing: 50 },
+  });
+  assert.equal(
+    absent.comparable,
+    false,
+    'eighty-three against an arm with no rows is not a shutout, it is an absent counterpart',
+  );
+  assert.equal(absent.verdict, WITHHELD, 'and the verdict says so');
+  assert.equal(
+    absent.theirsOnly,
+    null,
+    'the zero is removed rather than published, because a zero reads as a shutout',
+  );
+  assert.equal(absent.pValue, null, 'and no p-value is computed against nothing');
+  assert.equal(
+    absent.oursOnly,
+    83,
+    'while our own count survives, because it is a fact about our arm and a reader rebuilding coverage needs it',
+  );
+  assert.equal(
+    describeComparison(absent).includes('withheld'),
+    true,
+    'the log line reads from the object, so it stops printing a shutout on the run the artifact stopped printing it on',
   );
 
   const full = point(
@@ -1192,6 +1243,10 @@ async function main() {
     modeReason: competitorChoice.reason,
     replayed: 0,
     recorded: 0,
+    // **How each replayed row was checked**, because a row transcribed before per-pull fingerprints existed can only be
+    // checked by its golden count - and **a figure resting on fourteen count-checked rows is a different figure from one
+    // resting on fourteen fingerprint-checked rows**, even though both are called "replayed".
+    verifiedBy: { fingerprint: 0, count: 0 },
     missing: [],
     baselinePath: competitorChoice.mode === 'record' ? COMPETITOR_BASELINE_PATH : null,
     prsAttempted: 0,
@@ -1314,14 +1369,18 @@ async function main() {
     // counted as a zero, because **a competitor with no row is a hole in the pairing, not a competitor that found
     // nothing.**
     const competitorKey = pr.githubPrUrl ?? `pr-${competitorPerPr.length}`;
+    // **The row's own identity, not the selection's.** A recorded row is a function of this pull request's goldens and
+    // of nothing else, so the check that guards it has to be taken over this pull request: the run of 2026-11-10 went
+    // from fourteen pull requests to fifty, the selection fingerprint moved, **every row was refused including the
+    // fourteen whose own inputs had not changed**, and the free arm replayed nothing.
     const competitorDecision = resolveCompetitor({
       mode: competitorChoice.mode,
       baseline: competitorBaseline,
-      fingerprint: corpusFingerprintOfRun,
       judgeModel: MODEL,
-      key: competitorKey,
+      pull: { key: competitorKey, fingerprint: pullFingerprint(pr), goldens: issueTexts.length },
     });
     if (competitorDecision.kind === 'replay') {
+      competitor.verifiedBy[competitorDecision.verified === 'count' ? 'count' : 'fingerprint'] += 1;
       competitorPerPr.push(replayedPull(competitorKey, competitorDecision.pull));
       for (const row of competitorDecision.pull.detail ?? []) {
         competitorDetail.push({ ...row, pr: competitorKey, which: 'competitor' });
@@ -1577,6 +1636,9 @@ async function main() {
                 detail: detailRows,
                 unanswered: competitorMatrix.unanswered,
                 findings: list.length,
+                // **Stored with the row**, so the next run checks this pull request's goldens instead of checking how
+                // many pull requests happened to be selected.
+                fingerprint: pullFingerprint(pr),
               }),
             );
             competitor.recorded += 1;
@@ -2095,6 +2157,27 @@ async function main() {
   for (const key of ourKeys) if (!theirKeys.has(key)) oursOnly += 1;
   for (const key of theirKeys) if (!ourKeys.has(key)) theirsOnly += 1;
 
+  // **The head-to-head, computed once, with its own precondition attached.**
+  //
+  // The run of 2026-11-10 published `McNemar ours-only 83 theirs-only 0 p 0 significant` while its own log said
+  // `replayed 0 · recorded 0 · missing 50 · findings 0` - **a shutout against an arm that had produced no rows.** The
+  // cause was structural rather than arithmetic: this comparison existed twice, once as `secondReviewer.comparable`
+  // (which knew) and once as a bare `mcnemar` (which did not), **and the flattering copy was the one a reader quotes.**
+  // There is now one object, it says whether it is allowed to state a verdict, and every reader reads it.
+  const scoredPullRequests = Math.max(0, rows.length - unfetched);
+  const comparison = compareAgainstCompetitor({
+    oursOnly,
+    theirsOnly,
+    // **`requested - covered` rather than `competitor.missing.length`**, because the two can differ: a pull request
+    // this run could not fetch has no competitor row either, and counting it as a hole in the comparison would blame the
+    // competitor for a hole in our own fetch.
+    coverage: {
+      requested: scoredPullRequests,
+      covered: competitorPerPr.length,
+      missing: Math.max(0, scoredPullRequests - competitorPerPr.length),
+    },
+  });
+
   const competitorCounts = countsOver(competitorPerPr, everythingEmitted);
   const competitorPoint = asPoint(competitorCounts);
   const competitorGated = asPoint(countsOver(competitorPerPr, gatedEmission));
@@ -2237,16 +2320,12 @@ async function main() {
     fullEmission: allEmitted,
     // **The curve, at every budget the rule could have been.**
     byBudgetPerPullRequest: byBudget,
-    // **The paired test against the competitor at its own operating point.**
-    mcnemar: {
-      oursOnly,
-      theirsOnly,
-      pValue: round(exactMcNemar(oursOnly, theirsOnly)),
-      verdict:
-        exactMcNemar(oursOnly, theirsOnly) <= 0.05
-          ? 'significant at 0.05'
-          : 'not significant at 0.05',
-    },
+    // **The paired test against the competitor at its own operating point, or the reason there is not one.**
+    //
+    // **`verdict` is `withheld` when the two arms were not scored over the same corpus**, and in that case `theirsOnly`
+    // and `pValue` are `null` rather than zero: **a guaranteed zero in a column reads as a shutout**, which is exactly
+    // what this field said for a whole iteration while the arm behind it had produced nothing.
+    mcnemar: comparison,
     // **The control arm, reported beside the first rather than instead of it.**
     /**
      * **The second arm: one call per lane over the whole pull request, with one budget for the pull request.**
@@ -2349,17 +2428,11 @@ async function main() {
        * object that carries the figure, rather than leaving the reader to infer it from a count they would have to know
        * to check first.
        */
-      comparable:
-        competitor.missing.length === 0 &&
-        competitorPerPr.length > 0 &&
-        competitorPerPr.length === rows.length - unfetched,
-      notComparableReason:
-        competitor.missing.length === 0
-          ? competitorPerPr.length === 0
-            ? 'the competitor arm produced no row at all, so there is nothing to compare against'
-            : null
-          : `${String(competitor.missing.length)} of ${String(rows.length - unfetched)} pull requests have no ` +
-            'competitor row; the first reason is in `missing[0].reason`',
+      // **The same object the artifact's `mcnemar` field carries**, so the figure and the sentence about whether it may
+      // be stated cannot disagree - which is the defect that produced a published shutout against an absent arm. The
+      // per-row reasons live in `missing[]`; the condition lives in one place.
+      comparable: comparison.comparable,
+      notComparableReason: comparison.withheldReason,
       // **And the same ranker applied to its output**, which separates the two explanations: **if its F1 rises as far
       // as ours did, the gain is the ranker's; if it does not, the sentences were the difference.**
       withTheSameRanker: competitorGated,
@@ -2429,9 +2502,11 @@ async function main() {
     `AACR-BENCH full list tp ${allEmitted.truePositives} fp ${allEmitted.falsePositives} · P ${allEmitted.precision} R ${allEmitted.recall} F1 ${allEmitted.f1}`,
   );
   console.log(
-    `AACR-BENCH competitor ${competitor.tool} · ${competitor.mode} · replayed ${String(competitor.replayed)} · recorded ${String(competitor.recorded)} · missing ${String(competitor.missing.length)} · findings ${competitor.findings} · P ${competitorPoint.precision} R ${competitorPoint.recall} F1 ${competitorPoint.f1} · same ranker F1 ${competitorGated.f1}`,
+    `AACR-BENCH competitor ${competitor.tool} · ${competitor.mode} · replayed ${String(competitor.replayed)} (${String(competitor.verifiedBy.fingerprint)} by goldens, ${String(competitor.verifiedBy.count)} by count) · recorded ${String(competitor.recorded)} · missing ${String(competitor.missing.length)} · findings ${competitor.findings} · P ${competitorPoint.precision} R ${competitorPoint.recall} F1 ${competitorPoint.f1} · same ranker F1 ${competitorGated.f1}`,
   );
-  console.log(`AACR-BENCH McNemar ours-only ${oursOnly} theirs-only ${theirsOnly}`);
+  // **One line, derived from the object rather than from the counts**, because a console line assembled from the raw
+  // counts keeps printing a shutout after the artifact has stopped - which is the state this run was in for an iteration.
+  console.log(`AACR-BENCH ${describeComparison(comparison)}`);
 }
 
 function write(payload) {

@@ -26,6 +26,7 @@ import {
 import {
   corpusFingerprint,
   parseCompetitorMode,
+  pullFingerprint,
   readBaseline,
   recordedPull,
   replayedPull,
@@ -63,8 +64,30 @@ const CORPUS = [
 const rowsOf = (corpus: typeof CORPUS) =>
   corpus.map((pull) => ({
     githubPrUrl: pull.key,
-    comments: Array.from({ length: pull.goldens }, (_, at) => ({ note: `golden ${String(at)}` })),
+    comments: Array.from({ length: pull.goldens }, (_, at) => ({
+      path: `f${String(at)}.ts`,
+      line: at + 1,
+    })),
   }));
+
+/**
+ * **One corpus row as the resolver sees it: its key, its goldens, and the fingerprint of those goldens.**
+ *
+ * **The resolver is handed this instead of the selection's fingerprint**, and the difference is the defect this file now
+ * guards: a recorded row is a function of one pull request's goldens and not of how many pull requests the run selected,
+ * so a corpus that grew from three pull requests to four *satisfies* the three it already holds.
+ */
+const factsOf = (pull: (typeof CORPUS)[number]) => ({
+  key: pull.key,
+  goldens: pull.goldens,
+  fingerprint: pullFingerprint({
+    githubPrUrl: pull.key,
+    comments: Array.from({ length: pull.goldens }, (_, at) => ({
+      path: `f${String(at)}.ts`,
+      line: at + 1,
+    })),
+  }),
+});
 
 type Purchase = { key: string; at: number };
 
@@ -79,14 +102,12 @@ function runPass({
   corpus,
   mode,
   baseline,
-  fingerprint,
   judgeModel,
   credential = true,
 }: {
   corpus: typeof CORPUS;
   mode: 'record' | 'replay' | 'off';
   baseline: ReturnType<typeof startRecording> | null;
-  fingerprint: string;
   judgeModel: string;
   credential?: boolean;
 }) {
@@ -100,9 +121,8 @@ function runPass({
     const decision = resolveCompetitor({
       mode,
       baseline: next,
-      fingerprint,
       judgeModel,
-      key: pull.key,
+      pull: factsOf(pull),
     });
     if (decision.kind === 'replay') {
       perPr.push(replayedPull(pull.key, decision.pull));
@@ -130,6 +150,7 @@ function runPass({
       })),
       unanswered: 0,
       findings: pull.matches.length,
+      fingerprint: factsOf(pull).fingerprint,
     });
     perPr.push(replayedPull(pull.key, record));
     for (const row of record.detail) detail.push({ ...row, pr: pull.key });
@@ -178,7 +199,6 @@ describe('the competitor arm is bought once and read afterwards', () => {
       corpus: CORPUS,
       mode: parseCompetitorMode('record').mode,
       baseline: startRecording({ existing: null, fingerprint, judgeModel: JUDGE, tool: 'ocr' }),
-      fingerprint,
       judgeModel: JUDGE,
     });
     expect(recording.purchases).toHaveLength(CORPUS.length);
@@ -192,7 +212,6 @@ describe('the competitor arm is bought once and read afterwards', () => {
       corpus: CORPUS,
       mode: parseCompetitorMode(undefined).mode,
       baseline: readBaseline(path),
-      fingerprint,
       judgeModel: JUDGE,
     });
     expect(replaying.purchases).toEqual([]);
@@ -208,33 +227,45 @@ describe('the competitor arm is bought once and read afterwards', () => {
   });
 
   it('buys only the pull request a grown corpus adds, and replays the rest', () => {
+    // **The title of this test was true of its intention and false of its assertions for one iteration.** It set out that
+    // a grown corpus buys only what it adds, and then asserted that the record was emptied - because the guard it was
+    // written against compared the *selection* fingerpprint. The run of 2026-11-10 measured the same guard from the other
+    // side: fourteen recorded rows, fifty requested, **all fifty refused**, and the free arm replayed nothing.
     const rows = rowsOf(CORPUS);
     const fingerprint = corpusFingerprint(rows);
     const recording = runPass({
       corpus: CORPUS,
       mode: 'record',
       baseline: startRecording({ existing: null, fingerprint, judgeModel: JUDGE, tool: 'ocr' }),
-      fingerprint,
       judgeModel: JUDGE,
     });
     writeBaseline(path, recording.baseline!);
+    expect(recording.purchases).toHaveLength(CORPUS.length);
 
     const grown = [
       ...CORPUS,
       { key: 'https://github.com/x/y/pull/4', goldens: 1, matches: [[0]], keep: [true] },
     ];
-    const grownRows = rowsOf(grown);
-    const grownFingerprint = corpusFingerprint(grownRows);
-    // **The old record is not a record of this corpus**, so a recording run rebuilds from an empty file rather than
-    // reusing rows whose question has changed - which is the correct, expensive answer, and the reason the fingerprint is
-    // checked at all.
-    const rebuilt = startRecording({
+    // **The old record is kept**, because the three pull requests it holds have not changed; only the selection did.
+    const kept = startRecording({
       existing: readBaseline(path),
-      fingerprint: grownFingerprint,
+      fingerprint: corpusFingerprint(rowsOf(grown)),
       judgeModel: JUDGE,
       tool: 'ocr',
     });
-    expect(rebuilt.pulls).toEqual({});
+    expect(Object.keys(kept.pulls)).toHaveLength(CORPUS.length);
+
+    // **And the grown run pays for one pull request, not four.** The bill for growing a record is the size of the
+    // growth, which is the whole point of the module.
+    const second = runPass({
+      corpus: grown,
+      mode: 'record',
+      baseline: kept,
+      judgeModel: JUDGE,
+    });
+    expect(second.purchases).toHaveLength(1);
+    expect(second.purchases[0]!.key).toBe('https://github.com/x/y/pull/4');
+    expect(second.missing).toEqual([]);
   });
 
   it('refuses the whole corpus rather than half-comparing when there is no record', () => {
@@ -244,7 +275,6 @@ describe('the competitor arm is bought once and read afterwards', () => {
       corpus: CORPUS,
       mode: 'replay',
       baseline: null,
-      fingerprint: corpusFingerprint(rowsOf(CORPUS)),
       judgeModel: JUDGE,
     });
     expect(report.purchases).toEqual([]);
@@ -263,7 +293,6 @@ describe('the competitor arm is bought once and read afterwards', () => {
         judgeModel: JUDGE,
         tool: 'ocr',
       }),
-      fingerprint: corpusFingerprint(rowsOf(CORPUS)),
       judgeModel: JUDGE,
       credential: false,
     });
@@ -278,7 +307,6 @@ describe('the competitor arm is bought once and read afterwards', () => {
       corpus: CORPUS,
       mode: 'off',
       baseline: null,
-      fingerprint: corpusFingerprint(rowsOf(CORPUS)),
       judgeModel: JUDGE,
     });
     expect(report.purchases).toEqual([]);

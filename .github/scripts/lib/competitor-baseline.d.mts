@@ -30,6 +30,13 @@ export interface RecordedPull {
   findings: number;
   /** **A pull request the competitor was run on and produced nothing for.** Recorded, not omitted. */
   failed?: boolean;
+  /**
+   * **The goldens this row was produced against.**
+   *
+   * Absent on rows transcribed from an artifact that did not carry it, and **the absence is not an error**: the replay
+   * reports whether the row was checked by fingerprint or only by count, and the artifact counts each kind.
+   */
+  fingerprint?: string;
 }
 
 /** The whole file. */
@@ -52,12 +59,25 @@ export interface CorpusRow {
   comments?: unknown[];
 }
 
+/**
+ * **How a replayed row was checked.** `fingerprint` means this pull request's goldens were hashed and matched; `count`
+ * means the row predates per-pull fingerprints and only its golden count could be compared.
+ */
+export type ReplayVerification = 'fingerprint' | 'count';
+
 /** What a run should do with the arm, and the reason it is doing it. */
 export type CompetitorDecision =
   | { kind: 'off'; reason: string }
-  | { kind: 'record' }
-  | { kind: 'replay'; pull: RecordedPull }
+  | { kind: 'record'; reason?: string }
+  | { kind: 'replay'; pull: RecordedPull; verified: ReplayVerification }
   | { kind: 'missing'; reason?: string };
+
+/** One pull request as the resolver sees it: its key, its goldens, and their fingerprint. */
+export interface PullFacts {
+  key: string;
+  fingerprint: string;
+  goldens: number;
+}
 
 /** What the scoring consumes, from either a purchase or a replay. */
 export interface ScoredPull {
@@ -69,7 +89,14 @@ export interface ScoredPull {
 
 export declare function parseCompetitorMode(raw: string | undefined): CompetitorMode;
 
+/**
+ * **The fingerprint of the whole selection.** Metadata about which corpus produced a record - **it no longer refuses a
+ * row**, because a row's validity is a property of that row and not of how many other rows were selected.
+ */
 export declare function corpusFingerprint(rows: readonly CorpusRow[]): string;
+
+/** **The fingerprint of one pull request's goldens**, which is the identity a recorded row is checked against. */
+export declare function pullFingerprint(row: CorpusRow | null | undefined): string;
 
 export declare function emptyBaseline(input: {
   fingerprint: string;
@@ -82,9 +109,8 @@ export declare function readBaseline(path: string): CompetitorBaseline | null;
 export declare function resolveCompetitor(input: {
   mode: 'replay' | 'record' | 'off';
   baseline: CompetitorBaseline | null;
-  fingerprint: string;
   judgeModel: string;
-  key: string;
+  pull: PullFacts;
 }): CompetitorDecision;
 
 export declare function withRecord(
@@ -109,6 +135,7 @@ export declare function recordedPull(input: {
   detail: Array<Record<string, unknown>>;
   unanswered?: number;
   findings?: number;
+  fingerprint?: string;
 }): RecordedPull;
 
 export declare function replayedPull(key: string, pull: RecordedPull): ScoredPull;

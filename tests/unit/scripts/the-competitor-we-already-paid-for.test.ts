@@ -27,11 +27,26 @@ import {
 } from '../../../packages/intelligence/src/review/actionability.js';
 import {
   corpusFingerprint,
+  pullFingerprint,
   replayedPull,
   resolveCompetitor,
 } from '../../../.github/scripts/lib/competitor-baseline.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
+
+/**
+ * **A pull request as the resolver sees it**, built from the record's own golden count.
+ *
+ * The goldens' content is not in the file - the run this was transcribed from published the count - so the fingerprint
+ * below is the one a row *would* have if its goldens were the ones the current corpus holds for it. **That is deliberate
+ * and it is why `verified` exists**: the replay of these fourteen rows is checked by count, `pullFingerprint` cannot
+ * check them, and the artifact says so.
+ */
+const factsOf = (key: string, goldens: number) => ({
+  key,
+  goldens,
+  fingerprint: pullFingerprint({ githubPrUrl: key, comments: [] }),
+});
 const baseline = JSON.parse(
   readFileSync(join(ROOT, 'benchmarks/aacr/competitor-baseline.json'), 'utf8'),
 ) as {
@@ -50,6 +65,7 @@ const baseline = JSON.parse(
       unanswered: number;
       findings: number;
       failed?: boolean;
+      fingerprint?: string;
     }
   >;
 };
@@ -138,24 +154,29 @@ describe('the recorded competitor result replays to the figures that were publis
 
   it('answers `replay` for every pull request in the corpus, which is the mode that spends nothing', () => {
     for (const key of Object.keys(baseline.pulls)) {
+      const goldens = baseline.pulls[key]!.goldens;
       const decision = resolveCompetitor({
         mode: 'replay',
         baseline,
-        fingerprint: baseline.corpus.fingerprint,
         judgeModel: baseline.corpus.judge.model,
-        key,
+        pull: factsOf(key, goldens),
       });
       expect(decision.kind).toBe('replay');
+      // **And by count rather than by fingerprint**, because the run these rows were transcribed from published the
+      // number of goldens and not their lines. **A reader who is told "replayed" without being told how it was checked
+      // is being told half a fact**, so the weaker check is named rather than hidden behind the stronger word.
+      if (decision.kind !== 'replay') throw new Error('expected a replay');
+      expect(decision.verified).toBe('count');
     }
   });
 
   it('refuses a record made against another judge rather than comparing across two of them', () => {
+    const first = Object.keys(baseline.pulls)[0]!;
     const decision = resolveCompetitor({
       mode: 'replay',
       baseline,
-      fingerprint: baseline.corpus.fingerprint,
       judgeModel: 'some-other-model',
-      key: Object.keys(baseline.pulls)[0]!,
+      pull: factsOf(first, baseline.pulls[first]!.goldens),
     });
     expect(decision.kind).toBe('missing');
     // **And the reason names the judge**, because "missing" without a reason sends the next reader to the wrong file.

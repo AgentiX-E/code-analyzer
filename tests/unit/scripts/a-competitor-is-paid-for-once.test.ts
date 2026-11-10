@@ -22,6 +22,7 @@ import {
   JUDGE_PROMPT_VERSION,
   corpusFingerprint,
   describeDecision,
+  pullFingerprint,
   emptyBaseline,
   parseCompetitorMode,
   readBaseline,
@@ -43,6 +44,20 @@ const JUDGE = 'deepseek-chat';
 /** The reason a decision carries, or the empty string when it carries none. */
 function reasonOf(decision: CompetitorDecision): string {
   return 'reason' in decision ? (decision.reason ?? '') : '';
+}
+
+/**
+ * One corpus row as the resolver sees it.
+ *
+ * **The resolver is handed the row's own facts rather than the selection's**, which is the change these tests now hold:
+ * a recorded row is a function of this pull request's goldens and of nothing else.
+ */
+function pullOf(row: { githubPrUrl: string; comments: unknown[] }, key = row.githubPrUrl) {
+  return {
+    key,
+    fingerprint: pullFingerprint(row),
+    goldens: Array.isArray(row.comments) ? row.comments.length : 0,
+  };
 }
 
 function baselineFor(fingerprint: string) {
@@ -98,6 +113,7 @@ describe('the corpus fingerprint identifies the corpus and nothing else', () => 
 describe('the decision names the first thing that is wrong', () => {
   const fingerprint = corpusFingerprint(CORPUS);
   const key = CORPUS[0]!.githubPrUrl;
+  const pull = pullOf(CORPUS[0]!);
 
   const recorded = withRecord(
     baselineFor(fingerprint),
@@ -108,6 +124,7 @@ describe('the decision names the first thing that is wrong', () => {
       keep: [true, false],
       detail: [],
       unanswered: 0,
+      fingerprint: pull.fingerprint,
     }),
   );
 
@@ -115,9 +132,8 @@ describe('the decision names the first thing that is wrong', () => {
     const decision = resolveCompetitor({
       mode: 'off',
       baseline: null,
-      fingerprint,
       judgeModel: JUDGE,
-      key,
+      pull,
     });
     expect(decision.kind).toBe('off');
   });
@@ -126,57 +142,116 @@ describe('the decision names the first thing that is wrong', () => {
     const decision = resolveCompetitor({
       mode: 'record',
       baseline: null,
-      fingerprint,
       judgeModel: JUDGE,
-      key,
+      pull,
     });
     expect(decision.kind).toBe('record');
   });
 
-  it('replays the recorded pull request when the corpus and the judge are the same', () => {
+  it('replays the recorded pull request when its goldens and the judge are the same', () => {
     const decision = resolveCompetitor({
       mode: 'replay',
       baseline: recorded,
-      fingerprint,
       judgeModel: JUDGE,
-      key,
+      pull,
     });
     if (decision.kind !== 'replay') throw new Error(`expected a replay, got ${decision.kind}`);
     expect(decision.pull).toEqual(recorded.pulls[key]);
+    // **And how it was checked travels with it**, because a figure resting on fingerprint-checked rows and one resting
+    // on count-checked rows are not the same figure even though both are called a replay.
+    expect(decision.verified).toBe('fingerprint');
+  });
+
+  it('replays a row recorded before per-pull fingerprints existed, and says it was checked by count', () => {
+    // **The fourteen rows of 2026-11-09 are this case**: transcribed from an artifact that carried the golden count and
+    // not the goldens, so the strongest check available is the count. **Reporting the weaker check is the difference
+    // between a verified replay and an assumed one** - and refusing these rows would have thrown away fourteen rows the
+    // project paid 5.89 USD for.
+    const legacy = withRecord(
+      baselineFor(fingerprint),
+      key,
+      recordedPull({ matches: [[0]], goldens: 2, keep: [true], detail: [], unanswered: 0 }),
+    );
+    const decision = resolveCompetitor({
+      mode: 'replay',
+      baseline: legacy,
+      judgeModel: JUDGE,
+      pull,
+    });
+    if (decision.kind !== 'replay') throw new Error(`expected a replay, got ${decision.kind}`);
+    expect(decision.verified).toBe('count');
+  });
+
+  it('replays a corpus that grew, because a smaller record is a prefix and not a different corpus', () => {
+    // **The defect of 2026-11-10, as a test.** The baseline was recorded over fourteen pull requests; the run asked for
+    // fifty; the whole-selection fingerprint moved and **every row was refused, including the fourteen whose own inputs
+    // had not changed** - so the arm built to be free replayed nothing, and the artifact then published the resulting
+    // absence of a competitor as an 83-to-0 win.
+    const wider = [
+      ...CORPUS,
+      { githubPrUrl: 'https://github.com/a/b/pull/3', comments: [{ note: 'x' }] },
+    ];
+    const decision = resolveCompetitor({
+      mode: 'replay',
+      baseline: recorded,
+      judgeModel: JUDGE,
+      pull,
+    });
+    expect(decision.kind).toBe('replay');
+    // And the selection fingerprint really did move, so this is not a test of an unchanged value.
+    expect(corpusFingerprint(wider)).not.toBe(corpusFingerprint(CORPUS));
+  });
+
+  it('refuses a pull request whose goldens moved, and names both fingerprints', () => {
+    const edited = {
+      githubPrUrl: CORPUS[0]!.githubPrUrl,
+      comments: [{ note: 'one' }, { path: 'a.ts', line: 9 }],
+    };
+    const decision = resolveCompetitor({
+      mode: 'replay',
+      baseline: recorded,
+      judgeModel: JUDGE,
+      pull: pullOf(edited),
+    });
+    expect(decision.kind).toBe('missing');
+    expect(reasonOf(decision)).toContain('goldens moved');
+    expect(reasonOf(decision)).toContain(pull.fingerprint);
+  });
+
+  it('refuses a pull request whose golden count moved, even without a fingerprint to compare', () => {
+    const legacy = withRecord(
+      baselineFor(fingerprint),
+      key,
+      recordedPull({ matches: [[0]], goldens: 2, keep: [true], detail: [], unanswered: 0 }),
+    );
+    const decision = resolveCompetitor({
+      mode: 'replay',
+      baseline: legacy,
+      judgeModel: JUDGE,
+      pull: { ...pull, goldens: 1 },
+    });
+    expect(decision.kind).toBe('missing');
+    expect(reasonOf(decision)).toContain('1 goldens');
+    expect(reasonOf(decision)).toContain('recorded 2');
   });
 
   it('reports a missing baseline instead of buying one', () => {
     const decision = resolveCompetitor({
       mode: 'replay',
       baseline: null,
-      fingerprint,
       judgeModel: JUDGE,
-      key,
+      pull,
     });
     expect(decision.kind).toBe('missing');
     expect(reasonOf(decision)).toContain('no competitor baseline');
-  });
-
-  it('refuses a baseline recorded on a different corpus, and names both fingerprints', () => {
-    const decision = resolveCompetitor({
-      mode: 'replay',
-      baseline: recorded,
-      fingerprint: corpusFingerprint([CORPUS[0]!]),
-      judgeModel: JUDGE,
-      key,
-    });
-    expect(decision.kind).toBe('missing');
-    expect(reasonOf(decision)).toContain('the corpus changed');
-    expect(reasonOf(decision)).toContain(fingerprint);
   });
 
   it('refuses a baseline recorded against a different judge, because the judge moves the number', () => {
     const decision = resolveCompetitor({
       mode: 'replay',
       baseline: recorded,
-      fingerprint,
       judgeModel: 'some-other-model',
-      key,
+      pull,
     });
     expect(decision.kind).toBe('missing');
     expect(reasonOf(decision)).toContain('the judge changed');
@@ -187,19 +262,45 @@ describe('the decision names the first thing that is wrong', () => {
     const decision = resolveCompetitor({
       mode: 'replay',
       baseline: recorded,
-      fingerprint,
       judgeModel: JUDGE,
-      key: 'https://github.com/a/b/pull/99',
+      pull: pullOf(CORPUS[0]!, 'https://github.com/a/b/pull/99'),
     });
     expect(decision.kind).toBe('missing');
     expect(reasonOf(decision)).toContain('pull/99');
+  });
+
+  it('buys only what a recording run does not already hold, because the row is an input in both live modes', () => {
+    // **The second place the same mistake was made.** The first version of the resolver sent every pull request to the
+    // purchase whenever the mode was `record`, so growing a record from fourteen rows to fifty cost fifty - the same
+    // number bought twice, by the one mode whose entire purpose is to buy it once.
+    const decision = resolveCompetitor({
+      mode: 'record',
+      baseline: recorded,
+      judgeModel: JUDGE,
+      pull,
+    });
+    expect(decision.kind).toBe('replay');
+    const unheld = resolveCompetitor({
+      mode: 'record',
+      baseline: recorded,
+      judgeModel: JUDGE,
+      pull: pullOf(CORPUS[1]!),
+    });
+    expect(unheld.kind).toBe('record');
+    // And the reason a purchase happened is carried, so a log line can say why this pull request cost money.
+    expect(reasonOf(unheld)).toContain('absent from the recorded baseline');
   });
 
   it('describes every decision in one line, for the log a human reads', () => {
     const empty = recordedPull({ matches: [], goldens: 0, keep: [], detail: [] });
     expect(describeDecision({ kind: 'off', reason: 'switched off' }, 'pull/1')).toContain('off');
     expect(describeDecision({ kind: 'record' }, 'pull/1')).toContain('recording');
-    expect(describeDecision({ kind: 'replay', pull: empty }, 'pull/1')).toContain('replayed');
+    expect(
+      describeDecision({ kind: 'replay', pull: empty, verified: 'fingerprint' }, 'pull/1'),
+    ).toContain('goldens matched');
+    expect(
+      describeDecision({ kind: 'replay', pull: empty, verified: 'count' }, 'pull/1'),
+    ).toContain('golden count only');
     expect(describeDecision({ kind: 'missing', reason: 'no file' }, 'pull/1')).toContain('no file');
     // A decision with no reason is still a sentence rather than the string "undefined".
     expect(describeDecision({ kind: 'missing' }, 'pull/1')).toContain('no reason recorded');
@@ -247,7 +348,7 @@ describe('a recording run grows the file it already has, and replaces one of ano
     expect(Object.keys(started.pulls)).toEqual(['pull/1']);
   });
 
-  it('replaces the rows of another corpus, because they are not a prefix of this one', () => {
+  it('keeps the rows of a smaller record, because a prefix is not a different corpus', () => {
     const existing = withRecord(
       baselineFor(corpusFingerprint([CORPUS[0]!])),
       'pull/1',
@@ -259,7 +360,10 @@ describe('a recording run grows the file it already has, and replaces one of ano
       judgeModel: JUDGE,
       tool: 'ocr',
     });
-    expect(Object.keys(started.pulls)).toEqual([]);
+    // **Rows are kept and the selection is re-stated**, because a recording run that grew its corpus satisfies the rows
+    // it already holds: dropping them would have re-bought fourteen pull requests on top of the refusal that stopped
+    // them replaying - two defects with one cause, which is a guard aimed at the selection instead of at the row.
+    expect(Object.keys(started.pulls)).toEqual(['pull/1']);
     expect(started.corpus.fingerprint).toBe(corpusFingerprint(CORPUS));
   });
 
