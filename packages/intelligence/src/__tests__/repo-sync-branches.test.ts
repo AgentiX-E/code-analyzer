@@ -33,6 +33,11 @@ import type { SyncOptions } from '../github/repo-sync.js';
 const execSyncMock = vi.hoisted(() => vi.fn());
 vi.mock('node:child_process', () => ({
   execFileSync: execSyncMock,
+  // **`exec` is here because a mock of a built-in is a module replacement, not a spy.** The module under test now imports
+  // the git-argument guard from `@code-analyzer/infra`, whose barrel builds `promisify(execFile)` for `git-operations` -
+  // so a mock that omits `exec` makes every import of the barrel throw before a single test runs.
+  exec: vi.fn(),
+  execFile: vi.fn(),
 }));
 
 function makeClient(): GitHubApiClient {
@@ -374,6 +379,20 @@ describe('GitHubRepoSync — deterministic branches', () => {
     createCachedRepo(cacheDir, 'o', 'r', 10);
 
     await expect(sync.pull('o', 'r')).rejects.toThrow(/pull exploded/);
+  });
+
+  it('refuses a branch git would read as an option', async () => {
+    // **The second half of the injection class, and the half an argument vector does not close.** `git fetch origin
+    // --upload-pack=…` is not shell syntax - it is a branch name that git parses as an option and then executes.
+    const sync = new GitHubRepoSync({
+      client: makeClient(),
+      cacheDir,
+      branch: '--upload-pack=touch /tmp/pwned',
+    });
+
+    await expect(sync.pull('o', 'r')).rejects.toThrow(/may not begin with '-/);
+    // The fetch never ran, so nothing was written by the mock either.
+    expect(execSyncMock).not.toHaveBeenCalled();
   });
 
   it('returns an empty list when the cache directory vanishes before eviction', async () => {

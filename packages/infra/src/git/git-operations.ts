@@ -5,6 +5,8 @@ import { execFile as cpExecFile } from 'node:child_process';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
+import { assertGitArgument } from './assert-git-argument.js';
+
 import type { GitDiff, DiffRange, StalenessResult } from '@code-analyzer/shared';
 
 // **`execFile`, not `exec`, and the difference is the shell.** `exec` hands its string to `/bin/sh`, so every ref, commit
@@ -124,6 +126,8 @@ export function createGitOperations(repoPath: string): GitOperations {
 
   return {
     async getDiff(from: string, to: string, contextLines = 3): Promise<GitDiff[]> {
+      assertGitArgument(from, 'the from ref');
+      assertGitArgument(to, 'the to ref');
       const output = await git(['diff', `-U${String(contextLines)}`, `${from}..${to}`]);
       return parseDiffOutput(output);
     },
@@ -134,15 +138,20 @@ export function createGitOperations(repoPath: string): GitOperations {
     },
 
     async getCommitDiff(commit: string): Promise<GitDiff[]> {
+      assertGitArgument(commit, 'the commit');
       const output = await git(['diff', `${commit}^..${commit}`]);
       return parseDiffOutput(output);
     },
 
     async getMergeBase(from: string, to: string): Promise<string> {
+      assertGitArgument(from, 'the from ref');
+      assertGitArgument(to, 'the to ref');
       return git(['merge-base', from, to]);
     },
 
     async getChangedFiles(from: string, to: string): Promise<string[]> {
+      assertGitArgument(from, 'the from ref');
+      assertGitArgument(to, 'the to ref');
       const output = await git(['diff', '--name-only', `${from}..${to}`]);
       return output ? output.split('\n') : [];
     },
@@ -183,6 +192,9 @@ export function createGitOperations(repoPath: string): GitOperations {
     },
 
     async getFileContent(ref: string, filePath: string): Promise<string> {
+      // **Before the try, because the catch below rewrites every failure as "File not found"** - and a refusal reported as
+      // a missing file is a refusal the caller will route around.
+      assertGitArgument(ref, 'the ref');
       try {
         return await git(['show', `${ref}:${filePath}`]);
       } catch {
@@ -191,6 +203,7 @@ export function createGitOperations(repoPath: string): GitOperations {
     },
 
     async getFileHash(ref: string, filePath: string): Promise<string> {
+      assertGitArgument(ref, 'the ref');
       const output = await git(['ls-tree', ref, filePath]);
       // Output format: <mode> <type> <hash>\t<path>. `git ls-tree` exits 0 with
       // empty output when the path is absent from the tree, in which case there

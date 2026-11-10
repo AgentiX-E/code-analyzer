@@ -21,6 +21,7 @@ export type {
 
 // Git Operations
 export { createGitOperations } from './git/git-operations.js';
+export { assertGitArgument } from './git/assert-git-argument.js';
 export type { GitOperations } from './git/git-operations.js';
 
 // Filesystem

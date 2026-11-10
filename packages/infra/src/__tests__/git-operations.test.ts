@@ -416,6 +416,31 @@ describe('GitOperations — a ref is an argument, not a command', () => {
     await expect(gitOps.getChangedFiles(`HEAD..HEAD$(touch ${file})`, 'HEAD')).rejects.toThrow();
     expect(fs.existsSync(file), 'the payload ran: a range reached the shell').toBe(false);
   });
+
+  // **Removing the shell removed the string injection and left the argument injection.** `git fetch origin
+  // --upload-pack=…` is not shell syntax; it is a *ref that is read as an option*, and git executes the value. CodeQL
+  // raised `js/second-order-command-line-injection` twice the moment the argv form landed, which is the honest reading:
+  // the previous rule was satisfied and the class was not closed.
+  it('refuses a ref that git would read as an option', async () => {
+    const file = marker();
+    await expect(gitOps.getDiff(`--upload-pack=touch ${file}`, 'HEAD')).rejects.toThrow(
+      /may not begin with '-'/,
+    );
+    await expect(gitOps.getCommitDiff(`--output=${file}`)).rejects.toThrow(
+      /may not begin with '-'/,
+    );
+    await expect(gitOps.getMergeBase('HEAD', `--exec=touch ${file}`)).rejects.toThrow(
+      /may not begin with '-'/,
+    );
+    await expect(gitOps.getFileContent(`--output=${file}`, 'a.ts')).rejects.toThrow(
+      /may not begin/,
+    );
+    expect(fs.existsSync(file), 'the payload ran: an option reached git').toBe(false);
+  });
+
+  it('refuses an empty ref rather than asking git what it means', async () => {
+    await expect(gitOps.getDiff('', 'HEAD')).rejects.toThrow(/may not be empty/);
+  });
 });
 
 describe('parseDiffOutput edge cases', () => {

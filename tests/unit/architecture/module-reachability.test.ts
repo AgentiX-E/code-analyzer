@@ -357,7 +357,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       // severity bridge they share.)
       cli: 14,
       core: 45,
-      infra: 29,
+      // **30 since iteration 119**, which added `git/assert-git-argument.ts`: the check that a ref reaching git cannot be
+      // read as an option. It is a module rather than three inline `if`s because `git-operations.ts` and
+      // `github/repo-sync.ts` in another package both need it, and a rule copied into a second place is a rule that will
+      // diverge from the first. (29 was iteration 113.)
+      infra: 30,
       // **159 since iteration 119**, which added `review/category-prior.ts`: **the measured acceptance of each category,
       // and the profile that emits the ones a corpus with an answer key accepted** - data with a provenance rather than
       // a weight in `actionability.ts`, because the table is a measurement and a measurement that lives inside a score

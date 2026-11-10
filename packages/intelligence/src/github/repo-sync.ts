@@ -11,6 +11,8 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { assertGitArgument } from '@code-analyzer/infra';
+
 import type { GitHubApiClient } from './client.js';
 
 // ---------------------------------------------------------------------------
@@ -118,6 +120,11 @@ export class GitHubRepoSync {
       }
     }
 
+    // **The branch is an argument, and an argument that begins with `-` is an option.** `git fetch origin --upload-pack=…`
+    // executes the value, and this class takes its branch from configuration and from the GitHub API. Checked here rather
+    // than at each of the three call sites, so a fourth one cannot be added without the check.
+    assertGitArgument(branch, 'the branch');
+
     if (existsSync(repoDir)) {
       // Already cloned — fetch if autoFetch enabled
       if (this.autoFetch) {
@@ -196,6 +203,7 @@ export class GitHubRepoSync {
     }
 
     const branch = this.branch ?? 'main';
+    assertGitArgument(branch, 'the branch');
     try {
       execFileSync('git', ['fetch', 'origin', branch, '--depth', '1'], {
         cwd: repoDir,
