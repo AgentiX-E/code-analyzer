@@ -22,9 +22,6 @@ on:
   schedule:
     - cron: '0 5 * * 3'
   workflow_dispatch:
-  push:
-    branches: [master]
-    paths:
 
 concurrency:
   group: qa-real-corpus

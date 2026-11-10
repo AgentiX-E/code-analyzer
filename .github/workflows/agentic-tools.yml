@@ -53,9 +53,6 @@ on:
   # same rule the four review benchmarks now follow.
   schedule:
     - cron: '40 5 * * 3'
-  push:
-    branches: [master]
-    paths:
 
 concurrency:
   group: agentic-tools

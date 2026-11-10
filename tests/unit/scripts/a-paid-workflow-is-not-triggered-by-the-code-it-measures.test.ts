@@ -109,7 +109,31 @@ describe('a workflow that can call a model is not dispatched by the code it meas
     expect(offenders).toEqual([]);
   });
 
-  it('reads a push trigger when one exists, so the two assertions above are not passing on nothing', () => {
+  it('does not declare an empty paths list, which is a trigger that fires on everything', () => {
+    // **The shape that shipped while narrowing these triggers**: removing the only entry of a `paths:` list left the
+    // key behind with nothing under it. **An empty `paths:` is not "no trigger"** — it is a push trigger on every file,
+    // which is the opposite of the change intended, and GitHub refuses the workflow outright in the same commit.
+    const offenders: string[] = [];
+    for (const { name, source } of paid) {
+      const onBlock = /^on:\n([\s\S]*?)(?=^\S)/m.exec(source)?.[1] ?? '';
+      for (const match of onBlock.matchAll(/^ {4}paths:\n/gm)) {
+        const firstLine = onBlock.slice(match.index + match[0].length).split('\n')[0] ?? '';
+        if (!firstLine.trim().startsWith('- ')) offenders.push(name);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('declares at most one schedule, because two weekly runs are two weekly bills', () => {
+    const offenders: string[] = [];
+    for (const { name, source } of paid) {
+      const onBlock = /^on:\n([\s\S]*?)(?=^\S)/m.exec(source)?.[1] ?? '';
+      if ((onBlock.match(/^ {2}schedule:/gm) ?? []).length > 1) offenders.push(name);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('reads a push trigger when one exists, so the assertions above are not passing on nothing', () => {
     // The control: a workflow that does have a push path under `packages/` must be seen by the same reader. This is
     // the fixture the reader has to reject — and it is inline, because a fixture file in `.github/workflows` would run.
     const fixture = [

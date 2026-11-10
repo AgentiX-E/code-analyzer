@@ -16,9 +16,6 @@ on:
   schedule:
     - cron: '0 4 * * 3'
   workflow_dispatch:
-  push:
-    branches: [master]
-    paths:
 
 concurrency:
   group: code-qa-benchmark

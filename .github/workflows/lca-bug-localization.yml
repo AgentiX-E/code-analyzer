@@ -74,9 +74,6 @@ on:
         description: 'Run the answer arm as well (1) or the deterministic retrieval arm alone (0)'
         required: false
         default: '0'
-  push:
-    branches: [master]
-    paths:
 
 concurrency:
   group: lca-bug-localization
