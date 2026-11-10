@@ -111,6 +111,7 @@ Checkmarks indicate features verified through automated tests.
 | Benchmark Framework (ca-bench, real-world PR suite)            | Partial — see register                                              |
 | Cost Accounting (per-call ledger, tag totals, spend ceiling)   | Tested — unit and end-to-end                                        |
 | Prefix Reuse (instructions lead the prompt, file closes it)    | Tested — 98.05 % reuse against 10.46 %, 30 real requests            |
+| Competitor Replay (a corpus result is paid for once)           | Tested — record/replay round trip, identical F1, zero paid calls    |
 
 ---
 

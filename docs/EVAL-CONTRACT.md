@@ -767,3 +767,108 @@ and rules the prompt out for this provider.
 by 0.014 inside a 0.04 band. **A registration that predicted 0.85 and delivered 0.61 is a wrong prediction and a good
 device**, and the difference between those two sentences is the whole reason §10 was written before the run rather than
 after it.
+
+---
+
+## 12. A number bought once, and the ten jobs that were buying it every week
+
+**Written 2026-11-10, after the run §10 priced.** The question this section answers is not "what does a benchmark cost"
+but "what in this repository can spend money, and what stops it". §10 answered the first for one job. **This one answers
+the second for all of them, because the answer was ten.**
+
+### 12.1 The four defects, in the order they were found
+
+1. **Ten workflows name a provider credential.** Five of them still had a `push` trigger, on paths that were mostly the
+   harness itself. **The argument was that an edited harness should be exercised**; §10's artifact prices it at
+   **60.59 CNY for one push**.
+2. **Five scripts construct a `DeepSeekProvider`, and four had no ceiling.** The one that did was the benchmark - the
+   only job somebody had already priced. **A ledger without a ceiling records a bill after it is paid.**
+3. **CI passed `secrets.DEEPSEEK_API_KEY` into the unit, integration, property, E2E and coverage jobs.** Three files in
+   that suite branch on the key: `real-ground-truth-semantic.test.ts` reviews a hundred real issues through five lanes,
+   and the retrieval and paraphrase harnesses write their query sets when they can. **So every push to `master` and every
+   pull request paid for a literature review of the corpus before it ran an assertion**, and no artifact said so,
+   because a test is not a job anyone prices.
+4. **The competitor arm ran on every benchmark run, twice** - once per arm of the checklist matrix - over goldens that
+   had not changed since the previous run. **5.89 USD of the 8.53, 69 %, on a number that is a property of the corpus and
+   not of this project's code.**
+
+**What these four have in common is that each is defensible alone and unreasonable together.** A push trigger is
+reasonable for a fast check; a ceiling is unnecessary for a job that has never overrun; a credential in CI is convenient
+for the one test that wants it; re-running a competitor keeps two figures on the same commit. **Nothing in the repository
+read all four at once**, which is the only place the bill was visible.
+
+### 12.2 What now stops each one, and where the proof lives
+
+| defect                                | the mechanism                                                                                      | the proof                                                                          |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| a paid job triggered by a push        | no paid workflow may declare `push` or `pull_request`; only `workflow_dispatch` and one `schedule` | `a-paid-workflow-is-not-triggered-by-the-code-it-measures.test.ts`                 |
+| a credential in a job that runs tests | no workflow containing `pnpm test` may name a provider credential                                  | same file, `never hands a model credential to a job that runs the test suite`      |
+| a script with no ceiling              | every `new DeepSeekProvider(` must pass `ceilingUsd` beside a `CostLedger`                         | `every-paid-script-has-a-spend-ceiling.test.ts`                                    |
+| the competitor bought repeatedly      | `AACR_COMPETITOR` defaults to `replay`; a missing record is reported, never repaired by buying     | `a-competitor-is-paid-for-once.test.ts`, `a-competitor-run-is-bought-once.test.ts` |
+
+**And the fourth has a property the other three do not: it is falsifiable in the arithmetic.** A replayed pull request
+contributes the same three fields a purchased one contributes - `matches`, `goldens`, `keep` - so the scoring cannot tell
+them apart. `a-competitor-run-is-bought-once.test.ts` runs the loop twice over the same corpus, computes the competitor's
+F1 from both passes with the benchmark's own functions, and asserts the two are equal. **A replay that lost `keep` would
+pass a decision test and fail that one**, which is the reason it is written as a user story rather than as a unit test.
+
+### 12.3 The bill after the change, as arithmetic rather than as a measurement
+
+| line                             | before       | after                     | why                                                                                 |
+| -------------------------------- | ------------ | ------------------------- | ----------------------------------------------------------------------------------- |
+| competitor arm, two runs         | 5.89 USD     | **0**                     | replayed; recorded once per corpus                                                  |
+| judge                            | 1.23 USD     | **≈ 0.7 USD**, unmeasured | the competitor's findings are no longer judged at all; the remaining calls are ours |
+| reviewer, five lanes × 340 files | 1.41 USD     | 1.41 USD                  | unchanged, and that is the point                                                    |
+| **total per run**                | **8.53 USD** | **≈ 2.1 USD**, unmeasured | 75 %                                                                                |
+
+**The "after" column is arithmetic, not a reading, and it is marked so on purpose.** Three of its four lines are
+measured; the judge's is a subtraction over a share that the artifact splits by finding count rather than by reviewer. **A
+prediction stated as a prediction is checkable; the same number stated as a result is what §10 exists to prevent.**
+
+### 12.4 The one optimisation that changes no verdict
+
+**The judge is a prefix-cache client too, and it was submitting its matrix in the wrong order.** Its prompt is
+`instructions + golden + comment`; the first two blocks are identical for every finding scored against the same golden,
+so the first request carrying a prefix writes it and the rest read it. The matrix was submitted **finding-major**, which
+means each golden's prefix was written by whichever of its pairs happened to be first in flight, **concurrently with the
+others** - and a concurrent write is a miss for everything in flight beside it. **The artifact recorded the consequence:
+6 859 calls, 7.9 % cached.**
+
+**So each golden's first pair is judged alone before the rest of its pairs are submitted together.** Every pair is still
+judged once, against the same inputs, at the same temperature; **only the order changed.** The claim this makes is
+narrow and falsifiable:
+
+1. **The judge's `costUsd` falls by at least a third** on the same corpus, because `instructions + golden` is roughly
+   two thirds of the prompt and a hit is priced at a fraction of a miss.
+2. **`spend.judge.cacheHitRatio` rises above 0.5**, from 0.079.
+3. **F1 does not move.** A verdict is a per-pair answer; an order that changed one would be an order that changed the
+   question, which is what §11.3 exists to catch.
+
+**And the falsification is the interesting branch**: a reordered matrix with the same hit ratio means the judge's prompt
+is below the vendor's cacheable block size, and the fix is then not the order but the size - **the same conclusion §11
+reaches from a different direction.**
+
+### 12.5 What is not being cut, and why each would be a bad trade
+
+1. **The corpus is not shrunk.** Fourteen pull requests is the size at which a 0.04 move stops being a coin toss; at five
+   it was a coin toss and the figures moved between 0 and 0.1724 with nothing changed. **A cheaper figure that cannot
+   answer the question is the most expensive line in this table.**
+2. **The two arms are not collapsed to one.** §8's claim is about a device, and a device can only be settled by turning
+   it off. **One arm is a number with nothing to compare it to.**
+3. **The judge is not batched into one call per pull request.** It would cut the call count by the number of goldens -
+   four here - and it would ask a model to answer several questions in one context, where the answers become evidence
+   about each other. **That is a quality change sold as a cost change**, and until it is measured against the per-pair
+   matrix it stays out of the default path.
+4. **The reviewer is not given fewer lanes.** Five lanes at 0.61 reuse is 1.41 USD and the lanes are what the product
+   sells. **A cost optimisation that removes a feature is a price cut on a smaller product.**
+
+### 12.6 The two things this section does not know
+
+1. **Whether the recorded baseline in this repository covers the corpus.** It does not yet: no `record` run has been
+   dispatched since the mechanism landed, so the next scheduled run will report **every pull request as `missing`** and
+   set `secondReviewer.comparable` to `false`. **That is the honest state and the artifact says it**; the repair is one
+   dispatch with `competitor: record`, whose artifact is then committed. **The alternative - reconstructing a baseline
+   from a previous run's published figure - would be fabricating per-pair verdicts from a summary, which is the one thing
+   this file exists to forbid.**
+2. **Whether the judge's reordering pays what §12.4 predicts.** It costs nothing to try, it changes no verdict, and
+   `spend.judge.cacheHitRatio` is already in the artifact - so the next run answers it without a new measurement.
