@@ -306,7 +306,18 @@ ${ctx.diffContent}
  * before either device and `diff-first` is the one `EVAL-CONTRACT.md` §9 registered. All three exist so the same
  * corpus can be run with a device and without it, which is the only way an order can be settled.
  */
-export type PromptOrder = 'boilerplate-first' | 'diff-first' | 'lane-first';
+/**
+ * **The three orders, as a value rather than as a type only.**
+ *
+ * The union below is what the engine switches on; this array is what a workflow's `choice` input is checked against.
+ * **The two used to be the same thing written twice** - once in TypeScript and once in the dispatch options of
+ * `.github/workflows/aacr-bench.yml` - and **a `choice` list that drifts from the union silently runs the fallthrough
+ * order while the artifact records a name nobody implemented**, which is an experiment that measures the wrong arm and
+ * says so in its own metadata.
+ */
+export const PROMPT_ORDERS = ['boilerplate-first', 'diff-first', 'lane-first'] as const;
+
+export type PromptOrder = (typeof PROMPT_ORDERS)[number];
 
 /**
  * **Assemble one lane prompt from its two halves and the block they share.**

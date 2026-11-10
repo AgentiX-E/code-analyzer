@@ -34,6 +34,17 @@ on:
         # and still not the one anybody selected**.
         options: ['replay', 'record', 'off']
         default: replay
+      prompt_order:
+        # **Where the diff sits in a lane's prompt, exposed because it is now a measured variable rather than a
+        # preference.** `boilerplate-first` puts the shared target-and-diff block last, which is what raised prefix
+        # reuse from 61 % to 91.7 % and cut the reviewer's bill from 1.41 USD to 0.29 USD - **and the first run that
+        # measured quality as well as cost read F1 0.1691 where the previous ordering read 0.2405.** One run is not an
+        # answer, so the order is an input: two dispatches that differ in this line and in nothing else are the
+        # experiment, and both artifacts record which order produced them.
+        description: 'Prompt order: boilerplate-first (cheapest), lane-first, or diff-first'
+        type: choice
+        options: ['boilerplate-first', 'lane-first', 'diff-first']
+        default: boilerplate-first
   schedule:
     # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
@@ -155,6 +166,10 @@ jobs:
           # is not a ceiling, it is a formality**. A recording run keeps the larger bound, because that is the run that
           # buys the 5.89 USD arm.
           AACR_MAX_USD: ${{ inputs.competitor == 'record' && '12' || '5' }}
+          # **The experimental variable, passed through and recorded.** A run that does not name an order gets the
+          # default the code was written with, and the artifact's `configuration.promptOrder` says which one ran - so
+          # two artifacts can be compared without anyone remembering what the default was that week.
+          AACR_PROMPT_ORDER: ${{ inputs.prompt_order || 'boilerplate-first' }}
           # **Whether this run buys a competitor result, or reads the one already paid for.** The script's own default
           # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
           # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.
