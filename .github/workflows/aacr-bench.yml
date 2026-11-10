@@ -20,14 +20,16 @@ name: AACR Bench
 
 on:
   workflow_dispatch:
+  schedule:
+    # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
+    # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
+    # records the spend it took to produce the figure.
+    - cron: '20 4 * * 2'
   push:
     branches: [master]
     paths:
       - '.github/scripts/aacr-bench.mjs'
       - '.github/workflows/aacr-bench.yml'
-      - 'packages/intelligence/src/review/llm/**'
-      # **The ranker is part of the measurement now**, so a change to it has to re-draw the figure it orders.
-      - 'packages/intelligence/src/review/actionability.ts'
 
 concurrency:
   group: aacr-bench

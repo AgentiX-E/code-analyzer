@@ -12,12 +12,14 @@ name: Semantic Review Benchmark
 
 on:
   workflow_dispatch:
+  schedule:
+    # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
+    # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
+    # records the spend it took to produce the figure.
+    - cron: '20 5 * * 2'
   push:
     branches: [master]
     paths:
-      - 'packages/intelligence/src/review/llm/**'
-      - 'packages/intelligence/src/review/real-ground-truth*'
-      - 'benchmarks/real-ground-truth/**'
       - '.github/scripts/measure-semantic-review.mjs'
       - '.github/workflows/semantic-review.yml'
 

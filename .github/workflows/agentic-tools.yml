@@ -47,15 +47,15 @@ on:
         description: 'Comma-separated task ids to run, or empty for the whole set'
         required: false
         default: ''
+  # **The model arms cost money per turn**, and this workflow used to fire on every change under `packages/mcp/src/tools`
+  # and on both harness scripts - which is a bill for an MCP commit that never touched a prompt. **A weekly run off-peak
+  # and a dispatch replace it**: a person deciding to spend, and a schedule that costs half the peak price, which is the
+  # same rule the four review benchmarks now follow.
+  schedule:
+    - cron: '40 5 * * 3'
   push:
     branches: [master]
     paths:
-      - 'packages/intelligence/src/benchmark/agentic/**'
-      - 'packages/mcp/src/tools/**'
-      - 'packages/mcp/src/server/**'
-      - 'packages/mcp/src/eval/**'
-      - 'scripts/agentic-tools.ts'
-      - 'scripts/agentic-permissions.ts'
       - '.github/workflows/agentic-tools.yml'
 
 concurrency:
