@@ -17,6 +17,7 @@ import {
   CEILING_USD_FLOOR,
   CEILING_USD_PER_PULL_REQUEST,
   requestedPullRequests,
+  skippedPullRequests,
   spendCeilingUsd,
 } from '../../../.github/scripts/lib/run-config.mjs';
 
@@ -39,6 +40,35 @@ describe('a run refuses a corpus size it cannot read', () => {
     expect(() => requestedPullRequests('-5')).toThrow(/positive integer/);
     expect(() => requestedPullRequests('2.5')).toThrow(/positive integer/);
     expect(() => requestedPullRequests('Infinity')).toThrow(/positive integer/);
+  });
+});
+
+describe('a confirmation run does not read the rows that produced the hypothesis', () => {
+  it('reads a non-negative offset and defaults to the start of the corpus', () => {
+    expect(skippedPullRequests('50')).toBe(50);
+    expect(skippedPullRequests(50)).toBe(50);
+    expect(skippedPullRequests(' 0 ')).toBe(0);
+    expect(skippedPullRequests(undefined)).toBe(0);
+    expect(skippedPullRequests('')).toBe(0);
+  });
+
+  it('refuses the values that would quietly turn a confirmation into a second discovery', () => {
+    // **`NaN` would be `slice(NaN, NaN + 100)`, which is the first hundred rows** - the discovery set plus fifty more -
+    // and the run would be published as a confirmation of a threshold it helped choose. **Negative offsets are refused
+    // for the same reason `0` is allowed**: `slice(-50)` counts from the end, which is a different corpus again.
+    expect(() => skippedPullRequests('abc')).toThrow(/non-negative integer/);
+    expect(() => skippedPullRequests('-50')).toThrow(/non-negative integer/);
+    expect(() => skippedPullRequests('2.5')).toThrow(/non-negative integer/);
+    expect(() => skippedPullRequests('Infinity')).toThrow(/non-negative integer/);
+  });
+
+  it('yields two corpora that cannot share a row, which is the whole point of the parameter', () => {
+    const corpus = Array.from({ length: 200 }, (_, at) => at);
+    const discovery = corpus.slice(skippedPullRequests('0'), skippedPullRequests('0') + 50);
+    const confirmation = corpus.slice(skippedPullRequests('50'), skippedPullRequests('50') + 100);
+    expect(discovery).toHaveLength(50);
+    expect(confirmation).toHaveLength(100);
+    expect(discovery.filter((row) => confirmation.includes(row))).toEqual([]);
   });
 });
 

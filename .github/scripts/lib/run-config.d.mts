@@ -16,3 +16,9 @@ export declare function spendCeilingUsd(input: {
   mode?: string | null;
   override?: string | number | null;
 }): number;
+
+/** Where in the corpus a run starts; refuses anything that is not a non-negative integer. */
+export declare function skippedPullRequests(
+  raw: string | number | null | undefined,
+  options?: { fallback?: number },
+): number;

@@ -1555,8 +1555,11 @@ precision rises - **a device that bought precision by dropping goldens would be 
 
 **Falsified if** the gain is below 0.02, **or** the paired test over the two arms' covered goldens does not separate them
 at **p ≤ 0.05**, **or** recall falls by more than precision rises. **The discovery was made on 50 pull requests and the
-confirmation is a run of the 100 it did not see**, because a threshold placed between two measured groups and then
-confirmed on the same rows is a threshold fitted to them.
+confirmation is a run of the 100 it did not see** - `skip_pull_requests: 50` with `max_pull_requests: 100`, so the two
+corpora are disjoint by construction rather than by an argument in a document - because a threshold placed between two
+measured groups and then confirmed on the same rows is a threshold fitted to them. The artifact records both numbers under
+`corpusSlice`, since **a run that says "one hundred" without saying "one hundred starting at fifty" is a run whose corpus
+cannot be reconstructed.**
 
 **What was measured before the registration, on the discovery set** (a subset of the verdicts above, so this is the
 in-sample figure and it is labelled as one):

@@ -70,3 +70,25 @@ export function spendCeilingUsd({ pullRequests, mode, override }) {
   const scaled = CEILING_USD_PER_PULL_REQUEST[key] * requestedPullRequests(pullRequests);
   return Math.max(CEILING_USD_FLOOR[key], Math.round(scaled * 100) / 100);
 }
+
+/**
+ * **Where in the corpus a run starts, so that a confirmation is not measured on the rows that produced the hypothesis.**
+ *
+ * The discovery for R-17 was made on the first fifty pull requests of AACR-Bench; the confirmation has to be a run of
+ * the hundred that follow, or **a threshold placed between two measured groups and then confirmed on the same rows is a
+ * threshold fitted to them.** A corpus size alone cannot say that, because it always starts at zero.
+ *
+ * **The same refusal as `requestedPullRequests`**: a value that is not a non-negative integer is not silently treated as
+ * zero, because **"read the first fifty" arriving as `NaN` would produce a second discovery run reported as a
+ * confirmation** - which is the one outcome this parameter exists to prevent.
+ */
+export function skippedPullRequests(raw, { fallback = 0 } = {}) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return fallback;
+  const value = Number(String(raw).trim());
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(
+      `AACR_SKIP_PRS must be a non-negative integer, received ${JSON.stringify(raw)}`,
+    );
+  }
+  return value;
+}

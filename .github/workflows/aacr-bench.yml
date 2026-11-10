@@ -67,6 +67,16 @@ on:
         description: 'Pull requests to score (default 14; the corpus holds 200)'
         type: string
         default: '14'
+      skip_pull_requests:
+        # **Where the slice starts, so that a confirmation is not scored on the rows that produced the hypothesis.**
+        #
+        # R-17's discovery was made on the first fifty pull requests of this corpus. **A threshold chosen between two
+        # measured groups and then confirmed on the same rows is a threshold fitted to them**, so the confirmation reads
+        # `skip_pull_requests: 50` with `max_pull_requests: 100` - a corpus disjoint from the discovery by construction
+        # rather than by an argument in a document.
+        description: 'Row to start at (default 0); 50 with 100 reads the slice after the discovery set'
+        type: string
+        default: '0'
   schedule:
     # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
@@ -195,6 +205,8 @@ jobs:
           # **The one variable this matrix exists for.** `MAX_PRS` is the corpus size the registration was written
           # against - roughly 140 goldens - and `AACR_CHECKLIST` picks the arm.
           MAX_PRS: ${{ inputs.max_pull_requests || '14' }}
+          # **And where the slice starts**, so a confirmation run and its discovery never share a row.
+          AACR_SKIP_PRS: ${{ inputs.skip_pull_requests || '0' }}
           AACR_CHECKLIST: ${{ matrix.checklist == 'with' && 'on' || 'off' }}
           # **What this arm may spend, in USD.** The reviewer is given a ledger and a ceiling, so **a retry storm or a
           # corpus that grew by an order of magnitude stops at a stated number instead of at the account's balance** -

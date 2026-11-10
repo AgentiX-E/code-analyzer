@@ -29,7 +29,7 @@ import {
   largestBucket,
   mergeAttributions,
 } from './lib/golden-attribution.mjs';
-import { requestedPullRequests, spendCeilingUsd } from './lib/run-config.mjs';
+import { requestedPullRequests, skippedPullRequests, spendCeilingUsd } from './lib/run-config.mjs';
 import { DEFAULT_ATTEMPTS, backoffMs, retryAfterMs } from './lib/retry-after.mjs';
 import { exactMcNemar } from './lib/paired-test.mjs';
 import {
@@ -74,6 +74,16 @@ const KEY =
  * a coin toss, and it is the number the registration was written against rather than a number chosen after the run.
  */
 const MAX_PRS = requestedPullRequests(process.env['MAX_PRS']);
+
+/**
+ * **Where the run starts in the corpus, so a confirmation is not scored on the rows that produced the hypothesis.**
+ *
+ * The discovery that produced R-17 was made on AACR-Bench's first fifty pull requests. **A threshold chosen between two
+ * measured groups and then confirmed on the same rows is a threshold fitted to them**, so the confirmation reads the
+ * hundred after those fifty - and the artifact records both numbers, because **a run that says "one hundred" without
+ * saying "one hundred starting at fifty" is a run whose corpus cannot be reconstructed.**
+ */
+const SKIP_PRS = skippedPullRequests(process.env['AACR_SKIP_PRS']);
 
 /**
  * **The competitor arm, parsed once.**
@@ -841,7 +851,9 @@ async function main() {
   const negatives =
     negative && existsSync(negative) ? JSON.parse(readFileSync(negative, 'utf8')) : [];
   const allRows = Array.isArray(positives) ? positives : Object.values(positives);
-  const rows = allRows.slice(0, MAX_PRS);
+  // **The slice a confirmation needs**: `skip` is what a previous run already saw, so the two runs' corpora are
+  // disjoint by construction rather than by an argument in a document.
+  const rows = allRows.slice(SKIP_PRS, SKIP_PRS + MAX_PRS);
 
   // **And a second reviewer, on the same ground truth, with the same judge.**
   //
@@ -2341,6 +2353,9 @@ async function main() {
     // **a choice cannot be told apart from a limit unless both are recorded.**
     datasetRows: allRows.length,
     prsInDataset: rows.length,
+    // **Where in the corpus this run started.** A confirmation is a run of rows the discovery did not see, and the two
+    // numbers together are what makes that checkable: 100 at a skip of 50 is a different corpus from 100 at a skip of 0.
+    corpusSlice: { skip: SKIP_PRS, requested: MAX_PRS },
     prsReviewed: reviewed,
     /**
      * **Which goldens the registered operating point covered, keyed the way the paired test keys them.**
