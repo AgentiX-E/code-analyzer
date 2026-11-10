@@ -993,3 +993,90 @@ and it is why the attribution buckets are the next thing to read.
    judge prompt and the model are unchanged; the record names all three and refuses when any of them moves.
 3. **That 8.53 USD per run is now 2.1 USD.** That was §12's prediction and it remains unmeasured. **The next dispatched
    run is the measurement**, and its artifact carries `spend.totalUsd` for exactly that purpose.
+
+---
+
+## 14. The instrument is coarser than the effects it has been reporting
+
+**Written 2026-11-10, from the first run that measured the reordering for quality as well as for cost, and from the
+paired test between the two checklist arms of the same run.**
+
+### 14.1 Two runs, opposite signs, on a registered claim
+
+The per-language checklist was registered as _"raises the file arm F1 by at least 0.04, by raising precision without
+lowering recall"_. Two runs of the same job, same corpus, same judge, differing in one environment variable:
+
+| run        | with checklist | without checklist | gain        | mechanism                 |
+| ---------- | -------------- | ----------------- | ----------- | ------------------------- |
+| 2026-11-09 | 0.2415         | 0.1871            | **+0.0544** | precision up, recall down |
+| 2026-11-10 | 0.1691         | 0.1983            | **−0.0292** | precision up, recall down |
+
+**The mechanism held both times and the verdict did not.** The 2026-11-10 pairing is `both 16, withOnly 7, withoutOnly
+19, p = 0.029` - **significantly worse, at 0.05, in the direction opposite to the registration.**
+
+**So the registration is falsified, and falsified in a way that says something more useful than "no effect": the
+instrument cannot resolve the effect.** A claim of 0.04 tested by an instrument whose readings move 0.084 between runs
+is a claim being read through noise and reported as a result - **and it was reported as a result for two iterations.**
+
+### 14.2 The same instability in our own figure
+
+| arm               | 2026-11-09 | 2026-11-10 (same order) | 2026-11-10 (lane-first) |
+| ----------------- | ---------- | ----------------------- | ----------------------- |
+| with checklist    | 0.2415     | 0.1691                  | _in flight_             |
+| without checklist | 0.1871     | 0.1983                  | _in flight_             |
+
+**Both arms moved, in opposite directions, with the prompt order as the only difference between the two dates** - and the
+`lane-first` column is the run that decides whether the order is the cause or the dates are. **Until it lands, the
+honest statement is: `boilerplate-first` may cost up to 0.07 of F1 and may cost nothing, and this corpus cannot tell.**
+
+### 14.3 What the bill says about the corpus size, which is the actual lever
+
+|                   | 2026-11-09                         | 2026-11-10                             |
+| ----------------- | ---------------------------------- | -------------------------------------- |
+| competitor arm    | 5.89 USD                           | **0** (replayed)                       |
+| judge             | 1.23 USD, 6 859 calls, 7.9 % reuse | **0.28 USD**, 3 881 calls, 9.4 % reuse |
+| reviewer          | 1.41 USD, 61 % reuse               | **0.29 USD**, 91.7 % reuse             |
+| **total per arm** | **8.53 USD**                       | **0.57 USD**                           |
+
+**A 93 % cut, and 0.0130 of the head-to-head was a correction rather than a saving** - the honest comparison is
+`0.2405 / 0.3106`, not `0.2405 / 0.3236`.
+
+**So the resolution problem has a price, and the price has fallen by the same order.** Fourteen pull requests cost 0.57
+USD; the corpus holds **200**, and `MAX_PRS` has always been the variable. **Fifty pull requests is roughly 2 USD** - the
+same money that used to buy one fourteen-pull-request run with a competitor arm attached.
+
+**This is the one change that makes every other verdict in this file mean something**, and it is now a dispatch input
+rather than a constant, so the run that raises it is reproducible by anyone with the corpus.
+
+### 14.4 What the attribution says the next optimisation is, measured on both arms
+
+| bucket                  | with checklist | without checklist |
+| ----------------------- | -------------- | ----------------- |
+| `hit`                   | 39             | 51                |
+| `fileNotReviewed`       | **4**          | **4**             |
+| `noFindingOnPath`       | 43             | 15                |
+| `findingOnPathRejected` | **84**         | **100**           |
+
+**`fileNotReviewed` is 4 out of 170 in both arms**, which retires the hypothesis §13.2 was written to test: **the file
+filter is not the problem, and the lanes read the files the goldens live in.** The dominant bucket is
+`findingOnPathRejected` - **the lanes emitted findings on those files and none of them was the expert's issue** - and the
+examples say what that looks like: a performance suggestion where the golden is a defect, a naming remark where the
+golden is a crash.
+
+**So the work is what the lanes are asked to look for, not where they look.** That is a prompt-and-targeting iteration,
+and the checklist - the one device the product already has for exactly this - is the device the paired test just found
+significantly harmful. **Both facts are true at once and they are the next iteration's problem**: a checklist that lowers
+F1 by 0.029 while 84 goldens are missed for targeting is a checklist measuring the wrong targets.
+
+### 14.5 What this section does not conclude
+
+1. **That the prompt reordering is safe because the bill fell.** The bill fell by 93 % and the F1 may have fallen with it;
+   §14.2's third column decides, and until then the order is an input with a recorded value rather than a default
+   anyone can forget.
+2. **That fifty pull requests will resolve 0.04.** It is four times the sample and the effect is a difference of
+   proportions, so the standard error falls by half; **a 0.04 difference would need of the order of 800 goldens to be resolved at
+   0.05 with 80 % power, which is roughly 60 pull requests.** The number is stated here so the next registration is written against it instead
+   of against a hope.
+3. **That the checklist should be removed.** It is significantly harmful on this corpus at this resolution, and it is
+   also the only device aimed at the dominant bucket. **Removing it and rebuilding it are different experiments and the
+   second one is the one the attribution argues for.**

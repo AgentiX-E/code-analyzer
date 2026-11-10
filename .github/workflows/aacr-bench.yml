@@ -45,6 +45,16 @@ on:
         type: choice
         options: ['boilerplate-first', 'lane-first', 'diff-first']
         default: boilerplate-first
+      max_pull_requests:
+        # **The instrument's resolution, as a number someone can raise.** Fourteen pull requests was chosen when a run
+        # cost 8.53 USD; a run now costs 0.57, so the corpus can grow by the same factor the bill fell. **It has to**:
+        # two runs of the same job reported the per-language checklist at +0.0544 and then at -0.0292, and our own F1
+        # at 0.2405 and then at 0.1691 - **a resolution coarser than the effects being claimed turns every verdict into
+        # a coin toss that is reported as a result.** The corpus holds 200 pull requests; this input is how many of them
+        # a run reads.
+        description: 'Pull requests to score (default 14; the corpus holds 200)'
+        type: string
+        default: '14'
   schedule:
     # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
@@ -152,7 +162,7 @@ jobs:
           AACR_DIR: /tmp/aacr-bench
           # **The one variable this matrix exists for.** `MAX_PRS` is the corpus size the registration was written
           # against - roughly 140 goldens - and `AACR_CHECKLIST` picks the arm.
-          MAX_PRS: '14'
+          MAX_PRS: ${{ inputs.max_pull_requests || '14' }}
           AACR_CHECKLIST: ${{ matrix.checklist == 'with' && 'on' || 'off' }}
           # **What this arm may spend, in USD.** The reviewer is given a ledger and a ceiling, so **a retry storm or a
           # corpus that grew by an order of magnitude stops at a stated number instead of at the account's balance** -
