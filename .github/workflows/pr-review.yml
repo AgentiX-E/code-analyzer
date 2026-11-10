@@ -272,23 +272,68 @@ jobs:
                 body: generateInlineComment(finding),
               }));
 
-              // Post in batches to avoid hitting API limits
+              // **A batch the API refuses is not the end of the review.**
+              //
+              // `pulls.createReview` is all-or-nothing: one comment GitHub cannot anchor - a line the diff does not
+              // contain, a path renamed by the change - and it answers `422 Line could not be resolved` for the whole
+              // request. The guard above (`inDiff`) is the first defence and it is not enough, because **the anchor
+              // the API checks and the anchor the CLI computed are computed from different inputs**: the CLI has the
+              // hunks, GitHub has the pull request's own view of them, and a bump that renumbers `package.json` is
+              // exactly where the two disagree.
+              //
+              // So the poster treats a refusal as information about *which* comments cannot be anchored rather than as
+              // a verdict on all of them: the batch is retried one comment at a time, the refused ones are counted and
+              // annotated, and **the review still says what it found.**
               const BATCH_SIZE = 20;
+              let posted = 0;
+              const refused = [];
               for (let i = 0; i < reviewComments.length; i += BATCH_SIZE) {
                 const batch = reviewComments.slice(i, i + BATCH_SIZE);
 
-                await github.rest.pulls.createReview({
-                  owner,
-                  repo,
-                  pull_number: prNumber,
-                  event: 'COMMENT',
-                  comments: batch,
-                });
-
-                console.log(`Posted batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} comments)`);
+                try {
+                  await github.rest.pulls.createReview({
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                    event: 'COMMENT',
+                    comments: batch,
+                  });
+                  posted += batch.length;
+                  console.log(`Posted batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} comments)`);
+                } catch (error) {
+                  console.log(
+                    `Batch ${Math.floor(i / BATCH_SIZE) + 1} was refused (${error.message}); retrying one at a time.`,
+                  );
+                  for (const comment of batch) {
+                    try {
+                      await github.rest.pulls.createReview({
+                        owner,
+                        repo,
+                        pull_number: prNumber,
+                        event: 'COMMENT',
+                        comments: [comment],
+                      });
+                      posted += 1;
+                    } catch (single) {
+                      // **Counted, named and annotated** - a comment that cannot be anchored is a fact about the
+                      // finding, and losing it in silence is how a review comes to report fewer defects than it
+                      // found.
+                      refused.push({ path: comment.path, line: comment.line, reason: single.message });
+                    }
+                  }
+                }
               }
 
-              console.log(`Successfully posted ${reviewComments.length} inline review comments.`);
+              if (refused.length > 0) {
+                core.warning(
+                  `${refused.length} of ${reviewComments.length} inline comments could not be anchored in this diff ` +
+                    `and are in the summary only: ${refused
+                      .slice(0, 5)
+                      .map((r) => `${r.path}:${r.line}`)
+                      .join(', ')}${refused.length > 5 ? ', …' : ''}`,
+                );
+              }
+              console.log(`Posted ${posted} of ${reviewComments.length} inline review comments.`);
             }
 
             if (skippedFindings.length > 0) {

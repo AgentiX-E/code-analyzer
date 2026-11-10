@@ -67,7 +67,13 @@ function checkMagicNumbers(line: string, lineNum: number, filePath: string): Len
     '12',
     '365',
   ]);
-  const numMatch = line.match(/(?<![a-zA-Z0-9_.#])(-?\d+\.?\d*)(?![a-zA-Z0-9_])/g);
+  // **A number inside a string is a string.** The rule read the raw line, so `"@types/node": "^26.6.6"` was reported
+  // as a magic number at `26.6` and `8.72` in a dependency range - **which is what it did on every dependency bump this
+  // repository has opened**, on a file where nothing can be "extracted to a named constant". Stripping the literals
+  // first is the same thing every linter does and the same thing the rule always meant: **a magic number is a value in
+  // an expression.**
+  const code = line.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  const numMatch = code.match(/(?<![a-zA-Z0-9_.#])(-?\d+\.?\d*)(?![a-zA-Z0-9_])/g);
   if (!numMatch) return null;
 
   const magicNums = numMatch.filter((n) => !allowed.has(n) && parseFloat(n) > 3);
