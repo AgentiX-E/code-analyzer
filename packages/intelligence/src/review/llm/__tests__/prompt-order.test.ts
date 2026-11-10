@@ -112,13 +112,19 @@ describe('the block that changes with the file', () => {
    * **The figure §9 was registered without, measured here so that the registration could be corrected rather than
    * run.**
    *
-   * A lane spends between 7 344 and 8 144 characters on its role, its checklist, its output contract and its examples;
-   * the target-and-diff block is 563 characters at a 500-character diff and 8 063 at the default 8 000-character cap.
-   * **So the block §9 moved to the front is 7 % of a call at the corpus's usual diff size and 51 % only at the cap** -
-   * and it is a different block for every file, which is what separates a large prefix from a *reused* one.
+   * A lane spends between **5 012 and 5 812** characters on its role, its output contract and its examples - 7 797 to
+   * 8 597 with the per-language checklist, which no longer ships (`docs/EVAL-CONTRACT.md` §15.3); the target-and-diff
+   * block is 594 characters at a 500-character diff and 8 094 at the default 8 000-character cap. **So the block §9
+   * moved to the front is a tenth of a call at the corpus's usual diff size and three fifths only at the cap** - and it
+   * is a different block for every file, which is what separates a large prefix from a *reused* one.
    *
    * **These are the numbers that decide the default**, so they are asserted rather than described: a change that
    * shrank the boilerplate or inflated the block would move what the order is worth, and should fail here first.
+   *
+   * **And the checklist's removal is visible here, which is the point of measuring it here.** The reusable prefix fell
+   * from 7 344 characters to 5 218 - **29 % less text bought on every call** - so removing a device that cost 13 goldens
+   * also cut the reviewer's bill. **A device that adds to the shared prefix is nearly free; the checklist added to it,
+   * and was still expensive in accuracy**, which is the distinction this file exists to keep visible.
    */
   it('is a seventh of a small call and a half of a truncation', () => {
     const boilerplate = (n: number): number => {
@@ -129,17 +135,21 @@ describe('the block that changes with the file', () => {
 
     // The boilerplate does not move when the diff does: it is the same string in every call the lane ever makes.
     expect(boilerplate(500)).toBe(boilerplate(8000));
-    expect(boilerplate(500)).toBeGreaterThan(7000);
+    // **5 218, and the band is wide enough to survive a wording change and narrow enough to catch a device added
+    // back**: the checklist put this above 7 000 and is the only thing that has ever moved it by that much.
+    expect(boilerplate(500)).toBeGreaterThan(5000);
+    expect(boilerplate(500)).toBeLessThan(6200);
 
     const share = (n: number): number => {
       const context = ctx({ diffContent: 'x'.repeat(n) });
       return sharedPrefix(context).length / SECURITY_REVIEW_PROMPT(context).length;
     };
 
-    // **A small diff is mostly boilerplate**, which is the finding: the block §9 moved is 7 % of such a call.
-    expect(share(500)).toBeLessThan(0.1);
-    // **Only at the truncation cap does the diff become half the call.**
-    expect(share(8000)).toBeGreaterThan(0.5);
+    // **A small diff is mostly boilerplate**, which is the finding: the block §9 moved is **10 %** of such a call,
+    // 0.102 measured - inside the hundredth the assertion allows and no further.
+    expect(share(500)).toBeLessThan(0.11);
+    // **Only at the truncation cap does the diff become most of the call**: 0.608 measured.
+    expect(share(8000)).toBeGreaterThan(0.55);
   });
 
   it('differs across files, which is why it cannot be the prefix that ships', () => {
@@ -159,7 +169,7 @@ describe('the block that changes with the file', () => {
     // **The prefix that ships is everything before the target block**, and it is identical for two different files.
     const headOf = (prompt: string): string => prompt.slice(0, prompt.indexOf('\n\nFile: '));
     expect(headOf(a)).toBe(headOf(b));
-    expect(headOf(a).length).toBeGreaterThan(7000);
+    expect(headOf(a).length).toBeGreaterThan(5000);
   });
 });
 

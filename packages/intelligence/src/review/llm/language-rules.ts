@@ -816,12 +816,13 @@ export function languagesOf(paths: readonly string[]): LanguageDefinition[] {
  * there is no checklist**, because a paragraph about the absence of rules is a paragraph the model will search for
  * rules in.
  *
- * **Opt-out is a product flag, not a test seam.** `ctx.languageChecklist === false` removes the section, and that is
- * the switch the registered measurement in `docs/EVAL-CONTRACT.md` §8 turns: the same engine, the same pull requests,
- * the same judge, one variable.
+ * **Opt-in is a product flag, not a test seam.** `ctx.languageChecklist` must be `true` for the section to render, and
+ * that is the switch the registered measurement in `docs/EVAL-CONTRACT.md` §8 turns: the same engine, the same pull
+ * requests, the same judge, one variable. **It defaults to absent-means-absent** because the device lost two paired
+ * registrations (§15.3) and **a prompt section that appears because nobody said no is a section nobody chose.**
  */
 export function defectChecklist(ctx: PromptContext): string {
-  if (ctx.languageChecklist === false) return '';
+  if (ctx.languageChecklist !== true) return '';
   const paths = ctx.scope === 'pull-request' ? (ctx.paths ?? []) : [ctx.filePath];
   const chosen = languagesOf(paths).slice(0, MAX_LANGUAGES_PER_CALL);
   if (chosen.length === 0) return '';

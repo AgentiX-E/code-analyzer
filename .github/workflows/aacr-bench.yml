@@ -93,7 +93,14 @@ jobs:
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
     # that is the only reason this number moved, and **a timeout raised because a job is close to it would hide the
     # slowdown rather than accommodate the corpus.**
-    timeout-minutes: 300
+    #
+    # **Raised again to 340, and the arithmetic is written down rather than felt.** Fourteen pull requests took 46
+    # minutes on 2026-11-10 across 1 770 reviewer calls and 4 783 judge calls - **197 calls per minute, 3.3 minutes per
+    # pull request**. Two hundred pull requests is therefore about eleven hours and does not fit in any job GitHub will
+    # run, **so this ceiling states the largest corpus that does**: 340 minutes is 190 pull requests at the measured
+    # rate, and a dispatch beyond that is refused by the runner rather than by a wrong number in the artifact. **The
+    # corpus holds 200, so a full-corpus run needs the per-pull-request cost cut, not this number raised again.**
+    timeout-minutes: 340
     strategy:
       # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to
       # report that rather than a one-sided figure.
@@ -170,12 +177,16 @@ jobs:
           # only record of it was a balance that had moved. **The ceiling is an input so a larger corpus can raise it
           # deliberately**, and the artifact records the number the run was bounded by.
           #
-          # **And it is now conditional, because replaying the competitor changed what a run costs.** A replayed run is
-          # the reviewer and the judge only - about 2.6 USD of the 8.53 that produced the 2026-11-10 figure - so a
-          # ceiling of 12 would admit a run nearly five times its observed cost and **a ceiling that far above the work
-          # is not a ceiling, it is a formality**. A recording run keeps the larger bound, because that is the run that
-          # buys the 5.89 USD arm.
-          AACR_MAX_USD: ${{ inputs.competitor == 'record' && '12' || '5' }}
+          # **The ceiling is no longer computed here, and that is the point.**
+          #
+          # It used to be `5` for a replaying run and `12` for a recording one - two constants written for fourteen
+          # pull requests. **Then `max_pull_requests` became an input**, and a fifty-pull-request run - about 2.3 USD by
+          # the same rate - would have been admitted by a bound that was never about it. **A ceiling that does not move
+          # with the work is a comment, not a bound**, so the arithmetic now lives in `.github/scripts/lib/run-config.mjs`
+          # where a unit test can call it, and it scales with the corpus the dispatch asked for. **Only a `record` run
+          # needs an override**, because buying the competitor's arm is a decision this workflow makes and not one the
+          # rate can infer; everything else lets the script compute its own bound and record it in the artifact.
+          AACR_MAX_USD: ${{ inputs.competitor == 'record' && '12' || '' }}
           # **The experimental variable, passed through and recorded.** A run that does not name an order gets the
           # default the code was written with, and the artifact's `configuration.promptOrder` says which one ran - so
           # two artifacts can be compared without anyone remembering what the default was that week.

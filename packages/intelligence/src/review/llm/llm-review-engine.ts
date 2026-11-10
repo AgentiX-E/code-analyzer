@@ -47,11 +47,13 @@ export interface LLMReviewOptions {
   /** **Content-word overlap at which two findings are the same one.** */
   dedupThreshold?: number;
   /**
-   * **Whether every lane prompt carries the per-language defect checklist.** Defaults to true.
+   * **Whether every lane prompt carries the per-language defect checklist.** Defaults to **false**, on measurement.
    *
    * The switch exists because the checklist is a **claim about precision**, and the only way to settle a claim about a
-   * prompt device is to run the same corpus with it and without it: `AACR_CHECKLIST=off` in the benchmark workflow is
-   * that second run, and it is a product flag rather than a harness hack so that what was measured is what ships.
+   * prompt device is to run the same corpus with it and without it: `AACR_CHECKLIST` in the benchmark workflow is that
+   * second run, and it is a product flag rather than a harness hack so that what was measured is what ships. **Two
+   * paired runs later the claim is falsified in both directions** - the gain is negative and so is the mechanism - so the
+   * shipped default follows the measurement. See `docs/EVAL-CONTRACT.md` §15.3.
    */
   languageChecklist?: boolean;
   /**
@@ -181,7 +183,17 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // measurement has already contradicted rather than a settled one** - and **a constant a measurement has contradicted
   // is a constant that has to become a parameter.**
   dedupThreshold: 0.6,
-  languageChecklist: true,
+  // **Off, and it is off because it was measured twice and lost twice.**
+  //
+  // `docs/EVAL-CONTRACT.md` §15.3: paired over pull request and golden index, the checklist lost 12 goldens on one prompt
+  // order (6 / 19, p = 0.029) and 13 on another (6 / 19, p = 0.0146). **It halves emission - 357 findings to 202 - and
+  // buys precision with recall at a rate F1 prices as a loss.** A device registered as a targeting aid turned out to be a
+  // suppression aid, and §15.4 says why: the goldens it was aimed at were never in the wrong place.
+  //
+  // **The flag stays, because turning a device off is not the same experiment as replacing it**, and because what the
+  // checklist is good at is real: 76 fewer false positives per 170 goldens. **A product that prefers precision to F1
+  // should turn it back on**, and this line is where it does so.
+  languageChecklist: false,
   promptOrder: 'boilerplate-first',
   laneWaves: 1,
 };

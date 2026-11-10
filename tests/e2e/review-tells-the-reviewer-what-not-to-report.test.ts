@@ -13,6 +13,13 @@
 // **And the third assertion is the one that makes the measurement in `docs/EVAL-CONTRACT.md` §8 legitimate**: with the
 // switch off, the prompt is the same string minus one contiguous section. If it were anything else, the two runs of
 // the registered comparison would differ by more than the variable they claim to differ by.
+//
+// **How the story ends, and it is not the ending this file was written with.** The registration was *"raises F1 by at
+// least 0.04 by raising precision without lowering recall"*. Two paired runs later: **12 goldens lost on one prompt
+// order (p = 0.029) and 13 on another (p = 0.0146)**, precision up 0.1898 → 0.2205 and **recall down 0.2412 → 0.1647**.
+// The device stops a reviewer reporting a returned stream as a leak by making it report less, **and on this corpus that
+// trade is a loss.** So the list ships **off**, the flag ships with it, and the last test in this file is the user-facing
+// statement of that: a review nobody configured is a review of this diff.
 
 import { describe, expect, it } from 'vitest';
 
@@ -148,7 +155,7 @@ function recordingProvider(): { provider: LLMProvider; prompts: string[] } {
 describe('a review of a Java service and its workflow knows what is idiomatic in both', () => {
   it('gives every lane the rules of both languages, the Java ones first', async () => {
     const { provider, prompts } = recordingProvider();
-    const engine = new LLMReviewEngine(provider);
+    const engine = new LLMReviewEngine(provider, { languageChecklist: true });
 
     await engine.reviewPullRequest(sectionsOf(PATCH), { maxFindingsPerPullRequest: 8 });
 
@@ -162,7 +169,7 @@ describe('a review of a Java service and its workflow knows what is idiomatic in
 
   it('tells the reviewer what not to report, in the language it is reading', async () => {
     const { provider, prompts } = recordingProvider();
-    const engine = new LLMReviewEngine(provider);
+    const engine = new LLMReviewEngine(provider, { languageChecklist: true });
 
     await engine.reviewPullRequest(sectionsOf(PATCH), { maxFindingsPerPullRequest: 8 });
 
@@ -187,6 +194,23 @@ describe('a review of a Java service and its workflow knows what is idiomatic in
     expect(findings.length).toBeGreaterThan(0);
     expect(findings[0]?.path).toBe('src/main/java/com/example/ledger/LedgerReader.java');
   });
+
+  it('does not carry the list at all unless someone asks for it, because it was measured to lose', async () => {
+    // **The user story this file now ends on.** The list was built to stop a reviewer reporting a returned stream as a
+    // leak, and it does that - **by suppressing findings, which is not the same thing as aiming them.** Two paired runs
+    // over the same corpus and the same judge put the device 12 and then 13 goldens behind the prompt without it
+    // (`docs/EVAL-CONTRACT.md` §15.3), with recall falling 0.2412 to 0.1647 while precision rose 0.1898 to 0.2205.
+    //
+    // **So the shipped review does not carry it**, and this test is the one that says so to a user rather than to a
+    // maintainer: a review nobody configured is a review of this diff, not of a list of defects.
+    const { provider, prompts } = recordingProvider();
+
+    await new LLMReviewEngine(provider).reviewDiff(JAVA_CHANGE);
+
+    expect(String(prompts[0])).not.toContain('Defect checklist');
+    // **And the diff is still there**, so the absence is the list's and not the prompt's.
+    expect(String(prompts[0])).toContain('LedgerReader.java');
+  });
 });
 
 describe('the switch removes one section and changes nothing else', () => {
@@ -194,7 +218,11 @@ describe('the switch removes one section and changes nothing else', () => {
     const on = recordingProvider();
     const off = recordingProvider();
 
-    await new LLMReviewEngine(on.provider).reviewDiff(JAVA_CHANGE);
+    // **Both arms are asked for explicitly, because the shipped default is now off**: the checklist lost two paired
+    // registrations (`docs/EVAL-CONTRACT.md` §15.3) and the flag stayed so that this comparison - the one the
+    // registration turns - is still runnable. **A test that relied on the default would quietly stop comparing anything
+    // on the day the default moved**, which is exactly the day it did.
+    await new LLMReviewEngine(on.provider, { languageChecklist: true }).reviewDiff(JAVA_CHANGE);
     await new LLMReviewEngine(off.provider, { languageChecklist: false }).reviewDiff(JAVA_CHANGE);
 
     const withRules = String(on.prompts[0]);
@@ -231,7 +259,7 @@ describe('the switch removes one section and changes nothing else', () => {
   it('says nothing at all about a change whose languages it does not carry', async () => {
     const on = recordingProvider();
     const off = recordingProvider();
-    await new LLMReviewEngine(on.provider).reviewDiff(MARKDOWN_CHANGE);
+    await new LLMReviewEngine(on.provider, { languageChecklist: true }).reviewDiff(MARKDOWN_CHANGE);
     await new LLMReviewEngine(off.provider, { languageChecklist: false }).reviewDiff(
       MARKDOWN_CHANGE,
     );

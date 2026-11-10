@@ -23,10 +23,13 @@ import { join, resolve } from 'node:path';
 
 import {
   GOLDEN_BUCKETS,
+  REJECTION_SHAPES,
   attributeGoldens,
+  dominantRejectionShape,
   largestBucket,
   mergeAttributions,
 } from './lib/golden-attribution.mjs';
+import { requestedPullRequests, spendCeilingUsd } from './lib/run-config.mjs';
 import { DEFAULT_ATTEMPTS, backoffMs, retryAfterMs } from './lib/retry-after.mjs';
 import { exactMcNemar } from './lib/paired-test.mjs';
 import {
@@ -63,7 +66,16 @@ const KEY =
  * cannot fail. **Fourteen pull requests is about a hundred and forty goldens**, which is where a 0.04 move stops being
  * a coin toss, and it is the number the registration was written against rather than a number chosen after the run.
  */
-const MAX_PRS = Number(process.env['MAX_PRS'] ?? '14');
+const MAX_PRS = requestedPullRequests(process.env['MAX_PRS']);
+
+/**
+ * **The competitor arm, parsed once.**
+ *
+ * The spend ceiling depends on it - a recording run buys the competitor's own result and a replaying one does not - and
+ * **two independent reads of the same variable are two chances to disagree about what was bought.** Parsed here, used
+ * by the ceiling and by the arm itself, and reported by the artifact.
+ */
+const COMPETITOR_CHOICE = parseCompetitorMode(process.env['AACR_COMPETITOR']);
 
 /**
  * **The one switch the paired experiment turns.** `AACR_CHECKLIST=off` removes the per-language defect checklist from
@@ -498,13 +510,21 @@ async function dryRun() {
   // reachable: a golden on a file that was reviewed and matched, one on a file that was reviewed in silence, and one
   // on a file the engine was never handed. **A wiring that published an empty table would pass every assertion above**
   // - the figures do not read the buckets - so the partition is checked where it is produced.
+  // **And a fourth golden, on a file the lanes did comment on, at the line they commented on** - which is the bucket
+  // that carries more than half the corpus and whose *shape* decides what the next iteration fixes. **A shape table
+  // that is only ever exercised on an empty input is a shape table that is never exercised**, so this fixture makes
+  // `findingOnPathRejected` reachable and places it on a finding's own line.
+  const placed = ranked.find((entry) => Number(entry?.finding?.startLine) > 0) ?? ranked[0];
+  const rejectedPath = placed?.path ?? 'src/kept.ts';
+  const rejectedLine = Number(placed?.finding?.startLine) > 0 ? placed.finding.startLine : 1;
   const attributed = attributeGoldens({
     goldens: [
       { path: 'src/kept.ts', note: goldens[0] },
       { path: 'src/quiet.ts', note: 'an issue on a file the lanes were silent about' },
       { path: 'src/never.ts', note: 'an issue on a file the engine was never handed' },
+      { path: rejectedPath, note: 'an issue the judge did not accept, on the line we did comment on', startLine: rejectedLine },
     ],
-    reviewedPaths: ['src/kept.ts', 'src/quiet.ts'],
+    reviewedPaths: ['src/kept.ts', 'src/quiet.ts', rejectedPath],
     findings: ranked,
     // **A matrix of this fixture's own, written out rather than borrowed from the run above.** `matrix.matches` is
     // indexed against the four-golden fixture, so reusing it here marked golden 1 as hit because `F3` answers golden 1
@@ -512,7 +532,7 @@ async function dryRun() {
     // a broken bucket rather than a borrowed table.
     matches: [[0], [], [], [], [], []],
   });
-  assert.equal(attributed.total, 3, 'every golden is attributed exactly once');
+  assert.equal(attributed.total, 4, 'every golden is attributed exactly once');
   assert.equal(
     attributed.counts.fileNotReviewed,
     1,
@@ -527,6 +547,22 @@ async function dryRun() {
     attributed.counts.hit >= 1,
     true,
     'at least one golden is attributed to a finding the judge accepted',
+  );
+  assert.equal(
+    attributed.counts.findingOnPathRejected,
+    1,
+    'a golden on a line we commented on, which the judge did not accept, is a targeting-or-wording defect',
+  );
+  const rejectionShapes = mergeAttributions([{ pr: 'fixture', ...attributed }]).rejectionShape;
+  assert.equal(
+    rejectionShapes.sameLine,
+    1,
+    'and its shape is same-line, because the finding stands on the golden\'s own line',
+  );
+  assert.equal(
+    REJECTION_SHAPES.reduce((sum, shape) => sum + rejectionShapes[shape], 0),
+    1,
+    'the shape table re-reads the rejected goldens and adds up to them',
   );
 
   const full = point(
@@ -1015,7 +1051,16 @@ async function main() {
   const { CostLedger, costUsdOf } =
     await import('../../packages/intelligence/dist/review/llm/cost.js');
   const ledger = new CostLedger();
-  const MAX_USD = Number(process.env['AACR_MAX_USD'] ?? 12);
+  // **The ceiling is a rate over the corpus this run was asked to read, not a constant**, because the constant was
+  // written for fourteen pull requests and a larger dispatch would have been admitted by a bound that was never about
+  // it. The arithmetic and its margins live in `lib/run-config.mjs`, where a test can reach them; **an override still
+  // wins, and the artifact records the number the run was bounded by** so that a deliberate one-off is visible in the
+  // data rather than in a memory of the dispatch.
+  const MAX_USD = spendCeilingUsd({
+    pullRequests: MAX_PRS,
+    mode: COMPETITOR_CHOICE.mode,
+    override: process.env['AACR_MAX_USD'],
+  });
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
   //
   // **At 0.6 the merge removed 360 of 488 findings, raised precision 2.3 times and lowered recall from 0.56 to 0.36** -
@@ -1101,7 +1146,7 @@ async function main() {
   const COMPETITOR_BASELINE_PATH = resolve(
     process.env['AACR_COMPETITOR_BASELINE'] ?? DEFAULT_BASELINE_PATH,
   );
-  const competitorChoice = parseCompetitorMode(process.env['AACR_COMPETITOR']);
+  const competitorChoice = COMPETITOR_CHOICE;
   const corpusFingerprintOfRun = corpusFingerprint(rows);
   // **A file of another version throws here rather than being read as if the shape had not changed**, which is the
   // one failure this run should not paper over: every row below it is only meaningful under the shape it was written in.
@@ -1809,6 +1854,14 @@ async function main() {
         features: entry.score.features,
         why: entry.score.why,
         which: 'agentix-e',
+        // **The sentence itself, because a rejection is a claim about wording and this artifact could not show one.**
+        //
+        // `findingOnPathRejected` was 98 of 170 goldens on 2026-11-10 and **73 of those 98 sit within ten lines of a
+        // finding we emitted** - so the loss is not that the lane looked elsewhere, it is that what the lane said was
+        // not accepted as the same defect. **An artifact that records the coordinates and not the sentence can report
+        // that fact and cannot let anyone check it**, which is the same omission as the discarded `path` one iteration
+        // earlier, one level up. The text is charged to nothing: it was already in memory and already paid for.
+        text: `${entry.finding.title} :: ${entry.finding.description}`.slice(0, 320),
         matchedGoldens: ourMatrix.matches[at],
       });
     });
@@ -2044,6 +2097,10 @@ async function main() {
   const missedGoldens = {
     ...merged,
     largest: largestBucket(merged.counts),
+    // **The largest bucket's shape, because "98 rejected" and "73 of them within ten lines of something we said" are
+    // different sentences about different work.** The bucket names where the loss is; the shape names whether the fix
+    // is the lane's search or the lane's sentence.
+    dominantRejectionShape: dominantRejectionShape(merged.rejectionShape),
     pullRequests: attributed.length,
   };
   /** **The interval the reported F1 lives in**, because 183 unanswered pairs are an error bar and not a footnote. */
@@ -2340,6 +2397,11 @@ async function main() {
   // **Why the goldens were missed, on one line, because it is the line that decides what the next iteration works on.**
   console.log(
     `AACR-BENCH missed · ${GOLDEN_BUCKETS.map((bucket) => `${bucket} ${missedGoldens.counts[bucket]}`).join(' · ')} · f1 in [${ourInterval.f1IfEveryUnansweredPairIsAMiss}, ${ourInterval.f1IfEveryUnansweredPairIsAMatch}]`,
+  );
+  // **And the largest bucket's shape, which is the line that says whether the next iteration fixes a search or a
+  // sentence.** A bucket reported without its shape is a bucket whose two causes are still one number.
+  console.log(
+    `AACR-BENCH rejected · ${REJECTION_SHAPES.map((shape) => `${shape} ${missedGoldens.rejectionShape[shape]}`).join(' · ')} · dominant ${missedGoldens.dominantRejectionShape === null ? 'none' : `${missedGoldens.dominantRejectionShape.shape} ${missedGoldens.dominantRejectionShape.count}`}`,
   );
   console.log(
     `AACR-BENCH full list tp ${allEmitted.truePositives} fp ${allEmitted.falsePositives} · P ${allEmitted.precision} R ${allEmitted.recall} F1 ${allEmitted.f1}`,

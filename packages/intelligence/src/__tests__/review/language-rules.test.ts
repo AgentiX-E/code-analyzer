@@ -27,11 +27,18 @@ import {
 
 import type { PromptContext } from '../../review/llm/prompts.js';
 
+// **The switch is set here rather than left to the default, because the default is now `off`.**
+//
+// The checklist lost two paired registrations (`docs/EVAL-CONTRACT.md` §15.3), so a prompt that carries it has to say
+// so. **This helper asking for it explicitly is the point**: every test below is about what the section renders when
+// somebody chose it, and the one test that asserts the default renders nothing is the test that keeps the shipped
+// behaviour from drifting back without a failing case.
 function context(overrides: Partial<PromptContext> = {}): PromptContext {
   return {
     diffContent: '@@ -1 +1 @@\n+final int x = 1;',
     filePath: 'src/main/java/com/example/Ledger.java',
     changeType: 'modified',
+    languageChecklist: true,
     ...overrides,
   };
 }
@@ -182,7 +189,11 @@ describe('rendering the checklist', () => {
     expect(defectChecklist(context({ languageChecklist: false }))).toBe('');
   });
 
-  it('is on when the switch is undefined, which is every caller that predates it', () => {
+  it('is off when the switch is undefined, which is what ships', () => {
+    // **The direction of this default is a measurement, not a preference.** With the checklist the engine emits 202
+    // findings and matches 28 goldens; without it, 357 and 41 - **and the paired test says the 13-golden difference is
+    // not luck** (6 / 19, p = 0.0146). A section that appears because nobody said no is a section nobody chose.
+    expect(defectChecklist(context({ languageChecklist: undefined }))).toBe('');
     expect(defectChecklist(context())).toContain('### Java');
   });
 

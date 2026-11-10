@@ -186,8 +186,10 @@ describe('a review of many files', () => {
       const previousShare = reusableShare(previous.seen);
 
       // **`lane-first` leads with the lane's role sentence, and then the file's own path arrives**, so the run of
-      // bytes a later call could reuse ended at that path - about nine hundred characters of seven thousand.
-      expect(previousShare).toBeLessThan(0.15);
+      // bytes a later call could reuse ended at that path - **about nine hundred characters of six thousand**, because
+      // the shipped prompt no longer carries the per-language checklist. **The share is what moved, not the device**:
+      // 0.156 where it was 0.13, and the bound below is set from the measurement rather than from the old shape.
+      expect(previousShare).toBeLessThan(0.2);
       // **And the two are the same prompt**, so the difference between the figures is the layout and nothing else.
       expect(shippedShare).toBeGreaterThan(5 * previousShare);
       expect(previous.seen.map((entry) => entry.lane).sort()).toEqual(
