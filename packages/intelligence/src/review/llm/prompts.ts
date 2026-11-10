@@ -99,6 +99,12 @@ export interface PromptContext {
    * the behaviour it was measured with.
    */
   languageChecklist?: boolean;
+  /**
+   * **Where the target-and-diff block sits, which is the only thing the order device changes.** Undefined means
+   * `boilerplate-first`, the arrangement that ships; the other two exist so the same corpus can be run with the device
+   * and without it. See `composeLanePrompt` for the three arrangements and the measurements behind them.
+   */
+  promptOrder?: PromptOrder;
 }
 
 // ---------------------------------------------------------------------------
@@ -272,12 +278,78 @@ Change type: ${ctx.changeType}
 ${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}`;
 }
 
+/**
+ * **The block that changes with the file: what the call is about, and what it is looking at.**
+ *
+ * It is one function rather than a literal repeated in five lanes because **three of them place it in three different
+ * positions and the claim under test is that the rest of the prompt does not move when it does.** Five copies would
+ * make that true by intention and false at the first typo.
+ *
+ * **How large it is, measured rather than assumed**: 563 characters at a 500-character diff, 2 063 at 2 000, 4 063 at
+ * 4 000 and 8 063 at the default 8 000-character cap - against **7 344-8 144 characters of lane boilerplate**. The
+ * share is therefore **7 % to 51 %**, which is the figure that decides where this block belongs; see
+ * `composeLanePrompt` for the three arrangements and why the last of them is the one that ships.
+ */
+export function sharedPrefix(ctx: PromptContext): string {
+  return `${describeTarget(ctx)}
+
+Diff content:
+\`\`\`
+${ctx.diffContent}
+\`\`\`
+
+`;
+}
+
+/**
+ * **The measured order of a lane prompt.** `boilerplate-first` is what ships; `lane-first` is the arrangement
+ * before either device and `diff-first` is the one `EVAL-CONTRACT.md` §9 registered. All three exist so the same
+ * corpus can be run with a device and without it, which is the only way an order can be settled.
+ */
+export type PromptOrder = 'boilerplate-first' | 'diff-first' | 'lane-first';
+
+/**
+ * **Assemble one lane prompt from its two halves and the block they share.**
+ *
+ * The halves are unchanged by this function, so all three orders contain the same characters and differ only in
+ * where the target-and-diff block sits:
+ *
+ * | order | arrangement | the reusable prefix, over a lane's sweep of many files |
+ * | --- | --- | --- |
+ * | `lane-first` | `head + shared + tail` | the head - a few hundred characters, and the checklist and the examples sit *after* the file-specific block |
+ * | `diff-first` | `shared + head + tail` | nothing across files, because the path is inside the block; shared across one file's five lanes |
+ * | `boilerplate-first` | `head + tail + blank line + shared` | **everything the lane says, which is the same for every file it reads** |
+ *
+ * **Why the third one is the one that ships, in the numbers rather than the argument.** Measured on this file: a lane
+ * spends **7 344 to 8 144 characters on its role, its checklist, its output contract and its examples**, and the target
+ * and diff add **563 characters at a 500-character diff and 8 063 at an 8 000-character one** - so **the block §9
+ * moved to the front is between 7 % and 51 % of a call, and it is a different block for every file.** The lane's own
+ * wording is identical for every file the lane ever reads, and putting it first is the only arrangement in which the
+ * prefix is *both* large and reused. The vendor documents the same rule from the other side: constant content first,
+ * variable content last.
+ *
+ * **And `lane-first` was not that arrangement either**, which is the part that cost money unnoticed: it leads with the
+ * head, but the head is ~860 characters and then the diff arrives, so **the prefix a later call could reuse ended at
+ * the file path.** A prompt can lead with a constant and still have no reusable prefix.
+ *
+ * **A test asserts all three contain the same characters in a different order**, because a reordering device that also
+ * rewrote a word would be two changes measured as one.
+ */
+export function composeLanePrompt(ctx: PromptContext, head: string, tail: string): string {
+  const shared = sharedPrefix(ctx);
+  if (ctx.promptOrder === 'lane-first') return `${head}${shared}${tail}`;
+  if (ctx.promptOrder === 'diff-first') return `${shared}${head}${tail}`;
+  // **A blank line before the block, and only here**: in the other two orders the head already ends with one, and the
+  // separator is not a wording change - it is what stops the closing sentence from running into the file path.
+  return `${head}${tail}\n\n${shared}`;
+}
+
 // ---------------------------------------------------------------------------
 // Security Review Prompt
 // ---------------------------------------------------------------------------
 
 export function SECURITY_REVIEW_PROMPT(ctx: PromptContext): string {
-  return `You are an expert security reviewer performing a detailed security audit of a code change. Your focus is on the OWASP Top 10 vulnerabilities including injection flaws, broken authentication, sensitive data exposure, XML external entities, broken access control, security misconfiguration, cross-site scripting, insecure deserialization, use of vulnerable components, and insufficient logging/monitoring.
+  const head = `You are an expert security reviewer performing a detailed security audit of a code change. Your focus is on the OWASP Top 10 vulnerabilities including injection flaws, broken authentication, sensitive data exposure, XML external entities, broken access control, security misconfiguration, cross-site scripting, insecure deserialization, use of vulnerable components, and insufficient logging/monitoring.
 
 Review the following code diff and identify any security issues. Pay attention to:
 - SQL/NoSQL injection vectors
@@ -291,14 +363,8 @@ Review the following code diff and identify any security issues. Pay attention t
 - Insecure deserialization
 - Exposure of sensitive data in logs/errors
 
-${describeTarget(ctx)}
-
-Diff content:
-\`\`\`
-${ctx.diffContent}
-\`\`\`
-
-Return a JSON object with this exact structure. Only include findings you are confident about — an empty findings array is acceptable if no issues are found:
+`;
+  const tail = `Return a JSON object with this exact structure. Only include findings you are confident about — an empty findings array is acceptable if no issues are found:
 ${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — SQL injection:
@@ -336,6 +402,7 @@ Output:
 }
 
 Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
 }
 
 // ---------------------------------------------------------------------------
@@ -343,7 +410,7 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 // ---------------------------------------------------------------------------
 
 export function PERFORMANCE_REVIEW_PROMPT(ctx: PromptContext): string {
-  return `You are an expert performance engineer reviewing a code change for performance issues. Your focus is on algorithmic efficiency, resource utilization, and scalability.
+  const head = `You are an expert performance engineer reviewing a code change for performance issues. Your focus is on algorithmic efficiency, resource utilization, and scalability.
 
 Review the following code diff and identify performance problems. Pay attention to:
 - N+1 query patterns (fetching data in a loop)
@@ -357,14 +424,8 @@ Review the following code diff and identify performance problems. Pay attention 
 - Missing lazy loading or pagination
 - Promise.all optimizations (concurrency vs sequential)
 
-${describeTarget(ctx)}
-
-Diff content:
-\`\`\`
-${ctx.diffContent}
-\`\`\`
-
-Return a JSON object with this exact structure:
+`;
+  const tail = `Return a JSON object with this exact structure:
 ${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — N+1 query:
@@ -385,6 +446,7 @@ Output:
 }
 
 Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
 }
 
 // ---------------------------------------------------------------------------
@@ -392,7 +454,7 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 // ---------------------------------------------------------------------------
 
 export function MAINTAINABILITY_REVIEW_PROMPT(ctx: PromptContext): string {
-  return `You are an expert code quality reviewer evaluating a code change for maintainability. You apply SOLID principles, code smell detection, and readability analysis.
+  const head = `You are an expert code quality reviewer evaluating a code change for maintainability. You apply SOLID principles, code smell detection, and readability analysis.
 
 Review the following code diff and identify maintainability issues. Pay attention to:
 - Functions that are too long or do too many things (Single Responsibility)
@@ -407,14 +469,8 @@ Review the following code diff and identify maintainability issues. Pay attentio
 - Commented-out code
 - Functions that are hard to test due to tight coupling
 
-${describeTarget(ctx)}
-
-Diff content:
-\`\`\`
-${ctx.diffContent}
-\`\`\`
-
-Return a JSON object with this exact structure:
+`;
+  const tail = `Return a JSON object with this exact structure:
 ${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — magic number:
@@ -435,6 +491,7 @@ Output:
 }
 
 Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
 }
 
 // ---------------------------------------------------------------------------
@@ -442,7 +499,7 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 // ---------------------------------------------------------------------------
 
 export function TESTING_REVIEW_PROMPT(ctx: PromptContext): string {
-  return `You are an expert test engineer reviewing a code change for testing quality. Your focus is on test coverage, assertion quality, and test reliability.
+  const head = `You are an expert test engineer reviewing a code change for testing quality. Your focus is on test coverage, assertion quality, and test reliability.
 
 Review the following code diff and identify testing issues. Pay attention to:
 - Missing test coverage for new or modified code paths
@@ -456,14 +513,8 @@ Review the following code diff and identify testing issues. Pay attention to:
 - Mocking issues (over-mocking, missing mocks)
 - Tests that test implementation details rather than behavior
 
-${describeTarget(ctx)}
-
-Diff content:
-\`\`\`
-${ctx.diffContent}
-\`\`\`
-
-Return a JSON object with this exact structure:
+`;
+  const tail = `Return a JSON object with this exact structure:
 ${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — weak assertion:
@@ -484,6 +535,7 @@ Output:
 }
 
 Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
 }
 
 // ---------------------------------------------------------------------------
@@ -491,7 +543,7 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 // ---------------------------------------------------------------------------
 
 export function ARCHITECTURE_REVIEW_PROMPT(ctx: PromptContext): string {
-  return `You are an expert software architect reviewing a code change for architectural integrity. Your focus is on layer violations, circular dependencies, and structural soundness.
+  const head = `You are an expert software architect reviewing a code change for architectural integrity. Your focus is on layer violations, circular dependencies, and structural soundness.
 
 Review the following code diff and identify architecture issues. Pay attention to:
 - Layer violations (e.g., UI layer importing from data access layer)
@@ -505,14 +557,8 @@ Review the following code diff and identify architecture issues. Pay attention t
 - God modules or classes
 - Inverted dependencies (low-level module depending on high-level)
 
-${describeTarget(ctx)}
-
-Diff content:
-\`\`\`
-${ctx.diffContent}
-\`\`\`
-
-Return a JSON object with this exact structure:
+`;
+  const tail = `Return a JSON object with this exact structure:
 ${defectChecklist(ctx)}${selectionContract(ctx)}
 
 Few-shot example — layer violation:
@@ -533,6 +579,7 @@ Output:
 }
 
 Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
 }
 
 // ---------------------------------------------------------------------------

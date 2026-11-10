@@ -43,12 +43,21 @@ function scriptFiles(directory: string): string[] {
   return found;
 }
 
+/**
+ * **`parseDiagnostics` is real at run time and absent from the public type**, because TypeScript keeps it on
+ * `SourceFile` for its own use. A cast names that once, with the reason, instead of a `@ts-expect-error` that would
+ * hide a genuine break when the field moves.
+ */
+function parseDiagnostics(file: ts.SourceFile): ts.Diagnostic[] {
+  return (file as unknown as { parseDiagnostics?: ts.Diagnostic[] }).parseDiagnostics ?? [];
+}
+
 /** TypeScript's own parser, told which grammar to read the file with. */
 function parseDiagnosticsOf(path: string): string[] {
   const source = readFileSync(path, 'utf8');
   const kind = path.endsWith('.ts') || path.endsWith('.mts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.ESNext, true, kind);
-  return (file.parseDiagnostics ?? []).map((diagnostic) => {
+  return parseDiagnostics(file).map((diagnostic) => {
     const position = file.getLineAndCharacterOfPosition(diagnostic.start ?? 0);
     return `${relative(ROOT, path)}:${position.line + 1}:${position.character + 1} ${ts.flattenDiagnosticMessageText(
       diagnostic.messageText,
@@ -85,6 +94,6 @@ describe('every script this repository runs is a valid program', () => {
       true,
       ts.ScriptKind.TS,
     );
-    expect((file.parseDiagnostics ?? []).length).toBeGreaterThan(0);
+    expect(parseDiagnostics(file).length).toBeGreaterThan(0);
   });
 });
