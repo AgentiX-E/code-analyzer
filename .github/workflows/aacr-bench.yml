@@ -25,13 +25,14 @@ on:
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
     # records the spend it took to produce the figure.
     - cron: '20 4 * * 2'
-  # **Not even this file.** A workflow's own edit used to re-run it, so fixing a trigger cost one run of the
-  # thing it triggers - which is the shape of a bill that pays for its own paperwork. `gate:actions` and the project
-  # standards check read this file on every push; the paid run is a dispatch or the weekly schedule.
-  push:
-    branches: [master]
-    paths:
-      - '.github/scripts/aacr-bench.mjs'
+  # **Not this file, and as of iteration 114 not the script either.**
+  #
+  # A workflow's own edit used to re-run it, so fixing a trigger cost one run of the thing it triggers. Then the one
+  # path left was the harness itself, on the argument that an edited harness should be exercised against the corpus.
+  # **The artifact says what that cost**: the run this path triggered on 2026-11-10 read the account at 355.69 CNY
+  # before and 295.10 after - **60.59 CNY, or 8.53 USD, for one push** - and the model calls this repository can see
+  # in that run came to 2.64 USD. **The harness's arithmetic is now proved by `--dry-run` in CI on every push, which
+  # needs no credentials and no corpus**, so the corpus run is a dispatch or the weekly schedule and nothing else.
 
 concurrency:
   group: aacr-bench
