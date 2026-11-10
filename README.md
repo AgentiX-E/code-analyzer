@@ -110,6 +110,7 @@ Checkmarks indicate features verified through automated tests.
 | Health Checks + Graceful Shutdown                              | Tested — integration                                                |
 | Benchmark Framework (ca-bench, real-world PR suite)            | Partial — see register                                              |
 | Cost Accounting (per-call ledger, tag totals, spend ceiling)   | Tested — unit and end-to-end                                        |
+| Prefix Reuse (instructions lead the prompt, file closes it)    | Tested — 98.05 % reuse against 10.46 %, 30 real requests            |
 
 ---
 

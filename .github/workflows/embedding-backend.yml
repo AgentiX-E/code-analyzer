@@ -16,19 +16,19 @@ name: Embedding Backend
 # silently falls back and reports a lexical number under a semantic name.
 
 on:
+  # **A product change does not dispatch a paid run.** These paths used to start this job on every commit that
+  # touched the code it measures, which is a bill for measuring one's own edit - the trigger fires on corpora and
+  # harnesses only now, and the schedule below is the weekly measurement, placed inside the vendor's off-peak
+  # window where every price is half.
+  schedule:
+    - cron: '20 4 * * 3'
   workflow_dispatch:
   push:
     branches: [master]
     paths:
-      - 'packages/analyzer/src/pipeline/phases/embed*.ts'
-      - 'packages/analyzer/src/pipeline/phases/parse.ts'
-      - 'packages/intelligence/src/search/hybrid-search.ts'
-      - 'packages/intelligence/src/__tests__/paraphrase-search.test.ts'
       - 'benchmarks/paraphrase-queries.json'
       - 'benchmarks/retrieval-corpus/**'
       - 'benchmarks/retrieval-corpus.md'
-      - 'packages/intelligence/src/__tests__/docstring-search.test.ts'
-      - '.github/workflows/embedding-backend.yml'
 
 concurrency:
   group: embedding-backend

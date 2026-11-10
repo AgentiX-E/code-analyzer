@@ -36,13 +36,21 @@ export function parseCitationIds(answer: string): number[] {
     ids.push(value);
   };
 
-  const bracketPattern = /[[【]\s*([0-9][0-9,\s\-–—]*?)\s*[\]】]/g;
+  // **One unbounded quantifier, not two.** `\s*` at both ends of a lazy class that already contains `\s` is a quadratic
+  // scan on an answer that opens a bracket and never closes it: at every candidate end position the trailing `\s*`
+  // re-reads the run. The class already matches whitespace, so the trailing `\s*` bought nothing it did not already
+  // have - **and the trailing space it used to swallow is harmless below, because the capture is split on runs of
+  // separators and the empty part that produces is rejected as not an integer.**
+  const bracketPattern = /[[【]\s*([0-9][0-9,\s\-–—]*?)[\]】]/g;
   let match: RegExpExecArray | null;
   while ((match = bracketPattern.exec(answer)) !== null) {
     const inner = match[1]!;
     // **A range is expanded**, because `[3-5]` is how a person cites two adjacent blocks and dropping it would lose a
     // citation the model did make.
-    const rangePattern = /(\d+)\s*[-–—]\s*(\d+)/;
+    // **`{1,9}` for the same reason as everywhere else in this iteration**: `\d+` against a long digit run with no dash
+    // rescans the run from every position. An id wider than nine digits is not an id, and the expansion is capped at
+    // sixty-four below in any case.
+    const rangePattern = /(\d{1,9})\s*[-–—]\s*(\d{1,9})/;
     const range = rangePattern.exec(inner);
     if (range) {
       const from = Number.parseInt(range[1]!, 10);

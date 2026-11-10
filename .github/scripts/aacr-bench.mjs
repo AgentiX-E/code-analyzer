@@ -55,6 +55,17 @@ const MAX_PRS = Number(process.env['MAX_PRS'] ?? '14');
 const CHECKLIST = String(process.env['AACR_CHECKLIST'] ?? 'on').toLowerCase() !== 'off';
 
 /**
+ * **The second switch a run turns, and the one the bill is about: where the target-and-diff block sits.**
+ *
+ * `boilerplate-first` is what ships - the lane's role, checklist, output contract and examples lead, and the file's own
+ * path and diff close the prompt - so **the reusable prefix is the same for every file the lane reads.**
+ * `lane-first` is the arrangement before the device and `diff-first` is the one §9 of `EVAL-CONTRACT.md` registered
+ * before it was measured. **All three are product values rather than harness values**, because a run that measured
+ * something the product does not do would be a run about a different product.
+ */
+const PROMPT_ORDER = String(process.env['AACR_PROMPT_ORDER'] ?? 'boilerplate-first');
+
+/**
  * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
  *
  * The file arm fills three slots **per file per lane**; over 199 files it emitted **183 findings carrying 21 goldens**
@@ -94,6 +105,43 @@ function findSamples(name) {
   return hits[0] ?? null;
 }
 
+/**
+ * **One judge call's usage, added to the run's judge total.**
+ *
+ * **`prompt_cache_hit_tokens` is read here as well as on the reviewer**, because the judge's system prompt is the same
+ * for every pair - so the judge is a prefix-cache client too, and **a judge that reported a hundred per cent misses
+ * would be a second device left on the table.**
+ */
+function recordJudgeUsage(usage) {
+  if (!usage || typeof usage !== 'object') return;
+  judgeSpend.calls += 1;
+  judgeSpend.promptTokens += Number(usage.prompt_tokens ?? 0);
+  judgeSpend.completionTokens += Number(usage.completion_tokens ?? 0);
+  judgeSpend.cacheHitTokens += Number(usage.prompt_cache_hit_tokens ?? 0);
+  judgeSpend.cacheMissTokens += Number(usage.prompt_cache_miss_tokens ?? 0);
+}
+
+/**
+ * **What the judge spent, in the same units as the reviewer.**
+ *
+ * **Why this exists and why it took until now.** The reviewer's calls go through a client this repository owns, so the
+ * ledger sees them; **the judge is a bare `fetch` in this file, so it was invisible** - and the audit that priced a job
+ * at 62.82 CNY had to *infer* that the reviewer was about a fifth of it rather than read it. **A bill with one
+ * unmetered line is a bill whose largest line might be the unmetered one.**
+ *
+ * **The figures are kept beside the ledger's rather than inside it**, because the ledger prices calls made through
+ * `DeepSeekProvider` and this is not one of them; **merging two sources into one total without saying which is which
+ * is how a total stops being checkable.**
+ */
+const judgeSpend = {
+  calls: 0,
+  failures: 0,
+  promptTokens: 0,
+  completionTokens: 0,
+  cacheHitTokens: 0,
+  cacheMissTokens: 0,
+};
+
 /** Their judge prompt, reconstructed from their paper's description: same defect, different words is a match. */
 async function judgeImpl(comment, golden) {
   const prompt = [
@@ -113,6 +161,10 @@ async function judgeImpl(comment, golden) {
         body: JSON.stringify({
           model: MODEL,
           temperature: 0,
+          // **A verdict is four tokens wide.** The prompt says "reply with JSON only" and the model complies, but an
+          // unbounded field is an instruction rather than a bound, and **the difference between a bound and an
+          // instruction is the half of the bill that arrives on the days the model explains itself.**
+          max_tokens: 16,
           messages: [
             {
               role: 'system',
@@ -124,6 +176,7 @@ async function judgeImpl(comment, golden) {
       });
       if (!res.ok) throw new Error(`http ${res.status}`);
       const body = await res.json();
+      recordJudgeUsage(body.usage);
       const text = String(body.choices?.[0]?.message?.content ?? '')
         .replace(/```json|```/g, '')
         .trim();
@@ -133,6 +186,7 @@ async function judgeImpl(comment, golden) {
     }
   }
   // **A judge that did not answer is not a non-match**, the same distinction as everywhere else in this repository.
+  judgeSpend.failures += 1;
   return null;
 }
 
@@ -836,7 +890,8 @@ async function main() {
   // balance by 62.82 CNY on 2026-11-09, which is about 8.9 USD at 7.1 - so 12 USD admits a legitimate run and stops a
   // retry storm at roughly one and a third of it. **A ceiling set below the cost of a valid run would be a ceiling that
   // measures the ceiling.**
-  const { CostLedger } = await import('../../packages/intelligence/dist/review/llm/cost.js');
+  const { CostLedger, costUsdOf } =
+    await import('../../packages/intelligence/dist/review/llm/cost.js');
   const ledger = new CostLedger();
   const MAX_USD = Number(process.env['AACR_MAX_USD'] ?? 12);
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
@@ -849,8 +904,9 @@ async function main() {
   const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
     dedupThreshold: DEDUP_THRESHOLD,
     languageChecklist: CHECKLIST,
+    promptOrder: PROMPT_ORDER,
   });
-  console.log(`AACR-BENCH dedup threshold ${DEDUP_THRESHOLD}`);
+  console.log(`AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER}`);
 
   /**
    * **The second parameter of every draw this job takes.**
@@ -1650,6 +1706,21 @@ async function main() {
   const competitorPoint = asPoint(competitorCounts);
   const competitorGated = asPoint(countsOver(competitorPerPr, gatedEmission));
 
+  // **The judge's bill, priced with the reviewer's table and the clock of this run.** `costUsdOf` returns `null` for a
+  // model the table does not know, and **`null` is carried rather than turned into a zero** for the reason the ledger
+  // carries it: a zero is absorbed by every total it touches.
+  const judgeCostUsd = costUsdOf(
+    {
+      promptTokens: judgeSpend.promptTokens,
+      completionTokens: judgeSpend.completionTokens,
+      totalTokens: judgeSpend.promptTokens + judgeSpend.completionTokens,
+      cacheHitTokens: judgeSpend.cacheHitTokens,
+      cacheMissTokens: judgeSpend.cacheMissTokens,
+    },
+    MODEL,
+    new Date(),
+  );
+
   write({
     ...base,
     // **The threshold every row below was drawn under**, because **a curve whose points are not labelled is a set of
@@ -1703,6 +1774,10 @@ async function main() {
       judgeEndpoint: BASE,
       dedupThreshold: DEDUP_THRESHOLD,
       pullRequestBudget: PR_BUDGET,
+      // **Which arrangement of the prompt produced this figure**, because §9 and §10 of `EVAL-CONTRACT.md` are two
+      // claims about one file and an artifact that does not say which side it came from is a figure without a
+      // coordinate.
+      promptOrder: PROMPT_ORDER,
     },
     // **How many pull requests the dataset held, not how many this run read.** `prsInDataset` is the run's choice and
     // **a choice cannot be told apart from a limit unless both are recorded.**
@@ -1866,7 +1941,25 @@ async function main() {
     // **And what the reviewer itself spent, decomposed by lane**, which is the figure the credit pair cannot produce:
     // a balance delta attributes nothing, and **a bill whose largest line nobody can name is a bill nobody can reduce.**
     // `unpricedCalls` travels with the total because a total containing one is a lower bound.
-    spend: { ceilingUsd: MAX_USD, ...ledger.toJSON().totals, byTag: ledger.toJSON().byTag },
+    spend: {
+      ceilingUsd: MAX_USD,
+      ...ledger.toJSON().totals,
+      byTag: ledger.toJSON().byTag,
+      // **The line the ledger could not see.** The judge is a bare `fetch` in this file, so its tokens are counted here
+      // and priced with the same table the reviewer is priced with - **one table, two clients**, because two tables is
+      // how the reviewer's share of a job became an inference instead of a figure.
+      judge: {
+        ...judgeSpend,
+        costUsd: judgeCostUsd,
+        cacheHitRatio:
+          judgeSpend.promptTokens === 0
+            ? null
+            : judgeSpend.cacheHitTokens / judgeSpend.promptTokens,
+      },
+      // **What the job cost as far as this file can see**, so that the balance delta taken below can be compared with
+      // it: **a total that is smaller than the balance by a wide margin says there is a third client.**
+      totalUsd: judgeCostUsd === null ? null : ledger.toJSON().totals.costUsd + judgeCostUsd,
+    },
     // **The engine's own account of what it did**, because **a figure that says "one finding" without saying "199
     // files and 199 lanes" is a figure whose cause is not in the file.**
     engineCounters,
@@ -1880,6 +1973,9 @@ async function main() {
   // nothing in this repository could report before the ledger existed.**
   console.log(
     `AACR-BENCH spend · calls ${ledger.totals().calls} · failures ${ledger.totals().failures} · unpriced ${ledger.totals().unpricedCalls} · prompt ${ledger.totals().promptTokens} · cache ${ledger.totals().cacheHitTokens} · usd ${ledger.totals().costUsd.toFixed(4)} · ceiling ${MAX_USD}`,
+  );
+  console.log(
+    `AACR-BENCH judge · calls ${judgeSpend.calls} · unanswered ${judgeSpend.failures} · prompt ${judgeSpend.promptTokens} · cache ${judgeSpend.cacheHitTokens} · usd ${judgeCostUsd === null ? 'unpriced' : judgeCostUsd.toFixed(4)} · order ${PROMPT_ORDER}`,
   );
   console.log(
     `AACR-BENCH full list tp ${allEmitted.truePositives} fp ${allEmitted.falsePositives} · P ${allEmitted.precision} R ${allEmitted.recall} F1 ${allEmitted.f1}`,

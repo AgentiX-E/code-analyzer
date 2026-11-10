@@ -12,14 +12,18 @@ name: Semantic Review Benchmark
 
 on:
   workflow_dispatch:
+  schedule:
+    # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
+    # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
+    # records the spend it took to produce the figure.
+    - cron: '20 5 * * 2'
+  # **Not even this file.** A workflow's own edit used to re-run it, so fixing a trigger cost one run of the
+  # thing it triggers - which is the shape of a bill that pays for its own paperwork. `gate:actions` and the project
+  # standards check read this file on every push; the paid run is a dispatch or the weekly schedule.
   push:
     branches: [master]
     paths:
-      - 'packages/intelligence/src/review/llm/**'
-      - 'packages/intelligence/src/review/real-ground-truth*'
-      - 'benchmarks/real-ground-truth/**'
       - '.github/scripts/measure-semantic-review.mjs'
-      - '.github/workflows/semantic-review.yml'
 
 concurrency:
   group: semantic-review

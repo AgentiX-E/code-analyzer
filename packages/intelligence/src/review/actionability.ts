@@ -41,6 +41,36 @@ export interface DiffFacts {
   readonly shown: ReadonlyMap<string, string>;
 }
 
+/**
+ * **The second path of a `diff --git` header, found by searching rather than by backtracking.**
+ *
+ * The header is `diff --git a/<one> b/<two>` and both halves can contain almost anything, so the regular expression for
+ * it is `a\/(.+?) b\/(.+)` - **two groups that can both grow, against a line an attacker chooses.** A line of the form
+ * `diff --git a/ b/ b/ b/ b/ ...` gives the engine one candidate end position per ` b/` and a rescan of the rest of the
+ * line for each, which is quadratic in the length of a header. **A diff is text this module did not write**: it arrives
+ * from a pull request.
+ *
+ * `indexOf` is linear, and it names **the same split the pattern did**: the lazy `(.+?)` stopped at the first ` b/`, so
+ * the search here is for the first one too. **Preserving the split is the point of the change** - a fix for a quadratic
+ * scan that also moved a boundary would be two changes, and only one of them was measured.
+ */
+export function diffHeaderPaths(line: string): { left: string; right: string } | null {
+  const prefix = 'diff --git a/';
+  if (!line.startsWith(prefix)) return null;
+  const at = line.indexOf(' b/');
+  // **No separator, or nothing after it, is not a header** - and the `null` is what the caller tests, so a line that
+  // merely begins like a header cannot become a file with an empty path.
+  if (at < 0) return null;
+  const right = line.slice(at + 3);
+  if (right.length === 0) return null;
+  return { left: line.slice(prefix.length, at), right };
+}
+
+/** The right-hand path of a header, or `null`. **The right-hand one**, because that is the file a comment anchors on. */
+function diffHeaderPath(line: string): string | null {
+  return diffHeaderPaths(line)?.right ?? null;
+}
+
 /** `b/` and `a/` prefixes, and the quoting git applies to paths it considers unusual. */
 function normalisePath(raw: string): string {
   let path = raw.trim();
@@ -76,9 +106,13 @@ export function collectDiffFacts(unified: string): DiffFacts {
   for (const raw of String(unified).split('\n')) {
     const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
 
-    const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    // **Two `indexOf` calls rather than two lazy groups.** `^diff --git a\/(.+?) b\/(.+)$` is quadratic on a header
+    // line that names many ` b\/` candidates - every one of them starts a backtrack that rescans the rest of the line -
+    // and a diff is text this module did not write. **The separator is the last ` b/`**, because a path may contain it
+    // and the second path is the one that carries the rest of the line.
+    const header = diffHeaderPath(line);
     if (header) {
-      path = normalisePath(String(header[2]));
+      path = normalisePath(header);
       if (!added.has(path)) added.set(path, new Map());
       continue;
     }
