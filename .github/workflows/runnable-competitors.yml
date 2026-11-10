@@ -28,7 +28,6 @@ on:
     branches: [master]
     paths:
       - '.github/scripts/runnable-competitors.mjs'
-      - '.github/workflows/runnable-competitors.yml'
 
 concurrency:
   group: runnable-competitors
