@@ -84,36 +84,38 @@ Status words are defined in [`benchmarks/status-register.json`](benchmarks/statu
 
 Checkmarks indicate features verified through automated tests.
 
-| Capability                                                     | Status                                                              |
-| -------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Knowledge Graph (36 node types, 43 relationship types)         | Tested — unit                                                       |
-| 19-Phase Analysis Pipeline                                     | Partial — see register                                              |
-| 31-Language Parsing (tree-sitter + regex fallback)             | Partial — see register                                              |
-| Scope Resolution (3-tier: same-file, cross-file, namespace)    | Tested — unit                                                       |
-| PR Review (50+ heuristic rules, 6 categories)                  | Tested — integration                                                |
-| Cypher Query Engine (lexer → parser → planner → executor)      | Tested — unit                                                       |
-| MCP Server (51 tools, 15 resources, 5 prompts)                 | Partial — see register                                              |
-| Agent Tool Selection (100 tasks over the 51-tool catalog)      | Verified — 0.8250 decoyed vs 0.3500 for BM25                        |
-| Agent Capability Boundary (profile × effect, read-only role)   | Verified — 0 of 200 read, 96 of 100 when the user asked             |
-| VS Code Extension (15 Copilot Chat slash commands)             | Tested — unit                                                       |
-| Web Dashboard (6 interactive views)                            | Partial — see register                                              |
-| GitHub Integration (webhooks, check runs, cross-repo PR)       | Tested — integration                                                |
-| AI Agent Auto-Detection (12 agents)                            | Tested — unit                                                       |
-| RBAC (5 roles, 25 permissions)                                 | Tested — unit                                                       |
-| Secret Scanner (16 patterns)                                   | Tested — unit                                                       |
-| Impact Analysis (BFS-based change propagation)                 | Tested — integration                                                |
-| Cross-Repo Analysis (federated search, contract detection)     | Verified — 49/49 imports, 73/73 traces on two real checkouts        |
-| Security Rule Families (weak cipher/hash/random, cookie flags) | Verified — 513/513 vulnerable, 0 false positives on OWASP Benchmark |
-| Taint Analysis (source → sink path tracking)                   | Verified — OWASP Benchmark score 1.000 (TPR 1.000 / FPR 0.000)      |
-| Graph Store (in-memory + SQLite with FTS5)                     | Tested — unit                                                       |
-| Rate Limiting (sliding window)                                 | Tested — unit                                                       |
-| Health Checks + Graceful Shutdown                              | Tested — integration                                                |
-| Benchmark Framework (ca-bench, real-world PR suite)            | Partial — see register                                              |
-| Cost Accounting (per-call ledger, tag totals, spend ceiling)   | Tested — unit and end-to-end                                        |
-| Prefix Reuse (instructions lead the prompt, file closes it)    | Tested — 98.05 % reuse against 10.46 %, 30 real requests            |
-| Competitor Replay (a corpus result is paid for once)           | Tested — record/replay round trip, identical F1, zero paid calls    |
-| Missed-Golden Attribution (every miss has a named cause)       | Tested — 5 disjoint buckets, partition asserted, 10 unit cases      |
-| Measured-Error Interval (an unanswered pair is not a miss)     | Tested — bound published beside F1, retry schedule unit-tested      |
+| Capability                                                       | Status                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Knowledge Graph (36 node types, 43 relationship types)           | Tested — unit                                                       |
+| 19-Phase Analysis Pipeline                                       | Partial — see register                                              |
+| 31-Language Parsing (tree-sitter + regex fallback)               | Partial — see register                                              |
+| Scope Resolution (3-tier: same-file, cross-file, namespace)      | Tested — unit                                                       |
+| PR Review (50+ heuristic rules, 6 categories)                    | Tested — integration                                                |
+| Cypher Query Engine (lexer → parser → planner → executor)        | Tested — unit                                                       |
+| MCP Server (51 tools, 15 resources, 5 prompts)                   | Partial — see register                                              |
+| Agent Tool Selection (100 tasks over the 51-tool catalog)        | Verified — 0.8250 decoyed vs 0.3500 for BM25                        |
+| Agent Capability Boundary (profile × effect, read-only role)     | Verified — 0 of 200 read, 96 of 100 when the user asked             |
+| VS Code Extension (15 Copilot Chat slash commands)               | Tested — unit                                                       |
+| Web Dashboard (6 interactive views)                              | Partial — see register                                              |
+| GitHub Integration (webhooks, check runs, cross-repo PR)         | Tested — integration                                                |
+| AI Agent Auto-Detection (12 agents)                              | Tested — unit                                                       |
+| RBAC (5 roles, 25 permissions)                                   | Tested — unit                                                       |
+| Secret Scanner (16 patterns)                                     | Tested — unit                                                       |
+| Impact Analysis (BFS-based change propagation)                   | Tested — integration                                                |
+| Cross-Repo Analysis (federated search, contract detection)       | Verified — 49/49 imports, 73/73 traces on two real checkouts        |
+| Security Rule Families (weak cipher/hash/random, cookie flags)   | Verified — 513/513 vulnerable, 0 false positives on OWASP Benchmark |
+| Taint Analysis (source → sink path tracking)                     | Verified — OWASP Benchmark score 1.000 (TPR 1.000 / FPR 0.000)      |
+| Graph Store (in-memory + SQLite with FTS5)                       | Tested — unit                                                       |
+| Rate Limiting (sliding window)                                   | Tested — unit                                                       |
+| Health Checks + Graceful Shutdown                                | Tested — integration                                                |
+| Benchmark Framework (ca-bench, real-world PR suite)              | Partial — see register                                              |
+| Cost Accounting (per-call ledger, tag totals, spend ceiling)     | Tested — unit and end-to-end                                        |
+| Prefix Reuse (instructions lead the prompt, file closes it)      | Tested — 98.05 % reuse against 10.46 %, 30 real requests            |
+| Competitor Replay (a corpus result is paid for once)             | Tested — record/replay round trip, identical F1, zero paid calls    |
+| Missed-Golden Attribution (every miss has a named cause)         | Tested — 5 disjoint buckets, partition asserted, 10 unit cases      |
+| Rejection Shape (a miss says whether the lane looked elsewhere)  | Tested — same-line / within-10 / beyond / no-line, sum asserted     |
+| Corpus-Scaled Spend Ceiling (a ceiling that moves with the work) | Tested — 0.15 USD per pull request, floored at the registered run   |
+| Measured-Error Interval (an unanswered pair is not a miss)       | Tested — bound published beside F1, retry schedule unit-tested      |
 
 ---
 

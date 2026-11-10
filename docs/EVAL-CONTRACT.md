@@ -1089,20 +1089,20 @@ line numbers.**
 
 ### 15.1 The six arms, and what they say together
 
-| order | checklist | F1 (gate) | run |
-| --- | --- | --- | --- |
-| `boilerplate-first` | on | **0.2415** | 2026-11-09 |
-| `boilerplate-first` | off | **0.1871** | 2026-11-09 |
-| `boilerplate-first` | on | **0.1691** | 2026-11-10 |
-| `boilerplate-first` | off | **0.1983** | 2026-11-10 |
-| `lane-first` | on | **0.1886** | 2026-11-10, this run |
-| `lane-first` | off | **0.2124** | 2026-11-10, this run |
+| order               | checklist | F1 (gate)  | run                  |
+| ------------------- | --------- | ---------- | -------------------- |
+| `boilerplate-first` | on        | **0.2415** | 2026-11-09           |
+| `boilerplate-first` | off       | **0.1871** | 2026-11-09           |
+| `boilerplate-first` | on        | **0.1691** | 2026-11-10           |
+| `boilerplate-first` | off       | **0.1983** | 2026-11-10           |
+| `lane-first`        | on        | **0.1886** | 2026-11-10, this run |
+| `lane-first`        | off       | **0.2124** | 2026-11-10, this run |
 
 **The two `lane-first` counts, kept because they are the pair every later figure is paired against**: with the checklist
 `tp 28 / fp 99 / fn 142` over 202 findings, without it `tp 41 / fp 175 / fn 129` over 357.
 
 **Across six readings of one corpus the mean is 0.1995 and the standard deviation is 0.0228.** The two readings of the
-*same configuration* - `boilerplate-first`, checklist on - differ by **0.0724**, which is **3.2 standard deviations and
+_same configuration_ - `boilerplate-first`, checklist on - differ by **0.0724**, which is **3.2 standard deviations and
 therefore not a measurement of anything except the instrument.**
 
 **So the question §14.2 left open is answered, and the answer is not about the order.** `lane-first` returned **0.1886**,
@@ -1112,12 +1112,12 @@ repeats of the same control has no measurable effect at this corpus size.**
 
 ### 15.2 The cost win was mis-attributed, and this run is what shows it
 
-| | `boilerplate-first`, 2026-11-10 | `lane-first`, this run |
-| --- | --- | --- |
-| reviewer calls | 1 770 | **1 770** |
-| reviewer cache reuse | **91.7 %** | **91.7 %** |
-| reviewer cost | 0.29 USD | **0.30 USD** |
-| judge cache reuse | 9.4 % | **11.1 %** |
+|                      | `boilerplate-first`, 2026-11-10 | `lane-first`, this run |
+| -------------------- | ------------------------------- | ---------------------- |
+| reviewer calls       | 1 770                           | **1 770**              |
+| reviewer cache reuse | **91.7 %**                      | **91.7 %**             |
+| reviewer cost        | 0.29 USD                        | **0.30 USD**           |
+| judge cache reuse    | 9.4 %                           | **11.1 %**             |
 
 **The reordering's cost benefit is zero, because the reuse is identical.** §14.1 attributed the fall from 61 % to 91.7 %
 reuse to `boilerplate-first`; **both orders now read 91.7 %**, so the reuse came from the per-file prefix being stable,
@@ -1126,14 +1126,14 @@ cost claim is corrected in the same paragraph**, and both are corrections of the
 
 ### 15.3 The checklist's three paired readings average zero
 
-| run | with | without | F1 gain | paired: both / with only / without only | p |
-| --- | --- | --- | --- | --- | --- |
-| 2026-11-09 | 0.2415 | 0.1871 | **+0.0544** | not recorded | — |
-| 2026-11-10 | 0.1691 | 0.1983 | **−0.0292** | 16 / 7 / 19 | **0.029** |
-| 2026-11-10, `lane-first` | 0.1886 | 0.2124 | **−0.0238** | 22 / 6 / 19 | **0.0146** |
+| run                      | with   | without | F1 gain     | paired: both / with only / without only | p          |
+| ------------------------ | ------ | ------- | ----------- | --------------------------------------- | ---------- |
+| 2026-11-09               | 0.2415 | 0.1871  | **+0.0544** | not recorded                            | —          |
+| 2026-11-10               | 0.1691 | 0.1983  | **−0.0292** | 16 / 7 / 19                             | **0.029**  |
+| 2026-11-10, `lane-first` | 0.1886 | 0.2124  | **−0.0238** | 22 / 6 / 19                             | **0.0146** |
 
 **The F1 gain averages +0.0005 over three readings and the paired test is not an average.** It asks a sharper question -
-*given a golden one arm found and the other did not, which arm is it* - and it answers **twice, on two different prompt
+_given a golden one arm found and the other did not, which arm is it_ - and it answers **twice, on two different prompt
 orders, in the same direction**: the checklist loses **12** goldens in the first run and **13** in the second, both
 significant at 0.05.
 
@@ -1141,7 +1141,7 @@ significant at 0.05.
 resolve 0.04; **the paired view resolves it and the answer is negative**, and the F1 average was the wrong statistic to
 look at because precision and recall moved in opposite directions by more than either one's noise.
 
-**And the registered mechanism is falsified too.** The claim was *"precision rises, recall does not fall"*. Precision
+**And the registered mechanism is falsified too.** The claim was _"precision rises, recall does not fall"_. Precision
 rose 0.1898 → 0.2205 and **recall fell 0.2412 → 0.1647** - the device halves emission (357 → 202 findings) and buys
 precision with recall at a rate F1 prices as a loss. **A device that was registered as a targeting aid is a suppression
 aid**, which §15.4 then explains: targeting was never the problem it was aimed at.
@@ -1155,18 +1155,18 @@ round, false positives **170 → 306**), recall rose **0.1647 → 0.2412**, prec
 range, and **nothing in this file had ever compared them**. The comparison costs no model call, because both sides were
 already paid for:
 
-| distance from the golden to the nearest finding on its own file | goldens | share of the bucket | share of all goldens |
-| --- | --- | --- | --- |
-| **0 - the finding's range covers the golden's line** | **40** | **40.8 %** | 23.5 % |
-| ≤ 5 lines | 62 | 63.3 % | 36.5 % |
-| **≤ 10 lines** | **73** | **74.5 %** | **42.9 %** |
-| ≤ 50 lines | 82 | 83.7 % | 48.2 % |
-| > 200 lines | 4 | 4.1 % | 2.4 % |
-| **median** | **1.5 lines** | | |
+| distance from the golden to the nearest finding on its own file | goldens       | share of the bucket | share of all goldens |
+| --------------------------------------------------------------- | ------------- | ------------------- | -------------------- |
+| **0 - the finding's range covers the golden's line**            | **40**        | **40.8 %**          | 23.5 %               |
+| ≤ 5 lines                                                       | 62            | 63.3 %              | 36.5 %               |
+| **≤ 10 lines**                                                  | **73**        | **74.5 %**          | **42.9 %**           |
+| ≤ 50 lines                                                      | 82            | 83.7 %              | 48.2 %               |
+| > 200 lines                                                     | 4             | 4.1 %               | 2.4 %                |
+| **median**                                                      | **1.5 lines** |                     |                      |
 
 **§14.4 concluded that "the work is what the lanes are asked to look for, not where they look". The coordinates say the
 lanes looked in the right place**: 40 of the 98 stood on the golden's own line and 73 within ten lines of it. **The lane
-found the defect and described it in words the judge would not call the same defect** - which is the *sentence*, not the
+found the defect and described it in words the judge would not call the same defect** - which is the _sentence_, not the
 search, and it is a different iteration's work.
 
 **And it explains why three checklist runs moved nothing.** A checklist changes what a lane is asked to look for, so it
@@ -1175,10 +1175,10 @@ arms** - invariant, as a search-side device must leave it. **The device was aime
 
 ### 15.5 Registered before its run: iteration 118
 
-**Claim R-15.** *Requiring every emitted finding to name the failure mode and the input that triggers it - rather than the
+**Claim R-15.** _Requiring every emitted finding to name the failure mode and the input that triggers it - rather than the
 change it suggests - will raise the number of accepted goldens that are already within ten lines of a finding from the
 present 0 to at least 24 of the 73, which is +0.141 recall on this corpus and therefore at least +0.06 F1 at the same
-precision.*
+precision._
 
 **Falsified if** fewer than 9 of the 73 coincident rejections are accepted (a third of the predicted move), **or if
 precision falls by more than 0.02** - the second clause because a sentence that names a failure mode it cannot support is
@@ -1187,24 +1187,24 @@ a hallucination with better grammar, and **the gate is what would have to absorb
 **Its measurement is the shape table this iteration added**, published in every artifact as
 `missedGoldens.rejectionShape` and asserted to add up to `missedGoldens.counts.findingOnPathRejected`:
 
-| shape | meaning | what it counts |
-| --- | --- | --- |
-| `sameLine` | the finding's range covers the golden's line | agreement without acceptance |
-| `within10` | within ten lines, which is still one screen | agreement without acceptance |
-| `beyond50` | the lane spoke elsewhere on the file | the targeting defect §14.4 expected |
-| `noLine` | the corpus or the finding carries no line | a hole, not a defect |
+| shape      | meaning                                      | what it counts                      |
+| ---------- | -------------------------------------------- | ----------------------------------- |
+| `sameLine` | the finding's range covers the golden's line | agreement without acceptance        |
+| `within10` | within ten lines, which is still one screen  | agreement without acceptance        |
+| `beyond50` | the lane spoke elsewhere on the file         | the targeting defect §14.4 expected |
+| `noLine`   | the corpus or the finding carries no line    | a hole, not a defect                |
 
 **And the artifact now carries `rankedFindings[].text`**, because **a rejection is a claim about wording and the artifact
 could not show a single sentence** - the same omission as the discarded `path` in §13, one level up.
 
 ### 15.6 The corpus, raised to the size the claim needs
 
-| | 14 pull requests | 50 pull requests | 200 pull requests |
-| --- | --- | --- | --- |
-| goldens | 170 | ~607 | ~2 400 |
-| standard error on F1 | 0.0228 measured | ~0.012 | ~0.006 |
-| cost of one dispatch (both arms) | **1.63 USD** | ~5.8 USD | ~23 USD |
-| runner time at the measured 3.3 min/pull request | 46 min | 165 min | 11 h - **beyond any job GitHub runs** |
+|                                                  | 14 pull requests | 50 pull requests | 200 pull requests                     |
+| ------------------------------------------------ | ---------------- | ---------------- | ------------------------------------- |
+| goldens                                          | 170              | ~607             | ~2 400                                |
+| standard error on F1                             | 0.0228 measured  | ~0.012           | ~0.006                                |
+| cost of one dispatch (both arms)                 | **1.63 USD**     | ~5.8 USD         | ~23 USD                               |
+| runner time at the measured 3.3 min/pull request | 46 min           | 165 min          | 11 h - **beyond any job GitHub runs** |
 
 **The ceiling is a rate now rather than a constant**, in `.github/scripts/lib/run-config.mjs`: 0.15 USD per pull request
 replaying, 0.5 recording, with a floor that admits the fourteen-pull-request run the registration was written against.
@@ -1219,7 +1219,7 @@ cost cut rather than the timeout raised again. That is written down here because
 
 1. **That the prompt order is harmful.** It is unresolved, and the default stays `boilerplate-first` because that is
    what the recorded baseline was produced under - **not because it is better.**
-2. **That the checklist is useless.** It is a *suppression* device, replicated, and it is now **off by default** for that
+2. **That the checklist is useless.** It is a _suppression_ device, replicated, and it is now **off by default** for that
    reason - the flag stays, because the ablation arm has to remain runnable and because **turning a device off is not
    the same experiment as replacing it.** What it is good at is real (76 fewer false positives per 170 goldens) and the
    trade is stated rather than hidden: **a product that prefers precision to F1 should turn it back on.**

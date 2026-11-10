@@ -137,6 +137,14 @@
     "Measured-Error Interval": {
       "status": "tested",
       "evidence": "tests/unit/scripts/a-rate-limit-is-not-an-answer.test.ts — Retry-After in seconds and as an HTTP date, a capped exponential schedule, and the interval published beside F1"
+    },
+    "Corpus-Scaled Spend Ceiling (a ceiling that moves with the work)": {
+      "status": "tested",
+      "evidence": "tests/unit/scripts/a-ceiling-moves-with-the-corpus.test.ts — 6 cases, rate, floor and override"
+    },
+    "Rejection Shape (a miss says whether the lane looked elsewhere)": {
+      "status": "tested",
+      "evidence": "tests/unit/scripts/a-rejection-is-shaped-by-where-it-landed.test.ts — 11 cases, the shape table asserted to sum to the bucket it re-reads"
     }
   }
 }

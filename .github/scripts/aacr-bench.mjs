@@ -528,7 +528,11 @@ async function dryRun() {
       { path: 'src/kept.ts', note: goldens[0] },
       { path: 'src/quiet.ts', note: 'an issue on a file the lanes were silent about' },
       { path: 'src/never.ts', note: 'an issue on a file the engine was never handed' },
-      { path: rejectedPath, note: 'an issue the judge did not accept, on the line we did comment on', startLine: rejectedLine },
+      {
+        path: rejectedPath,
+        note: 'an issue the judge did not accept, on the line we did comment on',
+        startLine: rejectedLine,
+      },
     ],
     reviewedPaths: ['src/kept.ts', 'src/quiet.ts', rejectedPath],
     findings: ranked,
@@ -563,7 +567,7 @@ async function dryRun() {
   assert.equal(
     rejectionShapes.sameLine,
     1,
-    'and its shape is same-line, because the finding stands on the golden\'s own line',
+    "and its shape is same-line, because the finding stands on the golden's own line",
   );
   assert.equal(
     REJECTION_SHAPES.reduce((sum, shape) => sum + rejectionShapes[shape], 0),

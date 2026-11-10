@@ -57,7 +57,13 @@ export function requestedPullRequests(raw, { fallback = 14 } = {}) {
  */
 export function spendCeilingUsd({ pullRequests, mode, override }) {
   const explicit = Number(override);
-  if (override !== undefined && override !== null && String(override).trim() !== '' && Number.isFinite(explicit) && explicit > 0) {
+  if (
+    override !== undefined &&
+    override !== null &&
+    String(override).trim() !== '' &&
+    Number.isFinite(explicit) &&
+    explicit > 0
+  ) {
     return explicit;
   }
   const key = mode === 'record' ? 'record' : 'replay';

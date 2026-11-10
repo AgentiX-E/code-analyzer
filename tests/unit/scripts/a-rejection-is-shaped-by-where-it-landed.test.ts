@@ -59,8 +59,12 @@ describe('the distance from a golden to what was said on its own file', () => {
     // a table that is empty, plausible, and wrong. The `--dry-run` fixture caught it before a run published it, and
     // this test holds both shapes so it cannot come back.
     expect(nearestFindingDistance(100, [{ path: 'a', startLine: 100, endLine: 100 }])).toBe(0);
-    expect(nearestFindingDistance(100, [{ path: 'a', finding: { startLine: 100, endLine: 100 } }])).toBe(0);
-    expect(nearestFindingDistance(100, [{ path: 'a', finding: { startLine: 130, endLine: 140 } }])).toBe(30);
+    expect(
+      nearestFindingDistance(100, [{ path: 'a', finding: { startLine: 100, endLine: 100 } }]),
+    ).toBe(0);
+    expect(
+      nearestFindingDistance(100, [{ path: 'a', finding: { startLine: 130, endLine: 140 } }]),
+    ).toBe(30);
   });
 
   it('refuses to measure a golden the corpus did not locate', () => {
@@ -132,7 +136,12 @@ describe('a rejection is shaped by its distance', () => {
     ]);
     // **A zero on a `hit` would read as a coincidence that happened**, which is exactly the confusion this field is
     // meant to prevent, so every non-rejection carries `null`.
-    expect(attribution.perGolden.map((golden) => golden.proximity)).toEqual([null, null, null, null]);
+    expect(attribution.perGolden.map((golden) => golden.proximity)).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it('refuses a shape table that does not add up to the bucket it re-reads', () => {
@@ -141,7 +150,13 @@ describe('a rejection is shaped by its distance', () => {
     expect(() =>
       mergeAttributions([
         {
-          counts: { hit: 0, noPath: 0, fileNotReviewed: 0, noFindingOnPath: 0, findingOnPathRejected: 3 },
+          counts: {
+            hit: 0,
+            noPath: 0,
+            fileNotReviewed: 0,
+            noFindingOnPath: 0,
+            findingOnPathRejected: 3,
+          },
           perGolden: [{ bucket: 'findingOnPathRejected', path: 'a', note: '', proximity: 0 }],
           total: 3,
         },

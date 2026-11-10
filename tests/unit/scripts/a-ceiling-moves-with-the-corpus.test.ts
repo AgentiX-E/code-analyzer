@@ -74,9 +74,7 @@ describe('the ceiling moves with the corpus', () => {
     expect(spendCeilingUsd({ pullRequests: 5, mode: 'replay', override: '' })).toBe(
       CEILING_USD_FLOOR.replay,
     );
-    expect(at14).toBe(
-      Math.round(CEILING_USD_PER_PULL_REQUEST.replay * 14 * 100) / 100,
-    );
+    expect(at14).toBe(Math.round(CEILING_USD_PER_PULL_REQUEST.replay * 14 * 100) / 100);
   });
 
   it('keeps a deliberate override, because a one-off is a legitimate thing to want', () => {

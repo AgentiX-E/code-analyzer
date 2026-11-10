@@ -82,7 +82,8 @@ export function nearestFindingDistance(goldenLine, findings) {
     const low = start ?? end;
     if (low === null) continue;
     const high = end ?? low;
-    const distance = line >= low && line <= high ? 0 : Math.min(Math.abs(line - low), Math.abs(line - high));
+    const distance =
+      line >= low && line <= high ? 0 : Math.min(Math.abs(line - low), Math.abs(line - high));
     if (best === null || distance < best) best = distance;
   }
   return best;
@@ -162,7 +163,10 @@ export function attributeGoldens({ goldens, reviewedPaths, findings, matches }) 
       matchedFindings: hitBy.get(index) ?? [],
       // **Only meaningful for a rejection**, and left `null` everywhere else so that a reader cannot mistake a `hit`'s
       // zero for a coincidence that did not happen.
-      proximity: bucket === 'findingOnPathRejected' ? nearestFindingDistance(golden?.startLine, onPath) : null,
+      proximity:
+        bucket === 'findingOnPathRejected'
+          ? nearestFindingDistance(golden?.startLine, onPath)
+          : null,
     });
   }
 
@@ -197,7 +201,8 @@ export function mergeAttributions(entries, { examplesPerBucket = 5 } = {}) {
       // **The shape table is a second reading of the same row, not a sixth bucket**: every rejected golden contributes
       // one to exactly one shape and every other bucket contributes to none, so the shape counts sum to
       // `counts.findingOnPathRejected` - **the property `rejectionShapeTotal` is asserted against below.**
-      if (bucket === 'findingOnPathRejected') rejectionShape[rejectionShapeOf(golden.proximity)] += 1;
+      if (bucket === 'findingOnPathRejected')
+        rejectionShape[rejectionShapeOf(golden.proximity)] += 1;
       if (!examples[bucket] || examples[bucket].length >= examplesPerBucket) continue;
       examples[bucket].push({
         pr: entry.pr ?? null,

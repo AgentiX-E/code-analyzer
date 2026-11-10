@@ -49,7 +49,9 @@ export declare function nearestFindingDistance(
 export declare function attributeGoldens(input: {
   goldens: GoldenInput[];
   reviewedPaths: Array<string | undefined>;
-  findings: Array<{ path?: string; startLine?: number | null; endLine?: number | null } | undefined>;
+  findings: Array<
+    { path?: string; startLine?: number | null; endLine?: number | null } | undefined
+  >;
   matches: number[][];
 }): Attribution;
 
