@@ -1,6 +1,6 @@
 // **An ablation is only an ablation if both arms read the same corpus, and the comparison job did not check.**
 //
-// The run of 2026-11-10 asked both arms of the checklist experiment for fifty pull requests. The `without` arm read
+// The run of 2026-11-10 asked both arms of one ablation for fifty pull requests. The `without` arm read
 // fifty; the `with` arm read forty-six, because its diff requests went out unauthenticated and the four it lost are
 // recorded verbatim in its artifact - `"the diff request returned 500 with 51 requests left in the hour and the request
 // was unauthenticated"`. The two artifacts then said `prsInDataset: 50` on both sides, and the comparison job - whose
@@ -29,8 +29,11 @@ const script = join(
   '..',
   '.github',
   'scripts',
-  'aacr-checklist-compare.mjs',
+  'aacr-ablation-compare.mjs',
 );
+
+/** The two arms the workflow varies: `emissionProfile`, read out of the artifacts rather than passed in. */
+const ARMS = { with: 'defect', without: 'advisory' } as const;
 
 /** The four pull requests the `with` arm could not read in run 42823966835, verbatim from its artifact. */
 const LOST = [
@@ -59,7 +62,7 @@ const all = [
  * fixture gives the two arms different ones so that a comparison that runs has something to say.
  */
 function arm(options: {
-  readonly checklist: boolean;
+  readonly arm: (typeof ARMS)['with' | 'without'];
   readonly reviewed: readonly string[];
   readonly found: readonly number[];
   readonly truePositives: number;
@@ -80,7 +83,11 @@ function arm(options: {
     prsWithoutDiffReasons: all
       .filter((key) => !options.reviewed.includes(key))
       .map((key) => ({ key, reason: 'the diff request was unauthenticated' })),
-    configuration: { judgeModel: 'fixture-model', languageChecklist: options.checklist },
+    configuration: {
+      judgeModel: 'fixture-model',
+      languageChecklist: false,
+      emissionProfile: options.arm,
+    },
     truePositives: options.truePositives,
     falsePositives: options.falsePositives,
     falseNegatives,
@@ -117,7 +124,7 @@ function compare(
     status = (error as { status?: number }).status ?? -1;
   }
   const artifact = JSON.parse(
-    readFileSync(join(dir, 'benchmarks', 'aacr-checklist-paired.json'), 'utf8'),
+    readFileSync(join(dir, 'benchmarks', 'aacr-ablation-paired.json'), 'utf8'),
   ) as Record<string, unknown>;
   return { status, artifact };
 }
@@ -125,14 +132,14 @@ function compare(
 describe('the comparison between two arms of an ablation', () => {
   it('refuses a pair whose arms read different amounts of the corpus, and names what was lost', () => {
     const withArm = arm({
-      checklist: true,
+      arm: ARMS.with,
       reviewed: all.filter((key) => !LOST.includes(key)),
       found: [0, 2, 4, 6],
       truePositives: 4,
       falsePositives: 16,
     });
     const withoutArm = arm({
-      checklist: false,
+      arm: ARMS.without,
       reviewed: all,
       found: [0, 1, 3, 5],
       truePositives: 4,
@@ -166,14 +173,14 @@ describe('the comparison between two arms of an ablation', () => {
 
   it('compares two arms that read the whole corpus, and publishes the paired test', () => {
     const withArm = arm({
-      checklist: true,
+      arm: ARMS.with,
       reviewed: all,
       found: [0, 1, 2, 3, 4, 5],
       truePositives: 6,
       falsePositives: 14,
     });
     const withoutArm = arm({
-      checklist: false,
+      arm: ARMS.without,
       reviewed: all,
       found: [0, 1, 2],
       truePositives: 3,
@@ -196,13 +203,13 @@ describe('the comparison between two arms of an ablation', () => {
     const swapped = [...all.slice(0, 49), 'https://github.com/example/repo/pull/999'];
     const { status, artifact } = compare(
       arm({
-        checklist: true,
+        arm: ARMS.with,
         reviewed: swapped,
         found: [0],
         truePositives: 2,
         falsePositives: 18,
       }),
-      arm({ checklist: false, reviewed: all, found: [1], truePositives: 2, falsePositives: 18 }),
+      arm({ arm: ARMS.without, reviewed: all, found: [1], truePositives: 2, falsePositives: 18 }),
     );
 
     expect(status).toBe(1);

@@ -114,17 +114,19 @@ describe('the workflow and the code offer the same profiles', () => {
     'utf8',
   );
 
-  it('declares exactly the profiles the module implements', () => {
-    // **A dispatch option the code does not implement runs the default while the artifact records a name nobody
-    // ran** - an experiment that measures the wrong arm and says so in its own metadata.
-    const block = /profile:[\s\S]*?options: \[([^\]]+)\]/.exec(workflow);
+  it('runs the two profiles as the matrix arms the comparison job reads', () => {
+    // **A matrix arm the code does not implement runs the default while the artifact records a name nobody ran** - an
+    // experiment that measures the wrong arm and says so in its own metadata.
+    const block = /profile: \[([^\]]+)\]/.exec(workflow);
     expect(block).not.toBeNull();
-    const options = block![1]!.split(',').map((value) => value.trim().replace(/^['"]|['"]$/g, ''));
-    expect(options.sort()).toEqual(['advisory', 'defect']);
+    const arms = block![1]!.split(',').map((value) => value.trim().replace(/^['"]|['"]$/g, ''));
+    expect(arms.sort()).toEqual(['advisory', 'defect']);
   });
 
-  it('passes the chosen profile to the process the script reads', () => {
-    expect(workflow).toContain("AACR_PROFILE: ${{ inputs.profile || 'defect' }}");
+  it('passes the arm to the process the script reads, so the artifact and the matrix cannot disagree', () => {
+    expect(workflow).toContain('AACR_PROFILE: ${{ matrix.profile }}');
+    // **And the retired device is off in both arms**, because a matrix that varies two things compares neither.
+    expect(workflow).toContain("AACR_CHECKLIST: 'off'");
   });
 });
 

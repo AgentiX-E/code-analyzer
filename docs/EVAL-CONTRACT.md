@@ -474,6 +474,12 @@ than 9 %, so the run measures the device instead of measuring a device that was 
 **+0.0033**, which is **twelve times smaller than the 0.04** the registration named, and inside the instrument's
 resolution.
 
+**And the matrix no longer varies this device.** Two paired runs later the checklist was measured again at −0.0237 with
+p = 0.0049 (§16.2), so the arms of the workflow now vary `AACR_PROFILE` - the category floor registered as R-17 in §19 -
+and the comparison job **reads the varied field out of the two artifacts** rather than being told which flag it is
+comparing. **A device that has been falsified twice does not get a third arm by default**; it gets a registration, and
+this one has none. The per-pull-request figures above remain the record of the run that falsified it.
+
 **The mechanism prediction is also falsified, and for a more interesting reason.** §8.4 said _"precision rises and recall
 does not fall by more than one golden"_. Precision did rise, by 0.070 — **two thirds of the distance the device had to
 travel, from 0.219 to the competitor's 0.329** — and recall fell by **nine goldens, not one**. So **the device works exactly as designed
@@ -1577,7 +1583,9 @@ and **`api` and `other`, which were never emitted, are kept** - a category nobod
 
 ### 19.4 What the artifact now says, and what it refuses to say
 
-`configuration.emissionProfile` records which side of R-17 a run was, and `engineCounters.profile` carries the count and
+**The workflow's two matrix arms are now this device**: `defect` and `advisory`, over the same pull requests, and the
+comparison job reads the varied field out of the two artifacts instead of being told it - so the next hypothesis is a
+matrix edit rather than a rewrite. `configuration.emissionProfile` records which side of R-17 a run was, and `engineCounters.profile` carries the count and
 the sentence per dropped category - so **a precision that rose because two thirds of the emission left is distinguishable
 from one that rose because the findings got better**, which is the whole difference between this and a filter that
 silently discards.
