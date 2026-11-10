@@ -1197,6 +1197,19 @@ a hallucination with better grammar, and **the gate is what would have to absorb
 **And the artifact now carries `rankedFindings[].text`**, because **a rejection is a claim about wording and the artifact
 could not show a single sentence** - the same omission as the discarded `path` in §13, one level up.
 
+**Implemented the day it was registered, against a baseline that was already running.** Run
+[42789979455](https://github.com/AgentiX-E/code-analyzer/actions/runs/42789979455) - 50 pull requests, both checklist
+arms, `boilerplate-first`, competitor replayed, from commit `4bb3985` - is the **before**, and it started before this
+paragraph existed, so nothing in it can have been measured under the requirement. The rule itself is one constant,
+`DESCRIBE_THE_FAILURE` in `packages/intelligence/src/review/llm/prompts.ts`, spliced into **both** contracts: the file
+contract's new rule 6 and the pull-request contract's new rule 9. **Two copies would be two rules that happen to agree
+today**, which is the defect the shared constant exists to prevent, and six unit cases hold it in every lane and both
+scopes (`tests/unit/every-finding-names-what-fails.test.ts`).
+
+**The comparison is available without a flag**, because `aacr-checklist-compare.mjs` already pairs two artifacts on
+pull request and golden index - **so the run after this one can be paired against the before, at the same corpus size,
+with the same judge, and no second dispatch is needed to establish the baseline.**
+
 ### 15.6 The corpus, raised to the size the claim needs
 
 |                                                  | 14 pull requests | 50 pull requests | 200 pull requests                     |

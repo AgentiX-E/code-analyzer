@@ -144,6 +144,30 @@ const OUTPUT_SCHEMA = `{
  * rule makes the output a human would read. **Neither alone suffices**: a correct category fifteen times per window
  * is unreadable, and three findings per window in the wrong vocabulary are still unmatchable.
  */
+/**
+ * **The one requirement every finding in this engine has to meet, and the measurement that says why.**
+ *
+ * On the AACR corpus, **98 of 170 goldens were missed by a finding on their own file**, and re-reading the corpus's
+ * `from_line` against the findings' ranges put **40 of those 98 on the golden's own line and 73 within ten lines of
+ * it** (`docs/EVAL-CONTRACT.md` §15.4). **So the lanes were not looking in the wrong place** - they were standing in the
+ * right one and describing something the judge would not call the same defect.
+ *
+ * **The contract had rules about where a finding points and none about what it says.** Rule 4 of the file contract
+ * spends a hundred and seventy words on lines and severity, and a lane reading it learns that a range "must cover the
+ * whole problem" while nothing tells it that the sentence has to name the problem. **A finding that only proposes an
+ * improvement cannot be matched to a defect, cannot be checked, and cannot be wrong** - which is a worse property than
+ * being wrong.
+ *
+ * **One constant rather than a paragraph per scope**, because the two scopes disagree about the budget and about the
+ * file, and they do not disagree about this.
+ */
+const DESCRIBE_THE_FAILURE = `**The description names the failure, not the fix.** Say what goes wrong and under which
+   input or state, in the vocabulary the code uses - "\`read()\` returns the caller's stream unclosed, so a path that
+   never closes it leaks a descriptor on every request" rather than "consider closing the stream". **This is the rule
+   the last measurement bought**: of 98 goldens whose file we commented on and whose line we commented on within ten
+   lines, **we matched none**, so a finding in the right place that describes the wrong thing is this corpus's dominant
+   loss. A suggestion that names no failure cannot be right or wrong, which is why it is not reported.`;
+
 const SELECTION_RULES = `
 How to choose and how many to return - this is part of the contract, not advice:
 
@@ -170,6 +194,7 @@ How to choose and how many to return - this is part of the contract, not advice:
    is an improvement. **"info" is not a defect**, so **do not use it for one** - and **when you are unsure between two
    levels, choose the lower one**, because **a severity that is claimed and not justified costs precision on every
    row of the measurement that filters by it.**
+6. ${DESCRIBE_THE_FAILURE}
 `;
 
 // ---------------------------------------------------------------------------
@@ -226,6 +251,7 @@ ${paths.map((path) => `   - ${path}`).join('\n')}
    the lower one.
 8. **An empty findings array is a valid and useful answer.** A pull request that only renames a variable does not
    contain ${budget} defects, and saying so is the correct output rather than a failure of the exercise.
+9. ${DESCRIBE_THE_FAILURE}
 `;
 }
 
