@@ -387,7 +387,36 @@ if (KEY) {
     await import('../../packages/intelligence/dist/review/llm/provider.js');
   const { createDiff } =
     await import('../../packages/intelligence/dist/benchmark/benchmark-runner.js');
-  const engine = new LLMReviewEngine(new DeepSeekProvider());
+  // **The ceiling this script did not have, and the reason it now does.** On 2026-11-10 a single benchmark run cost
+  // 8.53 USD and this repository could not say which job spent what - **four of the five scripts that construct a
+  // provider had no ceiling at all**, so the only job that could not run away was the one somebody had already
+  // priced. A ledger records a bill after it is paid; `ceilingUsd` stops one being incurred: **the provider refuses
+  // the next call once the run has spent what it was allowed**, and the refusal is an error rather than a silent
+  // truncation, because a reviewer that stops mid-corpus and reports a lower recall is a figure that looks like a
+  // measurement.
+  const { CostLedger } = await import('../../packages/intelligence/dist/review/llm/cost.js');
+  const ledger = new CostLedger();
+  const CEILING_USD = Number(process.env['LLM_MAX_USD'] ?? 3);
+  const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: CEILING_USD }));
+  console.log('RUNNABLE-COMPETITORS ceiling ' + String(CEILING_USD) + ' USD');
+  // **And what it spent, printed on the way out.** The ledger is registered rather than summarised at the end because
+  // these scripts have several exits - a corpus that fails to clone, an account out of credit, a thrown error - and a
+  // figure printed only on the happy path is a figure missing from exactly the runs worth reading. `process.on('exit')`
+  // runs on all of them; the write is synchronous because an async callback does not run at exit.
+  process.on('exit', () => {
+    const totals = ledger.toJSON().totals;
+    console.log(
+      'RUNNABLE-COMPETITORS spend ' +
+        String(totals.costUsd) +
+        ' USD over ' +
+        String(totals.calls) +
+        ' calls (' +
+        String(totals.cacheHitTokens) +
+        ' cached prompt tokens, ' +
+        String(totals.unpricedCalls) +
+        ' unpriced)',
+    );
+  });
   for (const file of files) {
     const content = readFileSync(file, 'utf8');
     const rel = file.slice(root.length + 1);
