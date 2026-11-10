@@ -62,7 +62,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'js',
     nodeType: 'call_expression',
-    receiverPattern: /socket|io|ws|client|server$/,
+    receiverPattern: /(?:socket|io|ws|client|server)$/i,
     methodName: 'emit',
     direction: 'emit',
     transport: 'socketio',
@@ -71,7 +71,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'js',
     nodeType: 'call_expression',
-    receiverPattern: /socket|io|ws|client|server$/,
+    receiverPattern: /(?:socket|io|ws|client|server)$/i,
     methodName: 'on',
     direction: 'listen',
     transport: 'socketio',
@@ -80,7 +80,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'js',
     nodeType: 'call_expression',
-    receiverPattern: /socket|io|ws|client|server$/,
+    receiverPattern: /(?:socket|io|ws|client|server)$/i,
     methodName: 'addListener',
     direction: 'listen',
     transport: 'socketio',
@@ -89,7 +89,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'js',
     nodeType: 'call_expression',
-    receiverPattern: /socket|io|ws|client|server$/,
+    receiverPattern: /(?:socket|io|ws|client|server)$/i,
     methodName: 'once',
     direction: 'listen',
     transport: 'socketio',
@@ -100,7 +100,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'js',
     nodeType: 'call_expression',
-    receiverPattern: /emitter|eventEmitter|events|bus|eventBus|pubsub$/,
+    receiverPattern: /(?:emitter|eventEmitter|events|bus|eventBus|pubsub)$/i,
     methodName: 'emit',
     direction: 'emit',
     transport: 'event_emitter',
@@ -109,7 +109,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'js',
     nodeType: 'call_expression',
-    receiverPattern: /emitter|eventEmitter|events|bus|eventBus|pubsub$/,
+    receiverPattern: /(?:emitter|eventEmitter|events|bus|eventBus|pubsub)$/i,
     methodName: 'on',
     direction: 'listen',
     transport: 'event_emitter',
@@ -118,7 +118,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'js',
     nodeType: 'call_expression',
-    receiverPattern: /emitter|eventEmitter|events|bus|eventBus|pubsub$/,
+    receiverPattern: /(?:emitter|eventEmitter|events|bus|eventBus|pubsub)$/i,
     methodName: 'addListener',
     direction: 'listen',
     transport: 'event_emitter',
@@ -201,7 +201,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /sio|socketio|socket$/,
+    receiverPattern: /(?:sio|socketio|socket)$/i,
     methodName: 'emit',
     direction: 'emit',
     transport: 'socketio',
@@ -210,7 +210,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /sio|socketio|socket$/,
+    receiverPattern: /(?:sio|socketio|socket)$/i,
     methodName: 'on',
     direction: 'listen',
     transport: 'socketio',
@@ -219,7 +219,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'decorator',
-    receiverPattern: /sio|socketio|socket$/,
+    receiverPattern: /(?:sio|socketio|socket)$/i,
     methodName: 'on',
     direction: 'listen',
     transport: 'socketio',
@@ -248,7 +248,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /websocket|ws$/,
+    receiverPattern: /(?:websocket|ws)$/i,
     methodName: 'send',
     direction: 'emit',
     transport: 'websocket',
@@ -257,7 +257,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /websocket|ws$/,
+    receiverPattern: /(?:websocket|ws)$/i,
     methodName: 'send_text',
     direction: 'emit',
     transport: 'websocket',
@@ -266,7 +266,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /websocket|ws$/,
+    receiverPattern: /(?:websocket|ws)$/i,
     methodName: 'send_json',
     direction: 'emit',
     transport: 'websocket',
@@ -275,7 +275,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /websocket|ws$/,
+    receiverPattern: /(?:websocket|ws)$/i,
     methodName: 'receive',
     direction: 'listen',
     transport: 'websocket',
@@ -284,7 +284,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /websocket|ws$/,
+    receiverPattern: /(?:websocket|ws)$/i,
     methodName: 'receive_text',
     direction: 'listen',
     transport: 'websocket',
@@ -293,7 +293,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'py',
     nodeType: 'call',
-    receiverPattern: /websocket|ws$/,
+    receiverPattern: /(?:websocket|ws)$/i,
     methodName: 'receive_json',
     direction: 'listen',
     transport: 'websocket',
@@ -342,7 +342,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'go',
     nodeType: 'call_expression',
-    receiverPattern: /conn|wsConn|ws|c|Conn|connection$/,
+    receiverPattern: /(?:^c|conn|wsConn|ws|Conn|connection)$/i,
     methodName: 'WriteMessage',
     direction: 'emit',
     transport: 'websocket',
@@ -351,7 +351,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'go',
     nodeType: 'call_expression',
-    receiverPattern: /conn|wsConn|ws|c|Conn|connection$/,
+    receiverPattern: /(?:^c|conn|wsConn|ws|Conn|connection)$/i,
     methodName: 'WriteJSON',
     direction: 'emit',
     transport: 'websocket',
@@ -360,7 +360,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'go',
     nodeType: 'call_expression',
-    receiverPattern: /conn|wsConn|ws|c|Conn|connection$/,
+    receiverPattern: /(?:^c|conn|wsConn|ws|Conn|connection)$/i,
     methodName: 'Write',
     direction: 'emit',
     transport: 'websocket',
@@ -369,7 +369,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'go',
     nodeType: 'call_expression',
-    receiverPattern: /conn|wsConn|ws|c|Conn|connection$/,
+    receiverPattern: /(?:^c|conn|wsConn|ws|Conn|connection)$/i,
     methodName: 'ReadMessage',
     direction: 'listen',
     transport: 'websocket',
@@ -378,7 +378,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'go',
     nodeType: 'call_expression',
-    receiverPattern: /conn|wsConn|ws|c|Conn|connection$/,
+    receiverPattern: /(?:^c|conn|wsConn|ws|Conn|connection)$/i,
     methodName: 'ReadJSON',
     direction: 'listen',
     transport: 'websocket',
@@ -387,7 +387,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'go',
     nodeType: 'call_expression',
-    receiverPattern: /conn|wsConn|ws|c|Conn|connection$/,
+    receiverPattern: /(?:^c|conn|wsConn|ws|Conn|connection)$/i,
     methodName: 'Read',
     direction: 'listen',
     transport: 'websocket',
@@ -568,7 +568,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'rust',
     nodeType: 'call_expression',
-    receiverPattern: /sink|ws_sender|writer|write$/,
+    receiverPattern: /(?:sink|ws_sender|writer|write)$/i,
     methodName: 'send',
     direction: 'emit',
     transport: 'websocket',
@@ -577,7 +577,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'rust',
     nodeType: 'call_expression',
-    receiverPattern: /sink|ws_sender|writer|write$/,
+    receiverPattern: /(?:sink|ws_sender|writer|write)$/i,
     methodName: 'send_all',
     direction: 'emit',
     transport: 'websocket',
@@ -586,7 +586,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'rust',
     nodeType: 'call_expression',
-    receiverPattern: /sink|ws_sender|writer|write$/,
+    receiverPattern: /(?:sink|ws_sender|writer|write)$/i,
     methodName: 'feed',
     direction: 'emit',
     transport: 'websocket',
@@ -595,7 +595,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'rust',
     nodeType: 'call_expression',
-    receiverPattern: /stream|ws_receiver|reader|read|ws_stream|ws$/,
+    receiverPattern: /(?:stream|ws_receiver|reader|read|ws_stream|ws)$/i,
     methodName: 'next',
     direction: 'listen',
     transport: 'websocket',
@@ -604,7 +604,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   {
     language: 'rust',
     nodeType: 'call_expression',
-    receiverPattern: /stream|ws_receiver|reader|read|ws_stream|ws$/,
+    receiverPattern: /(?:stream|ws_receiver|reader|read|ws_stream|ws)$/i,
     methodName: 'try_next',
     direction: 'listen',
     transport: 'websocket',

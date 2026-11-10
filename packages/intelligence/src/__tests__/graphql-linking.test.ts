@@ -143,6 +143,43 @@ describe('graphql-linking', () => {
     });
   });
 
+  // **A `receiverPattern` is a claim about how a receiver *ends*, and every one of these read as a claim about what it
+  // contains.** `/socket|io|ws|client|server$/` anchors the last alternative only, so `configuration` and `options` end
+  // in nothing and contain `io`, and both were classified as a Socket.IO emit - **which is how a rule meant to find
+  // `socket.emit` ends up finding `options.emit` and `configuration.emit` first, because those are the receivers that
+  // appear most often in a real repository.** The Go rule is the extreme: `/conn|wsConn|ws|c|Conn|connection$/` contains a
+  // bare `c`, so **every receiver containing the letter c was a websocket**.
+  describe('a receiver pattern is an ending rather than a substring', () => {
+    it('does not read a receiver that merely contains a token as that token', () => {
+      expect(detectChannel('js', 'configuration', 'emit', 'evt')).toBeNull();
+      expect(detectChannel('js', 'options', 'emit', 'evt')).toBeNull();
+      expect(detectChannel('go', 'basic', 'WriteMessage')).toBeNull();
+    });
+
+    it('still reads a receiver that ends in one', () => {
+      expect(detectChannel('js', 'chatServer', 'emit', 'evt')?.transport).toBe('socketio');
+      expect(detectChannel('js', 'myApp.socket', 'emit', 'evt')?.transport).toBe('socketio');
+      expect(detectChannel('go', 'wsConn', 'WriteMessage')?.transport).toBe('websocket');
+      expect(detectChannel('go', 'conn', 'WriteMessage')?.transport).toBe('websocket');
+    });
+
+    it('states each pattern as an ending, so the read and the rule agree', () => {
+      // **The patterns are data, so the claim is checked on the data rather than on a description of it**: the source
+      // ends at `$`, and a source with alternatives opens with the group that the `$` applies to.
+      for (const rule of getChannelRules('js').concat(
+        getChannelRules('go'),
+        getChannelRules('rust'),
+      )) {
+        const source = rule.receiverPattern?.source;
+        if (!source) continue;
+        expect(source, `${String(rule.desc)} must end at $`).toMatch(/\$$/);
+        if (source.includes('|')) {
+          expect(source, `${String(rule.desc)} must anchor its alternation`).toMatch(/^\(\?:/);
+        }
+      }
+    });
+  });
+
   describe('getChannelRules', () => {
     it('returns rules filtered by language', () => {
       const jsRules = getChannelRules('js');
