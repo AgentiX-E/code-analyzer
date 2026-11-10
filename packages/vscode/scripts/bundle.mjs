@@ -60,7 +60,6 @@ const treeSitter = [
   'tree-sitter-scala',
   'tree-sitter-sql',
   'tree-sitter-swift',
-  'tree-sitter-toml',
   'tree-sitter-typescript',
   'tree-sitter-yaml',
   'tree-sitter-zig',
