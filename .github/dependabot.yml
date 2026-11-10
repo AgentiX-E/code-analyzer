@@ -14,6 +14,23 @@ updates:
       timezone: 'Asia/Shanghai'
     versioning-strategy: 'increase'
     open-pull-requests-limit: 10
+    # **Two majors are held by a decision rather than by a failure, and an ignore rule is where a decision belongs.**
+    #
+    # `@types/node` describes the API surface of *its own* major, and this repository builds and tests on Node 22.14.0
+    # and 22.23.4. Taking the types ahead of the runtime makes the compiler accept a call the runner cannot make - **the
+    # one failure a green type check cannot catch, because it is the type check that would be lying.** The rule comes off
+    # in the same change that moves the runtime.
+    #
+    # A test runner major is the other one: it rewrites the suites that decide whether this repository still works, and a
+    # pull-request run compiles the tests rather than proving them. **A major that a green CI cannot settle is a
+    # migration, not a version number**, so it is held until the iteration that reads every suite it changes.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'vitest'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vitest/*'
+        update-types: ['version-update:semver-major']
     labels:
       - 'dependencies'
       - 'automated'
