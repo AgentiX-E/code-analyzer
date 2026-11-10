@@ -72,11 +72,30 @@ function pushPathsOf(source: string): string[] | null {
   return paths;
 }
 
+/**
+ * A workflow with its comment lines removed.
+ *
+ * **Why the reader has to do this.** These files explain their own history, and the explanation names the credential - so
+ * a reader that searched the raw text counted `ci.yml` as paid for as long as its comments said the credential had been
+ * removed. **The gate asks what a file does, and a sentence about what it used to do is not something a file does.** The
+ * first version of this reader did search the raw text, and the assertion below failed on a file whose only remaining
+ * mention of the key was the paragraph explaining its absence.
+ */
+function withoutComments(source: string): string {
+  return source
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .map((line) => line.replace(/\s+#.*$/, ''))
+    .join('\n');
+}
+
 function paidWorkflows(): Array<{ name: string; source: string }> {
   return readdirSync(WORKFLOWS)
     .filter((file) => file.endsWith('.yml'))
     .map((file) => ({ name: file, source: readFileSync(join(WORKFLOWS, file), 'utf8') }))
-    .filter(({ source }) => CREDENTIALS.some((credential) => source.includes(credential)));
+    .filter(({ source }) =>
+      CREDENTIALS.some((credential) => withoutComments(source).includes(credential)),
+    );
 }
 
 describe('a workflow that can call a model is not dispatched by the code it measures', () => {
@@ -120,6 +139,38 @@ describe('a workflow that can call a model is not dispatched by the code it meas
         const firstLine = onBlock.slice(match.index + match[0].length).split('\n')[0] ?? '';
         if (!firstLine.trim().startsWith('- ')) offenders.push(name);
       }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('declares no push trigger at all, because the cheapest paid run is the one nobody scheduled', () => {
+    // **The rule was narrowed once and the narrowing was not enough.** The first version forbade the *product* paths -
+    // `packages/`, `scripts/`, `tests/` - and let a workflow keep a push trigger on its own harness, on the argument that
+    // an edited harness should be exercised. **The artifact of 2026-11-10 priced that argument at 60.59 CNY for one
+    // push.** A paid run has two honest triggers: a dispatch, which is a person deciding to spend, and a schedule, which
+    // is one row in a file a reviewer can see. Nothing else is worth the ambiguity.
+    const offenders: string[] = [];
+    for (const { name, source } of paid) {
+      const hasPush = /^ {2}push:/m.test(source);
+      const hasPr = /^ {2}pull_request(?:_target)?:/m.test(source);
+      if (hasPush) offenders.push(`${name}: push`);
+      if (hasPr) offenders.push(`${name}: pull_request`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('never hands a model credential to a job that runs the test suite', () => {
+    // **The strongest guarantee in this file, and the only one that does not depend on any test's own guard being
+    // right.** The suite contains measurements that branch on a provider key - a hundred real issues reviewed through
+    // five lanes, query sets written before a search is scored - and each of them runs when the key is present. **A
+    // guard can be edited by the next person who wants the measurement in CI; a job without the secret cannot spend it
+    // whatever the guard says.** So the rule is about the environment rather than about the code: a job that runs
+    // `pnpm test` receives no credential, and a measurement that needs one lives in a job a person dispatches.
+    const offenders: string[] = [];
+    for (const file of readdirSync(WORKFLOWS).filter((entry) => entry.endsWith('.yml'))) {
+      const source = withoutComments(readFileSync(join(WORKFLOWS, file), 'utf8'));
+      if (!/\bpnpm test/.test(source)) continue;
+      if (CREDENTIALS.some((credential) => source.includes(credential))) offenders.push(file);
     }
     expect(offenders).toEqual([]);
   });

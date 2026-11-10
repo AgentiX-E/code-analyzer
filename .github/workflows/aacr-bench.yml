@@ -20,6 +20,20 @@ name: AACR Bench
 
 on:
   workflow_dispatch:
+    inputs:
+      competitor:
+        # **The one input that decides whether this run buys a competitor result.** `replay` (the default) reads the
+        # file at `benchmarks/aacr/competitor-baseline.json`; `record` buys one and uploads it for review; `off` removes
+        # the arm. **The default is the cheap side on purpose**: a dispatch that forgets to choose spends nothing on the
+        # arm, and the artifact says which mode ran.
+        description: 'Competitor arm: replay the recorded result, record a new one, or switch it off'
+        type: choice
+        # **Quoted, because `off` is a boolean in YAML 1.1** - the same reason this file writes `on:` and lets the
+        # parser turn it into `true`. An unquoted `off` reaches the workflow as `false`, and a mode that arrives as a
+        # boolean is a mode the script reads as unrecognised and answers by replaying - **which is the safe direction,
+        # and still not the one anybody selected**.
+        options: ['replay', 'record', 'off']
+        default: replay
   schedule:
     # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
@@ -134,7 +148,22 @@ jobs:
           # which is what happened on 2026-11-09, when four ad-hoc runs of this job spent most of a day's credit and the
           # only record of it was a balance that had moved. **The ceiling is an input so a larger corpus can raise it
           # deliberately**, and the artifact records the number the run was bounded by.
-          AACR_MAX_USD: '12'
+          #
+          # **And it is now conditional, because replaying the competitor changed what a run costs.** A replayed run is
+          # the reviewer and the judge only - about 2.6 USD of the 8.53 that produced the 2026-11-10 figure - so a
+          # ceiling of 12 would admit a run nearly five times its observed cost and **a ceiling that far above the work
+          # is not a ceiling, it is a formality**. A recording run keeps the larger bound, because that is the run that
+          # buys the 5.89 USD arm.
+          AACR_MAX_USD: ${{ inputs.competitor == 'record' && '12' || '5' }}
+          # **Whether this run buys a competitor result, or reads the one already paid for.** The script's own default
+          # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
+          # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.
+          #
+          # **And only one arm records.** The matrix runs this job twice, differing in `AACR_CHECKLIST`; the competitor
+          # is the same measurement in both, so a `record` dispatch that let both arms record would buy the 5.89 USD arm
+          # twice and write two files whose only difference is which arm's artifact carried them. The `with` arm records;
+          # the other is switched off, and its artifact says so.
+          AACR_COMPETITOR: ${{ inputs.competitor == 'record' && matrix.checklist == 'with' && 'record' || inputs.competitor == 'record' && matrix.checklist != 'with' && 'off' || inputs.competitor || 'replay' }}
           # **And the second reviewer's own configuration**, pointing at the same provider the judge uses - so
           # **the reviewer and the judge are the same model, which is requirement 2 satisfied by construction.**
           OCR_LLM_URL: https://api.deepseek.com/anthropic
@@ -151,6 +180,7 @@ jobs:
           # iteration has to read** and **a field cannot hold a document**.
           path: |
             benchmarks/aacr-bench.json
+            benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
           retention-days: 90
