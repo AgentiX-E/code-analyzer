@@ -325,12 +325,7 @@ export type {
   LanguageRule,
   RuleLanguage,
 } from './review/llm/language-rules.js';
-export type {
-  LLMFinding,
-  PromptContext,
-  PromptOrder,
-  ReviewLane,
-} from './review/llm/prompts.js';
+export type { LLMFinding, PromptContext, PromptOrder, ReviewLane } from './review/llm/prompts.js';
 export { composeLanePrompt, sharedPrefix } from './review/llm/prompts.js';
 
 export { LLMReviewEngine, planLaneWaves } from './review/llm/llm-review-engine.js';

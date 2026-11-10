@@ -13,12 +13,7 @@
     "Rules learned the hard way in this repository: a benchmark figure without a citation, and an install command",
     "that returns 404, both shipped for months because nothing checked the text against the evidence."
   ],
-  "vocabulary": [
-    "tested",
-    "verified",
-    "planned",
-    "partial"
-  ],
+  "vocabulary": ["tested", "verified", "planned", "partial"],
   "strongestWithoutArtifact": "tested",
   "features": {
     "Scope Resolution": {

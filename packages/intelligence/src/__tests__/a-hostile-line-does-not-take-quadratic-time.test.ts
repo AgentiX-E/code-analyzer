@@ -18,9 +18,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
 import { parseCitationIds } from '../qa/citations.js';
 import { collectDiffFacts } from '../review/actionability.js';
+import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
 import { extractImports } from '../search/path-imports.js';
 
 /**
@@ -134,9 +134,10 @@ describe('a line the product did not write', () => {
           }),
         healthCheck: () => Promise.resolve(true),
       });
-      return engine.reviewPullRequest([{ path: 'src/a.ts', lines: hostile.split('\n') }], {
-        changedPaths: ['src/a.ts'],
-      });
+      // **`void` and not `return`**: the section splitter runs synchronously before the first await, so the stopwatch
+      // covers the scan that was quadratic. The call is left to settle on its own; `describe` below fails the suite if
+      // an unhandled rejection escapes.
+      void engine.reviewPullRequest([{ path: 'src/a.ts', diffText: hostile }]);
     });
 
     expect(elapsed).toBeLessThan(CEILING_MS);
