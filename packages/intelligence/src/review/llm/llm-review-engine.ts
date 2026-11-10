@@ -10,7 +10,7 @@ import {
   type ReviewLane,
   type LLMFinding,
 } from './prompts.js';
-import { collectDiffFacts, rankFindings } from '../actionability.js';
+import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
@@ -807,18 +807,25 @@ export class LLMReviewEngine {
     const canonicalOf = new Map<string, string>();
     let section: Array<{ start: number; end: number }> | null = null;
     for (const raw of String(ctx.diffContent).split('\n')) {
-      const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(raw);
+      // **A search rather than two lazy groups.** `^diff --git a\/(.+?) b\/(.+)$` is quadratic on a header line
+      // holding many ` b/` candidates, and a diff is text this module did not write. The split is at the first ` b/`,
+      // which is where the lazy group stopped, so **the answers are the ones this function already gave** - a fix for a
+      // quadratic scan that also moved a boundary would be two changes, and only one of them was measured.
+      const header = diffHeaderPaths(raw);
       if (header) {
-        const canonical = normaliseReviewPath(String(header[2]));
+        const canonical = normaliseReviewPath(header.right);
         section = [];
         rangesByPath.set(canonical, section);
         canonicalOf.set(canonical, canonical);
         // Only when the two sides differ, so the ordinary case adds nothing a reader has to hold.
-        const before = normaliseReviewPath(String(header[1]));
+        const before = normaliseReviewPath(header.left);
         if (before !== canonical) canonicalOf.set(before, canonical);
         continue;
       }
-      const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(raw);
+      // **`{1,9}` and not `+`.** A line of the form `@@ -1111…1` with no second coordinate makes `\d+` rescan the run
+      // from every start position, and a hunk header is attacker text. **A line number wider than nine digits is not a
+      // line number**; the bound is stated rather than implied by the size of the file being read.
+      const hunk = /^@@ -\d{1,9}(?:,\d{1,9})? \+(\d{1,9})(?:,(\d{1,9}))? @@/.exec(raw);
       if (hunk && section !== null) {
         const start = Number(hunk[1]);
         section.push({ start, end: start + Number(hunk[2] ?? 1) - 1 });
