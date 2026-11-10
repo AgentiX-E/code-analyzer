@@ -22,6 +22,15 @@ updates:
       prefix-development: 'deps(dev)'
       include: 'scope'
     groups:
+      # **The React runtime moves as one, because React refuses to run when the pair differs.** An ungrouped bump moved
+      # `react` to 19.3.1 and left `react-dom` at 19.2.7, and the result was four web suites failing at import with
+      # `Incompatible React versions` - a message from React's internals that names neither manifest. Grouping makes the
+      # two arrive in one pull request; `react-and-react-dom-move-together.test.ts` makes a skew fail as one named
+      # invariant rather than as four broken suites.
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
       typescript-eslint:
         patterns:
           - '@typescript-eslint/*'

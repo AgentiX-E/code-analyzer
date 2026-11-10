@@ -16,19 +16,14 @@ name: Embedding Backend
 # silently falls back and reports a lexical number under a semantic name.
 
 on:
-  # **A product change does not dispatch a paid run.** These paths used to start this job on every commit that
-  # touched the code it measures, which is a bill for measuring one's own edit - the trigger fires on corpora and
-  # harnesses only now, and the schedule below is the weekly measurement, placed inside the vendor's off-peak
-  # window where every price is half.
+  # **A product change does not dispatch a paid run, and neither does a corpus change.** These paths - the paraphrase
+  # query set and the retrieval corpus - used to start this job on every commit that touched them, on the argument that
+  # a changed corpus changes what this measures. **It does, and that is a reason to measure it deliberately rather than
+  # to measure it on every push**: the schedule below is the weekly run, placed inside the vendor's off-peak window
+  # where every price is half, and a corpus edit that needs a number today is a dispatch.
   schedule:
     - cron: '20 4 * * 3'
   workflow_dispatch:
-  push:
-    branches: [master]
-    paths:
-      - 'benchmarks/paraphrase-queries.json'
-      - 'benchmarks/retrieval-corpus/**'
-      - 'benchmarks/retrieval-corpus.md'
 
 concurrency:
   group: embedding-backend

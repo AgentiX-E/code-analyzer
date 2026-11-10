@@ -1,0 +1,3433 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-09T00:00:00.000Z",
+  "corpus": {
+    "fingerprint": "sha256:a04a401878b4a4c3594cb6b8fe6ebe1f",
+    "judge": {
+      "model": "deepseek-chat",
+      "prompt": "aacr-judge-v1"
+    }
+  },
+  "competitor": {
+    "tool": "open-code-review"
+  },
+  "provenance": {
+    "transcribedFrom": "benchmarks/aacr-bench.json",
+    "measuredAt": "2026-11-09",
+    "source": "the artifact of the run of 2026-11-09, which carries one row per competitor finding and the goldens the judge accepted for it",
+    "why": "a result already paid for is an input, and the run that bought it published the per-pair verdicts rather than only a summary, so the record can be transcribed instead of re-bought",
+    "checkedBy": "tests/unit/scripts/the-competitor-we-already-paid-for.test.ts, which replays this file and asserts the published true and false positive counts",
+    "failedPullRequests": ["https://github.com/microsoft/typescript-go/pull/1446"]
+  },
+  "pulls": {
+    "https://github.com/FreeCAD/FreeCAD/pull/19411": {
+      "matches": [
+        [10, 11, 12],
+        [7],
+        [],
+        [10, 11, 12],
+        [10, 11, 12],
+        [],
+        [],
+        [6, 7],
+        [4],
+        [],
+        [],
+        [],
+        [1],
+        [3],
+        [],
+        [],
+        [1, 5],
+        [6, 7],
+        [7],
+        [1, 5, 7],
+        [],
+        [],
+        [1, 5]
+      ],
+      "goldens": 19,
+      "keep": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "detail": [
+        {
+          "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+          "startLine": 391,
+          "endLine": 392,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.9033,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [10, 11, 12]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+          "startLine": 1137,
+          "endLine": 1138,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.8793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [7]
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/CommandCreateDims.cpp",
+          "startLine": 2140,
+          "endLine": 2141,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.8793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+          "startLine": 638,
+          "endLine": 645,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.8793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [10, 11, 12]
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+          "startLine": 676,
+          "endLine": 678,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.8793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [10, 11, 12]
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+          "startLine": 319,
+          "endLine": 320,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.8493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/QGIViewBalloon.cpp",
+          "startLine": 958,
+          "endLine": 960,
+          "severity": "low",
+          "category": "style",
+          "score": 0.8133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1299,
+          "endLine": 1303,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.7393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [6, 7]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+          "startLine": 200,
+          "endLine": 201,
+          "severity": "low",
+          "category": "style",
+          "score": 0.6733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [4]
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+          "startLine": 736,
+          "endLine": 737,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+          "startLine": 83,
+          "endLine": 85,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+          "startLine": 1108,
+          "endLine": 1109,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1299,
+          "endLine": 1300,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [1]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+          "startLine": 96,
+          "endLine": 101,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [3]
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/QGIViewBalloon.h",
+          "startLine": 45,
+          "endLine": 45,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/BalloonPropEnum.h",
+          "startLine": 36,
+          "endLine": 36,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+          "startLine": 1127,
+          "endLine": 1132,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.4293,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [1, 5]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+          "startLine": 1157,
+          "endLine": 1163,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [6, 7]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1379,
+          "endLine": 1393,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.2393,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [7]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1385,
+          "endLine": 1393,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.2093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [1, 5, 7]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+          "startLine": 1149,
+          "endLine": 1149,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.2093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawProjGroup.cpp",
+          "startLine": 574,
+          "endLine": 574,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.1733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 96,
+          "endLine": 96,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.0733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [1, 5]
+        }
+      ],
+      "unanswered": 0,
+      "findings": 23,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/21257": {
+      "matches": [
+        [13],
+        [1, 17],
+        [9],
+        [],
+        [],
+        [16],
+        [0, 5, 15],
+        [],
+        [18],
+        [],
+        [],
+        [3, 5, 15],
+        [],
+        [],
+        [],
+        [17],
+        [5, 15],
+        [15],
+        [],
+        [],
+        [],
+        [4]
+      ],
+      "goldens": 19,
+      "keep": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "detail": [
+        {
+          "path": "src/Mod/Part/Gui/Command.cpp",
+          "startLine": 1974,
+          "endLine": 1975,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.9033,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [13]
+        },
+        {
+          "path": "src/Mod/Part/App/AppPartPy.cpp",
+          "startLine": 2292,
+          "endLine": 2297,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.9033,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [1, 17]
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.cpp",
+          "startLine": 1328,
+          "endLine": 1335,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.8793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [9]
+        },
+        {
+          "path": "src/Mod/Part/Gui/Mirroring.cpp",
+          "startLine": 103,
+          "endLine": 106,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.8493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.cpp",
+          "startLine": 1326,
+          "endLine": 1335,
+          "severity": "low",
+          "category": "performance",
+          "score": 0.8133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Part/Gui/TaskSweep.cpp",
+          "startLine": 301,
+          "endLine": 302,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.7793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [16]
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/DrawGuiUtil.cpp",
+          "startLine": 648,
+          "endLine": 654,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.7133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [0, 5, 15]
+        },
+        {
+          "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+          "startLine": 730,
+          "endLine": 730,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5793,
+          "features": {
+            "grounded": false,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Surface/App/Blending/FeatureBlendCurve.cpp",
+          "startLine": 139,
+          "endLine": 139,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [18]
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.cpp",
+          "startLine": 881,
+          "endLine": 891,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.5133,
+          "features": {
+            "grounded": false,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.h",
+          "startLine": 143,
+          "endLine": 145,
+          "severity": "low",
+          "category": "documentation",
+          "score": 0.5133,
+          "features": {
+            "grounded": false,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Part/App/MeasureClient.cpp",
+          "startLine": 101,
+          "endLine": 101,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [3, 5, 15]
+        },
+        {
+          "path": "src/Mod/PartDesign/App/FeatureSketchBased.h",
+          "startLine": 134,
+          "endLine": 137,
+          "severity": "low",
+          "category": "documentation",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.cpp",
+          "startLine": 913,
+          "endLine": 915,
+          "severity": "low",
+          "category": "performance",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.cpp",
+          "startLine": 1306,
+          "endLine": 1308,
+          "severity": "medium",
+          "category": "performance",
+          "score": 0.4493,
+          "features": {
+            "grounded": false,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+          "startLine": 221,
+          "endLine": 221,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.4093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [17]
+        },
+        {
+          "path": "src/Mod/TechDraw/Gui/DrawGuiUtil.cpp",
+          "startLine": 652,
+          "endLine": 654,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [5, 15]
+        },
+        {
+          "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+          "startLine": 198,
+          "endLine": 201,
+          "severity": "low",
+          "category": "style",
+          "score": 0.3933,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [15]
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.h",
+          "startLine": 152,
+          "endLine": 152,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/PartDesign/App/FeatureSketchBased.cpp",
+          "startLine": 425,
+          "endLine": 426,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.2093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Part/App/PartFeature.cpp",
+          "startLine": 855,
+          "endLine": 859,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.1733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/PartDesign/App/FeatureHole.cpp",
+          "startLine": 1832,
+          "endLine": 1833,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.0733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [4]
+        }
+      ],
+      "unanswered": 0,
+      "findings": 22,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/22744": {
+      "matches": [[], []],
+      "goldens": 3,
+      "keep": [false, false],
+      "detail": [
+        {
+          "path": "src/Base/Parameter.cpp",
+          "startLine": 1863,
+          "endLine": 1863,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Base/Parameter.cpp",
+          "startLine": 1879,
+          "endLine": 1880,
+          "severity": "low",
+          "category": "other",
+          "score": 0.1733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 2,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/20612": {
+      "matches": [[1, 2], [2], [], [0, 1], [], [0, 1], [2], [], []],
+      "goldens": 3,
+      "keep": [true, true, false, false, false, false, false, false, false],
+      "detail": [
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1501,
+          "endLine": 1503,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.9033,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [1, 2]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+          "startLine": 242,
+          "endLine": 244,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.7633,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [2]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1502,
+          "endLine": 1502,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.5633,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1513,
+          "endLine": 1514,
+          "severity": "low",
+          "category": "performance",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [0, 1]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.cpp",
+          "startLine": 1502,
+          "endLine": 1504,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawViewPart.h",
+          "startLine": 242,
+          "endLine": 244,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [0, 1]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawUtil.h",
+          "startLine": 252,
+          "endLine": 254,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.1833,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [2]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawUtil.cpp",
+          "startLine": 1855,
+          "endLine": 1855,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.1833,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/DrawUtil.cpp",
+          "startLine": 72,
+          "endLine": 72,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.0933,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 9,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/18688": {
+      "matches": [[5], []],
+      "goldens": 6,
+      "keep": [true, false],
+      "detail": [
+        {
+          "path": "src/App/FeaturePython.h",
+          "startLine": 165,
+          "endLine": 165,
+          "severity": "low",
+          "category": "documentation",
+          "score": 0.8133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [5]
+        },
+        {
+          "path": "src/App/PropertyContainer.h",
+          "startLine": 73,
+          "endLine": 73,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 2,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/22235": {
+      "matches": [[0, 2], []],
+      "goldens": 6,
+      "keep": [true, false],
+      "detail": [
+        {
+          "path": "src/Mod/ReverseEngineering/App/AppReverseEngineering.cpp",
+          "startLine": 1002,
+          "endLine": 1002,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.5733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [0, 2]
+        },
+        {
+          "path": "src/Mod/ReverseEngineering/App/RegionGrowing.cpp",
+          "startLine": 108,
+          "endLine": 108,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 2,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/20336": {
+      "matches": [[], [5, 7], [], [7], []],
+      "goldens": 8,
+      "keep": [true, true, false, false, false],
+      "detail": [
+        {
+          "path": "src/Gui/WorkbenchManipulatorPython.cpp",
+          "startLine": 156,
+          "endLine": 159,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.8493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/EdgeWalker.cpp",
+          "startLine": 453,
+          "endLine": 458,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.7493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [5, 7]
+        },
+        {
+          "path": "src/Gui/WorkbenchManipulatorPython.cpp",
+          "startLine": 317,
+          "endLine": 320,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5493,
+          "features": {
+            "grounded": false,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/TechDraw/App/EdgeWalker.h",
+          "startLine": 74,
+          "endLine": 74,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.2933,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [7]
+        },
+        {
+          "path": "src/Mod/TechDraw/App/EdgeWalker.h",
+          "startLine": 76,
+          "endLine": 76,
+          "severity": "low",
+          "category": "documentation",
+          "score": 0.0733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 5,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/20825": {
+      "matches": [
+        [],
+        [5, 29],
+        [14, 16],
+        [],
+        [4, 7, 19, 23, 28],
+        [],
+        [],
+        [5, 29],
+        [14],
+        [],
+        [31],
+        [],
+        [],
+        [5, 29],
+        [],
+        [],
+        [],
+        [22, 27],
+        [22],
+        [],
+        [],
+        [27],
+        [],
+        [13, 14, 31],
+        [],
+        [],
+        [],
+        [],
+        [13, 14, 16],
+        [],
+        [],
+        [],
+        [],
+        [11],
+        [14],
+        [],
+        [],
+        [],
+        [25],
+        [],
+        [],
+        [5, 6],
+        [6],
+        [],
+        [],
+        [14]
+      ],
+      "goldens": 32,
+      "keep": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "detail": [
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 111,
+          "endLine": 116,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.8793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.cpp",
+          "startLine": 81,
+          "endLine": 82,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.8793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [5, 29]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLoader.cpp",
+          "startLine": 124,
+          "endLine": 125,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.8493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [14, 16]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.cpp",
+          "startLine": 195,
+          "endLine": 195,
+          "severity": "low",
+          "category": "style",
+          "score": 0.8133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 149,
+          "endLine": 151,
+          "severity": "low",
+          "category": "performance",
+          "score": 0.8133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [4, 7, 19, 23, 28]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLoader.cpp",
+          "startLine": 374,
+          "endLine": 376,
+          "severity": "low",
+          "category": "style",
+          "score": 0.8133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLoader.cpp",
+          "startLine": 419,
+          "endLine": 421,
+          "severity": "low",
+          "category": "style",
+          "score": 0.8133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 352,
+          "endLine": 354,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.7793,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [5, 29]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.cpp",
+          "startLine": 209,
+          "endLine": 214,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.7493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [14]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 141,
+          "endLine": 144,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.6493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.cpp",
+          "startLine": 101,
+          "endLine": 102,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.5633,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [31]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.cpp",
+          "startLine": 99,
+          "endLine": 103,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.5633,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.cpp",
+          "startLine": 97,
+          "endLine": 99,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 325,
+          "endLine": 336,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [5, 29]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 168,
+          "endLine": 172,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 126,
+          "endLine": 130,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.h",
+          "startLine": 78,
+          "endLine": 79,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 215,
+          "endLine": 218,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [22, 27]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 224,
+          "endLine": 239,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [22]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 149,
+          "endLine": 150,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLoader.cpp",
+          "startLine": 232,
+          "endLine": 234,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 84,
+          "endLine": 87,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [27]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.cpp",
+          "startLine": 191,
+          "endLine": 202,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.h",
+          "startLine": 80,
+          "endLine": 80,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [13, 14, 31]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.h",
+          "startLine": 86,
+          "endLine": 86,
+          "severity": "low",
+          "category": "style",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 47,
+          "endLine": 49,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 161,
+          "endLine": 166,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 55,
+          "endLine": 58,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLoader.h",
+          "startLine": 122,
+          "endLine": 122,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.4093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [13, 14, 16]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 63,
+          "endLine": 66,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 102,
+          "endLine": 104,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.cpp",
+          "startLine": 75,
+          "endLine": 76,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.cpp",
+          "startLine": 272,
+          "endLine": 276,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.cpp",
+          "startLine": 41,
+          "endLine": 44,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [11]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.h",
+          "startLine": 57,
+          "endLine": 58,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [14]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 175,
+          "endLine": 178,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.cpp",
+          "startLine": 110,
+          "endLine": 112,
+          "severity": "low",
+          "category": "bug",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManager.h",
+          "startLine": 97,
+          "endLine": 98,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerExternal.h",
+          "startLine": 48,
+          "endLine": 49,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [25]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.cpp",
+          "startLine": 54,
+          "endLine": 57,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.cpp",
+          "startLine": 90,
+          "endLine": 93,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.2393,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.cpp",
+          "startLine": 83,
+          "endLine": 83,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.2093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [5, 6]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.cpp",
+          "startLine": 83,
+          "endLine": 83,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.2093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [6]
+        },
+        {
+          "path": "src/Mod/Material/App/ModelManagerLocal.cpp",
+          "startLine": 90,
+          "endLine": 93,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.1093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.h",
+          "startLine": 87,
+          "endLine": 90,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.1093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Material/App/ModelLibrary.h",
+          "startLine": 97,
+          "endLine": 99,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.1093,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [14]
+        }
+      ],
+      "unanswered": 0,
+      "findings": 46,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/19977": {
+      "matches": [[], [], [], [], [], [], [], []],
+      "goldens": 5,
+      "keep": [true, true, true, true, true, false, false, false],
+      "detail": [
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 1166,
+          "endLine": 1168,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.7493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 1181,
+          "endLine": 1182,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.7493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 1195,
+          "endLine": 1196,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.7493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 1879,
+          "endLine": 1879,
+          "severity": "low",
+          "category": "bug",
+          "score": 0.7133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 1884,
+          "endLine": 1885,
+          "severity": "low",
+          "category": "bug",
+          "score": 0.7133,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 1217,
+          "endLine": 1217,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 403,
+          "endLine": 404,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/App/Application.cpp",
+          "startLine": 1859,
+          "endLine": 1859,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 8,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/20156": {
+      "matches": [[], [10, 11]],
+      "goldens": 16,
+      "keep": [false, false],
+      "detail": [
+        {
+          "path": "src/Mod/TechDraw/Gui/DimensionValidators.cpp",
+          "startLine": 747,
+          "endLine": 748,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Gui/SoDatumLabel.cpp",
+          "startLine": 84,
+          "endLine": 84,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [10, 11]
+        }
+      ],
+      "unanswered": 0,
+      "findings": 2,
+      "failed": false
+    },
+    "https://github.com/FreeCAD/FreeCAD/pull/19426": {
+      "matches": [
+        [12],
+        [],
+        [4],
+        [11, 15],
+        [],
+        [],
+        [19],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [6],
+        [4, 6],
+        [],
+        [],
+        [],
+        []
+      ],
+      "goldens": 23,
+      "keep": [
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "detail": [
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1201,
+          "endLine": 1201,
+          "severity": "medium",
+          "category": "performance",
+          "score": 0.8493,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [12]
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1255,
+          "endLine": 1256,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.8033,
+          "features": {
+            "grounded": true,
+            "quotesDiff": true,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1229,
+          "endLine": 1231,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [4]
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1312,
+          "endLine": 1312,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [11, 15]
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1306,
+          "endLine": 1309,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1278,
+          "endLine": 1278,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1322,
+          "endLine": 1323,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [19]
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1434,
+          "endLine": 1434,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1600,
+          "endLine": 1600,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 28,
+          "endLine": 32,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1597,
+          "endLine": 1597,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1421,
+          "endLine": 1421,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1207,
+          "endLine": 1207,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.4733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1500,
+          "endLine": 1500,
+          "severity": "critical",
+          "category": "bug",
+          "score": 0.4633,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "critical",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1094,
+          "endLine": 1095,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.4393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [6]
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1249,
+          "endLine": 1252,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.4393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [4, 6]
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.cpp",
+          "startLine": 1561,
+          "endLine": 1561,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/AppFemPy.cpp",
+          "startLine": 69,
+          "endLine": 69,
+          "severity": "low",
+          "category": "documentation",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.h",
+          "startLine": 75,
+          "endLine": 75,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "src/Mod/Fem/App/FemVTKTools.h",
+          "startLine": 75,
+          "endLine": 75,
+          "severity": "low",
+          "category": "documentation",
+          "score": 0.2933,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 20,
+      "failed": false
+    },
+    "https://github.com/microsoft/typescript-go/pull/1354": {
+      "matches": [[0, 1], [0, 1], [], [], [], []],
+      "goldens": 2,
+      "keep": [true, true, false, false, false, false],
+      "detail": [
+        {
+          "path": "internal/execute/watch.go",
+          "startLine": 45,
+          "endLine": 45,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.7093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [0, 1]
+        },
+        {
+          "path": "internal/execute/watch.go",
+          "startLine": 48,
+          "endLine": 48,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.7093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": true,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": true,
+          "matchedGoldens": [0, 1]
+        },
+        {
+          "path": "internal/execute/outputs.go",
+          "startLine": 147,
+          "endLine": 147,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0.3733,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "internal/api/server.go",
+          "startLine": 78,
+          "endLine": 78,
+          "severity": "medium",
+          "category": "maintainability",
+          "score": 0.1293,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "internal/api/server.go",
+          "startLine": 63,
+          "endLine": 65,
+          "severity": "low",
+          "category": "other",
+          "score": 0.0933,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "internal/lsp/server.go",
+          "startLine": 137,
+          "endLine": 137,
+          "severity": "low",
+          "category": "maintainability",
+          "score": 0,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        }
+      ],
+      "unanswered": 0,
+      "findings": 6,
+      "failed": false
+    },
+    "https://github.com/microsoft/typescript-go/pull/831": {
+      "matches": [[3], [], [], [5, 6, 7, 11, 13], [13]],
+      "goldens": 15,
+      "keep": [false, false, false, false, false],
+      "detail": [
+        {
+          "path": "internal/parser/reparser.go",
+          "startLine": 119,
+          "endLine": 120,
+          "severity": "high",
+          "category": "bug",
+          "score": 0.5393,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "high",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [3]
+        },
+        {
+          "path": "internal/api/encoder/encoder.go",
+          "startLine": 471,
+          "endLine": 472,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.5093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "internal/parser/reparser.go",
+          "startLine": 121,
+          "endLine": 122,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": []
+        },
+        {
+          "path": "internal/transformers/esmodule.go",
+          "startLine": 42,
+          "endLine": 43,
+          "severity": "medium",
+          "category": "bug",
+          "score": 0.1293,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": false,
+            "proposesChange": false,
+            "hedged": false,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [5, 6, 7, 11, 13]
+        },
+        {
+          "path": "internal/transformers/typeeraser.go",
+          "startLine": 258,
+          "endLine": 261,
+          "severity": "low",
+          "category": "bug",
+          "score": 0.0733,
+          "features": {
+            "grounded": false,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "low",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [13]
+        }
+      ],
+      "unanswered": 0,
+      "findings": 5,
+      "failed": false
+    },
+    "https://github.com/microsoft/typescript-go/pull/1446": {
+      "matches": [],
+      "goldens": 13,
+      "keep": [],
+      "detail": [],
+      "unanswered": 0,
+      "findings": 0,
+      "failed": true
+    }
+  }
+}

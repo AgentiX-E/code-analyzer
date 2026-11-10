@@ -24,10 +24,6 @@ name: Runnable Competitors
 
 on:
   workflow_dispatch:
-  push:
-    branches: [master]
-    paths:
-      - '.github/scripts/runnable-competitors.mjs'
 
 concurrency:
   group: runnable-competitors

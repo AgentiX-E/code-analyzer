@@ -14,11 +14,19 @@ import type { GraphNode } from '@code-analyzer/shared';
  * primary key because ids are assigned in insertion order — the same machine dependence this function removes.
  */
 export function compareNodeIdentity(a: GraphNode, b: GraphNode): number {
+  // **Four fallbacks were removed here, and the reason is a type rather than a preference.** `qualifiedName` and
+  // `name` are `string` on `GraphNode` - not `string | null` - so `a.qualifiedName ?? ''` has one reachable arm and one
+  // that a correctly typed node can never take. **They were invisible while the branch counter treated `??` as a single
+  // point and became two uncovered lines the moment the coverage instrument started counting the nullish arm**, which
+  // is how a dead expression announces itself years later: as a coverage regression.
+  //
+  // **`filePath` and `startLine` keep their fallbacks and must**, because those two fields are nullable on the same
+  // interface and a node from a language without a file path is an ordinary node.
   return (
-    compareCodeUnits(a.qualifiedName ?? '', b.qualifiedName ?? '') ||
+    compareCodeUnits(a.qualifiedName, b.qualifiedName) ||
     compareCodeUnits(a.filePath ?? '', b.filePath ?? '') ||
     (a.startLine ?? -1) - (b.startLine ?? -1) ||
-    compareCodeUnits(a.name ?? '', b.name ?? '') ||
+    compareCodeUnits(a.name, b.name) ||
     a.id - b.id
   );
 }
