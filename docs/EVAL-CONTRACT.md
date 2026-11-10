@@ -1230,9 +1230,15 @@ replaying, 0.5 recording, with a floor that admits the fourteen-pull-request run
 **A ceiling written for fourteen pull requests stops being a ceiling the moment `max_pull_requests` is an input**, and a
 bound that does not move with the work is a comment.
 
-**And the job timeout is now 340 minutes, which is the largest corpus this runner can score** - 190 pull requests at the
-measured rate. **Two hundred is the whole corpus and it does not fit**, so a full-corpus run needs the per-pull-request
-cost cut rather than the timeout raised again. That is written down here because it is the next wall.
+**And the job timeout is now 340 minutes, which is the largest corpus this runner can score** - **103** pull requests at
+the measured 3.3 min/pull request. **This line said 190 until iteration 119, and 190 was never arithmetic**: 190 needs 1.8
+minutes per pull request, which no run has measured, and the same paragraph gives 3.3. **Two hundred is the whole corpus
+and it does not fit**, so a full-corpus run needs the per-pull-request cost cut rather than the timeout raised again. That
+is written down here because it is the next wall - **and because a ceiling stated at a hundred pull requests when it fits
+a hundred and three is a confirmation that times out with nothing to show for it**, which is why §19.3's hundred-unseen-
+pull-request confirmation is dispatched as **two fifty-pull-request slices** (`skip_pull_requests` 50 and 100) rather than
+one run of a hundred: two paired verdicts on disjoint slices are more evidence than one on their union, and each slice
+runs in about half the ceiling.
 
 ### 15.7 What this section does not conclude
 
@@ -1566,6 +1572,14 @@ corpora are disjoint by construction rather than by an argument in a document - 
 measured groups and then confirmed on the same rows is a threshold fitted to them. The artifact records both numbers under
 `corpusSlice`, since **a run that says "one hundred" without saying "one hundred starting at fifty" is a run whose corpus
 cannot be reconstructed.**
+
+**The hundred is confirmed as two slices of fifty, and the reason is arithmetic rather than convenience.** §15.6 measures
+3.3 minutes per pull request against a 340-minute ceiling - **103 pull requests fit**, so a single hundred-pull-request
+job runs one dispatch away from a timeout, and a run killed at minute 340 produces no artifact and no verdict. The two
+slices are `skip 50 + max 50` and `skip 100 + max 50`: **every pull request in them is unseen by the discovery, the two
+slices are disjoint from each other, and each dispatch yields its own paired comparison**, so the confirmation is two
+independent verdicts rather than one. **A registration that names a hundred and is answered with two fifties has
+answered the registration**; one answered with a single fifty has not.
 
 **What was measured before the registration, on the discovery set** (a subset of the verdicts above, so this is the
 in-sample figure and it is labelled as one):

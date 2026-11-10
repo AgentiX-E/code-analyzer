@@ -43,6 +43,10 @@ export const REGISTRATIONS = Object.freeze({
     claim: 'the per-language defect checklist raises the file arm F1 by at least 0.04',
     registeredGain: 0.04,
     mechanism: 'precision rises, recall does not fall',
+    // **Empty, and that is the correct value rather than an omission.** A falsified device needs no confirmation: §8's
+    // checklist was measured at −0.0292 with p = 0.0049 on its own confirmation run, so the registration is closed and
+    // a slice list here would be a promise to spend money re-reading a verdict that has already been read.
+    confirmation: [],
   },
   emissionProfile: {
     section: '§19 (R-17)',
@@ -50,8 +54,44 @@ export const REGISTRATIONS = Object.freeze({
       'emitting only the categories whose measured acceptance reaches 0.22 raises the file arm F1 by at least 0.02',
     registeredGain: 0.02,
     mechanism: 'precision rises and recall falls by less than precision rises',
+    // **The hundred pull requests the discovery did not see, as two slices of fifty.** The split is arithmetic rather
+    // than convenience: §15.6 measures 3.29 minutes per pull request, and `MEASURED_MINUTES_PER_PULL_REQUEST` below is
+    // that figure divided rather than rounded - so one slice of a hundred needs 329 minutes of work inside a 340-minute
+    // ceiling and dies of the ceiling with nothing to show for it. **A confirmation that cannot finish cannot confirm
+    // anything**, and the unit test that reads this list is what keeps a future dispatch of a hundred from being written
+    // down as if it fitted.
+    confirmation: [
+      { skip: 50, max: 50 },
+      { skip: 100, max: 50 },
+    ],
   },
 });
+
+/** The rate §15.6 measured: 46 minutes of whole job for 14 pull requests, kept as a ratio so the division is visible. */
+export const MEASURED_MINUTES_PER_PULL_REQUEST = 46 / 14;
+
+/**
+ * **The largest corpus a job ceiling can score at all**, which is not the same as the largest it can score safely.
+ *
+ * Exported because two things ask the same question: the workflow comment that states the number, and the unit test that
+ * checks the number is arithmetic rather than memory - **this line said 190 pull requests until iteration 119, and 190
+ * needs 1.8 minutes per pull request, which no run has measured.**
+ */
+export function slicesThatFit(minutes) {
+  const budget = Number(minutes);
+  if (!Number.isFinite(budget) || budget <= 0) return 0;
+  return Math.floor(budget / MEASURED_MINUTES_PER_PULL_REQUEST);
+}
+
+/**
+ * **What a confirming run is allowed to spend of its ceiling: half of it.**
+ *
+ * A slice that fills the ceiling is a slice whose artifact does not exist the first time the runner is slow, and a job
+ * that dies at minute 340 has spent the money and produced no verdict - **so the margin is not caution, it is the
+ * difference between a confirmation and a dispatch whose outcome is a timeout.** Half is the number the two registered
+ * slices meet and the single slice of a hundred does not: 50 × 3.29 = 164 minutes against 340, and 100 × 3.29 = 329.
+ */
+export const CONFIRMATION_CEILING_FRACTION = 0.5;
 
 /**
  * **What a two-armed comparison on this instrument cannot resolve, as a function of the corpus.**

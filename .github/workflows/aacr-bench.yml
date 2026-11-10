@@ -113,9 +113,14 @@ jobs:
     # **Raised again to 340, and the arithmetic is written down rather than felt.** Fourteen pull requests took 46
     # minutes on 2026-11-10 across 1 770 reviewer calls and 4 783 judge calls - **197 calls per minute, 3.3 minutes per
     # pull request**. Two hundred pull requests is therefore about eleven hours and does not fit in any job GitHub will
-    # run, **so this ceiling states the largest corpus that does**: 340 minutes is 190 pull requests at the measured
-    # rate, and a dispatch beyond that is refused by the runner rather than by a wrong number in the artifact. **The
-    # corpus holds 200, so a full-corpus run needs the per-pull-request cost cut, not this number raised again.**
+    # run, **so this ceiling states the largest corpus that does**: 340 minutes is **103** pull requests at the measured
+    # rate, and a dispatch beyond that is refused by the runner rather than by a wrong number in the artifact. **This
+    # line said 190 until iteration 119 and 190 was never arithmetic**: it needs 1.8 minutes per pull request and no run
+    # has measured that - the figure in the same sentence is 3.3. **Consequently the hundred-pull-request confirmation
+    # registered as R-17 does not fit in one job with any headroom, so it is dispatched as two fifty-pull-request slices
+    # over disjoint halves of the unseen corpus** (`skip 50`, then `skip 100`) - which is strictly more information than
+    # one run of a hundred: two paired verdicts on two slices rather than one verdict on their union. **The corpus holds
+    # 200, so a full-corpus run needs the per-pull-request cost cut, not this number raised again.**
     timeout-minutes: 340
     strategy:
       # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to
