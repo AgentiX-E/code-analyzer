@@ -43,7 +43,11 @@ export declare function rejectionShapeOf(distance: number | null | undefined): R
 
 export declare function nearestFindingDistance(
   goldenLine: number | null | undefined,
-  findings: Array<{ startLine?: number | null; endLine?: number | null } | undefined>,
+  findings: Array<
+    | { path?: string; startLine?: number | null; endLine?: number | null }
+    | { finding?: { startLine?: number | null; endLine?: number | null } | null }
+    | undefined
+  >,
 ): number | null;
 
 export declare function attributeGoldens(input: {

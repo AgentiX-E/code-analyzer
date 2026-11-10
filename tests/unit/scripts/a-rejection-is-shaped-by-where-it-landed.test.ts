@@ -157,7 +157,16 @@ describe('a rejection is shaped by its distance', () => {
             noFindingOnPath: 0,
             findingOnPathRejected: 3,
           },
-          perGolden: [{ bucket: 'findingOnPathRejected', path: 'a', note: '', proximity: 0 }],
+          perGolden: [
+            {
+              index: 0,
+              bucket: 'findingOnPathRejected',
+              path: 'a',
+              note: '',
+              matchedFindings: [],
+              proximity: 0,
+            },
+          ],
           total: 3,
         },
       ]),

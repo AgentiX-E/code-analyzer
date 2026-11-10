@@ -49,11 +49,17 @@ describe('the ceiling moves with the corpus', () => {
     // above it is a formality. The band is checked rather than the constant.
     const measuredReplayPerPullRequest = 0.57 / 14;
     const measuredRecordPerPullRequest = (0.57 + 5.89) / 14;
+    const measured = { replay: measuredReplayPerPullRequest, record: measuredRecordPerPullRequest };
     for (const pullRequests of [14, 50, 200]) {
       const replayCeiling = spendCeilingUsd({ pullRequests, mode: 'replay', override: '' });
       const recordCeiling = spendCeilingUsd({ pullRequests, mode: 'record', override: '' });
-      expect(replayCeiling).toBeGreaterThanOrEqual(3 * measuredReplayPerPullRequest * pullRequests);
-      expect(replayCeiling).toBeLessThanOrEqual(20 * measuredReplayPerPullRequest * pullRequests);
+      expect(replayCeiling).toBeGreaterThanOrEqual(3 * measured.replay * pullRequests);
+      expect(replayCeiling).toBeLessThanOrEqual(20 * measured.replay * pullRequests);
+      // **The recording arm is bought only on a deliberate dispatch and keeps its own floor**, because it is the arm
+      // that pays for the competitor's 5.89 USD run on top - so it is bounded against that sum at every size, and
+      // **it is not held to the replay rate's margin**: the floor of 12 is what admits the fourteen-pull-request
+      // recording run, which cost 6.46 USD - **1.86 times what it costs, which is the margin a retry storm needs.**
+      expect(recordCeiling).toBeGreaterThanOrEqual(measured.record * pullRequests);
       // **And it is strictly larger at a larger corpus**, which is the property the constant did not have.
       expect(recordCeiling).toBeGreaterThanOrEqual(CEILING_USD_FLOOR.record);
       expect(recordCeiling).toBeGreaterThanOrEqual(

@@ -93,7 +93,8 @@ describe('a finding has to say what fails, and for which input', () => {
     const pullRequestCall = SECURITY_REVIEW_PROMPT(
       context({ scope: 'pull-request', paths: ['src/a.java'] }),
     );
-    const tail = 'A suggestion that names no failure cannot be right or wrong, which is why it is not reported';
+    const tail =
+      'A suggestion that names no failure cannot be right or wrong, which is why it is not reported';
     expect(fileCall).toContain(tail);
     expect(pullRequestCall).toContain(tail);
     expect(fileCall.match(/The description names the failure/g)).toHaveLength(1);
