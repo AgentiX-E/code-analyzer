@@ -376,6 +376,28 @@ describe('resolveChangeSet — github mode', () => {
     }
   });
 
+  it('derives the slug from the checkout when neither --repo nor a checkout argument names one', async () => {
+    const repo = createRepo();
+    repo.remote('git@github.com:AgentiX-E/code-analyzer.git');
+    const stub = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(diff, { status: 200 }));
+    try {
+      // **`--pr` with a working directory and no `--repo` at all.** The lookup has three sources and the middle one -
+      // "ask the directory the user passed" - only runs when `repo` is undefined, so **a suite whose every case passed
+      // `--repo` left one arm of that lookup unexecuted and reported it as a coverage regression** the day the counter
+      // started counting nullish and ternary arms separately. The behaviour was correct and untested, which is the
+      // distinction that matters here.
+      const change = await resolveChangeSet({ pr: 7, token: 'token', checkout: repo.dir });
+      expect(change.mode).toBe('github');
+      expect(change.repository).toBe('AgentiX-E/code-analyzer');
+      expect(change.pullRequest).toBe(7);
+    } finally {
+      stub.mockRestore();
+      repo.cleanup();
+    }
+  });
+
   it('refuses a pull request with no token', async () => {
     await expect(resolveChangeSet({ repo: 'AgentiX-E/code-analyzer', pr: 1 })).rejects.toThrow(
       /--pr needs --token/,
