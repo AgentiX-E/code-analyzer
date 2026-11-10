@@ -71,7 +71,11 @@ const baseline = JSON.parse(
 };
 const artifact = JSON.parse(readFileSync(join(ROOT, 'benchmarks/aacr-bench.json'), 'utf8')) as {
   measuredAt: string;
+  prsInDataset: number;
   coverage: { byPullRequest: Array<{ pr: string; goldens: number }> };
+  // **How much of the corpus the competitor's arm could answer for**, which is the field that turns "we did not beat
+  // them" into "the two numbers are not the same measurement".
+  mcnemar: { verdict: string; coverage: { covered: number; requested: number } };
   secondReviewer: {
     truePositives: number;
     falsePositives: number;
@@ -126,17 +130,23 @@ describe('the recorded competitor result replays to the figures that were publis
     );
     // The denominator is the corpus's 170 goldens, not 157 - the same denominator our own arm is scored against.
     expect(counts.tp + counts.fn).toBe(170);
-    // And the honest recall and F1 of that run, which are lower than the artifact's because the artifact excluded the
-    // crash rather than counting it. **Both are true of the same run; only one of them is comparable to ours.**
+    // And the honest recall and F1 of that run, which are lower than the 2026-11-09 artifact's because that reading
+    // excluded the crash rather than counting it. **Both are true of the same run; only one of them is comparable to
+    // ours** - and since iteration 119 the artifact carries the comparable one, which is what this asserts.
     expect(counts.recall).toBeCloseTo(0.2941, 4);
     expect(counts.f1).toBeCloseTo(0.3106, 4);
-    expect(counts.f1).toBeLessThan(artifact.secondReviewer.f1);
+    expect(artifact.secondReviewer.f1).toBeCloseTo(counts.f1, 4);
   });
 
-  it('carries the fingerprint the harness computes, so the record cannot be reused against another corpus', () => {
-    // Recomputed from the artifact's own coverage table rather than trusted from the file.
+  it('carries the fingerprint of the corpus it covers, computed from the artifact rows for those pull requests', () => {
+    // **The artifact grew to fifty pull requests and the record still covers fourteen**, so the fingerprint has to be
+    // taken over the rows the record actually holds. **Comparing it against the whole corpus is the assertion that was
+    // here before this iteration, and it would now pass only if the record had grown with the corpus** - which would be
+    // the record claiming coverage it does not have.
+    const covered = artifact.coverage.byPullRequest.filter((row) => row.pr in baseline.pulls);
+    expect(covered).toHaveLength(Object.keys(baseline.pulls).length);
     const expected = corpusFingerprint(
-      artifact.coverage.byPullRequest.map((row) => ({
+      covered.map((row) => ({
         githubPrUrl: row.pr,
         comments: Array.from({ length: row.goldens }, () => ({ note: 'x' })),
       })),
@@ -146,9 +156,17 @@ describe('the recorded competitor result replays to the figures that were publis
 
   it('names the run it was transcribed from, so a reader can check it rather than believe it', () => {
     expect(baseline.provenance.transcribedFrom).toBe('benchmarks/aacr-bench.json');
-    expect(baseline.provenance.measuredAt).toBe(artifact.measuredAt);
+    // **The date is the record's own, not the artifact's any more**: the artifact was re-measured at fifty pull requests
+    // and the competitor's arm was not re-bought, so the two files describe different runs on purpose - and **the
+    // artifact has to say so rather than leaving a reader to notice**.
+    expect(baseline.provenance.measuredAt).toBe('2026-11-09');
+    expect(artifact.measuredAt).not.toBe(baseline.provenance.measuredAt);
+    expect(artifact.mcnemar.verdict).toBe('withheld');
+    expect(artifact.mcnemar.coverage).toMatchObject({
+      covered: Object.keys(baseline.pulls).length,
+      requested: artifact.prsInDataset,
+    });
     expect(baseline.corpus.judge.prompt).toBe('aacr-judge-v1');
-    expect(baseline.pulls).toBeTypeOf('object');
     expect(Object.keys(baseline.pulls)).toHaveLength(14);
   });
 

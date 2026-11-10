@@ -357,6 +357,20 @@ export type {
   TopKPoint,
 } from './review/actionability.js';
 
+// Category prior — what a category of finding is worth, measured rather than assumed
+export {
+  applyEmissionProfile,
+  CATEGORY_ACCEPTANCE,
+  categoryVerdict,
+  DEFECT_FLOOR,
+} from './review/category-prior.js';
+export type {
+  CategoryAcceptance,
+  CategoryVerdict,
+  EmissionProfile,
+  ProfileOutcome,
+} from './review/category-prior.js';
+
 // Comment Positioner
 export { CommentPositioner } from './review/comment-positioner.js';
 export type { PositionedComment, PositionResult } from './review/comment-positioner.js';

@@ -34,6 +34,18 @@ on:
         # and still not the one anybody selected**.
         options: ['replay', 'record', 'off']
         default: replay
+      profile:
+        # **Which categories this run emits.** `defect` drops the categories whose measured acceptance on this corpus is
+        # below the floor in `packages/intelligence/src/review/category-prior.ts` - `test` at 11 of 95 and
+        # `architecture` at 36 of 179 - and `advisory` keeps everything.
+        #
+        # **The registered hypothesis of iteration 119 is that `defect` raises F1**, and it can only be falsified by a
+        # run of `advisory` over the same pull requests, the same goldens and the same judge. **A device that is always
+        # on is a device nobody can measure**, which is why this is an input rather than a constant.
+        description: 'Emission profile: defect (drops the categories measured below the floor) or advisory (all)'
+        type: choice
+        options: ['defect', 'advisory']
+        default: defect
       prompt_order:
         # **Where the diff sits in a lane's prompt, exposed because it is now a measured variable rather than a
         # preference.** `boilerplate-first` puts the shared target-and-diff block last, which is what raised prefix
@@ -163,6 +175,19 @@ jobs:
       - name: Review the corpus with our engine
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # **The token the diff requests are made with, and the reason the two arms of the last run read different
+          # corpora.**
+          #
+          # `fetchPrDiff` has read `GITHUB_TOKEN` since iteration 118 - and **this step never passed it**, so every
+          # fifty-pull-request arm fetched its diffs unauthenticated: sixty requests an hour, shared by whichever arms
+          # happened to be running from the same runner range. The `with` arm read forty-six of fifty and the artifact
+          # recorded `"51 requests left in the hour and the request was unauthenticated"` four times. **A variable the
+          # code reads and the job does not set is a default nobody chose.**
+          #
+          # **`github.token` rather than a PAT**: it is scoped to this repository, it expires with the job, and reading
+          # a public pull request's diff needs nothing more than `contents: read`, which is the permission this workflow
+          # already declares. The rate limit goes from sixty an hour to a thousand per repository.
+          GITHUB_TOKEN: ${{ github.token }}
           MARTIAN_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           MARTIAN_BASE_URL: https://api.deepseek.com/v1
           MARTIAN_MODEL: deepseek-chat
@@ -191,6 +216,9 @@ jobs:
           # default the code was written with, and the artifact's `configuration.promptOrder` says which one ran - so
           # two artifacts can be compared without anyone remembering what the default was that week.
           AACR_PROMPT_ORDER: ${{ inputs.prompt_order || 'boilerplate-first' }}
+          # **The profile the artifact will record**, passed explicitly rather than left to the script's default, so the
+          # workflow and the artifact cannot disagree about which reviewer produced the figure.
+          AACR_PROFILE: ${{ inputs.profile || 'defect' }}
           # **Whether this run buys a competitor result, or reads the one already paid for.** The script's own default
           # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
           # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.

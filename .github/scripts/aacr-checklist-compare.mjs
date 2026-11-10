@@ -20,6 +20,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { pairedComparison } from './lib/paired-test.mjs';
 
@@ -67,6 +68,59 @@ function confoundsBetween(on, off) {
     confounds.push({ field: 'prsInDataset', on: on.prsInDataset, off: off.prsInDataset });
   if (on.datasetRows !== off.datasetRows)
     confounds.push({ field: 'datasetRows', on: on.datasetRows, off: off.datasetRows });
+  // **The corpus the run asked for is not the corpus it read**, and until now this function only compared the first.
+  //
+  // The run of 2026-11-10 asked both arms for fifty pull requests, the `with` arm read forty-six - its four missing
+  // diffs are named in `prsWithoutDiffReasons`, and the reason on every one of them was a sixty-request hour that an
+  // unauthenticated fetch exhausts - and this function compared them anyway: `prsInDataset` was 50 on both sides, so
+  // the table said the two arms were the same experiment, and the paired test had to be rebuilt by hand afterwards.
+  //
+  // **That is the same defect as the page read as the corpus, one level down**: the declared denominator was compared
+  // and the measured one was not. An artifact that records `corpusRead.whole` and a comparison that does not read it
+  // is an instrument that measures the thing and throws the measurement away.
+  if (on.prsReviewed !== off.prsReviewed)
+    confounds.push({ field: 'prsReviewed', on: on.prsReviewed, off: off.prsReviewed });
+  // **And the field the reader has to be able to trust even when the counts happen to agree.** Two arms can read the
+  // same number of pull requests and still not have read the same ones - one loses A and gains B - so equality of the
+  // count is a witness and not the fact. `whole` is the fact: it is `true` only when the arm lost nothing.
+  //
+  // **Read only when it is there**, because the artifacts written before this field existed are not thereby wrong: the
+  // check below establishes the same thing from the rows themselves, and **a guard that refuses on a missing field
+  // throws away the comparisons that were sound** - the opposite failure to the one this guard exists for, and the one
+  // that would get the guard deleted.
+  for (const [side, artifact] of [
+    ['with', on],
+    ['without', off],
+  ]) {
+    if (artifact.corpusRead && artifact.corpusRead.whole !== true)
+      confounds.push({
+        field: 'corpusRead.whole',
+        on: on.corpusRead?.whole ?? 'not stated',
+        off: off.corpusRead?.whole ?? 'not stated',
+        side,
+        unread: artifact.corpusRead.unread ?? null,
+      });
+  }
+  // **The same corpus, checked against the rows rather than against the request.** `coverage.byPullRequest` carries one
+  // row per pull request the arm reviewed, so the two key sets are the two corpora - and a difference is reported as
+  // the keys that differ rather than as a count, because **"3 pull requests short" is a number and
+  // "github.com/.../7952 is missing" is a repair.**
+  const corpusKeys = (artifact) =>
+    (artifact.coverage?.byPullRequest ?? []).map((pull) => String(pull.pr)).filter(Boolean);
+  const onKeys = new Set(corpusKeys(on));
+  const offKeys = new Set(corpusKeys(off));
+  if (onKeys.size > 0 && offKeys.size > 0) {
+    const onlyOn = [...onKeys].filter((key) => !offKeys.has(key));
+    const onlyOff = [...offKeys].filter((key) => !onKeys.has(key));
+    if (onlyOn.length > 0 || onlyOff.length > 0)
+      confounds.push({
+        field: 'corpusRows',
+        onlyWith: onlyOn.slice(0, 10),
+        onlyWithout: onlyOff.slice(0, 10),
+        onlyWithCount: onlyOn.length,
+        onlyWithoutCount: onlyOff.length,
+      });
+  }
   if (
     on.configuration?.languageChecklist !== true ||
     off.configuration?.languageChecklist !== false
@@ -216,6 +270,10 @@ function selfTest() {
   const artifact = (overrides) => ({
     corpus: 'fixture',
     prsInDataset: 2,
+    // **What the arm actually read, which is not the same number as what it asked for** - and the fixture has to
+    // carry both, or the confound added below could never be tested by falling into it.
+    prsReviewed: overrides.reviewed ?? 2,
+    corpusRead: { requested: 2, unread: 0, whole: true, ...(overrides.corpusRead ?? {}) },
     datasetRows: 2,
     configuration: { judgeModel: 'fixture-model', languageChecklist: overrides.flag },
     truePositives: overrides.tp,
@@ -307,8 +365,70 @@ function selfTest() {
     'two runs of the same arm are refused, because their null result would look like a finding',
   );
 
+  // **Two arms that asked for the same corpus and read different amounts of it.**
+  //
+  // This is the shape the run of 2026-11-10 had: `prsInDataset` 50 on both sides, 50 read against 46, and a comparison
+  // that published a paired test over the union. The assertion is that the difference is now a refusal rather than a
+  // footnote, **and that the refused artifact names which side fell short** - the repair for one arm is a token and for
+  // the other is a corpus, and a confound that names neither is a shrug.
+  const shortArm = confoundsBetween(qualifies, {
+    ...baseline,
+    prsReviewed: 1,
+    corpusRead: { requested: 2, unread: 1, whole: false },
+  });
+  assert(
+    shortArm.some((c) => c.field === 'prsReviewed' && c.on === 2 && c.off === 1),
+    'an arm that read one pull request fewer is a confound, not a smaller denominator',
+  );
+  assert(
+    shortArm.some((c) => c.field === 'corpusRead.whole' && c.side === 'without'),
+    'and the refusal names the arm that fell short',
+  );
+
+  // **Two arms that read the same number of pull requests and not the same ones.**
+  //
+  // This is the case a count cannot see, and the reason the guard reads `coverage.byPullRequest` rather than
+  // `prsReviewed` alone: one arm loses a pull request the other read, and swaps in another, and every total agrees while
+  // the two experiments do not. **A guard that compares totals is a guard that reports this as sound.**
+  const swapped = confoundsBetween(
+    {
+      ...qualifies,
+      coverage: {
+        byPullRequest: [
+          { pr: 'pr-0', goldens: 5, covered: [0, 1, 2] },
+          { pr: 'pr-9', goldens: 5, covered: [3] },
+        ],
+      },
+    },
+    baseline,
+  );
+  assert(
+    swapped.some((c) => c.field === 'corpusRows' && c.onlyWith[0] === 'pr-9'),
+    'the pull request one arm read and the other did not is named, not counted',
+  );
+
+  // **And an artifact that predates the coverage field is not refused for that reason alone**, because **the rows above
+  // carry the same fact**: a guard that treats a missing field as a failed one would discard the comparisons that were
+  // sound, which is how a guard earns its own deletion.
+  const silent = confoundsBetween(
+    { ...qualifies, corpusRead: undefined },
+    { ...baseline, corpusRead: undefined },
+  );
+  assert(
+    !silent.some((c) => c.field === 'corpusRead.whole'),
+    'an artifact written before the field existed is judged on its rows',
+  );
+
+  // **And two arms that each read the whole corpus are not refused for it**, or the guard would turn the healthy case
+  // into the broken one.
+  const healthy = confoundsBetween(qualifies, baseline);
+  assert(
+    !healthy.some((c) => c.field === 'corpusRead.whole' || c.field === 'prsReviewed'),
+    'two complete arms raise no corpus confound',
+  );
+
   console.log(
-    `AACR-CHECKLIST self-test ok · gain ${good.delta.f1} · null ${nothing.delta.f1} · trade ${traded.delta.f1} · refusals ${confounded.length + sameFlag.length}`,
+    `AACR-CHECKLIST self-test ok · gain ${good.delta.f1} · null ${nothing.delta.f1} · trade ${traded.delta.f1} · refusals ${confounded.length + sameFlag.length + shortArm.length + silent.length}`,
   );
 }
 
@@ -343,7 +463,26 @@ function main() {
 
   const confounds = confoundsBetween(on, off);
   if (confounds.length > 0) {
-    refuse('the two artifacts are not the same experiment', confounds);
+    // **A refusal that says what each arm lost, not only that the numbers differ.** The four pull requests the `with`
+    // arm could not read in the last run were four lines in the other artifact's `prsWithoutDiffReasons`, and the
+    // comparison that ignored them could not have said which repair to make - a token, a URL, or a corpus.
+    refuse('the two artifacts are not the same experiment', {
+      confounds,
+      corpus: {
+        with: {
+          requested: on.prsInDataset ?? null,
+          reviewed: on.prsReviewed ?? null,
+          whole: on.corpusRead?.whole ?? null,
+          missing: on.prsWithoutDiffReasons ?? null,
+        },
+        without: {
+          requested: off.prsInDataset ?? null,
+          reviewed: off.prsReviewed ?? null,
+          whole: off.corpusRead?.whole ?? null,
+          missing: off.prsWithoutDiffReasons ?? null,
+        },
+      },
+    });
     return;
   }
 
@@ -354,4 +493,10 @@ function main() {
   );
 }
 
-main();
+// **The guard is exported and the run is conditional**, because **the confound between two arms of an ablation is a
+// function of two artifacts**, and a function that can only be exercised by running the whole job is a function whose
+// edges are tested by reading them. `--self-test` covers the arithmetic; a unit test imports `confoundsBetween` and
+// asserts the cases a fixture cannot produce as easily as a literal.
+export { confoundsBetween, summarise };
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

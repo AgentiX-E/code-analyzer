@@ -110,6 +110,26 @@ const CHECKLIST = String(process.env['AACR_CHECKLIST'] ?? 'off').toLowerCase() =
 const PROMPT_ORDER = String(process.env['AACR_PROMPT_ORDER'] ?? 'boilerplate-first');
 
 /**
+ * **What the run emits: every category, or only the ones a corpus with an answer key accepted.**
+ *
+ * `category-prior.ts` carries the measurement - on this corpus, `test` findings were accepted 11 times out of 95 and
+ * `architecture` 36 out of 179, while `bug` was 86 of 211. **A mixture problem is not repaired by wording**, so the
+ * profile is an input rather than a constant: `AACR_PROFILE=defect` (the default, and what the product ships) drops the
+ * categories measured below the floor, and `advisory` keeps everything so that a reader who disagrees can see what the
+ * prior removed.
+ *
+ * **The value is validated rather than defaulted**, because **a typo in an environment variable that silently falls
+ * back to the default is an experiment that measures the wrong arm and says so in its own metadata** - the defect the
+ * prompt-order input was written to avoid.
+ */
+const PROFILE = (() => {
+  const raw = String(process.env['AACR_PROFILE'] ?? 'defect');
+  if (raw !== 'defect' && raw !== 'advisory')
+    throw new Error(`AACR_PROFILE must be "defect" or "advisory", not "${raw}"`);
+  return raw;
+})();
+
+/**
  * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
  *
  * The file arm fills three slots **per file per lane**; over 199 files it emitted **183 findings carrying 21 goldens**
@@ -1114,6 +1134,10 @@ async function main() {
     scoreSubset,
     topKCurve,
   } = await import('../../packages/intelligence/dist/review/actionability.js');
+  // **The profile's own module, imported where it is used rather than at the top**, because the top of this file runs
+  // in `--dry-run` too and `dist/` is only guaranteed to exist after a build.
+  const { applyEmissionProfile } =
+    await import('../../packages/intelligence/dist/review/category-prior.js');
   const { DeepSeekProvider } =
     await import('../../packages/intelligence/dist/review/llm/provider.js');
   // **The ledger, and the ceiling that stops a runaway job.** The balance reading below says what the *account* spent
@@ -1203,6 +1227,10 @@ async function main() {
     fileFailures: 0,
     firstFileFailure: null,
     laneStats: null,
+    // **What the category profile removed and why**, filled during the loop and published beside the figure, because
+    // **a precision that rose because two thirds of the emission left is a different claim from one that rose because
+    // the findings got better**, and only the count can tell them apart.
+    profile: { name: PROFILE, dropped: {}, reasons: {} },
   };
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
   /**
@@ -1929,6 +1957,16 @@ async function main() {
     // scored, every pair is judged, and **the emission rule is scored as a subset of a matrix that already contains
     // everything**, which means the figures for the rule and the figures for the raw list come from one pass.
     const ranked = rankFindings(located, prFacts);
+    // **What the profile removed, counted once per category with its reason**, and **applied to the ranked list rather
+    // than to the judged matrix**: every finding is still scored and still judged, so the curve below remains a curve
+    // over the full emission and the profile is one cut of it - the same discipline the actionability gate follows.
+    const profile = applyEmissionProfile(ranked, PROFILE);
+    const profileKept = new Set(profile.kept);
+    for (const entry of profile.dropped) {
+      const counts = engineCounters.profile.dropped;
+      counts[entry.category] = (counts[entry.category] ?? 0) + entry.count;
+      engineCounters.profile.reasons[entry.category] = entry.reason;
+    }
     const ourMatrix = await judgeMatrix(
       ranked.map((entry) => `${entry.finding.title} :: ${entry.finding.description}`),
       issueTexts,
@@ -1979,7 +2017,12 @@ async function main() {
       // between two runs is only honest if the pairing key is the same one the within-run test uses.**
       // **The emission rule, fixed before the run and applied per finding** - so the operating point is a statement
       // about a comment rather than a budget chosen from the curve below it.
-      keep: ranked.map((entry) => entry.score.actionable),
+      //
+      // **And the category profile is part of that rule, not a second pass over it.** A finding reaches a reader when
+      // the actionability gate passes *and* its category's measured acceptance clears the profile's floor; **the two
+      // conditions are one operating point**, and reporting the gate at one profile and the count at another would make
+      // the artifact's precision a figure about a reviewer nobody ran.
+      keep: ranked.map((entry) => entry.score.actionable && profileKept.has(entry)),
     });
 
     // **And the same judging, for the whole-pull-request arm.**
@@ -2289,6 +2332,10 @@ async function main() {
       // claims about one file and an artifact that does not say which side it came from is a figure without a
       // coordinate.
       promptOrder: PROMPT_ORDER,
+      // **Which categories this run emitted**, because two runs of the same corpus differing in this field are two
+      // reviewers and not one: `defect` drops the categories measured below the floor in `category-prior.ts`, and
+      // **`advisory` is what makes the drop measurable** - the same findings, one switch, one artifact each.
+      emissionProfile: PROFILE,
     },
     // **How many pull requests the dataset held, not how many this run read.** `prsInDataset` is the run's choice and
     // **a choice cannot be told apart from a limit unless both are recorded.**

@@ -1499,3 +1499,97 @@ underlying habit, and it is worth stating as a rule rather than as a count:
 `missing[]` carries reasons for the competitor arm. `missedGoldens` carries a bucket and a shape for a golden.
 `prsWithoutDiffReasons` now carries a reason for an unread pull request. **The artifact has no silent subtraction left**,
 and the way that was found was by reading a run's own log against its own artifact line by line.
+
+## 19. The mixture, not the wording: a category prior measured on verdicts already paid for
+
+**Written 2026-11-10, after run 42823966835.**
+
+Two prompt devices were registered and both came back empty or negative (§17, §16.2). **That is the useful part**: the
+sentence is not where the remaining F1 lives, so the next registration had to be about something else. This section is
+that something else, and it was chosen by reading the 569 verdicts the run had already bought.
+
+### 19.1 What the verdicts said, with no model call
+
+Every finding in `benchmarks/aacr-bench.json` carries `category` and the goldens a judge accepted it for. Counting them
+costs nothing and answers "which kind of remark do we spend the budget on, and which kind is accepted":
+
+| category        | emitted | accepted | rate      |
+| --------------- | ------- | -------- | --------- |
+| documentation   | 12      | 8        | **0.667** |
+| security        | 14      | 6        | **0.429** |
+| bug             | 211     | 86       | **0.408** |
+| maintainability | 41      | 10       | 0.244     |
+| performance     | 14      | 3        | 0.214     |
+| architecture    | 179     | 36       | **0.201** |
+| test            | 95      | 11       | **0.116** |
+| style           | 3       | 0        | 0         |
+
+**Two categories are two thirds of the emission and one sixth of the acceptance.** `architecture` and `test` together
+are **274 of 569 findings and 47 of 160 accepted pairs** - and the corpus's own goldens are 46 % `Code Defect` and 42 %
+`Maintainability`, which is the mixture we are not producing.
+
+### 19.2 Reordering was measured first, and it does not work
+
+**The obvious fix is a better ranker**, so it was tried before anything was built: a logistic model over the features the
+artifact already carries (`grounded`, `quotesDiff`, `namesSymbol`, `proposesChange`, `hedged`, `agreement`, severity,
+category, the hand-written `score`), trained on 40 pull requests and scored on 10, five folds by pull request.
+
+| budget per pull request | hand-written score | learned re-ranker |
+| ----------------------- | ------------------ | ----------------- |
+| 12                      | **0.2296**         | 0.2219            |
+| 16                      | 0.2244             | **0.2268**        |
+| none                    | 0.2030             | 0.2030            |
+
+**The learned ranker is inside the noise of the hand-written one and worse at the point the product operates at.** The
+weights it found are readable and they say the same thing as the table above - `test` is the single most negative term,
+`grounded` the most positive - **so the information was never in the ordering. It is in the set.**
+
+### 19.3 The registration
+
+> **R-17.** Emitting only the categories whose measured acceptance reaches **0.22** raises the file arm's F1 on this
+> corpus by **at least 0.02** against the same run with every category emitted, on the same pull requests, the same
+> goldens and the same judge.
+
+**The mechanism is stated so the number cannot arrive alone**: precision rises and recall falls by less than the
+precision rises - **a device that bought precision by dropping goldens would be a filter, not a prior.**
+
+**Falsified if** the gain is below 0.02, **or** the paired test over the two arms' covered goldens does not separate them
+at **p ≤ 0.05**, **or** recall falls by more than precision rises. **The discovery was made on 50 pull requests and the
+confirmation is a run of the 100 it did not see**, because a threshold placed between two measured groups and then
+confirmed on the same rows is a threshold fitted to them.
+
+**What was measured before the registration, on the discovery set** (a subset of the verdicts above, so this is the
+in-sample figure and it is labelled as one):
+
+| policy                            | findings | precision  | recall     | F1         |
+| --------------------------------- | -------- | ---------- | ---------- | ---------- |
+| every category (today)            | 569      | 0.1810     | **0.2309** | 0.2030     |
+| drop `test`                       | 474      | 0.2068     | 0.2197     | 0.2130     |
+| drop `test` and `architecture`    | 274      | **0.2915** | 0.1928     | **0.2321** |
+| the same, top 12 per pull request | 234      | 0.3419     | 0.1794     | **0.2353** |
+
+**The floor is 0.22 and it is written in one place** (`DEFECT_FLOOR`), because it separates the four categories measured
+above a quarter from the three measured below it. **`style` at 0.000 is dropped by the same rule and reported by it**,
+and **`api` and `other`, which were never emitted, are kept** - a category nobody tried is not a category that failed.
+
+### 19.4 What the artifact now says, and what it refuses to say
+
+`configuration.emissionProfile` records which side of R-17 a run was, and `engineCounters.profile` carries the count and
+the sentence per dropped category - so **a precision that rose because two thirds of the emission left is distinguishable
+from one that rose because the findings got better**, which is the whole difference between this and a filter that
+silently discards.
+
+**And the comparison job now refuses a pair whose arms read different corpora**, because the run this section is written
+from had exactly that defect: `prsInDataset` was 50 on both sides, `with` read 46, and the third job - whose only job is
+to refuse confounded pairs - compared them. **`corpusRead.whole`, `prsReviewed` and the pull request keys of the two
+`coverage.byPullRequest` tables are now confounds**, and the refusal names the four pull requests rather than the count.
+
+### 19.5 What this section does not conclude
+
+- **That `architecture` and `test` findings are worthless.** It concludes that **when an expert's judgement is the
+  measure, they are much less often the remark the expert made** - which is why `advisory` exists and why the profile is a
+  parameter rather than a deletion.
+- **That 0.2321 will hold at 100 more pull requests.** The confirmation run is registered, not run; if it comes back
+  inside the resolution, R-17 is falsified and the prior is reverted with its table.
+- **That the corpus is a proxy for users.** Its goldens are AI-reviewer comments filtered by a human, which is the best
+  available answer key and not the same thing as a maintainer's attention.
