@@ -683,3 +683,87 @@ arrangement §9 described. **What is withdrawn is its number**, not its existenc
 **It does not claim the product is 9.4 times cheaper.** It claims that 98 % of what a lane sends after its first file is
 text it has already sent, which is the _ceiling_ of what a prefix cache can return. **The figure that says what the
 provider did with that is `spend.cacheHitRatio`, and it is written by a run of the job, not by this section.**
+
+### 10.7 The run, and what it said
+
+**Taken 2026-11-10 at 01:30 UTC, fourteen pull requests, both checklist arms, the shipped order.** The artifact is
+`benchmarks/aacr-bench.json` in the run's upload; the account read **355.69 CNY before and 295.10 after**, a delta of
+**60.59 CNY ≈ 8.53 USD** for the run.
+
+| prediction                               | registered   | measured                                     | verdict                  |
+| ---------------------------------------- | ------------ | -------------------------------------------- | ------------------------ |
+| `spend.cacheHitRatio`                    | ≥ 0.85       | **0.6078** (checklist on) · **0.5226** (off) | **falsified**            |
+| reviewer cost, same tokens at miss price | fall ≥ 55 %  | **fall 53.1 %** — 1.380 → 0.647 USD          | **missed by two points** |
+| F1                                       | moves ≤ 0.04 | 0.2415 against 0.228 → **+0.014**            | holds                    |
+| judge's share of the model bill          | 10–40 %      | **45.0 %** — 0.530 of 1.177 USD              | missed, high             |
+
+**So the device works and the registration was wrong about how well.** A ratio of 0.61 against a ceiling of 0.98 means
+the prompt is not the whole story, and the second half of this section is about the part that is not.
+
+**And the run answered the question the audit could not.** The instruments in this repository - the ledger and the new
+judge counter - see **2.64 USD of that 8.53**. **The remaining 5.89 USD, 69 % of the bill, is the competitor arm**: the
+tool we install and run to produce a comparable figure, pointed at the same provider key, calling it through its own
+client where nothing here can count it. Ranked by what a run costs:
+
+| line                                  | per run      | share    | visible to this repository |
+| ------------------------------------- | ------------ | -------- | -------------------------- |
+| the competitor we run for comparison  | **5.89 USD** | **69 %** | **no**                     |
+| the judge (`findings × goldens`)      | 1.23 USD     | 14 %     | yes, since iteration 114   |
+| the reviewer (five lanes × 340 files) | 1.41 USD     | 17 %     | yes, since iteration 113   |
+| **total**                             | **8.53 USD** |          |                            |
+
+**And one push paid for one of these.** Until this iteration the harness file was in its own workflow's `push.paths`,
+on the argument that an edited harness should be exercised against the corpus. **The artifact prices that argument:
+one edit, 60.59 CNY.** The path is gone, and `aacr-bench.mjs --dry-run` - which needs no credentials and no corpus -
+now runs in CI on every push, so the arithmetic is still proved and the corpus is not purchased to prove it.
+
+---
+
+## 11. Why 0.61 and not 0.85, registered as a question with two answers
+
+**Registered 2026-11-10, iteration 114, after the run and before the next one.** §10's device is worth a factor of 1.9
+in prompt cost rather than the 3.6 its arithmetic allowed, and there are two candidate mechanisms. **The next run has to
+tell them apart, because the fix is different and one of them is not fixable in the prompt at all.**
+
+### 11.1 The two mechanisms
+
+1. **The per-language checklist sits inside the constant.** `defectChecklist(ctx)` returns different rules for
+   TypeScript and for Python, and it is placed _before_ the target block. Measured on `prompts.ts`: two files of the
+   same extension share **7 593** characters of prefix, and a `.ts` file and a `.py` file share **1 300**. **A polyglot
+   corpus therefore reuses a sixth of what a single-language one would.**
+2. **The vendor's cache accounts for less of a prefix than it is given** - block granularity, partial eviction under
+   load, or a prefix that lapses between two calls ninety minutes apart.
+
+**The observation that keeps this an open question rather than a conclusion**: removing the checklist _lowered_ the
+ratio, 0.608 to 0.523. If the checklist were the whole story, deleting it should have raised the ratio. **It did raise
+the cached tokens per call's share of nothing - the miss per call stayed at 853-909 tokens in both arms while the hit
+moved by exactly the checklist's size.** That is the signature of a prefix that is being cached in both arms, and it
+means mechanism 1 explains the _cross-language_ files and not the _within-language_ ones.
+
+### 11.2 The run that separates them
+
+**The same engine, the same order, over a corpus of one language.** `AACR_LANGUAGE_ONLY` is not a new flag: the corpus
+already carries each file's extension, so the run is the existing one with the sweep filtered to a single language.
+
+1. **`spend.cacheHitRatio` ≥ 0.80** on a single-language subset of at least a hundred files. **Mechanism 1** is then the
+   cause, and the fix is a scheduling one: **the review queue sorts by extension**, so a language's rules are bought
+   once and reused across every file that needs them.
+2. **A ratio at 0.6 on a single-language subset** means the constant block is not being cached as measured, and the
+   prompt has been taken as far as this provider allows. **The next lever is then not the prompt but the number of
+   calls**: five lanes to one call per file, with the lane instruction as a field in one prompt.
+3. **And the miss per call is the figure to watch**, because it is the only one that should move: 853-909 tokens today,
+   and it is the diff's size. **A miss that grows with the number of languages is mechanism 1 in one number.**
+
+### 11.3 What falsifies the separation
+
+**A single-language ratio of 0.95 with the polyglot ratio unchanged at 0.61** would mean the two mechanisms are not
+alternatives but the same one seen twice, and the run is repeated with the order sorted by language rather than filtered
+by it. **A single-language ratio that is also 0.61, with the miss per call unchanged**, falsifies mechanism 1 outright
+and rules the prompt out for this provider.
+
+### 11.4 What is not in question
+
+**The device is not reverted.** It cut the reviewer's bill by **53.1 %** measured on the same token counts, and F1 moved
+by 0.014 inside a 0.04 band. **A registration that predicted 0.85 and delivered 0.61 is a wrong prediction and a good
+device**, and the difference between those two sentences is the whole reason §10 was written before the run rather than
+after it.
