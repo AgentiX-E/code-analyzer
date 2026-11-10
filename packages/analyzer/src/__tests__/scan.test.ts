@@ -1,11 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { ScanPhase } from '../pipeline/phases/scan.js';
-import { GraphBuilder } from '../graph/graph-builder.js';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import { GraphBuilder } from '../graph/graph-builder.js';
+import { ScanPhase } from '../pipeline/phases/scan.js';
+
 import type { PipelineContext, CodeAnalyzerConfig } from '@code-analyzer/shared';
 
 function makeConfig(projectId: string, rootPath: string): CodeAnalyzerConfig {
@@ -25,7 +28,10 @@ describe('ScanPhase — graph population branches', () => {
   let rootPath: string;
 
   beforeEach(() => {
-    rootPath = join(tmpdir(), `scan-test-${randomUUID()}`);
+    // **`mkdtempSync` rather than a name built from a uuid**, because the create is atomic: a name that is chosen and
+    // then created is a name another process can take between the two steps, and **the alert this fixes is about the
+    // window, not about the randomness.** The path is still different on every run, which is what the scenarios need.
+    rootPath = mkdtempSync(join(tmpdir(), 'scan-test-'));
     mkdirSync(join(rootPath, 'src'), { recursive: true });
   });
 
