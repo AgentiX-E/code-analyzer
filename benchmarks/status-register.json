@@ -129,6 +129,14 @@
     "Competitor Replay": {
       "status": "tested",
       "evidence": "tests/unit/scripts/a-competitor-is-paid-for-once.test.ts, tests/e2e/a-competitor-run-is-bought-once.test.ts — a recorded result replays to the same F1, and a replayed run calls the competitor zero times"
+    },
+    "Missed-Golden Attribution": {
+      "status": "tested",
+      "evidence": "tests/unit/scripts/every-missed-golden-has-a-reason.test.ts — five disjoint buckets whose sum is asserted to equal the golden count, and a path normalised before it is compared"
+    },
+    "Measured-Error Interval": {
+      "status": "tested",
+      "evidence": "tests/unit/scripts/a-rate-limit-is-not-an-answer.test.ts — Retry-After in seconds and as an HTTP date, a capped exponential schedule, and the interval published beside F1"
     }
   }
 }

@@ -112,6 +112,8 @@ Checkmarks indicate features verified through automated tests.
 | Cost Accounting (per-call ledger, tag totals, spend ceiling)   | Tested — unit and end-to-end                                        |
 | Prefix Reuse (instructions lead the prompt, file closes it)    | Tested — 98.05 % reuse against 10.46 %, 30 real requests            |
 | Competitor Replay (a corpus result is paid for once)           | Tested — record/replay round trip, identical F1, zero paid calls    |
+| Missed-Golden Attribution (every miss has a named cause)       | Tested — 5 disjoint buckets, partition asserted, 10 unit cases      |
+| Measured-Error Interval (an unanswered pair is not a miss)     | Tested — bound published beside F1, retry schedule unit-tested      |
 
 ---
 

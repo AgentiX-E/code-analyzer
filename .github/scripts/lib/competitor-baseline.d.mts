@@ -28,6 +28,8 @@ export interface RecordedPull {
   detail: Array<Record<string, unknown>>;
   unanswered: number;
   findings: number;
+  /** **A pull request the competitor was run on and produced nothing for.** Recorded, not omitted. */
+  failed?: boolean;
 }
 
 /** The whole file. */
@@ -39,6 +41,8 @@ export interface CompetitorBaseline {
     judge: { model: string; prompt: string };
   };
   competitor: { tool: string };
+  /** **Which run the rows came from and how the transcription was checked**, when the file was not written by `record`. */
+  provenance?: Record<string, unknown>;
   pulls: Record<string, RecordedPull>;
 }
 
