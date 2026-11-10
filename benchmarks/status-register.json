@@ -120,6 +120,11 @@
       "status": "tested",
       "evidence": "packages/intelligence/src/review/llm/__tests__/cost.test.ts (22 cases, 100 % on all four dimensions), provider-cost.test.ts (12 cases against a loopback server), engine-cost.test.ts (5), tests/e2e/a-review-reports-what-it-spent-and-stops-at-the-ceiling.test.ts (2)",
       "note": "**`tested` and not `verified`, because no artifact carries the figure yet.** The ledger, the price table and the ceiling are exercised; the first job that publishes `spend` in `benchmarks/aacr-bench.json` is what turns this into `verified`, and `docs/EVAL-CONTRACT.md` §9 is the rule that job will settle."
+    },
+    "Prefix Reuse": {
+      "status": "tested",
+      "evidence": "packages/intelligence/src/review/llm/__tests__/prompt-order.test.ts (22 cases: the three arrangements are the same three pieces in three positions, the lane order, and the wave schedule); tests/e2e/a-lane-pays-for-its-instructions-once.test.ts (2, over a loopback provider and thirty real requests)",
+      "note": "**The reviewer's instructions lead every prompt and the file closes it, so the prefix a lane reuses is the text that does not change.** Measured on the bytes the provider receives: **98.05 % of each request after the first for the same lane repeats the previous one, against 10.46 % under the previous arrangement** - a factor of 9.4 from one block moved, with the same characters in both prompts. **`tested` and not `verified`: the figure here is a ceiling, not a bill.** What the provider does with it is `spend.cacheHitRatio` in `benchmarks/aacr-bench.json`, and `docs/EVAL-CONTRACT.md` §10 is the rule that reads it. **§9 of that contract predicted 0.5 for the opposite arrangement and was withdrawn before its run**, because the block it moved is 6.9 % of a call at an ordinary diff and could never have produced that number."
     }
   }
 }

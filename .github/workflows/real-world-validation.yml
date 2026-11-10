@@ -11,8 +11,14 @@
 name: Real-World Validation
 
 on:
+  # **A product change does not dispatch a paid run.** These paths used to start this job on every commit that
+  # touched the code it measures, which is a bill for measuring one's own edit - the trigger fires on corpora and
+  # harnesses only now, and the schedule below is the weekly measurement, placed inside the vendor's off-peak
+  # window where every price is half.
+  # **Sunday 00:00 UTC is already off-peak**, so this job needs no second weekly run: a duplicate schedule is a
+  # duplicate bill, which is why the one added while narrowing the triggers was removed rather than kept.
   schedule:
-    - cron: '0 0 * * 0' # Every Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
   workflow_dispatch:
     inputs:
       projects:
@@ -21,12 +27,6 @@ on:
         required: false
         default: 'react,vue,django'
         type: string
-  push:
-    branches: [master]
-    paths:
-      - 'tests/benchmarks/real-world/**'
-      - 'packages/analyzer/src/languages/**'
-      - '.github/workflows/real-world-validation.yml'
 
 permissions:
   contents: read

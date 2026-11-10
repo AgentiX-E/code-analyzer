@@ -6,10 +6,11 @@ import {
   LANE_LABELS,
   parseLLMResponse,
   type PromptContext,
+  type PromptOrder,
   type ReviewLane,
   type LLMFinding,
 } from './prompts.js';
-import { collectDiffFacts, rankFindings } from '../actionability.js';
+import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
@@ -53,6 +54,30 @@ export interface LLMReviewOptions {
    * that second run, and it is a product flag rather than a harness hack so that what was measured is what ships.
    */
   languageChecklist?: boolean;
+  /**
+   * **Where the target-and-diff block sits in every lane prompt.** Undefined means `boilerplate-first`, the arrangement
+   * that ships; the other two exist so the same corpus can be run with the device and without it. See
+   * `EVAL-CONTRACT.md` §10 and `composeLanePrompt`.
+   */
+  promptOrder?: PromptOrder;
+  /**
+   * **How many rounds of lane calls are sent. Defaults to one, and the reason it is not two is the whole of §10.**
+   *
+   * A cache entry is created by a request and reused by a *later* one, so **a device whose shared block is
+   * file-specific cannot pay while five calls for that file are in flight together** - the other four ask before
+   * anything is stored. `2` sends the first lane alone, waits, then sends the remaining four together: one round that
+   * builds the entry and one that reuses it, **for twice the latency.**
+   *
+   * **That round is worth it only for the arrangement `EVAL-CONTRACT.md` §9 registered**, where the reusable block is
+   * one file's diff and there is nothing else to reuse. **Under the arrangement that ships, the reusable block is the
+   * lane's own wording, which is identical for every file the lane ever reads** - so the first *file* stores it and
+   * the remaining files hit it with no warm-up round at all. **A round that buys nothing and costs latency is not a
+   * safety margin**, so the default is `1` and this option exists to make §9's arrangement measurable rather than to
+   * be used.
+   *
+   * `lanes.length` sends one lane per round, which is the fully sequential arrangement.
+   */
+  laneWaves?: number;
 }
 
 /** Result of an LLM review for a single diff. */
@@ -157,7 +182,36 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // is a constant that has to become a parameter.**
   dedupThreshold: 0.6,
   languageChecklist: true,
+  promptOrder: 'boilerplate-first',
+  laneWaves: 1,
 };
+
+/**
+ * **The lanes, grouped into the rounds they will be sent in.**
+ *
+ * One round is the shipped arrangement and returns the lanes untouched. More than one puts a single lane in the first
+ * round - **it is the request that fills the cache** - and spreads the rest as widely as the arithmetic allows, so the
+ * warm-up costs one call's latency rather than four more.
+ *
+ * **Exported and pure because it is the part of the device that can be checked without a provider.** The claim a run
+ * makes is about a ratio of cached tokens; the claim this function makes is that exactly one call precedes the rest,
+ * and it is the only one of the two a unit test can settle.
+ *
+ * `waves` is clamped rather than trusted: `0`, `1`, `NaN` and anything below a single round mean **one round**, and
+ * more rounds than lanes means one lane per round. **A schedule is not a place for a thrown exception** - a
+ * misconfigured run should cost more money, not produce no review at all.
+ */
+export function planLaneWaves(lanes: readonly ReviewLane[], waves: number): ReviewLane[][] {
+  if (lanes.length === 0) return [];
+  const rounds = Number.isFinite(waves) ? Math.trunc(waves) : 1;
+  const wanted = Math.min(Math.max(rounds, 1), lanes.length);
+  if (wanted <= 1) return [lanes.slice()];
+  const rest = lanes.slice(1);
+  const perRound = Math.ceil(rest.length / (wanted - 1));
+  const plan: ReviewLane[][] = [[lanes[0]!]];
+  for (let at = 0; at < rest.length; at += perRound) plan.push(rest.slice(at, at + perRound));
+  return plan;
+}
 
 // ---------------------------------------------------------------------------
 // LLM Review Engine
@@ -191,13 +245,12 @@ export class LLMReviewEngine {
       changeType: diff.changeType,
       fileContext,
       languageChecklist: this.options.languageChecklist,
+      promptOrder: this.options.promptOrder,
     };
 
     const lanes = this.options.lanes;
 
-    const results = this.options.parallel
-      ? await this.runLanesParallel(ctx, lanes)
-      : await this.runLanesSequential(ctx, lanes);
+    const results = await this.runLanes(ctx, lanes);
     return this.deduplicateAcrossLanes(results);
   }
 
@@ -485,11 +538,10 @@ export class LLMReviewEngine {
       maxFindings: budget,
       scope: 'pull-request',
       languageChecklist: this.options.languageChecklist,
+      promptOrder: this.options.promptOrder,
     };
 
-    const results = this.options.parallel
-      ? await this.runLanesParallel(ctx, this.options.lanes)
-      : await this.runLanesSequential(ctx, this.options.lanes);
+    const results = await this.runLanes(ctx, this.options.lanes);
 
     const parsed = [...this.parsedByLane.values()].reduce((sum, count) => sum + count, 0);
     const deduplicated = this.deduplicateAcrossLanes(results);
@@ -539,12 +591,33 @@ export class LLMReviewEngine {
   // Lane Execution
   // -------------------------------------------------------------------------
 
-  private async runLanesParallel(
+  /**
+   * **The same lanes, in rounds, so that a round can exist to fill the cache rather than to empty it.**
+   *
+   * Only one arrangement needs it - the file-scoped prefix of §9 - and the default wave count is one; this method is
+   * what makes the other arrangement measurable without a second engine. **`await` on the round rather than on each
+   * call**, so the lanes inside a round are still concurrent, and the results are concatenated in lane order, which is
+   * the order the deduplication and the budget have always seen.
+   */
+  private async runLanesInWaves(
     ctx: PromptContext,
     lanes: ReviewLane[],
+    waves: number,
   ): Promise<LLMReviewResult[]> {
-    const promises = lanes.map((lane) => this.executeLane(ctx, lane));
-    return Promise.all(promises);
+    const results: LLMReviewResult[] = [];
+    for (const wave of planLaneWaves(lanes, waves)) {
+      // **`await` on the round, not on each call**: the lanes inside a round are still concurrent, which is the
+      // latency this arrangement keeps.
+      const settled = await Promise.all(wave.map((lane) => this.executeLane(ctx, lane)));
+      results.push(...settled);
+    }
+    return results;
+  }
+
+  /** Which of the three arrangements a call asked for, in one place so both scopes agree. */
+  private async runLanes(ctx: PromptContext, lanes: ReviewLane[]): Promise<LLMReviewResult[]> {
+    if (!this.options.parallel) return this.runLanesSequential(ctx, lanes);
+    return this.runLanesInWaves(ctx, lanes, this.options.laneWaves);
   }
 
   private async runLanesSequential(
@@ -734,18 +807,25 @@ export class LLMReviewEngine {
     const canonicalOf = new Map<string, string>();
     let section: Array<{ start: number; end: number }> | null = null;
     for (const raw of String(ctx.diffContent).split('\n')) {
-      const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(raw);
+      // **A search rather than two lazy groups.** `^diff --git a\/(.+?) b\/(.+)$` is quadratic on a header line
+      // holding many ` b/` candidates, and a diff is text this module did not write. The split is at the first ` b/`,
+      // which is where the lazy group stopped, so **the answers are the ones this function already gave** - a fix for a
+      // quadratic scan that also moved a boundary would be two changes, and only one of them was measured.
+      const header = diffHeaderPaths(raw);
       if (header) {
-        const canonical = normaliseReviewPath(String(header[2]));
+        const canonical = normaliseReviewPath(header.right);
         section = [];
         rangesByPath.set(canonical, section);
         canonicalOf.set(canonical, canonical);
         // Only when the two sides differ, so the ordinary case adds nothing a reader has to hold.
-        const before = normaliseReviewPath(String(header[1]));
+        const before = normaliseReviewPath(header.left);
         if (before !== canonical) canonicalOf.set(before, canonical);
         continue;
       }
-      const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(raw);
+      // **`{1,9}` and not `+`.** A line of the form `@@ -1111…1` with no second coordinate makes `\d+` rescan the run
+      // from every start position, and a hunk header is attacker text. **A line number wider than nine digits is not a
+      // line number**; the bound is stated rather than implied by the size of the file being read.
+      const hunk = /^@@ -\d{1,9}(?:,\d{1,9})? \+(\d{1,9})(?:,(\d{1,9}))? @@/.exec(raw);
       if (hunk && section !== null) {
         const start = Number(hunk[1]);
         section.push({ start, end: start + Number(hunk[2] ?? 1) - 1 });

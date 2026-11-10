@@ -61,11 +61,20 @@ const IMPORT_PATTERNS: readonly RegExp[] = [
   // Python: `from a.b import c`
   /^\s*from\s+([A-Za-z_][\w.]*)\s+import\b/u,
   // JavaScript, TypeScript: `import x from 'a'`, `import type {x} from 'a'`
-  /^\s*import\s+[^'"]*from\s+['"]([^'"]+)['"]/u,
+  //
+  // **`{0,512}` and not `*`, and the number is a bound rather than a style.** `[^'"]*` followed by `from` is quadratic
+  // on a line that starts with `import` and never says `from`: the engine advances the star to the end of the line,
+  // fails, and tries the next start position, for every position. **A minified bundle's single line is exactly that
+  // input**, and this file reads eight kilobytes of every file in a checkout it did not write. Five hundred characters
+  // is longer than any import statement this project has measured, and **a miss is not silent** - `importLines` is
+  // published per instance, so an input this bound rejects is a visible zero rather than a quiet one.
+  /^\s*import\s+[^'"]{0,512}from\s+['"]([^'"]+)['"]/u,
   // JavaScript, TypeScript: `import 'a'` for a side effect
   /^\s*import\s+['"]([^'"]+)['"]/u,
   // Re-exports: `export { x } from 'a'`
-  /^\s*export\s+[^'"]*from\s+['"]([^'"]+)['"]/u,
+  //
+  // The same bound for the same reason: the shape that never reaches `from` is the shape that makes the star quadratic.
+  /^\s*export\s+[^'"]{0,512}from\s+['"]([^'"]+)['"]/u,
   // CommonJS: `require('a')`, an expression rather than a statement, so it is not anchored
   /require\(\s*['"]([^'"]+)['"]\s*\)/u,
   // Java, Kotlin, Scala, Groovy: `import a.b.C;`, `import static a.b.C.d;`
