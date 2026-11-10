@@ -147,10 +147,17 @@ const OUTPUT_SCHEMA = `{
 /**
  * **The one requirement every finding in this engine has to meet, and the measurement that says why.**
  *
- * On the AACR corpus, **98 of 170 goldens were missed by a finding on their own file**, and re-reading the corpus's
- * `from_line` against the findings' ranges put **40 of those 98 on the golden's own line and 73 within ten lines of
- * it** (`docs/EVAL-CONTRACT.md` §15.4). **So the lanes were not looking in the wrong place** - they were standing in the
+ * On the AACR corpus, **250 of 452 goldens were missed by a finding on their own file**, and re-reading the corpus's
+ * `from_line` against the findings' ranges put **135 of those 250 on the golden's own line and 189 within ten lines of
+ * it** (`docs/EVAL-CONTRACT.md` §16.3). **So the lanes were not looking in the wrong place** - they were standing in the
  * right one and describing something the judge would not call the same defect.
+ *
+ * **And the first version of this rule made things worse, which is why it reads the way it does now.** It ended with
+ * "a suggestion that names no failure cannot be right or wrong, which is why it is not reported" - **a sentence that
+ * licenses silence**, and the model took it: emission fell from 582 findings to 460 on the same 50 pull requests, hits
+ * fell from 86 to 76 on the 35 that both runs read, and none of the 189 coincident rejections was recovered
+ * (`docs/EVAL-CONTRACT.md` §17). **A rule that trades recall for precision was the last thing this corpus needed**, so
+ * the licence is gone and the requirement is stated with the emission it must not cost.
  *
  * **The contract had rules about where a finding points and none about what it says.** Rule 4 of the file contract
  * spends a hundred and seventy words on lines and severity, and a lane reading it learns that a range "must cover the
@@ -164,9 +171,11 @@ const OUTPUT_SCHEMA = `{
 const DESCRIBE_THE_FAILURE = `**The description names the failure, not the fix.** Say what goes wrong and under which
    input or state, in the vocabulary the code uses - "\`read()\` returns the caller's stream unclosed, so a path that
    never closes it leaks a descriptor on every request" rather than "consider closing the stream". **This is the rule
-   the last measurement bought**: of 98 goldens whose file we commented on and whose line we commented on within ten
-   lines, **we matched none**, so a finding in the right place that describes the wrong thing is this corpus's dominant
-   loss. A suggestion that names no failure cannot be right or wrong, which is why it is not reported.`;
+   the last measurement bought**: on 50 pull requests, **135 of the 250 goldens we missed had a finding on the golden's
+   own line** and 189 had one within ten lines, so a finding in the right place that describes the wrong thing is this
+   corpus's dominant loss. **A suggestion that names no failure has not been finished** - rewrite it until it does.
+   **Do not report fewer findings because of this rule**: a defect you found and could not phrase is one this reviewer
+   exists to phrase, not one to leave out.`;
 
 const SELECTION_RULES = `
 How to choose and how many to return - this is part of the contract, not advice:

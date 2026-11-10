@@ -81,9 +81,24 @@ describe('a finding has to say what fails, and for which input', () => {
     // **The numbers are in the prompt rather than in a document beside it**, for the same reason rule 1 of the
     // pull-request contract carries its own: a rule a model cannot see the reason for is a rule that competes with the
     // other thirty sentences in the same prompt and loses.
+    // **The numbers were re-measured at fifty pull requests**, where the same effect is stronger: 135 of 250 at zero
+    // lines and 189 within ten. A rule carrying a stale figure is a rule that argues from the wrong evidence.
     const prompt = SECURITY_REVIEW_PROMPT(context());
-    expect(prompt).toContain('98 goldens');
-    expect(prompt).toContain('within ten');
+    expect(prompt).toContain('135 of the 250 goldens');
+    expect(prompt).toContain('within ten lines');
+  });
+
+  it('does not license silence, because the first version did and emission fell by a fifth', () => {
+    // **The sentence this test replaced**, and the measurement that removed it: "a suggestion that names no failure
+    // cannot be right or wrong, **which is why it is not reported**". The model took the licence - 582 findings became
+    // 460 on the same 50 pull requests, hits fell from 86 to 76 on the 35 both runs read, and none of the 189
+    // coincident rejections was recovered (`docs/EVAL-CONTRACT.md` §17). **A rule that trades recall for precision was
+    // the last thing this corpus needed.**
+    for (const scope of ['file', 'pull-request'] as const) {
+      const prompt = SECURITY_REVIEW_PROMPT(context({ scope }));
+      expect(prompt).not.toContain('which is why it is not reported');
+      expect(prompt).toContain('Do not report fewer findings because of this rule');
+    }
   });
 
   it('is one rule and not two, so the file and pull-request scopes cannot drift apart', () => {
@@ -93,8 +108,8 @@ describe('a finding has to say what fails, and for which input', () => {
     const pullRequestCall = SECURITY_REVIEW_PROMPT(
       context({ scope: 'pull-request', paths: ['src/a.java'] }),
     );
-    const tail =
-      'A suggestion that names no failure cannot be right or wrong, which is why it is not reported';
+    const tail = 'A suggestion that names no failure has not been finished';
+
     expect(fileCall).toContain(tail);
     expect(pullRequestCall).toContain(tail);
     expect(fileCall.match(/The description names the failure/g)).toHaveLength(1);

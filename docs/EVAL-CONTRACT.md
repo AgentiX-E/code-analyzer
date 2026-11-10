@@ -1373,3 +1373,129 @@ written. **It is written here, before the dispatch, so that the number it produc
 
 **And precision must not fall by more than 0.02.** A sentence that names a failure mode it cannot support is a
 hallucination with better grammar, and the gate is what would have to absorb it.
+
+## 17. R-15 falsified: the rule that named the failure licensed silence, and the reviewer took the licence
+
+**Written 2026-11-10, from run [42811727182](https://github.com/AgentiX-E/code-analyzer/actions/runs/42811727182) - fifty
+pull requests, both arms, `boilerplate-first`, competitor replayed, from `967612e`, which is the first commit carrying
+`DESCRIBE_THE_FAILURE` - paired against run 42789979455 from `4bb3985`, which is the commit before it.**
+
+### 17.1 The registration, and the answer
+
+|                                 | registered (§15.5, restated proportionally in §16.6) | observed            |
+| ------------------------------- | ---------------------------------------------------- | ------------------- |
+| coincident rejections recovered | **≥ 32.9 %** (≥ 62 of 189)                           | **0**               |
+| falsified by                    | **< 12.3 %** (< 23 of 189)                           | —                   |
+| precision                       | may not fall by more than **0.02**                   | fell **0.0194**     |
+| F1, checklist off               | —                                                    | **0.2010 → 0.1925** |
+
+**The claim is falsified by its own falsification clause, and the point estimates are on the wrong side of every number
+in it**: no coincident rejection was recovered, precision fell by almost exactly the amount the registration would have
+forgiven, and F1 fell by 0.0085.
+
+### 17.2 What the rule actually did
+
+|                                                        | before (42789979455) | after (42811727182) |                     |
+| ------------------------------------------------------ | -------------------- | ------------------- | ------------------- |
+| findings emitted, checklist off                        | **582**              | **460**             | **−21 %**           |
+| `noFindingOnPath`, checklist off                       | **30**               | **36**              | +6                  |
+| `findingOnPathRejected`, checklist off                 | 250 of 452           | 192 of 349          | **55.3 % → 55.0 %** |
+| `sameLine`, checklist off                              | 135 (54.0 %)         | 98 (51.0 %)         | −3.0 pp             |
+| **paired hits on the 35 pull requests both runs read** | **86**               | **76**              | **−10, p = 0.20**   |
+
+**The bucket the rule was aimed at did not move as a share, and the number of findings fell by a fifth.** On the 35 pull
+requests the two runs share, 30 goldens were found by the before run and not the after, against 20 the other way - **a
+point estimate of ten goldens lost, not recovered.**
+
+### 17.3 The cause, and it is in the sentence I wrote
+
+The rule ended:
+
+> A suggestion that names no failure cannot be right or wrong, **which is why it is not reported**.
+
+**That is a licence to emit less, and the model took it.** It is the same failure as the per-language checklist (§15.3):
+a device registered as a _targeting_ aid became a _suppression_ aid, because the only instruction it gave the model that a
+token could act on was permission to say nothing. **Two prompt devices in a row bought precision with recall on a corpus
+whose binding constraint is recall** - 0.1836 against a competitor's 0.2941 on the same goldens.
+
+**And the rule's own evidence sentence was stale**, quoting the fourteen-pull-request numbers (98 of 170, 40 on the
+golden's line) into a prompt used on a corpus where the figures are 250 of 452 and 135. **A rule arguing from the wrong
+numbers is a rule arguing from nothing**, which is the same defect as §13's discarded `path`, one layer up.
+
+### 17.4 R-16, registered before its run
+
+**Claim R-16.** _The same requirement without the licence to omit - "a suggestion that names no failure has not been
+finished, rewrite it until it does, and do not report fewer findings because of this rule" - will recover **at least
+12.3 % of the coincident rejections** (≥ 23 of the 189) at no more than 0.02 of precision, **and will emit at least 540
+findings on fifty pull requests**, which is within 7 % of the 582 the pre-rule run emitted._
+
+**Falsified if** fewer than 23 of the 189 are recovered, **or emission falls below 540**, **or precision falls by more
+than 0.02.**
+
+**The emission floor is the part that is new, and it is there because the last registration could not fail in the
+direction that actually went wrong.** A rule about _how to say something_ that makes a model say less is not a phrasing
+improvement; it is a recall change wearing one, and **the next registration has to be able to catch that**.
+
+**Its baseline is run 42811727182 itself**, which is the strongest possible one-variable control: the next dispatch
+differs from it by the two sentences in §17.3 and by nothing else.
+
+### 17.5 What is not concluded
+
+1. **That naming the failure is the wrong idea.** It is untested: **the version that ran never asked a model to name a
+   failure without also telling it that it could stay silent**, so the idea has had no run. What is falsified is the
+   phrasing, and the phrasing is what R-16 changes.
+2. **That the coincident rejections are unrecoverable.** The count is 189 on this corpus and **zero have been recovered by
+   any device tried so far** - the checklist, aimed at the search, and this rule, aimed at the sentence. **Two devices,
+   two suppressions.** The next attempt is registered with the failure mode named in it.
+3. **That the corpus loss is irrelevant to these numbers.** Twelve of fifty pull requests were unread in the `without`
+   arm, so every figure in §17.2 is over 38 pull requests and 349 goldens, and the paired view is restricted to the 35
+   both runs read. **That is why §18 exists.**
+
+## 18. A quarter of the corpus went missing and the run said so in one number
+
+**Written 2026-11-10, from the same run as §17.**
+
+Run 42811727182 was dispatched for fifty pull requests. Its `with` arm read all fifty; its **`without` arm read
+thirty-eight** and published `prsWithoutDiff: 12`.
+
+**Twelve is a count. There was no list, no reason, and no line in the log.** `fetchPrDiff` returned `null` for two
+different failures - a URL that is not a pull request, and a request that was refused - and the loop did:
+
+```js
+if (diff === null) { unfetched += 1; continue; }
+```
+
+**So the run could not distinguish a rate limit from a typo in the corpus from a network fault, and the three have
+different repairs.** It is the same omission as §13's discarded `path` and §15.5's discarded sentence: **a number where a
+list was needed, in the artifact that exists to make the number checkable.**
+
+### 18.1 What changed
+
+| before                                                                                       | after                                                                                                      |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `fetchPrDiff` returns `string \| null`                                                       | returns `{ ok, diff }` or `{ ok, reason }`                                                                 |
+| a read of `GITHUB_TOKEN` twice, so a `GH_TOKEN`-only environment fetched **unauthenticated** | both names, because **a silently unauthenticated fetch is sixty requests an hour against five thousand**   |
+| the reason is discarded                                                                      | the HTTP status, the remaining budget and whether the request was authenticated                            |
+| `prsWithoutDiff: 12`                                                                         | `prsWithoutDiff: 12`, `prsWithoutDiffReasons: [{ key, reason }]`, and `corpusRead: { read, share, whole }` |
+| nothing in the log                                                                           | `AACR-BENCH unread · 12 of 50 pull requests (24 % of the corpus) · <first reason>`                         |
+
+**`corpusRead.whole` is a disclosure and not a refusal**, at a threshold of one in twenty: **a run that read 49 of 50 is a
+result about the corpus, and a run that read 38 of 50 is a result about 38 pull requests.** What is not allowed is
+printing the second as the first, which is why the share travels in the artifact and the line travels in the log.
+
+**And the likely cause is written down rather than inferred**: twelve of fifty in the later arm and zero in the earlier one
+is the shape of a shared hourly budget being spent by the first arm before the second starts. **The fix is the second
+thing on the list and not the first, because a run that names the cause can be repaired and a run that reports a count
+cannot.**
+
+### 18.2 The rule this settles
+
+§16 recorded three defects of one shape in one iteration - a comparison without a counterpart, a guard on the wrong
+object, a mode that bought what it held. **This is the fourth: a loss without a reason.** All four are the same
+underlying habit, and it is worth stating as a rule rather than as a count:
+
+> **Anything that leaves the run must leave with a reason, and the reason must be on the object that leaves.**
+
+`missing[]` carries reasons for the competitor arm. `missedGoldens` carries a bucket and a shape for a golden.
+`prsWithoutDiffReasons` now carries a reason for an unread pull request. **The artifact has no silent subtraction left**,
+and the way that was found was by reading a run's own log against its own artifact line by line.

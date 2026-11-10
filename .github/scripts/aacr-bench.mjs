@@ -37,6 +37,7 @@ import {
   compareAgainstCompetitor,
   describeComparison,
 } from './lib/competitor-comparison.mjs';
+import { describeUnread, readTheWholeCorpus, unreadCorpus } from './lib/unread-corpus.mjs';
 import {
   DEFAULT_BASELINE_PATH,
   corpusFingerprint,
@@ -1306,15 +1307,20 @@ async function main() {
   const prArmDetail = [];
   let reviewed = 0;
   let unfetched = 0;
+  /** **Which pull requests this run could not read, and why** - a list, not a count. */
+  const unfetchedPulls = [];
   const categories = {};
   const contextLevels = {};
 
   /** The pull request's unified diff, through the API, because **the corpus stores a URL and not a patch.** */
   async function fetchPrDiff(url) {
     const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url ?? ''));
-    if (!m) return null;
+    if (!m) return { ok: false, reason: `"${String(url ?? '')}" is not a pull request URL` };
     const [, owner, repo, num] = m;
-    const token = process.env['GITHUB_TOKEN'] ?? process.env['GITHUB_TOKEN'] ?? '';
+    // **`GH_TOKEN` as well as `GITHUB_TOKEN`**, because the double read of one name is what a copy-paste looks like and
+    // **a silently unauthenticated fetch is a sixty-request hour against a five-thousand one**. The run of 2026-11-11
+    // lost twelve of fifty pull requests and this line is the reason it could not say why.
+    const token = process.env['GITHUB_TOKEN'] ?? process.env['GH_TOKEN'] ?? '';
     try {
       const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${num}`, {
         headers: {
@@ -1323,9 +1329,19 @@ async function main() {
           ...(token ? { authorization: `token ${token}` } : {}),
         },
       });
-      return res.ok ? await res.text() : null;
-    } catch {
-      return null;
+      if (res.ok) return { ok: true, diff: await res.text() };
+      // **The status and the remaining budget, because the two failures that look alike here are a typo in the corpus
+      // and a rate limit**, and only one of them is repaired by running again later.
+      const remaining = res.headers.get('x-ratelimit-remaining');
+      return {
+        ok: false,
+        reason:
+          `the diff request returned ${String(res.status)}` +
+          (remaining === null ? '' : ` with ${remaining} requests left in the hour`) +
+          (token ? '' : ' and the request was unauthenticated'),
+      };
+    } catch (error) {
+      return { ok: false, reason: `the diff request threw: ${String(error?.message ?? error)}` };
     }
   }
 
@@ -1348,11 +1364,16 @@ async function main() {
       startLine: Number(c.from_line ?? c.to_line ?? 0) || null,
       endLine: Number(c.to_line ?? c.from_line ?? 0) || null,
     }));
-    const diff = await fetchPrDiff(pr.githubPrUrl);
-    if (diff === null) {
+    const fetched = await fetchPrDiff(pr.githubPrUrl);
+    if (!fetched.ok) {
       unfetched += 1;
+      // **Named, with the reason, because twelve of fifty pull requests left this run without a word.** A corpus that
+      // silently shrinks by a quarter is a recall computed over a corpus nobody chose, and **the run that lost them could
+      // not say whether the cause was the corpus, the network or a rate limit** - which are three different repairs.
+      unfetchedPulls.push({ key: String(pr.githubPrUrl ?? ''), reason: fetched.reason });
       continue;
     }
+    const diff = fetched.diff;
     // **The competitor, on this pull request, judged by the same judge against the same goldens.**
     //
     // **And its findings are extracted the way its own output shapes them** - a `comments` array carrying `content` and
@@ -2297,6 +2318,15 @@ async function main() {
       coveredTotal: gated.truePositives,
     },
     prsWithoutDiff: unfetched,
+    // **How much of the corpus arrived**, as a share rather than a count, because **recall over 38 pull requests is not
+    // recall over 50 and the reader has to be able to see that without dividing two numbers**.
+    corpusRead: {
+      ...unreadCorpus({ requested: rows.length, unread: unfetched }),
+      whole: readTheWholeCorpus({ requested: rows.length, unread: unfetched }),
+    },
+    // **And which, and why.** A count says the corpus shrank; a list says whether to fetch again, fix the URL, or raise
+    // the token's budget - and **the three repairs are not interchangeable.**
+    prsWithoutDiffReasons: unfetchedPulls,
     positiveSamples: positives.length ?? rows.length,
     negativeSamples: Array.isArray(negatives) ? negatives.length : null,
     truePositives: gated.truePositives,
@@ -2506,6 +2536,12 @@ async function main() {
   );
   // **One line, derived from the object rather than from the counts**, because a console line assembled from the raw
   // counts keeps printing a shutout after the artifact has stopped - which is the state this run was in for an iteration.
+  const unreadLine = describeUnread({
+    requested: rows.length,
+    unread: unfetched,
+    pulls: unfetchedPulls,
+  });
+  if (unreadLine !== null) console.log(`AACR-BENCH ${unreadLine}`);
   console.log(`AACR-BENCH ${describeComparison(comparison)}`);
 }
 
