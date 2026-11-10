@@ -159,3 +159,42 @@ jobs:
         with:
           name: sbom
           path: sbom.spdx.json
+
+  # **The ReDoS findings are sorted by measurement, in the workflow that reads them.**
+  #
+  # CodeQL fires `js/polynomial-redos` seventy-six times in this repository, and a rule that fires seventy-six times is
+  # a rule whose findings have to be sorted before they can be believed. That sort was done by hand for the first
+  # thirty-five - an adversarial string lifted from each message, replayed in a child process with a kill timer - and the
+  # answer was written into an audit page, where **it cannot be re-run**. A measurement that lives only in a paragraph is
+  # a measurement the next reader has to take on trust.
+  #
+  # So the sort is a program, and this job is where it runs: the alerts come from the API, the adversarial string comes
+  # from CodeQL's own sentence rather than from the author's imagination, and **the job fails when any pattern the rule
+  # names is still quadratic on the input the rule names**. No model is called, so this costs nothing to run on every
+  # push and pull request.
+  redos-assay:
+    name: ReDoS Assay
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      # **No `pnpm install`, because the assay has no dependencies**: it reads the alerts API with `fetch` and replays
+      # each pattern with `node -e`. A step that installed 1 400 packages to run a stopwatch would be a step whose
+      # failure says nothing about the patterns.
+      - name: Measure every open ReDoS finding
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/redos-assay.mjs --json redos-assay.json --fail-if-quadratic
+
+      - name: Upload the measurement
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: redos-assay
+          path: redos-assay.json
+          if-no-files-found: warn
+          retention-days: 90
