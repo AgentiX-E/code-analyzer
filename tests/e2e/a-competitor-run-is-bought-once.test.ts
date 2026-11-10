@@ -15,6 +15,14 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+// **The source, not the build.** A path into `dist/` resolves against the project root inside vitest and lands at
+// `/packages/...`, which is the failure this file shipped for one push: `Cannot find module`. The scoring functions are
+// the ones the benchmark uses, imported from the file that defines them.
+import {
+  maximumMatchingCount,
+  point,
+} from '../../packages/intelligence/src/review/actionability.js';
+
 import {
   corpusFingerprint,
   parseCompetitorMode,
@@ -132,9 +140,7 @@ function runPass({
 }
 
 /** The competitor's F1, computed with the functions the benchmark scores with. */
-async function f1Of(perPr: Array<{ matches: number[][]; goldens: number }>) {
-  const { maximumMatchingCount, point } =
-    await import('../../packages/intelligence/dist/review/actionability.js');
+function f1Of(perPr: Array<{ matches: number[][]; goldens: number }>) {
   let truePositives = 0;
   let falsePositives = 0;
   let falseNegatives = 0;
@@ -163,7 +169,7 @@ describe('the competitor arm is bought once and read afterwards', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('records once, replays free, and produces the same F1 both times', async () => {
+  it('records once, replays free, and produces the same F1 both times', () => {
     const rows = rowsOf(CORPUS);
     const fingerprint = corpusFingerprint(rows);
 
@@ -196,10 +202,7 @@ describe('the competitor arm is bought once and read afterwards', () => {
 
     // **The figure, not just the rows.** Both passes are scored with the benchmark's own functions, so a replay that
     // kept the wrong field would produce a different F1 here even if its rows looked right.
-    const [recordedPoint, replayedPoint] = [
-      await f1Of(recording.perPr),
-      await f1Of(replaying.perPr),
-    ];
+    const [recordedPoint, replayedPoint] = [f1Of(recording.perPr), f1Of(replaying.perPr)];
     expect(replayedPoint).toEqual(recordedPoint);
     expect(recordedPoint.f1).toBeGreaterThan(0);
   });
