@@ -40,7 +40,7 @@ the exact arithmetic of the error above: the same 367-item corpus read as one pa
 
 ---
 
-## 1. `js/polynomial-redos` (79) and `js/redos` (4): six measured, six fixed, seventy-seven unmeasured
+## 1. `js/polynomial-redos` (79) and `js/redos` (4): fourteen measured and fixed, sixty-nine classified
 
 ### 1.1 What was measured
 
@@ -118,6 +118,76 @@ node scripts/code-scanning-corpus.mjs --rule js/polynomial-redos
   a gap rather than as a pass.**
 - **A regex that is linear in the number of matches but quadratic in the number of failures inside one match** is not
   covered by any input that has not been tried against it. The nine inputs above are a floor.
+
+### 1.6 The third pass: CodeQL's own adversarial string, and 22 of 35 were real
+
+**The first two passes built inputs from each pattern's shape. This pass used the input the rule names.** Every
+`js/polynomial-redos` message carries the string that made it fire - _"may run slow on strings starting with `X` and with
+many repetitions of `Y`"_ - so the probe replays exactly that and the rule's own claim becomes the measurement:
+
+1. the string is taken out of the message, not composed by the author of the test;
+2. every finding runs in **its own process with a 5-second kill**, because a catastrophic pattern hangs the harness that
+   measures it - the first attempt did exactly that, for nine minutes, on one pattern;
+3. a finding is real if the 40 KB run crosses 200 ms **or does not return at all**;
+4. a ratio is printed beside the time, because ×10 of input costing ×95 is the fingerprint of a quadratic and ×10 costing
+   ×10 is not.
+
+**Twenty-two of the thirty-five patterns the probe could locate were real**, and the ratios cluster at ×93-×100 - which
+is the exponent, not an opinion. Two did not return at all.
+
+| pattern                                               | 40 KB    | ratio |
+| ----------------------------------------------------- | -------- | ----- |
+| `^import\s+.*?\s+from\s+['"]([^'"]+)['"]` (two sites) | **hang** | —     |
+| `import\s+.*\s+from\s+['"](.+)['"]`                   | **hang** | —     |
+| `^@@\s+-(\d+),?(\d+)?\s+\+(\d+),?(\d+)?\s+@@`         | 2 675 ms | ×96   |
+| `(\w+)\s*:\s*(?:async\s*)?\(`                         | 2 079 ms | ×99   |
+| `\?.*:` in the branch counter                         | 1 511 ms | ×96   |
+| `^\s*(?:public\|private\|…)?\s*(\w+)\s*\(`            | 1 206 ms | ×94   |
+| `^a\/(.+?)\s+b\/(.+)$`                                | 940 ms   | ×97   |
+| `^.*?\(([^)]*)\).*$`                                  | 700 ms   | ×93   |
+
+### 1.7 Eight patterns corrected, and one replaced by a scanner
+
+Each has a stopwatch case in `packages/intelligence/src/__tests__/a-hostile-line-does-not-take-quadratic-time.test.ts`,
+measured at 20 KB and 40 KB against a 500 ms ceiling **and** against the ratio, so neither a fast machine nor a slow one
+can decide the answer.
+
+| site                                | before   | after     | the correction                                                                            |
+| ----------------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------- |
+| `lenses/structure-lens.ts` branches | 1 512 ms | **1 ms**  | a ternary is `?` not followed by `.` or `?` - one character, no scan across the line      |
+| `lenses/structure-lens.ts` imports  | hang     | **1 ms**  | **the pattern replaced by `review/import-specifier.ts`**                                  |
+| `review/diff-parser.ts` hunk        | 2 724 ms | **0 ms**  | git writes one space and one comma; the pattern says that instead of `\s+` and `,?`       |
+| `lenses/api-lens.ts` routes         | 2 079 ms | **50 ms** | the token is bounded at 128 characters, four times the longest published field name       |
+| `lenses/api-lens.ts` types          | 1 081 ms | —         | one whitespace run, inside the optional group, instead of two around it                   |
+| `lenses/api-lens.ts` fields         | —        | —         | the same correction                                                                       |
+| `git/git-operations.ts` hunk        | 750 ms   | —         | as `diff-parser`, and the same correction `review/actionability.ts` already carries       |
+| `git/git-operations.ts` header      | 940 ms   | —         | `a/(.+?) b/(.+)` - one space, which is what git writes and what a path with a space needs |
+
+**The import matcher is the case worth reading.** Bounding the two whitespace runs took it from "did not return" to
+514 ms on 40 KB: linear, and still not shippable, because forty thousand candidate positions each tried sixty-four widths
+before giving up. **The pattern was the wrong instrument.** "Find the keyword `from` that follows whitespace and is
+followed by a quote" is a scan, and `readImportSpecifier` is one cursor that only moves forward - every character examined
+a bounded number of times, whatever the line contains. It carries its own contract test, because a scanner is a function
+and a function's contract should not be inferred from its caller.
+
+### 1.8 Which of the remaining sixty-nine are reachable, measured rather than assumed
+
+**A finding is not a defect, and the difference is the call site.** Three `rule-runner.ts` sites carry the same import
+pattern and measure **0 ms** on the same 40 KB input, because the line reaches them through `line.trim()` - **and `trim()`
+deletes exactly the adversarial string**, turning `import` and forty thousand spaces into a four-character word. The
+finding is real; the defect is not reachable. Saying so is cheaper and more honest than editing three files to change
+nothing.
+
+`git-operations.ts` takes a `git diff` this process invoked itself, and a path cannot be 40 KB - the filesystem bounds a
+path at 4 096 bytes - so its measured 940 ms is unreachable too. It is corrected anyway, because the same correction
+already exists in `review/actionability.ts` and consistency is free.
+
+**What remains clusters into six shapes, and the shapes are the plan**: a leading unbounded quantifier that needs an
+exclusion rather than a length bound (`\s+as\s+` in the Python importer); `(.+)` followed by a character class that has
+to appear at the end (`require(…['"](.+)['"]\s*\))`); an alternation containing `.*` (`lenses/style-lens.ts` string
+scanning); and the family of `^\s*(?:mods)?\s*(\w+)\s*\(` signature matchers in `rule-runner.ts` and
+`review/heuristics.ts`, where the cure is to move the whitespace inside the optional group so there is one run and one way
+to reach the paren.
 
 ---
 
