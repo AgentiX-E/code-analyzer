@@ -15,7 +15,7 @@
 // publishing the number rather than the excuse for not publishing one.
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -96,8 +96,9 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
       // **One file per answer, written where the scanner will find it.** The corpus is a list of functions rather than a
       // repository, so this is the smallest honest shape: the product indexes code it can see, and the pool is every
       // function in the test split.
-      const workdir = join(tmpdir(), `cosqa-${process.pid}-${Date.now()}`);
-      mkdirSync(workdir, { recursive: true });
+      // **`mkdtempSync`, because `pid` and a timestamp are a name two workers can agree on** - which is the whole of
+      // what the alert says and none of what "random enough" answers.
+      const workdir = mkdtempSync(join(tmpdir(), 'cosqa-'));
       // **The answer of row i is the file `code_<i>.py`**, which is how a retrieved node is traced back to a question.
       rows.forEach((row, index) => {
         writeFileSync(join(workdir, `code_${String(index).padStart(3, '0')}.py`), row.code, 'utf8');

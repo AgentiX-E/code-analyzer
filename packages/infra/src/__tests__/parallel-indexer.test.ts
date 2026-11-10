@@ -1,26 +1,30 @@
 // @code-analyzer/infra — ParallelIndexer Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { EDGE_CALLS, EDGE_IMPORTS } from '@code-analyzer/shared';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 import { ParallelIndexer, toError } from '../workers/parallel-indexer.js';
+
 import type { IndexProgress, IndexerResult } from '../workers/parallel-indexer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-let tmpDirCounter = 0;
-
+/**
+ * **A directory whose name nobody has to invent.**
+ *
+ * The previous version composed `Date.now()` with a counter, which is unique inside one process and **not unique
+ * across two**, and it created the name before it created the directory - so between those two steps the name belonged
+ * to whoever asked first. `mkdtemp` does both in one call.
+ */
 function createTempDir(): string {
-  const dir = join(tmpdir(), `code-analyzer-test-${Date.now()}-${tmpDirCounter++}`);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return mkdtempSync(join(tmpdir(), 'code-analyzer-test-'));
 }
 
 function createTestProject(rootPath: string, fileCount: number): string[] {

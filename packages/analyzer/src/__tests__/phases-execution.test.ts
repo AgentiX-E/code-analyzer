@@ -1,6 +1,14 @@
 // @code-analyzer/analyzer — Phase Execution Tests
 // End-to-end tests for all 18 pipeline phases
 
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import { GraphBuilder } from '../graph/graph-builder.js';
 import {
   ScanPhase,
   StructurePhase,
@@ -24,21 +32,12 @@ import {
   createAllPhases,
 } from '../pipeline/phases/index.js';
 
-import { GraphBuilder } from '../graph/graph-builder.js';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
-
 import type {
   PipelineContext,
   KnowledgeGraph,
   CodeAnalyzerConfig,
   DiscoveredFile,
 } from '@code-analyzer/shared';
-
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,7 +79,9 @@ interface FixtureDir {
 }
 
 function createFixtureDir(): FixtureDir {
-  const rootPath = join(tmpdir(), `phases-test-${randomUUID()}`);
+  // **Atomic creation rather than a chosen name**: see `scan.test.ts` for why the window matters and the randomness
+  // does not.
+  const rootPath = mkdtempSync(join(tmpdir(), 'phases-test-'));
   mkdirSync(rootPath, { recursive: true });
   mkdirSync(join(rootPath, 'src'), { recursive: true });
   mkdirSync(join(rootPath, 'src', '__tests__'), { recursive: true });
@@ -1658,7 +1659,7 @@ describe('CommunitiesPhase', () => {
         return Reflect.get(target, prop);
       },
     });
-    ctx.graph = badGraph as typeof ctx.graph;
+    ctx.graph = badGraph;
 
     const result = await communitiesPhase.execute(ctx);
     expect(result.status).toBe('failed');
@@ -2776,7 +2777,6 @@ describe('Full Pipeline Integration', () => {
       const result = await phase.execute(ctx);
       expect(['success', 'skipped']).toContain(result.status);
       if (result.status === 'failed') {
-        // eslint-disable-next-line no-console
         console.error(`Phase ${phase.id} failed:`, result.error);
       }
     }
@@ -5532,7 +5532,7 @@ describe('ConfigPhase - docker-compose and more', () => {
         return Reflect.get(target, prop);
       },
     });
-    ctx.graph = badGraph as typeof ctx.graph;
+    ctx.graph = badGraph;
 
     const result = await configPhase.execute(ctx);
     expect(result.status).toBe('failed');
