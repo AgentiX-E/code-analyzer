@@ -49,9 +49,32 @@ export function defaultPidFile(): string {
  * wider than 0700 is narrowed - so the check is on the directory that will be written into, not on the one this
  * function hoped to make.
  */
+export function privateDirectoryProblem(
+  dir: string,
+  stats: { isDirectory: () => boolean; isSymbolicLink: () => boolean; uid: number },
+  currentUid: number | null,
+): string | null {
+  if (stats.isSymbolicLink() || !stats.isDirectory()) return `${dir} is not a directory`;
+  if (currentUid !== null && stats.uid !== currentUid) {
+    return `${dir} belongs to uid ${String(stats.uid)}, not to this user`;
+  }
+  return null;
+}
+
+/**
+ * Create `dir` if it is not there and refuse it if it is not a directory this user made.
+ *
+ * **`mkdirSync(..., { recursive: true })` alone would not be a defence**, because it succeeds on a directory that was
+ * already there and says nothing about who put it there. Ownership and type are read back after the create, and a mode
+ * wider than 0700 is narrowed - so the check is on the directory that will be written into, not on the one this function
+ * hoped to make.
+ *
+ * The three outcomes live in `privateDirectoryProblem` because the third one - a directory owned by another uid - is the
+ * case this exists for and the one a test cannot stage without root.
+ */
 export function ensurePrivateDirectory(dir: string): void {
   const refuse = (why: string): never => {
-    throw new Error(`${dir} ${why} - refusing to write a pid file through it`);
+    throw new Error(`${why} - refusing to write a pid file through it`);
   };
 
   try {
@@ -59,16 +82,17 @@ export function ensurePrivateDirectory(dir: string): void {
   } catch (error) {
     // **`mkdirSync(..., { recursive: true })` only throws when the path exists and is not a directory** - a file, or a
     // dangling link. Every other "exists" answer is silent, which is why the checks below are not redundant with it.
+    // `String(code)` rather than a fallback: a `??` here would be a branch no input can reach, because every error
+    // `mkdirSync` raises is a system error with a code. Printing `undefined` on a platform that somehow disagrees is
+    // more honest than a branch that pretends to handle it.
     refuse(
-      `cannot be created as a directory (${error instanceof Error ? (error.message.split(':')[0] ?? 'error') : 'error'})`,
+      `${dir} cannot be created as a directory (${String((error as NodeJS.ErrnoException).code)})`,
     );
   }
 
-  const stats = fs.lstatSync(dir);
-  if (stats.isSymbolicLink() || !stats.isDirectory()) refuse('is not a directory');
-  if (typeof process.getuid === 'function' && stats.uid !== process.getuid()) {
-    refuse(`belongs to uid ${String(stats.uid)}, not to this user`);
-  }
+  const currentUid = typeof process.getuid === 'function' ? process.getuid() : null;
+  const problem = privateDirectoryProblem(dir, fs.lstatSync(dir), currentUid);
+  if (problem !== null) refuse(problem);
   fs.chmodSync(dir, 0o700);
 }
 

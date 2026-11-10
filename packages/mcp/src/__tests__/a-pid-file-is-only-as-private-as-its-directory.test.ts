@@ -35,6 +35,7 @@ import {
   defaultPidDirectory,
   defaultPidFile,
   ensurePrivateDirectory,
+  privateDirectoryProblem,
 } from '../daemon/daemon.js';
 
 const created: string[] = [];
@@ -90,6 +91,18 @@ describe('a directory the daemon will write a pid file into', () => {
     ensurePrivateDirectory(target);
 
     expect(lstatSync(target).mode & 0o777).toBe(0o700);
+  });
+
+  it('is refused when a component of the path is a file, which is the one create that throws', () => {
+    // `mkdirSync(..., { recursive: true })` is silent about a directory that already exists, so the only path through its
+    // `catch` is a parent that cannot be a directory. That is the arm this case exists to reach.
+    const parent = scratch('pid-dir-enotdir-');
+    const file = join(parent, 'blocker');
+    writeFileSync(file, 'not a directory');
+
+    expect(() => ensurePrivateDirectory(join(file, 'code-analyzer'))).toThrow(
+      /cannot be created as a directory .* - refusing to write a pid file through it/,
+    );
   });
 
   it('is refused when it is a regular file rather than a directory', () => {
@@ -148,5 +161,40 @@ describe('a daemon started with the default pid file', () => {
       await daemon.stop();
     }
     expect(existsSync(pidFile)).toBe(false);
+  });
+});
+
+describe('the judgment about a directory, as a value', () => {
+  /** A directory owned by whoever is asking. */
+  const ours = { isDirectory: () => true, isSymbolicLink: () => false, uid: 1000 };
+
+  it('accepts a real directory owned by this user', () => {
+    expect(privateDirectoryProblem('/run/user/1000/code-analyzer', ours, 1000)).toBeNull();
+  });
+
+  it('accepts it when the platform has no uid to compare', () => {
+    // `process.getuid` is undefined on Windows, so the ownership check is the one thing that cannot run there. Saying so
+    // is better than a check that silently passes for a different reason.
+    expect(
+      privateDirectoryProblem('/tmp/code-analyzer-user', { ...ours, uid: 0 }, null),
+    ).toBeNull();
+  });
+
+  it('refuses a directory owned by somebody else, which is the case no test can stage', () => {
+    expect(privateDirectoryProblem('/tmp/code-analyzer-1000', { ...ours, uid: 0 }, 1000)).toBe(
+      '/tmp/code-analyzer-1000 belongs to uid 0, not to this user',
+    );
+  });
+
+  it('refuses a symlink even when it resolves to a directory we own', () => {
+    expect(
+      privateDirectoryProblem('/tmp/link', { ...ours, isSymbolicLink: () => true }, 1000),
+    ).toBe('/tmp/link is not a directory');
+  });
+
+  it('refuses something that is not a directory at all', () => {
+    expect(privateDirectoryProblem('/tmp/file', { ...ours, isDirectory: () => false }, 1000)).toBe(
+      '/tmp/file is not a directory',
+    );
   });
 });
