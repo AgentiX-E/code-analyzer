@@ -115,6 +115,7 @@ Checkmarks indicate features verified through automated tests.
 | Missed-Golden Attribution (every miss has a named cause)         | Tested — 5 disjoint buckets, partition asserted, 10 unit cases      |
 | Rejection Shape (a miss says whether the lane looked elsewhere)  | Tested — same-line / within-10 / beyond / no-line, sum asserted     |
 | Corpus-Scaled Spend Ceiling (a ceiling that moves with the work) | Tested — 0.15 USD per pull request, floored at the registered run   |
+| Hostile Input Bound (a source file cannot stop the parser)       | Tested — nine languages at 36–156 KB, 400 ms budget, 9 ms worst     |
 | Measured-Error Interval (an unanswered pair is not a miss)       | Tested — bound published beside F1, retry schedule unit-tested      |
 
 ---

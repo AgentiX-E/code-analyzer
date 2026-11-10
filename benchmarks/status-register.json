@@ -145,6 +145,10 @@
     "Rejection Shape (a miss says whether the lane looked elsewhere)": {
       "status": "tested",
       "evidence": "tests/unit/scripts/a-rejection-is-shaped-by-where-it-landed.test.ts — 11 cases, the shape table asserted to sum to the bucket it re-reads"
+    },
+    "Hostile Input Bound (a source file cannot stop the parser)": {
+      "status": "tested",
+      "evidence": "tests/unit/a-source-file-cannot-stop-the-parser.test.ts — 16 cases, nine languages, 400 ms budget at 36-156 KB; docs/SECURITY.md records the six that were catastrophic and the measurement behind each"
     }
   }
 }

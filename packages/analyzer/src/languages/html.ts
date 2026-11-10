@@ -392,7 +392,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
-    const tagRx = /<\/?(\w+)[^>]*>/g;
+    const tagRx = /<\/?(\w+)[^<>]*>/g;
     while ((m = tagRx.exec(source)) !== null) {
       const isClosing = m[0].startsWith('</');
       captures.push({

@@ -355,7 +355,12 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
 
     // Classes
-    const clRegex = /(?:data\s+|sealed\s+|abstract\s+|open\s+|inner\s+)*class\s+(\w+)/g;
+    // **Bounded to eight modifiers, which is the difference between a parser and a hazard.** The unbounded group re-read
+    // the whole modifier run from every start position, so a file of `data data data ...` with no `class` in it cost
+    // **988 ms per 120 KB** - measured, on this line. A declaration with more than eight leading modifiers is not one a
+    // reader reads, and the engine still finds the `class` because the pattern starts matching later rather than not at
+    // all. See `docs/SECURITY.md`.
+    const clRegex = /(?:data\s+|sealed\s+|abstract\s+|open\s+|inner\s+){0,8}class\s+(\w+)/g;
     while ((m = clRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.CLASS_DEF,
@@ -416,7 +421,9 @@ export class KotlinProvider extends TreeSitterBaseProvider {
 
     // Functions (including extension functions: fun Type.name)
     const funcRegex =
-      /(?:(?:private|internal|protected|public|override|open|abstract|suspend|inline|operator|infix|tailrec|external)\s+)*fun\s+(?:<[^>]*>\s*)?(?:\w+\.)?(\w+)/g;
+      // **Bounded for the same reason as the class pattern above, and it was the second slowest of the twenty-five**:
+      // 1 272 ms per 120 KB of modifiers with no `fun` after them.
+      /(?:(?:private|internal|protected|public|override|open|abstract|suspend|inline|operator|infix|tailrec|external)\s+){0,8}fun\s+(?:<[^>]*>\s*)?(?:\w+\.)?(\w+)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,

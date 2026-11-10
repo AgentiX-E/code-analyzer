@@ -30,8 +30,53 @@ export interface SignatureNode {
  */
 export const MAX_SIGNATURE_LENGTH = 400;
 
-/** Trailing tokens a header carries because of the token that had to follow it, and which are not part of it. */
-const TRAILING_NOISE = /(\s*(=>|:|;|\{|=\s*))+$/;
+/**
+ * **The trailing tokens a header carries because of the token that had to follow it, removed in one pass.**
+ *
+ * This was `/(\s*(=>|:|;|\{|=\s*))+$/` - a quantified group whose alternatives can each match nothing, which is the
+ * textbook shape of catastrophic backtracking. **Measured, not suspected**: twenty thousand `= ` in a row and a letter
+ * that stops the anchor matching took the regex past fifteen seconds before it was killed, and a header is built from
+ * every declaration in a file. **A parser that a source file can stop is a parser that reviews nothing.**
+ *
+ * The replacement is a loop that consumes the same tokens from the end, and it is linear for a reason a reader can check
+ * without a backtracking model: **every iteration either shortens the string or returns.** The token set is unchanged -
+ * `=>`, `:`, `;`, `{`, `=`, and the whitespace each may carry - because **the point is to remove the same characters, not
+ * to remove fewer of them quickly.**
+ */
+export function stripTrailingNoise(header: string): string {
+  // The caller has already trimmed, and doing it here too means the loop never has to reason about a trailing space.
+  const text = header.trimEnd();
+  // **The cut only moves when a token is consumed.** Reading right to left, whitespace is skipped but does not of
+  // itself shorten the header, because a space after the last token is not noise - and that is exactly the distinction
+  // the regex drew with `\s*` inside the repeated group rather than outside it.
+  let cut = text.length;
+  let at = text.length;
+  while (at > 0) {
+    const char = text[at - 1]!;
+    // **Whitespace immediately before a token is consumed with it**, which is what the regex's leading `\s*` did:
+    // `'a = '` became `'a'` and not `'a '`. A space after the last token is still not noise, which is why this skip
+    // happens here, after a token has been found, rather than at the top of the loop.
+    const consume = (tokenStart: number): void => {
+      at = tokenStart;
+      while (at > 0 && /\s/.test(text[at - 1]!)) at -= 1;
+      cut = at;
+    };
+    if (char === ':' || char === ';' || char === '{' || char === '=') {
+      consume(at - 1);
+      continue;
+    }
+    if (char === '>' && at >= 2 && text[at - 2] === '=') {
+      consume(at - 2);
+      continue;
+    }
+    if (/\s/.test(char)) {
+      at -= 1;
+      continue;
+    }
+    break;
+  }
+  return text.slice(0, cut);
+}
 
 /**
  * The signature of a declaration: **the declaration's own text up to its body**.
@@ -132,9 +177,8 @@ function tidy(header: string, limit: number): string | undefined {
     .replace(/,\s*\)/g, ')')
     // **Trimmed before the terminator is dropped, and not after**: the terminator is separated from the header by the
     // space that ended the last token, so `(x: number) => ` does not end with `=>` until the space is gone.
-    .trim()
-    .replace(TRAILING_NOISE, '')
     .trim();
-  if (collapsed.length === 0 || collapsed.length > limit) return undefined;
-  return collapsed;
+  const stripped = stripTrailingNoise(collapsed).trim();
+  if (stripped.length === 0 || stripped.length > limit) return undefined;
+  return stripped;
 }

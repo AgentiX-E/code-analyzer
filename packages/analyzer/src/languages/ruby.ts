@@ -414,7 +414,18 @@ export class RubyProvider extends TreeSitterBaseProvider {
     }
 
     // Constants
-    const constRegex = /([A-Z][A-Z_]*[A-Z]\w*)\s*=/g;
+    // **Two changes, and the second is the one that was actually quadratic.**
+    //
+    // `\b` in front, because without it the engine starts a fresh scan at every character of a run like
+    // `CONST_CONST_CONST_…` - one identifier to Ruby, and therefore never containing a `=` - so **84 KB of it took longer
+    // than twenty-five seconds to reject**.
+    //
+    // And the body is **one greedy class instead of four nested ones**. `[A-Z][A-Z_]*[A-Z]\w*` backtracks the first run
+    // one character at a time and re-scans the rest of the string with `\w*` at every step, which is still quadratic from
+    // a *single* start position: with `\b` alone the same input took 2 367 ms. **A single `[A-Z][A-Z0-9_]*` scans once
+    // and backtracks in constant time per step**, and it is also more correct, because a Ruby constant cannot contain a
+    // lowercase letter - `FOObar = 1` was reported as the constant `FOObar` and is not one.
+    const constRegex = /\b([A-Z][A-Z0-9_]*)\s*=/g;
     while ((m = constRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.CONSTANT_DEF,
