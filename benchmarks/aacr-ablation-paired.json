@@ -68,6 +68,8 @@
     "observedGain": 0.0079,
     "magnitudeMet": false,
     "mechanismMet": true,
+    "sliceMatches": true,
+    "confirms": false,
     "outcome": "falsified: the registered gain was not reached",
     "insideResolution": true
   }

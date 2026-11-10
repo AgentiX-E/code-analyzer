@@ -302,14 +302,40 @@ export function summarise(on, off) {
       `registration "${String(registration.section)}" names mechanism "${String(mechanismRule)}", which is not one of ${Object.keys(MECHANISMS).join(', ')}`,
     );
   const mechanismMet = mechanism ? mechanism(precisionGain, recallGain, recallTolerance) : null;
+
+  /**
+   * **Which rows the registration is a claim about, checked before the claim is judged.**
+   *
+   * A registration names the corpus its confirmation runs on - R-17's is `skip 50, max 100` - so **a run over any other
+   * rows is a different experiment**, and a verdict computed from it is a verdict about a corpus nobody registered. The
+   * smoke run of 2026-11-11 is the case: ten pull requests from the start of the corpus, no overlap with the registered
+   * hundred, produced `confirmed: at least 0.02 F1` about a claim whose own text says the hundred starting at fifty. The
+   * observed gain there was 0.0374 against a resolution of 0.0482, so the same run also reached the second gate below.
+   *
+   * `null` means the registration declares no slice, which is what a closed registration looks like - §8's checklist is
+   * falsified and has nothing left to confirm, so anything that varies it is reported without a slice gate.
+   */
+  const declared = registration?.confirmation ?? [];
+  const slice = on.corpusSlice ?? null;
+  const sliceMatches =
+    declared.length === 0
+      ? null
+      : slice !== null && declared.some((s) => s.skip === slice.skip && s.max === slice.requested);
+  /** A gain narrower than the instrument's own error bar confirms nothing, whatever it is compared against. */
+  const insideResolution = Math.abs(gain) < resolution;
+
   const outcome =
     magnitudeMet === null
       ? 'unregistered: no expectation was written before this run'
-      : !magnitudeMet
-        ? 'falsified: the registered gain was not reached'
-        : mechanismMet
-          ? `confirmed: at least ${String(registeredGain)} F1, and the mechanism is precision`
-          : 'falsified: the magnitude arrived, the mechanism did not';
+      : sliceMatches === false
+        ? `not a confirmation: the registration names ${declared.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' or ')}, and this run read ${slice === null ? 'a corpus the artifact does not describe' : `skip ${String(slice.skip)} max ${String(slice.requested)}`}`
+        : !magnitudeMet
+          ? 'falsified: the registered gain was not reached'
+          : mechanismMet === false
+            ? 'falsified: the magnitude arrived, the mechanism did not'
+            : insideResolution
+              ? `inconclusive: a gain of ${String(gain)} inside the ${String(round(resolution))} this instrument resolves at ${String(goldens)} goldens`
+              : `confirmed: at least ${String(registeredGain)} F1, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -372,11 +398,15 @@ export function summarise(on, off) {
       observedGain: gain,
       magnitudeMet,
       mechanismMet,
+      /** Whether this run read the rows the registration names, or `null` when it names none. */
+      sliceMatches,
+      /** **The only field a reader needs**, and the one that cannot be true when a gate above it failed. */
+      confirms: outcome.startsWith('confirmed'),
       outcome,
       // **Below the resolution and below the registration are two different failures**, and the artifact says which: a
       // 0.03 gain against a 0.02 claim on a corpus that resolves 0.024 is a result, and the same gain on one that
       // resolves 0.04 is not.
-      insideResolution: Math.abs(gain) < resolution,
+      insideResolution,
     },
   };
 }
@@ -421,7 +451,10 @@ function selfTest() {
     // both, or the confound added in iteration 119 could never be tested by falling into it.
     prsReviewed: overrides.reviewed ?? 2,
     corpusRead: { requested: 2, unread: 0, whole: true, ...(overrides.corpusRead ?? {}) },
-    corpusSlice: { skip: 0, requested: 2 },
+    // **The slice is a parameter because it is now a gate**: a fixture that reads different rows from the ones the
+    // registration names cannot confirm it, and the default here is deliberately *not* the registered slice so that the
+    // gate has to be satisfied on purpose.
+    corpusSlice: overrides.slice ?? { skip: 0, requested: 2 },
     datasetRows: 2,
     configuration: {
       judgeModel: 'fixture-model',
@@ -545,6 +578,54 @@ function selfTest() {
     confounded.length === 1 && confounded[0].field === 'corpus',
     'a different corpus is refused',
   );
+
+  // **The slice gate, on the numbers the smoke run of 2026-11-11 produced**: ten pull requests from the start of the
+  // corpus, a gain of 0.0374 against a resolution of 0.0482, reported as `confirmed` about a claim whose text says the
+  // hundred starting at fifty. A confirmation is defined by which rows it read.
+  assert(
+    good.verdict.sliceMatches === false,
+    'a run that read skip 0 max 2 is not R-17 confirmation of skip 50 max 100',
+  );
+  assert(
+    good.verdict.confirms === false,
+    'and it confirms nothing, whatever its gain and its mechanism',
+  );
+  assert(
+    good.verdict.outcome.startsWith('not a confirmation'),
+    'the outcome says so rather than filing the number under the registration',
+  );
+
+  // The same two arms read on the registered slice: now the gain decides.
+  const onSlice = (a) => ({ ...a, corpusSlice: { skip: 50, requested: 100 } });
+  const confirmed = summarise(onSlice(qualifies), onSlice(baseline));
+  assert(confirmed.verdict.sliceMatches === true, 'the registered slice is recognised');
+  assert(
+    confirmed.verdict.confirms === true,
+    'and a gain of 0.2 outside the resolution confirms the registration',
+  );
+
+  // **A gain inside the error bar is not a confirmation**, even on the right rows: this pair moves F1 by 0.0667 against
+  // a resolution of 0.1649 at ten goldens, which is the branch a device that does almost nothing takes.
+  const small = artifact({
+    profile: 'defect',
+    tp: 4,
+    fp: 16,
+    fn: 6,
+    covered: [[0, 1, 2, 3], [5]],
+    goldensPerPr: [5, 5],
+    slice: { skip: 50, requested: 100 },
+  });
+  const inside = summarise(small, onSlice(baseline));
+  assert(inside.verdict.magnitudeMet === true, 'the registered magnitude is met');
+  assert(
+    inside.verdict.insideResolution === true,
+    'and the gain is inside what ten goldens resolve',
+  );
+  assert(
+    inside.verdict.outcome.startsWith('inconclusive'),
+    'so the outcome is inconclusive rather than confirmed',
+  );
+  assert(inside.verdict.confirms === false, 'and it confirms nothing');
 
   // A registration that names a rule the table does not implement must be refused rather than approximated.
   assert(

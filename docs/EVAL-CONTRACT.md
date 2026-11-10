@@ -1601,6 +1601,15 @@ in-sample figure and it is labelled as one):
 | drop `test` and `architecture`    | 274      | **0.2915** | 0.1928     | **0.2321** |
 | the same, top 12 per pull request | 234      | 0.3419     | 0.1794     | **0.2353** |
 
+**And a run only confirms the registration if it read the rows the registration names.** The wiring smoke run of
+2026-11-11 - ten pull requests from the start of the corpus, dispatched to prove the comparison job's artifact download -
+reported `confirmed: at least 0.02 F1, and the mechanism is precision` on a gain of 0.0374. **No overlap with the hundred
+starting at fifty, and the artifact said the registration was confirmed.** Two gates were missing and both are now in the
+outcome: `sliceMatches` compares the run's `corpusSlice` with the registration's declared `confirmation`, and a gain
+narrower than the instrument's own resolution is `inconclusive` rather than `confirmed`. The same ten-pull-request pair
+now reads `not a confirmation: the registration names skip 50 max 100, and this run read skip 0 max 10`. **A confirmation
+is defined by which rows it read**, and a verdict computed over other rows is a verdict about a corpus nobody registered.
+
 **The confirmation has been run, and it falsified the registration.** Workflow run
 [42871500941](https://github.com/AgentiX-E/code-analyzer/actions/runs/42871500941), 2026-11-10, `skip_pull_requests: 50`
 with `max_pull_requests: 100`, both arms, 724 goldens, 5785 model calls, 1.16 and 1.84 USD:
