@@ -431,8 +431,8 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0(tree-sitter@0.25.0)
       onnxruntime-node:
-        specifier: ^1.27.0
-        version: 1.27.0
+        specifier: ^1.31.1
+        version: 1.31.1
       tree-sitter:
         specifier: ^0.25.0
         version: 0.25.0
@@ -2331,6 +2331,10 @@ packages:
     resolution: {integrity: sha512-KUJEViiuFT3I97t+GYMikLPJS2Lfo/S2F+DQuBWzuzaMPnvt5yyZePzArx36fBzpGTxZjIpDbXLeySLgh+k76g==}
     engines: {node: '>=10.0'}
 
+  global-agent@4.1.7:
+    resolution: {integrity: sha512-pxaZqdsMwPA4i7TuRKpDUONm2xGRjvYdRoidCQz7VleUKVuUfh/4p5Q3QDTGrpAE5Kz5TxxcZ+uqEgTkoKRNtg==}
+    engines: {node: '>=10.0'}
+
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
     engines: {node: '>=18'}
@@ -2915,8 +2919,15 @@ packages:
   onnxruntime-common@1.27.0:
     resolution: {integrity: sha512-3KxL5wIVqa8Ex08jxSzncm9CMgw8CjOFyOQ7SxvG9o0cVLlhTNKXyIQuTbtX4tGPJEf73OER2xrjt4HJSBL4ow==}
 
+  onnxruntime-common@1.31.1:
+    resolution: {integrity: sha512-F+nnYNiQtmNJ95V6R/isBJqiVpdANCrsMEg1OaF+Bkbl3GAtzWLR7Ng17Ld0QtYtYJyotOHPJzOQn1Y6PLZjpg==}
+
   onnxruntime-node@1.27.0:
     resolution: {integrity: sha512-QEzGwrvNBgv4uPVdnbHsOGG4G6T96mdlcFI8aAKPjMU8wOPpVocPXb6k3QGkaZagVTv2G9Bnnbo6Z3JdXr1fQw==}
+    os: [win32, darwin, linux]
+
+  onnxruntime-node@1.31.1:
+    resolution: {integrity: sha512-ijnSghbDHVWaQ2nDPmVccPlCHI8kH1Mx1aJ4a/qzRP16bBcVs4E3EqZQKZCkhWnbqN1tuQWxagimFtDpbPYYQw==}
     os: [win32, darwin, linux]
 
   optionator@0.9.4:
@@ -3204,6 +3215,11 @@ packages:
 
   semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  semver@7.8.6:
+    resolution: {integrity: sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -5843,6 +5859,13 @@ snapshots:
       semver: 7.8.5
       serialize-error: 8.1.0
 
+  global-agent@4.1.7:
+    dependencies:
+      globalthis: 1.0.4
+      matcher: 4.0.0
+      semver: 7.8.6
+      serialize-error: 8.1.0
+
   globals@14.0.0: {}
 
   globalthis@1.0.4:
@@ -6264,7 +6287,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.8.5
+      semver: 7.8.6
 
   matcher@4.0.0:
     dependencies:
@@ -6389,11 +6412,19 @@ snapshots:
 
   onnxruntime-common@1.27.0: {}
 
+  onnxruntime-common@1.31.1: {}
+
   onnxruntime-node@1.27.0:
     dependencies:
       adm-zip: 0.6.1
       global-agent: 4.1.3
       onnxruntime-common: 1.27.0
+
+  onnxruntime-node@1.31.1:
+    dependencies:
+      adm-zip: 0.6.1
+      global-agent: 4.1.7
+      onnxruntime-common: 1.31.1
 
   optionator@0.9.4:
     dependencies:
@@ -6686,6 +6717,8 @@ snapshots:
   semver@6.3.1: {}
 
   semver@7.8.5: {}
+
+  semver@7.8.6: {}
 
   send@1.2.1:
     dependencies:
