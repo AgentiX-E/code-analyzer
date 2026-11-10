@@ -1239,3 +1239,137 @@ cost cut rather than the timeout raised again. That is written down here because
 3. **That 73 rejections are 73 recoverable goldens.** Same line is not the same defect. **The claim is that the
    sentence is the binding constraint for most of them**, and R-15 is written so that being wrong about that costs one
    run rather than an iteration.
+
+## 16. The fifty-pull-request run: the paired view decides what the F1 delta cannot, and the competitor arm was absent
+
+**Written 2026-11-10, from run [42789979455](https://github.com/AgentiX-E/code-analyzer/actions/runs/42789979455) - the
+`max_pull_requests=50` dispatch §15.6 said the claim needed - and from the two defects that run exposed.**
+
+### 16.1 The corpus, at the size the registration was written for
+
+|                           | 14 pull requests (2026-11-09) | **50 pull requests (this run)** |
+| ------------------------- | ----------------------------- | ------------------------------- |
+| goldens                   | 170                           | **452**                         |
+| reviewer calls            | 1 770                         | 3 195                           |
+| judge calls               | 4 783                         | 8 404 and 12 130                |
+| runner minutes per PR     | 3.3                           | **1.5 and 1.9**                 |
+| judge unanswered          | 183                           | **0**                           |
+| reviewer spend            | 0.29 USD                      | **0.84 / 0.94 USD**             |
+| judge spend               | 0.28 USD                      | **0.31 / 0.44 USD**             |
+| **total, both arms**      | 1.63 USD (projected)          | **2.52 USD**                    |
+| wall clock                | 46 min                        | 76 and 94 min                   |
+| **cost per pull request** | 0.116 USD                     | **0.050 USD**                   |
+
+**The cost per pull request fell by 2.3 times while the corpus grew by 3.6**, which is the prefix cache doing what §9
+said it would: the shared instructions are paid for once per lane per run, so their share of the bill falls as the corpus
+grows. **The ceiling of 0.15 USD per pull request in `lib/run-config.mjs` is three times the measured rate**, so a full
+200-pull-request run is about 10 USD - and **the binding constraint at 200 is not the money but the runner**: 200 pull
+requests at the measured 1.9 minutes each is 380 minutes against a 340-minute ceiling. **The next wall is time per pull
+request, and a full-corpus run needs that cut rather than the timeout raised again.**
+
+### 16.2 The checklist, at fifty pull requests
+
+|                  | with       | without    | delta       |
+| ---------------- | ---------- | ---------- | ----------- |
+| precision        | **0.2285** | 0.2219     | **+0.0066** |
+| recall           | 0.1350     | **0.1836** | **−0.0486** |
+| **F1**           | 0.1697     | **0.2010** | **−0.0313** |
+| true positives   | 61         | **83**     | −22         |
+| false positives  | **206**    | 291        | −85         |
+| findings emitted | 399        | 582        | −183        |
+
+**Paired over pull request and golden index: 30 both, 31 with only, 53 without only, p = 0.0214.**
+
+**The F1 delta is inside the 0.04 the instrument was said to resolve, and the paired test rejects at 0.02.** §14.1
+concluded that the instrument could not see an effect of 0.04 and §15.3 read the failure as resolution. **Both were
+reading the wrong statistic**: the F1 difference divides by two denominators that move in opposite directions when a device
+trades recall for precision, and the paired view asks the sharper question directly. **At fifty pull requests the paired
+view has enough goldens to reject, and it rejects in the same direction as the two fourteen-pull-request readings** - so
+the third reading does not overturn the first two, it confirms them at a corpus size where the confirmation is not a coin
+toss. **The checklist is a suppression device. That is now three paired rejections and one F1 replication.**
+
+### 16.3 `findingOnPathRejected` is 250 of 452, and 189 of those stand within ten lines of something we said
+
+| distance from the golden to the nearest finding on its own file | goldens | share of the bucket | share of all goldens |
+| --------------------------------------------------------------- | ------- | ------------------- | -------------------- |
+| **0 - the finding's range covers the golden's line**            | **135** | **54.0 %**          | 29.9 %               |
+| ≤ 10 lines                                                      | 189     | **75.6 %**          | 41.8 %               |
+| > 50 lines                                                      | 61      | 24.4 %              | 13.5 %               |
+
+**On fourteen pull requests this was 40 of 98 at zero lines; at fifty it is 135 of 250.** The share rose from 40.8 % to
+54.0 %, so **the effect §15.4 identified is stronger on the larger corpus, not weaker** - which is what makes R-15 worth
+its run rather than a hypothesis fitted to one sample.
+
+**And the bucket is invariant across the checklist**, exactly as a search-side device must leave it: 84, 100, 98, 97 on
+fourteen pull requests; **229 with the checklist and 250 without** on fifty. The device moves goldens between
+`noFindingOnPath` and `hit` - **83 → 30 for the checklist on, which is the whole of what it does** - and never touches the
+bucket that holds more than half the corpus.
+
+### 16.4 The emission rule is now dominated by emitting everything
+
+|                         | gate (shipped)       | full emission | best point on the curve |
+| ----------------------- | -------------------- | ------------- | ----------------------- |
+| findings                | 374                  | 582           | 446                     |
+| precision               | **0.2219**           | 0.1838        | 0.2242                  |
+| recall                  | 0.1836               | **0.2367**    | 0.2212                  |
+| **F1**                  | 0.2010               | **0.2070**    | **0.2227**              |
+| budget per pull request | 7.5, from the ranker | ∞             | 24                      |
+
+**On fourteen pull requests the gate beat every point on its own curve. On fifty it is beaten by emitting everything**,
+and by 0.0217 at a budget of twenty-four. That is a regression in the rule and not in the corpus, and **it is not taken
+this iteration for the reason §15.7 gave**: a budget read off the curve it was measured on is fitting, and 0.0217 is below
+the 0.0228 the instrument has been shown to move by itself at fourteen pull requests. **It becomes a registered rule with
+its own falsification, or it stays a number in an artifact.**
+
+### 16.5 The competitor arm replayed nothing, and the artifact published that as a win
+
+The run's log:
+
+```
+AACR-BENCH competitor open-code-review · replay · replayed 0 · recorded 0 · missing 50 · findings 0
+AACR-BENCH McNemar ours-only 83 theirs-only 0
+```
+
+and its artifact: `mcnemar: { oursOnly: 83, theirsOnly: 0, pValue: 0, verdict: "significant at 0.05" }`.
+
+**Eighty-three to nothing, against an arm that produced nothing.** `missing[0].reason` says why:
+
+> the corpus changed since the baseline was recorded (sha256:a04a4018… → sha256:1a9835…), so the recorded figure is not
+> the figure this corpus would produce today
+
+**The baseline holds fourteen rows and the run asked for fifty, so the fingerprint of the _selection_ moved and every row
+was refused** - including the fourteen whose own goldens had not changed by a character. Two defects, both fixed this
+iteration and both the same shape as §15.4's: **a guard aimed at the wrong object.**
+
+1. **The fingerprint belongs to the row, not to the selection.** `pullFingerprint` hashes one pull request's goldens -
+   path and line - so a corpus that grew is a prefix and not a different corpus. Rows transcribed before it existed replay
+   with `verified: 'count'`, and the artifact counts how many rows a figure rests on each way.
+2. **A comparison existed twice.** `secondReviewer.comparable` knew the arm was absent; a bare `mcnemar` did not, **and
+   the flattering copy is the one a reader quotes.** There is now one object (`lib/competitor-comparison.mjs`) with its
+   precondition inside it; when the arms were not scored over the same corpus, `theirsOnly` and `pValue` are `null` rather
+   than zero and the verdict is `withheld`.
+
+**A third defect fell out of the first**: a `record` run bought every pull request it was given, including the ones
+already in the file, so growing a record from fourteen to fifty would have cost fifty. **A row that is already bought is
+an input in both live modes**, and the resolver now decides the row's validity before it consults the mode.
+
+### 16.6 What the next run measures, and what it is registered against
+
+**Run 42789979455 is R-15's `before`.** It was dispatched from `4bb3985`, before `DESCRIBE_THE_FAILURE` existed in the
+prompt, so **nothing in it can have been measured under the rule.** The next dispatch at the same corpus size pairs
+against it on pull request and golden index through `aacr-checklist-compare.mjs`, which already does that pairing.
+
+**R-15's thresholds, restated at the size they will be measured at**, because the registration in §15.5 was written in
+absolute counts against 73 coincident rejections and this corpus has 189:
+
+|                       | at 14 pull requests | **proportional rule** | at 50 pull requests |
+| --------------------- | ------------------- | --------------------- | ------------------- |
+| registered prediction | ≥ 24 of 73          | **≥ 32.9 %**          | **≥ 62 of 189**     |
+| falsified by          | < 9 of 73           | **< 12.3 %**          | **< 23 of 189**     |
+
+**The proportional form is registered before the run, and it is not a reinterpretation after the fact**: 24/73 is 32.9 %
+and 9/73 is 12.3 %, and stating the rule as a share is the only way a threshold survives a corpus that grew after it was
+written. **It is written here, before the dispatch, so that the number it produces can be checked against it.**
+
+**And precision must not fall by more than 0.02.** A sentence that names a failure mode it cannot support is a
+hallucination with better grammar, and the gate is what would have to absorb it.
