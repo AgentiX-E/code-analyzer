@@ -78,12 +78,18 @@ const MAX_PRS = requestedPullRequests(process.env['MAX_PRS']);
 const COMPETITOR_CHOICE = parseCompetitorMode(process.env['AACR_COMPETITOR']);
 
 /**
- * **The one switch the paired experiment turns.** `AACR_CHECKLIST=off` removes the per-language defect checklist from
- * every lane prompt; anything else leaves it in place. **A string rather than a boolean**, because the value arrives
- * from a workflow's `env:` block where everything is a string, and **a flag that reads `"false"` as true is the kind
- * of bug a comparison would report as a null result.**
+ * **The one switch the paired experiment turns.** `AACR_CHECKLIST=on` puts the per-language defect checklist into every
+ * lane prompt; anything else leaves it out. **A string rather than a boolean**, because the value arrives from a
+ * workflow's `env:` block where everything is a string, and **a flag that reads `"false"` as true is the kind of bug a
+ * comparison would report as a null result.**
+ *
+ * **The unset default is `off`, and it moved to match the product.** The engine shipped the checklist on until two
+ * paired runs put it 12 and then 13 goldens behind the prompt without it (`docs/EVAL-CONTRACT.md` §15.3), and **a
+ * harness whose default disagrees with the engine's measures a configuration nobody ships** - the `with` arm of the
+ * matrix names `on` explicitly, so aligning the default costs the experiment nothing and stops a bare local run from
+ * measuring the retired arrangement.
  */
-const CHECKLIST = String(process.env['AACR_CHECKLIST'] ?? 'on').toLowerCase() !== 'off';
+const CHECKLIST = String(process.env['AACR_CHECKLIST'] ?? 'off').toLowerCase() === 'on';
 
 /**
  * **The second switch a run turns, and the one the bill is about: where the target-and-diff block sits.**
@@ -665,10 +671,13 @@ async function dryRun() {
   // carry.
   const { defectChecklist } =
     await import('../../packages/intelligence/dist/review/llm/language-rules.js');
+  // **Asked for explicitly, because the shipped default is now off.** The dry run is where a change in the shipped
+  // arrangement is supposed to fail first, and it did: the same call without this line returned the empty string.
   const checklistOn = defectChecklist({
     diffContent: diff,
     filePath: 'src/main/java/com/example/Ledger.java',
     changeType: 'modified',
+    languageChecklist: true,
   });
   const checklistOff = defectChecklist({
     diffContent: diff,
@@ -686,6 +695,15 @@ async function dryRun() {
     'the checklist reaches the prompt when it is on',
   );
   assert.equal(checklistOff, '', 'the switch removes the checklist entirely');
+  assert.equal(
+    defectChecklist({
+      diffContent: diff,
+      filePath: 'src/main/java/com/example/Ledger.java',
+      changeType: 'modified',
+    }),
+    '',
+    'and an unspecified switch renders nothing, which is what ships',
+  );
   assert.equal(
     checklistForeign,
     '',
