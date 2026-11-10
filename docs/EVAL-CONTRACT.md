@@ -541,8 +541,8 @@ iteration.**
 
 ### 9.1 The device
 
-**The five lane prompts currently disagree at the first character.** `SECURITY_REVIEW_PROMPT` opens *"You are an expert
-security reviewer…"*, `PERFORMANCE_REVIEW_PROMPT` opens *"You are an expert performance engineer…"*, and **the diff —
+**The five lane prompts currently disagree at the first character.** `SECURITY_REVIEW_PROMPT` opens _"You are an expert
+security reviewer…"_, `PERFORMANCE_REVIEW_PROMPT` opens _"You are an expert performance engineer…"_, and **the diff —
 the largest block of every prompt and the identical one in all five — sits after both**. The provider's context cache
 matches **prefixes**, so a review of one file pays for that diff **five times at the miss price**, where the miss price is
 **fifty times** the hit price on the published table.
@@ -586,6 +586,100 @@ of two prices rather than of two prompts.**
 
 ### 9.6 What this registration does not claim
 
-**It does not claim the product gets cheaper for a user.** It claims the *same* answers cost less, and the figure that
+**It does not claim the product gets cheaper for a user.** It claims the _same_ answers cost less, and the figure that
 would say otherwise is the third prediction above. **A cost reduction that changes the answer is not a cost reduction;
 it is a different product sold at a lower price.**
+
+---
+
+## 10. The rule §9 registered, withdrawn before its run, and the one that replaced it
+
+**Registered 2026-11-10, iteration 114.** §9 predicted `spend.cacheHitRatio` ≥ 0.5 from a prompt reordering. **The
+prediction was arithmetically unreachable, and the arithmetic that shows it costs nothing** - so the run §9 asked for was
+not taken, and this section records why, what replaced it, and the rule that would have caught it.
+
+### 10.1 Two reasons §9 could not have fired, both visible before a single call
+
+**The first is a size.** A lane prompt is not mostly diff. Measured on `prompts.ts`:
+
+| diff, characters           | target-and-diff block | whole lane prompt | block's share of the call |
+| -------------------------- | --------------------- | ----------------- | ------------------------- |
+| 500                        | 563                   | 8 144             | **6.9 %**                 |
+| 2 000                      | 2 063                 | 9 644             | **21.4 %**                |
+| 4 000                      | 4 063                 | 11 644            | **34.9 %**                |
+| 8 000 (the truncation cap) | 8 063                 | 15 644            | **51.5 %**                |
+
+**§9.3 predicted a hit ratio of at least 0.5, and the block it moved is 6.9 % of a call at the diff size most files in
+this corpus have.** The best that arrangement can reach is the block's own share, so the prediction needed a corpus of
+files at the truncation cap. **A ratio had been registered without dividing it by the quantity it is a ratio of.**
+
+**The second is a schedule.** The five lanes were issued concurrently. A cache entry is written by a request and read by
+a _later_ one, so five simultaneous calls for one file all miss - **the device was coupled to a concurrency decision
+nobody had looked at, and the coupling alone would have returned a hit ratio near zero even at the cap.** The engine now
+carries `laneWaves` so that arrangement can be measured; **its default is one round, because it buys nothing under the
+arrangement that ships** (§10.2).
+
+### 10.2 The arrangement that replaced it, and the figure it produces
+
+**`boilerplate-first`: the lane's role, checklist, output contract and examples lead; the file's own path and diff
+close the prompt.** Three arrangements now exist in the product, and they differ only in where one block sits:
+
+| order                       | arrangement                        | the prefix a _later_ call can reuse                                                                   |
+| --------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `lane-first` (before)       | `head + block + tail`              | the head, **about 900 characters** - the checklist and the examples sit after the file-specific block |
+| `diff-first` (§9)           | `block + head + tail`              | **nothing across files**, because the path is in the block; shared only within one file's five lanes  |
+| `boilerplate-first` (ships) | `head + tail + blank line + block` | **everything the lane says, which is the same for every file the lane reads**                         |
+
+**What that is worth, measured on the bytes rather than described**: over three files and five lanes, the share of each
+request that repeats the previous request for the same lane is **0.9805** under `boilerplate-first` and **0.1046** under
+`lane-first` - a factor of **9.4**, from the same prompts with one block moved
+(`tests/e2e/a-lane-pays-for-its-instructions-once.test.ts`).
+
+**And `lane-first` was never the arrangement anyone thought it was.** It led with a constant, which is the rule the
+vendor states; but the constant ended at nine hundred characters and the file path arrived immediately after it, so **a
+prompt can lead with a constant and still have no reusable prefix.** That is the defect, and it is not one a reader can
+see: both arrangements look like "instructions, then the diff".
+
+### 10.3 The prediction, registered before its run
+
+1. **`spend.cacheHitRatio` ≥ 0.85 on the file arm.** The reuse above is 0.98 per repeated call and the first call of
+   each lane has nothing to reuse; over 199 files that is 0.975 before the vendor's sixty-four-token block rounding and
+   any invalidation, so 0.85 leaves room for both and still fails a run that gained nothing.
+2. **The reviewer's own line, `spend.byTag` over the five `review:*` tags, falls by at least 55 %** on an unchanged
+   corpus at an unchanged hour. Not 90 %: the prompt is nearly all cached but the _answer_ is not, and the answer is
+   priced at output rates.
+3. **F1 does not move by more than 0.04**, which is the corpus's own resolution across three runs of an unchanged arm
+   (0.2727, 0.2368, 0.2781).
+4. **The judge is now a figure rather than an inference**, and this registration says what it is: **between 10 % and
+   40 % of the job's model bill.** Before iteration 114 the judge was a bare `fetch` in the harness and appeared in no
+   ledger, so _"the reviewer is about a fifth of the job"_ was an inference from a balance delta.
+
+### 10.4 What falsifies it
+
+- **A hit ratio below 0.5 with the cost unchanged** means the vendor does not cache free-form prompt prefixes the way
+  its documentation describes, and **the next lever is the 7 400-character boilerplate itself** - the examples and the
+  checklist are the largest thing a lane buys.
+- **A hit ratio at or above 0.85 with no cost fall** means the price table is wrong about which class the hits are
+  billed in. **That is a defect in the instrument** and is fixed before any figure from it is published, which is §9.4's
+  third clause and still stands.
+- **An F1 below 0.19** means the reorder moved the model's attention away from the instruction: it is reported as a
+  regression and reverted, exactly as §9.4 said about its own device.
+- **A judge share above 60 %** means the reviewer was never where the money went. The campaign then changes target to
+  the judge's `findings × goldens` matrix, and the reviewer's share stops being the thing to optimise.
+
+### 10.5 What is withdrawn, and what is kept
+
+**§9 is not deleted.** A bound that could not fire is worth more as a record than as a gap: **`diff-first` remains a
+product value and `laneWaves: 2` remains a setting**, so both halves of the retraction are checkable by running the
+arrangement §9 described. **What is withdrawn is its number**, not its existence.
+
+**And the transferable rule, now applied to §10 itself before the run:**
+
+> **A ratio is registered only after its ceiling is computed from the sizes it is made of.** §9's 0.5 was above the
+> 0.515 ceiling that the truncation cap allows and far above the 0.069 that an ordinary diff allows.
+
+### 10.6 What this does not claim
+
+**It does not claim the product is 9.4 times cheaper.** It claims that 98 % of what a lane sends after its first file is
+text it has already sent, which is the _ceiling_ of what a prefix cache can return. **The figure that says what the
+provider did with that is `spend.cacheHitRatio`, and it is written by a run of the job, not by this section.**
