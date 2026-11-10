@@ -475,7 +475,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     }
 
     // Variables: var/let name: Type = value
-    const varRegex = /(?:var|let)\s+(\w+)\s*(?::\s*[^\n=]+)?\s*=/g;
+    const varRegex = /(?:var|let)[ \t]+(\w{1,128})(?:[ \t]*:[^\n=]{0,256})?[ \t]*=/g;
     while ((m = varRegex.exec(source)) !== null) {
       const tag = m[0].startsWith('let') ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
       captures.push({

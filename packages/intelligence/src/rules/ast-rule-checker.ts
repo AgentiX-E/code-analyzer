@@ -450,7 +450,7 @@ function findChild(node: TsNode, types: string[]): TsNode | null {
 function extractCallsRegex(lines: string[], _language: string): AstCallSite[] {
   const calls: AstCallSite[] = [];
   // Match method calls: obj.method(args) and function calls: name(args)
-  const callPattern = /(\w+(?:\.\w+)*)\s*\(([^)]*)\)/g;
+  const callPattern = /(\w{1,128}(?:\.\w{1,128})*)\s*\(([^)]{0,512})\)/g;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -556,10 +556,11 @@ function extractFunctionBoundsRegex(lines: string[], language: string): AstFunct
   const bounds: AstFunctionBounds[] = [];
 
   // Match function/method declarations
-  const funcPattern = /(?:export\s+)?(?:async\s+)?(?:static\s+)?function\s+(\w+)\s*\(([^)]*)\)/;
-  const arrowPattern = /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(([^)]*)\)\s*=>/;
+  const funcPattern =
+    /(?:export\s+)?(?:async\s+)?(?:static\s+)?function\s+(\w{1,128})\s*\(([^)]{0,512})\)/;
+  const arrowPattern = /(?:const|let|var)\s+(\w{1,128})\s*=\s*(?:async\s+)?\(([^)]{0,512})\)\s*=>/;
   const methodPattern =
-    /^\s*(?:public|private|protected|static|async\s+)*(\w+)\s*\(([^)]*)\)\s*(?::\s*\w+(?:<[^>]*>)?)?\s*\{/;
+    /^\s*(?:(?:public|private|protected|static|async)\s+)*(\w{1,128})\s*\(([^)]{0,512})\)(?:\s*:\s*\w{1,128}(?:<[^<>\n]{0,256}>)?)?\s*\{/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;

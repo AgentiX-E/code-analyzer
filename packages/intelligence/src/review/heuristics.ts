@@ -316,7 +316,7 @@ function checkNamingConventions(lines: string[], filePath: string): HeuristicRul
 
     // Check variable/function names (should be camelCase)
     if (!isTestFile) {
-      const varMatch = trimmed.match(/^(?:const|let|var)\s+([A-Z][a-z]+\w*)\s*=/);
+      const varMatch = trimmed.match(/^(?:const|let|var)\s+([A-Z][a-z]{1,64}\w{0,64})\s*=/);
       if (varMatch) {
         const name = varMatch[1]!;
         // Allow uppercase for constants
@@ -383,7 +383,7 @@ function checkMissingReturnTypes(lines: string[], filePath: string): HeuristicRu
     // Match function declarations without return type
     // function name(args) { ... }  — missing return type
     const funcMatch = trimmed.match(
-      /^(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)\s*(?::\s*(\w+))?\s*\{/,
+      /^(?:export\s+)?(?:async\s+)?function\s+\w{1,128}\s*\([^)]{0,512}\)(?:\s*:\s*(\w{1,128}))?\s*\{/,
     );
     if (funcMatch && funcMatch[1] === undefined) {
       results.push({

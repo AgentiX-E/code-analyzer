@@ -178,7 +178,7 @@ function detectLayerViolations(
     // whitespace and is followed by a quote - is the shape a backtracking engine pays for by the square of the line, and
     // bounding the whitespace runs around it only moved the constant from "did not return" to half a second.
     const importPath =
-      readImportSpecifier(line) ?? line.match(/require\s*\(\s*['"](.+)['"]\s*\)/)?.[1];
+      readImportSpecifier(line) ?? line.match(/require\s*\(\s*['"]([^'"\n]{1,512})['"]\s*\)/)?.[1];
     if (!importPath) continue;
 
     for (const forbidden of sourceRule.forbiddenImports) {
@@ -310,7 +310,7 @@ function detectBarrelExports(lines: string[], filePath: string): LensFinding[] {
     const trimmed = lines[i]!.trim();
     if (/\bexport\s+(?:\{[^}]+\}|\*\s+from)\s+/.test(trimmed)) {
       // Count individual exports inside braces
-      const braceMatch = trimmed.match(/export\s+\{([^}]+)\}/);
+      const braceMatch = trimmed.match(/export\s+\{([^{}\n]+)\}/);
       if (braceMatch) {
         const exports = braceMatch[1]!.split(',').filter((e) => e.trim());
         reExportCount += exports.length;

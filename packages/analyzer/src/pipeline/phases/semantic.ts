@@ -50,7 +50,7 @@ export class SemanticPhase implements ExecutablePhase {
           const sig = node.properties?.signature;
           const params = sig
             ? sig
-                .replace(/^.*?\(([^)]*)\).*$/, '$1')
+                .replace(/^[^(]*\(([^)]{0,512})\)/, '$1')
                 .split(',')
                 .map((s: string) => s.trim())
                 .filter(Boolean)

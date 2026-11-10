@@ -360,7 +360,7 @@ export class CProvider extends TreeSitterBaseProvider {
     // The return-type group allows stars both attached to the type (`int* fp`)
     // and attached to the name (`int *fp`); the name is the last word before `(`.
     const funcRegex =
-      /(?:(?:static|inline|extern)\s+)*(?:\w+[*]*\s+)+(\*+\s*)?(\w+)\s*\([^)]*\)\s*(?:\{|;)/g;
+      /(?:(?:static|inline|extern)\s+)*(?:\w{1,128}[*]*\s+)+(\*+\s*)?(\w{1,128})\s*\([^)]{0,512}\)\s*(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[2]!;
       if (!this.isValidFnName(name)) continue;
@@ -377,7 +377,7 @@ export class CProvider extends TreeSitterBaseProvider {
     }
 
     // Includes
-    const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
+    const incRegex = /#include\s*[<"]([^<>"\n]+)[>"]/g;
     while ((m = incRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
@@ -397,7 +397,7 @@ export class CProvider extends TreeSitterBaseProvider {
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
-    const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
+    const incRegex = /#include\s*[<"]([^<>"\n]+)[>"]/g;
     while ((m = incRegex.exec(source)) !== null) {
       imports.push({
         source: m[1]!,

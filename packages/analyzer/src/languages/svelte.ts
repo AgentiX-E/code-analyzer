@@ -67,7 +67,7 @@ export class SvelteProvider implements LanguageProvider {
 
       // ES module imports: import X from 'module'
       const importRegex =
-        /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
+        /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w{1,128})|(\{[^{}]*\})|(\w{1,128}))\s+from\s+['"]([^'"\n]+)['"]/g;
       let match: RegExpExecArray | null;
       while ((match = importRegex.exec(blockContent)) !== null) {
         const path = match[5]!;
@@ -157,7 +157,7 @@ export class SvelteProvider implements LanguageProvider {
     filePath: string,
   ): void {
     const importRegex =
-      /import\s+(?:type\s+)?(?:(?:\*\s+as\s+\w+)|(?:\{[\s\S]*?\})|(?:\w+))\s+from\s+['"]([^'"]+)['"]/g;
+      /import\s+(?:type\s+)?(?:(?:\*\s+as\s+\w{1,128})|(?:\{[^{}]*\})|(?:\w{1,128}))\s+from\s+['"]([^'"\n]+)['"]/g;
     let match: RegExpExecArray | null;
 
     while ((match = importRegex.exec(blockContent)) !== null) {

@@ -44,6 +44,7 @@ import {
 } from './ast-security-rules.js';
 import { ALL_RULE_DEFINITIONS } from './rule-definitions.js';
 import { RulesRegistry } from './rules-registry.js';
+import { readImportSpecifier } from '../review/import-specifier.js';
 
 import type { RuleDefinition, RuleCategory } from './rule-definitions.js';
 import type { Severity } from '@code-analyzer/shared';
@@ -232,7 +233,9 @@ export function checkNoUndef(
         if (name) declared.add(name);
       }
     }
-    const arrow = line.match(/^(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\s*\(([^)]*)\)/);
+    const arrow = line.match(
+      /^(?:const|let|var)\s+(\w{1,128})\s*=\s*(?:async\s+)?\(([^)]{0,512})\)/,
+    );
     if (arrow) {
       declared.add(arrow[1]!);
       for (const p of arrow[2]!.split(',')) {
@@ -288,9 +291,8 @@ export function checkNoDuplicateImports(
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
     const trimmed = line.trim();
-    const importMatch = trimmed.match(/^import\s+.*?\s+from\s+['"]([^'"]+)['"]/);
-    if (importMatch) {
-      const mod = importMatch[1]!;
+    const mod = readImportSpecifier(trimmed);
+    if (mod !== null) {
       if (seen.has(mod)) {
         results.push(
           makeResult(
@@ -402,7 +404,7 @@ export function checkNoEmptyCatch(
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
     const trimmed = line.trim();
-    if (/catch\s*\([^)]*\)\s*\{\s*\}/.test(trimmed)) {
+    if (/catch\s*\([^)]{0,512}\)\s*\{\s*\}/.test(trimmed)) {
       results.push(
         makeResult(
           'no-empty-catch',
@@ -414,7 +416,7 @@ export function checkNoEmptyCatch(
       continue;
     }
 
-    if (/catch\s*\([^)]*\)\s*\{/.test(trimmed)) {
+    if (/catch\s*\([^)]{0,512}\)\s*\{/.test(trimmed)) {
       let j = i + 1;
       let hasContent = false;
       while (j < src.length && !src[j]!.trim().startsWith('}')) {
@@ -693,7 +695,7 @@ export function checkNoRedundantComputation(
     const trimmed = line.trim();
     if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
 
-    const callMatch = trimmed.match(/(\w+\.\w+\([^)]*\))/g);
+    const callMatch = trimmed.match(/(\w{1,128}\.\w{1,128}\([^)]{0,512}\))/g);
     if (callMatch) {
       for (const call of callMatch) {
         const existing = exprMap.get(call) ?? [];
@@ -944,7 +946,9 @@ export function checkMaxParams(
 
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
-    const paramMatch = line.match(/(?:function\s+\w+\s*|=>\s*|\w+\s*)\s*\(([^)]*)\)/);
+    const paramMatch = line.match(
+      /(?:function\s+\w{1,128}\s*|=>\s*|\w{1,128}\s*)\s*\(([^)]{0,512})\)/,
+    );
     if (paramMatch) {
       const params = paramMatch[1]!
         .split(',')
@@ -1289,7 +1293,7 @@ export function checkNoGodClass(
       }
 
       if (
-        /^\s*(?:public|private|protected|static)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+(?:<[^>]*>)?)?\s*\{/.test(
+        /^\s*(?:(?:public|private|protected|static)\s+)?(?:async\s+)?\w{1,128}\s*\([^)]{0,512}\)(?:\s*:\s*\w{1,128}(?:<[^<>\n]{0,256}>)?)?\s*\{/.test(
           trimmed,
         ) &&
         !trimmed.includes('constructor') &&
@@ -1650,9 +1654,8 @@ export function checkNoLayerViolation(
 
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
-    const importMatch = line.match(/^import\s+.*?\s+from\s+['"]([^'"]+)['"]/);
-    if (importMatch) {
-      const importPath = importMatch[1]!;
+    const importPath = readImportSpecifier(line);
+    if (importPath !== null) {
       const importLayer = getImportLayer(importPath);
       if (importLayer !== null) {
         // Invariant: getFileLayer/getImportLayer return only keys of `layers` (or

@@ -419,7 +419,8 @@ export class CppProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
 
     // Class definitions: class ClassName
-    const classRegex = /(?:(?:template\s*<[^>]*>\s*)?(?:class|typename)\s+)?\bclass\s+(\w+)/g;
+    const classRegex =
+      /(?:(?:template\s*<[^<>\n]{0,256}>\s*)?(?:class|typename)\s+)?\bclass\s+(\w{1,128})/g;
     while ((m = classRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.CLASS_DEF,
@@ -465,7 +466,7 @@ export class CppProvider extends TreeSitterBaseProvider {
 
     // Function definitions (return type + name + parens + {)
     const funcRegex =
-      /(?:(?:static|inline|virtual|explicit|constexpr|const)\s+)*(?:\w+(?:<[^>]*>)?(?:::|\s+)+)?(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)/g;
+      /(?:(?:static|inline|virtual|explicit|constexpr|const)\s+)*(?:\w{1,128}(?:<[^<>\n]{0,256}>)?(?:::|\s)+)?(\w{1,128})\s*\([^)]{0,512}\)\s*(?:const\s*)?(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[1]!;
       if (!this.isValidFnName(name)) continue;
@@ -482,7 +483,7 @@ export class CppProvider extends TreeSitterBaseProvider {
     }
 
     // Includes
-    const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
+    const incRegex = /#include\s*[<"]([^<>"\n]+)[>"]/g;
     while ((m = incRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
@@ -502,7 +503,7 @@ export class CppProvider extends TreeSitterBaseProvider {
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
-    const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
+    const incRegex = /#include\s*[<"]([^<>"\n]+)[>"]/g;
     while ((m = incRegex.exec(source)) !== null) {
       imports.push({
         source: m[1]!,

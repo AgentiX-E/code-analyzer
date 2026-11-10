@@ -455,7 +455,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     }
 
     // Annotations
-    const annRegex = /@(\w+)(?:\([\s\S]*?\))?/g;
+    const annRegex = /@(\w{1,128})(?:\([^)]{0,512}\))?/g;
     while ((m = annRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.DECORATOR,

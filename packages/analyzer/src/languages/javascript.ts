@@ -544,7 +544,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         properties: { filePath },
       });
     }
-    const arrRegex = /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g;
+    const arrRegex = /(?:const|let|var)\s+(\w{1,128})\s*=\s*(?:async\s+)?\([^)]{0,512}\)\s*=>/g;
     while ((m = arrRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -601,7 +601,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
 
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
-    const regex = /import\s+(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
+    const regex =
+      /import\s+(?:(\*)\s+as\s+(\w{1,128})|(\{[^{}]*\})|(\w{1,128}))\s+from\s+['"]([^'"\n]+)['"]/g;
     let m: RegExpExecArray | null;
     while ((m = regex.exec(source)) !== null) {
       const p = m[5]!,
@@ -621,7 +622,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     }
     // require()
     const rqRx =
-      /(?:const|let|var)\s+(?:(\{[\s\S]*?\})|(\w+))\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+      /(?:const|let|var)\s+(?:(\{[^{}]*\})|(\w{1,128}))\s*=\s*require[\s(]*['"]([^'"\n]+)['"]\s*\)/g;
     while ((m = rqRx.exec(source)) !== null) {
       const p = m[3]!,
         l = this.lineOff(source, m.index);

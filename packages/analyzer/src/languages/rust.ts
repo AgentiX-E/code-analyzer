@@ -349,7 +349,7 @@ export class RustProvider extends TreeSitterBaseProvider {
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
-    const regex = /use\s+([\w:]+(?:::[\w*]+)*)\s*;/g;
+    const regex = /use\s+(\w{1,128}(?:::[\w*]{1,128})*)\s*;/g;
     while ((m = regex.exec(source)) !== null) {
       const parts = m[1]!.split('::');
       const last = parts[parts.length - 1]!;

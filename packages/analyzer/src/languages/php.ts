@@ -3,6 +3,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
+import { readDocComments } from './doc-comments.js';
 import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
@@ -527,15 +528,14 @@ export class PhpProvider extends TreeSitterBaseProvider {
     }
 
     // Doc comments
-    const docRegex = /\/\*\*([\s\S]*?)\*\//g;
-    while ((m = docRegex.exec(source)) !== null) {
+    for (const doc of readDocComments(source)) {
       captures.push({
         tag: CAPTURE_TAGS.DOCSTRING,
-        text: m[0],
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
+        text: doc.text,
+        startLine: this.ln(source, doc.start),
+        endLine: this.ln(source, doc.end),
+        startByte: doc.start,
+        endByte: doc.end,
         properties: { filePath },
       });
     }
@@ -567,7 +567,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
     // Grouped imports: use Namespace\{A, B, C as D} — the opening brace is
     // backslash-escaped, but the closing brace is a bare `}` in PHP syntax.
-    const groupRegex = /use\s+([\w\\]+)\\{([^}]+)\}/g;
+    const groupRegex = /use\s+([\w\\]{1,256})\\{([^{}]+)\}/g;
     while ((m = groupRegex.exec(source)) !== null) {
       const basePath = m[1]!;
       const namesStr = m[2]!;
@@ -586,7 +586,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
     // require/include
     const reqRegex =
-      /(?:require|require_once|include|include_once)\s*(?:\(?\s*['"]([^'"]+)['"]\s*\)?)\s*;/g;
+      /(?:require|require_once|include|include_once)[\s(]*['"]([^'"\n]+)['"][\s)]*;/g;
     while ((m = reqRegex.exec(source)) !== null) {
       imports.push({
         source: m[1]!,

@@ -774,7 +774,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
         properties: { decorator: m[1]!, filePath },
       });
     }
-    const docRegex = /("""|''')[\s\S]*?\1/g;
+    const docRegex = /"""[\s\S]*?"""|'''[\s\S]*?'''/g;
     while ((m = docRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.DOCSTRING,
@@ -811,16 +811,21 @@ export class PythonProvider extends TreeSitterBaseProvider {
         source: m[1]!,
         names: m[2]!
           .split(',')
-          .map((s) => s.trim().split(/\s+as\s+/)[0]!)
+          .map((s) =>
+            s
+              .trim()
+              .split(/\bas\b/)[0]!
+              .trim(),
+          )
           .filter(Boolean),
         type: 'named',
         lineNumber: this.ln(source, m.index),
       });
     }
-    const impRegex = /^import\s+([\w\s,.]+?)(?:\s+#.*)?$/gm;
+    const impRegex = /^import[ \t]+([^#\n]+)/gm;
     while ((m = impRegex.exec(source)) !== null) {
       for (const mod of m[1]!.split(',')) {
-        const parts = mod.trim().split(/\s+as\s+/);
+        const parts = mod.trim().split(/\bas\b/);
         imports.push({
           source: parts[0]!.trim(),
           names: [parts[1]?.trim() ?? parts[0]!.trim()],

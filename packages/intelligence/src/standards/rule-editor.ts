@@ -426,7 +426,7 @@ export class CustomRuleEditor {
         if (config.metric === 'function-lines') {
           // Estimate function boundary
           const funcMatch = sampleCode.match(
-            /(?:function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>|class\s+\w+)/g,
+            /(?:function\s+\w{1,128}|const\s+\w{1,128}\s*=\s*\([^)]{0,512}\)\s*=>|class\s+\w{1,128})/g,
           );
           if (funcMatch && lines.length > config.threshold) {
             matches.push({

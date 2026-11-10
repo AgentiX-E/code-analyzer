@@ -381,7 +381,7 @@ export class HclProvider extends TreeSitterBaseProvider {
     const imports: ParsedImport[] = [];
     // HCL doesn't have traditional imports, but module source references
     let m: RegExpExecArray | null;
-    const moduleSourceRegex = /module\s+"[^"]+"\s*\{[\s\S]*?source\s*=\s*"([^"]+)"/g;
+    const moduleSourceRegex = /module\s+"[^"]+"\s*\{[\s\S]{0,4096}?source\s*=\s*"([^"\n]+)"/g;
     while ((m = moduleSourceRegex.exec(source)) !== null) {
       imports.push({
         source: m[1]!,

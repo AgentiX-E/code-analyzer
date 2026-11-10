@@ -72,7 +72,7 @@ function checkMagicNumbers(line: string, lineNum: number, filePath: string): Len
   // repository has opened**, on a file where nothing can be "extracted to a named constant". Stripping the literals
   // first is the same thing every linter does and the same thing the rule always meant: **a magic number is a value in
   // an expression.**
-  const code = line.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  const code = line.replace(/"[^"\\]*(?:\\[\s\S][^"\\]*)*"|'[^'\\]*(?:\\[\s\S][^'\\]*)*'/g, '""');
   const numMatch = code.match(/(?<![a-zA-Z0-9_.#])(-?\d+\.?\d*)(?![a-zA-Z0-9_])/g);
   if (!numMatch) return null;
 

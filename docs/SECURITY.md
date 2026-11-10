@@ -103,12 +103,9 @@ pattern to `python.ts` that the hostile file does not exercise** - the alert is 
 
 ### 1.5 What is not covered, stated as a number
 
-**Fifty-eight of the seventy-nine `js/polynomial-redos` alerts and the four `js/redos` alerts have never been probed.**
-Twenty-five were, and that is 30% of the corpus. The counts by file are what the walk prints:
-
-```
-node scripts/code-scanning-corpus.mjs --rule js/polynomial-redos
-```
+**This section was written when fifty-eight of the seventy-nine findings had never been probed, and it is kept as
+written so that the next reader can see what a gap looks like before it is closed.** §1.9 closes it: every open finding
+is measured by `scripts/redos-assay.mjs` on every push, and the job fails if one of them is still quadratic.
 
 - `rule-runner.ts` (11) and `ast-rule-checker.ts` (8) are the two largest single-file populations and neither has been
   measured. They take **rule definitions from disk and compile them**, which is a different threat model from the
@@ -118,6 +115,10 @@ node scripts/code-scanning-corpus.mjs --rule js/polynomial-redos
   a gap rather than as a pass.**
 - **A regex that is linear in the number of matches but quadratic in the number of failures inside one match** is not
   covered by any input that has not been tried against it. The nine inputs above are a floor.
+
+**Where those three became facts rather than gaps**: `rule-runner.ts` and `ast-rule-checker.ts` between them held
+nineteen findings, and the assay measured **eleven of them quadratic** - including a method-header matcher that cost
+855 ms on forty kilobytes of spaces. Both files are corrected and their patterns are in the table in §1.9.
 
 ### 1.6 The third pass: CodeQL's own adversarial string, and 22 of 35 were real
 
@@ -188,6 +189,70 @@ to appear at the end (`require(…['"](.+)['"]\s*\))`); an alternation containin
 scanning); and the family of `^\s*(?:mods)?\s*(\w+)\s*\(` signature matchers in `rule-runner.ts` and
 `review/heuristics.ts`, where the cure is to move the whitespace inside the optional group so there is one run and one way
 to reach the paren.
+
+### 1.9 The seventy-six, measured by a program instead of by hand
+
+**§1.6 sorted thirty-five findings in a scratch file and wrote the answer into a paragraph.** The paragraph cannot be
+re-run, so the next reader has to take "twenty-two of thirty-five" on trust - and the paragraph's own numbers were
+produced by two different thresholds in two different hours. **A measurement that lives only in prose is a measurement
+with no provenance.**
+
+The sort is now `scripts/redos-assay.mjs`, and it runs as the `redos-assay` job in `security-audit.yml` on every push
+and pull request, with `--fail-if-quadratic`:
+
+```
+node scripts/redos-assay.mjs                     # every open ReDoS finding, measured
+node scripts/redos-assay.mjs --json redos.json   # and written down
+node scripts/redos-assay.mjs --fail-if-quadratic # exit 1 if any measured pattern is still quadratic
+```
+
+Four things about it matter more than its output.
+
+1. **The input is CodeQL's claim, not this repository's guess.** The pump is read out of the message - *"strings starting
+   with `X` and with many repetitions of `Y`"* - and a message the parser cannot read is reported as `no-claim` rather
+   than measured against an invented string.
+2. **The verdict is not a wall clock alone.** §1.6 called a finding real at 200 ms at 40 KB, and that rule **missed
+   `structure-lens` at 94 ms with a growth of ×95** - a quadratic pattern with a small constant, which is 225 times the
+   cost on the 600 KB line a generated file can supply. The rule is now *did not return*, **or** crossed 200 ms, **or**
+   grew by more than ×30 over ten times the input.
+3. **The locator resolves the name, not the line.** CodeQL reports the line a pattern is *used* on. A locator that
+   matched by adjacency found sixteen of seventy-six and called sixty unmeasurable - which reads in a summary as "the
+   corpus is small" rather than "the locator is blind". It reads `pattern.exec(...)` and finds `const pattern = /…/`.
+4. **`unlocated` is a value.** A finding that falls out of the table between the API and the summary is the counting
+   error §1.6 was written about.
+
+**The first pass measured 76 findings: 54 quadratic, 21 linear, 1 unlocated.** After the corrections below: **0
+quadratic, 73 linear, 3 unlocated** - and the three are findings whose pattern this iteration deleted, so the next
+CodeQL analysis closes them rather than moving them.
+
+**Five rules, and every correction in this iteration is one of them.**
+
+| rule                                                          | what it looked like                                            | what it is now                                                     | sites |
+| ------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ | ----- |
+| **a terminator's opener may not be in the class that runs to it** | `\{[^}]*\}` scanning to a `}` that never comes                  | `\{[^{}]*\}`, which fails on the next opener                        | 8     |
+| **two whitespace runs around an optional group are one too many** | `\)\s*(?::\s*\w+)?\s*\{` — every split of the run is a path      | `\)(?:\s*:\s*\w+)?\s*\{` — one run, one way to reach the brace       | 5     |
+| **a name, a parameter list and a type annotation have a length** | `(\w+)`, `\([^)]*\)`, `(?::[^=\n]+)?` unbounded                  | `\w{1,128}`, `\([^)]{0,512}\)`, `{0,256}` — past anything real       | 19    |
+| **when the search is for a terminator, write a scan**          | `\/\*\*([\s\S]*?)\*\/` and `import\s+.*?\s+from`                 | `readDocComments`, `readImportSpecifier` — one forward cursor        | 4     |
+| **`(X+)+` is never a description of a token**                  | `(?:::|\s+)+`, `(?:\w+[*]*\s+)+`                                 | `(?:::|\s)+`, `(?:\w{1,128}[*]*\s+)+`                                | 3     |
+
+**Two of these are worth naming individually.**
+
+`doc-comments.ts` is a scanner because **the pattern could not be made linear at all**. The unrolled form - the one a
+careful author writes to replace a lazy body - still walks to the end of the file from every opening `/**` and gives the
+walk back one character at a time; measured at **502 ms on forty kilobytes with the same constant as before**. "Find the
+next `*/` after this `/**`" is `indexOf`, and `indexOf` examines every character a bounded number of times. It carries
+its own contract test, including the case that made the first draft wrong: **the four characters of an empty block share
+one `*` between the opener and the closer, so the search for the closer starts at `at + 2` and not `at + 3`.**
+
+`\s+as\s+` became `\bas\b` in the Python importer. A leading `\s+` before a literal is quadratic on a line of spaces
+because each of n candidate positions consumes the rest of the run; a **word boundary needs no run at all**, and `as` is
+a word. The first version of that change left the trailing space on the imported name - `'thing '` instead of `'thing'` -
+and a fallback-parser test caught it, which is the argument for a scanner-shaped change arriving with the test that
+already existed.
+
+**Three findings the table could not place, and why that is the right answer**: `php.ts:531`, `rule-runner.ts:291` and
+`rule-runner.ts:1653` are the doc-comment and import patterns this iteration deleted. Their alerts are attached to lines
+that no longer hold a pattern, and the assay says so instead of measuring a neighbour.
 
 ---
 

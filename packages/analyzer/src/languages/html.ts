@@ -392,7 +392,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
-    const tagRx = /<\/?(\w+)[^<>]*>/g;
+    const tagRx = /<\/?(\w{1,128})[^<>]*>/g;
     while ((m = tagRx.exec(source)) !== null) {
       const isClosing = m[0].startsWith('</');
       captures.push({
@@ -406,7 +406,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         properties: { isClosing: String(isClosing), filePath },
       });
     }
-    const srcRx = /<script[^>]+src=["']([^"']+)["']/g;
+    const srcRx = /<script[^<>]+src=["']([^"'\n]+)["']/g;
     while ((m = srcRx.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
@@ -419,7 +419,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         properties: { importType: 'script', filePath },
       });
     }
-    const linkRx = /<link[^>]+href=["']([^"']+)["'][^>]*>/g;
+    const linkRx = /<link[^<>]+href=["']([^"'\n]+)["'][^<>]*>/g;
     while ((m = linkRx.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
@@ -432,7 +432,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         properties: { importType: 'link', filePath },
       });
     }
-    const imgRx = /<img[^>]+src=["']([^"']+)["']/g;
+    const imgRx = /<img[^<>]+src=["']([^"'\n]+)["']/g;
     while ((m = imgRx.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,

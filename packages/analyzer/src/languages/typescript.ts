@@ -7,6 +7,7 @@ import { collectCLikeTaint } from './base-c-like.js';
 import { FUNCTION_SCOPED_CONSTANTS } from './constant-fold.js';
 import { MEMBER_CALLEE_CONTAINERS } from './container-calls.js';
 import { JSDOC_MARKERS } from './doc-comment-markers.js';
+import { readDocComments } from './doc-comments.js';
 import { lineOf } from './line-index.js';
 import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import { cursorNode, walkPreOrder } from './syntax-cursor.js';
@@ -1690,7 +1691,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
 
     // Arrow functions
-    const arrowRegex = /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g;
+    const arrowRegex = /(?:const|let|var)\s+(\w{1,128})\s*=\s*(?:async\s+)?\([^)]{0,512}\)\s*=>/g;
     while ((match = arrowRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -1705,7 +1706,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
 
     // Variables
-    const varRegex = /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*(?::\s*[^=\n]+)?\s*=(?![^=]*=>)/g;
+    const varRegex =
+      /(?:export\s+)?(?:const|let|var)\s+(\w{1,128})(?:[ \t]*:[^=\n]{0,256})?[ \t]*=(?![^=]*=>)/g;
     while ((match = varRegex.exec(source)) !== null) {
       captures.push({
         tag: match[0].includes('const') ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
@@ -1735,7 +1737,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
 
     // Decorators
-    const decRegex = /@(\w+(?:\([\s\S]*?\))?)/g;
+    const decRegex = /@(\w{1,128})(?:\([^)]{0,512}\))?/g;
     while ((match = decRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.DECORATOR,
@@ -1750,15 +1752,14 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
 
     // JSDoc
-    const docRegex = /\/\*\*([\s\S]*?)\*\//g;
-    while ((match = docRegex.exec(source)) !== null) {
+    for (const doc of readDocComments(source)) {
       captures.push({
         tag: CAPTURE_TAGS.DOCSTRING,
-        text: match[0],
-        startLine: this.lineFromOffset(source, match.index),
-        endLine: this.lineFromOffset(source, match.index + match[0].length),
-        startByte: match.index,
-        endByte: match.index + match[0].length,
+        text: doc.text,
+        startLine: this.lineFromOffset(source, doc.start),
+        endLine: this.lineFromOffset(source, doc.end),
+        startByte: doc.start,
+        endByte: doc.end,
         properties: { filePath },
       });
     }
@@ -1769,7 +1770,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex =
-      /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
+      /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w{1,128})|(\{[^}]*\})|(\w{1,128}))\s+from\s+['"]([^'"\n]+)['"]/g;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(source)) !== null) {
       const path = match[5]!;

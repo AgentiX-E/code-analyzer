@@ -393,7 +393,7 @@ export class RProvider extends TreeSitterBaseProvider {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
-    const funcRx = /(\w+)\s*<-\s*function\s*\(/g;
+    const funcRx = /(\w{1,128})\s*<-\s*function\s*\(/g;
     while ((m = funcRx.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -406,7 +406,7 @@ export class RProvider extends TreeSitterBaseProvider {
         properties: { filePath },
       });
     }
-    const varRx = /(\w+)\s*<-\s*[^(]/g;
+    const varRx = /(\w{1,128})\s*<-\s*[^(]/g;
     while ((m = varRx.exec(source)) !== null) {
       if (
         ['if', 'else', 'for', 'while', 'function', 'return', 'library', 'require'].includes(m[1]!)

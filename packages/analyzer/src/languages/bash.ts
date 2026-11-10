@@ -410,7 +410,7 @@ export class BashProvider extends TreeSitterBaseProvider {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => lineOf(source, off);
     let m: RegExpExecArray | null;
-    const funcRegex = /(?:function\s+)?(\w+)\s*\(\s*\)\s*\{/g;
+    const funcRegex = /(?:function\s+)?(\w{1,128})\s*\(\s*\)\s*\{/g;
     while ((m = funcRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -423,7 +423,7 @@ export class BashProvider extends TreeSitterBaseProvider {
         properties: { filePath },
       });
     }
-    const varRegex = /(?:export\s+|local\s+|readonly\s+)?(\w+)=/g;
+    const varRegex = /(?:export\s+|local\s+|readonly\s+)?(\w{1,128})=/g;
     while ((m = varRegex.exec(source)) !== null) {
       if (
         ['if', 'for', 'while', 'case', 'select', 'do', 'done', 'then', 'else', 'fi'].includes(m[1]!)

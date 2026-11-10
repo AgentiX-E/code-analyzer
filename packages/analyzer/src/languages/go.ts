@@ -442,9 +442,9 @@ export class GoProvider extends TreeSitterBaseProvider {
         lineNumber: this.ln(source, m.index),
       });
     }
-    const multiRegex = /import\s*\(([\s\S]*?)\)/g;
+    const multiRegex = /import\s*\(([^()]*)\)/g;
     while ((m = multiRegex.exec(source)) !== null) {
-      const lineRegex = /(?:(\w+)\s+)?"([^"]+)"/g;
+      const lineRegex = /(?:(\w{1,128})\s+)?"([^"\n]+)"/g;
       let inner: RegExpExecArray | null;
       while ((inner = lineRegex.exec(m[1]!))) {
         imports.push({
