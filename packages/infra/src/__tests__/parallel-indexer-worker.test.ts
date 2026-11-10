@@ -3,7 +3,7 @@
 // result collection, and graceful degradation.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -15,13 +15,10 @@ import type { IndexProgress } from '../workers/parallel-indexer.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-let tmpDirCounter = 0;
-
 function createTempDir(): string {
-  const dir = join(tmpdir(), `ca-parallel-worker-test-${Date.now()}-${tmpDirCounter++}`);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  // **Atomically created.** The line this replaces removed the directory and then made it again, which is the
+  // window rather than the repair: between the two calls any run that had just been given the same name loses it.
+  return mkdtempSync(join(tmpdir(), 'ca-parallel-worker-test-'));
 }
 
 function createTestFiles(rootPath: string, fileCount: number, baseContent?: string): string[] {

@@ -18,7 +18,6 @@
 // the first two assertions and mean the opposite of what it claims.
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
@@ -27,10 +26,16 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { computeReachability } from '../../packages/intelligence/src/impact/reachability.js';
 
+import { fixedScratch } from './scratch-root.js';
+
 import type { GraphEdge, PipelineContext } from '@code-analyzer/shared';
 
-/** A fixed path: the index holds absolute paths, and a random suffix would change the tokens on every run. */
-const SCRATCH = join(tmpdir(), 'code-analyzer-type-mention');
+/**
+ * **A fixed path, and the index is why.** A random suffix puts a different token into the index on every run, so the same
+ * source ranks differently from one run to the next - a fixture defect that reads like a product one. `fixedScratch`
+ * keeps the name fixed while keeping the directory out of the shared temporary namespace; see `scratch-root.ts`.
+ */
+const SCRATCH = fixedScratch('code-analyzer-type-mention');
 
 afterAll(() => {
   rmSync(SCRATCH, { recursive: true, force: true });

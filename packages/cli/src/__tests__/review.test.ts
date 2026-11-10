@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
 import {
@@ -19,11 +19,10 @@ describe('reviewCode — file mode', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = resolve(
-      tmpdir(),
-      `code-analyzer-review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-    mkdirSync(testDir, { recursive: true });
+    // **`mkdtempSync` and not a name built from the clock.** `Date.now()` moves in milliseconds, two vitest
+    // workers that start together get the same number, and `mkdirSync(..., { recursive: true })` does not object to
+    // a directory that is already there - so the second worker used to inherit the first one's files and delete them.
+    testDir = mkdtempSync(join(tmpdir(), 'code-analyzer-review-'));
   });
 
   afterEach(() => {
@@ -153,8 +152,7 @@ describe('reviewCode — other modes', () => {
   });
 
   it('should handle diff mode with staged changes', async () => {
-    const repoDir = resolve(tmpdir(), `review-diff-${Date.now()}`);
-    mkdirSync(repoDir, { recursive: true });
+    const repoDir = mkdtempSync(join(tmpdir(), 'review-diff-'));
     const prevCwd = process.cwd();
 
     try {
@@ -197,8 +195,7 @@ describe('reviewCode — other modes', () => {
   });
 
   it('should handle dir mode', async () => {
-    const testDir = resolve(tmpdir(), `review-dir-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    const testDir = mkdtempSync(join(tmpdir(), 'review-dir-'));
     writeFileSync(join(testDir, 'a.ts'), 'console.log("test");\n');
     writeFileSync(join(testDir, 'b.ts'), 'const x = 1;\n');
 
@@ -213,7 +210,7 @@ describe('reviewCode — other modes', () => {
   });
 
   it('should handle dir mode with subdirectories', async () => {
-    const testDir = resolve(tmpdir(), `review-dir-sub-${Date.now()}`);
+    const testDir = mkdtempSync(join(tmpdir(), 'review-dir-sub-'));
     mkdirSync(join(testDir, 'src'), { recursive: true });
     mkdirSync(join(testDir, 'lib'), { recursive: true });
     writeFileSync(join(testDir, 'src', 'index.ts'), 'const x = 1;\n');
@@ -234,7 +231,10 @@ describe('reviewCode — other modes', () => {
   });
 
   it('should respect maxIssues limit', async () => {
-    const filePath = resolve(tmpdir(), `many-issues-${Date.now()}.ts`);
+    // **A directory of our own before the file.** A predictable file name in the shared directory is the same
+    // defect one level down: two runs pick the same path and the second writes over the first.
+    const scratch = mkdtempSync(join(tmpdir(), 'many-issues-'));
+    const filePath = join(scratch, 'subject.ts');
     const lines = Array.from({ length: 100 }, (_, i) => `console.log("line ${i}");`);
     writeFileSync(filePath, lines.join('\n'));
 
@@ -246,15 +246,14 @@ describe('reviewCode — other modes', () => {
     expect(result.issues.length).toBeLessThanOrEqual(5);
 
     try {
-      rmSync(filePath);
+      rmSync(scratch, { recursive: true, force: true });
     } catch {
       /* */
     }
   });
 
   it('should skip excluded directories in dir mode', async () => {
-    const testDir = resolve(tmpdir(), `review-dir-excl-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    const testDir = mkdtempSync(join(tmpdir(), 'review-dir-excl-'));
     mkdirSync(join(testDir, 'node_modules'), { recursive: true });
     mkdirSync(join(testDir, 'dist'), { recursive: true });
     mkdirSync(join(testDir, 'build'), { recursive: true });
@@ -420,8 +419,7 @@ describe('reviewCode — error handling', () => {
   });
 
   it('should handle severity filter at critical level', async () => {
-    const testDir = resolve(tmpdir(), `review-crit-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    const testDir = mkdtempSync(join(tmpdir(), 'review-crit-'));
     try {
       const filePath = join(testDir, 'mixed.ts');
       writeFileSync(filePath, 'console.log("hello");\neval("code");\n// TODO: fix\n');
@@ -444,8 +442,7 @@ describe('reviewCode — error handling', () => {
   });
 
   it('should handle severity filter at info level (all issues)', async () => {
-    const testDir = resolve(tmpdir(), `review-info-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    const testDir = mkdtempSync(join(tmpdir(), 'review-info-'));
     try {
       const filePath = join(testDir, 'all.ts');
       writeFileSync(
@@ -466,7 +463,10 @@ describe('reviewCode — error handling', () => {
   });
 
   it('should handle maxIssues cap in file mode', async () => {
-    const filePath = resolve(tmpdir(), `max-issues-file-${Date.now()}.ts`);
+    // **A directory of our own before the file.** A predictable file name in the shared directory is the same
+    // defect one level down: two runs pick the same path and the second writes over the first.
+    const scratch = mkdtempSync(join(tmpdir(), 'max-issues-file-'));
+    const filePath = join(scratch, 'subject.ts');
     try {
       // Create many lines that trigger the same rule
       const lines = Array.from({ length: 50 }, () => 'console.log("test");');
@@ -476,7 +476,7 @@ describe('reviewCode — error handling', () => {
       expect(result.success).toBe(true);
     } finally {
       try {
-        rmSync(filePath);
+        rmSync(scratch, { recursive: true, force: true });
       } catch {
         /* */
       }
@@ -484,8 +484,7 @@ describe('reviewCode — error handling', () => {
   });
 
   it('should return summary with correct counts', async () => {
-    const testDir = resolve(tmpdir(), `review-summary-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    const testDir = mkdtempSync(join(tmpdir(), 'review-summary-'));
     try {
       const filePath = join(testDir, 'summary.ts');
       writeFileSync(
@@ -518,11 +517,8 @@ describe('reviewCode — defaults and collection limits', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = resolve(
-      tmpdir(),
-      `ca-review-cov-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-    mkdirSync(testDir, { recursive: true });
+    // **Atomically created, not clock-named.** See the note in the first `beforeEach` above.
+    testDir = mkdtempSync(join(tmpdir(), 'ca-review-cov-'));
   });
 
   afterEach(() => {
@@ -582,11 +578,8 @@ describe('reviewCode — diff mode severity filtering', () => {
   let previousCwd: string;
 
   beforeEach(() => {
-    repoDir = resolve(
-      tmpdir(),
-      `ca-review-diff-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-    mkdirSync(repoDir, { recursive: true });
+    // **Atomically created, not clock-named.** See the note in the first `beforeEach` above.
+    repoDir = mkdtempSync(join(tmpdir(), 'ca-review-diff-'));
     const gitEnv = '-c user.email=test@example.com -c user.name=test';
     execSync('git init -q', { cwd: repoDir });
     execSync(`git ${gitEnv} commit -q --allow-empty -m init`, { cwd: repoDir });

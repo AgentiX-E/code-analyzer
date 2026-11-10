@@ -8,7 +8,15 @@
 // eviction, and the defensive non-Error coercion arms) with no `v8 ignore`
 // hints left in repo-sync.ts.
 
-import { existsSync, mkdirSync, rmSync, writeFileSync, utimesSync, symlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -63,8 +71,9 @@ function makeRepo(overrides: Partial<GitHubRepo> = {}): GitHubRepo {
 }
 
 function createTempDir(): string {
-  const dir = join(tmpdir(), `ca-repo-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  mkdirSync(dir, { recursive: true });
+  // **Atomically created.** `mkdtempSync` makes the directory and picks the name in one call, so two
+  // runs cannot be handed the same path; a name built from the clock can.
+  const dir = mkdtempSync(join(tmpdir(), 'ca-repo-sync-'));
   return dir;
 }
 

@@ -3,12 +3,13 @@
 // and Levenshtein distance.
 
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
-  writeFileSync,
+  mkdtempSync,
   symlinkSync,
   truncateSync,
-  chmodSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,6 +27,11 @@ import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 // ---------------------------------------------------------------------------
 // Test Helpers
 // ---------------------------------------------------------------------------
+
+// **Every fixture directory in this file is created with `mkdtempSync`.** The names it replaced were built from
+// `Date.now()` and a short random suffix, which reads like a unique name and is a clock reading: two workers that start
+// in the same millisecond are handed the same path, and the `mkdirSync(..., { recursive: true })` that followed
+// accepted a directory another run had already made - so one run's cleanup removed the other run's fixture.
 
 function createTestRepoDir(baseDir: string, name: string, files: Record<string, string>): string {
   const repoDir = join(baseDir, name);
@@ -673,8 +679,7 @@ describe('CrossRepoIndexer', () => {
     });
 
     it('should find the consumers of a symbol when no source repository is given', async () => {
-      const baseDir = join(tmpdir(), `xtrace-${Date.now()}`);
-      mkdirSync(baseDir, { recursive: true });
+      const baseDir = mkdtempSync(join(tmpdir(), 'xtrace-'));
       const apiDir = createTestRepoDir(baseDir, 'trace-api', {
         'src/gateway.ts':
           "import { handle } from '../../trace-svc/src/service';\nexport function go() { return handle(); }",
@@ -700,8 +705,7 @@ describe('CrossRepoIndexer', () => {
     });
 
     it('should leave an import to a repository outside the group unlinked', async () => {
-      const baseDir = join(tmpdir(), `xout-${Date.now()}`);
-      mkdirSync(baseDir, { recursive: true });
+      const baseDir = mkdtempSync(join(tmpdir(), 'xout-'));
       const apiDir = createTestRepoDir(baseDir, 'out-api', {
         'src/gateway.ts':
           "import { gone } from '../../nowhere/src/missing';\nexport function go() { return gone; }",
@@ -722,8 +726,7 @@ describe('CrossRepoIndexer', () => {
     });
 
     it('should report the importing repository as affected by the one it imports', async () => {
-      const baseDir = join(tmpdir(), `xdir-${Date.now()}`);
-      mkdirSync(baseDir, { recursive: true });
+      const baseDir = mkdtempSync(join(tmpdir(), 'xdir-'));
       const apiDir = createTestRepoDir(baseDir, 'dir-api', {
         'src/gateway.ts':
           "import { handle } from '../../dir-svc/src/service';\nexport function go() { return handle(); }",
@@ -745,8 +748,7 @@ describe('CrossRepoIndexer', () => {
     });
 
     it('should link repositories that import each other across the group', async () => {
-      const baseDir = join(tmpdir(), `xrepo-${Date.now()}`);
-      mkdirSync(baseDir, { recursive: true });
+      const baseDir = mkdtempSync(join(tmpdir(), 'xrepo-'));
       const apiDir = createTestRepoDir(baseDir, 'api', {
         'src/gateway.ts':
           "import { handle } from '../../svc/src/service';\nexport function go() { return handle(); }",
@@ -1153,8 +1155,7 @@ describe('CrossRepoIndexer', () => {
 
   describe('SymbolDependencyTrace — the file level', () => {
     it('should follow imports one level further and ignore names that do not match', async () => {
-      const baseDir = join(tmpdir(), `xchain-${Date.now()}`);
-      mkdirSync(baseDir, { recursive: true });
+      const baseDir = mkdtempSync(join(tmpdir(), 'xchain-'));
       // chain-c imports from chain-a, which imports `handle` from chain-b. A trace for `handle` starts in
       // chain-b, reaches chain-a by import, and must also reach chain-c one level further.
       const cDir = createTestRepoDir(baseDir, 'chain-c', {
@@ -3014,9 +3015,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('createImportEdges — import edge creation', () => {
     it('should create edges between files via indexGroup', async () => {
-      const tmpDir = join(tmpdir(), `import-edges-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
-
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-edges-'));
       const repoDir = createTestRepoDir(tmpDir, 'import-repo', {
         'src/index.ts': 'import { helper } from "./utils";',
         'src/utils.ts': 'export function helper() { return true; }',
@@ -3031,9 +3030,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should handle tsx and jsx file extensions for imports', async () => {
-      const tmpDir = join(tmpdir(), `import-exts-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
-
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-exts-'));
       const repoDir = createTestRepoDir(tmpDir, 'ext-repo', {
         'src/App.tsx': 'import React from "react";\nexport default function App() { return null; }',
       });
@@ -3048,9 +3045,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('ensureFileNode — existing file node path', () => {
     it('should re-create file node when one already exists', async () => {
-      const tmpDir = join(tmpdir(), `ensure-file-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
-
+      const tmpDir = mkdtempSync(join(tmpdir(), 'ensure-file-'));
       const repoDir = createTestRepoDir(tmpDir, 'ensure-repo', {
         'src/main.ts': 'export const config = { port: 3000 };',
       });
@@ -3147,8 +3142,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('extractSymbols — label detection for all symbol types', () => {
     it('should detect class declarations', async () => {
-      const tmpDir = join(tmpdir(), `extract-class-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'extract-class-'));
       const repoDir = createTestRepoDir(tmpDir, 'cls-repo', {
         'service.ts': 'export class UserService { getUser() { return {}; } }',
       });
@@ -3161,8 +3155,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should detect interface declarations', async () => {
-      const tmpDir = join(tmpdir(), `extract-interface-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'extract-interface-'));
       const repoDir = createTestRepoDir(tmpDir, 'iface-repo', {
         'types.ts': 'export interface UserDTO { id: number; name: string; }',
       });
@@ -3175,8 +3168,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should detect type alias declarations', async () => {
-      const tmpDir = join(tmpdir(), `extract-type-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'extract-type-'));
       const repoDir = createTestRepoDir(tmpDir, 'type-repo', {
         'config.ts': 'export type ConfigMap = Record<string, unknown>;',
       });
@@ -3189,8 +3181,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should detect enum declarations', async () => {
-      const tmpDir = join(tmpdir(), `extract-enum-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'extract-enum-'));
       const repoDir = createTestRepoDir(tmpDir, 'enum-repo', {
         'status.ts': 'export enum Status { Active, Inactive, Pending }',
       });
@@ -3205,8 +3196,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('walkDirectory — subdirectory handling', () => {
     it('should walk subdirectories to find source files', async () => {
-      const tmpDir = join(tmpdir(), `walk-subdirs-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'walk-subdirs-'));
       const repoDir = join(tmpDir, 'sub-repo');
       mkdirSync(repoDir, { recursive: true });
       // Create files in subdirectories
@@ -3398,8 +3388,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('extractSymbols — duplicate name and edge cases', () => {
     it('should handle duplicate symbol names via seen set', async () => {
-      const tmpDir = join(tmpdir(), `extract-dup-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'extract-dup-'));
       // Function and class with the same name → should deduplicate
       const repoDir = createTestRepoDir(tmpDir, 'dup-repo', {
         'src/app.ts': 'export function Foo() { return 1; }\nexport class Foo { x: number = 1; }',
@@ -3415,8 +3404,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should detect Java-style public method patterns', async () => {
-      const tmpDir = join(tmpdir(), `extract-java-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'extract-java-'));
       const repoDir = createTestRepoDir(tmpDir, 'java-repo', {
         'Service.java': 'public class Service {\n  public String getData() { return ""; }\n}',
       });
@@ -3429,8 +3417,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('extractImports — namespace and require patterns', () => {
     it('should extract namespace imports (import * as)', async () => {
-      const tmpDir = join(tmpdir(), `import-ns-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-ns-'));
       const repoDir = createTestRepoDir(tmpDir, 'ns-repo', {
         'src/app.ts': 'import * as React from "react";\nexport function App() { return null; }',
       });
@@ -3441,8 +3428,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should extract require() imports', async () => {
-      const tmpDir = join(tmpdir(), `import-req-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-req-'));
       const repoDir = createTestRepoDir(tmpDir, 'req-repo', {
         'src/app.js':
           'const express = require("express");\nmodule.exports = function() { return true; };',
@@ -3475,8 +3461,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('createImportEdges — file import matching', () => {
     it('should create import edges when files import from each other', async () => {
-      const tmpDir = join(tmpdir(), `import-edges2-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-edges2-'));
       const repoDir = createTestRepoDir(tmpDir, 'import-repo2', {
         'src/index.ts':
           'import { helper } from "./utils";\nexport function main() { return helper(); }',
@@ -3490,8 +3475,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should handle default imports', async () => {
-      const tmpDir = join(tmpdir(), `import-def-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-def-'));
       const repoDir = createTestRepoDir(tmpDir, 'def-import-repo', {
         'src/app.ts': 'import React from "react";\nexport default function App() { return null; }',
       });
@@ -3777,8 +3761,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
   describe('createImportEdges — file import matching with explicit paths', () => {
     it('should match imports when file path contains module name', async () => {
-      const tmpDir = join(tmpdir(), `import-match-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-match-'));
       const repoDir = createTestRepoDir(tmpDir, 'match-repo', {
         'app.ts': 'export function app() { return 1; }',
         'src/app.ts': 'import { app } from "app";',
@@ -3790,8 +3773,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should handle import edges when target file name matches', async () => {
-      const tmpDir = join(tmpdir(), `import-filematch-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'import-filematch-'));
       const repoDir = createTestRepoDir(tmpDir, 'filematch-repo', {
         'utils.js': 'export function helper() { return true; }',
         'src/index.js': 'import { helper } from "../utils.js";',
@@ -3853,8 +3835,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
 
   describe('directory walk — non-file entries and size limits', () => {
     it('skips symlink entries (neither file nor directory)', async () => {
-      const tmpDir = join(tmpdir(), `symlink-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'symlink-'));
       const repoDir = createTestRepoDir(tmpDir, 'symlink-repo', {
         'a.ts': 'export const x = 1;',
       });
@@ -3890,8 +3871,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
     });
 
     it('returns no files when the repo path is a file, not a directory', async () => {
-      const tmpDir = join(tmpdir(), `filepath-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      const tmpDir = mkdtempSync(join(tmpdir(), 'filepath-'));
       const filePath = join(tmpDir, 'not-a-dir.txt');
       writeFileSync(filePath, 'hello');
       groupManager.createGroup('g1', 'FilePath', '');

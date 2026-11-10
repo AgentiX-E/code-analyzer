@@ -222,11 +222,14 @@ describe('deepMerge', () => {
 });
 
 describe('loadConfig', () => {
-  const testDir = path.join(os.tmpdir(), 'ca-test-' + Date.now());
+  // **Atomically created, one per test.** This was `path.join(os.tmpdir(), 'ca-test-' + Date.now())` - a name built
+  // from a clock reading - and the `mkdir` in `beforeEach` accepted whatever was already there. Two workers that start
+  // in the same millisecond therefore wrote their `config.json` into one directory and read each other's.
+  let testDir!: string;
   const globalConfigDir = path.join(os.homedir(), '.code-analyzer');
 
   beforeEach(async () => {
-    await fs.mkdir(testDir, { recursive: true });
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ca-test-'));
     // Ensure a clean global-config slate. A previous run may have been
     // interrupted before its `finally` cleanup executed, leaving
     // ~/.code-analyzer/config.json behind — which would then pollute the

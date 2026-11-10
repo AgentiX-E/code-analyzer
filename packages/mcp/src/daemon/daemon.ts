@@ -4,16 +4,80 @@
 
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
+
+// ---------------------------------------------------------------------------
+// The default pid file, and why it is not `/tmp/code-analyzer.pid`
+// ---------------------------------------------------------------------------
+
+/**
+ * **A pid file is exactly as private as the directory it sits in.**
+ *
+ * The default used to be `/tmp/code-analyzer.pid`, which is the shape this whole class of finding is about: a shared,
+ * world-writable directory and a name anybody can guess. Whoever creates that name first owns it, and `writeFileSync`
+ * follows whatever it points at - so a symlink planted before the daemon starts turns the daemon's first write into a
+ * write to a file of the planter's choosing, carried out with the daemon's privileges.
+ *
+ * **The name cannot be randomised**, and the reason is the feature rather than a lack of imagination: a pid file exists
+ * so that a second process can find the first, so both sides must agree on where it is. What can change is the
+ * directory. `$XDG_RUNTIME_DIR` when the session provides one - systemd creates it mode 0700, owned by the user, and
+ * per host - and otherwise a directory under the temporary directory that is created 0700 and then **checked**, because
+ * the case being defended against is precisely the one where someone else created it first.
+ */
+export function defaultPidDirectory(): string {
+  const runtime = process.env['XDG_RUNTIME_DIR'];
+  if (runtime !== undefined && runtime.length > 0) {
+    return path.join(runtime, 'code-analyzer');
+  }
+  const who = typeof process.getuid === 'function' ? String(process.getuid()) : 'user';
+  return path.join(os.tmpdir(), `code-analyzer-${who}`);
+}
+
+/** Where the daemon puts its pid file when the caller does not say. */
+export function defaultPidFile(): string {
+  return path.join(defaultPidDirectory(), 'daemon.pid');
+}
+
+/**
+ * Create `dir` if it is not there and refuse it if it is not a directory this user made.
+ *
+ * **`mkdirSync(..., { recursive: true })` alone would not be a defence**, because it succeeds on a directory that was
+ * already there and says nothing about who put it there. Ownership and type are read back after the create, and a mode
+ * wider than 0700 is narrowed - so the check is on the directory that will be written into, not on the one this
+ * function hoped to make.
+ */
+export function ensurePrivateDirectory(dir: string): void {
+  const refuse = (why: string): never => {
+    throw new Error(`${dir} ${why} - refusing to write a pid file through it`);
+  };
+
+  try {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  } catch (error) {
+    // **`mkdirSync(..., { recursive: true })` only throws when the path exists and is not a directory** - a file, or a
+    // dangling link. Every other "exists" answer is silent, which is why the checks below are not redundant with it.
+    refuse(
+      `cannot be created as a directory (${error instanceof Error ? (error.message.split(':')[0] ?? 'error') : 'error'})`,
+    );
+  }
+
+  const stats = fs.lstatSync(dir);
+  if (stats.isSymbolicLink() || !stats.isDirectory()) refuse('is not a directory');
+  if (typeof process.getuid === 'function' && stats.uid !== process.getuid()) {
+    refuse(`belongs to uid ${String(stats.uid)}, not to this user`);
+  }
+  fs.chmodSync(dir, 0o700);
+}
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface DaemonOptions {
-  /** PID file path (default: /tmp/code-analyzer.pid) */
+  /** PID file path (default: `daemon.pid` inside the private runtime directory; see `defaultPidFile`) */
   pidFile?: string;
   /** HTTP port for health checks (default: 3000) */
   port?: number;
@@ -48,6 +112,7 @@ export interface DaemonStatus {
 
 export class CodeAnalyzerDaemon extends EventEmitter {
   private pidFile: string;
+  private ownsPidDirectory: boolean;
   private port: number;
   private host: string;
   private processTitle: string;
@@ -61,7 +126,8 @@ export class CodeAnalyzerDaemon extends EventEmitter {
 
   constructor(options: DaemonOptions = {}) {
     super();
-    this.pidFile = options.pidFile ?? '/tmp/code-analyzer.pid';
+    this.ownsPidDirectory = options.pidFile === undefined;
+    this.pidFile = options.pidFile ?? defaultPidFile();
     this.port = options.port ?? 3000;
     this.host = options.host ?? '127.0.0.1';
     this.processTitle = options.processTitle ?? 'code-analyzer-daemon';
@@ -207,10 +273,16 @@ export class CodeAnalyzerDaemon extends EventEmitter {
   private writePidFile(): void {
     try {
       const dir = path.dirname(this.pidFile);
-      if (!fs.existsSync(dir)) {
+      if (this.ownsPidDirectory) {
+        ensurePrivateDirectory(dir);
+      } else if (!fs.existsSync(dir)) {
+        // **A caller-supplied path is left as the caller's business.** Narrowing the mode of a directory this class was
+        // merely pointed at would be a surprise, and pointing it at `/tmp` would be a catastrophic one.
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(this.pidFile, String(process.pid), { encoding: 'utf-8', mode: 0o644 });
+      // **0600, because the pid inside is not a secret but the file is not the world's either**: it is the handle a
+      // second process uses to decide whether to start a rival daemon.
+      fs.writeFileSync(this.pidFile, String(process.pid), { encoding: 'utf-8', mode: 0o600 });
     } catch (err) {
       this.emit(
         'error',
@@ -221,11 +293,9 @@ export class CodeAnalyzerDaemon extends EventEmitter {
 
   private removePidFile(): void {
     try {
-      if (fs.existsSync(this.pidFile)) {
-        fs.unlinkSync(this.pidFile);
-      }
+      fs.unlinkSync(this.pidFile);
     } catch {
-      // Best-effort cleanup
+      // Best-effort cleanup: the file is already gone, or was never there.
     }
   }
 

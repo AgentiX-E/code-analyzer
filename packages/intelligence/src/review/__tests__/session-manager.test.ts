@@ -16,11 +16,10 @@ describe('ReviewSessionManager', () => {
   let manager: ReviewSessionManager;
 
   beforeEach(() => {
-    testDir = path.join(
-      os.tmpdir(),
-      `ca-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    );
-    fs.mkdirSync(testDir, { recursive: true });
+    // **Atomically created.** `mkdtempSync` chooses the name and makes the directory in one call; the clock reading
+    // that was here before is shared by everything that starts in the same millisecond, and the `mkdirSync` below it
+    // accepted a directory another run had already made.
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ca-test-'));
     manager = new ReviewSessionManager(testDir);
   });
 

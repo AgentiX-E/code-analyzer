@@ -2,6 +2,7 @@
 // Checkpoint/resume workflow for long-running PR reviews, building on SessionStore.
 
 import * as fs from 'fs';
+import { randomUUID } from 'node:crypto';
 import * as path from 'path';
 
 import { type SessionMetadata } from './session-store.js';
@@ -180,9 +181,19 @@ export class ReviewSessionManager {
     }
 
     const sessionFile = path.join(this.sessionsDir, `${session.sessionId}.json`);
-    const tempFile = sessionFile + '.tmp';
+    // **A unique name created exclusively, and the reason is the two letters this used to be.**
+    //
+    // The temporary file was `${sessionFile}.tmp` - one fixed name per session, chosen before it was written. Two
+    // checkpoints of the same session that overlap (two reviewers, or a retry that starts before the first attempt has
+    // finished) write into the same file and one of them renames the other's half-written JSON into place. And because
+    // the name is predictable, anything already sitting at it is followed rather than replaced: `writeFileSync` opens
+    // the path, so a symlink planted there turns a checkpoint into a write somewhere else.
+    //
+    // `flag: 'wx'` is the other half of the fix. A unique name removes the collision; exclusive creation removes the
+    // reuse, and a file that is already at the chosen name is an error rather than a target.
+    const tempFile = `${sessionFile}.${String(process.pid)}.${randomUUID().slice(0, 8)}.tmp`;
 
-    fs.writeFileSync(tempFile, JSON.stringify(session, null, 2), 'utf-8');
+    fs.writeFileSync(tempFile, JSON.stringify(session, null, 2), { encoding: 'utf-8', flag: 'wx' });
     fs.renameSync(tempFile, sessionFile);
   }
 

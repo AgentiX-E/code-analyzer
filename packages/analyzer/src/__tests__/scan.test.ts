@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -121,7 +120,9 @@ describe('ScanPhase — the include list', () => {
   let rootPath: string;
 
   beforeEach(() => {
-    rootPath = join(tmpdir(), `scan-include-${randomUUID()}`);
+    // **Atomically created.** A uuid is unguessable but the create is still two steps - choose a name, then make the
+    // directory - and `mkdtempSync` is one.
+    rootPath = mkdtempSync(join(tmpdir(), 'scan-include-'));
     mkdirSync(join(rootPath, 'kotlin'), { recursive: true });
     mkdirSync(join(rootPath, 'java'), { recursive: true });
     writeFileSync(join(rootPath, 'kotlin', 'A.kt'), 'class A\n');

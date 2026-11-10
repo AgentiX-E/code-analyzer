@@ -185,7 +185,8 @@ export async function runScaleProfile(): Promise<ScaleProfileResult> {
   const scales = [100, 500, 2000];
 
   for (const fileCount of scales) {
-    const baseDir = path.join(os.tmpdir(), `scale-profile-${fileCount}-${Date.now()}`);
+    // **Atomically created**, and the file count stays in the prefix because the two runs of this file differ by it.
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), `scale-profile-${fileCount}-`));
     const memoryBefore = getMemoryMB();
 
     // Generate synthetic project

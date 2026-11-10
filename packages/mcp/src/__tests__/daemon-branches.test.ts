@@ -11,11 +11,10 @@ import * as http from 'node:http';
 import * as net from 'node:net';
 import type { AddressInfo } from 'node:net';
 
+// **A directory of its own, created atomically.** A pid file named from the clock is the defect this daemon's default
+// path used to have, one layer out; the fix is the same one, applied to the harness.
 function tempPidFile(): string {
-  return path.join(
-    os.tmpdir(),
-    `code-analyzer-branch-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`,
-  );
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'code-analyzer-branch-')), 'daemon.pid');
 }
 
 async function fetchHealth(port: number): Promise<{ status: number; body: any }> {
@@ -49,10 +48,7 @@ describe('CodeAnalyzerDaemon — branch coverage', () => {
   });
 
   it('creates the PID file directory when it does not exist', async () => {
-    const dir = path.join(
-      os.tmpdir(),
-      `code-analyzer-mkdir-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-analyzer-mkdir-'));
     const pidFile = path.join(dir, 'nested', 'daemon.pid');
     const daemon = new CodeAnalyzerDaemon({ pidFile, port: 0 });
 
@@ -92,8 +88,8 @@ describe('CodeAnalyzerDaemon — branch coverage', () => {
     // Make the PID file's parent a regular FILE (not a directory) so that the
     // writeFileSync call fails, driving the write-error emission path.
     const blocker = path.join(
-      os.tmpdir(),
-      `code-analyzer-blocker-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      fs.mkdtempSync(path.join(os.tmpdir(), 'code-analyzer-blocker-')),
+      'blocker',
     );
     fs.writeFileSync(blocker, '');
     cleanupPaths.push(blocker);

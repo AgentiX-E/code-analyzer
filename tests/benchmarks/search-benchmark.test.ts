@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { GraphBuilder } from '@code-analyzer/analyzer';
 import type { KnowledgeGraph } from '@code-analyzer/shared';
@@ -85,7 +85,7 @@ describe('Search Performance', () => {
   let timings: number[] = [];
 
   beforeAll(() => {
-    benchDir = join(tmpdir(), `code-analyzer-search-bench-${Date.now()}`);
+    benchDir = mkdtempSync(join(tmpdir(), 'code-analyzer-search-bench-'));
     createFixture(benchDir, INDEX_FILES);
 
     // Build graph
@@ -191,7 +191,7 @@ describe('Cross-Repo Indexing Performance', () => {
   let groupManager: RepoGroupManager;
 
   beforeAll(() => {
-    benchDir = join(tmpdir(), `code-analyzer-cross-repo-bench-${Date.now()}`);
+    benchDir = mkdtempSync(join(tmpdir(), 'code-analyzer-cross-repo-bench-'));
 
     // Create repo A
     const repoADir = join(benchDir, 'repo-a');

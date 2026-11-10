@@ -16,7 +16,6 @@
 // the scoped analysis built** - the two halves of the claim, on one fixture, in one run.
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
@@ -25,13 +24,15 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { locateFiles } from '../../packages/intelligence/src/search/locate.js';
 
+import { fixedScratch } from './scratch-root.js';
+
 import type { GraphNode, PipelineContext } from '@code-analyzer/shared';
 
 /**
  * **A fixed path**, because the analysis indexes the absolute path of every declaration and a random suffix would put a
  * different token into the index on every run.
  */
-const SCRATCH = join(tmpdir(), 'code-analyzer-kotlin-in-a-java-checkout');
+const SCRATCH = fixedScratch('code-analyzer-kotlin-in-a-java-checkout');
 
 afterAll(() => {
   rmSync(SCRATCH, { recursive: true, force: true });

@@ -122,12 +122,11 @@ function createEdge(
 }
 
 function getTempDir(): string {
-  const dir = path.join(
-    os.tmpdir(),
-    `pr-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  );
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  // **Atomically created.** `mkdtempSync` chooses the name and makes the directory in one call, so two runs
+  // cannot be handed the same path. `Date.now()` plus four base-36 characters reads like a unique name and is
+  // not one: it is a clock reading shared by everything that starts in the same millisecond, and the `mkdirSync`
+  // that followed accepted a directory that was already there.
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'pr-test-'));
 }
 
 // ---------------------------------------------------------------------------
@@ -1280,8 +1279,7 @@ describe('PR Review Engine', () => {
     });
 
     it('should handle swarm review with file containing security issues', async () => {
-      const testDir = path.join(os.tmpdir(), 'swarm-risk-test-' + Date.now());
-      fs.mkdirSync(testDir, { recursive: true });
+      const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-risk-test-'));
       const filePath = path.join(testDir, 'risky.ts');
       fs.writeFileSync(
         filePath,
@@ -1317,8 +1315,7 @@ describe('PR Review Engine', () => {
     });
 
     it('should handle swarm review with file containing performance issues', async () => {
-      const testDir = path.join(os.tmpdir(), 'swarm-perf-test-' + Date.now());
-      fs.mkdirSync(testDir, { recursive: true });
+      const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-perf-test-'));
       const filePath = path.join(testDir, 'heavy.ts');
       fs.writeFileSync(filePath, 'for (let i = 0; i < 100000; i++) { process(i); }\n', 'utf-8');
 
@@ -1489,8 +1486,7 @@ describe('PR Review Engine', () => {
   describe('reviewPRSwarm — risk level high', () => {
     it('should assign HIGH risk level for many high severity findings', async () => {
       // Use a larger diff with security issues to trigger high severity findings
-      const testDir = path.join(os.tmpdir(), 'swarm-high-risk-' + Date.now());
-      fs.mkdirSync(testDir, { recursive: true });
+      const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-high-risk-'));
       const filePath = path.join(testDir, 'api.ts');
       // Multiple API handlers without validation — each generates high findings
       fs.writeFileSync(

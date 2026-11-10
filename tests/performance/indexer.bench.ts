@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -21,13 +21,10 @@ import type {
 // Helpers
 // ---------------------------------------------------------------------------
 
-let tmpDirCounter = 0;
-
 function createTempDir(): string {
-  const dir = join(tmpdir(), `code-analyzer-bench-${Date.now()}-${tmpDirCounter++}`);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  // **Atomically created**, for the same reason as everywhere else in this repository: a clock-named directory is a
+  // name two runs can be given at once, and removing it first only widens the window it was meant to close.
+  return mkdtempSync(join(tmpdir(), 'code-analyzer-bench-'));
 }
 
 function generateProjectFiles(rootPath: string, fileCount: number, symbolsPerFile = 5): void {

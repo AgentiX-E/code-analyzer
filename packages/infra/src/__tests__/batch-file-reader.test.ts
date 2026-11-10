@@ -3,7 +3,7 @@
 // progress tracking, error handling, and edge cases.
 
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
-import { writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -18,7 +18,6 @@ import {
 // ---------------------------------------------------------------------------
 
 let testDir: string;
-let testCounter = 0;
 
 async function createTestFile(relativePath: string, content: string): Promise<string> {
   const fullPath = join(testDir, relativePath);
@@ -37,8 +36,9 @@ async function createTestFileRaw(relativePath: string, buffer: Buffer): Promise<
 }
 
 beforeEach(async () => {
-  testDir = join(tmpdir(), `batch-file-reader-test-${Date.now()}-${testCounter++}`);
-  await mkdir(testDir, { recursive: true });
+  // **Atomically created**, because `mkdtemp` picks the name and makes the directory in one call: a directory named
+  // from the clock and a counter is unique only as far as the counter, which is per worker.
+  testDir = await mkdtemp(join(tmpdir(), 'batch-file-reader-test-'));
 });
 
 afterEach(async () => {

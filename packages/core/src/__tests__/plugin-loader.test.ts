@@ -1,7 +1,7 @@
 // @code-analyzer/core — Plugin Loader Tests
 
 import { beforeEach, describe, it, expect, afterEach } from 'vitest';
-import { writeFileSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PluginLoader } from '../plugins/plugin-loader.js';
@@ -11,11 +11,10 @@ import { PluginLoader } from '../plugins/plugin-loader.js';
 // ---------------------------------------------------------------------------
 
 function createTempPlugin(content: string): { path: string; cleanup: () => void } {
-  const dir = join(tmpdir(), `plugin-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  // **Atomically created.** `mkdtempSync` chooses the name and makes the directory in one call; a name built from
+  // the clock can be handed to two runs at once.
+  const dir = mkdtempSync(join(tmpdir(), 'plugin-test-'));
   const filePath = join(dir, 'plugin.js');
-  // Create directory if it doesn't exist
-  const { mkdirSync } = require('node:fs');
-  mkdirSync(dir, { recursive: true });
   writeFileSync(filePath, content, 'utf-8');
   return {
     path: filePath,

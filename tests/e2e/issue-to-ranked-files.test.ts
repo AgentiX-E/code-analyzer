@@ -17,7 +17,6 @@
 // decoy is not first.**
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
@@ -25,6 +24,8 @@ import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { createToolRegistry, ToolContextImpl } from '@code-analyzer/mcp';
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { fixedScratch } from './scratch-root.js';
 
 import type { GraphEdge, GraphNode, PipelineContext } from '@code-analyzer/shared';
 
@@ -36,7 +37,7 @@ import type { GraphEdge, GraphNode, PipelineContext } from '@code-analyzer/share
  * first version of this file used `mkdtempSync` and its ranking **changed between two analyses of the same source**,
  * which read like a product defect and was a fixture one. Nothing below may move between runs.
  */
-const SCRATCH = join(tmpdir(), 'code-analyzer-issue-to-files');
+const SCRATCH = fixedScratch('code-analyzer-issue-to-files');
 
 afterAll(() => {
   rmSync(SCRATCH, { recursive: true, force: true });

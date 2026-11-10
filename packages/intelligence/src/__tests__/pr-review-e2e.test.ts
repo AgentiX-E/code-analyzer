@@ -2,7 +2,7 @@
 // Exercises the full chain: diff parsing → context enrichment → review →
 // standards checking → impact analysis → report generation.
 
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,11 +27,11 @@ import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
 // Test Fixture Setup
 // ---------------------------------------------------------------------------
 
-const FIXTURE_DIR = join(tmpdir(), 'code-analyzer-e2e-pr-review');
+// **Atomically created at load time**, for the same reason as the MCP fixture: one fixture, one owner, one name.
+const FIXTURE_DIR = mkdtempSync(join(tmpdir(), 'code-analyzer-e2e-pr-review-'));
 const PROJECT_ID = 'e2e-pr-review-project';
 
 function setupFixture(): void {
-  rmSync(FIXTURE_DIR, { recursive: true, force: true });
   mkdirSync(join(FIXTURE_DIR, 'src'), { recursive: true });
   mkdirSync(join(FIXTURE_DIR, 'src', 'services'), { recursive: true });
 

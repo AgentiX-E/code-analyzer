@@ -38,8 +38,8 @@
   },
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
-    "snapshot": "pinned",
-    "digest": "e60f8c5b27d0fd6e1dc8029a65aa4584ac94f6b8f45281577f4a08c884eb7349",
+    "snapshot": "superseded",
+    "supersededReason": "measured on benchmarks/retrieval-corpus before the C++ provider inside it was changed to bound a modifier run, which is a ReDoS fix and therefore a change to the corpus bytes; the file that was measured is no longer the file in the directory. Re-run with a key before quoting these figures.",
     "nodes": 3257,
     "queries": 99,
     "dropped": 1,
@@ -59,7 +59,17 @@
     "found": 45
   },
   "lexicalDepth": {
-    "recall": [0.303, 0.3636, 0.4545, 0.4646, 0.5051, 0.5657, 0.596, 0.6566, 0.6768],
+    "recall": [
+      0.303,
+      0.3636,
+      0.4545,
+      0.4646,
+      0.5051,
+      0.5657,
+      0.596,
+      0.6566,
+      0.6768
+    ],
     "reachable": 0.8889,
     "medianFoundRank": 20
   },

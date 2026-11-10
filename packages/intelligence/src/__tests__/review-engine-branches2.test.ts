@@ -11,12 +11,11 @@ import { CodeReviewEngine } from '../review/review-engine.js';
 import { SessionStore } from '../review/session-store.js';
 
 function tempDir(): string {
-  const dir = path.join(
-    os.tmpdir(),
-    `rev-branch2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  );
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  // **Atomically created.** `mkdtempSync` chooses the name and makes the directory in one call, so two runs
+  // cannot be handed the same path. `Date.now()` plus four base-36 characters reads like a unique name and is
+  // not one: it is a clock reading shared by everything that starts in the same millisecond, and the `mkdirSync`
+  // that followed accepted a directory that was already there.
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'rev-branch2-'));
 }
 
 function makeEngine(dir: string): CodeReviewEngine {

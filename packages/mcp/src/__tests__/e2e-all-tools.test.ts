@@ -1,6 +1,6 @@
 // @code-analyzer/mcp — E2E Integration Test: All 50 MCP Tools
 
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,12 +14,12 @@ import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
 // Test Fixture Setup
 // ---------------------------------------------------------------------------
 
-const FIXTURE_DIR = join(tmpdir(), 'code-analyzer-e2e-mcp-test');
+// **Atomically created at load time.** The fixture is built once and read by every case, so it needs to exist once;
+// what it does not need is a name anyone else can guess and a `mkdirSync` that accepts a directory already there.
+const FIXTURE_DIR = mkdtempSync(join(tmpdir(), 'code-analyzer-e2e-mcp-test-'));
 const PROJECT_ID = 'e2e-test-project';
 
 function setupFixture(): void {
-  rmSync(FIXTURE_DIR, { recursive: true, force: true });
-  mkdirSync(FIXTURE_DIR, { recursive: true });
   mkdirSync(join(FIXTURE_DIR, 'src'), { recursive: true });
   mkdirSync(join(FIXTURE_DIR, 'src', 'services'), { recursive: true });
   mkdirSync(join(FIXTURE_DIR, 'src', 'controllers'), { recursive: true });

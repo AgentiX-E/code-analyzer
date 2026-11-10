@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { generateFixture, FixtureConfig } from './fixture-generator.js';
 import { PipelineOrchestrator } from '../../pipeline/orchestrator.js';
 import { createAllPhases } from '../../pipeline/phases/index.js';
@@ -28,7 +28,9 @@ const PER_FILE_SCALING_ALLOWANCE = 3;
 const SMALL_HANG_GUARD_MS = 30000;
 const MEDIUM_HANG_GUARD_MS = 120000;
 
-const BENCH_DIR = join(tmpdir(), 'code-analyzer-benchmarks');
+// **Atomically created.** The fixture directory is rebuilt from a seeded generator on every run, so its name carries no
+// meaning between runs - which is the case where a clock-free, guess-free name costs nothing and removes the question.
+const BENCH_DIR = mkdtempSync(join(tmpdir(), 'code-analyzer-benchmarks-'));
 
 /** Per-file cost of the 50-file fixture, published by the small describe for the medium one to scale against. */
 let smallPerFileMs = 0;
@@ -68,12 +70,6 @@ function createPipelineContext(
 }
 
 describe('Pipeline Performance Benchmarks', () => {
-  beforeAll(() => {
-    if (!existsSync(BENCH_DIR)) {
-      mkdirSync(BENCH_DIR, { recursive: true });
-    }
-  });
-
   describe('Small Fixture (50 files)', () => {
     const fixtureDir = join(BENCH_DIR, 'fixture-small');
     let result: { totalFiles: number; totalSize: number };

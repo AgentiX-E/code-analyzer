@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — GitHub Repo Sync Tests
 
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,11 +17,9 @@ import type { SyncOptions } from '../github/repo-sync.js';
 // ---------------------------------------------------------------------------
 
 function createTempDir(): string {
-  const dir = join(
-    tmpdir(),
-    `code-analyzer-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
-  mkdirSync(dir, { recursive: true });
+  // **Atomically created.** `mkdtempSync` makes the directory and picks the name in one call, so two
+  // runs cannot be handed the same path; a name built from the clock can.
+  const dir = mkdtempSync(join(tmpdir(), 'code-analyzer-sync-'));
   return dir;
 }
 

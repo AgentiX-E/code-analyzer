@@ -57,7 +57,9 @@ describe('an agent’s list, fused with the file-level arm, on a checkout the an
     }
     // **What the agent holds**: three paths, best first. The right file is third, because a symbol search that matches
     // `Retry` ranks the two files whose names are *about* retry above the one that implements it.
-    armFile = join(tmpdir(), `agent-arm-${String(process.pid)}.txt`);
+    // **A directory of our own rather than a name in the shared one.** A process id is predictable and is reused;
+    // `mkdtempSync` gives this run a directory nobody else can be holding.
+    armFile = join(mkdtempSync(join(tmpdir(), 'agent-arm-')), 'arm.txt');
     writeFileSync(
       armFile,
       [
@@ -148,7 +150,7 @@ describe('an agent’s list, fused with the file-level arm, on a checkout the an
   });
 
   it('**a JSON arm from a program works too**, which is the form a tool integration produces', () => {
-    const jsonArm = join(tmpdir(), `agent-arm-${String(process.pid)}.json`);
+    const jsonArm = join(mkdtempSync(join(tmpdir(), 'agent-arm-json-')), 'arm.json');
     writeFileSync(jsonArm, JSON.stringify(['src/main/kotlin/io/RetryPolicy.kt']));
     const output = locateRepository({
       question: 'retry policy drops the timeout on the managed channel',

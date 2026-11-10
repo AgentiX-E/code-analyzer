@@ -6,12 +6,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-// Use a temp PID file to avoid conflicts
+// **A directory of its own, created atomically, and the pid file inside it.** The name this replaces was built from the
+// clock and four base-36 characters, which reads like a unique name and is a clock reading: two workers that start in
+// the same millisecond get the same one, and a `.pid` file is a file the daemon then creates over the top of whatever
+// is already there.
 function tempPidFile(): string {
-  return path.join(
-    os.tmpdir(),
-    `code-analyzer-test-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`,
-  );
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'code-analyzer-test-')), 'daemon.pid');
 }
 
 // Helper to fetch health check
@@ -56,7 +56,12 @@ describe('CodeAnalyzerDaemon', () => {
 
     it('should accept custom options', () => {
       const d = new CodeAnalyzerDaemon({
-        pidFile: '/tmp/custom.pid',
+        // **Not `/tmp/custom.pid`.** A test that writes a fixed name into the shared temporary directory is the same
+        // defect as the one the daemon had, one layer out.
+        pidFile: path.join(
+          fs.mkdtempSync(path.join(os.tmpdir(), 'code-analyzer-custom-')),
+          'custom.pid',
+        ),
         port: 4000,
         processTitle: 'custom-daemon',
         shutdownGracePeriod: 3000,
