@@ -767,3 +767,229 @@ and rules the prompt out for this provider.
 by 0.014 inside a 0.04 band. **A registration that predicted 0.85 and delivered 0.61 is a wrong prediction and a good
 device**, and the difference between those two sentences is the whole reason §10 was written before the run rather than
 after it.
+
+---
+
+## 12. A number bought once, and the ten jobs that were buying it every week
+
+**Written 2026-11-10, after the run §10 priced.** The question this section answers is not "what does a benchmark cost"
+but "what in this repository can spend money, and what stops it". §10 answered the first for one job. **This one answers
+the second for all of them, because the answer was ten.**
+
+### 12.1 The four defects, in the order they were found
+
+1. **Ten workflows name a provider credential.** Five of them still had a `push` trigger, on paths that were mostly the
+   harness itself. **The argument was that an edited harness should be exercised**; §10's artifact prices it at
+   **60.59 CNY for one push**.
+2. **Five scripts construct a `DeepSeekProvider`, and four had no ceiling.** The one that did was the benchmark - the
+   only job somebody had already priced. **A ledger without a ceiling records a bill after it is paid.**
+3. **CI passed `secrets.DEEPSEEK_API_KEY` into the unit, integration, property, E2E and coverage jobs.** Three files in
+   that suite branch on the key: `real-ground-truth-semantic.test.ts` reviews a hundred real issues through five lanes,
+   and the retrieval and paraphrase harnesses write their query sets when they can. **So every push to `master` and every
+   pull request paid for a literature review of the corpus before it ran an assertion**, and no artifact said so,
+   because a test is not a job anyone prices.
+4. **The competitor arm ran on every benchmark run, twice** - once per arm of the checklist matrix - over goldens that
+   had not changed since the previous run. **5.89 USD of the 8.53, 69 %, on a number that is a property of the corpus and
+   not of this project's code.**
+
+**What these four have in common is that each is defensible alone and unreasonable together.** A push trigger is
+reasonable for a fast check; a ceiling is unnecessary for a job that has never overrun; a credential in CI is convenient
+for the one test that wants it; re-running a competitor keeps two figures on the same commit. **Nothing in the repository
+read all four at once**, which is the only place the bill was visible.
+
+### 12.2 What now stops each one, and where the proof lives
+
+| defect                                | the mechanism                                                                                      | the proof                                                                          |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| a paid job triggered by a push        | no paid workflow may declare `push` or `pull_request`; only `workflow_dispatch` and one `schedule` | `a-paid-workflow-is-not-triggered-by-the-code-it-measures.test.ts`                 |
+| a credential in a job that runs tests | no workflow containing `pnpm test` may name a provider credential                                  | same file, `never hands a model credential to a job that runs the test suite`      |
+| a script with no ceiling              | every `new DeepSeekProvider(` must pass `ceilingUsd` beside a `CostLedger`                         | `every-paid-script-has-a-spend-ceiling.test.ts`                                    |
+| the competitor bought repeatedly      | `AACR_COMPETITOR` defaults to `replay`; a missing record is reported, never repaired by buying     | `a-competitor-is-paid-for-once.test.ts`, `a-competitor-run-is-bought-once.test.ts` |
+
+**And the fourth has a property the other three do not: it is falsifiable in the arithmetic.** A replayed pull request
+contributes the same three fields a purchased one contributes - `matches`, `goldens`, `keep` - so the scoring cannot tell
+them apart. `a-competitor-run-is-bought-once.test.ts` runs the loop twice over the same corpus, computes the competitor's
+F1 from both passes with the benchmark's own functions, and asserts the two are equal. **A replay that lost `keep` would
+pass a decision test and fail that one**, which is the reason it is written as a user story rather than as a unit test.
+
+### 12.3 The bill after the change, as arithmetic rather than as a measurement
+
+| line                             | before       | after                     | why                                                                                 |
+| -------------------------------- | ------------ | ------------------------- | ----------------------------------------------------------------------------------- |
+| competitor arm, two runs         | 5.89 USD     | **0**                     | replayed; recorded once per corpus                                                  |
+| judge                            | 1.23 USD     | **≈ 0.7 USD**, unmeasured | the competitor's findings are no longer judged at all; the remaining calls are ours |
+| reviewer, five lanes × 340 files | 1.41 USD     | 1.41 USD                  | unchanged, and that is the point                                                    |
+| **total per run**                | **8.53 USD** | **≈ 2.1 USD**, unmeasured | 75 %                                                                                |
+
+**The "after" column is arithmetic, not a reading, and it is marked so on purpose.** Three of its four lines are
+measured; the judge's is a subtraction over a share that the artifact splits by finding count rather than by reviewer. **A
+prediction stated as a prediction is checkable; the same number stated as a result is what §10 exists to prevent.**
+
+### 12.4 The one optimisation that changes no verdict
+
+**The judge is a prefix-cache client too, and it was submitting its matrix in the wrong order.** Its prompt is
+`instructions + golden + comment`; the first two blocks are identical for every finding scored against the same golden,
+so the first request carrying a prefix writes it and the rest read it. The matrix was submitted **finding-major**, which
+means each golden's prefix was written by whichever of its pairs happened to be first in flight, **concurrently with the
+others** - and a concurrent write is a miss for everything in flight beside it. **The artifact recorded the consequence:
+6 859 calls, 7.9 % cached.**
+
+**So each golden's first pair is judged alone before the rest of its pairs are submitted together.** Every pair is still
+judged once, against the same inputs, at the same temperature; **only the order changed.** The claim this makes is
+narrow and falsifiable:
+
+1. **The judge's `costUsd` falls by at least a third** on the same corpus, because `instructions + golden` is roughly
+   two thirds of the prompt and a hit is priced at a fraction of a miss.
+2. **`spend.judge.cacheHitRatio` rises above 0.5**, from 0.079.
+3. **F1 does not move.** A verdict is a per-pair answer; an order that changed one would be an order that changed the
+   question, which is what §11.3 exists to catch.
+
+**And the falsification is the interesting branch**: a reordered matrix with the same hit ratio means the judge's prompt
+is below the vendor's cacheable block size, and the fix is then not the order but the size - **the same conclusion §11
+reaches from a different direction.**
+
+### 12.5 What is not being cut, and why each would be a bad trade
+
+1. **The corpus is not shrunk.** Fourteen pull requests is the size at which a 0.04 move stops being a coin toss; at five
+   it was a coin toss and the figures moved between 0 and 0.1724 with nothing changed. **A cheaper figure that cannot
+   answer the question is the most expensive line in this table.**
+2. **The two arms are not collapsed to one.** §8's claim is about a device, and a device can only be settled by turning
+   it off. **One arm is a number with nothing to compare it to.**
+3. **The judge is not batched into one call per pull request.** It would cut the call count by the number of goldens -
+   four here - and it would ask a model to answer several questions in one context, where the answers become evidence
+   about each other. **That is a quality change sold as a cost change**, and until it is measured against the per-pair
+   matrix it stays out of the default path.
+4. **The reviewer is not given fewer lanes.** Five lanes at 0.61 reuse is 1.41 USD and the lanes are what the product
+   sells. **A cost optimisation that removes a feature is a price cut on a smaller product.**
+
+### 12.6 The two things this section does not know
+
+1. **Whether the recorded baseline in this repository covers the corpus.** It does not yet: no `record` run has been
+   dispatched since the mechanism landed, so the next scheduled run will report **every pull request as `missing`** and
+   set `secondReviewer.comparable` to `false`. **That is the honest state and the artifact says it**; the repair is one
+   dispatch with `competitor: record`, whose artifact is then committed. **The alternative - reconstructing a baseline
+   from a previous run's published figure - would be fabricating per-pair verdicts from a summary, which is the one thing
+   this file exists to forbid.**
+2. **Whether the judge's reordering pays what §12.4 predicts.** It costs nothing to try, it changes no verdict, and
+   `spend.judge.cacheHitRatio` is already in the artifact - so the next run answers it without a new measurement.
+
+---
+
+## 13. The comparison was scored in the competitor's favour, and the artifact could not say why we lost
+
+**Written 2026-11-10, after reading the run of 2026-11-09 rather than trusting the line it printed.** Two asymmetries and
+one gap, all three visible only by reconciling the artifact's own fields against each other.
+
+### 13.1 Two asymmetries, both of them ours
+
+**A pull request the competitor crashed on was removed from its denominator.** The run attempted fourteen pull requests
+and failed one - `microsoft/typescript-go#1446`, whose output parsed to no findings. A throw inside the competitor's arm
+skipped the `competitorPerPr.push` that follows it, so that pull request contributed **no goldens to the denominator and
+no findings to the numerator**. The published figures were constructed over **157 goldens**; our arm was scored over
+**170**. The same run, read honestly:
+
+| arm                              | P      | R          | F1         | denominator |
+| -------------------------------- | ------ | ---------- | ---------- | ----------- |
+| ours, published                  | 0.2893 | 0.2059     | 0.2405     | 170         |
+| competitor, published            | 0.3289 | 0.3185     | 0.3236     | **157**     |
+| competitor, **same denominator** | 0.3289 | **0.2941** | **0.3106** | 170         |
+
+**0.0130 of F1, in the competitor's favour, from a crash.** A reviewer whose output does not parse is a reviewer that
+found nothing on that pull request, not a reviewer whose pull request did not happen. **And the asymmetry is structural
+rather than accidental**: it favours whichever arm has more moving parts, which is always the arm driven through another
+project's CLI.
+
+**The judge left 183 pairs unanswered in our arm and none in the competitor's.** The judge retried three times with waits
+of one, two and three seconds and dropped `Retry-After` entirely - **three attempts inside one rate-limit window is the
+same request refused three times**, and the third refusal was recorded as the judge having nothing to say. An unanswered
+pair is scored as a miss. Our arm made roughly twice as many calls, so it hit the limit and the other arm did not: **the
+comparison carried different amounts of measurement error and reported neither.**
+
+Both are now structural:
+
+| defect                                                | the mechanism                                                                                                      | the proof                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| a crash is scored as a non-event                      | a failed pull request pushes `{matches: [], goldens: n, keep: []}` and is named in `failedPullRequests`            | `the-competitor-we-already-paid-for.test.ts` |
+| a `missing` record and a crash are the same code path | `missing` is **excluded** (a hole in the pairing); a crash is **a zero** (an observation)                          | same file, and §12.6                         |
+| a refusal becomes a miss                              | `Retry-After` honoured, exponential schedule capped at 30 s, six attempts, `rateLimited` counted                   | `a-rate-limit-is-not-an-answer.test.ts`      |
+| the figure has no error bar                           | `judgedInterval` publishes F1 under "every unanswered pair is a miss" and under "every unanswered pair is a match" | `--dry-run`                                  |
+
+**The interval is deliberately loose and is labelled as one.** Crediting one finding with several goldens overstates what
+a perfect judge could do, so the upper end is a bound rather than an estimate. **The point is not to estimate the true
+figure but to state how far the reported one could be from it** - and when the interval is wide, the run needs a judge
+that answers rather than a better ranker.
+
+### 13.2 The gap: the artifact could not say why a golden was missed
+
+`issueTexts` was built as `comments.map((c) => c.note).filter(Boolean)`. **The note survived and the `path` and
+`from_line` travelling beside it did not**, so the artifact could report `recall 0.2059` and not one word about why. That
+single number is compatible with three unrelated defects whose fixes are a filter, a reading, and a target:
+
+| bucket                  | what it means                                      | what its fix is                                    |
+| ----------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| `hit`                   | a finding was emitted that the judge accepted      | nothing                                            |
+| `fileNotReviewed`       | the golden's file was never handed to the engine   | the diff split, the path filter, the budget        |
+| `noFindingOnPath`       | the file was read and the lanes said nothing on it | recall of the reading                              |
+| `findingOnPathRejected` | the lanes spoke on that file about something else  | what the lane is asked to look for, or the matcher |
+| `noPath`                | the corpus row does not locate the issue           | a corpus defect, not a review defect               |
+
+**`mergeAttributions` asserts that the buckets sum to the golden count**, and `--dry-run` exercises every reachable bucket
+on a fixture, because **a wiring that published an empty table would pass every existing assertion** - the figures never
+read the buckets.
+
+**This is the difference between an iteration that starts with a number and one that starts with a diagnosis.** The next
+optimisation is chosen by the largest bucket, and §10's rule applies to it unchanged: the prediction is registered before
+the run that tests it.
+
+### 13.3 The competitor result is now an input, and the transcription is checked
+
+§12.6 recorded the debt: no `record` run had been dispatched, so the next scheduled run would report all fourteen pull
+requests `missing`. **The debt is not repaid by buying the result again** - the run that bought it published one row per
+finding with the goldens the judge accepted for it, which is exactly the shape the record stores.
+
+`benchmarks/aacr/competitor-baseline.json` is transcribed from `benchmarks/aacr-bench.json` and **replayed through the
+harness's own scoring functions**, asserting **50 true positives and 102 false positives** - the two figures the artifact
+published. A lost row, a shifted index, or a `keep` flag turned into a string moves one of them. **The fingerprint is
+recomputed from the artifact's coverage table and asserted**, so the record cannot be reused against another corpus by
+editing nothing but its header.
+
+**What the transcription cannot prove** is that the judge would answer identically today. **What makes it admissible** is
+that the judge prompt is versioned (`aacr-judge-v1`), the model is named in the file, and `resolveCompetitor` refuses a
+record made under a different judge rather than comparing across two of them.
+
+### 13.4 What the corrected head-to-head says
+
+| arm                                | P      | R      | F1         |
+| ---------------------------------- | ------ | ------ | ---------- |
+| ours, actionability gate           | 0.2893 | 0.2059 | 0.2405     |
+| ours, full emission (199 findings) | 0.2060 | 0.2412 | 0.2222     |
+| competitor, same denominator       | 0.3289 | 0.2941 | **0.3106** |
+
+**We are 0.070 behind, and the paired test says the difference is not noise** (`p = 0.0012` on the file arm, 8 goldens
+ours-only against 28 theirs-only). Three things follow, and only one of them is about the model:
+
+1. **The gate is not the problem.** Full emission finds 41 goldens and the gate finds 35; the gate buys 0.018 of F1 and
+   costs 6 true positives. **A rule that earns 0.018 is a rule worth keeping and not worth tuning.**
+2. **Ordering the current findings cannot close the gap either.** The curve in the same artifact is the ranker's own
+   score ordering, and its best point over eleven budgets is **F1 0.2469 at k = 154** - against 0.2405 at the gate's
+   fixed operating point. **Every setting the ranker can hold to is worth 0.006 of the 0.070.** The reason is upstream:
+   of 199 emitted findings, **41 match a golden at all**, so precision has a ceiling of 20.6 % before any ordering is
+   applied. **A ranker cannot promote what the lanes never said.**
+3. **Therefore the next iteration is the attribution, not the ranker.** Which bucket holds the 155 missed goldens decides
+   whether the work is a diff filter, a lane prompt, or a matcher - and this iteration can no longer be written without
+   that number, which is the point of publishing it.
+
+**And one thing the curve makes visible that the summary hides**: at budget 1 the arm emits 14 findings and 8 of them are
+true, so **precision at the top is 0.5714 and recall is 0.0471**. The findings the ranker is most confident about are
+mostly right; there are simply far too few of them. **That is the shape of a recall problem wearing a precision costume**,
+and it is why the attribution buckets are the next thing to read.
+
+### 13.5 What this section does not conclude
+
+1. **That the competitor is beatable on this corpus by prompt work alone.** Its 50 goldens against our 41 on 199 findings
+   is a 22 % advantage in `findings × precision` that no reordering closes. **The honest statement is that we do not yet
+   know which of the three buckets dominates**, and §13.2 is what makes that question answerable.
+2. **That the transposed baseline is equivalent to a fresh purchase for ever.** It is equivalent while the corpus, the
+   judge prompt and the model are unchanged; the record names all three and refuses when any of them moves.
+3. **That 8.53 USD per run is now 2.1 USD.** That was §12's prediction and it remains unmeasured. **The next dispatched
+   run is the measurement**, and its artifact carries `spend.totalUsd` for exactly that purpose.

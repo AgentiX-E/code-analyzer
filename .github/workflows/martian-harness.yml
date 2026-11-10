@@ -25,14 +25,12 @@ on:
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
     # records the spend it took to produce the figure.
     - cron: '40 4 * * 2'
-  # **Not even this file.** A workflow's own edit used to re-run it, so fixing a trigger cost one run of the
-  # thing it triggers - which is the shape of a bill that pays for its own paperwork. `gate:actions` and the project
-  # standards check read this file on every push; the paid run is a dispatch or the weekly schedule.
-  push:
-    branches: [master]
-    paths:
-      - '.github/scripts/run-martian-harness.mjs'
-      - '.github/scripts/field-comparison.mjs'
+  # **And not a push, on any path.** An earlier version kept one path - the harness itself - on the argument that an
+  # edited harness should be exercised. **The run of 2026-11-10 priced that argument at 60.59 CNY for one push**, of
+  # which 5.89 USD was a competitor over goldens that had not changed. A paid run has two honest triggers: a dispatch,
+  # which is a person deciding to spend, and the schedule above, which is one row a reviewer can see. The harness's
+  # arithmetic is now checked by a gate that calls no model, so an edited harness is still exercised on every commit -
+  # for free.
 
 concurrency:
   group: martian-harness

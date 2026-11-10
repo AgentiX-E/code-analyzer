@@ -21,7 +21,26 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import {
+  GOLDEN_BUCKETS,
+  attributeGoldens,
+  largestBucket,
+  mergeAttributions,
+} from './lib/golden-attribution.mjs';
+import { DEFAULT_ATTEMPTS, backoffMs, retryAfterMs } from './lib/retry-after.mjs';
 import { exactMcNemar } from './lib/paired-test.mjs';
+import {
+  DEFAULT_BASELINE_PATH,
+  corpusFingerprint,
+  parseCompetitorMode,
+  readBaseline,
+  recordedPull,
+  replayedPull,
+  resolveCompetitor,
+  startRecording,
+  withRecord,
+  writeBaseline,
+} from './lib/competitor-baseline.mjs';
 
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
@@ -140,6 +159,9 @@ const judgeSpend = {
   completionTokens: 0,
   cacheHitTokens: 0,
   cacheMissTokens: 0,
+  // **How many refusals were rate limits**, because a judge that gave up on a 429 and a judge that gave up on a bad
+  // answer are different failures with different fixes, and `failures` alone cannot tell them apart.
+  rateLimited: 0,
 };
 
 /** Their judge prompt, reconstructed from their paper's description: same defect, different words is a match. */
@@ -153,7 +175,7 @@ async function judgeImpl(comment, golden) {
     '',
     `Review comment:\n${comment}`,
   ].join('\n');
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < DEFAULT_ATTEMPTS; attempt += 1) {
     try {
       const res = await fetch(`${BASE}/chat/completions`, {
         method: 'POST',
@@ -174,15 +196,29 @@ async function judgeImpl(comment, golden) {
           ],
         }),
       });
-      if (!res.ok) throw new Error(`http ${res.status}`);
+      if (!res.ok) {
+        // **The wait the endpoint asked for, carried on the error so the catch block can honour it.** A `Retry-After`
+        // read here and dropped there is the same thing as not reading it.
+        const refusal = new Error(`http ${res.status}`);
+        refusal.retryAfterMs = retryAfterMs(res.headers?.get?.('retry-after'));
+        if (res.status === 429) judgeSpend.rateLimited += 1;
+        throw refusal;
+      }
       const body = await res.json();
       recordJudgeUsage(body.usage);
       const text = String(body.choices?.[0]?.message?.content ?? '')
         .replace(/```json|```/g, '')
         .trim();
       return Boolean(JSON.parse(text).match);
-    } catch {
-      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+    } catch (error) {
+      // **A header wins over the schedule, and the schedule is long enough to cross a window.** Three attempts inside
+      // six seconds was three attempts inside one rate-limit window: the same request refused three times, and the third
+      // refusal was recorded as the judge having nothing to say. **That is how 183 pairs of one arm and none of the
+      // other became a recall figure**, and it is why this loop now waits what it is told and then waits longer.
+      const wait = Number.isFinite(error?.retryAfterMs)
+        ? Number(error.retryAfterMs)
+        : backoffMs(attempt, { jitter: Math.random() });
+      await new Promise((r) => setTimeout(r, Math.min(wait, 60_000)));
     }
   }
   // **A judge that did not answer is not a non-match**, the same distinction as everywhere else in this repository.
@@ -243,15 +279,43 @@ async function mapLimit(items, limit, task) {
  * **Returns, per finding, which goldens it matched** - a list rather than a boolean, because **a finding that matches
  * two goldens is evidence about both**, and a boolean would have forced the choice at the moment of judging, which is
  * the moment the answer key is least known.
+ *
+ * **The order the pairs are judged in is a cost decision, and it changes no verdict.**
+ *
+ * The judge's prompt is `instructions + expert-confirmed issue + review comment`, and the first two blocks are the same
+ * for every finding scored against the same golden. **A prefix cache is written by the first request that carries it and
+ * read by the requests that follow**, so a matrix submitted in `finding-major` order has one request per golden carrying
+ * a prefix nobody has written yet, and the concurrent ones miss - which is why the run of 2026-11-10 reported **7.9 %**
+ * cache reuse on 6 859 calls while the reviewer, which orders its lanes, reported 61 %.
+ *
+ * **So each golden's first pair is judged alone before the rest of its pairs are submitted together.** The verdicts are
+ * identical - every pair is still judged once, against the same inputs, at the same temperature - and the only thing
+ * that changes is which request pays the full price for the prefix. **This is the same device as `planLaneWaves`, applied
+ * to the judge**, and it is here rather than in the provider because the judge is a bare `fetch` in this file.
  */
 async function judgeMatrix(texts, goldens) {
   const pairs = [];
-  for (let finding = 0; finding < texts.length; finding += 1) {
-    for (let golden = 0; golden < goldens.length; golden += 1) pairs.push([finding, golden]);
+  // **Golden-major**, so a golden's prefix is written once and read `texts.length - 1` times.
+  for (let golden = 0; golden < goldens.length; golden += 1) {
+    for (let finding = 0; finding < texts.length; finding += 1) pairs.push([finding, golden]);
   }
-  const verdicts = await mapLimit(pairs, JUDGE_CONCURRENCY, ([finding, golden]) =>
-    judgeFn(texts[finding], goldens[golden]),
-  );
+  const verdicts = new Array(pairs.length);
+  const judged = new Set();
+  // The warm pass: one call per golden, in sequence, so each prefix exists before anything tries to read it.
+  for (let at = 0; at < pairs.length; at += 1) {
+    const [finding, golden] = pairs[at];
+    if (judged.has(golden)) continue;
+    judged.add(golden);
+    verdicts[at] = await judgeFn(texts[finding], goldens[golden]);
+  }
+  const rest = pairs.map((_, at) => at).filter((at) => !judged.has(at));
+  const tail = await mapLimit(rest, JUDGE_CONCURRENCY, (at) => {
+    const [finding, golden] = pairs[at];
+    return judgeFn(texts[finding], goldens[golden]);
+  });
+  rest.forEach((at, index) => {
+    verdicts[at] = tail[index];
+  });
   const matches = texts.map(() => []);
   let unanswered = 0;
   pairs.forEach(([finding, golden], at) => {
@@ -311,9 +375,11 @@ async function dryRun() {
     ['F5 rename the temporary', []],
     ['F6 style remark', []],
   ]);
+  const judgeCalls = [];
   judgeFn = async (comment, golden) => {
     const title = comment.slice(0, comment.indexOf(' :: '));
     const goldenAt = goldens.indexOf(golden);
+    judgeCalls.push({ title, goldenAt });
     return (answers.get(title) ?? []).some((at) => at === goldenAt);
   };
 
@@ -403,10 +469,66 @@ async function dryRun() {
   assert.deepEqual(matrix.matches[0], [0], 'the first finding matches the first golden');
   assert.equal(matrix.unanswered, 0, 'a scripted judge never fails to answer');
 
+  // **The order the judge was asked, which is the only part of the cost this file owns.**
+  //
+  // The prompt is `instructions + golden + comment`, and the first two blocks repeat across every finding scored
+  // against the same golden - so **the first request carrying a prefix writes it and the rest read it**, and a
+  // `finding-major` submission has one full-price request per golden and a concurrent tail that all miss. The warm pass
+  // is asserted here rather than the cache ratio, because **the cache belongs to the vendor and the order belongs to
+  // this file**: a run that reports a low hit ratio and a run that submitted in the wrong order are the same run, and
+  // only one of them can be fixed here.
+  assert.deepEqual(
+    judgeCalls.slice(0, goldens.length).map((call) => call.goldenAt),
+    goldens.map((_, at) => at),
+    'the warm pass touches every golden once, in order, before the rest of the matrix is submitted',
+  );
+  // **And it is a reordering, not a filter.** Every pair is still judged exactly once: a device that raised the cache
+  // ratio by judging fewer pairs would raise it by measuring less.
+  assert.equal(
+    judgeCalls.length,
+    matrix.matches.length * goldens.length,
+    'the reordering judges every pair exactly once, so the call count is unchanged',
+  );
+
   // **Hand-computed, in the comment, before the assertion.** Gate keeps F1 (golden 0), F4 (golden 3) and F5 (nothing):
   // 2 true positives, 1 false positive, 2 goldens missed, so precision 2/3, recall 2/4 and F1 0.5714. The whole list is
   // 6 findings over 3 distinct goldens: precision 3/6, recall 3/4, F1 0.6 - **higher than the gate's, which is the
   // fixture doing its job.**
+  // **And the attribution is exercised here too**, on a fixture whose goldens are placed so that every bucket is
+  // reachable: a golden on a file that was reviewed and matched, one on a file that was reviewed in silence, and one
+  // on a file the engine was never handed. **A wiring that published an empty table would pass every assertion above**
+  // - the figures do not read the buckets - so the partition is checked where it is produced.
+  const attributed = attributeGoldens({
+    goldens: [
+      { path: 'src/kept.ts', note: goldens[0] },
+      { path: 'src/quiet.ts', note: 'an issue on a file the lanes were silent about' },
+      { path: 'src/never.ts', note: 'an issue on a file the engine was never handed' },
+    ],
+    reviewedPaths: ['src/kept.ts', 'src/quiet.ts'],
+    findings: ranked,
+    // **A matrix of this fixture's own, written out rather than borrowed from the run above.** `matrix.matches` is
+    // indexed against the four-golden fixture, so reusing it here marked golden 1 as hit because `F3` answers golden 1
+    // in that list - **an index is only meaningful against the list it was produced with**, and the failure looked like
+    // a broken bucket rather than a borrowed table.
+    matches: [[0], [], [], [], [], []],
+  });
+  assert.equal(attributed.total, 3, 'every golden is attributed exactly once');
+  assert.equal(
+    attributed.counts.fileNotReviewed,
+    1,
+    'the golden on a file the engine was never handed is attributed to the filter, not to the lanes',
+  );
+  assert.equal(
+    attributed.counts.noFindingOnPath,
+    1,
+    'the golden on a file that was read and produced nothing is attributed to the reading',
+  );
+  assert.equal(
+    attributed.counts.hit >= 1,
+    true,
+    'at least one golden is attributed to a finding the judge accepted',
+  );
+
   const full = point(
     matrix.matches.length,
     maximumMatchingCount(matrix.matches, goldens.length),
@@ -964,10 +1086,53 @@ async function main() {
     laneStats: null,
   };
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
+  /**
+   * **The competitor arm is a recorded input, and its default is the cheap side of the choice.**
+   *
+   * **The arithmetic that made this the next fix**: the run of 2026-11-10 cost 8.53 USD, of which **5.89 USD - 69 % -
+   * was this arm**, driven through the competitor's CLI from the same key, over fourteen pull requests whose goldens had
+   * not changed. **Its figure is a property of the corpus, not of this project's code** - it does not move when a prompt
+   * does - so buying it on every run is buying the same number twice.
+   *
+   * **`replay` is the default and `record` is a decision someone makes**, because the two mistakes are not symmetric:
+   * a stale replay is a wrong figure, a stray record is a bill. **A missing record is reported and excluded**, never
+   * repaired by buying one - `competitor.missing` carries the reason into the artifact.
+   */
+  const COMPETITOR_BASELINE_PATH = resolve(
+    process.env['AACR_COMPETITOR_BASELINE'] ?? DEFAULT_BASELINE_PATH,
+  );
+  const competitorChoice = parseCompetitorMode(process.env['AACR_COMPETITOR']);
+  const corpusFingerprintOfRun = corpusFingerprint(rows);
+  // **A file of another version throws here rather than being read as if the shape had not changed**, which is the
+  // one failure this run should not paper over: every row below it is only meaningful under the shape it was written in.
+  const existingBaseline = readBaseline(COMPETITOR_BASELINE_PATH);
+  let competitorBaseline =
+    competitorChoice.mode === 'record'
+      ? startRecording({
+          existing: existingBaseline,
+          fingerprint: corpusFingerprintOfRun,
+          judgeModel: MODEL,
+          tool: 'open-code-review',
+        })
+      : existingBaseline;
+  /** The rows this run paid for, written once at the end - so a run that dies mid-loop leaves the old file intact. */
+  let recordedAny = 0;
   const competitor = {
     tool: 'open-code-review',
+    // **What this run did with the arm, and why** - the three figures a reader needs to price the run without reading
+    // the code: which mode was asked for, how many pull requests were replayed, and how many the record could not answer.
+    mode: competitorChoice.mode,
+    modeReason: competitorChoice.reason,
+    replayed: 0,
+    recorded: 0,
+    missing: [],
+    baselinePath: competitorChoice.mode === 'record' ? COMPETITOR_BASELINE_PATH : null,
     prsAttempted: 0,
     prsFailed: 0,
+    // **The pull requests it failed on, named**, because **a count of failures in a head-to-head is a number a reader
+    // cannot check** - and because the one failure of 2026-11-09 was scored as a non-event for a whole iteration
+    // precisely because nothing in this object said which pull request it was.
+    failedPullRequests: [],
     firstFailure: null,
     findings: 0,
     truePositives: 0,
@@ -1003,6 +1168,8 @@ async function main() {
    */
   const perPr = [];
   const rankedDetail = [];
+  // **One entry per pull request: which bucket each of its goldens fell in**, merged and published below.
+  const attributed = [];
   const competitorPerPr = [];
   const competitorDetail = [];
   // **The second arm's accumulators, kept separate so neither can consume the other's matches.**
@@ -1045,7 +1212,20 @@ async function main() {
     // fetched is counted separately and not skipped quietly**, because **"the corpus had no data for it" and "we could
     // not read it" are different facts** - the distinction this repository keeps drawing.
     const comments = pr.comments ?? [];
-    const issueTexts = comments.map((c) => String(c.note ?? '')).filter(Boolean);
+    // **The note and its coordinates, kept or dropped together.**
+    //
+    // This was `comments.map((c) => String(c.note ?? '')).filter(Boolean)`: the texts survived and **the `path` and
+    // `from_line` that travelled beside each one were discarded**, which is why this job could report a recall and not a
+    // reason for it. The filter is the same, applied to the comment rather than to the text, so `issueTexts` is
+    // byte-identical to what it was and `goldens` is the same list with its coordinates attached.
+    const goldenComments = comments.filter((c) => String(c.note ?? '') !== '');
+    const issueTexts = goldenComments.map((c) => String(c.note ?? ''));
+    const goldens = goldenComments.map((c) => ({
+      path: String(c.path ?? ''),
+      note: String(c.note ?? ''),
+      startLine: Number(c.from_line ?? c.to_line ?? 0) || null,
+      endLine: Number(c.to_line ?? c.from_line ?? 0) || null,
+    }));
     const diff = await fetchPrDiff(pr.githubPrUrl);
     if (diff === null) {
       unfetched += 1;
@@ -1060,7 +1240,38 @@ async function main() {
     // `review/actionability.ts` grounds a finding against the lines the diff added** - and **two reviewers scored
     // against two different readings of the same diff would differ by the reading rather than by the review.**
     const prFacts = collectDiffFacts(diff);
-    if (ocrKey) {
+    // **Three answers, and the two that are not a purchase come first.**
+    //
+    // A replayed pull request contributes exactly the fields a live one contributes, so the scoring below cannot tell
+    // which it received; a missing one is named with its reason and left out of the comparison rather than silently
+    // counted as a zero, because **a competitor with no row is a hole in the pairing, not a competitor that found
+    // nothing.**
+    const competitorKey = pr.githubPrUrl ?? `pr-${competitorPerPr.length}`;
+    const competitorDecision = resolveCompetitor({
+      mode: competitorChoice.mode,
+      baseline: competitorBaseline,
+      fingerprint: corpusFingerprintOfRun,
+      judgeModel: MODEL,
+      key: competitorKey,
+    });
+    if (competitorDecision.kind === 'replay') {
+      competitorPerPr.push(replayedPull(competitorKey, competitorDecision.pull));
+      for (const row of competitorDecision.pull.detail ?? []) {
+        competitorDetail.push({ ...row, pr: competitorKey, which: 'competitor' });
+      }
+      competitor.findings += Number(competitorDecision.pull.findings ?? 0);
+      competitor.judgeUnanswered += Number(competitorDecision.pull.unanswered ?? 0);
+      competitor.replayed += 1;
+    } else if (competitorDecision.kind === 'missing') {
+      competitor.missing.push({ key: competitorKey, reason: competitorDecision.reason });
+    } else if (competitorDecision.kind === 'record' && !ocrKey) {
+      // **A recording run without a credential is a missing row, not a failure of the tool**: the run asked for a
+      // purchase it could not pay for, which is a fact about the environment rather than about the competitor.
+      competitor.missing.push({
+        key: competitorKey,
+        reason: 'the run was asked to record and no competitor credential is configured',
+      });
+    } else if (ocrKey) {
       const outcome = reviewWithOcr(
         process.env['OCR_LLM_URL'] ?? '',
         ocrKey,
@@ -1263,27 +1474,47 @@ async function main() {
             issueTexts,
           );
           competitor.judgeUnanswered += competitorMatrix.unanswered;
+          const keepFlags = competitorRanked.map((ranked) => ranked.score.actionable);
           competitorPerPr.push({
-            key: pr.githubPrUrl ?? `pr-${competitorPerPr.length}`,
+            key: competitorKey,
             matches: competitorMatrix.matches,
             goldens: issueTexts.length,
-            keep: competitorRanked.map((ranked) => ranked.score.actionable),
+            keep: keepFlags,
           });
-          competitorRanked.forEach((ranked, at) => {
-            competitorDetail.push({
-              pr: pr.githubPrUrl ?? null,
-              path: ranked.path,
-              startLine: ranked.finding.startLine,
-              endLine: ranked.finding.endLine,
-              severity: ranked.finding.severity,
-              category: ranked.finding.category,
-              score: ranked.score.score,
-              features: ranked.score.features,
-              actionable: ranked.score.actionable,
-              which: 'competitor',
-              matchedGoldens: competitorMatrix.matches[at],
-            });
-          });
+          // **The same rows the artifact publishes, kept once and used twice** - published here, and written to the
+          // baseline so that the next run pays for them zero times. **`pr` and `which` are added at publication rather
+          // than stored**, because they are the same two constants for every row in the file and a record that repeats
+          // them is a record whose size is mostly its own labels.
+          const detailRows = competitorRanked.map((ranked, at) => ({
+            path: ranked.path,
+            startLine: ranked.finding.startLine,
+            endLine: ranked.finding.endLine,
+            severity: ranked.finding.severity,
+            category: ranked.finding.category,
+            score: ranked.score.score,
+            features: ranked.score.features,
+            actionable: ranked.score.actionable,
+            matchedGoldens: competitorMatrix.matches[at],
+          }));
+          for (const row of detailRows) {
+            competitorDetail.push({ ...row, pr: competitorKey, which: 'competitor' });
+          }
+          if (competitorChoice.mode === 'record') {
+            competitorBaseline = withRecord(
+              competitorBaseline,
+              competitorKey,
+              recordedPull({
+                matches: competitorMatrix.matches,
+                goldens: issueTexts.length,
+                keep: keepFlags,
+                detail: detailRows,
+                unanswered: competitorMatrix.unanswered,
+                findings: list.length,
+              }),
+            );
+            competitor.recorded += 1;
+            recordedAny += 1;
+          }
         } catch (error) {
           competitor.prsFailed += 1;
           // **The head of the output is kept when it cannot be parsed**, because **the shape is what the next
@@ -1294,6 +1525,32 @@ async function main() {
           competitor.firstOutputFile = outcome.outputFile ?? null;
           const reason = `its output did not parse: ${error.message}`;
           if (!competitor.firstFailure) competitor.firstFailure = reason;
+          // **And the pull request it failed on counts against it.**
+          //
+          // **This row was missing, and its absence was worth 0.0130 of F1 in the competitor's favour.** The run of
+          // 2026-11-09 attempted fourteen pull requests, failed one, and the scoring never heard about it: a throw here
+          // skipped the push below, so that pull request contributed no goldens to the denominator while its thirteen
+          // goldens contributed nothing to the numerator either - **which is recall 0.3185 read against a denominator
+          // of 157 instead of the 170 both reviewers were given.** The honest reading of that run is
+          // **P 0.3289 / R 0.2941 / F1 0.3106**, and the difference is not a rounding: **a reviewer whose output did not
+          // parse is a reviewer that found nothing on that pull request**, and scoring a crash as a non-event is the
+          // one asymmetry a head-to-head cannot carry, because it flatters whichever arm has more moving parts.
+          //
+          // **And it is deliberately not the same as `missing`.** A missing baseline row is a **hole in the pairing** -
+          // the competitor was never run on that pull request in this run, so there is no observation to score and the
+          // comparison is marked incomparable. A crash is an **observation**: it ran, it spent the money, and it produced
+          // nothing. **One is excluded and one is a zero**, and the two were the same code path until now.
+          competitorPerPr.push({
+            key: competitorKey,
+            matches: [],
+            goldens: issueTexts.length,
+            keep: [],
+          });
+          competitor.failedPullRequests.push({
+            key: competitorKey,
+            goldens: issueTexts.length,
+            reason: String(error.message ?? '').slice(0, 200),
+          });
         }
       }
     }
@@ -1527,6 +1784,17 @@ async function main() {
       issueTexts,
     );
     unanswered += ourMatrix.unanswered;
+    // **And why each golden that was not hit was not hit**, in the same pass and at no additional cost: the verdicts are
+    // already paid for, the diff sections are already in hand, and **the only thing this needs is the coordinates the
+    // corpus already carries.** The five buckets are disjoint and their sum is asserted inside `attributeGoldens`, so a
+    // refactor that loses a row fails here rather than producing a table that reads plausibly and adds up wrong.
+    const attribution = attributeGoldens({
+      goldens,
+      reviewedPaths: sections.map((section) => section.path),
+      findings: ranked,
+      matches: ourMatrix.matches,
+    });
+    attributed.push({ pr: competitorKey, ...attribution });
     ranked.forEach((entry, at) => {
       rankedDetail.push({
         pr: pr.githubPrUrl ?? null,
@@ -1606,6 +1874,25 @@ async function main() {
     });
   }
 
+  // **The record is written once, after the loop**, so a run that dies at the eleventh pull request leaves the previous
+  // file intact and the eleven rows it paid for are the only thing lost. **And the write says whether the record covers
+  // the corpus** - a file with a hole in it replays as a corpus with a hole in it, and the next reader should meet that
+  // fact here rather than in a figure that is quietly computed over thirteen of fourteen pull requests.
+  if (competitorChoice.mode === 'record' && recordedAny > 0) {
+    competitorBaseline = { ...competitorBaseline, recordedAt: new Date().toISOString() };
+    writeBaseline(COMPETITOR_BASELINE_PATH, competitorBaseline);
+    competitor.baselineRecordedAt = competitorBaseline.recordedAt;
+    competitor.baselineCovers = {
+      pullRequests: Object.keys(competitorBaseline.pulls).length,
+      ofCorpus: rows.length,
+      complete: Object.keys(competitorBaseline.pulls).length >= rows.length,
+    };
+    console.log(
+      `AACR-BENCH competitor baseline written to ${COMPETITOR_BASELINE_PATH} ` +
+        `(${String(Object.keys(competitorBaseline.pulls).length)}/${String(rows.length)} pull requests)`,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // From the judged matrices to the figures
   // ---------------------------------------------------------------------------
@@ -1653,6 +1940,37 @@ async function main() {
   const gated = asPoint(gatedCounts);
   const allCounts = countsOver(perPr, everythingEmitted);
   const allEmitted = asPoint(allCounts);
+
+  /**
+   * **The measurement's own error, as an interval rather than as a footnote.**
+   *
+   * A pair the judge did not answer is neither a match nor a miss, and this job counts it as a miss - which is the only
+   * thing it *can* do to produce a single number, and **which is wrong in a direction nobody can see from the figure
+   * alone.** The run of 2026-11-09 left **183 pairs unanswered out of roughly 3 800**, and the competitor's arm left
+   * none; **so the two arms of that run did not carry the same error, and the comparison was published as if they did.**
+   *
+   * **The bound is deliberately loose and is labelled as a bound.** Treating every unanswered pair as a match would give
+   * one finding credit for several goldens, so the upper end overstates what a perfect judge could do; **the point is not
+   * to estimate the true figure but to state how far it could be from the reported one.** When the interval is narrow the
+   * reported figure is a measurement; when it is wide, the run needs a judge that answers.
+   */
+  const judgedInterval = (counts, unansweredPairs) => {
+    const goldens = counts.tp + counts.fn;
+    const highest = Math.min(counts.tp + Number(unansweredPairs ?? 0), goldens);
+    // `k` is what the reviewer emitted, and it does not move: the judge decides which of those are true, not how many
+    // there were.
+    const upper = point(
+      counts.tp + counts.fp,
+      highest,
+      counts.tp + counts.fp - highest,
+      goldens - highest,
+    );
+    return {
+      unansweredPairs: Number(unansweredPairs ?? 0),
+      f1IfEveryUnansweredPairIsAMiss: asPoint(counts).f1,
+      f1IfEveryUnansweredPairIsAMatch: upper.f1,
+    };
+  };
 
   /**
    * **The curve, at budgets a reviewer could actually hold to.**
@@ -1720,6 +2038,16 @@ async function main() {
     MODEL,
     new Date(),
   );
+
+  /** The attribution table, computed once and read by both the artifact and the log. */
+  const merged = mergeAttributions(attributed);
+  const missedGoldens = {
+    ...merged,
+    largest: largestBucket(merged.counts),
+    pullRequests: attributed.length,
+  };
+  /** **The interval the reported F1 lives in**, because 183 unanswered pairs are an error bar and not a footnote. */
+  const ourInterval = judgedInterval(gatedCounts, unanswered);
 
   write({
     ...base,
@@ -1813,6 +2141,16 @@ async function main() {
     falsePositives: gated.falsePositives,
     falseNegatives: gated.falseNegatives,
     judgeUnanswered: unanswered,
+    // **And how far the figure above could be from the truth, because 183 pairs went unanswered in the run this
+    // section was written for and the competitor's arm carried none.**
+    judgedInterval: ourInterval,
+    // **Why each missed golden was missed, as five disjoint buckets.**
+    //
+    // **`recall 0.2059` is a number and not a diagnosis**, and the run of 2026-11-09 could not say whether its 155
+    // missed goldens were in files it never read, in files it read in silence, or in files where it spoke about the
+    // wrong thing - **three defects whose fixes are a filter, a lane, and a target.** The sum of the buckets is asserted
+    // to equal the golden count inside `attributeGoldens`, so this table cannot quietly lose a row.
+    missedGoldens,
     precision: gated.precision,
     recall: gated.recall,
     f1: gated.f1,
@@ -1923,9 +2261,31 @@ async function main() {
     secondReviewer: {
       ...competitor,
       ...competitorPoint,
+      /**
+       * **Whether the two figures are the same measurement this time.**
+       *
+       * With the arm replayed, the comparison holds; with rows missing - no baseline, a corpus that moved, a judge that
+       * changed - the competitor's side is computed over fewer pull requests than ours, and **a precision stated over a
+       * different denominator reads exactly like a worse reviewer**. So the run says which of the two it is, in the same
+       * object that carries the figure, rather than leaving the reader to infer it from a count they would have to know
+       * to check first.
+       */
+      comparable:
+        competitor.missing.length === 0 &&
+        competitorPerPr.length > 0 &&
+        competitorPerPr.length === rows.length - unfetched,
+      notComparableReason:
+        competitor.missing.length === 0
+          ? competitorPerPr.length === 0
+            ? 'the competitor arm produced no row at all, so there is nothing to compare against'
+            : null
+          : `${String(competitor.missing.length)} of ${String(rows.length - unfetched)} pull requests have no ` +
+            'competitor row; the first reason is in `missing[0].reason`',
       // **And the same ranker applied to its output**, which separates the two explanations: **if its F1 rises as far
       // as ours did, the gain is the ranker's; if it does not, the sentences were the difference.**
       withTheSameRanker: competitorGated,
+      // **Its own interval, on its own unanswered pairs**, so the two arms are read with their own error beside them.
+      judgedInterval: judgedInterval(competitorCounts, competitor.judgeUnanswered),
       findingsAtItsOwnOperatingPoint: competitorDetail,
     },
     // **Every finding either reviewer emitted, with its features and the goldens the judge matched it to.**
@@ -1975,13 +2335,17 @@ async function main() {
     `AACR-BENCH spend · calls ${ledger.totals().calls} · failures ${ledger.totals().failures} · unpriced ${ledger.totals().unpricedCalls} · prompt ${ledger.totals().promptTokens} · cache ${ledger.totals().cacheHitTokens} · usd ${ledger.totals().costUsd.toFixed(4)} · ceiling ${MAX_USD}`,
   );
   console.log(
-    `AACR-BENCH judge · calls ${judgeSpend.calls} · unanswered ${judgeSpend.failures} · prompt ${judgeSpend.promptTokens} · cache ${judgeSpend.cacheHitTokens} · usd ${judgeCostUsd === null ? 'unpriced' : judgeCostUsd.toFixed(4)} · order ${PROMPT_ORDER}`,
+    `AACR-BENCH judge · calls ${judgeSpend.calls} · unanswered ${judgeSpend.failures} (${judgeSpend.rateLimited} rate limited) · prompt ${judgeSpend.promptTokens} · cache ${judgeSpend.cacheHitTokens} · usd ${judgeCostUsd === null ? 'unpriced' : judgeCostUsd.toFixed(4)} · order ${PROMPT_ORDER}`,
+  );
+  // **Why the goldens were missed, on one line, because it is the line that decides what the next iteration works on.**
+  console.log(
+    `AACR-BENCH missed · ${GOLDEN_BUCKETS.map((bucket) => `${bucket} ${missedGoldens.counts[bucket]}`).join(' · ')} · f1 in [${ourInterval.f1IfEveryUnansweredPairIsAMiss}, ${ourInterval.f1IfEveryUnansweredPairIsAMatch}]`,
   );
   console.log(
     `AACR-BENCH full list tp ${allEmitted.truePositives} fp ${allEmitted.falsePositives} · P ${allEmitted.precision} R ${allEmitted.recall} F1 ${allEmitted.f1}`,
   );
   console.log(
-    `AACR-BENCH competitor ${competitor.tool} · findings ${competitor.findings} · P ${competitorPoint.precision} R ${competitorPoint.recall} F1 ${competitorPoint.f1} · same ranker F1 ${competitorGated.f1}`,
+    `AACR-BENCH competitor ${competitor.tool} · ${competitor.mode} · replayed ${String(competitor.replayed)} · recorded ${String(competitor.recorded)} · missing ${String(competitor.missing.length)} · findings ${competitor.findings} · P ${competitorPoint.precision} R ${competitorPoint.recall} F1 ${competitorPoint.f1} · same ranker F1 ${competitorGated.f1}`,
   );
   console.log(`AACR-BENCH McNemar ours-only ${oursOnly} theirs-only ${theirsOnly}`);
 }
