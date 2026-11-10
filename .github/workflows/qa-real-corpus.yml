@@ -15,15 +15,16 @@ name: QA — real repositories, three languages
 # cannot be reobtained.
 
 on:
+  # **A product change does not dispatch a paid run.** These paths used to start this job on every commit that
+  # touched the code it measures, which is a bill for measuring one's own edit - the trigger fires on corpora and
+  # harnesses only now, and the schedule below is the weekly measurement, placed inside the vendor's off-peak
+  # window where every price is half.
+  schedule:
+    - cron: '0 5 * * 3'
   workflow_dispatch:
   push:
     branches: [master]
     paths:
-      - 'packages/intelligence/src/qa/**'
-      - 'packages/intelligence/src/search/**'
-      - 'packages/mcp/src/tools/ask.ts'
-      - 'tests/e2e/qa-multilingual-crossrepo.test.ts'
-      - '.github/workflows/qa-real-corpus.yml'
 
 concurrency:
   group: qa-real-corpus

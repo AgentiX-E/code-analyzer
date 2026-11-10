@@ -43,6 +43,12 @@ name: Long Code Arena — bug localisation
 # was not.**
 
 on:
+  # **A product change does not dispatch a paid run.** These paths used to start this job on every commit that
+  # touched the code it measures, which is a bill for measuring one's own edit - the trigger fires on corpora and
+  # harnesses only now, and the schedule below is the weekly measurement, placed inside the vendor's off-peak
+  # window where every price is half.
+  schedule:
+    - cron: '40 4 * * 3'
   workflow_dispatch:
     inputs:
       max_rows:
@@ -71,31 +77,6 @@ on:
   push:
     branches: [master]
     paths:
-      - 'packages/intelligence/src/__tests__/lca-bug-localization.test.ts'
-      - 'packages/intelligence/src/benchmark/lca-*.ts'
-      - 'packages/intelligence/src/qa/**'
-      - 'packages/intelligence/src/search/hybrid-search.ts'
-      # **The arms the retrieval column is made of, and the reason they are listed by name.** A change to a file-level
-      # arm is a change in the figure this job publishes, and until iteration 81 the trigger named one search file out of
-      # fourteen - so an arm could be rewritten with the measurement that exists to check it staying green and stale.
-      # **And the layer under the arms, which the first version of this list left out.** The retrieval column is a
-      # chain — scan, parse, resolve, index, fuse, number — and iteration 85 changed the *parser*: Kotlin emitted no call
-      # site at all, so the graph the retriever ranks had no `CALLS` edges to walk. `packages/analyzer/src/languages/**`
-      # matched none of the paths above, so the measurement that exists to catch that defect would not have run on the
-      # commit that fixed it, and its figure would have stayed the pre-fix one. **A trigger that names the last stage of
-      # a chain measures the last stage of a chain.**
-      - 'packages/analyzer/src/languages/**'
-      - 'packages/analyzer/src/pipeline/**'
-      - 'packages/intelligence/src/resolution/**'
-      - 'packages/intelligence/src/indexing/**'
-      - 'packages/intelligence/src/search/file-body.ts'
-      - 'packages/intelligence/src/search/path-imports.ts'
-      - 'packages/intelligence/src/search/lexical.ts'
-      - 'packages/intelligence/src/search/file-ranking.ts'
-      - 'packages/intelligence/src/search/fusion.ts'
-      - 'scripts/lca-*.js'
-      - 'scripts/lca-*.ts'
-      - '.github/workflows/lca-bug-localization.yml'
 
 concurrency:
   group: lca-bug-localization

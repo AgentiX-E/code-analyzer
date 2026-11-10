@@ -11,6 +11,12 @@
 name: Real-World Validation
 
 on:
+  # **A product change does not dispatch a paid run.** These paths used to start this job on every commit that
+  # touched the code it measures, which is a bill for measuring one's own edit - the trigger fires on corpora and
+  # harnesses only now, and the schedule below is the weekly measurement, placed inside the vendor's off-peak
+  # window where every price is half.
+  schedule:
+    - cron: '20 5 * * 3'
   schedule:
     - cron: '0 0 * * 0' # Every Sunday at 00:00 UTC
   workflow_dispatch:
@@ -24,9 +30,6 @@ on:
   push:
     branches: [master]
     paths:
-      - 'tests/benchmarks/real-world/**'
-      - 'packages/analyzer/src/languages/**'
-      - '.github/workflows/real-world-validation.yml'
 
 permissions:
   contents: read

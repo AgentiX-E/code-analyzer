@@ -22,11 +22,13 @@ on:
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
     # records the spend it took to produce the figure.
     - cron: '0 5 * * 2'
+  # **Not even this file.** A workflow's own edit used to re-run it, so fixing a trigger cost one run of the
+  # thing it triggers - which is the shape of a bill that pays for its own paperwork. `gate:actions` and the project
+  # standards check read this file on every push; the paid run is a dispatch or the weekly schedule.
   push:
     branches: [master]
     paths:
       - '.github/scripts/measure-competitor-corpus.mjs'
-      - '.github/workflows/competitor-corpus.yml'
 
 concurrency:
   group: competitor-corpus

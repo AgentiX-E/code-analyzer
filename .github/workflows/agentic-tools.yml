@@ -56,7 +56,6 @@ on:
   push:
     branches: [master]
     paths:
-      - '.github/workflows/agentic-tools.yml'
 
 concurrency:
   group: agentic-tools
