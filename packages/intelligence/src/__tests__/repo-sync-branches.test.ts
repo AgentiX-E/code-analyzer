@@ -28,11 +28,11 @@ import { GitHubRepoSync } from '../github/repo-sync.js';
 import type { GitHubRepo } from '../github/client.js';
 import type { SyncOptions } from '../github/repo-sync.js';
 
-// Mock execSync so `git clone` / `git fetch` / `git rev-parse` never spawn a
+// Mock execFileSync so `git clone` / `git fetch` / `git rev-parse` never spawn a
 // real process (which would block on network access in sandboxed CI).
 const execSyncMock = vi.hoisted(() => vi.fn());
 vi.mock('node:child_process', () => ({
-  execSync: execSyncMock,
+  execFileSync: execSyncMock,
 }));
 
 function makeClient(): GitHubApiClient {
@@ -108,8 +108,10 @@ describe('GitHubRepoSync — deterministic branches', () => {
   beforeEach(() => {
     cacheDir = createTempDir();
     execSyncMock.mockReset();
-    execSyncMock.mockImplementation((cmd: string) =>
-      cmd.includes('rev-parse') ? 'mock-sha\n' : '',
+    // **The mock reads the argument vector, not a command line**, because the module no longer builds one: a branch name
+    // reaching a shell was the defect, and a test that asserted on the string would have kept passing through it.
+    execSyncMock.mockImplementation((_file: string, args: readonly string[]) =>
+      args.includes('rev-parse') ? 'mock-sha\n' : '',
     );
   });
 
@@ -346,9 +348,9 @@ describe('GitHubRepoSync — deterministic branches', () => {
   });
 
   it('falls back to a fresh clone when the autoFetch fetch fails', async () => {
-    execSyncMock.mockImplementation((cmd: string) => {
-      if (cmd.includes('git fetch')) throw new Error('fetch failed');
-      if (cmd.includes('rev-parse')) return 'mock-sha\n';
+    execSyncMock.mockImplementation((_file: string, args: readonly string[]) => {
+      if (args.includes('fetch')) throw new Error('fetch failed');
+      if (args.includes('rev-parse')) return 'mock-sha\n';
       return '';
     });
     const sync = new GitHubRepoSync({ client: makeClient(), cacheDir, branch: 'main' });
@@ -363,9 +365,9 @@ describe('GitHubRepoSync — deterministic branches', () => {
 
   it('coerces a non-Error pull failure into the error message', async () => {
     const failure: unknown = 'pull exploded';
-    execSyncMock.mockImplementation((cmd: string) => {
-      if (cmd.includes('git fetch')) throw failure;
-      if (cmd.includes('rev-parse')) return 'mock-sha\n';
+    execSyncMock.mockImplementation((_file: string, args: readonly string[]) => {
+      if (args.includes('fetch')) throw failure;
+      if (args.includes('rev-parse')) return 'mock-sha\n';
       return '';
     });
     const sync = new GitHubRepoSync({ client: makeClient(), cacheDir, branch: 'main' });

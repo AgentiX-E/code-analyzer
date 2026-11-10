@@ -1,13 +1,17 @@
 // @code-analyzer/infra — Git Operations
 // Git integration using child_process.exec with proper error handling.
 
-import { exec as cpExec } from 'node:child_process';
+import { execFile as cpExecFile } from 'node:child_process';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
 import type { GitDiff, DiffRange, StalenessResult } from '@code-analyzer/shared';
 
-const execAsync = promisify(cpExec);
+// **`execFile`, not `exec`, and the difference is the shell.** `exec` hands its string to `/bin/sh`, so every ref, commit
+// range and file path this module interpolated was shell syntax - and a branch is named by whoever pushed it. **A pull
+// request can name a branch `HEAD; curl …`**, which made `getDiff` a command injection with a two-word payload; CodeQL
+// reported it eight times in this file before the argument vector replaced the string.
+const execFileAsync = promisify(cpExecFile);
 
 export interface GitOperations {
   getDiff(from: string, to: string, contextLines?: number): Promise<GitDiff[]>;
@@ -28,8 +32,14 @@ export interface GitOperations {
 export function createGitOperations(repoPath: string): GitOperations {
   const resolvedPath = path.resolve(repoPath);
 
-  function git(args: string): Promise<string> {
-    return execAsync(`git -C "${resolvedPath}" ${args}`, {
+  /**
+   * **Every argument is an element of an array, so nothing here can become shell syntax.**
+   *
+   * `-C <path>` is passed the same way, which also removes a quoting bug the string version had: a checkout whose path
+   * contained a double quote produced a command `git` parsed as two.
+   */
+  function git(args: readonly string[]): Promise<string> {
+    return execFileAsync('git', ['-C', resolvedPath, ...args], {
       maxBuffer: 50 * 1024 * 1024, // 50MB
     })
       .then(({ stdout }) => stdout.trim())
@@ -40,7 +50,7 @@ export function createGitOperations(repoPath: string): GitOperations {
         // single failure mode without it (ERR_INVALID_ARG_VALUE, for a NUL byte
         // in the command) is thrown synchronously by exec() itself and therefore
         // never reaches this handler. An `err.message` fallback would be dead.
-        throw new Error(`Git command failed: git ${args}\n${err.stderr}`);
+        throw new Error(`Git command failed: git ${args.join(' ')}\n${err.stderr}`);
       });
   }
 
@@ -114,41 +124,41 @@ export function createGitOperations(repoPath: string): GitOperations {
 
   return {
     async getDiff(from: string, to: string, contextLines = 3): Promise<GitDiff[]> {
-      const output = await git(`diff -U${contextLines} ${from}..${to}`);
+      const output = await git(['diff', `-U${String(contextLines)}`, `${from}..${to}`]);
       return parseDiffOutput(output);
     },
 
     async getWorkspaceDiff(): Promise<GitDiff[]> {
-      const output = await git(`diff HEAD`);
+      const output = await git(['diff', 'HEAD']);
       return parseDiffOutput(output);
     },
 
     async getCommitDiff(commit: string): Promise<GitDiff[]> {
-      const output = await git(`diff ${commit}^..${commit}`);
+      const output = await git(['diff', `${commit}^..${commit}`]);
       return parseDiffOutput(output);
     },
 
     async getMergeBase(from: string, to: string): Promise<string> {
-      return git(`merge-base ${from} ${to}`);
+      return git(['merge-base', from, to]);
     },
 
     async getChangedFiles(from: string, to: string): Promise<string[]> {
-      const output = await git(`diff --name-only ${from}..${to}`);
+      const output = await git(['diff', '--name-only', `${from}..${to}`]);
       return output ? output.split('\n') : [];
     },
 
     async getLastCommit(): Promise<string> {
-      return git(`rev-parse HEAD`);
+      return git(['rev-parse', 'HEAD']);
     },
 
     async isDirty(): Promise<boolean> {
-      const output = await git(`status --porcelain`);
+      const output = await git(['status', '--porcelain']);
       return output.length > 0;
     },
 
     async getStaleness(lastIndexedCommit: string): Promise<StalenessResult> {
       try {
-        const head = await git(`rev-parse HEAD`);
+        const head = await git(['rev-parse', 'HEAD']);
         if (head === lastIndexedCommit) {
           return {
             nodeId: 0,
@@ -174,14 +184,14 @@ export function createGitOperations(repoPath: string): GitOperations {
 
     async getFileContent(ref: string, filePath: string): Promise<string> {
       try {
-        return await git(`show ${ref}:${filePath}`);
+        return await git(['show', `${ref}:${filePath}`]);
       } catch {
         throw new Error(`File not found: ${filePath} at ref ${ref}`);
       }
     },
 
     async getFileHash(ref: string, filePath: string): Promise<string> {
-      const output = await git(`ls-tree ${ref} "${filePath}"`);
+      const output = await git(['ls-tree', ref, filePath]);
       // Output format: <mode> <type> <hash>\t<path>. `git ls-tree` exits 0 with
       // empty output when the path is absent from the tree, in which case there
       // is no third field and the empty hash is returned.
@@ -190,7 +200,7 @@ export function createGitOperations(repoPath: string): GitOperations {
     },
 
     async listBranches(): Promise<string[]> {
-      const output = await git(`branch -a --format='%(refname:short)'`);
+      const output = await git(['branch', '-a', '--format=%(refname:short)']);
       return output
         ? output
             .split('\n')
@@ -200,7 +210,7 @@ export function createGitOperations(repoPath: string): GitOperations {
     },
 
     async getCurrentBranch(): Promise<string> {
-      return git(`rev-parse --abbrev-ref HEAD`);
+      return git(['rev-parse', '--abbrev-ref', 'HEAD']);
     },
 
     parseDiff(output: string): GitDiff[] {

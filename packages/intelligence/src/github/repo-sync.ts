@@ -2,7 +2,11 @@
 // Clones, pulls, and manages local caches of GitHub repos for
 // cross-repo analysis. Integrates with CrossRepoIndexer.
 
-import { execSync } from 'node:child_process';
+// **`execFileSync`, not `execSync`, and the branch is the reason.** A branch name arrives from a repository this process
+// does not control, and every command below was a string handed to `/bin/sh` - so `--branch "main; curl …"` was a command
+// injection. CodeQL reports five of these in this file; an argument vector is the fix, and `cwd` replaces the `cd` the
+// strings needed.
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -118,11 +122,13 @@ export class GitHubRepoSync {
       // Already cloned — fetch if autoFetch enabled
       if (this.autoFetch) {
         try {
-          execSync(`cd "${repoDir}" && git fetch origin "${branch}" --depth 1`, {
+          execFileSync('git', ['fetch', 'origin', branch, '--depth', '1'], {
+            cwd: repoDir,
             stdio: 'pipe',
             timeout: 60_000,
           });
-          execSync(`cd "${repoDir}" && git reset --hard "origin/${branch}"`, {
+          execFileSync('git', ['reset', '--hard', `origin/${branch}`], {
+            cwd: repoDir,
             stdio: 'pipe',
             timeout: 30_000,
           });
@@ -155,7 +161,7 @@ export class GitHubRepoSync {
     args.push(cloneUrl, repoDir);
 
     try {
-      execSync(`git ${args.join(' ')}`, {
+      execFileSync('git', args, {
         stdio: 'pipe',
         timeout: 120_000,
       });
@@ -191,13 +197,16 @@ export class GitHubRepoSync {
 
     const branch = this.branch ?? 'main';
     try {
-      execSync(
-        `cd "${repoDir}" && git fetch origin "${branch}" --depth 1 && git reset --hard "origin/${branch}"`,
-        {
-          stdio: 'pipe',
-          timeout: 90_000,
-        },
-      );
+      execFileSync('git', ['fetch', 'origin', branch, '--depth', '1'], {
+        cwd: repoDir,
+        stdio: 'pipe',
+        timeout: 90_000,
+      });
+      execFileSync('git', ['reset', '--hard', `origin/${branch}`], {
+        cwd: repoDir,
+        stdio: 'pipe',
+        timeout: 90_000,
+      });
     } catch (err) {
       throw new Error(
         `Failed to pull ${owner}/${repo}: ${err instanceof Error ? err.message : String(err)}`,
@@ -304,7 +313,8 @@ export class GitHubRepoSync {
 
   private getCurrentSha(repoDir: string): string {
     try {
-      return execSync(`cd "${repoDir}" && git rev-parse HEAD`, {
+      return execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repoDir,
         stdio: 'pipe',
         encoding: 'utf-8',
         timeout: 5_000,

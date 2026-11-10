@@ -3,7 +3,9 @@
 // Uses `git diff --name-only` to find changed files since last index,
 // avoiding full re-index on every change.
 
-import { execSync } from 'node:child_process';
+// **An argument vector, because `sinceCommit` is a SHA read from a file this process did not write.** The string form
+// handed it to `/bin/sh`; `cwd` was already the right shape, and the command is the only thing that had to change.
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
@@ -240,7 +242,10 @@ export class IncrementalReindexer {
    */
   getCurrentCommit(repoPath: string): string | null {
     try {
-      return execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf-8' }).trim();
+      return execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repoPath,
+        encoding: 'utf-8',
+      }).trim();
     } catch {
       return null;
     }
@@ -264,7 +269,7 @@ export class IncrementalReindexer {
    * Run `git diff --name-status` between the stored commit and HEAD.
    */
   private gitDiffNameOnly(repoPath: string, sinceCommit: string): string[] {
-    const output = execSync(`git diff --name-status ${sinceCommit} HEAD`, {
+    const output = execFileSync('git', ['diff', '--name-status', sinceCommit, 'HEAD'], {
       cwd: repoPath,
       encoding: 'utf-8',
     });
@@ -278,7 +283,7 @@ export class IncrementalReindexer {
    * Run `git ls-files` to list all tracked files.
    */
   private gitLsFiles(repoPath: string): string[] {
-    const output = execSync('git ls-files', { cwd: repoPath, encoding: 'utf-8' });
+    const output = execFileSync('git', ['ls-files'], { cwd: repoPath, encoding: 'utf-8' });
     return output
       .trim()
       .split('\n')

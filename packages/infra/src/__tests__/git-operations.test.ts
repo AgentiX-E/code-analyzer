@@ -354,6 +354,70 @@ describe('GitOperations — Error Handling', () => {
 // Diff Parsing Edge Cases (branch coverage hardening)
 // ==========================================================================
 
+// **A ref is an argument, and the shell is the thing that decides otherwise.**
+//
+// `createGitOperations` built every command as a string and handed it to `exec`, which parses it with `/bin/sh`. Branch
+// names, commit SHAs and file paths arrive from a repository that the analyser does not control - a pull request can name
+// a branch - so `getDiff('HEAD; curl …', 'HEAD')` was a command injection with a two-word payload. **CodeQL reports it
+// eight times in this file**, and it is the one class of finding here where the exploit is one line long and the fix is
+// an argument vector.
+//
+// **The test writes a marker file rather than asserting on an error message**, because "the call rejected" is also what
+// a typo in the ref produces. A marker that does not exist is a payload that did not run.
+describe('GitOperations — a ref is an argument, not a command', () => {
+  let repo: string;
+  let gitOps: ReturnType<typeof createGitOperations>;
+  const markers: string[] = [];
+
+  beforeAll(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), 'code-analyzer-injection-'));
+    execSync('git init', { cwd: repo });
+    execSync('git config user.email "test@test.com"', { cwd: repo });
+    execSync('git config user.name "Test User"', { cwd: repo });
+    fs.writeFileSync(path.join(repo, 'a.ts'), 'const a = 1;\n');
+    execSync('git add -A', { cwd: repo });
+    execSync('git commit -m "initial"', { cwd: repo });
+    gitOps = createGitOperations(repo);
+  });
+
+  afterAll(() => {
+    fs.rmSync(repo, { recursive: true, force: true });
+  });
+
+  afterEach(() => {
+    for (const marker of markers.splice(0)) fs.rmSync(marker, { force: true });
+  });
+
+  function marker(): string {
+    const file = path.join(
+      os.tmpdir(),
+      `code-analyzer-injection-${String(Date.now())}-${String(Math.random()).slice(2, 8)}`,
+    );
+    markers.push(file);
+    return file;
+  }
+
+  it('does not run the command a ref tries to append', async () => {
+    const file = marker();
+    await expect(gitOps.getDiff(`HEAD; touch ${file}`, 'HEAD')).rejects.toThrow(
+      /Git command failed/,
+    );
+    expect(fs.existsSync(file), 'the payload ran: a ref reached the shell').toBe(false);
+  });
+
+  it('does not run a payload hidden in a file path', async () => {
+    const file = marker();
+    await expect(gitOps.getFileContent('HEAD', `a.ts"; touch ${file}; echo "`)).rejects.toThrow();
+    expect(fs.existsSync(file), 'the payload ran: a path reached the shell').toBe(false);
+  });
+
+  it('does not run a payload hidden in a commit range', async () => {
+    const file = marker();
+    await expect(gitOps.getChangedFiles(`HEAD..HEAD$(touch ${file})`, 'HEAD')).rejects.toThrow();
+    expect(fs.existsSync(file), 'the payload ran: a range reached the shell').toBe(false);
+  });
+});
+
 describe('parseDiffOutput edge cases', () => {
   let repo: string;
   let gitOps: ReturnType<typeof createGitOperations>;
