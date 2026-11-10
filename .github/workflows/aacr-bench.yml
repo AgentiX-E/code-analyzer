@@ -111,16 +111,19 @@ jobs:
     # slowdown rather than accommodate the corpus.**
     #
     # **Raised again to 340, and the arithmetic is written down rather than felt.** Fourteen pull requests took 46
-    # minutes on 2026-11-10 across 1 770 reviewer calls and 4 783 judge calls - **197 calls per minute, 3.3 minutes per
-    # pull request**. Two hundred pull requests is therefore about eleven hours and does not fit in any job GitHub will
-    # run, **so this ceiling states the largest corpus that does**: 340 minutes is **103** pull requests at the measured
-    # rate, and a dispatch beyond that is refused by the runner rather than by a wrong number in the artifact. **This
-    # line said 190 until iteration 119 and 190 was never arithmetic**: it needs 1.8 minutes per pull request and no run
-    # has measured that - the figure in the same sentence is 3.3. **Consequently the hundred-pull-request confirmation
-    # registered as R-17 does not fit in one job with any headroom, so it is dispatched as two fifty-pull-request slices
-    # over disjoint halves of the unseen corpus** (`skip 50`, then `skip 100`) - which is strictly more information than
-    # one run of a hundred: two paired verdicts on two slices rather than one verdict on their union. **The corpus holds
-    # 200, so a full-corpus run needs the per-pull-request cost cut, not this number raised again.**
+    # minutes on 2026-11-10 across 1 770 reviewer calls and 4 783 judge calls - **142 calls per minute, 3.3 minutes per
+    # pull request** - and two hundred pull requests at that rate is eleven hours, which does not fit in any job GitHub
+    # will run. **That paragraph was right about the runner and wrong about the work**: the fourteen-pull-request run
+    # cost 468 model calls per pull request and the fifty-pull-request run of 2026-11-10 cost 301, so its two arms took
+    # 61.0 and 79.7 minutes - **1.22 and 1.59 minutes per pull request, not 3.3**. The number this ceiling fits is
+    # therefore **213** pull requests at the slower measured arm, and the figure in this comment said **190** until
+    # iteration 119, which needs 1.8 minutes per pull request and is a number nobody measured.
+    #
+    # **What that changes in practice.** R-17's confirmation is a hundred pull requests the discovery did not see: 159
+    # minutes of a 340-minute ceiling, dispatched as the single run the registration names. **The whole 200-pull-request
+    # corpus is now 319 minutes - inside the ceiling at 94 % of it, and outside anything a retry could absorb**, so a
+    # full-corpus run is a thing to schedule and not a thing that fails. A dispatch beyond 213 is refused by the runner
+    # rather than by a wrong number in the artifact.
     timeout-minutes: 340
     strategy:
       # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to

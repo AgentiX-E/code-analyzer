@@ -54,28 +54,34 @@ export const REGISTRATIONS = Object.freeze({
       'emitting only the categories whose measured acceptance reaches 0.22 raises the file arm F1 by at least 0.02',
     registeredGain: 0.02,
     mechanism: 'precision rises and recall falls by less than precision rises',
-    // **The hundred pull requests the discovery did not see, as two slices of fifty.** The split is arithmetic rather
-    // than convenience: §15.6 measures 3.29 minutes per pull request, and `MEASURED_MINUTES_PER_PULL_REQUEST` below is
-    // that figure divided rather than rounded - so one slice of a hundred needs 329 minutes of work inside a 340-minute
-    // ceiling and dies of the ceiling with nothing to show for it. **A confirmation that cannot finish cannot confirm
-    // anything**, and the unit test that reads this list is what keeps a future dispatch of a hundred from being written
-    // down as if it fitted.
-    confirmation: [
-      { skip: 50, max: 50 },
-      { skip: 100, max: 50 },
-    ],
+    // **The hundred pull requests the discovery did not see, in one dispatch - and the split into two fifties was written
+    // here first and then withdrawn by measurement.** The split was argued from 3.29 minutes per pull request, a figure
+    // that came from the fourteen-pull-request run of §15.6; the fifty-pull-request run of 2026-11-10 (workflow run
+    // 42823966835) took 61.0 and 79.7 minutes for its two arms, which is 1.22 and 1.59. **At the slower of the two, a
+    // hundred needs 159 minutes of a 340-minute ceiling** - inside the half-ceiling rule below - so the registration is
+    // answered by the run it names rather than by two runs that add up to it.
+    confirmation: [{ skip: 50, max: 100 }],
   },
 });
 
-/** The rate §15.6 measured: 46 minutes of whole job for 14 pull requests, kept as a ratio so the division is visible. */
-export const MEASURED_MINUTES_PER_PULL_REQUEST = 46 / 14;
+/**
+ * **The rate §15.6 failed to keep current: 79.7 minutes of whole job for 50 pull requests, from the slower arm of the
+ * fifty-pull-request run of 2026-11-10.**
+ *
+ * **Why this replaced 46 / 14.** The fourteen-pull-request run cost 468 model calls per pull request; the fifty cost 301,
+ * and its throughput rose from 142 to about 190 calls a minute, so the same job went from 3.29 minutes per pull request
+ * to 1.59. **A rate per pull request is a statement about a configuration, not about the runner** - and every ceiling
+ * figure derived from the old one was wrong in the same direction: it said a hundred pull requests need 329 of 340
+ * minutes when they need 159.
+ */
+export const MEASURED_MINUTES_PER_PULL_REQUEST = 79.7 / 50;
 
 /**
  * **The largest corpus a job ceiling can score at all**, which is not the same as the largest it can score safely.
  *
  * Exported because two things ask the same question: the workflow comment that states the number, and the unit test that
- * checks the number is arithmetic rather than memory - **this line said 190 pull requests until iteration 119, and 190
- * needs 1.8 minutes per pull request, which no run has measured.**
+ * checks the number is arithmetic rather than memory - **the same line said 190 pull requests until iteration 119, and
+ * 190 needs 1.8 minutes per pull request, which no run has measured.**
  */
 export function slicesThatFit(minutes) {
   const budget = Number(minutes);
@@ -88,8 +94,9 @@ export function slicesThatFit(minutes) {
  *
  * A slice that fills the ceiling is a slice whose artifact does not exist the first time the runner is slow, and a job
  * that dies at minute 340 has spent the money and produced no verdict - **so the margin is not caution, it is the
- * difference between a confirmation and a dispatch whose outcome is a timeout.** Half is the number the two registered
- * slices meet and the single slice of a hundred does not: 50 × 3.29 = 164 minutes against 340, and 100 × 3.29 = 329.
+ * difference between a confirmation and a dispatch whose outcome is a timeout.** The registered hundred meets it at 159
+ * minutes of 340, and the whole 200-pull-request corpus does not: 319 minutes, which is 94 % of the ceiling and inside it
+ * with no room to retry.
  */
 export const CONFIRMATION_CEILING_FRACTION = 0.5;
 

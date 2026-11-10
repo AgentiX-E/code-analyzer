@@ -1218,27 +1218,34 @@ with the same judge, and no second dispatch is needed to establish the baseline.
 
 ### 15.6 The corpus, raised to the size the claim needs
 
-|                                                  | 14 pull requests | 50 pull requests | 200 pull requests                     |
-| ------------------------------------------------ | ---------------- | ---------------- | ------------------------------------- |
-| goldens                                          | 170              | ~607             | ~2 400                                |
-| standard error on F1                             | 0.0228 measured  | ~0.012           | ~0.006                                |
-| cost of one dispatch (both arms)                 | **1.63 USD**     | ~5.8 USD         | ~23 USD                               |
-| runner time at the measured 3.3 min/pull request | 46 min           | 165 min          | 11 h - **beyond any job GitHub runs** |
+|                                                   | 14 pull requests | 50 pull requests      | 200 pull requests                           |
+| ------------------------------------------------- | ---------------- | --------------------- | ------------------------------------------- |
+| goldens                                           | 170              | **452** measured      | ~1 800 at the measured 9.0 per pull request |
+| standard error on F1                              | 0.0228 measured  | ~0.012                | ~0.006                                      |
+| cost of one dispatch (both arms)                  | **1.63 USD**     | ~5.8 USD              | ~23 USD                                     |
+| runner time at the measured 1.59 min/pull request | 22 min           | **79.7 min** measured | **319 min** - inside the ceiling at 94 %    |
 
 **The ceiling is a rate now rather than a constant**, in `.github/scripts/lib/run-config.mjs`: 0.15 USD per pull request
 replaying, 0.5 recording, with a floor that admits the fourteen-pull-request run the registration was written against.
 **A ceiling written for fourteen pull requests stops being a ceiling the moment `max_pull_requests` is an input**, and a
 bound that does not move with the work is a comment.
 
-**And the job timeout is now 340 minutes, which is the largest corpus this runner can score** - **103** pull requests at
-the measured 3.3 min/pull request. **This line said 190 until iteration 119, and 190 was never arithmetic**: 190 needs 1.8
-minutes per pull request, which no run has measured, and the same paragraph gives 3.3. **Two hundred is the whole corpus
-and it does not fit**, so a full-corpus run needs the per-pull-request cost cut rather than the timeout raised again. That
-is written down here because it is the next wall - **and because a ceiling stated at a hundred pull requests when it fits
-a hundred and three is a confirmation that times out with nothing to show for it**, which is why §19.3's hundred-unseen-
-pull-request confirmation is dispatched as **two fifty-pull-request slices** (`skip_pull_requests` 50 and 100) rather than
-one run of a hundred: two paired verdicts on disjoint slices are more evidence than one on their union, and each slice
-runs in about half the ceiling.
+**And the job timeout is 340 minutes, which is the largest corpus this runner can score** - **213** pull requests at the
+measured rate. **Three revisions of this paragraph were wrong in three different ways, and the last one is the
+instructive one.** It first said 190 pull requests, which needs 1.8 minutes per pull request that no run has measured. It
+then said 103, which is 340 divided by the 3.3 minutes per pull request of the fourteen-pull-request run - arithmetic,
+and measured on the wrong run: **that run cost 468 model calls per pull request and the fifty-pull-request run of
+2026-11-10 cost 301, so its arms took 61.0 and 79.7 minutes, or 1.22 and 1.59 minutes per pull request.** The number the
+ceiling fits is 213, and **the rate per pull request is a property of the configuration rather than of the runner** -
+which is why it is a constant in `.github/scripts/aacr-ablation-compare.mjs` with the run id beside it instead of a figure
+in a paragraph.
+
+**What that corrects downstream.** The whole 200-pull-request corpus is **319 minutes of a 340-minute ceiling** - it fits,
+at 94 % of the ceiling, which is inside it and outside anything a retry could absorb. **So "a full-corpus run is beyond
+any job GitHub runs" was a conclusion drawn from a stale rate, and the wall is now the runner's 340 minutes rather than
+the corpus's 200 rows.** §19.3's hundred-unseen-pull-request confirmation is 159 minutes and is dispatched as the single
+run the registration names; **it was briefly written down as two slices of fifty on the strength of the 3.3-minute rate,
+and the measurement withdrew the split before it cost a dispatch.**
 
 ### 15.7 What this section does not conclude
 
@@ -1573,13 +1580,13 @@ measured groups and then confirmed on the same rows is a threshold fitted to the
 `corpusSlice`, since **a run that says "one hundred" without saying "one hundred starting at fifty" is a run whose corpus
 cannot be reconstructed.**
 
-**The hundred is confirmed as two slices of fifty, and the reason is arithmetic rather than convenience.** §15.6 measures
-3.3 minutes per pull request against a 340-minute ceiling - **103 pull requests fit**, so a single hundred-pull-request
-job runs one dispatch away from a timeout, and a run killed at minute 340 produces no artifact and no verdict. The two
-slices are `skip 50 + max 50` and `skip 100 + max 50`: **every pull request in them is unseen by the discovery, the two
-slices are disjoint from each other, and each dispatch yields its own paired comparison**, so the confirmation is two
-independent verdicts rather than one. **A registration that names a hundred and is answered with two fifties has
-answered the registration**; one answered with a single fifty has not.
+**The hundred is confirmed in one dispatch, and the split into two fifties was withdrawn by measurement rather than by
+taste.** §15.6 briefly derived the ceiling from 3.3 minutes per pull request - a figure belonging to the
+fourteen-pull-request run - which made a hundred look like 329 minutes of a 340-minute ceiling and led to a plan of two
+slices of fifty. **The fifty-pull-request run of 2026-11-10 measures 61.0 and 79.7 minutes for its two arms**, so a
+hundred is 159 minutes and fits the half-ceiling rule with 181 minutes to spare. **A registration that names a hundred and
+is answered by one run of a hundred has answered the registration**; the split would have cost a second dispatch's
+checkout, clone and install to buy nothing.
 
 **What was measured before the registration, on the discovery set** (a subset of the verdicts above, so this is the
 in-sample figure and it is labelled as one):
