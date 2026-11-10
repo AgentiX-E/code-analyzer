@@ -88,7 +88,11 @@ function detectGraphQLResolvers(lines: string[], filePath: string): DetectedRout
     if (/Query\s*:\s*\{/.test(lines[i]!)) inResolver = true;
     if (/Mutation\s*:\s*\{/.test(lines[i]!)) inResolver = true;
     if (inResolver) {
-      const m = lines[i]!.match(/(\w+)\s*:\s*(?:async\s*)?\(/);
+      // **The token is bounded because a scan from every position inside an unbounded token costs the square of it**:
+      // forty thousand digits made the engine walk the remaining digits from each of the forty thousand positions. A
+      // GraphQL field name is a name, and a hundred and twenty-eight characters is four times the longest one in any
+      // published schema.
+      const m = lines[i]!.match(/(\w{1,128})\s*:\s*(?:async\s*)?\(/);
       if (m && !['Query', 'Mutation', 'Subscription'].includes(m[1]!)) {
         routes.push({
           filePath,
@@ -568,7 +572,10 @@ function extractGraphQLTypes(lines: string[]): Array<{ name: string; fields: str
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const typeMatch = trimmed.match(/type\s+(\w+)\s*(?:implements\s+\w+(?:\s*&\s*\w+)*)?\s*\{/);
+    // **`\s*(?:…)?\s*` is two independent runs of whitespace with an optional group between them**, so the trailing
+    // colon could be reached by adjusting either run, and the engine tried every split. Moving the leading run inside
+    // the optional group leaves one run and one way to reach the colon.
+    const typeMatch = trimmed.match(/type\s+(\w+)(?:\s+implements\s+\w+(?:\s*&\s*\w+)*)?\s*\{/);
     if (typeMatch) {
       if (currentType) types.push(currentType);
       currentType = { name: typeMatch[1]!, fields: [] };
@@ -582,7 +589,8 @@ function extractGraphQLTypes(lines: string[]): Array<{ name: string; fields: str
         continue;
       }
 
-      const fieldMatch = trimmed.match(/^(\w+)\s*(?:\([^)]*\))?\s*:/);
+      // The same split as the type header above: one whitespace run, inside the optional argument list.
+      const fieldMatch = trimmed.match(/^(\w+)(?:\s*\([^)]*\))?\s*:/);
       if (fieldMatch) {
         currentType.fields.push(fieldMatch[1]!);
       }

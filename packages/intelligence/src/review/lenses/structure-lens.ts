@@ -5,6 +5,7 @@
 
 import { EDGE_CALLS, EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
 
+import { readImportSpecifier } from '../import-specifier.js';
 import { createLensFinding } from '../review-lenses.js';
 
 import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
@@ -107,7 +108,11 @@ function countBranches(lines: string[]): number {
   let count = 1; // base complexity
   for (const line of lines) {
     const t = line.trim();
-    if (/\bif\b|\belse if\b|\?.*:|&&|\|\||\bcase\b|\bcatch\b|\bfor\b|\bwhile\b|\?.+\b/.test(t))
+    // **`\?.*:` and `\?.+\b` were the whole of this pattern's cost.** Both consumed the rest of the line and then gave
+    // it back one character at a time looking for a `:` or a word boundary, and they did it from every `?` in the line -
+    // so forty kilobytes of question marks cost the square of that. A ternary is a `?` that is neither `?.` nor `??`,
+    // which is a decision about one character and needs no look-ahead across the line at all.
+    if (/\bif\b|\belse if\b|&&|\|\||\bcase\b|\bcatch\b|\bfor\b|\bwhile\b|\?(?![.?])/.test(t))
       count++;
   }
   return count;
@@ -169,9 +174,11 @@ function detectLayerViolations(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    const importMatch = line.match(/import\s+.*\s+from\s+['"](.+)['"]/);
-    const requireMatch = line.match(/require\s*\(\s*['"](.+)['"]\s*\)/);
-    const importPath = importMatch?.[1] ?? requireMatch?.[1];
+    // **A scan, not a pattern.** See `review/import-specifier.ts`: the shape this asks about - a keyword that follows
+    // whitespace and is followed by a quote - is the shape a backtracking engine pays for by the square of the line, and
+    // bounding the whitespace runs around it only moved the constant from "did not return" to half a second.
+    const importPath =
+      readImportSpecifier(line) ?? line.match(/require\s*\(\s*['"](.+)['"]\s*\)/)?.[1];
     if (!importPath) continue;
 
     for (const forbidden of sourceRule.forbiddenImports) {

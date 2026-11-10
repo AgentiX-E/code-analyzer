@@ -297,10 +297,15 @@ jobs:
           name: aacr-bench-defect
           path: /tmp/with
 
+      # **Every artifact name here is produced by the matrix above, and a job that downloads a name the matrix does not
+      # produce fails at this step rather than at the comparison.** This one said `aacr-bench-defectout` for two
+      # iterations - the name that `without` became when the matrix was renamed by substitution - so the fifty- and
+      # hundred-pull-request runs both spent their money, uploaded both artifacts, and then failed here, which is the
+      # only step whose output is the thing the run was dispatched for.
       - name: Download the run with every category
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-defectout
+          name: aacr-bench-advisory
           path: /tmp/without
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

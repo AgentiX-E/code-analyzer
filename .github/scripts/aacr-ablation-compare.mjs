@@ -43,6 +43,7 @@ export const REGISTRATIONS = Object.freeze({
     claim: 'the per-language defect checklist raises the file arm F1 by at least 0.04',
     registeredGain: 0.04,
     mechanism: 'precision rises, recall does not fall',
+    mechanismRule: 'recall-holds',
     // **Empty, and that is the correct value rather than an omission.** A falsified device needs no confirmation: §8's
     // checklist was measured at −0.0292 with p = 0.0049 on its own confirmation run, so the registration is closed and
     // a slice list here would be a promise to spend money re-reading a verdict that has already been read.
@@ -54,6 +55,7 @@ export const REGISTRATIONS = Object.freeze({
       'emitting only the categories whose measured acceptance reaches 0.22 raises the file arm F1 by at least 0.02',
     registeredGain: 0.02,
     mechanism: 'precision rises and recall falls by less than precision rises',
+    mechanismRule: 'recall-trades-below-precision',
     // **The hundred pull requests the discovery did not see, in one dispatch - and the split into two fifties was written
     // here first and then withdrawn by measurement.** The split was argued from 3.29 minutes per pull request, a figure
     // that came from the fourteen-pull-request run of §15.6; the fifty-pull-request run of 2026-11-10 (workflow run
@@ -62,6 +64,34 @@ export const REGISTRATIONS = Object.freeze({
     // answered by the run it names rather than by two runs that add up to it.
     confirmation: [{ skip: 50, max: 100 }],
   },
+});
+
+/**
+ * **The mechanism each registration states, as a predicate rather than as a sentence.**
+ *
+ * This table exists because the comparison script used to check every registration against one hardcoded rule - "precision
+ * rose and recall did not fall by more than a golden" - while R-17's registration states a different one: "precision rises
+ * and recall falls by less than precision rises". On the hundred-pull-request confirmation those two rules disagree:
+ * precision rose 0.0937, recall fell 0.0414, so **the registered mechanism held and the hardcoded one did not**, and the
+ * artifact said `mechanismMet: false` about a registration whose own words described what happened.
+ *
+ * **A verdict field that tests a different rule from the one it is filed under is worse than no field**, because it is
+ * the field a reader trusts. So a registration names its rule, the rule lives here, and the self-test proves both
+ * branches on fixtures rather than on a run.
+ */
+export const MECHANISMS = Object.freeze({
+  /**
+   * Precision rises and recall does not fall by more than one golden is worth - the claim a device makes when it is
+   * meant to remove findings without removing the ones that matter.
+   */
+  'recall-holds': (precisionGain, recallGain, recallTolerance) =>
+    precisionGain > 0 && recallGain >= -recallTolerance,
+  /**
+   * Precision rises and recall falls by less than precision rises - the trade a prior makes, and the only trade that
+   * can raise F1 while dropping true positives.
+   */
+  'recall-trades-below-precision': (precisionGain, recallGain) =>
+    precisionGain > 0 && recallGain > -precisionGain,
 });
 
 /**
@@ -262,7 +292,16 @@ export function summarise(on, off) {
   const recallTolerance = goldens > 0 ? 1 / goldens : 0;
   // **The mechanism, in the terms each registration states it.** A device that trades recall for precision and moves F1
   // not at all is a different finding from a device that does nothing, and this is the field that tells them apart.
-  const mechanismMet = precisionGain > 0 && recallGain >= -recallTolerance;
+  // **The rule the registration names, and not a rule this file prefers.** A registration that names a mechanism no
+  // entry in `MECHANISMS` implements is a registration whose verdict cannot be computed, so it is refused rather than
+  // measured against a neighbour.
+  const mechanismRule = registration?.mechanismRule;
+  const mechanism = mechanismRule ? MECHANISMS[mechanismRule] : undefined;
+  if (registration && !mechanism)
+    throw new Error(
+      `registration "${String(registration.section)}" names mechanism "${String(mechanismRule)}", which is not one of ${Object.keys(MECHANISMS).join(', ')}`,
+    );
+  const mechanismMet = mechanism ? mechanism(precisionGain, recallGain, recallTolerance) : null;
   const outcome =
     magnitudeMet === null
       ? 'unregistered: no expectation was written before this run'
@@ -477,11 +516,48 @@ function selfTest() {
   assert(traded.delta.f1 > 0, 'the trade does gain something');
   assert(traded.pairedTest.withOnly === 1 && traded.pairedTest.withoutOnly === 0, 'and one golden');
 
+  // **The two mechanism rules disagree, and the fixture makes them disagree on purpose.** These are the numbers the
+  // hundred-pull-request confirmation actually produced: precision up 0.0937, recall down 0.0414. Under R-17's own
+  // wording the mechanism held - recall fell by less than precision rose - and under §8's stricter wording it did not.
+  // **Before `MECHANISMS` existed, every registration was checked against the stricter rule**, so the artifact filed a
+  // `false` under the section whose sentence described what happened.
+  const R17 = { precision: 0.0937, recall: -0.0414, tolerance: 0.0014 };
+  assert(
+    MECHANISMS['recall-trades-below-precision'](R17.precision, R17.recall, R17.tolerance) === true,
+    "R-17's own mechanism holds at the measured numbers: recall fell less than precision rose",
+  );
+  assert(
+    MECHANISMS['recall-holds'](R17.precision, R17.recall, R17.tolerance) === false,
+    'and §8 rule does not, which is why the rule has to be chosen by the registration',
+  );
+  // A device that removed recall entirely is a filter that found nothing: neither rule calls precision alone a mechanism.
+  assert(
+    MECHANISMS['recall-trades-below-precision'](0.2, -0.5, 0.001) === false,
+    'a trade that costs more recall than it buys precision is not the trade R-17 registered',
+  );
+  assert(
+    MECHANISMS['recall-holds'](0, 0, 0.001) === false,
+    'and a device that moved nothing at all is not a mechanism either',
+  );
+
   const confounded = confoundsBetween({ ...qualifies, corpus: 'other' }, baseline);
   assert(
     confounded.length === 1 && confounded[0].field === 'corpus',
     'a different corpus is refused',
   );
+
+  // A registration that names a rule the table does not implement must be refused rather than approximated.
+  assert(
+    Object.keys(MECHANISMS).every((name) =>
+      Object.values(REGISTRATIONS).some((r) => r.mechanismRule === name),
+    ),
+    'every mechanism rule is named by a registration, so none of them is dead',
+  );
+  for (const registration of Object.values(REGISTRATIONS))
+    assert(
+      MECHANISMS[registration.mechanismRule],
+      `registration ${registration.section} names a rule the table implements`,
+    );
 
   const sameFlag = confoundsBetween(qualifies, {
     ...baseline,

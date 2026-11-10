@@ -367,7 +367,11 @@ export class DiffParser {
 
     for (const line of lines) {
       // Detect hunk header: @@ -oldStart,oldCount +newStart,newCount @@
-      const hunkMatch = line.match(/^@@\s+-(\d+),?(\d+)?\s+\+(\d+),?(\d+)?\s+@@/);
+      // **`(\d+),?(\d+)?` could split a run of digits between its two groups in as many ways as the run is long**, and
+      // the `\s+` that followed multiplied them, so a header of `@@ -0` and forty thousand zeroes cost four seconds. Git
+      // writes exactly one space, one comma and one space in a hunk header - the pattern now says that, and the engine
+      // has nothing left to guess.
+      const hunkMatch = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
       if (hunkMatch) {
         if (currentHunk) {
           hunks.push(currentHunk);

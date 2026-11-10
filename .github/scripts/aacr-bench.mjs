@@ -124,16 +124,26 @@ const PROMPT_ORDER = String(process.env['AACR_PROMPT_ORDER'] ?? 'boilerplate-fir
  *
  * `category-prior.ts` carries the measurement - on this corpus, `test` findings were accepted 11 times out of 95 and
  * `architecture` 36 out of 179, while `bug` was 86 of 211. **A mixture problem is not repaired by wording**, so the
- * profile is an input rather than a constant: `AACR_PROFILE=defect` (the default, and what the product ships) drops the
- * categories measured below the floor, and `advisory` keeps everything so that a reader who disagrees can see what the
- * prior removed.
+ * profile is an input rather than a constant: `AACR_PROFILE=advisory` (the default) keeps every category, and
+ * `AACR_PROFILE=defect` drops the categories measured below the 0.22 acceptance floor.
+ *
+ * **The default was `defect` for exactly as long as it took to confirm it, and the confirmation is why it is not.**
+ * Registered in §19 (R-17) as at least +0.02 F1 and confirmed on the hundred pull requests the discovery did not see
+ * (run 42871500941, `skip_pull_requests: 50`): precision 0.1622 → 0.2559, recall 0.1768 → 0.1354, F1 0.1692 → 0.1771.
+ * **That is +0.0079 against a registered +0.02, inside the 0.0194 this instrument resolves at 724 goldens, and the
+ * paired test loses 68 goldens for every 38 it gains at p = 0.0046** - so the device bought precision by spending
+ * coverage, significantly, and the F1 it moved is not distinguishable from zero. **A filter that costs a significant
+ * number of goldens to move F1 by less than the noise is not a default**, whatever it does to precision.
+ *
+ * It stays in the code because it is a measured device and a reader may want it; flipping it back requires a
+ * registration that a run of unseen pull requests reaches.
  *
  * **The value is validated rather than defaulted**, because **a typo in an environment variable that silently falls
  * back to the default is an experiment that measures the wrong arm and says so in its own metadata** - the defect the
  * prompt-order input was written to avoid.
  */
 const PROFILE = (() => {
-  const raw = String(process.env['AACR_PROFILE'] ?? 'defect');
+  const raw = String(process.env['AACR_PROFILE'] ?? 'advisory');
   if (raw !== 'defect' && raw !== 'advisory')
     throw new Error(`AACR_PROFILE must be "defect" or "advisory", not "${raw}"`);
   return raw;

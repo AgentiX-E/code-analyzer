@@ -66,7 +66,10 @@ export function createGitOperations(repoPath: string): GitOperations {
       // `section` survived `.filter(Boolean)`, so it is never the empty string
       // and `split` therefore always yields at least one element.
       const headerLine = lines[0]!;
-      const pathMatch = headerLine.match(/^a\/(.+?)\s+b\/(.+)$/);
+      // **`\s+` before `b/` gave the engine a run to partition against a lazy group**, so a header whose path is a long
+      // run of spaces cost the square of its length. Git separates the two paths with exactly one space - the same
+      // correction `review/actionability.ts` carries - and a path containing a space is still read at its first ` b/`.
+      const pathMatch = headerLine.match(/^a\/(.+?) b\/(.+)$/);
       if (!pathMatch) continue;
 
       // Both capture groups are mandatory `(.+)`, so they always participate and
@@ -92,7 +95,9 @@ export function createGitOperations(repoPath: string): GitOperations {
       for (let i = 1; i < lines.length; i++) {
         // The index is bounded by `lines.length`, so it always resolves.
         const line = lines[i]!;
-        const hunkMatch = line.match(/^@@ -(\d+),?(\d*)\s+\+(\d+),?(\d*)\s+@@/);
+        // As in `review/diff-parser.ts`: a run of digits could be split between the start and the count in as many ways
+        // as it is long, and the trailing `\s+` multiplied them. Git writes one space, one comma, one space.
+        const hunkMatch = line.match(/^@@ -(\d+)(?:,(\d*))? \+(\d+)(?:,(\d*))? @@/);
         if (hunkMatch) {
           // The two start offsets are mandatory `(\d+)` groups and therefore
           // always capture a digit string; only the counts may be omitted.

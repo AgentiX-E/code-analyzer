@@ -371,7 +371,10 @@ describe('every module a package compiles is reachable from an entry its manifes
       // for a bill.** 157 was iteration 110, which added `review/llm/language-rules.ts`: the per-language checklist is
       // content rather than plumbing, and this register is what makes that a decision somebody took rather than a file
       // that appeared.)
-      intelligence: 159,
+      // **160 since iteration 120**, which added `review/import-specifier.ts`: the linear reader that replaced the
+      // import-line pattern in `structure-lens.ts`. It is a module rather than a private function because three other
+      // readers of the same line shape will want it, and a scan copied into a second place is a scan that will diverge.
+      intelligence: 160,
       mcp: 39,
       server: 24,
       shared: 10,

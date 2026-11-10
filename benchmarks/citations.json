@@ -352,7 +352,7 @@
       "groundTruthSource": "The same run as `aacr-bench`: two arms of one workflow over the same 14 pull requests, the same 170 goldens and the same judge, differing in one environment variable, compared by a job that has no provider credentials and therefore cannot call a model.",
       "sources": ["benchmarks/aacr-checklist-paired.json", "benchmarks/aacr-bench.json"],
       "independentValidation": true,
-      "caveat": "**A registered rule that lost, published with its registration.** The claim was that the per-language defect checklist raises the file arm's F1 by at least 0.04; the measured gain is 0.0033, twelve times smaller, and the mechanism prediction failed too - recall fell by nine goldens where the registration allowed one. The refusal branch and the branch a device that does nothing would take are both asserted by the script's own self-test, so the number is not a null produced by two runs of the same arm: the two artifacts' flags, corpus, judge and dataset size are compared before any subtraction, and a mismatch is refused and exits non-zero.",
+      "caveat": "**A registered rule that lost, published with its registration.** The claim was that the per-language defect checklist raises the file arm's F1 by at least 0.04; the measured gain is 0.0033, twelve times smaller, and the mechanism prediction failed too - recall fell by nine goldens where the registration allowed one. The refusal branch and the branch a device that does nothing would take are both asserted by the script's own self-test, so the number is not a null produced by two runs of the same arm: the two artifacts' flags, corpus, judge and dataset size are compared before any subtraction, and a mismatch is refused and exits non-zero.\n\n**This artifact is history now.** The comparison job writes `benchmarks/aacr-ablation-paired.json` for whichever field the two arms vary, so the checklist comparison below is frozen in `aacr-checklist-paired.json` and every later hypothesis is filed under `aacr-emission-paired` or its successor.",
       "metrics": {
         "withF1": 0.2405,
         "withoutF1": 0.2372,
@@ -376,6 +376,17 @@
         "outcome": "falsified: the gain is inside the instrument resolution",
         "runId": "42569985626"
       }
+    },
+    "aacr-emission-paired": {
+      "artifact": "benchmarks/aacr-ablation-paired.json",
+      "measuredAt": "2026-11-10",
+      "samples": 100,
+      "groundTruthIssues": 724,
+      "languages": ["c", "cpp", "go", "python", "javascript", "typescript", "php"],
+      "groundTruthSource": "Two arms of one workflow over the hundred pull requests the discovery set did not contain - skip 50, max 100, so the confirmation corpus is disjoint from the fifty the floor was derived on by construction rather than by an argument in a document. Both arms read 100 of 100, the same 724 goldens and the same judge.",
+      "sources": ["aacr-bench-defect (run 42871500941)", "aacr-bench-advisory (run 42871500941)"],
+      "independentValidation": true,
+      "caveat": "**R-17 falsified on magnitude, confirmed on mechanism, and the default reverted because of it.** The registration claimed at least +0.02 F1 for emitting only the categories whose measured acceptance reaches 0.22; the observed gain is +0.0079, inside the 0.0194 this instrument resolves at 724 goldens. The paired test is not neutral: 38 goldens are matched by the floor arm alone and 68 by the baseline alone, p = 0.0046, so the device loses coverage significantly. Precision rose 0.0937 and recall fell 0.0414, which is the trade the registration permits - **the device does exactly what it was designed to do and what it does is not worth the claim**. The discovery figure was +0.032 on 50 pull requests; that is what a threshold fitted to its own rows looks like on rows it was not fitted to. AACR_PROFILE therefore defaults to `advisory`, and flipping it back requires a registration a run of unseen pull requests reaches."
     }
   }
 }

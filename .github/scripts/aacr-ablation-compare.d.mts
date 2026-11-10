@@ -10,10 +10,26 @@ export interface Registration {
   section: string;
   claim: string;
   registeredGain: number;
+  /** The mechanism as the registration states it, for the reader. */
   mechanism: string;
+  /** The entry of `MECHANISMS` that decides whether that sentence held. */
+  mechanismRule: MechanismRule;
   /** Where a confirming run starts and how many pull requests it scores. Empty for a falsified device. */
   confirmation: { skip: number; max: number }[];
 }
+
+/**
+ * **The mechanisms a registration may name**, so that the verdict field is computed from the sentence it is filed
+ * under rather than from a rule the comparison script happens to prefer.
+ */
+export type MechanismRule = 'recall-holds' | 'recall-trades-below-precision';
+
+export declare const MECHANISMS: Readonly<
+  Record<
+    MechanismRule,
+    (precisionGain: number, recallGain: number, recallTolerance: number) => boolean
+  >
+>;
 
 export declare const REGISTRATIONS: Readonly<
   Record<'languageChecklist' | 'emissionProfile', Registration>

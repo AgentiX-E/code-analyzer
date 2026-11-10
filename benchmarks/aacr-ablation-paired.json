@@ -1,0 +1,74 @@
+{
+  "measuredAt": "2026-11-10",
+  "where": "github-actions",
+  "compared": true,
+  "protocol": "two runs of the same job over the same pull requests, the same goldens and the same judge, differing in emissionProfile",
+  "variedField": "emissionProfile",
+  "arms": {
+    "with": "defect",
+    "without": "advisory"
+  },
+  "registration": {
+    "section": "§19 (R-17)",
+    "claim": "emitting only the categories whose measured acceptance reaches 0.22 raises the file arm F1 by at least 0.02",
+    "registeredGain": 0.02,
+    "mechanism": "precision rises and recall falls by less than precision rises",
+    "mechanismRule": "recall-trades-below-precision",
+    "confirmation": [
+      {
+        "skip": 50,
+        "max": 100
+      }
+    ]
+  },
+  "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
+  "pullRequests": 100,
+  "corpusSlice": {
+    "skip": 50,
+    "requested": 100
+  },
+  "goldens": 724,
+  "resolution": 0.0194,
+  "withDevice": {
+    "precision": 0.2559,
+    "recall": 0.1354,
+    "f1": 0.1771,
+    "truePositives": 98,
+    "falsePositives": 285,
+    "falseNegatives": 626,
+    "findings": 1078
+  },
+  "withoutDevice": {
+    "precision": 0.1622,
+    "recall": 0.1768,
+    "f1": 0.1692,
+    "truePositives": 128,
+    "falsePositives": 661,
+    "falseNegatives": 596,
+    "findings": 1095
+  },
+  "delta": {
+    "precision": 0.0937,
+    "recall": -0.0414,
+    "f1": 0.0079,
+    "truePositives": -30,
+    "falsePositives": -376,
+    "findings": -17
+  },
+  "pairedTest": {
+    "view": "the registered operating point of each run, paired on pull request and golden index",
+    "both": 60,
+    "withOnly": 38,
+    "withoutOnly": 68,
+    "pValue": 0.0046,
+    "verdict": "significant at 0.05"
+  },
+  "verdict": {
+    "registeredGain": 0.02,
+    "observedGain": 0.0079,
+    "magnitudeMet": false,
+    "mechanismMet": true,
+    "outcome": "falsified: the registered gain was not reached",
+    "insideResolution": true
+  }
+}

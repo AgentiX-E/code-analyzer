@@ -456,7 +456,10 @@ than 9 %, so the run measures the device instead of measuring a device that was 
 ### 8.6 What the run said
 
 **Run `42569985626`, 2026-11-09, fourteen pull requests, 170 goldens, one judge, two arms.** The comparison artifact is
-`benchmarks/aacr-checklist-paired.json`; the default configuration's figure is `benchmarks/aacr-bench.json`.
+`benchmarks/aacr-checklist-paired.json`; the default configuration's figure is `benchmarks/aacr-bench.json`. **That
+artifact is frozen history**: the comparison job now writes `benchmarks/aacr-ablation-paired.json` for whichever field
+the two arms vary, so the checklist comparison stays where it was measured and every later hypothesis is filed
+separately - §19.3's is `benchmarks/aacr-ablation-paired.json`, cited as `aacr-emission-paired`.
 
 | figure                                         | with the checklist  | without it | difference     |
 | ---------------------------------------------- | ------------------- | ---------- | -------------- |
@@ -1597,6 +1600,27 @@ in-sample figure and it is labelled as one):
 | drop `test`                       | 474      | 0.2068     | 0.2197     | 0.2130     |
 | drop `test` and `architecture`    | 274      | **0.2915** | 0.1928     | **0.2321** |
 | the same, top 12 per pull request | 234      | 0.3419     | 0.1794     | **0.2353** |
+
+**The confirmation has been run, and it falsified the registration.** Workflow run
+[42871500941](https://github.com/AgentiX-E/code-analyzer/actions/runs/42871500941), 2026-11-10, `skip_pull_requests: 50`
+with `max_pull_requests: 100`, both arms, 724 goldens, 5785 model calls, 1.16 and 1.84 USD:
+
+| arm (100 unseen pull requests) | precision  | recall     | F1         | TP  | FP  | FN  |
+| ------------------------------ | ---------- | ---------- | ---------- | --- | --- | --- |
+| every category (`advisory`)    | 0.1622     | **0.1768** | 0.1692     | 128 | 661 | 596 |
+| the 0.22 floor (`defect`)      | **0.2559** | 0.1354     | **0.1771** | 98  | 285 | 626 |
+
+**+0.0079 against a registered +0.02.** The instrument resolves 0.0194 at 724 goldens, so **the gain is inside the noise,
+and the paired test is not neutral about it**: over the two arms' covered goldens, 38 goldens are matched by the floor arm
+alone and **68 by the baseline alone, at p = 0.0046**. The mechanism held - precision rose 0.0937 and recall fell 0.0414,
+which is the trade R-17's sentence permits - **and that is what makes the result worth writing down rather than
+explaining away: the device does exactly what it was designed to do, and what it does is not worth 0.02 F1.**
+
+**So the default went back to `advisory`.** `AACR_PROFILE` still takes `defect`, because it is a measured device and a
+reader may want it, but **a filter that costs a significant 68 goldens to buy 38 and moves F1 by less than the noise is
+not a default whatever it does to precision**. The discovery figure was +0.032 on 50 pull requests; the confirmation on
+100 unseen is +0.0079, which is what a threshold fitted to its own rows looks like when it meets rows it was not fitted
+to - **the registration was the reason this could be seen, and the same measurement without it would have shipped.**
 
 **The floor is 0.22 and it is written in one place** (`DEFECT_FLOOR`), because it separates the four categories measured
 above a quarter from the three measured below it. **`style` at 0.000 is dropped by the same rule and reported by it**,
