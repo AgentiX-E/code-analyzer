@@ -2476,7 +2476,12 @@ async function main() {
    * `theirs` row at all - and a golden it never scored is indistinguishable from a golden it missed. The size of that
    * exclusion is published beside the list rather than folded into it.
    */
-  const attributionByKey = new Map(attributed.map((entry) => [entry.pr, entry]));
+  // **Aligned by object identity rather than by the pull request's key**, because the two lists are built in one loop
+  // and the key has a different fallback on each side: `attributed` names a pull request without a URL after
+  // `competitorPerPr.length` and `perPr` after `perPr.length`, which are the same number only while the two arrays stay
+  // the same length. **A lookup that silently pairs the wrong two rows would report a ceiling about a corpus nobody
+  // ran**, and the identity of the row is the one thing that cannot drift.
+  const attributionByPull = new Map(perPr.map((pull, at) => [pull, attributed[at]]));
   const bothMissed = [];
   /** How many goldens this analysis had a row for, so that `bothMissed.length` has a denominator. */
   let goldensInPairedPulls = 0;
@@ -2486,7 +2491,7 @@ async function main() {
     const oursCovered = new Set(gatedEmission(pair.ours).indices);
     const theirsCovered = new Set(gatedEmission(pair.theirs).indices);
     goldensInPairedPulls += pair.ours.goldens;
-    const entry = attributionByKey.get(pair.key);
+    const entry = attributionByPull.get(pair.ours);
     if (entry === undefined) {
       goldensWithoutAttribution += pair.ours.goldens;
       continue;
