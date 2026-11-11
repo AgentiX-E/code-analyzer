@@ -2,6 +2,8 @@
 // Provides tree-sitter AST context for rule checkers, with transparent
 // fallback to text-based analysis when grammar is unavailable.
 
+import { readQuotedSpans } from '../review/quoted-spans.js';
+
 import type { RuleCheckResult, RuleChecker } from './rule-runner.js';
 
 // ---------------------------------------------------------------------------
@@ -477,23 +479,21 @@ function extractStringsRegex(lines: string[]): AstStringLiteral[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    // **The unrolled form and the alternation form match the same strings and only one of them is obvious to read.**
-    // `[^'\\]*(?:\\.[^'\\]*)*` says "a character that is not a quote, then an escape and more of the same", which is
-    // right and which a backtracking engine has to try both ways at every escape. `(?:[^'\\]|\\.)*` says the same thing
-    // as one list of two disjoint cases, so there is one way to read it.
-    const singlePattern = /'((?:[^'\\]|\\.)*)'/g;
-    const doublePattern = /"((?:[^"\\]|\\.)*)"/g;
-    const templatePattern = /`((?:[^`\\]|\\.)*)`/g;
-
-    let m: RegExpExecArray | null;
-    while ((m = singlePattern.exec(line)) !== null) {
-      strings.push({ value: m[1]!, text: m[0], line: i + 1 });
-    }
-    while ((m = doublePattern.exec(line)) !== null) {
-      strings.push({ value: m[1]!, text: m[0], line: i + 1 });
-    }
-    while ((m = templatePattern.exec(line)) !== null) {
-      strings.push({ value: m[1]!, text: m[0], line: i + 1 });
+    // **One scan, three readings of it.** A pattern that reads a string literal has to decide at every `\\"` whether the
+    // backslash starts an escape or the quote ends the string, and both spellings of that pattern - the unrolled one and
+    // the alternation that replaced it - are exponential in the number of escapes: a measured line of them cost three
+    // seconds at eighty kilobytes. The scan walks forward once; the three passes below group its spans by quote, which is
+    // the order this function has always emitted them in.
+    const spans = readQuotedSpans(line, `'"\``);
+    for (const quote of [`'`, `"`, '`']) {
+      for (const span of spans) {
+        if (span.quote !== quote) continue;
+        strings.push({
+          value: span.body,
+          text: line.slice(span.start, span.end),
+          line: i + 1,
+        });
+      }
     }
   }
 
@@ -539,7 +539,9 @@ function extractImportsRegex(lines: string[], language: string): AstImport[] {
 function extractAssignmentsRegex(lines: string[], _language: string): AstAssignment[] {
   const assignments: AstAssignment[] = [];
 
-  const pattern = /(?:const|let|var)[ \t]+(\w{1,128})[ \t]*=[ \t]*(.+?)(?:;|$)/;
+  // **`[^;\n]+` and not `(.+?)(?:;|$)`.** A lazy group followed by a two-way terminator asks the engine to try every
+  // prefix of the value before it settles; a class that cannot match the terminator has one reading.
+  const pattern = /(?:const|let|var)[ \t]+(\w{1,128})[ \t]*=[ \t]*([^;\n]+)/;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     const m = pattern.exec(line);

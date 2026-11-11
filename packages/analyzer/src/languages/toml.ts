@@ -53,7 +53,7 @@ export class TomlProvider implements LanguageProvider {
       // the same characters** - on a long run of spaces it tries every split. The test is on the raw group and not on a
       // trimmed one: a line of `key =` followed by nothing is not a definition, and `key =   ` was one, because the
       // trailing run could give a character back to `(.+?)`.
-      const kvMatch = line.match(/^[ \t]*([\w.-]+)[ \t]*=[ \t]*(.*)$/);
+      const kvMatch = line.match(/^[ \t]*([\w.-]+)[ \t]*=(.*)$/);
       if (kvMatch && kvMatch[2]! !== '') {
         captures.push(
           this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, kvMatch[1]!, i + 1, filePath, {

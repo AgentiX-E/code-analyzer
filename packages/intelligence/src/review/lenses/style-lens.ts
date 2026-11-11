@@ -3,6 +3,7 @@
 // whitespace, line length, duplicate code, inconsistent naming, comment quality.
 
 import { MinHashSimilarity } from '../../similarity/minhash.js';
+import { replaceQuotedBodies } from '../quoted-spans.js';
 import { createLensFinding } from '../review-lenses.js';
 
 import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
@@ -72,7 +73,11 @@ function checkMagicNumbers(line: string, lineNum: number, filePath: string): Len
   // repository has opened**, on a file where nothing can be "extracted to a named constant". Stripping the literals
   // first is the same thing every linter does and the same thing the rule always meant: **a magic number is a value in
   // an expression.**
-  const code = line.replace(/"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*'/g, '""');
+  // **A scan, because the pattern that reads a string literal is exponential in its escapes.** Both spellings - the
+  // unrolled one and the alternation that replaced it - have to decide at every `\\"` whether the backslash starts an
+  // escape or the quote ends the string, and a measured line of them cost three seconds at eighty kilobytes. The scan
+  // walks forward once and takes the next character after a backslash, which is the rule the pattern was trying to say.
+  const code = replaceQuotedBodies(line, `"'`, '');
   const numMatch = code.match(/(?<![a-zA-Z0-9_.#])(-?\d+\.?\d*)(?![a-zA-Z0-9_])/g);
   if (!numMatch) return null;
 

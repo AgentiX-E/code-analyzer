@@ -24,6 +24,7 @@ import { DiffParser } from '../review/diff-parser.js';
 import { VersionCompatibilityMatrix } from '../cross-repo/version-matrix.js';
 import { readImportSpecifier } from '../review/import-specifier.js';
 import { analyzeApi } from '../review/lenses/api-lens.js';
+import { createAstContext } from '../rules/ast-rule-checker.js';
 import { analyzeStyle } from '../review/lenses/style-lens.js';
 import { analyzeStructure } from '../review/lenses/structure-lens.js';
 import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
@@ -445,6 +446,26 @@ describe('a gap that two quantifiers can both read', () => {
     // disjoint cases.
     expectLinear('analyzeStyle on escapes', 40_000, (chars) => {
       analyzeStyle(`const a = "${'\\\\a'.repeat(Math.floor(chars / 2))}`, 'src/a.ts');
+    });
+  });
+
+  it('does not let a string of escapes that never closes cost the square of its length', () => {
+    // **The unterminated case, and the terminator is what makes it a measurement.** A closed string closes on the first
+    // unescaped quote and the pattern reads it in one pass; a string that never closes is the input where every `\\"`
+    // is a decision the engine tries and re-tries. Measured before the scan: **7 ms at five thousand escapes, 30 ms at
+    // ten, 118 ms at twenty** for the alternation, and the same curve 1.8 times higher for the unrolled form.
+    const hostile = (chars: number): string => `const a = "${'\\"'.repeat(Math.floor(chars / 2))}`;
+    expectLinear('analyzeStyle on an unterminated string', 120_000, (chars) => {
+      analyzeStyle(hostile(chars), 'src/a.ts');
+    });
+  });
+
+  it('does not let the same line reach the same cost in the string extractor', () => {
+    // The extractor is reached through `createAstContext` with a language tree-sitter does not know, which is the
+    // fallback path the pattern belongs to - **the AST path never reads these patterns.**
+    const hostile = (chars: number): string => `const a = "${'\\"'.repeat(Math.floor(chars / 2))}`;
+    expectLinear('createAstContext on an unterminated string', 120_000, (chars) => {
+      createAstContext([hostile(chars)], 'src/a.txt', 'plaintext');
     });
   });
 

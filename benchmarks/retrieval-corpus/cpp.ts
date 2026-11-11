@@ -475,7 +475,7 @@ export class CppProvider extends TreeSitterBaseProvider {
     const funcRegex =
       // **Bounded to eight, and this was the worst of the twenty-five at 7 205 ms per 120 KB** - a copy of the parser's
       // own pattern, kept identical to it so the corpus cannot measure a grammar the product no longer has.
-      /(?:\w+(?:<[^>]*>)?(?:::|[ \t]+)+){0,8}(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)/g;
+      /(?:\w+(?:<[^<>\n]{0,256}>)?(?:::|[ \t])+){0,8}(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[1]!;
       if (!this.isValidFnName(name)) continue;
