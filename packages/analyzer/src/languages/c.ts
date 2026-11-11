@@ -359,18 +359,29 @@ export class CProvider extends TreeSitterBaseProvider {
     // Function definitions/declarations: [storage] return_type [*] name(params) {|;
     // The return-type group allows stars both attached to the type (`int* fp`)
     // and attached to the name (`int *fp`); the name is the last word before `(`.
+    //
+    // **Anchored at the start of a line, and one line long, because the run of qualifiers is a quantifier over a
+    // quantifier.** `(?:\w{1,128}\**\s+)+` gives every word up to 128 ways to be split between two repetitions and
+    // every prefix of the run a chance to end it: on a generated line of `a a a a …` with no `(` after it, the engine
+    // explored all of them — 4 297 ms at the size the assay replays, measured. Anchor plus `[ \t]` removes both
+    // freedoms: the split points are the spaces, and only a statement boundary can begin a match, so a failure at any
+    // other position costs one character comparison. The boundary is `;`, `{`, `}` or a newline rather than only a
+    // newline, because two definitions on one line are one line and `int b() {} int a() {}` is an existing test. What
+    // it no longer matches is a signature whose return type sits on the previous line, which no C formatter writes.
     const funcRegex =
-      /(?:(?:static|inline|extern)\s+)*(?:\w{1,128}[*]*\s+)+(\*+\s*)?(\w{1,128})\s*\([^)]{0,512}\)\s*(?:\{|;)/g;
+      /(^|[\n;{}])[ \t]*(?:[\w*]+[ \t]+)+(\*{0,64}[ \t]*)?(\w{1,128})[ \t]*\([^)\n]{0,512}\)[ \t]*(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
-      const name = m[2]!;
+      // The leading `\n` is part of the anchor, not part of the declaration.
+      const offset = m.index + m[1]!.length;
+      const name = m[3]!;
       if (!this.isValidFnName(name)) continue;
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: name,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
+        startLine: this.ln(source, offset),
+        endLine: this.ln(source, offset + m[0].length - m[1]!.length),
+        startByte: offset,
+        endByte: offset + m[0].length - m[1]!.length,
         name,
         properties: { filePath },
       });

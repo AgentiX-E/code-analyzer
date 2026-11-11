@@ -2,6 +2,8 @@
 // Watches the workspace for file changes and triggers incremental re-indexing.
 // Uses debouncing to batch rapid changes and avoid excessive re-analysis.
 
+import { globToRegExpBody } from '@code-analyzer/shared';
+
 import type { EngineBridge } from './engine-bridge.js';
 
 // ---------------------------------------------------------------------------
@@ -230,14 +232,11 @@ export class FileWatcherService {
    * Supports **, *, and literal path matching.
    */
   private matchGlob(filePath: string, pattern: string): boolean {
-    // Convert glob pattern to regex
-    const escaped = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*\*/g, '<<DOUBLESTAR>>')
-      .replace(/\*/g, '[^/]*')
-      .replace(/<<DOUBLESTAR>>/g, '.*');
-
-    const regex = new RegExp(escaped);
+    // **The shared translation, unanchored.** The chain this replaces escaped `.` and two placeholder stars, and it left
+    // every other metacharacter in the pattern working as regex syntax - so an exclude of `C++/**` was a quantifier and
+    // `**/*.{ts,js}` was a repetition. `globToRegExpBody` handles `*`, `**` and `?` and escapes the rest; the anchors are
+    // deliberately absent, because an exclude pattern is asked whether the path *contains* its shape.
+    const regex = new RegExp(globToRegExpBody(pattern));
     return regex.test(filePath);
   }
 

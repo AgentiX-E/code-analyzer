@@ -25,7 +25,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 
 import { PipelineOrchestrator, createAllPhases } from '../packages/analyzer/src/index.js';
 import { getDefaultConfig } from '../packages/core/src/index.js';

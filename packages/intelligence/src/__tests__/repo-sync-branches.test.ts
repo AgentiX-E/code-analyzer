@@ -352,6 +352,30 @@ describe('GitHubRepoSync — deterministic branches', () => {
     expect(result.commitSha).toBe('mock-sha');
   });
 
+  it('names the branch as a refspec that cannot be read as a git option', async () => {
+    // **The option parser, closed by construction rather than by the guard.** `assertGitArgument` refuses a branch that
+    // begins with `-`, and that refusal is what a caller acts on; this asserts the second, structural half - the argument
+    // handed to `git fetch` is `+refs/heads/<branch>:refs/remotes/origin/<branch>`, which begins with `+refs/`, so no
+    // branch name can turn it into `--upload-pack=…`. The destination is spelled out because `git reset --hard
+    // origin/<branch>` depends on the remote-tracking ref having moved.
+    const fetchArgs: string[][] = [];
+    execSyncMock.mockImplementation((_file: string, args: readonly string[]) => {
+      if (args.includes('fetch')) fetchArgs.push([...args]);
+      if (args.includes('rev-parse')) return 'mock-sha\n';
+      return '';
+    });
+    const sync = new GitHubRepoSync({ client: makeClient(), cacheDir, branch: 'release/2.0' });
+    createCachedRepo(cacheDir, 'o', 'r', 10);
+
+    await sync.pull('o', 'r');
+
+    expect(fetchArgs).toHaveLength(1);
+    expect(fetchArgs[0]).toContain('+refs/heads/release/2.0:refs/remotes/origin/release/2.0');
+    // Every argument after the subcommand either is a declared option or begins with a character git cannot read as one.
+    const afterSubcommand = fetchArgs[0]!.slice(2);
+    expect(afterSubcommand.filter((arg) => arg.startsWith('-'))).toEqual(['--depth']);
+  });
+
   it('falls back to a fresh clone when the autoFetch fetch fails', async () => {
     execSyncMock.mockImplementation((_file: string, args: readonly string[]) => {
       if (args.includes('fetch')) throw new Error('fetch failed');

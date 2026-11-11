@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 
-import { registerCors, resolveAllowedOrigin } from '../middleware/cors.js';
+import { allowsEveryOrigin, registerCors, resolveAllowedOrigin } from '../middleware/cors.js';
 import { registerAuth } from '../middleware/auth.js';
 import { registerLogging, shouldLog, logStructured, logPretty } from '../middleware/logging.js';
 import { registerErrorHandler } from '../middleware/error-handler.js';
@@ -71,8 +71,11 @@ describe('registerCors', () => {
   });
 
   it('should set credentials header when enabled', async () => {
+    // **This test used to register `origin: '*'` with `credentials: true` and assert the header**, which is the
+    // configuration the middleware now refuses: a wildcard plus credentials lets any site read an authenticated
+    // response. The origin is listed explicitly, because that is the only form the combination has.
     registerCors(app, {
-      origin: '*',
+      origin: ['https://example.com'],
       methods: ['GET'],
       allowedHeaders: [],
       exposedHeaders: [],
@@ -169,7 +172,7 @@ describe('registerCors', () => {
     expect(res.headers['access-control-allow-origin']).toBe('https://b.com');
   });
 
-  it('echoes origin when the allowlist contains a wildcard', async () => {
+  it("answers * when the allowlist contains a wildcard, rather than the request's origin", async () => {
     registerCors(app, {
       origin: ['*'],
       methods: ['GET'],
@@ -186,7 +189,33 @@ describe('registerCors', () => {
       url: '/test',
       headers: { origin: 'https://any.com' },
     });
-    expect(res.headers['access-control-allow-origin']).toBe('https://any.com');
+    // **The configuration's answer, not the request's.** The two read the same to a browser that only compares values,
+    // and only one of them cannot be steered by whoever sent the request.
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+
+  it('refuses to register a wildcard allowlist with credentials', () => {
+    expect(() =>
+      registerCors(app, {
+        origin: '*',
+        methods: ['GET'],
+        allowedHeaders: [],
+        exposedHeaders: [],
+        credentials: true,
+        maxAge: 3600,
+      }),
+    ).toThrow(/lets any site read authenticated responses/);
+
+    expect(() =>
+      registerCors(app, {
+        origin: ['https://a.com', '*'],
+        methods: ['GET'],
+        allowedHeaders: [],
+        exposedHeaders: [],
+        credentials: true,
+        maxAge: 3600,
+      }),
+    ).toThrow(/lets any site read authenticated responses/);
   });
 
   it('omits the allow-origin header for a non-matching origin', async () => {
@@ -216,29 +245,48 @@ describe('registerCors', () => {
 
 describe('resolveAllowedOrigin', () => {
   it('returns * for a wildcard allow config', () => {
-    expect(resolveAllowedOrigin('https://x.com', '*')).toBe('*');
+    expect(resolveAllowedOrigin('https://x.com', '*', false)).toBe('*');
   });
 
   it('returns null when no origin is provided and allow is not a wildcard', () => {
-    expect(resolveAllowedOrigin(undefined, 'https://x.com')).toBeNull();
+    expect(resolveAllowedOrigin(undefined, 'https://x.com', false)).toBeNull();
   });
 
-  it('echoes the origin when it exactly matches a single string allow', () => {
-    expect(resolveAllowedOrigin('https://x.com', 'https://x.com')).toBe('https://x.com');
+  it('returns the configured entry when the origin exactly matches a single string allow', () => {
+    expect(resolveAllowedOrigin('https://x.com', 'https://x.com', false)).toBe('https://x.com');
   });
 
-  it('echoes the origin when it is in the allowlist array', () => {
-    expect(resolveAllowedOrigin('https://x.com', ['https://x.com', 'https://y.com'])).toBe(
+  it('returns the configured entry when the origin is in the allowlist array', () => {
+    expect(resolveAllowedOrigin('https://x.com', ['https://x.com', 'https://y.com'], false)).toBe(
       'https://x.com',
     );
   });
 
-  it('echoes the origin when the allowlist array contains a wildcard', () => {
-    expect(resolveAllowedOrigin('https://x.com', ['*'])).toBe('https://x.com');
+  it('returns * when the allowlist array contains a wildcard', () => {
+    expect(resolveAllowedOrigin('https://x.com', ['*'], false)).toBe('*');
   });
 
   it('returns null for a non-matching origin', () => {
-    expect(resolveAllowedOrigin('https://x.com', 'https://y.com')).toBeNull();
+    expect(resolveAllowedOrigin('https://x.com', 'https://y.com', false)).toBeNull();
+  });
+
+  it('answers nothing for a wildcard once credentials are allowed', () => {
+    expect(resolveAllowedOrigin('https://x.com', '*', true)).toBeNull();
+    expect(resolveAllowedOrigin('https://x.com', ['*'], true)).toBeNull();
+  });
+
+  it('still answers an explicitly listed origin when credentials are allowed', () => {
+    expect(resolveAllowedOrigin('https://x.com', ['https://x.com'], true)).toBe('https://x.com');
+    expect(resolveAllowedOrigin('https://y.com', ['https://x.com'], true)).toBeNull();
+  });
+});
+
+describe('allowsEveryOrigin', () => {
+  it('is true only for a wildcard, alone or in a list', () => {
+    expect(allowsEveryOrigin('*')).toBe(true);
+    expect(allowsEveryOrigin(['https://x.com', '*'])).toBe(true);
+    expect(allowsEveryOrigin('https://x.com')).toBe(false);
+    expect(allowsEveryOrigin(['https://x.com'])).toBe(false);
   });
 });
 

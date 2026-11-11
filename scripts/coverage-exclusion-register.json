@@ -25,6 +25,6 @@
     "**/benchmarks/ca-bench/suites/**": "Benchmark suites, not tests. They are executed by the benchmark workflow, and measuring them as unit tests would report assertions that were never meant to exist.",
     "**/benchmarks/ca-bench/fixtures/**": "Fixture material for the benchmark suites — data, not code under test.",
     "**/benchmarks/search-benchmark.test.ts": "A search-relevance benchmark whose timings are the result; the assertions are sanity checks around a measurement, not a unit test.",
-    "tests/benchmarks/real-world/__tests__/scale-stress.test.ts": "Scale stress: ~9.3K synthetic files across four tiers to probe O(n^2) cliffs. Under the default unit-test pool it OOMs a single worker, and its heap-delta assertions are GC-timing sensitive. Run standalone by path."
+    "tests/benchmarks/real-world/__tests__/scale-stress.test.ts": "Scale stress: ~9.3K synthetic files across four tiers to probe O(n^2) cliffs. Under the default unit-test pool it OOMs a single worker, and its heap-delta assertions are GC-timing sensitive. Run with `pnpm test:stress` (vitest.stress.config.ts), not by passing the path to the unit run."
   }
 }

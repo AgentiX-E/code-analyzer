@@ -31,6 +31,23 @@ export interface GitOperations {
   parseDiff(output: string): GitDiff[];
 }
 
+/**
+ * The destination path of a `diff --git a/<old> b/<new>` header, or `null` if the header is not one.
+ *
+ * **`indexOf` rather than `a\/(.+?) b\/(.+)`**, for the reason the caller's comment gives: a lazy group between two
+ * captures lets a long path be partitioned in as many ways as it has spaces. **The first ` b/` wins and not the last**,
+ * because a path may contain a space and the separator git writes is exactly one - so `a/x b/y b/z` names `x b/y` as the
+ * source. Starting the search after the `a/` prefix keeps a path that begins with `b/` from being read as the separator.
+ */
+function splitDiffHeader(headerLine: string): string | null {
+  if (!headerLine.startsWith('a/')) return null;
+  const separator = headerLine.indexOf(' b/', 2);
+  if (separator < 0) return null;
+  const destination = headerLine.slice(separator + 3);
+  // Both sides of the header are non-empty in a header git writes, and a header with an empty side is not one.
+  return separator > 2 && destination.length > 0 ? destination : null;
+}
+
 export function createGitOperations(repoPath: string): GitOperations {
   const resolvedPath = path.resolve(repoPath);
 
@@ -69,12 +86,9 @@ export function createGitOperations(repoPath: string): GitOperations {
       // **`\s+` before `b/` gave the engine a run to partition against a lazy group**, so a header whose path is a long
       // run of spaces cost the square of its length. Git separates the two paths with exactly one space - the same
       // correction `review/actionability.ts` carries - and a path containing a space is still read at its first ` b/`.
-      const pathMatch = headerLine.match(/^a\/(.+?) b\/(.+)$/);
-      if (!pathMatch) continue;
-
-      // Both capture groups are mandatory `(.+)`, so they always participate and
-      // the destination path is always present.
-      const filePath = pathMatch[2]!;
+      // `splitDiffHeader` does that search with `indexOf`, which has one answer rather than a family of them.
+      const filePath = splitDiffHeader(headerLine);
+      if (filePath === null) continue;
       let changeType: GitDiff['changeType'] = 'modified';
       let oldPath: string | undefined;
 

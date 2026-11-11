@@ -95,7 +95,6 @@ describe('Scope Resolution Benchmarks', () => {
 
   it('should build scope trees for small codebase', { timeout: 30_000 }, async () => {
     const files = createSyntheticFiles(50, 10);
-    const model = createSemanticModel(files);
 
     const runner = new BenchmarkRunner({ verbose: false });
     const benchCase: BenchmarkCase = {

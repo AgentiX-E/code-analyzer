@@ -47,7 +47,7 @@ function checkLongFunction(lines: string[], _filePath: string): HeuristicRuleRes
     const funcMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?(?:static\s+)?function\s+(\w+)/);
     const arrowMatch = trimmed.match(/(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(/);
     const methodMatch = trimmed.match(
-      /^\s*(?:public|private|protected|static|async)?\s*(\w+)\s*\(/,
+      /^[ \t]*(?:(?:public|private|protected|static|async)\s+)?(\w{1,128})\s*\(/,
     );
 
     if (funcMatch || arrowMatch || methodMatch) {
