@@ -150,6 +150,21 @@ const PROFILE = (() => {
 })();
 
 /**
+ * **The switch this iteration is about: whether a lane is shown the code each hunk sits in.**
+ *
+ * `AACR_CODE_CONTEXT=on` reads every changed file at the pull request's head commit through the API and passes it to
+ * `reviewPullRequest`, which shows each lane the block around each hunk instead of the hunk alone. `off` is the
+ * behaviour every figure this repository has published was measured under, so **the default is `off` and a run that
+ * forgets the switch reproduces the old number rather than half of a new one.**
+ *
+ * **Why it is a switch rather than a fix.** `docs/EVAL-CONTRACT.md` §20 registers the claim before the run, and **a
+ * device a run cannot turn off is a device whose contribution cannot be measured** - the same reason the checklist and
+ * the prompt order are environment values. The retrieval costs one API call per changed file and 650 tokens per file of
+ * prompt, so **an on-arm spends money the off-arm does not: the artifact records both the calls and the characters.**
+ */
+const CODE_CONTEXT = String(process.env['AACR_CODE_CONTEXT'] ?? 'off').toLowerCase() === 'on';
+
+/**
  * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
  *
  * The file arm fills three slots **per file per lane**; over 199 files it emitted **183 findings carrying 21 goldens**
@@ -1256,6 +1271,12 @@ async function main() {
     // **a precision that rose because two thirds of the emission left is a different claim from one that rose because
     // the findings got better**, and only the count can tell them apart.
     profile: { name: PROFILE, dropped: {}, reasons: {} },
+    // **What the code-context retrieval asked for and what it got**, filled during the loop: **a window that is missing
+    // in half the files is a device measured at half strength**, and a run that could not say so would publish the
+    // half-strength number as the device's own.
+    codeContext: CODE_CONTEXT
+      ? { enabled: true, requested: 0, read: 0, absent: 0, failed: 0, chars: 0, reasons: [] }
+      : { enabled: false },
   };
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
   /**
@@ -1395,6 +1416,51 @@ async function main() {
       };
     } catch (error) {
       return { ok: false, reason: `the diff request threw: ${String(error?.message ?? error)}` };
+    }
+  }
+
+  /**
+   * **One changed file at one revision, because a hunk is not the function it sits in.**
+   *
+   * Three answers rather than two: the text, a refusal with a reason, and `absent` for a 404 - **a file the pull request
+   * deletes has no head version, and reading that as a failure would make a deletion look like a transport fault.** The
+   * caller passes the reason on, because **a window that is missing is a fact the artifact has to be able to state**
+   * (the rule §18.2 wrote).
+   */
+  async function fetchFileAt(url, ref, path) {
+    const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url ?? ''));
+    if (!m) return { ok: false, reason: `"${String(url ?? '')}" is not a pull request URL` };
+    if (typeof ref !== 'string' || ref.length === 0) {
+      return { ok: false, reason: 'the corpus row carries no source commit to read the file at' };
+    }
+    const [, owner, repo] = m;
+    const token = process.env['GITHUB_TOKEN'] ?? process.env['GH_TOKEN'] ?? '';
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${String(path)
+          .split('/')
+          .map((part) => encodeURIComponent(part))
+          .join('/')}?ref=${encodeURIComponent(ref)}`,
+        {
+          headers: {
+            accept: 'application/vnd.github.raw',
+            'user-agent': 'agentix-e-aacr-bench',
+            ...(token ? { authorization: `token ${token}` } : {}),
+          },
+        },
+      );
+      if (res.ok) return { ok: true, text: await res.text() };
+      if (res.status === 404)
+        return { ok: false, absent: true, reason: `the file is not at ${ref}` };
+      const remaining = res.headers.get('x-ratelimit-remaining');
+      return {
+        ok: false,
+        reason:
+          `the file request returned ${String(res.status)}` +
+          (remaining === null ? '' : ` with ${remaining} requests left in the hour`),
+      };
+    } catch (error) {
+      return { ok: false, reason: `the file request threw: ${String(error?.message ?? error)}` };
     }
   }
 
@@ -1800,6 +1866,33 @@ async function main() {
       engineCounters.emptyDiffs += 1;
     }
     engineCounters.filesReviewed += sections.length;
+    // **The code each hunk sits in, fetched once per changed file and reused by both arms.**
+    //
+    // **Why this is fetched here rather than inside the engine**: the engine is given text, not a transport, and **a
+    // review engine that reached the network by itself would be a review engine that cannot be unit-tested** - the same
+    // division the provider abstraction follows. **Why it is one call per file rather than a checkout**: the competitor
+    // gets a checkout and pays a clone for it; 249 files over 36 pull requests is 249 small requests, which is the same
+    // fact for a fraction of the bytes.
+    const fileTexts = new Map();
+    if (CODE_CONTEXT) {
+      for (const section of sections) {
+        engineCounters.codeContext.requested += 1;
+        const read = await fetchFileAt(pr.githubPrUrl, pr.source_commit, section.path);
+        if (read.ok) {
+          engineCounters.codeContext.read += 1;
+          engineCounters.codeContext.chars += read.text.length;
+          fileTexts.set(section.path, read.text);
+          continue;
+        }
+        if (read.absent) engineCounters.codeContext.absent += 1;
+        else engineCounters.codeContext.failed += 1;
+        // **Three of these, because a list of a hundred reasons is a log**, and **the count without a reason is the
+        // defect §18.2 named.**
+        if (engineCounters.codeContext.reasons.length < 3) {
+          engineCounters.codeContext.reasons.push({ path: section.path, reason: read.reason });
+        }
+      }
+    }
     const lanes = [];
     for (const section of sections) {
       const sectionDiff = section.lines.join(String.fromCharCode(10));
@@ -1908,11 +2001,19 @@ async function main() {
     const prSections = sections.map((section) => ({
       path: section.path,
       diffText: section.lines.join(String.fromCharCode(10)),
+      // **Omitted rather than empty when the file could not be read**, because the engine distinguishes "no window" from
+      // "a window of nothing" and an empty string would tell a model the file is empty.
+      ...(CODE_CONTEXT && fileTexts.has(section.path)
+        ? { fileText: fileTexts.get(section.path) }
+        : {}),
     }));
     let wholePrFindings = [];
     try {
       const prLanes = await engine.reviewPullRequest(prSections, {
         maxFindingsPerPullRequest: PR_BUDGET,
+        // **Stated per call rather than at construction**, so the off-arm is the engine's default and the on-arm is one
+        // line a reader can find: the two arms of §20 differ here and in nothing else.
+        codeContext: CODE_CONTEXT,
       });
       wholePrFindings = prLanes.filter((l) => l.success).flatMap((l) => l.findings);
     } catch (error) {
@@ -2366,6 +2467,10 @@ async function main() {
       judgeEndpoint: BASE,
       dedupThreshold: DEDUP_THRESHOLD,
       pullRequestBudget: PR_BUDGET,
+      // **Whether the lanes were shown the block each hunk sits in**, because §20 of `EVAL-CONTRACT.md` is a claim
+      // about this switch and **an artifact that does not record which side of it the figure came from is a figure a
+      // second run can disagree with without either being wrong.**
+      codeContext: CODE_CONTEXT,
       // **Which arrangement of the prompt produced this figure**, because §9 and §10 of `EVAL-CONTRACT.md` are two
       // claims about one file and an artifact that does not say which side it came from is a figure without a
       // coordinate.

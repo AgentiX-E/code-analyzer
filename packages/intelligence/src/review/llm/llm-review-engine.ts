@@ -11,6 +11,7 @@ import {
   type LLMFinding,
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
+import { codeContextForSections, type CodeContextLimits } from './code-context.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
@@ -80,6 +81,15 @@ export interface LLMReviewOptions {
    * `lanes.length` sends one lane per round, which is the fully sequential arrangement.
    */
   laneWaves?: number;
+  /**
+   * **Whether a pull-request call is shown the code each hunk sits in.** Defaults to `false`, which is the behaviour
+   * every figure this repository has published was measured under.
+   *
+   * The window is built by `code-context.ts`: the block around each hunk, headed by its path, its line numbers and the
+   * lines that changed. **It is off by default because it costs tokens and nothing has measured it yet**, and it is an
+   * engine option rather than a harness flag because a device a user cannot turn on is a device only the benchmark has.
+   */
+  codeContext?: boolean;
 }
 
 /** Result of an LLM review for a single diff. */
@@ -145,6 +155,15 @@ export interface DiffSection {
   path: string;
   /** The section's own text, including its `diff --git` header so the concatenation stays a valid unified diff. */
   diffText: string;
+  /**
+   * **The file at the revision being reviewed, when the caller could read it.**
+   *
+   * Optional because the engine is also used on a diff alone, and because **a caller that cannot read the file must say
+   * so by omission rather than by passing an empty string** - an empty string is a file that exists and has no content,
+   * and the two would be indistinguishable in the prompt. When it is present and `codeContext` is on, the lane call is
+   * given the block each hunk sits in; when it is absent the call is exactly what it was before the option existed.
+   */
+  fileText?: string;
 }
 
 /** What a pull-request review may spend. */
@@ -157,6 +176,19 @@ export interface PullRequestReviewOptions {
    * than a law**: the curve in the artifact says what each budget buys, and a caller that wants recall moves it.
    */
   maxFindingsPerPullRequest?: number;
+  /**
+   * **Whether the lanes are shown the code each hunk sits in.**
+   *
+   * A hunk carries the change and not the contract the change has to keep, and **160 of 282 goldens on the measured
+   * corpus were rejected with a finding standing on their own line** - which is what a review looks like when it can
+   * see five added lines and not the function around them. **Undefined reads `LLMReviewOptions.codeContext`**, so a
+   * caller can set it once for the engine or per call without the two disagreeing silently.
+   */
+  codeContext?: boolean;
+  /** The window's bounds, when the defaults in `code-context.ts` are not what the caller wants to pay for. */
+  codeContextLimits?: CodeContextLimits;
+  /** Characters every file's window may contribute together. Defaults to 12000. */
+  maxCodeContextChars?: number;
 }
 
 const DEFAULT_PULL_REQUEST_BUDGET = 16;
@@ -196,6 +228,7 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   languageChecklist: false,
   promptOrder: 'boilerplate-first',
   laneWaves: 1,
+  codeContext: false,
 };
 
 /**
@@ -538,6 +571,18 @@ export class LLMReviewEngine {
     }
     const budget = options?.maxFindingsPerPullRequest ?? DEFAULT_PULL_REQUEST_BUDGET;
     const diffContent = this.showPullRequestDiff(sections);
+    // **The window, when the caller asked for it and gave the engine something to build one from.** A section without
+    // `fileText` contributes nothing, so a caller that could read four of seven files gets four windows and the review
+    // is otherwise what it was - **silence about the three it could not read is the behaviour this option already had**,
+    // and inventing an empty window for them would tell a model the file is empty.
+    const codeContext =
+      (options?.codeContext ?? this.options.codeContext)
+        ? codeContextForSections(
+            sections,
+            options?.codeContextLimits,
+            options?.maxCodeContextChars ?? 12_000,
+          )
+        : '';
 
     const ctx: PromptContext = {
       diffContent: this.truncateDiff(diffContent),
@@ -551,6 +596,7 @@ export class LLMReviewEngine {
       scope: 'pull-request',
       languageChecklist: this.options.languageChecklist,
       promptOrder: this.options.promptOrder,
+      ...(codeContext.length > 0 ? { fileContext: codeContext } : {}),
     };
 
     const results = await this.runLanes(ctx, this.options.lanes);
