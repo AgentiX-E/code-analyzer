@@ -2129,22 +2129,20 @@ function isCommentNodeType(type: string): boolean {
  * left on**, which is a worse docstring than a clean one and a better one than none.
  */
 function stripCommentSyntax(text: string): string {
-  return (
-    stripHtmlCommentMarkers(text)
-      .replace(/^\s*\/\*\*?/, '')
-      .replace(/\*\/\s*$/, '')
-      .split('\n')
-      .map((line) =>
-        line
-          .replace(/^\s*\*\s?/, '')
-          // **A run and not a pair.** `///` is one comment marker written three slashes wide, and a rule that consumed two
-          // of them left `/ A widget.` as a C# docstring - a leading slash in the text of every documented member.
-          .replace(/^\s*(\/\/+|#+|--+)\s?/, '')
-          .trimEnd(),
-      )
-      .join('\n')
-      .trim()
-  );
+  return stripHtmlCommentMarkers(text)
+    .replace(/^\s*\/\*\*?/, '')
+    .replace(/\*\/\s*$/, '')
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/^\s*\*\s?/, '')
+        // **A run and not a pair.** `///` is one comment marker written three slashes wide, and a rule that consumed two
+        // of them left `/ A widget.` as a C# docstring - a leading slash in the text of every documented member.
+        .replace(/^\s*(\/\/+|#+|--+)\s?/, '')
+        .trimEnd(),
+    )
+    .join('\n')
+    .trim();
 }
 
 /**
