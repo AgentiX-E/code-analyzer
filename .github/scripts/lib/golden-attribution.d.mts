@@ -59,14 +59,27 @@ export declare function attributeGoldens(input: {
   matches: number[][];
 }): Attribution;
 
+/** One golden, in full - the layer a follow-up analysis reads where `examples` is the layer a person skims. */
+export interface AttributionRecord {
+  pr: string | null;
+  goldenIndex: number;
+  bucket: GoldenBucket;
+  path: string;
+  note: string;
+  proximity: number | null;
+  matchedFindings: number[];
+}
+
 export declare function mergeAttributions(
   entries: Array<Attribution & { pr?: string | null }>,
-  options?: { examplesPerBucket?: number },
+  options?: { examplesPerBucket?: number; noteCharsInExamples?: number },
 ): {
   counts: Record<GoldenBucket, number>;
   examples: Record<GoldenBucket, Array<{ pr: string | null; path: string; note: string }>>;
   total: number;
   rejectionShape: Record<RejectionShape, number>;
+  /** Every golden, in corpus order - `records.length === total` or the function throws. */
+  records: AttributionRecord[];
 };
 
 export declare function largestBucket(

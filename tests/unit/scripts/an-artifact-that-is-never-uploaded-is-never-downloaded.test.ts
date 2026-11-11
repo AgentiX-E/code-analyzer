@@ -160,18 +160,18 @@ describe('the matrix is one experiment', () => {
     const keys = [...new Set(all.flatMap((arm) => Object.keys(arm)))];
     const varied = keys.find((key) => all[0]![key] !== all[1]![key]);
     expect(varied).toBe('code_context');
-    const withDevice = all.find((arm) => arm.code_context === 'on');
-    const withoutDevice = all.find((arm) => arm.code_context === 'off');
+    const withDevice = all.find((arm) => arm['code_context'] === 'on');
+    const withoutDevice = all.find((arm) => arm['code_context'] === 'off');
     expect(withoutDevice, 'the matrix declares no `off` arm to compare against').toBeDefined();
     expect(withDevice, 'the matrix declares no `on` arm, which is the device').toBeDefined();
-    expect(all.map((arm) => arm.code_context).sort()).toEqual(['off', 'on']);
+    expect(all.map((arm) => arm['code_context']).sort()).toEqual(['off', 'on']);
   });
 
   it('pins the profile to the one R-17 did not falsify', () => {
     // **§19.3 falsified the 0.22 floor at +0.0079 against a registered +0.02**, so `advisory` is the default and
     // `defect` is a measured but retired configuration. A cross product with it would double this dispatch's bill to
     // answer a question that already has an answer.
-    for (const arm of arms()) expect(arm.profile).toBe('advisory');
+    for (const arm of arms()) expect(arm['profile']).toBe('advisory');
   });
 
   it('takes the code window from the matrix rather than from a dispatch input', () => {

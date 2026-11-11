@@ -82,7 +82,7 @@ function consistentArtifact() {
 }
 
 /** The audit's verdict on one artifact, as the names of the checks that failed. */
-function failuresOf(artifact) {
+function failuresOf(artifact: ReturnType<typeof consistentArtifact>): string[] {
   return auditArtifact(artifact)
     .findings.filter((finding) => !finding.ok)
     .map((finding) => finding.name);
