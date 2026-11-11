@@ -27,11 +27,14 @@ const FILE = [
   'export function withinLimit(total) {', // 1
   '  const limit = readConfig();', // 2
   '  if (limit === undefined) return false;', // 3
-  '  if (total > limit) {', // 4
+  '  if (limit === null) {', // 4 - the line the pull request adds
   '    return false;', // 5
   '  }', // 6
-  '  return true;', // 7
-  '}', // 8
+  '  if (total > limit) {', // 7
+  '    return false;', // 8
+  '  }', // 9
+  '  return true;', // 10
+  '}', // 11
 ].join('\n');
 
 /** The change: a second undefined check, three lines under the first one. */
@@ -62,7 +65,7 @@ const DIFF_TEXT = [
 function providerThatReads(): LLMProvider {
   const answer = (prompt: string): Promise<CompletionResult> =>
     Promise.resolve({
-      content: prompt.includes('### src/limit.js — lines 1-8 of 8')
+      content: prompt.includes('### src/limit.js — lines 1-11 of 11')
         ? JSON.stringify({
             findings: [
               {

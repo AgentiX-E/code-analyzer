@@ -1420,6 +1420,38 @@ async function main() {
   }
 
   /**
+   * **The commit the pull request's head points at, which is the revision a hunk's line numbers belong to.**
+   *
+   * **Not the corpus's `source_commit`.** The corpus names two commits and the competitor's harness is invoked
+   * `--from source --to target`, so the pair is `base → head` in that order - and reading the *base* file under the
+   * *head's* line numbers is the same file with every number shifted by however many lines the change added. The window
+   * would then show the old code under the new coordinates, which is a false statement in the prompt and a silent one.
+   * **The pull request resource has the answer and it is one call per pull request**, not one per file.
+   */
+  async function fetchPullHead(url) {
+    const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url ?? ''));
+    if (!m) return { ok: false, reason: `"${String(url ?? '')}" is not a pull request URL` };
+    const [, owner, repo, num] = m;
+    const token = process.env['GITHUB_TOKEN'] ?? process.env['GH_TOKEN'] ?? '';
+    try {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${num}`, {
+        headers: {
+          accept: 'application/vnd.github+json',
+          'user-agent': 'agentix-e-aacr-bench',
+          ...(token ? { authorization: `token ${token}` } : {}),
+        },
+      });
+      if (res.ok) return { ok: true, sha: String((await res.json())?.head?.sha ?? '') };
+      return { ok: false, reason: `the pull request request returned ${String(res.status)}` };
+    } catch (error) {
+      return {
+        ok: false,
+        reason: `the pull request request threw: ${String(error?.message ?? error)}`,
+      };
+    }
+  }
+
+  /**
    * **One changed file at one revision, because a hunk is not the function it sits in.**
    *
    * Three answers rather than two: the text, a refusal with a reason, and `absent` for a 404 - **a file the pull request
@@ -1875,9 +1907,17 @@ async function main() {
     // fact for a fraction of the bytes.
     const fileTexts = new Map();
     if (CODE_CONTEXT) {
+      const head = await fetchPullHead(pr.githubPrUrl);
+      if (!head.ok) {
+        engineCounters.codeContext.failed += 1;
+        if (engineCounters.codeContext.reasons.length < 3) {
+          engineCounters.codeContext.reasons.push({ path: '(pull request)', reason: head.reason });
+        }
+      }
       for (const section of sections) {
+        if (!head.ok) break;
         engineCounters.codeContext.requested += 1;
-        const read = await fetchFileAt(pr.githubPrUrl, pr.source_commit, section.path);
+        const read = await fetchFileAt(pr.githubPrUrl, head.sha, section.path);
         if (read.ok) {
           engineCounters.codeContext.read += 1;
           engineCounters.codeContext.chars += read.text.length;

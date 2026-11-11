@@ -1707,6 +1707,15 @@ was measured on**, and `packages/intelligence/src/review/llm/__tests__/the-revie
 asserts that identity rather than describing it - **a device whose off-arm is "the old prompt" only measures something if
 the off-arm really is the old prompt**.
 
+**And the window is checked against the diff before it is sent.** The hunk header carries line numbers and no revision,
+and a file read at the pull request's base rather than its head is the same file with every number shifted by however
+many lines the change added - **a window that shows the old code under the new coordinates, which is a false statement in
+the prompt and a silent one.** So the first added line of every hunk is kept as an anchor and the window is refused when
+the file does not answer to it, and a refusal is counted and named in the prompt rather than dropped. The harness reads
+the head commit from the pull request resource rather than from the corpus's `source_commit`, because the corpus names
+the pair `base → head` (its own competitor harness is invoked `--from source --to target`) and **a field that is right by
+coincidence is a field the next reader cannot check.**
+
 **The cost, stated before the run.** One GitHub contents request per changed file (249 files over the 36-pull-request
 slice) and roughly 650 tokens of prompt per file, so **about 1.6 times the prompt tokens of the off-arm** at the shipped
 limits. The artifact records the requests, the characters read, the files that were absent and the first three reasons.

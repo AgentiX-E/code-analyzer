@@ -76,6 +76,67 @@ export function changedRangesFromDiff(diffText: string): ChangedRange[] {
 }
 
 /**
+ * **One line of the diff, and the line number it claims to be in the new file.**
+ *
+ * The window is built from a file the caller read at some revision, and **nothing in the hunk header says which revision
+ * the caller read**. A file taken at the pull request's base rather than its head is the same file with every line
+ * number shifted by however many lines the change added - so the window would show the old code under the new
+ * coordinates, and every finding against it would name a line that holds something else. **That is not a rendering
+ * fault; it is a false statement in the prompt**, and it is silent.
+ */
+export interface HunkAnchor {
+  /** The line number in the new file, from the hunk header. */
+  readonly line: number;
+  /** The text the diff says is on that line, prefix stripped. */
+  readonly text: string;
+}
+
+/**
+ * **The first line of every hunk, as the diff describes it.**
+ *
+ * Only the first line of each hunk is needed, because one comparison decides the question: **a file read at the wrong
+ * revision disagrees on the first line it is asked about, and agrees nowhere after it.** A deleted line does not advance
+ * the new file, so a hunk that opens with a deletion takes its anchor from the next line - which is still `newStart`.
+ */
+export function hunkAnchorsFromDiff(diffText: string): HunkAnchor[] {
+  const anchors: HunkAnchor[] = [];
+  let line = 0;
+  let added: HunkAnchor | null = null;
+  let context: HunkAnchor | null = null;
+  // **The hunk ends when the next header starts**, and the anchor it contributes is decided at that moment: an added
+  // line is the strongest evidence of which revision this is, and a hunk that adds nothing falls back to its first
+  // context line.
+  const flush = (): void => {
+    const anchor = added ?? context;
+    if (anchor) anchors.push(anchor);
+    line = 0;
+    added = null;
+    context = null;
+  };
+  for (const text of diffText.split(/\r?\n/)) {
+    const header = HUNK_HEADER.exec(text);
+    if (header) {
+      flush();
+      line = Number(header[1]);
+      continue;
+    }
+    if (line === 0) continue;
+    if (text.startsWith('\\')) continue;
+    const marker = text[0];
+    if (marker === '+') {
+      if (added === null) added = { line, text: text.slice(1) };
+      line += 1;
+    } else if (marker === ' ') {
+      if (context === null) context = { line, text: text.slice(1) };
+      line += 1;
+    }
+    // A `-` line is code the new file does not have: it advances nothing and is never an anchor.
+  }
+  flush();
+  return anchors;
+}
+
+/**
  * **How much a line opens and closes, with strings and line comments skipped.**
  *
  * This is the whole of the parsing this file does, and it is deliberately crude in one direction: **it can only
@@ -154,12 +215,20 @@ export function codeContextForFile(
   fileText: string,
   ranges: readonly ChangedRange[],
   limits: CodeContextLimits = DEFAULT_CODE_CONTEXT_LIMITS,
+  anchors: readonly HunkAnchor[] = [],
 ): string {
   if (fileText.length === 0) return '';
   // `''.split()` is one empty line and never zero, so a `total === 0` guard here would be a branch no input reaches -
   // the empty file is the guard above, and a second one for the same case is a line that only a mutation test visits.
   const lines = fileText.split(/\r?\n/);
   const total = lines.length;
+
+  // **The revision check, before any window is built.** A caller that read the file at the wrong commit gets no window
+  // rather than a window under the wrong line numbers: the failure is then visible in the run's counters instead of
+  // being a plausible-looking prompt that says line 40 holds code that is on line 46.
+  for (const anchor of anchors) {
+    if ((lines[anchor.line - 1] ?? '').trim() !== anchor.text.trim()) return '';
+  }
 
   let depth = 0;
   let broken = false;
@@ -233,6 +302,7 @@ export function codeContextForSections(
   const blocks: string[] = [];
   let used = 0;
   let omitted = 0;
+  let refused = 0;
   for (const section of sections) {
     if (section.fileText === undefined || section.fileText.length === 0) continue;
     const block = codeContextForFile(
@@ -240,7 +310,14 @@ export function codeContextForSections(
       section.fileText,
       changedRangesFromDiff(section.diffText),
       limits,
+      hunkAnchorsFromDiff(section.diffText),
     );
+    // **A file whose text does not answer to the diff's own coordinates is refused and counted**, because the two
+    // ways it happens - the wrong revision, and a diff for a different path - are both silent otherwise.
+    if (block.length === 0) {
+      refused += 1;
+      continue;
+    }
     if (used + block.length > maxCharsTotal) {
       omitted += 1;
       continue;
@@ -250,5 +327,9 @@ export function codeContextForSections(
   }
   if (blocks.length === 0) return '';
   const tail = omitted > 0 ? `\n... [${omitted} more file(s) not shown] ...` : '';
-  return `${blocks.join('\n\n')}${tail}`;
+  const disowned =
+    refused > 0
+      ? `\n... [${refused} file(s) not shown: the text at the changed line did not match the diff] ...`
+      : '';
+  return `${blocks.join('\n\n')}${tail}${disowned}`;
 }

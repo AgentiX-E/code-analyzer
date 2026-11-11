@@ -16,6 +16,7 @@ import {
   changedRangesFromDiff,
   codeContextForFile,
   codeContextForSections,
+  hunkAnchorsFromDiff,
 } from '../code-context.js';
 
 /** A file whose shape is unambiguous: one function, three braces deep, with the change on line 6. */
@@ -270,5 +271,82 @@ describe('a pull request gets the windows it can afford, and says what it left o
   it('returns an empty string when nothing could be read, so the prompt is byte-identical to the old one', () => {
     expect(codeContextForSections([])).toBe('');
     expect(codeContextForSections([{ path: 'a.ts', diffText: DIFF_ONE_HUNK }])).toBe('');
+  });
+});
+
+describe('a window is checked against the diff before it is sent', () => {
+  const diff = [
+    'diff --git a/src/load.ts b/src/load.ts',
+    '--- a/src/load.ts',
+    '+++ b/src/load.ts',
+    '@@ -4,3 +4,4 @@',
+    '   const raw = readFile(path);',
+    '+  // the guard',
+    '   if (!raw) return null;',
+  ].join('\n');
+
+  it('anchors on the first line the hunk adds, because a context line is the same in both revisions', () => {
+    // **This is the whole discrimination**: line 4 is `readFile(path)` before the change and after it, so an anchor on
+    // it would accept a file read at the wrong commit. The added line is not there before, and cannot be.
+    expect(hunkAnchorsFromDiff(diff)).toEqual([{ line: 5, text: '  // the guard' }]);
+  });
+
+  it('falls back to the first context line for a hunk that adds nothing', () => {
+    const deleting = [
+      '@@ -4,3 +4,3 @@',
+      '-  const raw = readFile(path);',
+      '+  const raw = read(path);',
+    ].join('\n');
+
+    expect(hunkAnchorsFromDiff(deleting)).toEqual([{ line: 4, text: '  const raw = read(path);' }]);
+  });
+
+  it('refuses the window when the file is the revision before the change', () => {
+    // The same file with the guard not yet added: line 4 holds the guard in the new revision and the reader in the old
+    // one, and every line below it is one out. **A window built from this would be true about a file that no longer
+    // exists**, and the prompt would be wrong in a way nobody could see.
+    const before = [
+      'import { readFile } from "node:fs";',
+      '',
+      'export function load(path) {',
+      '  const raw = readFile(path);',
+      '  if (!raw) return null;',
+      '  return parse(raw);',
+      '}',
+    ].join('\n');
+
+    expect(
+      codeContextForFile(
+        'src/load.ts',
+        before,
+        changedRangesFromDiff(diff),
+        undefined,
+        hunkAnchorsFromDiff(diff),
+      ),
+    ).toBe('');
+    const context = codeContextForSections([
+      { path: 'src/load.ts', diffText: diff, fileText: before },
+    ]);
+    expect(context).toBe('');
+  });
+
+  it('accepts the window when the file answers to the diff, and says which files it refused otherwise', () => {
+    const sections = [
+      { path: 'src/load.ts', diffText: diff, fileText: TYPESCRIPT },
+      {
+        path: 'src/other.ts',
+        diffText: diff,
+        fileText: TYPESCRIPT.replace('// the guard', '// a guard'),
+      },
+    ];
+
+    const context = codeContextForSections(sections);
+
+    expect(context).toContain('### src/load.ts');
+    // **Both a refusal and an omission are named**, because a run whose windows silently halved would publish a
+    // half-strength device as the device.
+    expect(context).toContain(
+      '1 file(s) not shown: the text at the changed line did not match the diff',
+    );
   });
 });
