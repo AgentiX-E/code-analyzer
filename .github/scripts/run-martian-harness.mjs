@@ -19,7 +19,23 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-const MARTIAN = process.env['MARTIAN_DIR'] ?? '/tmp/martian';
+/**
+ * **Where the field's harness was cloned, and it has to be said rather than guessed.**
+ *
+ * This used to default to `/tmp/martian` - **a fixed name in a directory every process on the machine can write to**, so
+ * a local run of this script would write its review into a checkout it did not make, or into a directory another user
+ * had already taken. In a job runner the two are the same process and the risk is nil; **the reason to remove the
+ * default anyway is that a script whose answer depends on the machine is a script whose local result cannot be trusted**,
+ * and both workflows that call this already pass `MARTIAN_DIR` explicitly.
+ */
+const MARTIAN = process.env['MARTIAN_DIR'];
+if (!MARTIAN) {
+  console.error(
+    "MARTIAN-HARNESS needs MARTIAN_DIR: this script writes into the field harness's own checkout, and a default of " +
+      '/tmp/martian is a name in a shared directory that another process may already own.',
+  );
+  process.exit(1);
+}
 const GOLDEN = join(MARTIAN, 'offline', 'golden_comments');
 const OFFLINE = join(MARTIAN, 'offline');
 const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
