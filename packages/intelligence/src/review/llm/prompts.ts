@@ -303,8 +303,16 @@ export function selectionContract(ctx: PromptContext): string {
 export function describeTarget(ctx: PromptContext): string {
   if (ctx.scope === 'pull-request') {
     const paths = ctx.paths ?? [];
+    // **The window travels with the target block rather than after the diff**, because it is what the call is about and
+    // because a block that sits behind the diff is a block four of five lanes would have to be told separately to keep.
+    // **It is placed before the paths list rather than after it**: a model reading a path list and then eight file
+    // bodies has to hold the list while it reads, and one that reads the code first and the list last answers about the
+    // file it just read.
+    const window = ctx.fileContext
+      ? `Surrounding code, unchanged lines included (the block each hunk sits in):\n${ctx.fileContext}\n`
+      : '';
     return `Pull request: ${paths.length} file${paths.length === 1 ? '' : 's'} in one diff.
-Paths in this pull request:
+${window}Paths in this pull request:
 ${paths.map((path) => `- ${path}`).join('\n')}
 `;
   }

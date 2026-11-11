@@ -1658,3 +1658,99 @@ to refuse confounded pairs - compared them. **`corpusRead.whole`, `prsReviewed` 
   inside the resolution, R-17 is falsified and the prior is reverted with its table.
 - **That the corpus is a proxy for users.** Its goldens are AI-reviewer comments filtered by a human, which is the best
   available answer key and not the same thing as a maintainer's attention.
+
+---
+
+## 20. A hunk is not a function: the widest input change the evidence supports, registered before its run
+
+**Written 2026-11-11, before the run.** Every device registered so far changed _how the reviewer says something_ (§17's
+two phrasings) or _which remarks it spends its budget on_ (§19's category floor). Both moved precision and neither moved
+F1 past the instrument. **This one changes what the reviewer can see**, and it is the first registration in this document
+whose mechanism is an input rather than a sentence.
+
+### 20.1 What the artifact says, read from three figures already paid for
+
+Run 42974250499 (`defect` profile, 36 pull requests, 282 goldens) published `missedGoldens` as five disjoint buckets:
+
+| bucket                  | count   | what it means                                                |
+| ----------------------- | ------- | ------------------------------------------------------------ |
+| `hit`                   | 77      | a finding was accepted as this issue                         |
+| `fileNotReviewed`       | 34      | the golden's file was never handed to the engine             |
+| `noFindingOnPath`       | 11      | the file was read and the lanes said nothing on it           |
+| `findingOnPathRejected` | **160** | the lanes spoke on that file and the judge did not accept it |
+| `noPath`                | 0       | —                                                            |
+
+**160 of 282 is the largest single bucket the corpus has ever shown, and 91 of those rejections are on the golden's own
+line** (`rejectionShape.sameLine`). A finding on the right line that a judge will not call the same defect is not a
+localisation failure; it is a statement that is _about something else_. §17 tried to fix that with a sentence and
+falsified twice: **two prompt devices in a row bought precision with recall** on a corpus whose binding constraint is
+recall.
+
+**What the competitor does differently is visible in its own logs**, which this repository has recorded since iteration
+122 (`benchmarks/runnable-competitors-outputs/`). Before it comments it runs `code_search` and `file_read` - it reads the
+definition and the call sites - and then it says what breaks: _"`Record<string, any>` loses the key typing: nothing
+verifies these keys belong to `GlobalStateKey`"_. That sentence is not available from a five-line hunk. **It is available
+from the function the hunk sits in**, and this repository's pull-request arm has never sent one.
+
+### 20.2 The device
+
+`packages/intelligence/src/review/llm/code-context.ts` builds, for each changed file, **the block each hunk sits in**:
+the hunk's extent from its `@@` header, widened outward to the enclosing brace-balanced block (or to the hunk plus
+twelve lines where the file has no reliable block), headed by three facts a model cannot recover from the text - **the
+path, the line numbers of the window in the file, and which of those lines changed**. It is bounded three ways: 80 lines
+per block, 2 600 characters per file, 12 000 characters per pull request, and a window that is clipped says how many
+characters it did not show.
+
+**It is off by default and it is an engine option** (`codeContext`), not a harness flag, because a device a user cannot
+turn on is a device only the benchmark has. **The off-arm is byte-identical to the prompt every figure in this document
+was measured on**, and `packages/intelligence/src/review/llm/__tests__/the-review-reads-the-block-the-change-sits-in.test.ts`
+asserts that identity rather than describing it - **a device whose off-arm is "the old prompt" only measures something if
+the off-arm really is the old prompt**.
+
+**And the window is checked against the diff before it is sent.** The hunk header carries line numbers and no revision,
+and a file read at the pull request's base rather than its head is the same file with every number shifted by however
+many lines the change added - **a window that shows the old code under the new coordinates, which is a false statement in
+the prompt and a silent one.** So the first added line of every hunk is kept as an anchor and the window is refused when
+the file does not answer to it, and a refusal is counted and named in the prompt rather than dropped. The harness reads
+the head commit from the pull request resource rather than from the corpus's `source_commit`, because the corpus names
+the pair `base → head` (its own competitor harness is invoked `--from source --to target`) and **a field that is right by
+coincidence is a field the next reader cannot check.**
+
+**The cost, stated before the run.** One GitHub contents request per changed file (249 files over the 36-pull-request
+slice) and roughly 650 tokens of prompt per file, so **about 1.6 times the prompt tokens of the off-arm** at the shipped
+limits. The artifact records the requests, the characters read, the files that were absent and the first three reasons.
+
+### 20.3 The claim
+
+> **R-18.** _Showing each lane the block each hunk sits in recovers **at least 12 % of the 160 coincident rejections**
+> (≥ 20 goldens on the 36-pull-request slice it is measured on), **raises the pull-request arm's F1 by at least 0.02**,
+> and **does not lower the file arm's F1** - at **no more than 2.5 times the reviewer's cost per pull request**._
+
+**Why 0.02 and not the 0.04 the checklist registered.** The instrument resolves 0.0194 at 724 goldens (§14, §19.3) and
+this slice carries 282, so **a claim below 0.02 on 36 pull requests is a claim this instrument cannot decide** - the
+mistake §19 was written to stop making.
+
+**Why the file arm is in the claim.** The window is a pull-request-arm device; the file arm keeps its own call and its
+own diff. **A device that raises one arm and lowers the other has moved the mixture rather than the reviewer**, and §19
+already showed what a mixture change is worth.
+
+**Falsified if** fewer than 20 of the 160 are recovered, **or** the pull-request arm's F1 moves by less than 0.02 **or**
+downward, **or** the file arm's F1 falls by more than the resolution, **or** the reviewer's cost per pull request exceeds
+2.5 times the off-arm's.
+
+**Its baseline is run 42974250499's own pull-request arm** - 213 findings, 44 accepted, precision 0.2066, recall 0.1560,
+F1 0.1778, over the same 36 pull requests, the same goldens, the same judge and the same prompt. **The on-arm differs
+from it in one environment variable and in nothing else.**
+
+### 20.4 What this registration cannot conclude, and the confound it already knows about
+
+- **That the window is what the competitor's advantage consists of.** It is _one_ of the things their logs show, and the
+  agentic loop around it - choosing what to read - is the part this device does not have. **A null result would falsify
+  the window and not the reading.**
+- **That a cross-run comparison at 36 pull requests can settle a 0.02 claim.** Two runs of this job have reported the
+  same configuration at 0.1691 and 0.2405 (§16.2), so **the honest confirmation is a same-job matrix arm** - two arms of
+  one dispatch, differing in `AACR_CODE_CONTEXT` and in nothing else - and this section registers the device on the
+  cross-run comparison it can afford now, with that limitation written down before the number rather than after it.
+  **If the result is inside the resolution, the next dispatch is the matrix, not another device.**
+- **That a wider window is always better.** Twelve lines either side is a screen; the whole file is a different claim
+  (and a different cost) and nothing here measures it.

@@ -380,11 +380,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       // for a bill.** 157 was iteration 110, which added `review/llm/language-rules.ts`: the per-language checklist is
       // content rather than plumbing, and this register is what makes that a decision somebody took rather than a file
       // that appeared.)
-      // **161 since iteration 121**, which added `review/quoted-spans.ts`: the scan that reads a string literal, in
-      // place of a pattern that was quadratic in a run of escapes - **4 621 ms for one unterminated 120-kilobyte line**,
-      // measured on the commit before it. It is a module because two readers need it and because a scan that two readers
-      // copy is a scan whose second copy is the one nobody measures. (160 was iteration 120's `import-specifier.ts`.)
-      intelligence: 161,
+      // **162 since iteration 123**, which added `review/llm/code-context.ts`: the block each hunk sits in, headed by
+      // the coordinates a model cannot recover from the text. It is a module because the alternative was a private
+      // method on the review engine, and **a window that can only be tested through a provider call is a window nobody
+      // tests** - the 21 cases beside it need a file and a diff, not a model.
+      intelligence: 162,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and
