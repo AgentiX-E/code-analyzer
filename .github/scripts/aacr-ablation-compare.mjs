@@ -41,6 +41,10 @@ export const REGISTRATIONS = Object.freeze({
   languageChecklist: {
     section: '§8',
     claim: 'the per-language defect checklist raises the file arm F1 by at least 0.04',
+    // **Which arm the claim is about.** `file` is the artifact's own top-level figure; `pullRequest` is the
+    // `pullRequestArm` block beside it. Before this field existed the job read the top-level figure for every
+    // registration, which was right for §8 and §19 and **wrong for §20** - see the `codeContext` entry below.
+    arm: 'file',
     registeredGain: 0.04,
     mechanism: 'precision rises, recall does not fall',
     mechanismRule: 'recall-holds',
@@ -49,10 +53,39 @@ export const REGISTRATIONS = Object.freeze({
     // a slice list here would be a promise to spend money re-reading a verdict that has already been read.
     confirmation: [],
   },
+  /**
+   * **§20's registration, transcribed rather than restated.** The sentence below is the one written before the dispatch,
+   * including the three things it required at once - twenty of the 160 coincident rejections, +0.02 on the pull-request
+   * arm, and no loss on the file arm - because **a registration whose thresholds are edited after its run is a
+   * description of the run and not a prediction about it.**
+   *
+   * **And the arm is transcribed too.** The first version of this entry carried `registeredGain: 0.02` without saying
+   * which arm it was a claim about, so the job compared the file arm against a threshold the sentence attaches to the
+   * pull-request arm. On the run this entry was written for, the file arm gained 0.024 - over the bar - while the
+   * pull-request arm the sentence names **fell** by 0.0065. The artifact said `magnitudeMet: true` about the arm nobody
+   * registered, which is the failure mode this whole file exists to refuse, and it is why `arm` and `guard` are fields.
+   */
+  codeContext: {
+    section: '§20 (R-18)',
+    claim:
+      'showing each lane the block each hunk sits in recovers at least 20 of the 160 coincident rejections and raises the pull-request arm F1 by at least 0.02 without lowering the file arm',
+    arm: 'pullRequest',
+    registeredGain: 0.02,
+    /**
+     * **The second clause of the same sentence, as a gate rather than as a remark.** "Without lowering the file arm" is
+     * a requirement, and a threshold that only lives in the claim text is a requirement nothing enforces.
+     */
+    guard: { arm: 'file', notLoweredBy: 0 },
+    mechanism: 'recall rises and precision does not fall by more than one golden is worth',
+    mechanismRule: 'recall-rises',
+    // **The slice the registration names**: the thirty-six pull requests its baseline read, which is `skip 14`.
+    confirmation: [{ skip: 14, max: 36 }],
+  },
   emissionProfile: {
     section: '§19 (R-17)',
     claim:
       'emitting only the categories whose measured acceptance reaches 0.22 raises the file arm F1 by at least 0.02',
+    arm: 'file',
     registeredGain: 0.02,
     mechanism: 'precision rises and recall falls by less than precision rises',
     mechanismRule: 'recall-trades-below-precision',
@@ -92,6 +125,12 @@ export const MECHANISMS = Object.freeze({
    */
   'recall-trades-below-precision': (precisionGain, recallGain) =>
     precisionGain > 0 && recallGain > -precisionGain,
+  /**
+   * Recall rises and precision does not fall by more than a golden is worth - the mirror of `recall-holds`, and the
+   * claim a device makes when it is meant to widen what the reviewer can see rather than narrow what it says.
+   */
+  'recall-rises': (precisionGain, recallGain, precisionTolerance) =>
+    recallGain > 0 && precisionGain >= -precisionTolerance,
 });
 
 /**
@@ -159,6 +198,45 @@ function coverageSet(artifact) {
     for (const at of pull.covered ?? []) set.add(`${pull.pr}#${at}`);
   }
   return set;
+}
+
+/**
+ * **One arm's figures out of one artifact, in the shape the verdict reads.**
+ *
+ * The two arms are not two `summarise` calls: they are two blocks of every artifact the bench writes - the top level is
+ * the file arm, `pullRequestArm` is the pull-request arm - and **`null` when the block is absent**, so a registration
+ * that names a missing arm is refused instead of being answered with a neighbouring number.
+ */
+/** How an arm is named in a sentence, because `pullRequest` is a key and "the pull-request arm" is a phrase. */
+function armProse(arm) {
+  return arm === 'pullRequest' ? 'pull-request arm' : `${String(arm)} arm`;
+}
+
+function armOf(artifact, arm) {
+  if (arm === 'file')
+    return {
+      precision: artifact.precision,
+      recall: artifact.recall,
+      f1: artifact.f1,
+      truePositives: artifact.truePositives,
+      falsePositives: artifact.falsePositives,
+      falseNegatives: artifact.falseNegatives,
+      // **The file arm's finding count is the emission, not the capped arm**: every finding is scored and the curve is
+      // over the full emission, which is why this number is read from `fullEmission` and not from the arm block.
+      findings: artifact.fullEmission?.k ?? artifact.fullEmission?.emitted ?? null,
+    };
+  if (arm !== 'pullRequest') return null;
+  const block = artifact.pullRequestArm;
+  if (!block || typeof block.f1 !== 'number') return null;
+  return {
+    precision: block.precision,
+    recall: block.recall,
+    f1: block.f1,
+    truePositives: block.truePositives,
+    falsePositives: block.falsePositives,
+    falseNegatives: block.falseNegatives,
+    findings: block.findings ?? null,
+  };
 }
 
 /**
@@ -281,10 +359,32 @@ export function summarise(on, off) {
   const varied = variedField(on, off);
   const registration = REGISTRATIONS[varied.field ?? ''] ?? null;
   const paired = pairedComparison(coverageSet(on), coverageSet(off));
-  const gain = round(on.f1 - off.f1);
-  const precisionGain = round(on.precision - off.precision);
-  const recallGain = round(on.recall - off.recall);
-  const goldens = on.truePositives + on.falseNegatives;
+  /**
+   * **The arm the registration is a claim about, read from the registration and not chosen by this file.**
+   *
+   * `file` is the artifact's own top-level figure - one call per file per lane, at most three findings per file. That is
+   * the arm every published figure of §8 and §19 was measured on, and it is the arm a *narrowing* device is judged on.
+   * `pullRequest` is the block beside it - one call per lane for the whole pull request, one budget of sixteen - and it
+   * is the arm §20 names, because **a window that shows a model more code is a device that has more to say per call, and
+   * the arm with the budget per pull request is the one that can say it.**
+   *
+   * **The failure this prevents is not arithmetic.** With no `arm` field, `registeredGain: 0.02` was compared against
+   * the file arm on R-18's run: the file arm gained 0.024 and cleared the bar, the pull-request arm the sentence names
+   * lost 0.0065, and the artifact reported `magnitudeMet: true`. **A threshold attached to the wrong arm is a verdict
+   * about an experiment nobody registered**, so a registration that names an arm the artifacts do not carry is refused
+   * rather than measured on the nearest one.
+   */
+  const registeredArm = registration?.arm ?? 'file';
+  const onArm = armOf(on, registeredArm);
+  const offArm = armOf(off, registeredArm);
+  if (registration && (!onArm || !offArm))
+    throw new Error(
+      `registration "${String(registration.section)}" is a claim about the ${armProse(registeredArm)}, which the ${onArm ? 'without' : 'with'} artifact does not carry`,
+    );
+  const gain = round(onArm.f1 - offArm.f1);
+  const precisionGain = round(onArm.precision - offArm.precision);
+  const recallGain = round(onArm.recall - offArm.recall);
+  const goldens = onArm.truePositives + onArm.falseNegatives;
   const resolution = resolutionFor(goldens);
 
   const registeredGain = registration?.registeredGain ?? null;
@@ -321,8 +421,27 @@ export function summarise(on, off) {
     declared.length === 0
       ? null
       : slice !== null && declared.some((s) => s.skip === slice.skip && s.max === slice.requested);
+  /**
+   * **The second clause of a registration that has one, computed whether or not the first one passed.**
+   *
+   * "Without lowering the file arm" is a requirement with a threshold - zero - and **a requirement that is only in the
+   * sentence is a requirement an artifact cannot fail.** The guard reads a *different* arm from the one the gain is read
+   * on, which is why it is a field and not a second threshold: R-18 asks the pull-request arm to rise **and** the file
+   * arm not to fall, and those are two measurements of one run.
+   */
+  const guardArm = registration?.guard?.arm ?? null;
+  const guardOn = guardArm ? armOf(on, guardArm) : null;
+  const guardOff = guardArm ? armOf(off, guardArm) : null;
+  if (guardArm && (!guardOn || !guardOff))
+    throw new Error(
+      `registration "${String(registration.section)}" guards the ${armProse(guardArm)}, which the ${guardOn ? 'without' : 'with'} artifact does not carry`,
+    );
+  const guardGain = guardArm ? round(guardOn.f1 - guardOff.f1) : null;
+  const guardMet = guardArm === null ? null : guardGain >= -(registration.guard.notLoweredBy ?? 0);
   /** A gain narrower than the instrument's own error bar confirms nothing, whatever it is compared against. */
   const insideResolution = Math.abs(gain) < resolution;
+  /** How the arm is named in a sentence, because "the file arm" and "the pull-request arm" are not interchangeable. */
+  const armName = `the ${armProse(registeredArm)}`;
 
   const outcome =
     magnitudeMet === null
@@ -330,12 +449,14 @@ export function summarise(on, off) {
       : sliceMatches === false
         ? `not a confirmation: the registration names ${declared.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' or ')}, and this run read ${slice === null ? 'a corpus the artifact does not describe' : `skip ${String(slice.skip)} max ${String(slice.requested)}`}`
         : !magnitudeMet
-          ? 'falsified: the registered gain was not reached'
+          ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
           : mechanismMet === false
             ? 'falsified: the magnitude arrived, the mechanism did not'
-            : insideResolution
-              ? `inconclusive: a gain of ${String(gain)} inside the ${String(round(resolution))} this instrument resolves at ${String(goldens)} goldens`
-              : `confirmed: at least ${String(registeredGain)} F1, and the mechanism is precision`;
+            : guardMet === false
+              ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
+              : insideResolution
+                ? `inconclusive: a gain of ${String(gain)} inside the ${String(round(resolution))} this instrument resolves at ${String(goldens)} goldens`
+                : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -345,38 +466,67 @@ export function summarise(on, off) {
     variedField: varied.field,
     arms: { with: varied.withValue, without: varied.withoutValue },
     registration,
+    /**
+     * **Which arm the figures below are**, so that a reader who quotes `withDevice.f1` is quoting the arm the
+     * registration is about rather than whichever arm the script happened to read.
+     */
+    registeredArm,
     corpus: on.corpus,
     pullRequests: on.prsInDataset,
     corpusSlice: on.corpusSlice ?? null,
     goldens,
     resolution,
+    /**
+     * **Both arms of the same two runs, side by side.** The registered arm is the headline below; this is the other one,
+     * present because **the arm a claim does not name still moved, and a reader has to be able to see by how much** -
+     * on R-18 the file arm gained 0.024 while the registered pull-request arm lost 0.0065, and one number without the
+     * other is a half-truth in whichever direction suits the author.
+     */
+    byArm: Object.fromEntries(
+      ['file', 'pullRequest'].map((arm) => {
+        const withArm = armOf(on, arm);
+        const withoutArm = armOf(off, arm);
+        return [
+          arm,
+          withArm && withoutArm
+            ? {
+                with: withArm,
+                without: withoutArm,
+                delta: {
+                  precision: round(withArm.precision - withoutArm.precision),
+                  recall: round(withArm.recall - withoutArm.recall),
+                  f1: round(withArm.f1 - withoutArm.f1),
+                },
+              }
+            : null,
+        ];
+      }),
+    ),
     withDevice: {
-      precision: on.precision,
-      recall: on.recall,
-      f1: on.f1,
-      truePositives: on.truePositives,
-      falsePositives: on.falsePositives,
-      falseNegatives: on.falseNegatives,
-      findings: on.fullEmission?.k ?? on.fullEmission?.emitted ?? null,
+      precision: onArm.precision,
+      recall: onArm.recall,
+      f1: onArm.f1,
+      truePositives: onArm.truePositives,
+      falsePositives: onArm.falsePositives,
+      falseNegatives: onArm.falseNegatives,
+      findings: onArm.findings,
     },
     withoutDevice: {
-      precision: off.precision,
-      recall: off.recall,
-      f1: off.f1,
-      truePositives: off.truePositives,
-      falsePositives: off.falsePositives,
-      falseNegatives: off.falseNegatives,
-      findings: off.fullEmission?.k ?? off.fullEmission?.emitted ?? null,
+      precision: offArm.precision,
+      recall: offArm.recall,
+      f1: offArm.f1,
+      truePositives: offArm.truePositives,
+      falsePositives: offArm.falsePositives,
+      falseNegatives: offArm.falseNegatives,
+      findings: offArm.findings,
     },
     delta: {
       precision: precisionGain,
       recall: recallGain,
       f1: gain,
-      truePositives: on.truePositives - off.truePositives,
-      falsePositives: on.falsePositives - off.falsePositives,
-      findings:
-        (on.fullEmission?.k ?? on.fullEmission?.emitted ?? 0) -
-        (off.fullEmission?.k ?? off.fullEmission?.emitted ?? 0),
+      truePositives: onArm.truePositives - offArm.truePositives,
+      falsePositives: onArm.falsePositives - offArm.falsePositives,
+      findings: (onArm.findings ?? 0) - (offArm.findings ?? 0),
     },
     /**
      * **The paired test, because the two runs read the same goldens.**
@@ -395,11 +545,19 @@ export function summarise(on, off) {
     },
     verdict: {
       registeredGain,
+      /** The arm the threshold above is attached to, as a field rather than as a convention. */
+      registeredArm,
       observedGain: gain,
       magnitudeMet,
       mechanismMet,
       /** Whether this run read the rows the registration names, or `null` when it names none. */
       sliceMatches,
+      /**
+       * **The registration's other clause, when it has one.** `null` for a registration that names no guard, and
+       * otherwise whether the guarded arm stayed at or above `notLoweredBy`. R-18's sentence requires both at once, so a
+       * verdict that checked only the rising arm would confirm a device that raised one arm by sinking the other.
+       */
+      guard: guardArm === null ? null : { arm: guardArm, gain: guardGain, met: guardMet },
       /** **The only field a reader needs**, and the one that cannot be true when a gate above it failed. */
       confirms: outcome.startsWith('confirmed'),
       outcome,
@@ -460,6 +618,7 @@ function selfTest() {
       judgeModel: 'fixture-model',
       languageChecklist: false,
       emissionProfile: overrides.profile,
+      codeContext: overrides.codeContext ?? false,
     },
     truePositives: overrides.tp,
     falsePositives: overrides.fp,
@@ -468,6 +627,21 @@ function selfTest() {
     recall: overrides.tp / (overrides.tp + overrides.fn),
     f1: (2 * overrides.tp) / (2 * overrides.tp + overrides.fp + overrides.fn),
     fullEmission: { emitted: overrides.tp + overrides.fp },
+    // **The second arm is present only when a fixture asks for it**, because a registration that names an arm the
+    // artifact does not carry has to be refused, and a fixture that always carried one could never test that refusal.
+    ...(typeof overrides.prTp === 'number'
+      ? {
+          pullRequestArm: {
+            findings: overrides.prTp + overrides.prFp,
+            truePositives: overrides.prTp,
+            falsePositives: overrides.prFp,
+            falseNegatives: overrides.prFn,
+            precision: overrides.prTp / (overrides.prTp + overrides.prFp),
+            recall: overrides.prTp / (overrides.prTp + overrides.prFn),
+            f1: (2 * overrides.prTp) / (2 * overrides.prTp + overrides.prFp + overrides.prFn),
+          },
+        }
+      : {}),
     coverage: {
       byPullRequest: overrides.covered.map((covered, at) => ({
         pr: `pr-${at}`,
@@ -626,6 +800,112 @@ function selfTest() {
     'so the outcome is inconclusive rather than confirmed',
   );
   assert(inside.verdict.confirms === false, 'and it confirms nothing');
+
+  // **The arm the registration names, on the pair of numbers that made this field necessary.** These two fixtures are
+  // the R-18 run in miniature: the file arm gains 0.2 and the pull-request arm loses 0.0667. Before `arm` existed the
+  // threshold was compared against the top-level figure, so this pair - the failing one - reported `magnitudeMet: true`.
+  const wideOff = artifact({
+    profile: undefined,
+    codeContext: false,
+    tp: 3,
+    fp: 17,
+    fn: 7,
+    prTp: 3,
+    prFp: 17,
+    prFn: 7,
+    covered: [[0, 1, 2], [3]],
+    goldensPerPr: [5, 5],
+    // **The slice §20 names**, because a run over other rows cannot confirm it whatever its gain - and the arm test
+    // would otherwise be answered by the slice gate instead of by the arm.
+    slice: { skip: 14, requested: 36 },
+  });
+  const fileOnly = artifact({
+    profile: undefined,
+    codeContext: true,
+    tp: 6,
+    fp: 14,
+    fn: 4,
+    prTp: 2,
+    prFp: 18,
+    prFn: 8,
+    covered: [
+      [0, 1, 2],
+      [3, 4, 5],
+    ],
+    goldensPerPr: [5, 5],
+    slice: { skip: 14, requested: 36 },
+  });
+  const wrongArm = summarise(fileOnly, wideOff);
+  assert(wrongArm.variedField === 'codeContext', 'the varied field is the device under test');
+  assert(
+    wrongArm.verdict.registeredArm === 'pullRequest',
+    'and the threshold is attached to the arm §20 names, not to the arm this file used to read',
+  );
+  assert(
+    wrongArm.byArm.file.delta.f1 > 0.02,
+    'the file arm gained more than the registered threshold, which is the trap',
+  );
+  assert(wrongArm.delta.f1 < 0, 'and the registered arm fell');
+  assert(
+    wrongArm.verdict.magnitudeMet === false,
+    'so the magnitude is not met, on the arm the sentence is about',
+  );
+  assert(
+    wrongArm.verdict.outcome.startsWith('falsified'),
+    'and the outcome is falsified rather than confirmed by the neighbouring arm',
+  );
+  assert(
+    wrongArm.byArm.pullRequest !== null && wrongArm.byArm.file !== null,
+    'both arms are published, because the arm a claim does not name still moved',
+  );
+
+  // **The guard clause, separately**: the registered arm rises far enough and the arm the sentence forbids lowering
+  // falls. A verdict that checked only the rising arm would confirm this device.
+  const guardBroken = artifact({
+    profile: undefined,
+    codeContext: true,
+    tp: 2,
+    fp: 18,
+    fn: 8,
+    prTp: 5,
+    prFp: 15,
+    prFn: 5,
+    covered: [[0, 1, 2, 3, 4], [3]],
+    goldensPerPr: [5, 5],
+    slice: { skip: 14, requested: 36 },
+  });
+  const guarded = summarise(guardBroken, wideOff);
+  assert(guarded.verdict.magnitudeMet === true, 'the registered arm clears the threshold');
+  assert(guarded.verdict.mechanismMet === true, 'and the mechanism holds on that arm');
+  assert(guarded.verdict.guard?.met === false, 'and the arm it must not lower fell');
+  assert(guarded.verdict.confirms === false, 'so the registration is not confirmed');
+  assert(
+    guarded.verdict.outcome.includes('must not lower'),
+    'and the outcome names the clause that failed rather than the one that passed',
+  );
+
+  // **A registration about an arm the artifact does not carry is refused**, rather than answered by the nearest number.
+  let missing = null;
+  try {
+    summarise(
+      artifact({
+        profile: undefined,
+        codeContext: true,
+        tp: 6,
+        fp: 14,
+        fn: 4,
+        covered: [[0, 1, 2]],
+        goldensPerPr: [5, 5],
+      }),
+      wideOff,
+    );
+  } catch (error) {
+    missing = error;
+  }
+  assert(
+    missing !== null && /pull-request arm/.test(missing.message),
+    'an artifact with no pull-request arm cannot answer a registration that names one',
+  );
 
   // A registration that names a rule the table does not implement must be refused rather than approximated.
   assert(

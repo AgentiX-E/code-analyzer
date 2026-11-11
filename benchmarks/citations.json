@@ -387,6 +387,47 @@
       "sources": ["aacr-bench-defect (run 42871500941)", "aacr-bench-advisory (run 42871500941)"],
       "independentValidation": true,
       "caveat": "**R-17 falsified on magnitude, confirmed on mechanism, and the default reverted because of it.** The registration claimed at least +0.02 F1 for emitting only the categories whose measured acceptance reaches 0.22; the observed gain is +0.0079, inside the 0.0194 this instrument resolves at 724 goldens. The paired test is not neutral: 38 goldens are matched by the floor arm alone and 68 by the baseline alone, p = 0.0046, so the device loses coverage significantly. Precision rose 0.0937 and recall fell 0.0414, which is the trade the registration permits - **the device does exactly what it was designed to do and what it does is not worth the claim**. The discovery figure was +0.032 on 50 pull requests; that is what a threshold fitted to its own rows looks like on rows it was not fitted to. AACR_PROFILE therefore defaults to `advisory`, and flipping it back requires a registration a run of unseen pull requests reaches."
+    },
+    "aacr-code-context-2026-11": {
+      "artifact": "benchmarks/aacr-code-context-paired.json",
+      "measuredAt": "2026-11-11",
+      "samples": 36,
+      "groundTruthIssues": 282,
+      "languages": ["c", "cpp", "go", "python", "javascript", "typescript", "php"],
+      "groundTruthSource": "Alibaba `aacr-bench` (Apache-2.0, public on Hugging Face), rows 14-49, scored by one judge per arm: run 42974250499 with the window off and run 43033514810 with it on - the same 36 pull requests, the same 282 expert-recorded findings, the same judge, the same profile and the same prompt order, differing in `configuration.codeContext` and in nothing else.",
+      "sources": ["benchmarks/aacr-code-context-paired.json"],
+      "independentValidation": true,
+      "caveat": "**Two dispatches, not one job**, so the paired test carries the run-to-run variance as well as the device: 21 goldens are matched by the window arm alone and 14 by the baseline alone, p = 0.3105, and both movements are smaller than the 0.0311 this corpus resolves. **The verdict is `falsified` on the arm R-18 names and not refuted by this corpus**: the pull-request arm fell 0.1778 to 0.1713 against a required +0.02, the file arm gained 0.0240 as the guard clause requires, and 6 of the 160 coincident rejections were recovered against the 20 the registration asked for. `registeredArm`, `byArm` and `verdict.guard` carry both arms, because the comparison job read only the file arm until this run exposed it - the lesson is written in `docs/EVAL-CONTRACT.md` §20.5. The registration is §20 (R-18).",
+      "metrics": {
+        "registeredArm": "pullRequest",
+        "withF1": 0.1713,
+        "withoutF1": 0.1778,
+        "deltaF1": -0.0065,
+        "withPrecision": 0.1955,
+        "withoutPrecision": 0.2066,
+        "withRecall": 0.1525,
+        "withoutRecall": 0.156,
+        "withTruePositives": 43,
+        "withoutTruePositives": 44,
+        "withFindings": 220,
+        "withoutFindings": 213,
+        "fileArmWithF1": 0.218,
+        "fileArmWithoutF1": 0.194,
+        "fileArmDeltaF1": 0.024,
+        "fileArmWithTruePositives": 46,
+        "fileArmWithoutTruePositives": 39,
+        "coincidentRejectionsRecovered": 6,
+        "coincidentRejectionsRequired": 20,
+        "withOnlyGoldens": 21,
+        "withoutOnlyGoldens": 14,
+        "both": 25,
+        "pValue": 0.3105,
+        "registeredGain": 0.02,
+        "observedGain": -0.0065,
+        "insideResolution": true,
+        "outcome": "falsified: the registered gain was not reached on the pull-request arm",
+        "runIds": { "with": "43033514810", "without": "42974250499" }
+      }
     }
   }
 }

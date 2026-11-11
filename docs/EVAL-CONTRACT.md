@@ -1754,3 +1754,46 @@ from it in one environment variable and in nothing else.**
   **If the result is inside the resolution, the next dispatch is the matrix, not another device.**
 - **That a wider window is always better.** Twelve lines either side is a screen; the whole file is a different claim
   (and a different cost) and nothing here measures it.
+
+### 20.5 What the run said, and the instrument defect it found on the way
+
+**Run [43033514810](https://github.com/AgentiX-E/code-analyzer/actions/runs/43033514810)**, `code_context: on`, `skip 14`,
+36 pull requests, 282 goldens, the same judge, the same prompt, `competitor: replay` - against the baseline named in
+§20.3.
+
+| clause of R-18                  | required    | measured                                       | met    |
+| ------------------------------- | ----------- | ---------------------------------------------- | ------ |
+| coincident rejections recovered | ≥ 20 of 160 | **6** (160 → 154)                              | **no** |
+| pull-request arm F1             | **+0.02**   | **−0.0065** (0.1778 → 0.1713)                  | **no** |
+| file arm F1                     | not lowered | **+0.0240** (0.1940 → 0.2180)                  | yes    |
+| reviewer cost per pull request  | ≤ 2.5×      | 1.08× (0.7811 vs 0.7205 USD at one price tier) | yes    |
+
+**The device is falsified on the arm the claim names, and the record says so rather than the softer word.** 43 accepted
+findings against 44, from seven more emitted; precision 0.2066 → 0.1955, recall 0.1560 → 0.1525. `hit` goldens rose
+77 → 82 and the file arm gained seven true positives for thirteen more false ones - **a widening that pays for itself on
+one arm and not on the other.**
+
+**What the falsification is worth, stated with its own error bar.** The pull-request arm moved by 0.0065 against the
+**0.0311** this 282-golden slice resolves, and the paired counts are 25 both, 21 with-only, 14 without-only,
+**p = 0.3105**. So **the threshold was not met**, and **the movement that failed it is not separable from noise** - both
+sentences belong in the record, and §20.4 named the matrix as the next dispatch before this result existed. The matrix
+is now the only dispatch that can settle it.
+
+**The comparison job was reading the wrong arm, and this run is what exposed it.** `aacr-ablation-compare.mjs` computed
+every registration's `registeredGain` against the artifact's **top-level** figure - the file arm - while R-18's threshold
+is attached by its own sentence to the **pull-request** arm. On these two artifacts the file arm gained 0.024 and cleared
+0.02, so the job published `magnitudeMet: true` and the word `inconclusive`: **a verdict about an arm the registration
+does not name, and a gentler word than the truth.** Three things changed in the same iteration:
+
+- a registration names its arm (`arm: 'pullRequest'`), and the verdict is computed from that arm's block;
+- the second clause of a sentence becomes a gate rather than a remark (`guard: { arm: 'file', notLoweredBy: 0 }`), so
+  "without lowering the file arm" can fail;
+- **both arms are published** (`byArm`), because the arm a claim does not name still moved, and **an artifact that
+  reports one arm lets its author choose which half of the truth to quote**;
+- an artifact that does not carry the named arm is **refused** rather than measured on the nearest one.
+
+**Re-running the same two artifacts under the fixed job changes the word from `inconclusive` to `falsified`** - same
+numbers, one field added. **This is the second time this file has been the defect rather than the device** (§19's
+hardcoded mechanism rule was the first), and the lesson is the same one in both cases: **a comparison job that can drift
+away from the sentence it is judging will eventually certify the wrong number, and nothing in its output will look
+wrong.**

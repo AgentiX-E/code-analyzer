@@ -1,0 +1,140 @@
+{
+  "measuredAt": "2026-11-11",
+  "where": "github-actions",
+  "compared": true,
+  "protocol": "two runs of the same job over the same pull requests, the same goldens and the same judge, differing in codeContext",
+  "variedField": "codeContext",
+  "arms": {
+    "with": true,
+    "without": null
+  },
+  "registration": {
+    "section": "§20 (R-18)",
+    "claim": "showing each lane the block each hunk sits in recovers at least 20 of the 160 coincident rejections and raises the pull-request arm F1 by at least 0.02 without lowering the file arm",
+    "arm": "pullRequest",
+    "registeredGain": 0.02,
+    "guard": {
+      "arm": "file",
+      "notLoweredBy": 0
+    },
+    "mechanism": "recall rises and precision does not fall by more than one golden is worth",
+    "mechanismRule": "recall-rises",
+    "confirmation": [
+      {
+        "skip": 14,
+        "max": 36
+      }
+    ]
+  },
+  "registeredArm": "pullRequest",
+  "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
+  "pullRequests": 36,
+  "corpusSlice": {
+    "skip": 14,
+    "requested": 36
+  },
+  "goldens": 282,
+  "resolution": 0.0311,
+  "byArm": {
+    "file": {
+      "with": {
+        "precision": 0.3286,
+        "recall": 0.1631,
+        "f1": 0.218,
+        "truePositives": 46,
+        "falsePositives": 94,
+        "falseNegatives": 236,
+        "findings": 325
+      },
+      "without": {
+        "precision": 0.325,
+        "recall": 0.1383,
+        "f1": 0.194,
+        "truePositives": 39,
+        "falsePositives": 81,
+        "falseNegatives": 243,
+        "findings": 309
+      },
+      "delta": {
+        "precision": 0.0036,
+        "recall": 0.0248,
+        "f1": 0.024
+      }
+    },
+    "pullRequest": {
+      "with": {
+        "precision": 0.1955,
+        "recall": 0.1525,
+        "f1": 0.1713,
+        "truePositives": 43,
+        "falsePositives": 177,
+        "falseNegatives": 239,
+        "findings": 220
+      },
+      "without": {
+        "precision": 0.2066,
+        "recall": 0.156,
+        "f1": 0.1778,
+        "truePositives": 44,
+        "falsePositives": 169,
+        "falseNegatives": 238,
+        "findings": 213
+      },
+      "delta": {
+        "precision": -0.0111,
+        "recall": -0.0035,
+        "f1": -0.0065
+      }
+    }
+  },
+  "withDevice": {
+    "precision": 0.1955,
+    "recall": 0.1525,
+    "f1": 0.1713,
+    "truePositives": 43,
+    "falsePositives": 177,
+    "falseNegatives": 239,
+    "findings": 220
+  },
+  "withoutDevice": {
+    "precision": 0.2066,
+    "recall": 0.156,
+    "f1": 0.1778,
+    "truePositives": 44,
+    "falsePositives": 169,
+    "falseNegatives": 238,
+    "findings": 213
+  },
+  "delta": {
+    "precision": -0.0111,
+    "recall": -0.0035,
+    "f1": -0.0065,
+    "truePositives": -1,
+    "falsePositives": 8,
+    "findings": 7
+  },
+  "pairedTest": {
+    "view": "the registered operating point of each run, paired on pull request and golden index",
+    "both": 25,
+    "withOnly": 21,
+    "withoutOnly": 14,
+    "pValue": 0.3105,
+    "verdict": "not significant at 0.05"
+  },
+  "verdict": {
+    "registeredGain": 0.02,
+    "registeredArm": "pullRequest",
+    "observedGain": -0.0065,
+    "magnitudeMet": false,
+    "mechanismMet": false,
+    "sliceMatches": true,
+    "guard": {
+      "arm": "file",
+      "gain": 0.024,
+      "met": true
+    },
+    "confirms": false,
+    "outcome": "falsified: the registered gain was not reached on the pull-request arm",
+    "insideResolution": true
+  }
+}
