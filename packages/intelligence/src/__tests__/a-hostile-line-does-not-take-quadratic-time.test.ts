@@ -18,16 +18,16 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { VersionCompatibilityMatrix } from '../cross-repo/version-matrix.js';
 import { parseCitationIds } from '../qa/citations.js';
 import { collectDiffFacts } from '../review/actionability.js';
 import { DiffParser } from '../review/diff-parser.js';
-import { VersionCompatibilityMatrix } from '../cross-repo/version-matrix.js';
 import { readImportSpecifier } from '../review/import-specifier.js';
 import { analyzeApi } from '../review/lenses/api-lens.js';
-import { createAstContext } from '../rules/ast-rule-checker.js';
-import { analyzeStyle } from '../review/lenses/style-lens.js';
 import { analyzeStructure } from '../review/lenses/structure-lens.js';
+import { analyzeStyle } from '../review/lenses/style-lens.js';
 import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
+import { createAstContext } from '../rules/ast-rule-checker.js';
 import {
   checkMaxFunctionLines,
   checkMaxParams,

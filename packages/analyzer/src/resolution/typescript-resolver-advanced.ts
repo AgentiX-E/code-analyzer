@@ -10,9 +10,9 @@
 // Uses tree-sitter-typescript AST for structural extraction and falls back
 // to regex-based parsing for edge cases.
 
+import { stripTypeArguments } from '@code-analyzer/shared';
 import Parser from 'tree-sitter';
 
-import { stripTypeArguments } from '@code-analyzer/shared';
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import {
   TypeResolverBase,

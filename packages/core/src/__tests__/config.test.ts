@@ -97,7 +97,12 @@ describe('getDefaultConfig', () => {
     // Six CPUs, deliberately not the host's own count: on a 16-core machine the
     // real fallback happens to produce 8, which is also what a hardcoded `?? 8`
     // produces, and that coincidence made the assertion unable to tell them apart.
-    Reflect.set(os, 'cpus', () => new Array(6).fill({ model: 'test', speed: 0, times: {} }));
+    const cpu: os.CpuInfo = {
+      model: 'test',
+      speed: 0,
+      times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0 },
+    };
+    Reflect.set(os, 'cpus', () => Array.from({ length: 6 }, () => cpu));
     Reflect.set(os, 'availableParallelism', undefined);
     try {
       expect(getDefaultConfig().parseWorkers).toBe(3);
@@ -182,7 +187,7 @@ describe('deepMerge', () => {
       '{"constructor":{"prototype":{"polluted":"yes"}},"prototype":{"polluted":"yes"},"keep":true}',
     ) as Record<string, unknown>;
 
-    const result = deepMerge({} as Record<string, unknown>, hostile);
+    const result = deepMerge({}, hostile);
 
     expect(result).toEqual({ keep: true });
     expect(Object.prototype).not.toHaveProperty('polluted');
@@ -191,10 +196,13 @@ describe('deepMerge', () => {
   it('still merges a nested object whose key merely contains the word prototype', () => {
     // **A refusal that is too wide is a bug with a good reputation.** `prototypeFields` and `constructorArgs` are
     // ordinary configuration keys; only the three exact names are refused.
-    const result = deepMerge({} as Record<string, unknown>, {
-      prototypeFields: { enabled: true },
-      constructorArgs: 2,
-    });
+    const result = deepMerge(
+      {},
+      {
+        prototypeFields: { enabled: true },
+        constructorArgs: 2,
+      },
+    );
     expect(result).toEqual({ prototypeFields: { enabled: true }, constructorArgs: 2 });
   });
 

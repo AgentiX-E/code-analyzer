@@ -7,9 +7,9 @@
 //
 // Uses tree-sitter-java AST for structural extraction with regex fallback.
 
+import { stripTypeArguments } from '@code-analyzer/shared';
 import Parser from 'tree-sitter';
 
-import { stripTypeArguments } from '@code-analyzer/shared';
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import {
   TypeResolverBase,

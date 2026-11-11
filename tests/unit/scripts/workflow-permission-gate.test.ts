@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -198,5 +198,17 @@ describe('this repository', () => {
     expect(result.findings).toEqual([]);
     expect(result.files.length).toBeGreaterThan(30);
     expect(result.jobLevelWrites).toBeGreaterThan(0);
+  });
+
+  it('gives the job that reads the alert list the scope to read it', () => {
+    // **The narrowing broke this job and nothing said so until it ran.** `security-audit.yml` used to grant
+    // `security-events: write` to the whole file; `redos-assay` inherited it and was the only job that needed it, and
+    // its first run under the job-scoped grant failed with `HTTP 403 on page 1` — which is how a missing read scope on
+    // `code-scanning/alerts` presents. A gate that only asked for narrowness would have called that fix correct.
+    const workflow = readFileSync('.github/workflows/security-audit.yml', 'utf-8');
+    const job = workflow.slice(workflow.indexOf('  redos-assay:'));
+    const block = job.slice(0, job.indexOf('    steps:'));
+
+    expect(block).toContain('security-events: read');
   });
 });
