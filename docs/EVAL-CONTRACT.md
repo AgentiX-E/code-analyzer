@@ -1852,12 +1852,13 @@ that is true: an artifact is a file people open to see a shape. **What it did no
 the only evidence the next iteration has**, and a question like _"is this missed golden a defect at all"_ needs the
 comment. The cap therefore was not the error - **having only one layer was**:
 
-| layer                    | what it is for                                                          | what it costs                                      |
-| ------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------- |
-| `missedGoldens.examples` | five per bucket, a hundred and sixty characters, for a person skimming  | nothing, it was already there                      |
-| `missedGoldens.records`  | every golden, six hundred characters, for a program reading it          | about 200 kB in a file that was 676 kB             |
-| `byCategory`             | the true positives decomposed by category, through the matching's owner | one pass over rows already in memory               |
-| `bothMissed`             | the goldens neither reviewer found, with their notes                    | about 90 kB, and it is the ceiling on the exercise |
+| layer                                   | what it is for                                                            | what it costs                                      |
+| --------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------- |
+| `missedGoldens.examples`                | five per bucket, a hundred and sixty characters, for a person skimming    | nothing, it was already there                      |
+| `missedGoldens.records`                 | every golden, six hundred characters, for a program reading it            | about 200 kB in a file that was 676 kB             |
+| `byCategory`                            | the true positives decomposed by category, through the matching's owner   | one pass over rows already in memory               |
+| `bothMissed`                            | the goldens neither reviewer found, with their notes                      | about 90 kB, and it is the ceiling on the exercise |
+| `findingsAtItsOwnOperatingPoint[].text` | **the competitor's own sentence**, so that _learn what they say_ has data | 94 kB → 220 kB of a replayed baseline              |
 
 **`records` is checked against the counts rather than trusted**: the buckets are recounted from the records and compared
 to the table beside them, and a detail list that is not the same list as the table fails the run that produced it.
@@ -1868,6 +1869,14 @@ golden mentioned by three lanes is one true positive and three matched findings.
 owned golden to the finding the maximum matching gave it (`goldenOwners`), which makes the columns sum to the score by
 construction, and the run publishes `byCategory.totals.agrees` so that **a bookkeeping that stopped adding up would say
 so in the artifact rather than in a report about the artifact.**
+
+**The competitor's rows were the omission with the highest price.** Our own rows have carried `text` since the first
+run - which is what made `findingOnPathRejected` readable beside the sentence that earned it - and the competitor's rows
+carried nine fields, none of them the remark. **A comparison that keeps where a comment landed and not what it said can be
+compared and cannot be learned from**, and every analysis of the gap ends with an instruction to say what they say. The
+baseline in `benchmarks/aacr/competitor-baseline.json` was recorded before the field existed, so `replay` runs cannot have
+it; `competitorTextCoverage` reports the proportion and fails a `record` run that pays for the output and keeps only its
+coordinates.
 
 ### 21.4 What this section does not conclude
 
