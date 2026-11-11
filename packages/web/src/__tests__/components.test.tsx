@@ -42,7 +42,7 @@ vi.mock('../hooks', () => ({
   })),
 }));
 
-import { useApiHealth, useGraphStats, useAnalyze, useSearch, useToolList } from '../hooks';
+import { useApiHealth, useGraphStats, useAnalyze, useSearch } from '../hooks';
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -226,7 +226,6 @@ for (const tool of TOOLS) {
 // not a run at all.**
 const inProcess = {};
 const KEY = process.env['DEEPSEEK_API_KEY'] ?? process.env['OPENAI_API_KEY'] ?? '';
-const BASE = process.env['OPENAI_API_BASE'] ?? 'https://api.deepseek.com/v1';
 
 if (KEY && existsSync(resolve(process.cwd(), CORPUS))) {
   // **`open-code-review`, configured through its own `config` subcommand.** **Its help text is what named the flags**,

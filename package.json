@@ -42,6 +42,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:property": "vitest run --config vitest.property.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:stress": "vitest run --config vitest.stress.config.ts",
     "test:web": "pnpm --filter @code-analyzer/web test",
     "lint": "turbo lint",
     "format": "prettier --write .",
