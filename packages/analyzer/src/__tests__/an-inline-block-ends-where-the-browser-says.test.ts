@@ -80,6 +80,33 @@ describe('a block boundary is the browser boundary', () => {
     expect(findInlineBlockContents('<p>hello</p>', 'script')).toEqual([]);
   });
 
+  it('reports no block when the open tag never closes', () => {
+    // `<script` at the end of the file: there is no `>` to end the tag, so there is no block. The
+    // alternative - a block running from here to the end - would report the tag's own attributes as
+    // code.
+    expect(findInlineBlockContents('<p>x</p><script', 'script')).toEqual([]);
+  });
+
+  it('reports no block when an attribute quote never closes', () => {
+    // The `>` is inside a value that has no closing quote, which a parser waiting for the quote does
+    // not read as the end of the tag either.
+    expect(findInlineBlockContents('<script data-x="a>', 'script')).toEqual([]);
+  });
+
+  it('ends a block at an end tag with no `>` and does not loop', () => {
+    const source = '<script>let a = 1;</script';
+
+    expect(findInlineBlockContents(source, 'script')).toEqual([
+      { content: 'let a = 1;', offset: 8 },
+    ]);
+  });
+
+  it('reads an empty block as an empty string rather than as nothing', () => {
+    expect(findInlineBlockContents('<script></script>', 'script')).toEqual([
+      { content: '', offset: 8 },
+    ]);
+  });
+
   it('answers "inside a block" against the ranges it was given', () => {
     const source = 'x<script>abc</script>y';
     const ranges = findInlineBlocks(source, 'script');
