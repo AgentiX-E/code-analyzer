@@ -469,7 +469,7 @@
     "@tree-sitter-grammars/tree-sitter-hcl": "^1.2.0",
     "@agentix-e/embed-code-core": "0.1.1",
     "@agentix-e/embed-code-node": "0.1.1",
-    "onnxruntime-node": "^1.27.0"
+    "onnxruntime-node": "^1.31.1"
   },
   "devDependencies": {
     "@code-analyzer/analyzer": "workspace:*",
@@ -477,7 +477,7 @@
     "@code-analyzer/intelligence": "workspace:*",
     "@code-analyzer/shared": "workspace:*",
     "@types/vscode": "^1.144.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "^6.0.3",
     "vitest": "^4.1.12"
   }

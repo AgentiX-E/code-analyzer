@@ -644,7 +644,9 @@ describe('SessionStore — the id is checked before it becomes a path', () => {
 
     expect(ids.size).toBe(500);
     for (const id of ids) {
-      expect(id).toMatch(/^session-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(id).toMatch(
+        /^session-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
       expect(store.getRecords(id)).toEqual([]);
     }
   });
