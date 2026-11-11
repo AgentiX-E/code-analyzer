@@ -55,6 +55,23 @@ interface ParsedHunk {
 // Diff Parser
 // ---------------------------------------------------------------------------
 
+/**
+ * The destination path of a `diff --git a/<old> b/<new>` line, or `null` if the line is not one.
+ *
+ * **`(.*?) b\/(.*?)$` reads the same and costs more.** Two lazy groups against a `$` anchor let the engine try every
+ * position for the separator before it gives up on a line that is not a header, and a header whose path is a long run of
+ * spaces has as many candidate positions as it has characters. `indexOf` has one answer: **the first ` b/` after the
+ * prefix**, which is the separator git writes - a path may contain a space, so the last ` b/` would be the wrong one.
+ */
+function diffHeaderDestination(line: string): string | null {
+  const prefix = 'diff --git a/';
+  if (!line.startsWith(prefix)) return null;
+  const separator = line.indexOf(' b/', prefix.length);
+  if (separator < 0) return null;
+  const destination = line.slice(separator + 3);
+  return separator > prefix.length && destination.length > 0 ? destination : null;
+}
+
 export class DiffParser {
   /**
    * Parse a unified diff text into structured GitDiff objects.
@@ -89,9 +106,9 @@ export class DiffParser {
         }
 
         // Parse new file path from diff header
-        const match = line.match(/^diff --git a\/(.*?) b\/(.*?)$/);
-        if (match) {
-          currentFilePath = match[2]!;
+        const headerPath = diffHeaderDestination(line);
+        if (headerPath !== null) {
+          currentFilePath = headerPath;
         }
 
         currentOldPath = null;

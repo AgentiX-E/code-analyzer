@@ -28,15 +28,19 @@ on:
     - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
   workflow_dispatch:
 
+# **The write is on the job that writes it.** One job, one comment on the pull request; nothing else here needs a
+# token beyond reading the repository.
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   bench:
     name: Benchmark Regression Check
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout

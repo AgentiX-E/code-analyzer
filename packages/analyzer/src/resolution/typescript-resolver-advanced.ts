@@ -10,6 +10,7 @@
 // Uses tree-sitter-typescript AST for structural extraction and falls back
 // to regex-based parsing for edge cases.
 
+import { stripTypeArguments } from '@code-analyzer/shared';
 import Parser from 'tree-sitter';
 
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
@@ -973,9 +974,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
         kind: 'class',
         members: new Map(),
         baseTypes: m[2] ? [m[2]] : [],
-        implementedInterfaces: m[3]
-          ? m[3].split(/\s*,\s*/).map((s) => s.replace(/<[^>]+>/, ''))
-          : [],
+        // Arguments before the split, for the reason `java-resolver` gives: a comma inside `<…>` is not a separator.
+        implementedInterfaces: m[3] ? stripTypeArguments(m[3]).split(/\s*,\s*/) : [],
         typeParameters: [],
         returnType: null,
         parameterTypes: [],

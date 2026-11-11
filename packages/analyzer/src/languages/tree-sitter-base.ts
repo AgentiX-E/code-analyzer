@@ -2130,14 +2130,9 @@ function isCommentNodeType(type: string): boolean {
  */
 function stripCommentSyntax(text: string): string {
   return (
-    text
+    stripHtmlCommentMarkers(text)
       .replace(/^\s*\/\*\*?/, '')
       .replace(/\*\/\s*$/, '')
-      // **An HTML comment closes with `-->` and opens with `<!--`, and neither is a line prefix.** Removing the pair
-      // before the split is what makes `<!---->` strip to the empty string: without it the line rule takes `<!--` off
-      // and leaves `-->` behind, so an empty comment reads as documentation that says `-->`.
-      .replace(/<!--/g, '')
-      .replace(/-->/g, '')
       .split('\n')
       .map((line) =>
         line
@@ -2150,4 +2145,27 @@ function stripCommentSyntax(text: string): string {
       .join('\n')
       .trim()
   );
+}
+
+/**
+ * An HTML comment's text without the markers that open and close it.
+ *
+ * **An HTML comment closes with `-->` and opens with `<!--`, and neither is a line prefix**, so the
+ * pair is removed before the split. Two things the previous rule got wrong:
+ *
+ * - **`--!>` is a valid end tag** (the `!` is a legacy of the HTML 4 bogus comment state), and a
+ *   rule that removed only `-->` left it in the docstring as prose.
+ * - **A single pass is not a rewrite.** `<!--<!---->` reduces to a string that still begins `<!--`
+ *   after one removal, so a sanitiser that runs once can hand back a marker it was asked to remove.
+ *   The loop removes until the text stops shrinking, which terminates because every pass is
+ *   strictly shorter.
+ */
+function stripHtmlCommentMarkers(text: string): string {
+  let current = text;
+
+  for (;;) {
+    const next = current.replace(/^\s*<!--/, '').replace(/(?:--!?>)\s*$/, '');
+    if (next === current) return current;
+    current = next;
+  }
 }

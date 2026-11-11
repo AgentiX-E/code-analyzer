@@ -17,6 +17,18 @@ export interface ComparisonCoverage {
   share: number;
 }
 
+/**
+ * **The corpus the two figures were computed over.**
+ *
+ * `whole corpus` needs no denominator; `paired subset` does, and so does what was left out of it.
+ */
+export interface ComparisonScope {
+  basis: 'whole corpus' | 'paired subset';
+  pullRequests: number;
+  requested: number;
+  excluded: number;
+}
+
 /** A comparison that states a verdict. */
 export interface StatedComparison {
   comparable: true;
@@ -26,6 +38,7 @@ export interface StatedComparison {
   theirsOnly: number;
   pValue: number;
   coverage: ComparisonCoverage;
+  scope: ComparisonScope;
 }
 
 /** A comparison that refuses to state one, and says why. */
@@ -39,6 +52,8 @@ export interface WithheldComparison {
   theirsOnly: null;
   pValue: null;
   coverage: ComparisonCoverage;
+  /** The field exists on both arms so that a reader never has to narrow before asking what corpus a figure is over. */
+  scope: null;
 }
 
 export type CompetitorComparison = StatedComparison | WithheldComparison;
@@ -47,6 +62,11 @@ export declare function compareAgainstCompetitor(input: {
   oursOnly?: number | null;
   theirsOnly?: number | null;
   coverage?: { requested?: number | null; covered?: number | null; missing?: number | null } | null;
+  /**
+   * **The pull requests both arms were scored on**, when the caller restricted its counts to them. Absent means the
+   * caller did not, and a missing competitor row then still withholds.
+   */
+  paired?: { pullRequests?: number | null } | null;
 }): CompetitorComparison;
 
 export declare function describeComparison(comparison: CompetitorComparison): string;

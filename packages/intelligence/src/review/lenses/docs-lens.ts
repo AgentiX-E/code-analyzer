@@ -28,7 +28,9 @@ interface DocCheckResult {
 /** Extract exported function information */
 function extractFunctionInfo(lines: string[], i: number): DocCheckResult | null {
   const line = lines[i]!.trim();
-  const exportMatch = line.match(/export\s+(?:async\s+)?function\s+(\w{1,128})\s*\(([^)]{0,512})\)/);
+  const exportMatch = line.match(
+    /export\s+(?:async\s+)?function\s+(\w{1,128})\s*\(([^)]{0,512})\)/,
+  );
   const noExportMatch = line.match(/(?:async\s+)?function\s+(\w{1,128})\s*\(([^)]{0,512})\)/);
 
   const match = exportMatch || noExportMatch;

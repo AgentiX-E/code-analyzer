@@ -6,6 +6,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
+import { findInlineBlockContents, findInlineBlocks, isInsideRanges } from './html-script-blocks.js';
 import { lineOf, OVERLONG_LINE_BUDGET, maskOverlongLines } from './line-index.js';
 
 import type { ParsedImport, LanguageProvider } from './provider.js';
@@ -127,23 +128,13 @@ export class SvelteProvider implements LanguageProvider {
   /**
    * Extract content of <script> and <script context="module"> blocks.
    * Returns an array of { content, offset } for each script block.
+   *
+   * **The scan lives in `html-script-blocks.ts`** because a pattern cannot answer what a browser
+   * answers: an end tag may carry attributes (`</script\t\n bar>`), and a `>` inside a quoted
+   * attribute belongs to the value rather than to the tag.
    */
   private extractScriptBlocks(source: string): Array<{ content: string; offset: number }> {
-    const blocks: Array<{ content: string; offset: number }> = [];
-    const scriptRegex = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
-    let match: RegExpExecArray | null;
-
-    while ((match = scriptRegex.exec(source)) !== null) {
-      // Both capture groups always match (possibly empty), so they are never null
-      const attrs = match[1]!;
-      const content = match[2]!;
-      const tagEnd = '<script' + attrs + '>';
-      const offset = match.index + tagEnd.length;
-      // Include context="module" blocks as well
-      blocks.push({ content, offset });
-    }
-
-    return blocks;
+    return findInlineBlockContents(source, 'script');
   }
 
   /**
@@ -412,23 +403,22 @@ export class SvelteProvider implements LanguageProvider {
     const tagRegex = /<(\w+(?:-\w+)+|[A-Z]\w*)(?:\s[^>]*)?(?:\/?>)/g;
     let match: RegExpExecArray | null;
 
+    // **The blocks are located once, by the same rule that extracts their content.** This used to
+    // be two `lastIndexOf` calls, which answered "is this inside code" with the open tag's name and
+    // an end tag with no attributes - so `</script >` and `</SCRIPT>` both read as "still inside"
+    // and every component after them was dropped as a template element.
+    const codeRanges = [
+      ...findInlineBlocks(source, 'script'),
+      ...findInlineBlocks(source, 'style'),
+    ].sort((a, b) => a.start - b.start);
+
     while ((match = tagRegex.exec(source)) !== null) {
       // The regex only matches PascalCase and kebab-case names, which are
       // custom components (standard HTML tags are lowercase single words)
       const tagName = match[1]!;
 
       // Skip if inside <script> or <style> blocks
-      const beforeMatch = source.slice(0, match.index);
-      const lastScriptOpen = beforeMatch.lastIndexOf('<script');
-      const lastScriptClose = beforeMatch.lastIndexOf('</script>');
-      const lastStyleOpen = beforeMatch.lastIndexOf('<style');
-      const lastStyleClose = beforeMatch.lastIndexOf('</style>');
-
-      // Calculate the effective end of the last closed script block
-      // If we're inside a script block, skip
-      const inScript = lastScriptOpen > lastScriptClose;
-      const inStyle = lastStyleOpen > lastStyleClose;
-      if (inScript || inStyle) continue;
+      if (isInsideRanges(codeRanges, match.index)) continue;
 
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_CALL,

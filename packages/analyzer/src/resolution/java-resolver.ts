@@ -7,6 +7,7 @@
 //
 // Uses tree-sitter-java AST for structural extraction with regex fallback.
 
+import { stripTypeArguments } from '@code-analyzer/shared';
 import Parser from 'tree-sitter';
 
 import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
@@ -934,13 +935,16 @@ export class JavaResolver extends TypeResolverBase {
       /(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+)*class\s+(\w+)(?:<([^>]+)>)?(?:\s+extends\s+([\w.<>,\s]+?))?(?:\s+implements\s+(.+?))?\s*\{/g;
     let m: RegExpExecArray | null;
     while ((m = classRx.exec(source)) !== null) {
-      const baseType = m[3]
-        ? m[3]
-            .replace(/<[^>]+>/, '')
-            .split(',')[0]!
-            .trim()
-        : null;
-      const impls = m[4] ? m[4].split(',').map((s) => s.replace(/<[^>]+>/, '').trim()) : [];
+      // **The arguments go before the split, not after it.** `implements A<B, C>, D` split on commas first yields
+      // `A<B` and ` C>` and ` D`, which is two names and a fragment; stripped first it is one name and one fragment of
+      // the pattern's own making, and the balanced-group scan is what says which commas were inside brackets.
+      const baseType = m[3] ? stripTypeArguments(m[3]).split(',')[0]!.trim() : null;
+      const impls = m[4]
+        ? stripTypeArguments(m[4])
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+        : [];
       const typeParams = m[2]
         ? m[2]
             .split(',')

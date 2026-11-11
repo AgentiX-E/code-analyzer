@@ -2,6 +2,8 @@
 // Provides tree-sitter AST context for rule checkers, with transparent
 // fallback to text-based analysis when grammar is unavailable.
 
+import { readQuotedSpans } from '../review/quoted-spans.js';
+
 import type { RuleCheckResult, RuleChecker } from './rule-runner.js';
 
 // ---------------------------------------------------------------------------
@@ -450,7 +452,9 @@ function findChild(node: TsNode, types: string[]): TsNode | null {
 function extractCallsRegex(lines: string[], _language: string): AstCallSite[] {
   const calls: AstCallSite[] = [];
   // Match method calls: obj.method(args) and function calls: name(args)
-  const callPattern = /(\w{1,128}(?:\.\w{1,128})*)\s*\(([^)]{0,512})\)/g;
+  // **A bound instead of a star.** `(\w{1,128}(?:\.\w{1,128})*)` is a bounded atom under an unbounded quantifier, so
+  // a long run of `a.b.c…` has as many parses as it has dots. Seventeen segments is more than a call site names.
+  const callPattern = /(\w{1,128}(?:\.\w{1,128}){0,16})\s*\(([^)]{0,512})\)/g;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -475,22 +479,21 @@ function extractStringsRegex(lines: string[]): AstStringLiteral[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    // Match single-quoted strings
-    const singlePattern = /'([^'\\]*(?:\\.[^'\\]*)*)'/g;
-    // Match double-quoted strings
-    const doublePattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
-    // Match template literals
-    const templatePattern = /`([^`\\]*(?:\\.[^`\\]*)*)`/g;
-
-    let m: RegExpExecArray | null;
-    while ((m = singlePattern.exec(line)) !== null) {
-      strings.push({ value: m[1]!, text: m[0], line: i + 1 });
-    }
-    while ((m = doublePattern.exec(line)) !== null) {
-      strings.push({ value: m[1]!, text: m[0], line: i + 1 });
-    }
-    while ((m = templatePattern.exec(line)) !== null) {
-      strings.push({ value: m[1]!, text: m[0], line: i + 1 });
+    // **One scan, three readings of it.** A pattern that reads a string literal has to decide at every `\\"` whether the
+    // backslash starts an escape or the quote ends the string, and both spellings of that pattern - the unrolled one and
+    // the alternation that replaced it - are exponential in the number of escapes: a measured line of them cost three
+    // seconds at eighty kilobytes. The scan walks forward once; the three passes below group its spans by quote, which is
+    // the order this function has always emitted them in.
+    const spans = readQuotedSpans(line, `'"\``);
+    for (const quote of [`'`, `"`, '`']) {
+      for (const span of spans) {
+        if (span.quote !== quote) continue;
+        strings.push({
+          value: span.body,
+          text: line.slice(span.start, span.end),
+          line: i + 1,
+        });
+      }
     }
   }
 
@@ -536,7 +539,9 @@ function extractImportsRegex(lines: string[], language: string): AstImport[] {
 function extractAssignmentsRegex(lines: string[], _language: string): AstAssignment[] {
   const assignments: AstAssignment[] = [];
 
-  const pattern = /(?:const|let|var)\s+(\w+)\s*=\s*(.+?)(?:;|$)/;
+  // **`[^;\n]+` and not `(.+?)(?:;|$)`.** A lazy group followed by a two-way terminator asks the engine to try every
+  // prefix of the value before it settles; a class that cannot match the terminator has one reading.
+  const pattern = /(?:const|let|var)[ \t]+(\w{1,128})[ \t]*=[ \t]*([^;\n]+)/;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     const m = pattern.exec(line);

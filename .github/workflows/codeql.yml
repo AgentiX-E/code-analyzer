@@ -11,15 +11,21 @@ on:
   schedule:
     - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
 
+# **Least privilege, granted where it is used.** `security-events: write` and `actions: read` are what the analysis job
+# needs in order to upload results and to read the previous run's baseline; no other job in this file exists. The
+# workflow-level grant is `contents: read` only, so a future job added here does not inherit the ability to overwrite
+# alerts until someone writes that permission into it.
 permissions:
-  security-events: write
-  actions: read
   contents: read
 
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:

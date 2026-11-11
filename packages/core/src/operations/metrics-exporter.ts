@@ -55,6 +55,22 @@ function labelsKey(labels?: Record<string, string>): string {
 }
 
 /**
+ * A label value as the exposition format requires it.
+ *
+ * **The three characters Prometheus escapes are `\\`, `"` and a newline, and the order is not a preference.** The
+ * previous version escaped the quote and nothing else, so a value ending in a backslash — a Windows path, a regex, a
+ * route parameter — produced `path="C:\"`, whose quote is escaped by that backslash and whose label therefore never
+ * closes. The line after it is parsed as part of the label set. A newline in a value breaks the format the same way for
+ * a different reason: the exposition format is line-oriented, and a raw newline in a value starts a line that is not a
+ * metric.
+ *
+ * Backslash first, because escaping it after the quote would escape the escape.
+ */
+function escapeLabelValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+/**
  * Serialize label set to a Prometheus-compatible label string.
  */
 function serializeLabels(labels?: Record<string, string>): string {
@@ -63,7 +79,7 @@ function serializeLabels(labels?: Record<string, string>): string {
     '{' +
     Object.entries(labels)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}="${v.replace(/"/g, '\\"')}"`)
+      .map(([k, v]) => `${k}="${escapeLabelValue(v)}"`)
       .join(',') +
     '}'
   );

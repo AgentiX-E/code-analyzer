@@ -466,7 +466,7 @@ export class CppProvider extends TreeSitterBaseProvider {
 
     // Function definitions (return type + name + parens + {)
     const funcRegex =
-      /(?:(?:static|inline|virtual|explicit|constexpr|const)\s+)*(?:\w{1,128}(?:<[^<>\n]{0,256}>)?(?:::|\s)+)?(\w{1,128})\s*\([^)]{0,512}\)\s*(?:const\s*)?(?:\{|;)/g;
+      /(?:\w{1,128}(?:<[^<>\n]{0,256}>)?(?:::|\s)+){0,8}(\w{1,128})\s*\([^)]{0,512}\)\s*(?:const\s*)?(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[1]!;
       if (!this.isValidFnName(name)) continue;

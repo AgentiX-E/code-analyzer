@@ -502,7 +502,7 @@ export function checkNoArrayIndexKey(
 
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
-    if (/\bkey\s*=\s*\{?\s*(?:index|i|idx|j|k)\b/.test(line)) {
+    if (/\bkey\s*=\s*(?:\{\s*)?(?:index|i|idx|j|k)\b/.test(line)) {
       results.push(
         makeResult(
           'no-array-index-key',
@@ -875,7 +875,7 @@ export function checkMaxFunctionLines(
     const funcMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?(?:static\s+)?function\s+(\w+)/);
     const arrowMatch = trimmed.match(/(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(/);
     const methodMatch = trimmed.match(
-      /^\s*(?:public|private|protected|static|async)?\s*(\w+)\s*\([^)]*\)\s*(?::\s*\w+(?:<[^>]*>)?)?\s*\{/,
+      /^[ \t]*(?:(?:public|private|protected|static|async)\s+)?(\w{1,128})\s*\([^)]{0,512}\)(?:[ \t]*:[ \t]*\w{1,128}(?:<[^<>\n]{0,256}>)?)?[ \t]*\{/,
     );
 
     if (funcMatch || arrowMatch || methodMatch) {
@@ -946,9 +946,7 @@ export function checkMaxParams(
 
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
-    const paramMatch = line.match(
-      /(?:function\s+\w{1,128}\s*|=>\s*|\w{1,128}\s*)\s*\(([^)]{0,512})\)/,
-    );
+    const paramMatch = line.match(/(?:function\s+\w{1,128}|=>|\w{1,128})\s*\(([^)]{0,512})\)/);
     if (paramMatch) {
       const params = paramMatch[1]!
         .split(',')
@@ -1380,7 +1378,7 @@ export function checkTrailingWhitespace(
 
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
-    if (line.length > 0 && /[ \t]+$/.test(line)) {
+    if (line.length > 0 && /[ \t]$/.test(line)) {
       results.push(
         makeResult(
           'trailing-whitespace',

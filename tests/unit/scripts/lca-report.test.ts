@@ -55,7 +55,6 @@ function tree(report: string, artifact: unknown): { dir: string; script: string 
   writeFileSync(
     script,
     readFileSync(SCRIPT, 'utf8')
-      .replace("require('node:fs')", "require('node:fs')")
       .replace(
         "const ARTIFACT = 'benchmarks/lca-bug-localization.json';",
         "const ARTIFACT = 'artifact.json';",
