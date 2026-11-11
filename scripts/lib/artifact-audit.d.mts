@@ -24,6 +24,16 @@ export interface BothMissedSummary {
   byPullRequest: Array<{ name: string; count: number }>;
 }
 
+export interface CompetitorTextCoverage {
+  mode: string | null;
+  rows: number;
+  withText: number;
+  coverage: number;
+  mustBeComplete: boolean;
+}
+
+export declare function competitorTextCoverage(artifact: unknown): CompetitorTextCoverage;
+
 export declare function auditArtifact(artifact: unknown): Audit;
 
 export declare function formatAudit(audit: Audit): string;

@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   auditArtifact,
+  competitorTextCoverage,
   formatAudit,
   formatBothMissed,
   summariseBothMissed,
@@ -263,5 +264,52 @@ describe('the ceiling, grouped rather than listed', () => {
       summariseBothMissed(withCeiling([{ pr: 'p', path: 'a/b.ts', ourBucket: 'hit' }])),
     );
     expect(text.split('\n')[0]).toContain('goldens neither reviewer found: 1');
+  });
+});
+
+describe('the competitor’s words', () => {
+  /** An artifact with two competitor rows, `withText` of them carrying a sentence. */
+  const withTheirs = (mode: string, withText: number) => ({
+    secondReviewer: {
+      mode,
+      findingsAtItsOwnOperatingPoint: [
+        { path: 'a.ts', startLine: 1, ...(withText > 0 ? { text: 'their first remark' } : {}) },
+        { path: 'b.ts', startLine: 2, ...(withText > 1 ? { text: 'their second remark' } : {}) },
+      ],
+    },
+  });
+
+  it('counts the rows that carry a sentence rather than the rows that exist', () => {
+    const coverage = competitorTextCoverage(withTheirs('record', 1));
+    expect(coverage.rows).toBe(2);
+    expect(coverage.withText).toBe(1);
+    expect(coverage.coverage).toBe(0.5);
+  });
+
+  it('fails a recording run that paid for the output and kept only its coordinates', () => {
+    // **This is the exact shape of the baseline that shipped**: 23 rows per pull request, nine fields each, none of
+    // them the remark. A comparison that keeps where a comment landed and not what it said cannot be learned from.
+    const artifact = { ...consistentArtifact(), ...withTheirs('record', 0) };
+    expect(competitorTextCoverage(artifact).mustBeComplete).toBe(true);
+    expect(failuresOf(artifact as ReturnType<typeof consistentArtifact>)).toContain(
+      'the competitor’s remarks are readable beside ours',
+    );
+  });
+
+  it('accepts a replay against a baseline recorded before the field existed', () => {
+    // **A replay cannot have what the baseline does not**, and failing it would fail every run until somebody spends
+    // 5.89 USD on a new recording - which is a decision a person makes, not a check.
+    const artifact = { ...consistentArtifact(), ...withTheirs('replay', 0) };
+    expect(competitorTextCoverage(artifact).mustBeComplete).toBe(false);
+    expect(failuresOf(artifact as ReturnType<typeof consistentArtifact>)).not.toContain(
+      'the competitor’s remarks are readable beside ours',
+    );
+  });
+
+  it('says the artifact has no competitor rows rather than reporting perfect coverage', () => {
+    // **Zero of zero is not full coverage.** A run with the competitor arm switched off must not read as complete.
+    const coverage = competitorTextCoverage({ secondReviewer: { mode: 'replay' } });
+    expect(coverage.rows).toBe(0);
+    expect(coverage.coverage).toBe(0);
   });
 });

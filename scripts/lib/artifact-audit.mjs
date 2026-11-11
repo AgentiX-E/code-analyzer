@@ -126,6 +126,17 @@ export function auditArtifact(artifact) {
     `published ${String(artifact?.f1)}, recomputed ${expectedF1.toFixed(4)} from ${String(tp)}/${String(fp)}/${String(fn)}`,
   );
 
+  // **6. The words, not only the coordinates.** A comparison that keeps where a remark landed and not what it said
+  // cannot be learned from, and the competitor's rows were exactly that shape until iteration 124.
+  const text = competitorTextCoverage(artifact);
+  record(
+    'the competitor’s remarks are readable beside ours',
+    !text.mustBeComplete || text.coverage === 1,
+    text.rows === 0
+      ? 'no competitor rows in this artifact'
+      : `${String(text.withText)} of ${String(text.rows)} competitor rows carry text (mode ${String(text.mode)})`,
+  );
+
   return { ok: findings.every((finding) => finding.ok), findings };
 }
 
@@ -192,4 +203,37 @@ export function formatBothMissed(summary) {
     table('by directory', summary.byDirectory),
     table('by pull request', summary.byPullRequest),
   ].join('\n');
+}
+
+/**
+ * **Whether the artifact can be read beside what the two reviewers actually said.**
+ *
+ * Every published figure is about *whether* the judge accepted a remark. Not one of them says what the remark was, and
+ * the instruction every competitor analysis ends with - *learn what they say and say it as well* - needs the words.
+ *
+ * **Our own rows have carried `text` since the first run; the competitor's rows carried coordinates and no words**,
+ * which is why this is a coverage figure rather than a boolean: the baseline in `benchmarks/aacr/competitor-baseline.json`
+ * was recorded before the field existed, so a `replay` run against it cannot have the text however much this repository
+ * now stores. **A `record` run that comes back without it is the defect**, and that is what this check refuses.
+ */
+export function competitorTextCoverage(artifact) {
+  // **`secondReviewer.findingsAtItsOwnOperatingPoint`, not `rankedFindings`**: the latter holds our rows only, and a
+  // check that looked for competitor rows there would report a coverage of zero on every artifact ever written.
+  const theirs = Array.isArray(artifact?.secondReviewer?.findingsAtItsOwnOperatingPoint)
+    ? artifact.secondReviewer.findingsAtItsOwnOperatingPoint
+    : [];
+  const withText = theirs.filter((row) => typeof row?.text === 'string' && row.text.length > 0);
+  const mode = artifact?.secondReviewer?.mode ?? null;
+  return {
+    mode,
+    rows: theirs.length,
+    withText: withText.length,
+    coverage: theirs.length === 0 ? 0 : withText.length / theirs.length,
+    /**
+     * **`record` means this run paid for the competitor's output and must keep it.** `replay` reads a baseline that was
+     * recorded before the field existed, and reporting that as a failure would fail every run until somebody spends
+     * 5.89 USD - which is a decision, not a defect.
+     */
+    mustBeComplete: mode === 'record',
+  };
 }

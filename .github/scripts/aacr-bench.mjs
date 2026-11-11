@@ -1796,6 +1796,22 @@ async function main() {
             features: ranked.score.features,
             actionable: ranked.score.actionable,
             matchedGoldens: competitorMatrix.matches[at],
+            // **The competitor's own sentence, which this row did not carry and ours did.**
+            //
+            // Every figure in this project is about *whether* the judge accepted a remark, and not one of them says what
+            // the remark was. Our own rows kept `text` from the first run, so `findingOnPathRejected` could be read
+            // beside the sentence that was rejected; **the competitor's rows kept the coordinates and dropped the
+            // words**, which means the one instruction every competitor analysis ends with - *learn what they say and
+            // say it as well* - had no data behind it: the baseline in `benchmarks/aacr/competitor-baseline.json` was
+            // paid for once and is replayed for free, and it stores 23 rows per pull request at nine fields each with no
+            // text among them.
+            //
+            // **The omission was deliberate and its reason was size.** The comment above says a record that repeats a
+            // label is a record whose size is mostly its own labels, and 320 characters per row is not a label. The
+            // baseline is 94 kB; with the text it is about 220 kB, in a file that is read by a comparison job and
+            // reviewed by a person. **A comparison that cannot be re-read is cheaper only until somebody needs to read
+            // it**, which is the same ledger entry as the five attribution examples.
+            text: `${ranked.finding.title} :: ${ranked.finding.description}`.slice(0, 320),
           }));
           for (const row of detailRows) {
             competitorDetail.push({ ...row, pr: competitorKey, which: 'competitor' });
