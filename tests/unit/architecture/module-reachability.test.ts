@@ -61,7 +61,9 @@ function resolveSpecifier(
   specifier: string,
   known: ReadonlySet<string>,
 ): string | null {
-  const withoutExtension = specifier.replace(/\.jsx?$/, '').replace(/\.mjs$/, '.mjs');
+  // A `.mjs` specifier keeps its extension: only `.js` and `.jsx` are stripped, and a second `replace` that mapped
+  // `.mjs` to itself described that by doing nothing.
+  const withoutExtension = specifier.replace(/\.jsx?$/, '');
   for (const candidate of [
     `${withoutExtension}.ts`,
     `${withoutExtension}.tsx`,

@@ -40,7 +40,7 @@ const GOLDEN = join(MARTIAN, 'offline', 'golden_comments');
 const OFFLINE = join(MARTIAN, 'offline');
 const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
 const HAS_KEY = Boolean(process.env['DEEPSEEK_API_KEY']);
-const TOKEN = process.env['GITHUB_TOKEN'] ?? process.env['GITHUB_TOKEN'] ?? '';
+const TOKEN = process.env['GITHUB_TOKEN'] ?? '';
 const MAX_PRS = Number(process.env['MAX_PRS'] ?? '6');
 
 function readGolden() {
