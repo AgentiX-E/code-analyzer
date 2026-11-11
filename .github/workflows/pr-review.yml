@@ -12,11 +12,11 @@ concurrency:
   group: code-analyzer-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  pull-requests: write
-  checks: write
-  issues: write
+# **Every job below states its own permissions, so the workflow level states none.** A job-level `permissions` replaces
+# the workflow-level map instead of extending it, which means the four-job grant that used to sit here was already
+# inert — and would have become a live, wider grant the moment a fifth job was added without one. The empty map keeps
+# that from happening silently: a new job gets no token until someone writes down what it needs.
+permissions: {}
 
 jobs:
   #

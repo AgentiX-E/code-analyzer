@@ -12,9 +12,11 @@ on:
   schedule:
     - cron: '0 8 * * 1' # Every Monday at 08:00 UTC
 
+# **`security-events: write` is not granted here**, because only the `codeql` job uploads alerts and that job carries the
+# permission itself. The workflow-level grant that used to sit beside this line gave the same authority to `secret-scan`,
+# `dependency-audit`, `supply-chain` and `redos-assay`, none of which has anything to upload.
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   secret-scan:
