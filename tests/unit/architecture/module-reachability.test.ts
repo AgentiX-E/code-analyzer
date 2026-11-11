@@ -61,7 +61,9 @@ function resolveSpecifier(
   specifier: string,
   known: ReadonlySet<string>,
 ): string | null {
-  const withoutExtension = specifier.replace(/\.jsx?$/, '').replace(/\.mjs$/, '.mjs');
+  // A `.mjs` specifier keeps its extension: only `.js` and `.jsx` are stripped, and a second `replace` that mapped
+  // `.mjs` to itself described that by doing nothing.
+  const withoutExtension = specifier.replace(/\.jsx?$/, '');
   for (const candidate of [
     `${withoutExtension}.ts`,
     `${withoutExtension}.tsx`,
@@ -375,13 +377,18 @@ describe('every module a package compiles is reachable from an entry its manifes
       // for a bill.** 157 was iteration 110, which added `review/llm/language-rules.ts`: the per-language checklist is
       // content rather than plumbing, and this register is what makes that a decision somebody took rather than a file
       // that appeared.)
-      // **160 since iteration 120**, which added `review/import-specifier.ts`: the linear reader that replaced the
-      // import-line pattern in `structure-lens.ts`. It is a module rather than a private function because three other
-      // readers of the same line shape will want it, and a scan copied into a second place is a scan that will diverge.
-      intelligence: 160,
+      // **161 since iteration 121**, which added `review/quoted-spans.ts`: the scan that reads a string literal, in
+      // place of a pattern that was quadratic in a run of escapes - **4 621 ms for one unterminated 120-kilobyte line**,
+      // measured on the commit before it. It is a module because two readers need it and because a scan that two readers
+      // copy is a scan whose second copy is the one nobody measures. (160 was iteration 120's `import-specifier.ts`.)
+      intelligence: 161,
       mcp: 39,
       server: 24,
-      shared: 10,
+      // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and
+      // the simple name that follows it. It is a module rather than a private function because **five readers across
+      // three packages carried the same one-line `replace` that leaves `Map>` for `Map<String, List<Integer>>`**, and a
+      // correctness rule copied that many times is a rule whose copies disagree. (10 was iteration 118.)
+      shared: 11,
       vscode: 16,
       web: 18,
     });

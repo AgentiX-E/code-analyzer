@@ -8,6 +8,24 @@ import { lineOf } from './line-index.js';
 import { childrenOf } from './syntax-children.js';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
+/**
+ * The one attribute each tag turns into an import, and what the import is called.
+ *
+ * **A table rather than three loops**, because the three loops were the same loop: each found a tag, then found an
+ * attribute inside it, then emitted the same capture with a different `importType`.
+ */
+const IMPORT_ATTRIBUTE: Readonly<Record<string, RegExp>> = {
+  script: /src=["']([^"'\n]+)["']/,
+  link: /href=["']([^"'\n]+)["']/,
+  img: /src=["']([^"'\n]+)["']/,
+};
+
+const TAG_IMPORT_KIND: Readonly<Record<string, string>> = {
+  script: 'script',
+  link: 'link',
+  img: 'img',
+};
+
 import type { ParsedImport } from './provider.js';
 import type {
   TreeSitterLanguage,
@@ -395,54 +413,36 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     const tagRx = /<\/?(\w{1,128})[^<>]*>/g;
     while ((m = tagRx.exec(source)) !== null) {
       const isClosing = m[0].startsWith('</');
+      const tagStart = m.index;
+      const tagEnd = m.index + m[0].length;
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
         text: m[1]!,
-        startLine: ln(m.index),
-        endLine: ln(m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
+        startLine: ln(tagStart),
+        endLine: ln(tagEnd),
+        startByte: tagStart,
+        endByte: tagEnd,
         name: m[1]!,
         properties: { isClosing: String(isClosing), filePath },
       });
-    }
-    const srcRx = /<script[^<>]+src=["']([^"'\n]+)["']/g;
-    while ((m = srcRx.exec(source)) !== null) {
+
+      // **The attribute is read from the tag that was already found, and the loop above is why.** `/<link[^<>]+href=…/`
+      // lets the class consume `href="…"` and then asks for a second one; a tag with many `href="` inside it is a search
+      // that restarts at every character. One pass over the tags with one bounded attribute match inside each is linear,
+      // and it is also three loops fewer.
+      const attr = IMPORT_ATTRIBUTE[m[1]!];
+      if (!attr || isClosing) continue;
+      const value = attr.exec(m[0]);
+      if (!value) continue;
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
-        text: m[1]!,
-        startLine: ln(m.index),
-        endLine: ln(m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
-        name: m[1]!,
-        properties: { importType: 'script', filePath },
-      });
-    }
-    const linkRx = /<link[^<>]+href=["']([^"'\n]+)["'][^<>]*>/g;
-    while ((m = linkRx.exec(source)) !== null) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: m[1]!,
-        startLine: ln(m.index),
-        endLine: ln(m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
-        name: m[1]!,
-        properties: { importType: 'link', filePath },
-      });
-    }
-    const imgRx = /<img[^<>]+src=["']([^"'\n]+)["']/g;
-    while ((m = imgRx.exec(source)) !== null) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: m[1]!,
-        startLine: ln(m.index),
-        endLine: ln(m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
-        name: m[1]!,
-        properties: { importType: 'img', filePath },
+        text: value[1]!,
+        startLine: ln(tagStart),
+        endLine: ln(tagEnd),
+        startByte: tagStart,
+        endByte: tagEnd,
+        name: value[1]!,
+        properties: { importType: TAG_IMPORT_KIND[m[1]!]!, filePath },
       });
     }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);

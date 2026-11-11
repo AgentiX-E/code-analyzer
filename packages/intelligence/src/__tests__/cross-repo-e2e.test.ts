@@ -2,7 +2,7 @@
 // Exercises the full chain: repo group management → version matrix →
 // federated search → cross-repo PR review → dependency compatibility.
 
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -319,19 +319,21 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
     });
 
     it('should save and load config', () => {
-      const tempFile = join(tmpdir(), 'e2e-cross-repo-config.json');
-      manager.saveConfig(tempFile);
-      expect(existsSync(tempFile)).toBe(true);
-
-      // Create a new manager and load
-      const newManager = new RepoGroupManager();
-      newManager.loadConfig(tempFile);
-      expect(newManager.hasGroup(GROUP_ID)).toBe(true);
-
+      // **A private directory, not the fixed name `e2e-cross-repo-config.json` directly in the temporary directory.** A
+      // fixed name there is a name another process can create first - and this test writes through whatever is at that
+      // path before it reads it back. `mkdtempSync` makes the directory, so the name inside it is ours.
+      const dir = mkdtempSync(join(tmpdir(), 'e2e-cross-repo-config-'));
+      const tempFile = join(dir, 'config.json');
       try {
-        unlinkSync(tempFile);
-      } catch {
-        /* cleanup */
+        manager.saveConfig(tempFile);
+        expect(existsSync(tempFile)).toBe(true);
+
+        // Create a new manager and load
+        const newManager = new RepoGroupManager();
+        newManager.loadConfig(tempFile);
+        expect(newManager.hasGroup(GROUP_ID)).toBe(true);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
       }
     });
 

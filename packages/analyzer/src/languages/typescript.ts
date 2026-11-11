@@ -1770,7 +1770,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex =
-      /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w{1,128})|(\{[^}]*\})|(\w{1,128}))\s+from\s+['"]([^'"\n]+)['"]/g;
+      /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w{1,128})|(\{[^{}\n]*\})|(\w{1,128}))\s+from\s+['"]([^'"\n]+)['"]/g;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(source)) !== null) {
       const path = match[5]!;

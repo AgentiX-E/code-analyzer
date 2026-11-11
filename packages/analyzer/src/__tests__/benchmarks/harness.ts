@@ -113,12 +113,6 @@ function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
 // ---------------------------------------------------------------------------
 // Memory Tracking
 // ---------------------------------------------------------------------------
@@ -174,9 +168,6 @@ export class BenchmarkRunner {
     if (global.gc) {
       global.gc();
     }
-
-    // Record baseline memory
-    const baseline = takeMemorySnapshot();
 
     // Warm-up iterations
     for (let i = 0; i < warmupIterations; i++) {

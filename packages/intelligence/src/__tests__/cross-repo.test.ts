@@ -31,7 +31,9 @@ import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 // **Every fixture directory in this file is created with `mkdtempSync`.** The names it replaced were built from
 // `Date.now()` and a short random suffix, which reads like a unique name and is a clock reading: two workers that start
 // in the same millisecond are handed the same path, and the `mkdirSync(..., { recursive: true })` that followed
-// accepted a directory another run had already made - so one run's cleanup removed the other run's fixture.
+// accepted a directory another run had already made - so one run's cleanup removed the other run's fixture. **The
+// seventh such name was fixed in the same pass, and an eighth added here would be the same defect**: the directory is
+// created by `mkdtempSync` at mode 0700, which is also what makes a write into it a private write.
 
 function createTestRepoDir(baseDir: string, name: string, files: Record<string, string>): string {
   const repoDir = join(baseDir, name);
@@ -366,7 +368,12 @@ describe('RepoGroupManager', () => {
     });
   });
   describe('config save/load', () => {
-    const tmpDir = join(tmpdir(), `cross-repo-test-${Date.now()}`);
+    // **`mkdtempSync` and not a clock reading.** The name this replaced was `cross-repo-test-${Date.now()}`, which reads
+    // like a unique name and is a timestamp: two workers that start in the same millisecond are handed the same
+    // directory, and `mkdirSync(..., { recursive: true })` does not object to a directory that is already there. This is
+    // the last clock-derived fixture directory in the file - every other one was converted first, which is why the file's
+    // header says so and this line did not.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'cross-repo-test-'));
 
     beforeEach(() => {
       mkdirSync(tmpDir, { recursive: true });
@@ -640,13 +647,12 @@ describe('CrossRepoIndexer', () => {
   let store: InMemoryGraphStore;
   let groupManager: RepoGroupManager;
   let indexer: CrossRepoIndexer;
-  const tmpBaseDir = join(tmpdir(), `cross-repo-indexer-test-${Date.now()}`);
+  const tmpBaseDir = mkdtempSync(join(tmpdir(), 'cross-repo-indexer-test-'));
 
   beforeEach(() => {
     store = new InMemoryGraphStore();
     groupManager = new RepoGroupManager();
     indexer = new CrossRepoIndexer(store, groupManager);
-    mkdirSync(tmpBaseDir, { recursive: true });
   });
 
   describe('indexGroup', () => {
@@ -2122,7 +2128,7 @@ describe('Cross-Repo Edge Cases', () => {
 
   it('should handle indexGroup with language filter', async () => {
     groupManager.createGroup('g1', 'Lang Filter', '');
-    const baseDir = join(tmpdir(), `lang-filter-${Date.now()}`);
+    const baseDir = mkdtempSync(join(tmpdir(), 'lang-filter-'));
     const repoDir = createTestRepoDir(baseDir, 'service-lang', {
       'index.ts': 'export function getData() { return 42; }',
       'utils.py': 'def helper(): return True',
@@ -2136,7 +2142,7 @@ describe('Cross-Repo Edge Cases', () => {
   });
 
   it('should handle indexGroup with force option', async () => {
-    const baseDir = join(tmpdir(), `force-opt-${Date.now()}`);
+    const baseDir = mkdtempSync(join(tmpdir(), 'force-opt-'));
     const repoDir = createTestRepoDir(baseDir, 'service-force', {
       'index.ts': 'export function getStuff() { return true; }',
     });
@@ -2279,13 +2285,12 @@ describe('CrossRepoIndexer — additional coverage', () => {
   let store: InMemoryGraphStore;
   let groupManager: RepoGroupManager;
   let indexer: CrossRepoIndexer;
-  const tmpBaseDir = join(tmpdir(), `cross-repo-extra-${Date.now()}`);
+  const tmpBaseDir = mkdtempSync(join(tmpdir(), 'cross-repo-extra-'));
 
   beforeEach(() => {
     store = new InMemoryGraphStore();
     groupManager = new RepoGroupManager();
     indexer = new CrossRepoIndexer(store, groupManager);
-    mkdirSync(tmpBaseDir, { recursive: true });
   });
 
   describe('indexGroup — with language filter and concurrency', () => {
@@ -3847,7 +3852,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
     });
 
     it('treats a filename without a dot as an empty extension', async () => {
-      const tmpDir = join(tmpdir(), `nodot-${Date.now()}`);
+      const tmpDir = mkdtempSync(join(tmpdir(), 'nodot-'));
       const repoDir = createTestRepoDir(tmpDir, 'nodot-repo', {
         Makefile: 'all:\n\techo hi\n',
       });
@@ -3858,7 +3863,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
     });
 
     it('skips source files larger than 5MB', async () => {
-      const tmpDir = join(tmpdir(), `bigfile-${Date.now()}`);
+      const tmpDir = mkdtempSync(join(tmpdir(), 'bigfile-'));
       const repoDir = join(tmpDir, 'bigfile-repo');
       mkdirSync(repoDir, { recursive: true });
       writeFileSync(join(repoDir, 'big.ts'), '');
@@ -3882,7 +3887,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
     });
 
     it("skips a file that cannot be stat'ed (unsearchable directory)", async () => {
-      const tmpDir = join(tmpdir(), `statfail-${Date.now()}`);
+      const tmpDir = mkdtempSync(join(tmpdir(), 'statfail-'));
       const repoDir = join(tmpDir, 'statfail-repo');
       const subDir = join(repoDir, 'sub');
       mkdirSync(subDir, { recursive: true });
@@ -3903,7 +3908,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
 
   describe('extractImports — require and Python patterns', () => {
     it('extracts a non-destructured require() import', async () => {
-      const tmpDir = join(tmpdir(), `require-plain-${Date.now()}`);
+      const tmpDir = mkdtempSync(join(tmpdir(), 'require-plain-'));
       const repoDir = createTestRepoDir(tmpDir, 'require-plain-repo', {
         'index.js': "const fs = require('fs');\nmodule.exports = 1;",
       });
@@ -3914,7 +3919,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
     });
 
     it('extracts a destructured require() import', async () => {
-      const tmpDir = join(tmpdir(), `require-dest-${Date.now()}`);
+      const tmpDir = mkdtempSync(join(tmpdir(), 'require-dest-'));
       const repoDir = createTestRepoDir(tmpDir, 'require-dest-repo', {
         'index.js': "const { readFileSync, writeFileSync } = require('fs');",
       });
@@ -3925,7 +3930,7 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
     });
 
     it('extracts a Python from-import statement', async () => {
-      const tmpDir = join(tmpdir(), `py-from-${Date.now()}`);
+      const tmpDir = mkdtempSync(join(tmpdir(), 'py-from-'));
       const repoDir = createTestRepoDir(tmpDir, 'py-from-repo', {
         'main.py': 'from os import path, environ\nimport sys\n',
       });

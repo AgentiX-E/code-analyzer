@@ -257,6 +257,20 @@ describe('MetricsRegistry', () => {
       expect(output).toContain('multi_label{method="GET",status="200"} 1');
     });
 
+    it('escapes the backslash, the quote and the newline a label value can carry', () => {
+      // **A value that ends in a backslash closed no label.** `C:\` produced `path="C:\"`, whose closing quote was
+      // escaped by the value's own backslash, so the sample line after it was read as part of the label set. The
+      // exposition format escapes three characters and the old code escaped one.
+      const c = registry.counter('escaped_total', 'Escaped', ['path', 'note']);
+      c.inc(1, { note: 'a\nb', path: 'C:\\temp' });
+
+      const output = registry.exportPrometheus();
+      expect(output).toContain('escaped_total{note="a\\nb",path="C:\\\\temp"} 1');
+      // And the line is one line: a raw newline would have split the sample in two.
+      const sample = output.split('\n').filter((line) => line.startsWith('escaped_total{'));
+      expect(sample).toHaveLength(1);
+    });
+
     it('should export empty histogram correctly', () => {
       registry.histogram('empty_hist', 'Empty histogram');
       const output = registry.exportPrometheus();

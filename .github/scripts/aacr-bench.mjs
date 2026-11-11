@@ -53,7 +53,6 @@ import {
 } from './lib/competitor-baseline.mjs';
 
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
-const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
 const BASE =
   process.env['AACR_JUDGE_BASE'] ??
@@ -887,7 +886,6 @@ async function main() {
    */
   const OUTPUTS_DIR = resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs');
 
-  const YOU_FILES = { enabled: false };
   const { execFileSync } = await import('node:child_process');
   const { mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
@@ -1618,8 +1616,10 @@ async function main() {
             competitor.countsAgree =
               prose.declaredCount === null ? null : prose.declaredCount === list.length;
             if (!list.length) {
+              // **What the candidates said, not only that they all failed.** `lastError` was written on every failed
+              // candidate and read by nothing, so a parse that fell through to prose lost the reason it had to.
               throw new Error(
-                `the report parsed to no findings (${prose.findings.length} prose, no JSON candidate parsed)`,
+                `the report parsed to no findings (${prose.findings.length} prose, no JSON candidate parsed; last candidate error: ${lastError ?? 'none'})`,
               );
             }
           } else {

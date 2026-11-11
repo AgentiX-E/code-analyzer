@@ -502,7 +502,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
       source.includes('private') && source.indexOf('private') < source.indexOf(`def ${symbolName}`);
     return (
       !isPrivate &&
-      new RegExp(`def\\s+(?:self\.)?${s}\\b|class\\s+${s}\\b|module\\s+${s}\\b`).test(source)
+      new RegExp(`def\\s+(?:self\\.)?${s}\\b|class\\s+${s}\\b|module\\s+${s}\\b`).test(source)
     );
   }
 
