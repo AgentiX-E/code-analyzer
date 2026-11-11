@@ -381,7 +381,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       intelligence: 160,
       mcp: 39,
       server: 24,
-      shared: 10,
+      // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and
+      // the simple name that follows it. It is a module rather than a private function because **five readers across
+      // three packages carried the same one-line `replace` that leaves `Map>` for `Map<String, List<Integer>>`**, and a
+      // correctness rule copied that many times is a rule whose copies disagree. (10 was iteration 118.)
+      shared: 11,
       vscode: 16,
       web: 18,
     });

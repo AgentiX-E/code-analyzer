@@ -14,6 +14,7 @@ import {
   EDGE_IMPLEMENTS,
   EDGE_IMPORTS,
   EDGE_INSTANTIATES,
+  globToRegExpBody,
 } from '@code-analyzer/shared';
 
 import { sortByScoreThenKey } from './ranking.js';
@@ -515,7 +516,11 @@ function matchesSimplePattern(filePath: string, pattern: string): boolean {
     return filePath.includes(pattern);
   }
 
-  const regexStr = pattern.replace(/\./g, '\\.').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*');
+  // **The shared translation, unanchored, because this match is a "contains" and not an "is".** The chain it replaces
+  // escaped `.` and left the rest of the regex syntax in the pattern, so `src/(a|b)/*` was a group and `C++/**` was a
+  // quantifier. `globToRegExpBody` translates the same glob the exclude lists use; the anchors are not wanted here, and
+  // the reason is that a filter for a search is asked about a path a user typed part of.
+  const regexStr = globToRegExpBody(pattern);
 
   try {
     return new RegExp(regexStr).test(filePath);

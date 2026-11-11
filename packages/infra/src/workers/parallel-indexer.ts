@@ -18,6 +18,7 @@ import {
   EDGE_USES_TYPE,
   PhaseLogger,
   createNoopPhaseLogger,
+  matchesIncludePattern,
 } from '@code-analyzer/shared';
 
 import { createWorkerPool } from './pool.js';
@@ -1020,17 +1021,9 @@ export function toError(err: unknown): Error {
 // ---------------------------------------------------------------------------
 
 function minimatchCheck(str: string, pattern: string): boolean {
-  // Convert glob pattern to regex
-  const regexStr = pattern
-    .replace(/\./g, '\\.')
-    .replace(/\*\*/g, '<<<GLOBSTAR>>>')
-    .replace(/\*/g, '[^/]*')
-    .replace(/<<<GLOBSTAR>>>/g, '.*');
-
-  // If pattern doesn't contain path separators, match basename too
-  if (!pattern.includes('/')) {
-    return new RegExp(`^${regexStr}$`).test(str) || new RegExp(`^${regexStr}$`).test(basename(str));
-  }
-
-  return new RegExp(`^${regexStr}$`).test(str);
+  // **The shared matcher, because this was the fourth spelling of one idea.** The chain it replaces escaped `.` and left
+  // `+ ( [ $ |` doing regex work, and it disagreed with `globToRegExp` about `**/`: `**\/*.kt` compiled to `^.*/[^/]*\.kt$`
+  // here and did not match `build.kt` at the root. `matchesIncludePattern` tests the whole path **and** the basename,
+  // which is what the two `new RegExp` lines below did by hand.
+  return matchesIncludePattern(str, [pattern]);
 }

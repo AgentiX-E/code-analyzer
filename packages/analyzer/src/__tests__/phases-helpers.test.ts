@@ -21,7 +21,7 @@ import { createHash } from 'node:crypto';
 import { basename, dirname, resolve, join } from 'node:path';
 import { existsSync } from 'node:fs';
 
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { CAPTURE_TAGS, globToRegExpBody } from '@code-analyzer/shared';
 import type {
   UnifiedCapture,
   SymbolDefinition,
@@ -50,7 +50,12 @@ function matchesGitignore(relativePath: string, patterns: string[]): boolean {
         return true;
       }
     } else if (pattern.includes('*')) {
-      const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
+      // **The translation is the product's and the decision is this file's.** The oracle below is an independent
+      // implementation of *which* patterns admit a path - that is what it exists to disagree with the pipeline about -
+      // and it must not be an independent implementation of what a glob *means*, because then a bug in the translation
+      // would be a bug in both readings of it. `globToRegExpBody` escapes the pattern's own metacharacters; the anchors
+      // here are this file's, because a gitignore rule is about the whole of a relative path.
+      const regex = new RegExp('^' + globToRegExpBody(pattern) + '$');
       if (regex.test(relativePath) || regex.test(basename(relativePath))) {
         return true;
       }

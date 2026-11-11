@@ -65,6 +65,19 @@ function globBody(glob: string): string {
   return body;
 }
 
+/**
+ * The body of the regular expression for one glob, without the anchors.
+ *
+ * **A caller that matches a glob *anywhere* in a path needs this, and there are two of them**: an exclude list in the
+ * editor's file watcher and a path filter in search both ask "does this path contain the shape", not "is this path the
+ * shape". Both used to answer the question by replacing `.` with `\\.` and every `*` with `[^/]*` - which leaves `+`,
+ * `(`, `[`, `$` and `|` in the pattern doing regex work. **`v1.2` matched `v1x2` and `a(b` threw.** A translation that is
+ * shared is a translation that can be checked once; the anchors are the caller's decision.
+ */
+export function globToRegExpBody(pattern: string): string {
+  return globBody(pattern.endsWith('/') ? `${pattern}**` : pattern);
+}
+
 /** The compiled form of one glob. **Exported for the tests that pin the translation rather than a match.** */
 export function globToRegExp(pattern: string): RegExp {
   const cached = compiled.get(pattern);
