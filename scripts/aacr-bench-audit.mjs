@@ -19,16 +19,22 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { auditArtifact, formatAudit } from './lib/artifact-audit.mjs';
+import {
+  auditArtifact,
+  formatAudit,
+  formatBothMissed,
+  summariseBothMissed,
+} from './lib/artifact-audit.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 
 function argv(tokens) {
-  const options = { bench: null, check: false, json: false };
+  const options = { bench: null, check: false, json: false, ceiling: false };
   for (let at = 0; at < tokens.length; at += 1) {
     const token = tokens[at];
     if (token === '--check') options.check = true;
+    else if (token === '--ceiling') options.ceiling = true;
     else if (token === '--json') options.json = true;
     else if (token === '--bench') options.bench = tokens[(at += 1)] ?? null;
   }
@@ -45,6 +51,22 @@ function main() {
     process.exit(2);
   }
   const artifact = JSON.parse(readFileSync(path, 'utf8'));
+
+  // **`--ceiling` is the reading, not the check.** It prints the goldens neither reviewer found, grouped three ways,
+  // because the next device should be designed from that table rather than from a guess about which bucket is largest.
+  if (options.ceiling) {
+    const summary = summariseBothMissed(artifact);
+    if (options.json) console.log(JSON.stringify(summary, null, 2));
+    else console.log(formatBothMissed(summary));
+    if (summary.total === 0) {
+      // **An empty ceiling is a fact worth failing on when it was asked for by name**: either the run found every golden
+      // nobody else found, or the list was not written - and the second is far more likely.
+      console.error('\nthe artifact carries no bothMissed rows');
+      process.exit(2);
+    }
+    return;
+  }
+
   const audit = auditArtifact(artifact);
 
   if (options.json) console.log(JSON.stringify(audit, null, 2));

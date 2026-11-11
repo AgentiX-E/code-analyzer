@@ -135,3 +135,61 @@ export function formatAudit(audit) {
     .map((finding) => `${finding.ok ? 'ok  ' : 'FAIL'} ${finding.name} · ${finding.detail}`)
     .join('\n');
 }
+
+/**
+ * **The ceiling, readable as a table instead of as a JSON array.**
+ *
+ * `bothMissed` answers the one question three stage pages asked and could not: **how many of the goldens nobody found are
+ * goldens nobody could have found from a diff**. The array answers it only after somebody groups it, and grouping it by
+ * hand is how a reading becomes an anecdote - so the grouping is code, and the same three groupings are printed every
+ * time.
+ *
+ * **`ourBucket` is the load-bearing column.** A ceiling made of `fileNotReviewed` is an input defect (we never read the
+ * file); a ceiling made of `noFindingOnPath` is a recall defect (we read it and were silent); a ceiling made of
+ * `findingOnPathRejected` is a targeting defect (we spoke about something else). **Three different fixes**, and a single
+ * count of 128 would have hidden all three.
+ */
+export function summariseBothMissed(artifact) {
+  const list = Array.isArray(artifact?.bothMissed) ? artifact.bothMissed : [];
+  const byBucket = {};
+  const byDirectory = {};
+  const byPullRequest = {};
+  for (const row of list) {
+    byBucket[row?.ourBucket ?? 'unknown'] = (byBucket[row?.ourBucket ?? 'unknown'] ?? 0) + 1;
+    const path = String(row?.path ?? '');
+    // **The first two segments rather than the whole path**, because a corpus of real repositories has hundreds of leaf
+    // directories and a table with one row per directory is a list again.
+    const directory = path.split('/').slice(0, 2).join('/') || '(no path)';
+    byDirectory[directory] = (byDirectory[directory] ?? 0) + 1;
+    byPullRequest[row?.pr ?? '(no pull request)'] =
+      (byPullRequest[row?.pr ?? '(no pull request)'] ?? 0) + 1;
+  }
+  const ordered = (table) =>
+    Object.entries(table)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({ name, count }));
+  return {
+    total: list.length,
+    corpus: artifact?.bothMissedCorpus ?? null,
+    byOurBucket: ordered(byBucket),
+    byDirectory: ordered(byDirectory).slice(0, 20),
+    byPullRequest: ordered(byPullRequest).slice(0, 20),
+  };
+}
+
+/** The ceiling as lines, in the same shape as `formatAudit`. */
+export function formatBothMissed(summary) {
+  const table = (label, rows) =>
+    [`${label}:`, ...rows.map((row) => `  ${String(row.count).padStart(4)}  ${row.name}`)].join(
+      '\n',
+    );
+  return [
+    `goldens neither reviewer found: ${String(summary.total)}`,
+    summary.corpus
+      ? `  over ${String(summary.corpus.pullRequests)} paired pull requests, ${String(summary.corpus.goldens)} goldens, ${String(summary.corpus.withoutAttribution ?? 0)} without an attribution`
+      : '  (the artifact does not say which corpus this list was drawn from)',
+    table('by our own bucket', summary.byOurBucket),
+    table('by directory', summary.byDirectory),
+    table('by pull request', summary.byPullRequest),
+  ].join('\n');
+}

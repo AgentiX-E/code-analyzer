@@ -14,7 +14,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { auditArtifact, formatAudit } from '../../../scripts/lib/artifact-audit.mjs';
+import {
+  auditArtifact,
+  formatAudit,
+  formatBothMissed,
+  summariseBothMissed,
+} from '../../../scripts/lib/artifact-audit.mjs';
 
 /** An artifact whose every layer agrees, so that each test can break exactly one thing. */
 function consistentArtifact() {
@@ -190,5 +195,73 @@ describe('the score from its own four counts', () => {
     // decomposition was not produced - not that F1 is wrong.
     expect(failures).toContain('byCategory is a decomposition, not a sample');
     expect(failures).not.toContain('precision, recall and F1 follow from TP, FP and FN');
+  });
+});
+
+describe('the ceiling, grouped rather than listed', () => {
+  /** An artifact whose ceiling is three rows with a deliberate tie, so the ordering rule is exercised. */
+  function withCeiling(rows: readonly Record<string, unknown>[]) {
+    return { ...consistentArtifact(), bothMissed: rows };
+  }
+
+  it('counts the rows by the bucket our own attribution put them in', () => {
+    // **This is the column that decides the next device.** A ceiling of `fileNotReviewed` is an input defect; the same
+    // number of `findingOnPathRejected` is a targeting defect; a single total hides both.
+    const summary = summariseBothMissed(
+      withCeiling([
+        { pr: 'p1', path: 'src/a/one.ts', ourBucket: 'noFindingOnPath' },
+        { pr: 'p1', path: 'src/a/two.ts', ourBucket: 'noFindingOnPath' },
+        { pr: 'p2', path: 'lib/b.ts', ourBucket: 'findingOnPathRejected' },
+      ]),
+    );
+    expect(summary.total).toBe(3);
+    expect(summary.byOurBucket).toEqual([
+      { name: 'noFindingOnPath', count: 2 },
+      { name: 'findingOnPathRejected', count: 1 },
+    ]);
+  });
+
+  it('groups a path by its first two segments, because a leaf directory is not a table row', () => {
+    const summary = summariseBothMissed(
+      withCeiling([
+        { pr: 'p', path: 'internal/checker/ast.go', ourBucket: 'hit' },
+        { pr: 'p', path: 'internal/checker/expr.go', ourBucket: 'hit' },
+        { pr: 'p', path: 'src/main/java/A.java', ourBucket: 'hit' },
+      ]),
+    );
+    expect(summary.byDirectory).toEqual([
+      { name: 'internal/checker', count: 2 },
+      { name: 'src/main', count: 1 },
+    ]);
+  });
+
+  it('counts by pull request and names a tie by name rather than by insertion order', () => {
+    // **A table read twice may not name two different first rows**, which is the same rule `largestBucket` follows.
+    const summary = summariseBothMissed(
+      withCeiling([
+        { pr: 'https://github.com/b/b/pull/2', path: 'x/y.ts', ourBucket: 'hit' },
+        { pr: 'https://github.com/a/a/pull/1', path: 'x/y.ts', ourBucket: 'hit' },
+      ]),
+    );
+    expect(summary.byPullRequest.map((row) => row.name)).toEqual([
+      'https://github.com/a/a/pull/1',
+      'https://github.com/b/b/pull/2',
+    ]);
+  });
+
+  it('says nothing rather than zero when the artifact carries no ceiling', () => {
+    const summary = summariseBothMissed({});
+    expect(summary.total).toBe(0);
+    expect(summary.corpus).toBeNull();
+    // **A missing list and an empty list both print zero, and the sentence around it is what distinguishes them** - which
+    // is why the command exits non-zero when it was asked for the ceiling by name.
+    expect(formatBothMissed(summary)).toContain('does not say which corpus');
+  });
+
+  it('prints the corpus the list was drawn from beside the list', () => {
+    const text = formatBothMissed(
+      summariseBothMissed(withCeiling([{ pr: 'p', path: 'a/b.ts', ourBucket: 'hit' }])),
+    );
+    expect(text.split('\n')[0]).toContain('goldens neither reviewer found: 1');
   });
 });
