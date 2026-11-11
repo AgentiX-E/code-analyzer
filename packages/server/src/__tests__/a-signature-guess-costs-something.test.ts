@@ -105,7 +105,9 @@ describe('a source that guesses is refused', () => {
     await deliver(app, { from: '10.0.0.2', signature: 'sha256=00' });
     await deliver(app, { from: '10.0.0.2', signature: 'sha256=00' });
 
-    expect(await deliver(app, { from: '10.0.0.2', signature: sign('{"action":"opened"}') })).toBe(429);
+    expect(await deliver(app, { from: '10.0.0.2', signature: sign('{"action":"opened"}') })).toBe(
+      429,
+    );
   });
 
   it('keeps one source out of another source’s budget', async () => {
@@ -120,7 +122,9 @@ describe('a source that guesses is refused', () => {
     await deliver(app, { from: '10.0.0.3', signature: 'sha256=00' });
 
     expect(await deliver(app, { from: '10.0.0.3', signature: 'sha256=00' })).toBe(429);
-    expect(await deliver(app, { from: '10.0.0.4', signature: sign('{"action":"opened"}') })).toBe(200);
+    expect(await deliver(app, { from: '10.0.0.4', signature: sign('{"action":"opened"}') })).toBe(
+      200,
+    );
   });
 
   it('clears the budget when a signature verifies', async () => {
@@ -134,7 +138,9 @@ describe('a source that guesses is refused', () => {
     await app.ready();
 
     await deliver(app, { from: '10.0.0.5', signature: 'sha256=00' });
-    expect(await deliver(app, { from: '10.0.0.5', signature: sign('{"action":"opened"}') })).toBe(200);
+    expect(await deliver(app, { from: '10.0.0.5', signature: sign('{"action":"opened"}') })).toBe(
+      200,
+    );
 
     // The window is empty again, so one more bad signature is 401 rather than 429.
     expect(await deliver(app, { from: '10.0.0.5', signature: 'sha256=00' })).toBe(401);

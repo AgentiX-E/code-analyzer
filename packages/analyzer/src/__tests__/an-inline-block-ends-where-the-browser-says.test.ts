@@ -56,10 +56,7 @@ describe('a block boundary is the browser boundary', () => {
       '<script context="module">export const a = 1;</script>\n<p/>\n<script>let b = 2;</script>';
     const blocks = findInlineBlockContents(source, 'script');
 
-    expect(blocks.map((block) => block.content)).toEqual([
-      'export const a = 1;',
-      'let b = 2;',
-    ]);
+    expect(blocks.map((block) => block.content)).toEqual(['export const a = 1;', 'let b = 2;']);
   });
 
   it('runs an unclosed block to the end of the file rather than reporting none', () => {
