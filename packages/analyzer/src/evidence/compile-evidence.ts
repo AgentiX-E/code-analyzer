@@ -55,7 +55,7 @@ export function parseTscOutput(output: string): CompilerDiagnostic[] {
   const findings: CompilerDiagnostic[] = [];
   // **Anchored on the whole diagnostic shape**, because a message can itself contain parentheses and colons - and a
   // looser pattern would split a diagnostic in two.
-  const line = /^(.*?)\((\d+),(\d+)\):\s+(error|warning)\s+(TS\d+):\s+(.*)$/gm;
+  const line = /^([^\n]*)\((\d+),(\d+)\):[ \t]+(error|warning)[ \t]+(TS\d+):(.*)$/gm;
 
   for (const match of output.matchAll(line)) {
     const [, filePath, lineNo, colNo, severity, code, message] = match;

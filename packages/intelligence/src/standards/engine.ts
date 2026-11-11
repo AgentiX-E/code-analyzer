@@ -295,7 +295,7 @@ export class StandardsEngine {
     const functionPatterns = [
       /^\s*(?:export\s+)?(?:async\s+)?function\s+\w/,
       /^\s*(?:export\s+)?(?:async\s+)?\w+\s*:\s*(?:async\s+)?function/,
-      /^\s*(?:public|private|protected|static)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+(?:<[^>]*>)?)?\s*\{/,
+      /^[ \t]*(?:(?:public|private|protected|static)\s+)?(?:async\s+)?\w{1,128}\s*\([^)]{0,512}\)(?:[ \t]*:[ \t]*\w{1,128}(?:<[^<>\n]{0,256}>)?)?[ \t]*\{/,
       /^\s*def\s+\w+/,
       /^\s*func\s+\w+\s*\(/,
     ];

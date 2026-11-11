@@ -187,20 +187,13 @@ function invocations(text, file) {
  */
 function resolve(describe, verb, rest) {
   const chain = [verb];
-  let node = describe([]);
-  if (!node.commands.has(verb)) return { chain, unknown: verb };
+  if (!describe([]).commands.has(verb)) return { chain, unknown: verb };
 
   // **A second word is a subcommand only if it is one.** `analyze ./project` and `review pr` look identical to a regex
   // and only the command tree can tell them apart, which is why this asks rather than guesses.
   const second = rest.trim().split(/\s+/)[0] ?? '';
-  if (/^[a-z][\w-]*$/.test(second)) {
-    node = describe(chain);
-    if (node.commands.has(second)) {
-      chain.push(second);
-      node = describe(chain);
-    }
-  } else {
-    node = describe(chain);
+  if (/^[a-z][\w-]*$/.test(second) && describe(chain).commands.has(second)) {
+    chain.push(second);
   }
   return { chain, unknown: '' };
 }

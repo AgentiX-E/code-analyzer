@@ -33,7 +33,7 @@
 
 const { readFileSync, writeFileSync, existsSync } = require('node:fs');
 const { spawnSync } = require('node:child_process');
-const { join, resolve, relative, sep } = require('node:path');
+const { join, resolve } = require('node:path');
 
 const HINT = 'v8 ignore';
 const NEUTRALISED = 'v8x ignore';

@@ -6,7 +6,10 @@
  * Detects O(n²) performance cliffs and superlinear memory growth.
  *
  * Usage:
- *   pnpm vitest run tests/benchmarks/real-world/__tests__/scale-stress.test.ts
+ *   pnpm test:stress
+ *
+ * Passing this file to `vitest run` by path does not execute it: the unit config excludes it, and an exclusion applies to
+ * a CLI filter as well. `vitest.stress.config.ts` is the include list that lifts it, with one fork and a larger heap.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -153,9 +156,13 @@ function generateFunction(name: string, maxParams = 4): string {
   const bodyLines = randInt(1, 8);
   for (let i = 0; i < bodyLines; i++) {
     const varName = `${pick(['result', 'data', 'value', 'item', 'obj', 'tmp'])}${randInt(1, 99)}`;
-    if (rng() < 0.3) {
+    // **One roll, three weights.** Two draws at the same threshold read as a copy-paste and mean something a reader
+    // cannot see: the second branch fires on 0.3 × 0.7 of the iterations, not on 0.3. The thirds below are that
+    // arithmetic written down, so the corpus keeps its proportions and the condition stops repeating itself.
+    const roll = rng();
+    if (roll < 0.3) {
       lines.push(`  const ${varName} = ${pick(VERBS)}(${pick(NOUNS)});`);
-    } else if (rng() < 0.3) {
+    } else if (roll < 0.6) {
       lines.push(`  if (${varName}) return ${varName};`);
     } else {
       lines.push(`  console.log('${varName}');`);

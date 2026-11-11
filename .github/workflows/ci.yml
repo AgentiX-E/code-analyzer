@@ -36,9 +36,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# **`pull-requests: write` is `coverage`'s**, the only job that posts to a pull request. Every other job here reads
+# the repository and writes to the log, and inherits `contents: read` from this block.
 permissions:
   contents: read
-  pull-requests: write
 
 env:
   PNPM_VERSION: '9.15.0'
@@ -81,6 +82,11 @@ jobs:
       # A mutable tag runs whatever it points at today. Ninety-seven `PinnedDependenciesID` alerts said so.
       - name: Does every action run a named commit?
         run: npm run -s gate:actions
+      # **A write granted above the job that uses it is granted to every job in the file.** Ten `TokenPermissionsID`
+      # alerts named ten of these; this asks the question of all forty-one workflows, including the ones the alerts
+      # did not reach.
+      - name: Is every token scope on the job that uses it?
+        run: npm run -s gate:permissions
       # A figure that names a directory has named a moving thing. This requires it to say which version.
       - name: Does every figure that names a corpus name its version?
         run: npm run -s gate:corpus
@@ -263,6 +269,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: [test-unit, test-integration, test-property]
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4

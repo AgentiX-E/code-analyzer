@@ -814,7 +814,11 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     const ln = (off: number) => source.slice(0, off).split('\n').length;
 
     // Classes with inheritance
-    const classRx = /(?:@\w+\s*\([^)]*\)\s*\n\s*)*class\s+(\w+)(?:\(([^)]*)\))?:/g;
+    // **A bounded chain, and `[ \t]` around the newline instead of `\s`.** `(?:@\w+\s*\([^)]*\)\s*\n\s*)*` lets the two
+    // `\s*` runs meet across the newline, so a file of decorators and blank lines has as many parses as it has newlines.
+    // A class with more than sixteen decorators is not a class anybody wrote.
+    const classRx =
+      /(?:@\w+[ \t]*\([^)]{0,512}\)[ \t]*\n[ \t\n]*){0,16}class\s+(\w{1,128})(?:\(([^)]{0,512})\))?:/g;
     let m: RegExpExecArray | null;
     while ((m = classRx.exec(source)) !== null) {
       const bases = m[2]
@@ -844,7 +848,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
     // Functions with type annotations
     const funcRx =
-      /(?:@\w+\s*\n\s*)*(?:async\s+)?def\s+(\w+)\(([^)]*)\)(?:\s*->\s*(\w+(?:\[\w+(?:,\s*\w+)*\])?))?/g;
+      /(?:@\w+[ \t]*\n[ \t\n]*){0,16}(?:async\s+)?def\s+(\w{1,128})\(([^)]{0,512})\)(?:[ \t]*->[ \t]*(\w{1,128}(?:\[\w{1,128}(?:,\s*\w{1,128})*\])?))?/g;
     while ((m = funcRx.exec(source)) !== null) {
       const params = m[2]
         ? m[2].split(',').map((p) => {

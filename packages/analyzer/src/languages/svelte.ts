@@ -130,7 +130,7 @@ export class SvelteProvider implements LanguageProvider {
    */
   private extractScriptBlocks(source: string): Array<{ content: string; offset: number }> {
     const blocks: Array<{ content: string; offset: number }> = [];
-    const scriptRegex = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+    const scriptRegex = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
     let match: RegExpExecArray | null;
 
     while ((match = scriptRegex.exec(source)) !== null) {

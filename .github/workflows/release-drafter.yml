@@ -15,13 +15,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: read
+  contents: read
 
 jobs:
   update-release-draft:
     name: Update Release Draft
     runs-on: ubuntu-latest
+    # **`contents: write` because the draft is a release object**, and `pull-requests: read` because the notes are
+    # assembled from merged PR labels. Both are what this one job does; the workflow level holds neither, so nothing
+    # added here later inherits the write.
+    permissions:
+      contents: write
+      pull-requests: read
 
     steps:
       - name: Draft release notes

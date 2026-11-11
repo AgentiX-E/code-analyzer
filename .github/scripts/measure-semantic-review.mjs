@@ -15,9 +15,6 @@ import { join, resolve } from 'node:path';
 
 const DATASET = resolve(process.cwd(), 'benchmarks/real-ground-truth/issues.json');
 const RESCORE = process.argv.indexOf('--rescore');
-const FILTER = (process.argv.find((a) => a.startsWith('--filter=')) ?? '--filter=none').slice(
-  '--filter='.length,
-);
 const OUT = resolve(process.cwd(), 'benchmarks/semantic-review.json');
 const HAS_KEY = Boolean(process.env['DEEPSEEK_API_KEY']);
 

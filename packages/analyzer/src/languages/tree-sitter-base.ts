@@ -2136,8 +2136,7 @@ function stripCommentSyntax(text: string): string {
       // **An HTML comment closes with `-->` and opens with `<!--`, and neither is a line prefix.** Removing the pair
       // before the split is what makes `<!---->` strip to the empty string: without it the line rule takes `<!--` off
       // and leaves `-->` behind, so an empty comment reads as documentation that says `-->`.
-      .replace(/<!--/g, '')
-      .replace(/-->/g, '')
+      .replace(/<!--|-->/g, '')
       .split('\n')
       .map((line) =>
         line
