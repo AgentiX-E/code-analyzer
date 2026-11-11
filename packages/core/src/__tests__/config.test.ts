@@ -158,6 +158,46 @@ describe('deepMerge', () => {
     expect(result).toEqual({ nested: { value: 42 } });
   });
 
+  // -------------------------------------------------------------------------
+  // Prototype pollution - the keys `JSON.parse` will happily hand a merge loop
+  // -------------------------------------------------------------------------
+
+  it('refuses a __proto__ key parsed from JSON instead of writing Object.prototype', () => {
+    // **The source is `JSON.parse` and not an object literal, because that is the only way the key exists.** In a
+    // literal, `{ __proto__: … }` sets the prototype of the literal itself; in parsed JSON it is an own property, and
+    // `Object.keys` reports it - so a merge loop that trusts its keys writes `target.__proto__.polluted`, which is
+    // `Object.prototype.polluted`, and every object created afterwards in this process inherits it.
+    const hostile = JSON.parse('{"__proto__":{"polluted":"yes"},"a":1}') as Record<string, unknown>;
+    const target: Record<string, unknown> = {};
+
+    const result = deepMerge(target, hostile);
+
+    expect(result).toEqual({ a: 1 });
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+    expect(Object.prototype).not.toHaveProperty('polluted');
+  });
+
+  it('refuses the other two names that reach a prototype', () => {
+    const hostile = JSON.parse(
+      '{"constructor":{"prototype":{"polluted":"yes"}},"prototype":{"polluted":"yes"},"keep":true}',
+    ) as Record<string, unknown>;
+
+    const result = deepMerge({} as Record<string, unknown>, hostile);
+
+    expect(result).toEqual({ keep: true });
+    expect(Object.prototype).not.toHaveProperty('polluted');
+  });
+
+  it('still merges a nested object whose key merely contains the word prototype', () => {
+    // **A refusal that is too wide is a bug with a good reputation.** `prototypeFields` and `constructorArgs` are
+    // ordinary configuration keys; only the three exact names are refused.
+    const result = deepMerge({} as Record<string, unknown>, {
+      prototypeFields: { enabled: true },
+      constructorArgs: 2,
+    });
+    expect(result).toEqual({ prototypeFields: { enabled: true }, constructorArgs: 2 });
+  });
+
   it('should handle Date objects as non-plain', () => {
     const target = { date: 'old' };
     const source = { date: new Date() };
@@ -280,6 +320,24 @@ describe('loadConfig', () => {
     // Defaults for non-overridden fields should remain
     const defaults = getDefaultConfig();
     expect(config.maxFiles).toBe(defaults.maxFiles);
+  });
+
+  it('refuses a __proto__ key in a config file rather than writing Object.prototype', async () => {
+    // **The file is the untrusted part.** `.code-analyzer.json` can be committed by a pull request, so a key named
+    // `__proto__` in it is a key an attacker chooses - and `applyLayer` merges what it reads into the defaults object,
+    // which survives for the rest of the process.
+    const projectConfigPath = path.join(testDir, '.code-analyzer.json');
+    await fs.writeFile(
+      projectConfigPath,
+      '{"projectId":"p","__proto__":{"polluted":"yes"},"constructor":{"prototype":{"alsoPolluted":"yes"}}}',
+    );
+
+    const config = await loadConfig(testDir);
+
+    expect(config.projectId).toBe('p');
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+    expect(Object.prototype).not.toHaveProperty('polluted');
+    expect(Object.prototype).not.toHaveProperty('alsoPolluted');
   });
 
   it('should override with environment variables', async () => {

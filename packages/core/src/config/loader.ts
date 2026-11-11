@@ -9,6 +9,16 @@ import type { CodeAnalyzerConfig } from '@code-analyzer/shared';
 /**
  * Deep merge source into target. Mutates and returns target.
  * Arrays are replaced (not concatenated). Objects are recursively merged.
+ *
+ * **A key named `__proto__` is an own property of an object parsed from JSON, and assigning it walks the prototype
+ * chain.** `JSON.parse('{"__proto__":{"polluted":true}}')` produces a key that `Object.keys` reports, so the loop below
+ * would write `target.__proto__.polluted` - a write to `Object.prototype`, which every later object in the process then
+ * inherits. The three names are the whole of that class, and they are refused rather than sanitised: a configuration key
+ * is a name the schema chose, not a name to be repaired.
+ *
+ * **The comparison is spelled out at each write rather than hidden in a predicate**, because the property this needs is
+ * "no loop reaches an assignment without having compared the key", and that is a property a reader can check line by line
+ * and a static analysis can follow. `applyLayer` below carries the same three names for the same reason.
  */
 export function deepMerge<T extends Record<string, unknown>>(
   target: T,
@@ -16,6 +26,7 @@ export function deepMerge<T extends Record<string, unknown>>(
 ): T {
   const mutableTarget = target as Record<string, unknown>;
   for (const key of Object.keys(source)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     const srcVal = source[key];
     const tgtVal = mutableTarget[key];
     if (isPlainObject(srcVal) && isPlainObject(tgtVal)) {
@@ -349,6 +360,10 @@ function applyLayer(
   parent?: string,
 ): void {
   for (const key of Object.keys(source)) {
+    // **The schema would drop these as unknown settings; the comparison is here so that the property is local.** A
+    // reader of this loop can see that no key reaches `target` without having been compared, and a later change that
+    // loosens `fieldType` cannot reopen the prototype write `deepMerge` documents.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     const value = source[key];
     const dotted = prefix === '' ? key : `${prefix}.${key}`;
     const type = fieldType(key, parent);
