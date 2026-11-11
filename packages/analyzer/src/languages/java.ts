@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Java Tree-sitter Provider
 
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { CAPTURE_TAGS, simpleTypeName } from '@code-analyzer/shared';
 
 import { collectCLikeTaint } from './base-c-like.js';
 import { C_FAMILY_CONSTANTS } from './constant-fold.js';
@@ -580,8 +580,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
    */
   private referenceClassNameOf(type: TreeSitterSyntaxNode): string | undefined {
     if (type.type === 'array_type') return undefined;
-    const plain = type.text.replace(/<[^>]*>/g, '');
-    const simple = plain.slice(plain.lastIndexOf('.') + 1).trim();
+    const simple = simpleTypeName(type.text);
     return simple === '' ? undefined : simple;
   }
 

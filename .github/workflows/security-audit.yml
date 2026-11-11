@@ -12,9 +12,11 @@ on:
   schedule:
     - cron: '0 8 * * 1' # Every Monday at 08:00 UTC
 
+# **`security-events: write` is not granted here**, because only the `codeql` job uploads alerts and that job carries the
+# permission itself. The workflow-level grant that used to sit beside this line gave the same authority to `secret-scan`,
+# `dependency-audit`, `supply-chain` and `redos-assay`, none of which has anything to upload.
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   secret-scan:
@@ -175,6 +177,13 @@ jobs:
   redos-assay:
     name: ReDoS Assay
     runs-on: ubuntu-latest
+    # **`security-events: read`, because this job reads the alert list.** It was the only job in this file that needed
+    # the scope the old workflow-level `security-events: write` granted, and narrowing that grant to the job that
+    # uploads SARIF turned this one red with `HTTP 403 on page 1` — which is what the read scope looks like when it is
+    # missing, and why the grant belongs on the job rather than on the file.
+    permissions:
+      contents: read
+      security-events: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 

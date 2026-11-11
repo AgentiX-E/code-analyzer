@@ -37,6 +37,7 @@ import {
   compareAgainstCompetitor,
   describeComparison,
 } from './lib/competitor-comparison.mjs';
+import { goldenDiscordance, pairedCorpus } from './lib/paired-corpus.mjs';
 import { describeUnread, readTheWholeCorpus, unreadCorpus } from './lib/unread-corpus.mjs';
 import {
   DEFAULT_BASELINE_PATH,
@@ -53,7 +54,6 @@ import {
 } from './lib/competitor-baseline.mjs';
 
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
-const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
 const BASE =
   process.env['AACR_JUDGE_BASE'] ??
@@ -331,7 +331,11 @@ async function mapLimit(items, limit, task) {
       const at = next;
       next += 1;
       if (at >= items.length) return;
-      results[at] = await task(items[at], at);
+      // **The item, and not the index beside it.** The second argument was passed and read by
+      // nobody - the one caller maps over a list of indices, so it would have received the same
+      // number twice - and a parameter that exists for a caller that does not exist is a signature
+      // that lies about what a task is given.
+      results[at] = await task(items[at]);
     }
   });
   await Promise.all(workers);
@@ -887,7 +891,6 @@ async function main() {
    */
   const OUTPUTS_DIR = resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs');
 
-  const YOU_FILES = { enabled: false };
   const { execFileSync } = await import('node:child_process');
   const { mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
@@ -1618,8 +1621,10 @@ async function main() {
             competitor.countsAgree =
               prose.declaredCount === null ? null : prose.declaredCount === list.length;
             if (!list.length) {
+              // **What the candidates said, not only that they all failed.** `lastError` was written on every failed
+              // candidate and read by nothing, so a parse that fell through to prose lost the reason it had to.
               throw new Error(
-                `the report parsed to no findings (${prose.findings.length} prose, no JSON candidate parsed)`,
+                `the report parsed to no findings (${prose.findings.length} prose, no JSON candidate parsed; last candidate error: ${lastError ?? 'none'})`,
               );
             }
           } else {
@@ -2229,19 +2234,27 @@ async function main() {
    * what McNemar's test is.** With fifty goldens the exact form is the right one - the asymptotic chi-square is an
    * approximation that the corpus is too small to earn.
    */
-  const coveredKeys = (perPull, rule) => {
-    const keys = new Set();
-    for (const pull of perPull) {
-      for (const golden of rule(pull).indices) keys.add(`${pull.key}#${golden}`);
-    }
-    return keys;
-  };
-  const ourKeys = coveredKeys(perPr, gatedEmission);
-  const theirKeys = coveredKeys(competitorPerPr, everythingEmitted);
-  let oursOnly = 0;
-  let theirsOnly = 0;
-  for (const key of ourKeys) if (!theirKeys.has(key)) oursOnly += 1;
-  for (const key of theirKeys) if (!ourKeys.has(key)) theirsOnly += 1;
+  /**
+   * **The corpus both arms were scored on, and the two figures over it.**
+   *
+   * The run of 2026-11-11 scored 36 pull requests against a competitor arm that had rows for 33 of them, and published
+   * `withheld` - correctly, because one figure was over 36 and the other over 33, and **permanently**, because the
+   * competitor's harness fails on a pull request in every run and the rule required all of them. **A precondition that
+   * is never satisfied is a decision never to answer.**
+   *
+   * So the pairing is computed rather than assumed: the pull requests both arms scored, the ones left out with the side
+   * that left them out, and **both operating points recomputed over the shared rows** - which is what makes the two F1
+   * the same measurement instead of two numbers a reader has to trust are comparable.
+   *
+   * **And one rule for both.** `goldenDiscordance` takes the emission rule once and applies it to both arms, because
+   * the previous pairing counted ours under the registered gate and theirs with every finding it emitted, so their side
+   * took credit for findings the rule rejects.
+   */
+  const pairing = pairedCorpus({ ours: perPr, theirs: competitorPerPr });
+  const onSharedRows = (side) => pairing.pairs.map((pair) => pair[side]);
+  const pairedOurPoint = asPoint(countsOver(onSharedRows('ours'), gatedEmission));
+  const pairedTheirPoint = asPoint(countsOver(onSharedRows('theirs'), gatedEmission));
+  const { oursOnly, theirsOnly } = goldenDiscordance(pairing.pairs, gatedEmission);
 
   // **The head-to-head, computed once, with its own precondition attached.**
   //
@@ -2262,6 +2275,9 @@ async function main() {
       covered: competitorPerPr.length,
       missing: Math.max(0, scoredPullRequests - competitorPerPr.length),
     },
+    // **The statement that the counts above were restricted to the pairing**, which is what allows a verdict when a
+    // pull request is missing and what withholds when the caller forgot to restrict.
+    paired: { pullRequests: pairing.pullRequests },
   });
 
   const competitorCounts = countsOver(competitorPerPr, everythingEmitted);
@@ -2428,6 +2444,30 @@ async function main() {
     // and `pValue` are `null` rather than zero: **a guaranteed zero in a column reads as a shutout**, which is exactly
     // what this field said for a whole iteration while the arm behind it had produced nothing.
     mcnemar: comparison,
+    /**
+     * **The corpus the head-to-head was computed over, and both operating points on it.**
+     *
+     * `mcnemar` above says whether a verdict may be stated; this says **what the verdict is about**. Without it a reader
+     * takes `pValue` and the two F1 from two different corpora and compares them, which is the failure this field
+     * exists to make impossible: **both points below are computed over `pairs`, by the same rule, in one pass.**
+     *
+     * `excluded` and `theirsOnly` are lists rather than counts because **a pairing hole is a fact about one pull
+     * request** - the competitor's harness failing on it, or ours - and a count sends the next person to re-run the
+     * whole corpus to find out which.
+     */
+    pairedCorpus: {
+      pullRequests: pairing.pullRequests,
+      excluded: pairing.excluded,
+      scoredByThemOnly: pairing.theirsOnly,
+      emissionRule: 'the registered actionability gate, applied to both arms',
+      ours: pairedOurPoint,
+      theirs: pairedTheirPoint,
+      // **The same two arms with every finding emitted**, which is what the earlier runs measured and what the
+      // competitor's own published figures are. Kept so a comparison to their number is possible without pretending it
+      // is this run's registered rule.
+      oursEverything: asPoint(countsOver(onSharedRows('ours'), everythingEmitted)),
+      theirsEverything: asPoint(countsOver(onSharedRows('theirs'), everythingEmitted)),
+    },
     // **The control arm, reported beside the first rather than instead of it.**
     /**
      * **The second arm: one call per lane over the whole pull request, with one budget for the pull request.**
@@ -2514,6 +2554,24 @@ async function main() {
       };
     })(),
     reviewCategories: categories,
+    /**
+     * **What the emission profile removed, in its own counts and with its own reasons.**
+     *
+     * `configuration.emissionProfile` names the arm; it does not say **what the arm did**. Without this field a reader
+     * of the artifact has a precision figure for a reviewer whose gate is described in a TypeScript file at a commit
+     * they have to go and find, and **two runs that differ only in this table publish the same configuration line** -
+     * which is a comparison between two reviewers reported as two arms of one.
+     */
+    emissionProfile: {
+      name: engineCounters.profile.name,
+      dropped: engineCounters.profile.dropped,
+      // **Each dropped category's sentence carries the acceptance rate and the floor it was measured against**, so the
+      // threshold travels in the reason rather than being written here a second time - **a floor copied into the script
+      // is a floor that can disagree with the one the gate used.**
+      reasons: engineCounters.profile.reasons,
+      appliedTo:
+        'the ranked list before judging, so every finding is still scored and the curve is over the full emission',
+    },
     // **The context split, which is the reason this corpus was chosen**: `Repo Level` is cross-file by construction.
     groundTruthContextLevels: contextLevels,
     // **The competitor's F1, computed with the same formula over the same goldens** - so **the two numbers are
@@ -2535,6 +2593,17 @@ async function main() {
       // per-row reasons live in `missing[]`; the condition lives in one place.
       comparable: comparison.comparable,
       notComparableReason: comparison.withheldReason,
+      /**
+       * **The corpus this arm's figures above are over, named in the object that carries them.**
+       *
+       * `competitorPoint` is every pull request the arm had a row for, under the rule it emitted everything by; the
+       * head-to-head is `pairedCorpus`, over the pull requests both arms scored, under the registered gate. **The two
+       * are different measurements and a reader must not subtract one from ours** - which is why this field exists
+       * rather than a footnote in a report about this file.
+       */
+      figuresAboveAreOver: 'every pull request with a row, every finding emitted',
+      headToHead: 'pairedCorpus',
+      pullRequestsWithARow: competitorPerPr.length,
       // **And the same ranker applied to its output**, which separates the two explanations: **if its F1 rises as far
       // as ours did, the gain is the ranker's; if it does not, the sentences were the difference.**
       withTheSameRanker: competitorGated,

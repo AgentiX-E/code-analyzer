@@ -487,6 +487,33 @@ describe('JavaResolver.extractTypes — classes', () => {
     expect(types[0]!.implementedInterfaces).toEqual(['java.util.List']);
   });
 
+  it('splits implemented interfaces after removing their arguments, not before', () => {
+    // **A comma inside `<…>` is not a separator.** Splitting first turned `A<B, C>, D` into `A<B`, ` C>` and ` D` - two
+    // names and a fragment of one - and the fragment then went into the graph as an interface no declaration carries.
+    // **`() => null` is the fallback seam**, and it is the seam this has to be measured through: the AST reader has its
+    // own path, so a test against the default resolver passes whatever the regex does.
+    const resolver = new JavaResolver(() => null);
+    const types = resolver.extractTypes(
+      'public class Wrapper implements Mapper<String, Integer>, Closeable, java.io.Serializable {\n}',
+      '/test.java',
+    );
+    expect(types[0]!.implementedInterfaces).toEqual([
+      'Mapper',
+      'Closeable',
+      'java.io.Serializable',
+    ]);
+  });
+
+  it('removes a nested argument list from a base type rather than a prefix of it', () => {
+    // `replace(/<[^>]+>/, '')` read `<Base<Inner>` as the group and left `Base>`; the scan counts depth.
+    const resolver = new JavaResolver(() => null);
+    const types = resolver.extractTypes(
+      'public class Holder extends Base<Inner<String>> {\n}',
+      '/test.java',
+    );
+    expect(types[0]!.baseTypes).toEqual(['Base']);
+  });
+
   it('extracts fields with correct types and modifiers', () => {
     const resolver = makeResolver();
     const types = resolver.extractTypes(

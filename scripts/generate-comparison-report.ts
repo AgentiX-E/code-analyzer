@@ -376,7 +376,6 @@ function generateMarkdown(report: IndustryComparisonReport): string {
 
 function generateDashboard(report: IndustryComparisonReport): string {
   const dimLabels = JSON.stringify(report.dimensions.map((d) => d.label));
-  const toolNames = JSON.stringify(report.scores.map((s) => s.tool));
 
   // Build datasets for radar chart
   const colors: Record<string, string> = {

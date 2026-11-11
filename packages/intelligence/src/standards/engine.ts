@@ -295,7 +295,7 @@ export class StandardsEngine {
     const functionPatterns = [
       /^\s*(?:export\s+)?(?:async\s+)?function\s+\w/,
       /^\s*(?:export\s+)?(?:async\s+)?\w+\s*:\s*(?:async\s+)?function/,
-      /^\s*(?:public|private|protected|static)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+(?:<[^>]*>)?)?\s*\{/,
+      /^[ \t]*(?:(?:public|private|protected|static)\s+)?(?:async\s+)?\w{1,128}\s*\([^)]{0,512}\)(?:[ \t]*:[ \t]*\w{1,128}(?:<[^<>\n]{0,256}>)?)?[ \t]*\{/,
       /^\s*def\s+\w+/,
       /^\s*func\s+\w+\s*\(/,
     ];
@@ -329,7 +329,11 @@ export class StandardsEngine {
         const pythonStyle =
           trimmed.endsWith(':') && trimmed.match(/^\s*(def|class|if|for|while|with|try)/);
 
-        if (braceDepth <= 0 && inFunction && i > funcStart - 1 && !pythonStyle) {
+        // **`inFunction` was the third term and the second is why it was redundant.** This block is
+        // inside `if (inFunction)`, so the test repeated a fact the branch had already established -
+        // the kind of always-true condition that makes a reader look for the case it was guarding.
+        // `i >= funcStart` is the term that does work: a declaration's own line is not its end.
+        if (braceDepth <= 0 && i >= funcStart && !pythonStyle) {
           boundaries.push({ startLine: funcStart, endLine: i + 1 });
           inFunction = false;
         }

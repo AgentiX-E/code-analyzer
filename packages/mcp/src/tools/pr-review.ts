@@ -165,8 +165,6 @@ export async function reviewPR(
     let highFindings = 0;
     let mediumFindings = 0;
     let lowFindings = 0;
-    let overallScore = 100;
-    let riskLevel: string = 'low';
     let symbolsAffected = 0;
     let routesAffected = 0;
     let testsImpacted = 0;
@@ -269,22 +267,12 @@ export async function reviewPR(
       totalFindings = criticalFindings + highFindings + mediumFindings + lowFindings;
 
       // Determine overall score and risk level
-      if (criticalFindings > 0) {
-        overallScore = Math.max(
-          0,
-          100 - criticalFindings * 20 - highFindings * 10 - mediumFindings * 5,
-        );
-        riskLevel = 'critical';
-      } else if (highFindings > 0) {
-        overallScore = Math.max(0, 100 - highFindings * 10 - mediumFindings * 5 - lowFindings * 2);
-        riskLevel = 'high';
-      } else if (mediumFindings > 2) {
-        overallScore = Math.max(0, 100 - mediumFindings * 5 - lowFindings * 2);
-        riskLevel = 'medium';
-      } else {
-        overallScore = Math.max(0, 100 - lowFindings);
-        riskLevel = 'low';
-      }
+      const { overallScore, riskLevel } = scoreFindings(
+        criticalFindings,
+        highFindings,
+        mediumFindings,
+        lowFindings,
+      );
 
       const mergeRecommendation =
         criticalFindings > 0 ? 'reject' : highFindings > 2 ? 'caution' : 'approve';
@@ -756,4 +744,33 @@ function generateRecommendations(critical: number, high: number, medium: number)
   }
 
   return recs;
+}
+
+/**
+ * The score and the risk band that a set of findings earns.
+ *
+ * **Four bands, one place.** These two values are read together in the response and are decided by the same question —
+ * what is the worst severity present — so they are returned together rather than assigned by a chain of `let`s. The
+ * chain had a fall-through that no reviewer could see: its final `else` swallowed both "only low findings" and "no
+ * findings at all", and the initialisers above it were overwritten on every one of the four paths.
+ */
+function scoreFindings(
+  critical: number,
+  high: number,
+  medium: number,
+  low: number,
+): { overallScore: number; riskLevel: string } {
+  if (critical > 0) {
+    return {
+      overallScore: Math.max(0, 100 - critical * 20 - high * 10 - medium * 5),
+      riskLevel: 'critical',
+    };
+  }
+  if (high > 0) {
+    return { overallScore: Math.max(0, 100 - high * 10 - medium * 5 - low * 2), riskLevel: 'high' };
+  }
+  if (medium > 2) {
+    return { overallScore: Math.max(0, 100 - medium * 5 - low * 2), riskLevel: 'medium' };
+  }
+  return { overallScore: Math.max(0, 100 - low), riskLevel: 'low' };
 }

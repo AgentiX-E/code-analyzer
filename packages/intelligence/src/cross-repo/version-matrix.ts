@@ -42,6 +42,27 @@ export interface UpgradeSafetyReport {
 // VersionCompatibilityMatrix
 // ---------------------------------------------------------------------------
 
+/**
+ * The version digits and dots of a range or a version string, without the operator in front of it.
+ *
+ * **Two `String.replace` calls with a leading `[^\d]*` and a trailing `[^.\d].*$` say this, and say it in a form where a
+ * `.*` sits next to a character class that can match the same characters** - the classic pair that lets a caller hand the
+ * engine a string it can partition in many ways. A version is read once per comparison and comparisons are nested, so
+ * this is the wrong place to leave a cost that grows faster than the string. Two scans answer the same question with one
+ * reading: `^\d+(\.\d+)*` is the run that starts at the first digit.
+ */
+function numericPrefix(version: string): string {
+  let start = 0;
+  while (start < version.length && !isDigit(version[start]!)) start++;
+  let end = start;
+  while (end < version.length && (isDigit(version[end]!) || version[end] === '.')) end++;
+  return version.slice(start, end);
+}
+
+function isDigit(char: string): boolean {
+  return char >= '0' && char <= '9';
+}
+
 export class VersionCompatibilityMatrix {
   /**
    * Build a compatibility matrix for all repos in a group.
@@ -260,9 +281,7 @@ export class VersionCompatibilityMatrix {
    * Parse a semver string into major/minor/patch components.
    */
   parseSemver(version: string): { major: number; minor: number; patch: number } {
-    // Strip leading non-digit chars (^, ~, >=, <=, v, *, etc.)
-    const cleaned = version.replace(/^[^\d]*/, '').replace(/[^.\d].*$/, '');
-    const parts = cleaned.split('.').map(Number);
+    const parts = numericPrefix(version).split('.').map(Number);
     return {
       major: isNaN(parts[0]!) ? 0 : parts[0]!,
       minor: isNaN(parts[1]!) ? 0 : parts[1]!,

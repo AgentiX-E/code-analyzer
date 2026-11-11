@@ -340,8 +340,8 @@ describe('superviseInstance', () => {
       args: [
         '-e',
         `require('node:fs').writeFileSync(${JSON.stringify(outFile)}, JSON.stringify({` +
-          `row: {id: 13, repo: 'o/r', corpusFiles: 1, expectedFiles: 1, expectedOutside: 0, offered: 1, outside: 0,` +
-          `offeredPaths: [], skipped: process.env.LCA_MARK === 'yes' ? null : 'no mark', retrieval: {}, map: 0,` +
+          `row: {id: 13, repo: 'o/r', corpusFiles: 1, expectedFiles: 1, expectedOutside: 0, offered: 1, outside: 0, ` +
+          `offeredPaths: [], skipped: process.env.LCA_MARK === 'yes' ? null : 'no mark', retrieval: {}, map: 0, ` +
           `answer: null}}))`,
       ],
       outFile,

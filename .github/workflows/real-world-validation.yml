@@ -28,9 +28,11 @@ on:
         default: 'react,vue,django'
         type: string
 
+# **`issues: write` was granted here and used by nothing.** No step in this workflow opens, comments on or closes an
+# issue; the summary is written to `$GITHUB_STEP_SUMMARY` and the reports are uploaded as artifacts. The scope is
+# removed rather than documented, because an unused write is only a liability.
 permissions:
   contents: read
-  issues: write
 
 env:
   PNPM_VERSION: '9.15.0'

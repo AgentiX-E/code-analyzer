@@ -119,12 +119,37 @@ export function detectProject(rootPath: string): ProjectInfo {
       if (!markerSet.has(marker.file)) continue;
 
       const fullPath = path.join(resolved, marker.file);
-      try {
-        const stat = fs.statSync(fullPath);
-        if (!stat.isFile()) continue;
-      } catch {
-        // Marker entry is a dangling symlink or otherwise unreadable — skip it.
-        continue;
+
+      /**
+       * **The read is the first question, and the `stat` is only asked when the read fails.**
+       * `statSync` followed by `readFileSync` asks the filesystem about one path twice, and the two
+       * answers can disagree - the second one threw into a `catch` that meant "not a marker", so a
+       * manifest removed between the calls also removed the language it declared.
+       *
+       * The order matters for what this function promises. A directory named `pom.xml` is not a
+       * marker, and `readFileSync` reports that as `EISDIR`; a marker that exists and cannot be
+       * read (permissions, a lock) still *is* a marker, so the failure path asks `stat` whether a
+       * real file is there and keeps the language when it is.
+       */
+      let content: string | undefined;
+      if (marker.packageManagerFn) {
+        try {
+          content = fs.readFileSync(fullPath, 'utf-8');
+        } catch {
+          try {
+            if (!fs.statSync(fullPath).isFile()) continue;
+          } catch {
+            // Marker entry is a dangling symlink or otherwise unreadable — skip it.
+            continue;
+          }
+        }
+      } else {
+        try {
+          if (!fs.statSync(fullPath).isFile()) continue;
+        } catch {
+          // Marker entry is a dangling symlink or otherwise unreadable — skip it.
+          continue;
+        }
       }
 
       markerCount++;
@@ -140,14 +165,9 @@ export function detectProject(rootPath: string): ProjectInfo {
 
       languages.add(marker.language);
 
-      if (marker.packageManagerFn) {
-        try {
-          const content = fs.readFileSync(fullPath, 'utf-8');
-          const pm = marker.packageManagerFn(content, fullPath);
-          if (pm) packageManager = pm;
-        } catch {
-          // Cannot read file — skip package manager detection
-        }
+      if (marker.packageManagerFn && content !== undefined) {
+        const pm = marker.packageManagerFn(content, fullPath);
+        if (pm) packageManager = pm;
       }
     }
 

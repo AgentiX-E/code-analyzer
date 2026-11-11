@@ -19,6 +19,19 @@ import type { GitHubApiClient } from './client.js';
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * The refspec a fetch uses to move `origin/<branch>` to the remote's current tip.
+ *
+ * **Fully spelled out, and the spelling is the second half of the `--upload-pack` class.** `assertGitArgument` refuses a
+ * branch that begins with `-`, which is a rejection the caller can act on; **a refspec that begins with `+refs/` cannot
+ * begin with `-` at all**, so the fetch is option-proof by construction and not only by the guard in front of it. The
+ * destination is written out because the source-only form `git fetch origin <branch>` moves `refs/remotes/origin/<branch>`
+ * through git's *opportunistic* update, which the reset two lines later then depends on.
+ */
+function branchRefspec(branch: string): string {
+  return `+refs/heads/${branch}:refs/remotes/origin/${branch}`;
+}
+
 export interface SyncOptions {
   /** GitHub API client for authentication and clone URL resolution */
   client: GitHubApiClient;
@@ -129,7 +142,7 @@ export class GitHubRepoSync {
       // Already cloned — fetch if autoFetch enabled
       if (this.autoFetch) {
         try {
-          execFileSync('git', ['fetch', 'origin', branch, '--depth', '1'], {
+          execFileSync('git', ['fetch', 'origin', branchRefspec(branch), '--depth', '1'], {
             cwd: repoDir,
             stdio: 'pipe',
             timeout: 60_000,
@@ -205,7 +218,7 @@ export class GitHubRepoSync {
     const branch = this.branch ?? 'main';
     assertGitArgument(branch, 'the branch');
     try {
-      execFileSync('git', ['fetch', 'origin', branch, '--depth', '1'], {
+      execFileSync('git', ['fetch', 'origin', branchRefspec(branch), '--depth', '1'], {
         cwd: repoDir,
         stdio: 'pipe',
         timeout: 90_000,

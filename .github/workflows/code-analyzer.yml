@@ -11,15 +11,20 @@ on:
         description: 'PR number to analyze'
         required: true
 
+# **The write scopes are on the job that writes.** `analyze` posts the review comment, opens check runs and files
+# issues; `summary` reads a job result and prints one line. The workflow-level grant used to hand all three writes to
+# both, which is a wider grant than any single job asks for.
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
-  checks: write
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
     # Skip for draft PRs and only run on approved review submissions
     if: |
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
@@ -35,6 +40,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: analyze
     if: always()
+    # **No token at all.** This job reads `needs.analyze.result` and prints a line; an empty permission map is what says
+    # so, and it fails loudly if a step is ever added here that expects one.
+    permissions: {}
     steps:
       - name: Check Analysis Status
         #
