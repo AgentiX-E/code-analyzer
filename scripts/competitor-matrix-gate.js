@@ -145,7 +145,7 @@ function main() {
         }
       }
     }
-    if (reason || value === undefined || value === null) {
+    if (reason || value === undefined) {
       const where = candidatePaths.map((keys) => keys.join('.') || '(root)').join(' or ');
       missing.push({
         name,

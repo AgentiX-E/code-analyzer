@@ -329,7 +329,11 @@ export class StandardsEngine {
         const pythonStyle =
           trimmed.endsWith(':') && trimmed.match(/^\s*(def|class|if|for|while|with|try)/);
 
-        if (braceDepth <= 0 && inFunction && i > funcStart - 1 && !pythonStyle) {
+        // **`inFunction` was the third term and the second is why it was redundant.** This block is
+        // inside `if (inFunction)`, so the test repeated a fact the branch had already established -
+        // the kind of always-true condition that makes a reader look for the case it was guarding.
+        // `i >= funcStart` is the term that does work: a declaration's own line is not its end.
+        if (braceDepth <= 0 && i >= funcStart && !pythonStyle) {
           boundaries.push({ startLine: funcStart, endLine: i + 1 });
           inFunction = false;
         }

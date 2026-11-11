@@ -330,7 +330,11 @@ async function mapLimit(items, limit, task) {
       const at = next;
       next += 1;
       if (at >= items.length) return;
-      results[at] = await task(items[at], at);
+      // **The item, and not the index beside it.** The second argument was passed and read by
+      // nobody - the one caller maps over a list of indices, so it would have received the same
+      // number twice - and a parameter that exists for a caller that does not exist is a signature
+      // that lies about what a task is given.
+      results[at] = await task(items[at]);
     }
   });
   await Promise.all(workers);

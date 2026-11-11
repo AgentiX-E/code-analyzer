@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — Session Store
 // JSONL-based review session persistence with SHA-256 fingerprinting.
 
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -79,16 +79,30 @@ export function computeFileFingerprint(
 
 /**
  * Generate a unique session ID.
+ *
+ * **`Math.random()` was the wrong generator for a name that outlives its process.** Two runs that
+ * started in the same millisecond on two workers drew from the same range, and the identifier is
+ * what tells one run's JSONL from another's - so a collision does not lose a number, it appends one
+ * review's findings to another's file. `randomUUID` is the operating system's randomness and a
+ * version and variant that make the string self-describing; the timestamp is gone with it, because
+ * a name that carries a clock is a name that says when it was made rather than which one it is.
  */
 export function generateSessionId(): string {
-  const now = Date.now().toString(36);
-  const rand = Math.random().toString(36).slice(2, 10);
-  return `session-${now}-${rand}`;
+  return `session-${randomUUID()}`;
 }
 
 // ---------------------------------------------------------------------------
 // Session Store
 // ---------------------------------------------------------------------------
+
+/**
+ * What a session id may contain.
+ *
+ * **Bounded, not just character-checked**: a 4 096-byte name is a path the filesystem refuses, and a
+ * name that is one character long is a directory shared by every run. 128 is a UUID's 36 with room
+ * for the `session-` prefix and for the `session-test-<timestamp>-<random>` shape the tests write.
+ */
+const SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 export class SessionStore {
   private readonly sessionsDir: string;
@@ -245,11 +259,19 @@ export class SessionStore {
   getRecords(sessionId: string): string[] {
     const filePath = this.getSessionPath(sessionId);
 
-    if (!fs.existsSync(filePath)) {
-      return [];
+    // **The read is the check.** `existsSync` followed by `readFileSync` is two questions about one
+    // path, and the answer to the first can be stale before the second is asked - a session deleted
+    // between them turned a missing file into a thrown exception. One read answers both: `ENOENT`
+    // means there is nothing, and every other error is one the caller should see rather than one
+    // that reads as an empty session.
+    let content: string;
+    try {
+      content = fs.readFileSync(filePath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
     }
 
-    const content = fs.readFileSync(filePath, 'utf-8');
     return content.split('\n').filter((line) => line.trim().length > 0);
   }
 
@@ -290,12 +312,28 @@ export class SessionStore {
   // -------------------------------------------------------------------------
 
   private ensureDirectory(): void {
-    if (!fs.existsSync(this.sessionsDir)) {
-      fs.mkdirSync(this.sessionsDir, { recursive: true });
-    }
+    // **`recursive` is the check.** A `mkdir` that already exists is `EEXIST`, and asking the
+    // filesystem whether a directory is there before creating it is a question whose answer can be
+    // stale by the time it is used - two engines starting at once both saw "no" and one of them
+    // threw.
+    fs.mkdirSync(this.sessionsDir, { recursive: true });
   }
 
+  /**
+   * The file a session id names.
+   *
+   * **A session id arrives from a caller, and a caller is not the filesystem.** `path.join` does not
+   * confine: an id of `../../../etc/passwd` reads and `..%2F` writes outside the sessions directory,
+   * and `resumeSession` takes its id from the same place a webhook does. The shape is therefore
+   * checked rather than the resulting path - a name is letters, digits, `-` and `_`, and a name that
+   * is anything else is a caller error that says so.
+   */
   private getSessionPath(sessionId: string): string {
+    if (!SESSION_ID_PATTERN.test(sessionId)) {
+      throw new Error(
+        `A session id is a name, not a path: ${JSON.stringify(sessionId)} does not match ${SESSION_ID_PATTERN.source}`,
+      );
+    }
     return path.join(this.sessionsDir, `${sessionId}.jsonl`);
   }
 

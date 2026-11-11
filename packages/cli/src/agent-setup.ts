@@ -403,20 +403,24 @@ export class AgentSetupManager {
     let configured = false;
 
     try {
-      // Ensure parent directory exists
-      const dir = path.dirname(fullPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      // Ensure parent directory exists. **`recursive` answers "already there" without asking first**:
+      // an `existsSync` and a `mkdirSync` are two questions about one path, and a directory created
+      // between them made the second throw `EEXIST` on a step that had nothing to do.
+      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
 
-      // Read existing config
+      // Read the existing config, and let the read be the question. **The previous shape asked
+      // `existsSync` and then read**, so a config removed between the two - by the agent itself, or
+      // by the second of two setups running at once - threw out of a function whose contract is to
+      // report a message rather than an exception.
       let existingContent: string | null = null;
-      if (fs.existsSync(fullPath)) {
+      try {
         existingContent = fs.readFileSync(fullPath, 'utf-8');
 
         // Backup existing config
         const backupPath = fullPath + this.backupSuffix;
         fs.writeFileSync(backupPath, existingContent, 'utf-8');
+      } catch (readError) {
+        if ((readError as NodeJS.ErrnoException).code !== 'ENOENT') throw readError;
       }
 
       // Build MCP server entry
