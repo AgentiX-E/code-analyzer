@@ -321,19 +321,44 @@ open next to a reason can.
 
 ---
 
-## 3. `PinnedDependenciesID` (20), `TokenPermissionsID` (10), and the rest
+## 3. `TokenPermissionsID`: 10 reported, 16 in the tree, 0 now
 
-`PinnedDependenciesID` counts GitHub Actions and image references that are not pinned to a commit SHA.
-`TokenPermissionsID` counts workflows without an explicit `permissions:` block. Both are configuration findings with a
-mechanical remedy and neither is exploitable without write access to the repository.
+`TokenPermissionsID` counts a `write` scope granted **above the job that uses it** — at the top of a workflow, or on a
+job that does nothing with it. It is not, as an earlier version of this section said, a workflow without a
+`permissions:` block.
 
-The two numbers moved for the same reason as everything else on this page: the previous version said twelve and five, and
-the walk says twenty and ten.
+The rule as Scorecard applies it reports one finding per file, and this repository had sixteen. The five it named at
+workflow level were the ones whose unused scope happened to be the one the query looks at first; the other six were the
+same defect in files it did not report. All sixteen are on the job that uses them now, and one was **used by nothing at
+all** — `real-world-validation.yml` granted `issues: write` to a workflow that opens no issue, writes its summary to
+`$GITHUB_STEP_SUMMARY` and uploads reports as artifacts.
 
-**The remainder of the 367 - `js/regex/missing-regexp-anchor` (27, all in `graphql-linking.ts`), the shell-construction
-findings (13 + 3 + 1), `js/file-system-race` (7), `js/unused-local-variable` (14), the sanitization findings, and the
-Scorecard checks - is not in this document yet**, and by the rule at the top of this file that means it is not triaged
-either. It is what `scripts/code-scanning-corpus.mjs` exists to stop anyone from losing track of again.
+Two things about the shape of the defect are worth keeping:
 
-**The order in this document is the order of the work, not the order of the severity labels**: a source file can reach the
-regexes, and a source file cannot reach a workflow's `permissions:` block by itself.
+- **A job-level `permissions` map replaces the workflow-level one rather than extending it.** `pr-review.yml` granted
+  `checks: write`, `issues: write` and `pull-requests: write` at the top to four jobs that each declared their own map;
+  the grant was inert, and would have become live the moment a fifth job was added without one. It is
+  `permissions: {}` — a new job gets no token until someone writes down what it needs.
+- **A narrowing can break a job that was relying on the grant it inherited.** Moving `security-events: write` to the
+  job that uploads SARIF left `redos-assay`, the only job in that file that reads `code-scanning/alerts`, with
+  `contents: read`; its next run failed with `HTTP 403 on page 1`. The job declares `security-events: read` now.
+
+`scripts/workflow-permission-gate.js` asks it of all 41 workflows on every push: no workflow-level `write`, no
+`write-all`, and no workflow that states nothing (absence inherits the repository default, and the file does not say
+which that is). It reports the 30 remaining job-level writes rather than failing them, because a job that publishes a
+release or uploads an alert is doing what the scope is for.
+
+## 4. `PinnedDependenciesID` (20), and what is left
+
+`PinnedDependenciesID` counts GitHub Actions, `pip`/`npm` commands and container images that are not pinned to a
+digest. Every **action** in this repository is pinned by the `action-pin-gate` (281 references, 30 repositories, one
+commit each); the twenty open are the other three kinds — a base image per `Dockerfile` stage, six `npm`/`pip`
+installations inside benchmark workflows, and one `downloadThenRun` in `scripts/setup.sh`. A digest is resolved per
+reference and a wrong one is a broken job, so each lands with a green run behind it rather than beside one.
+
+**The rest of the ledger, read on 2026-11-11: 72 open.** `js/file-system-race` (7), `js/file-access-to-http` (6) and
+`js/http-to-file-access` (5), `js/template-syntax-in-string-literal` (4), the 20 above, `js/polynomial-redos` (2,
+both measured linear at 40 KB and 400 KB and recorded as a choice rather than hidden), `js/call-to-non-callable` (2, in
+a fixture that exists to be wrong), and fourteen single instances listed in
+`audits/2026-11-11-the-scope-and-the-name.md` §11. **What is not in this document is not triaged**, and §11 of that
+page is where the untriaged ones are named rather than counted.
