@@ -65,6 +65,17 @@ on:
         description: 'Row to start at (default 0); 50 with 100 reads the slice after the discovery set'
         type: string
         default: '0'
+      code_context:
+        # **The switch §20 of `EVAL-CONTRACT.md` is registered about: whether a lane is shown the block each hunk sits
+        # in.** `off` is the behaviour every figure this repository has published was measured under, so a dispatch that
+        # does not name it reproduces the old number rather than half of a new one. **An input rather than a constant,
+        # because a device a run cannot turn off is a device whose contribution cannot be measured** - and because the
+        # on-arm spends API calls (one per changed file) and prompt tokens (about 650 per file) that the off-arm does
+        # not, which the artifact records in `engineCounters.codeContext`.
+        description: 'Show each lane the code each hunk sits in: on or off (default off)'
+        type: choice
+        options: ['off', 'on']
+        default: 'off'
   schedule:
     # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
@@ -233,6 +244,10 @@ jobs:
           # default the code was written with, and the artifact's `configuration.promptOrder` says which one ran - so
           # two artifacts can be compared without anyone remembering what the default was that week.
           AACR_PROMPT_ORDER: ${{ inputs.prompt_order || 'boilerplate-first' }}
+          # **The second experimental variable, and the one iteration 123 is about.** Passed explicitly so that the
+          # artifact's `configuration.codeContext` and the workflow cannot disagree about which reviewer produced the
+          # figure - the same rule the profile and the prompt order follow, for the same reason.
+          AACR_CODE_CONTEXT: ${{ inputs.code_context || 'off' }}
           # **The profile the artifact will record**, passed explicitly rather than left to the script's default, so the
           # workflow and the artifact cannot disagree about which reviewer produced the figure.
           AACR_PROFILE: ${{ matrix.profile }}
@@ -251,6 +266,24 @@ jobs:
           OCR_LLM_TOKEN: ${{ secrets.DEEPSEEK_API_KEY }}
           OCR_LLM_MODEL: deepseek-chat
         run: node .github/scripts/aacr-bench.mjs
+
+      # **The artifact proves its own figure before it is uploaded, and the proof is a program rather than a paragraph.**
+      #
+      # `scripts/aacr-paired-replay.mjs --check` recomputes the published precision, recall and F1 from the rows beside
+      # them, with no model and no network, and **exits non-zero when the rows do not support the figure**. Iteration 122
+      # shipped the script and wrote the claim in a document; **the claim was in the document and the script was in no
+      # job**, so the one thing that could have caught a figure drifting from its rows ran only when a person remembered
+      # to run it - which is the definition of a check that is not one. **`Lint & Format` said so on the next push**
+      # (`scripts/aacr-paired-replay.mjs: no workflow names it`), which is the wiring gate doing its job on the same day
+      # the omission was made.
+      #
+      # **It runs here rather than in `compare`** because this is the job that produced the file: a run whose artifact
+      # does not replay to its own figure is a run that must fail before the artifact is published, not after two arms
+      # have been compared on it. **No `|| true`**: a refusal is the output.
+      - name: Prove the artifact replays to its own figure
+        run: |
+          set -e
+          node scripts/aacr-paired-replay.mjs --check
 
       - name: Upload the figure
         if: always()
