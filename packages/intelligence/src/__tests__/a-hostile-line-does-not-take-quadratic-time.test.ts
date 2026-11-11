@@ -21,11 +21,19 @@ import { describe, expect, it } from 'vitest';
 import { parseCitationIds } from '../qa/citations.js';
 import { collectDiffFacts } from '../review/actionability.js';
 import { DiffParser } from '../review/diff-parser.js';
+import { VersionCompatibilityMatrix } from '../cross-repo/version-matrix.js';
 import { readImportSpecifier } from '../review/import-specifier.js';
 import { analyzeApi } from '../review/lenses/api-lens.js';
+import { analyzeStyle } from '../review/lenses/style-lens.js';
 import { analyzeStructure } from '../review/lenses/structure-lens.js';
 import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
-import { checkNoDuplicateImports } from '../rules/rule-runner.js';
+import {
+  checkMaxFunctionLines,
+  checkMaxParams,
+  checkNoArrayIndexKey,
+  checkNoDuplicateImports,
+  checkTrailingWhitespace,
+} from '../rules/rule-runner.js';
 import { extractImports } from '../search/path-imports.js';
 
 /**
@@ -197,13 +205,27 @@ describe('a line the product did not write', () => {
  * the constant is small.
  */
 function expectLinear(label: string, size: number, run: (chars: number) => void): void {
-  const time = (chars: number): number => {
+  const once = (chars: number): number => {
     const started = performance.now();
     run(chars);
     return performance.now() - started;
   };
+  /**
+   * **The best of three readings, not one.**
+   *
+   * These measurements are milliseconds long and run beside fourteen other workers, so a single reading includes
+   * whatever the scheduler and the collector were doing at that instant. **Noise only ever adds time to a call**, so the
+   * fastest of several readings is the closest thing to the cost of the call itself - and a single sample was enough to
+   * fail this file once: `analyzeApi` read 9 ms at half the size and 41 ms at the full size on a busy machine, and 4 ms
+   * and 8 ms on an idle one. The assertion had not changed; the sampling had.
+   */
+  const time = (chars: number): number => {
+    let best = Infinity;
+    for (let attempt = 0; attempt < 3; attempt++) best = Math.min(best, once(chars));
+    return best;
+  };
   // Warm the call once so that a first-call JIT tier does not land in the denominator.
-  time(size);
+  once(size);
 
   const half = time(size / 2);
   const full = time(size);
@@ -213,10 +235,12 @@ function expectLinear(label: string, size: number, run: (chars: number) => void)
     `${label}: ${String(Math.round(full))} ms on ${String(size)} characters`,
   ).toBeLessThan(CEILING_MS);
   // **Four times for a doubling is the quadratic allowance.** A linear call reads four, a quadratic reads sixteen.
+  // **And twenty milliseconds is the floor below which the ratio is not a statement about the algorithm**: at that
+  // scale the difference between two readings is a pause, not a shape.
   expect(
     full,
     `${label}: ${String(Math.round(full))} ms against ${String(Math.round(half))} ms at half the size`,
-  ).toBeLessThan(Math.max(4 * half, 5));
+  ).toBeLessThan(Math.max(4 * half, 20));
 }
 
 /**
@@ -344,5 +368,114 @@ describe('the import specifier scanner', () => {
     // `from` has to be preceded by whitespace, so a name that ends in it does not count.
     expect(readImportSpecifier("import fromage fromage from 'x'")).toBe('x');
     expect(readImportSpecifier("import a fromage'x'")).toBeNull();
+  });
+});
+
+describe('a gap that two quantifiers can both read', () => {
+  // **The second family, and the one CodeQL named twenty-four times.** Each of these patterns gave a backtracking engine
+  // two ways to read the same characters: `\\s*` on both sides of an optional group, a run of whitespace that a trailing
+  // `\\s*` could also take, an unrolled string matcher whose inner and outer runs met, an alternation whose every branch
+  // ended in whitespace followed by another whitespace run. **A pair like that is quadratic in the length of the gap**,
+  // and a gap is exactly what a minified line or a generated file is made of.
+  //
+  // **Six of the seven were linear anyway, and this file says so rather than implying otherwise.** Run against the
+  // previous commit, these cases read one to four milliseconds each - a quadratic with a small constant, at the size a
+  // file can be. The seventh read **2 957 ms**: `checkMaxParams`'s alternation put a whitespace run at the end of every
+  // branch and then asked for another one, so a name followed by forty kilobytes of spaces and a `(` had two runs to
+  // split a gap between. **That is the case the assay missed**, because the input it replays is built from the pump the
+  // message names - `=>` followed by spaces - and with a `=>` in front the `(` never arrives, so the split is decided by
+  // the first backtrack. A message names a character; the shape that costs is a different hypothesis.
+  //
+  // The assertion is the same one the rest of this file makes - time at half the size and at the full size - because the
+  // claim is the same claim. What is new is the input: a run of the gap, with nothing after it.
+
+  it('does not let spaces between a modifier and a name reach a method header twice', () => {
+    // `^\\s*(?:public|private|protected|static|async)?\\s*(\\w+)\\s*\\(` has two whitespace runs that meet when the
+    // optional group does not participate, and a third that meets the second.
+    expectLinear('checkMaxFunctionLines on a header gap', 40_000, (chars) => {
+      checkMaxFunctionLines([`public${' '.repeat(chars)}method(`], 'src/a.ts', 'typescript');
+    });
+  });
+
+  it('does not let spaces between a name and its parentheses reach the parameter count twice', () => {
+    // `(?:function\\s+\\w{1,128}\\s*|=>\\s*|\\w{1,128}\\s*)\\s*\\(`: every branch ended in a whitespace run and the
+    // pattern then asked for another one. The branches no longer end in whitespace, so the run is read once.
+    expectLinear('checkMaxParams on a name gap', 40_000, (chars) => {
+      checkMaxParams([`name${' '.repeat(chars)}(`], 'src/a.ts', 'typescript');
+    });
+  });
+
+  it('does not let an optional brace between two whitespace runs reach a key index twice', () => {
+    // `\\bkey\\s*=\\s*\\{?\\s*(?:index|i|idx|j|k)\\b` - the brace is optional and whitespace is optional on both sides of
+    // it, so the gap after `=` had two readings. `(?:\\{\\s*)?` is one group with one reading.
+    expectLinear('checkNoArrayIndexKey on a gap', 40_000, (chars) => {
+      checkNoArrayIndexKey([`key${' '.repeat(chars)}={`], 'src/a.tsx', 'typescript');
+    });
+  });
+
+  it('does not let a line of tabs cost its own square to see the last character', () => {
+    // `/[ \\t]+$/` asks "does this line end in whitespace" and answers by trying a run at every position. `/[ \\t]$/`
+    // asks the same question about one character, which is all the question needs.
+    expectLinear('checkTrailingWhitespace on tabs', 40_000, (chars) => {
+      checkTrailingWhitespace(['\\t'.repeat(chars)], 'src/a.ts', 'typescript');
+    });
+  });
+
+  it('does not let an operator in front of a version cost the length of the version', () => {
+    // Two `String.replace` calls, one with a leading `[^\\d]*` and one with `[^.\\d].*$`: a `.*` beside a class that can
+    // match the same characters is the pair that lets a string be partitioned. Two scans read the same run.
+    const matrix = new VersionCompatibilityMatrix();
+    expectLinear('parseSemver on an operator run', 40_000, (chars) => {
+      matrix.parseSemver(`${'~'.repeat(chars)}1.2.3`);
+    });
+  });
+
+  it('does not let a header with many separators cost the square of its length', () => {
+    // `^diff --git a\\/(.*?) b\\/(.*?)$` tried every ` b/` as the separator, from both groups. The first one is the
+    // separator git writes, and `indexOf` finds it once.
+    const parser = new DiffParser();
+    expectLinear('parseUnifiedDiff on separators', 40_000, (chars) => {
+      parser.parseUnifiedDiff(`diff --git a/${' b/'.repeat(Math.floor(chars / 3))}`);
+    });
+  });
+
+  it('does not let an escape run make the style lens quadratic', () => {
+    // The unrolled `[^"\\\\]*(?:\\\\[\\s\\S][^"\\\\]*)*` has an inner and an outer run over the same characters, and a
+    // line of escapes gives the engine a choice at every one of them. `(?:[^"\\\\]|\\\\[\\s\\S])*` is one list of two
+    // disjoint cases.
+    expectLinear('analyzeStyle on escapes', 40_000, (chars) => {
+      analyzeStyle(`const a = "${'\\\\a'.repeat(Math.floor(chars / 2))}`, 'src/a.ts');
+    });
+  });
+
+  it('still reads the shapes these patterns were written for', () => {
+    // **The rewrite has to keep the reading, and a timing test cannot see that.** Each of the above is re-read at the
+    // shape the product meets every day.
+    expect(checkMaxFunctionLines(['public longMethod('], 'src/a.ts', 'typescript')).toHaveLength(0);
+    expect(checkMaxParams(['function f(a, b) {'], 'src/a.ts', 'typescript')).toHaveLength(0);
+    expect(checkNoArrayIndexKey(['<li key={index} />'], 'src/a.tsx', 'typescript')).toHaveLength(1);
+    expect(checkNoArrayIndexKey(['<li key={item.id} />'], 'src/a.tsx', 'typescript')).toHaveLength(
+      0,
+    );
+    expect(checkTrailingWhitespace(['const a = 1;   '], 'src/a.ts', 'typescript')).toHaveLength(1);
+    expect(checkTrailingWhitespace(['const a = 1;'], 'src/a.ts', 'typescript')).toHaveLength(0);
+
+    const matrix = new VersionCompatibilityMatrix();
+    expect(matrix.parseSemver('^1.2.3')).toEqual({ major: 1, minor: 2, patch: 3 });
+    expect(matrix.parseSemver('~2.0.0-beta.1')).toEqual({ major: 2, minor: 0, patch: 0 });
+
+    // **A diff header whose path contains a space is read at its first separator**, which is the one git writes.
+    const parser = new DiffParser();
+    const diffs = parser.parseUnifiedDiff(
+      [
+        'diff --git a/src/a b.ts b/src/a b.ts',
+        'index 1..2 100644',
+        '@@ -1 +1 @@',
+        '-old',
+        '+new',
+      ].join('\n'),
+    );
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]?.filePath).toBe('src/a b.ts');
   });
 });

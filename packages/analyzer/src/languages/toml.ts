@@ -49,8 +49,12 @@ export class TomlProvider implements LanguageProvider {
         );
         continue;
       }
-      const kvMatch = line.match(/^\s*([\w.-]+)\s*=\s*(.+?)\s*$/);
-      if (kvMatch) {
+      // **`(.*)` and an explicit emptiness test, because `(.+?)\s*$` is a lazy quantifier followed by a quantifier over
+      // the same characters** - on a long run of spaces it tries every split. The test is on the raw group and not on a
+      // trimmed one: a line of `key =` followed by nothing is not a definition, and `key =   ` was one, because the
+      // trailing run could give a character back to `(.+?)`.
+      const kvMatch = line.match(/^[ \t]*([\w.-]+)[ \t]*=[ \t]*(.*)$/);
+      if (kvMatch && kvMatch[2]! !== '') {
         captures.push(
           this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, kvMatch[1]!, i + 1, filePath, {
             section: currentTable,

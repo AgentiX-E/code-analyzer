@@ -450,7 +450,9 @@ function findChild(node: TsNode, types: string[]): TsNode | null {
 function extractCallsRegex(lines: string[], _language: string): AstCallSite[] {
   const calls: AstCallSite[] = [];
   // Match method calls: obj.method(args) and function calls: name(args)
-  const callPattern = /(\w{1,128}(?:\.\w{1,128})*)\s*\(([^)]{0,512})\)/g;
+  // **A bound instead of a star.** `(\w{1,128}(?:\.\w{1,128})*)` is a bounded atom under an unbounded quantifier, so
+  // a long run of `a.b.c…` has as many parses as it has dots. Seventeen segments is more than a call site names.
+  const callPattern = /(\w{1,128}(?:\.\w{1,128}){0,16})\s*\(([^)]{0,512})\)/g;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -475,12 +477,13 @@ function extractStringsRegex(lines: string[]): AstStringLiteral[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    // Match single-quoted strings
-    const singlePattern = /'([^'\\]*(?:\\.[^'\\]*)*)'/g;
-    // Match double-quoted strings
-    const doublePattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
-    // Match template literals
-    const templatePattern = /`([^`\\]*(?:\\.[^`\\]*)*)`/g;
+    // **The unrolled form and the alternation form match the same strings and only one of them is obvious to read.**
+    // `[^'\\]*(?:\\.[^'\\]*)*` says "a character that is not a quote, then an escape and more of the same", which is
+    // right and which a backtracking engine has to try both ways at every escape. `(?:[^'\\]|\\.)*` says the same thing
+    // as one list of two disjoint cases, so there is one way to read it.
+    const singlePattern = /'((?:[^'\\]|\\.)*)'/g;
+    const doublePattern = /"((?:[^"\\]|\\.)*)"/g;
+    const templatePattern = /`((?:[^`\\]|\\.)*)`/g;
 
     let m: RegExpExecArray | null;
     while ((m = singlePattern.exec(line)) !== null) {
@@ -536,7 +539,7 @@ function extractImportsRegex(lines: string[], language: string): AstImport[] {
 function extractAssignmentsRegex(lines: string[], _language: string): AstAssignment[] {
   const assignments: AstAssignment[] = [];
 
-  const pattern = /(?:const|let|var)\s+(\w+)\s*=\s*(.+?)(?:;|$)/;
+  const pattern = /(?:const|let|var)[ \t]+(\w{1,128})[ \t]*=[ \t]*(.+?)(?:;|$)/;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     const m = pattern.exec(line);

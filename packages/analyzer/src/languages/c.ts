@@ -359,8 +359,7 @@ export class CProvider extends TreeSitterBaseProvider {
     // Function definitions/declarations: [storage] return_type [*] name(params) {|;
     // The return-type group allows stars both attached to the type (`int* fp`)
     // and attached to the name (`int *fp`); the name is the last word before `(`.
-    const funcRegex =
-      /(?:(?:static|inline|extern)\s+)*(?:\w{1,128}[*]*\s+)+(\*+\s*)?(\w{1,128})\s*\([^)]{0,512}\)\s*(?:\{|;)/g;
+    const funcRegex = /(?:\w{1,128}\**\s+)+(\*+\s*)?(\w{1,128})\s*\([^)]{0,512}\)\s*(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[2]!;
       if (!this.isValidFnName(name)) continue;
