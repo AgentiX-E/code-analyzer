@@ -61,7 +61,9 @@ function resolveSpecifier(
   specifier: string,
   known: ReadonlySet<string>,
 ): string | null {
-  const withoutExtension = specifier.replace(/\.jsx?$/, '').replace(/\.mjs$/, '.mjs');
+  // A `.mjs` specifier keeps its extension: only `.js` and `.jsx` are stripped, and a second `replace` that mapped
+  // `.mjs` to itself described that by doing nothing.
+  const withoutExtension = specifier.replace(/\.jsx?$/, '');
   for (const candidate of [
     `${withoutExtension}.ts`,
     `${withoutExtension}.tsx`,
@@ -349,11 +351,14 @@ describe('every module a package compiles is reachable from an entry its manifes
   it('measures the same number of modules in each package as it did when the register was written', () => {
     const counts = Object.fromEntries(NAMES.map((name) => [name, MEASURED[name]!.modules.length]));
     expect(counts).toEqual({
-      // **91 since iteration 120**, which added `languages/doc-comments.ts`: the scanner that replaced the doc-comment
-      // pattern in the PHP and TypeScript parsers. It is a module rather than two inline loops because **the pattern was
-      // measured at half a second on forty kilobytes of unterminated openers**, and a scan that two parsers copy is a
-      // scan whose second copy is the one nobody measures. (90 was iteration 119.)
-      analyzer: 91,
+      // **92 since iteration 121**, which added `languages/html-script-blocks.ts`: the scan that finds where an inline
+      // `<script>` block starts and ends. It is a module rather than a pattern in `svelte.ts` because **the pattern was
+      // wrong in three ways a real component produces** - a `>` inside a quoted attribute, an end tag carrying
+      // attributes, and a tag whose name merely begins with `script` - and because the provider asked the same question
+      // a second time with two `lastIndexOf` calls, which is the copy that would have kept the old rule. (91 was
+      // iteration 120, which added `languages/doc-comments.ts`: the scanner that replaced the doc-comment pattern in
+      // the PHP and TypeScript parsers.)
+      analyzer: 92,
       // **14 since iteration 112**, which added `commands/config.ts`: the command that prints the configuration and
       // where every value in it came from. The register is why it is written down here rather than inferred: a command
       // surface that grows is a decision, and this is where it is recorded. (13 was iteration 111, which added the three

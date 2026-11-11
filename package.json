@@ -64,6 +64,7 @@
     "gate:wiring": "node scripts/gate-wiring.js",
     "gate:node-version": "node scripts/node-version-gate.js",
     "gate:actions": "node scripts/action-pin-gate.js",
+    "gate:permissions": "node scripts/workflow-permission-gate.js",
     "gate:corpus": "node scripts/corpus-provenance-gate.js",
     "lint:update": "node scripts/lint-per-file.js --update",
     "coverage:exclusions": "node scripts/coverage-exclusions-gate.js",

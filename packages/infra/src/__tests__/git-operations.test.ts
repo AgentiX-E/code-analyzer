@@ -785,3 +785,53 @@ describe('parseDiff hunk parsing edge cases', () => {
     expect(diffs[0]!.ranges.length).toBe(0);
   });
 });
+
+// ==========================================================================
+// splitDiffHeader — the three headers git does not write
+// ==========================================================================
+
+describe('a diff header that has no two sides', () => {
+  // **`a/x.ts b/x.ts` is the only shape git writes**, and the parser's job on anything else is to skip the section
+  // rather than to invent a path from half of one. These three are the halves: no destination, an empty destination,
+  // and an empty source. The second operand of the guard in `splitDiffHeader` is the one a valid corpus never reaches,
+  // which is why it is asserted here rather than left to the per-file branch gate to report at 93.93%.
+  const gitOps = createGitOperations('/tmp');
+
+  it('skips a header with no destination at all', () => {
+    const diffs = gitOps.parseDiff(
+      ['diff --git a/orphan.ts', '--- a/orphan.ts', '+++ /dev/null'].join('\n'),
+    );
+    expect(diffs).toEqual([]);
+  });
+
+  it('skips a header whose destination is empty', () => {
+    const diffs = gitOps.parseDiff(
+      ['diff --git a/orphan.ts b/', '--- a/orphan.ts', '+++ b/'].join('\n'),
+    );
+    expect(diffs).toEqual([]);
+  });
+
+  it('skips a header whose source is empty', () => {
+    const diffs = gitOps.parseDiff(['diff --git a/ b/kept.ts', '+++ b/kept.ts'].join('\n'));
+    expect(diffs).toEqual([]);
+  });
+
+  it('reads the section after a malformed one, rather than losing it', () => {
+    // The cost of skipping is a file missing from a diff, so the case that matters is the one where a broken header is
+    // followed by a good one.
+    const diffs = gitOps.parseDiff(
+      [
+        'diff --git a/broken.ts b/',
+        '--- a/broken.ts',
+        '+++ b/',
+        'diff --git a/kept.ts b/kept.ts',
+        '--- a/kept.ts',
+        '+++ b/kept.ts',
+        '@@ -1 +1 @@',
+        '-before',
+        '+after',
+      ].join('\n'),
+    );
+    expect(diffs.map((d) => d.filePath)).toEqual(['kept.ts']);
+  });
+});

@@ -596,3 +596,56 @@ describe('Session Store', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// A session id is a name, and a name is not a path
+// ---------------------------------------------------------------------------
+
+describe('SessionStore — the id is checked before it becomes a path', () => {
+  let tempDir: string;
+  let store: SessionStore;
+
+  beforeEach(() => {
+    tempDir = getTempDir();
+    store = new SessionStore(tempDir);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('refuses an id that would read outside the sessions directory', () => {
+    expect(() => store.getRecords('../../etc/passwd')).toThrow(/is a name, not a path/);
+  });
+
+  it('refuses a name that is not a name at all', () => {
+    for (const id of ['', 'a/b', 'a\\b', '.', '..', 'session\u0000x', 'x'.repeat(129)]) {
+      expect(() => store.getRecords(id)).toThrow(/is a name, not a path/);
+    }
+  });
+
+  it('reads an id the pattern allows, and answers an absent one with nothing', () => {
+    expect(store.getRecords('session-A_b-1')).toEqual([]);
+  });
+
+  it('writes inside the directory it was given, whatever the id is made of', () => {
+    const session = store.startSession('proj-1', {
+      repository: 'r',
+      branch: 'main',
+      mode: 'diff',
+    });
+
+    expect(path.dirname(path.join(store.directory, `${session.id}.jsonl`))).toBe(tempDir);
+    expect(fs.existsSync(path.join(tempDir, `${session.id}.jsonl`))).toBe(true);
+  });
+
+  it('generates ids that are unique without a clock, and shaped like the pattern', () => {
+    const ids = new Set(Array.from({ length: 500 }, () => generateSessionId()));
+
+    expect(ids.size).toBe(500);
+    for (const id of ids) {
+      expect(id).toMatch(/^session-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(store.getRecords(id)).toEqual([]);
+    }
+  });
+});
