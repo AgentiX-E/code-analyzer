@@ -20,6 +20,17 @@ import {
   categoryVerdict,
   DEFECT_FLOOR,
 } from '../../../packages/intelligence/src/review/category-prior.js';
+
+import type { EmissionProfile } from '../../../packages/intelligence/src/review/category-prior.js';
+
+/**
+ * **The profiles the code implements, as a total record rather than as a list.**
+ *
+ * `Record<EmissionProfile, true>` is exhaustive by construction: adding a profile to the union without adding it here
+ * fails to compile, which is the only way a test can be told about a value it has never seen. A `readonly
+ * EmissionProfile[]` would accept a list that had simply forgotten one.
+ */
+const KNOWN_PROFILES: Record<EmissionProfile, true> = { defect: true, advisory: true };
 import { REVIEW_CATEGORIES } from '../../../packages/shared/src/types/graph.js';
 
 import type { ReviewCategory } from '../../../packages/shared/src/types/graph.js';
@@ -114,13 +125,25 @@ describe('the workflow and the code offer the same profiles', () => {
     'utf8',
   );
 
-  it('runs the two profiles as the matrix arms the comparison job reads', () => {
-    // **A matrix arm the code does not implement runs the default while the artifact records a name nobody ran** - an
-    // experiment that measures the wrong arm and says so in its own metadata.
-    const block = /profile: \[([^\]]+)\]/.exec(workflow);
-    expect(block).not.toBeNull();
-    const arms = block![1]!.split(',').map((value) => value.trim().replace(/^['"]|['"]$/g, ''));
-    expect(arms.sort()).toEqual(['advisory', 'defect']);
+  it('pins the profile the matrix runs to the one R-17 did not falsify', () => {
+    // **This assertion used to require two profile arms, and iteration 124 retired the second one by measurement rather
+    // than by preference.** §19.3 falsified the 0.22 floor at +0.0079 against a registered +0.02 on a hundred unseen
+    // pull requests, so `advisory` is the default and `defect` is a measured but retired configuration. Keeping it as a
+    // matrix key would have produced four arms over two keys, and the comparison job refuses any pair whose artifacts
+    // differ in more than one key - four artifacts, zero comparisons, twice the bill.
+    //
+    // **The property worth holding is the one that survives the change**: every arm names a profile the code implements,
+    // and the arm the artifact records is the arm that ran. A matrix arm the code does not implement runs the default
+    // while the artifact records a name nobody ran, which is an experiment that measures the wrong arm and says so in its
+    // own metadata.
+    const arms = [...workflow.matchAll(/-\s*\{\s*profile:\s*([^,}]+)/g)].map((match) =>
+      match[1]!.trim().replace(/^['"]|['"]$/g, ''),
+    );
+    expect(arms.length).toBeGreaterThan(0);
+    for (const arm of arms) expect(Object.keys(KNOWN_PROFILES)).toContain(arm);
+    // **And the retired configuration is not one of them**, because a device that is being re-measured every dispatch
+    // without a registration is a device whose verdict is being re-rolled until it looks like a result.
+    expect(arms).not.toContain('defect');
   });
 
   it('passes the arm to the process the script reads, so the artifact and the matrix cannot disagree', () => {

@@ -1,0 +1,194 @@
+// **A table that decomposes a figure has to add up to it, and until iteration 124 nothing checked that it did.**
+//
+// The artifact publishes one true-positive count and three ways of slicing it. Before this file the slices were:
+//
+//   1. five examples per attribution bucket, out of a hundred and sixty-nine misses - so the one analysis three stage
+//      pages asked for, *read the goldens both reviewers missed*, could not be done from the file;
+//   2. no per-category reading at all, so `maintainability` was discussed in prose rather than measured;
+//   3. no list of the goldens neither reviewer found, which is the ceiling on the whole exercise.
+//
+// All three exist now, and the failure mode they introduce is quiet: **a breakdown computed by a second rule can disagree
+// with the figure it decomposes while both numbers are individually plausible**. The first draft of the category table
+// counted findings that matched a golden, which reported 73 where the run scored 39 - because a golden mentioned by three
+// lanes is one true positive and three matched findings. This file is what makes that class of error fail loudly.
+
+import { describe, expect, it } from 'vitest';
+
+import { auditArtifact, formatAudit } from '../../../scripts/lib/artifact-audit.mjs';
+
+/** An artifact whose every layer agrees, so that each test can break exactly one thing. */
+function consistentArtifact() {
+  const rows = [
+    { category: 'bug', emitted: 10, truePositives: 4, falsePositives: 6, precision: 0.4 },
+    { category: 'test', emitted: 5, truePositives: 0, falsePositives: 5, precision: 0 },
+  ];
+  return {
+    truePositives: 4,
+    falsePositives: 11,
+    falseNegatives: 6,
+    f1: (2 * 4) / (2 * 4 + 11 + 6),
+    missedGoldens: {
+      total: 6,
+      counts: {
+        hit: 4,
+        noPath: 0,
+        fileNotReviewed: 1,
+        noFindingOnPath: 0,
+        findingOnPathRejected: 1,
+      },
+      records: [
+        { pr: 'p', goldenIndex: 0, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
+        { pr: 'p', goldenIndex: 1, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
+        { pr: 'p', goldenIndex: 2, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
+        { pr: 'p', goldenIndex: 3, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
+        {
+          pr: 'p',
+          goldenIndex: 4,
+          bucket: 'fileNotReviewed',
+          path: 'b.ts',
+          note: '',
+          proximity: null,
+        },
+        {
+          pr: 'p',
+          goldenIndex: 5,
+          bucket: 'findingOnPathRejected',
+          path: 'c.ts',
+          note: '',
+          proximity: 3,
+        },
+      ],
+    },
+    byCategory: {
+      rows,
+      totals: { attributedTruePositives: 4, reportedTruePositives: 4, agrees: true },
+    },
+    bothMissed: [
+      {
+        pr: 'p',
+        goldenIndex: 9,
+        path: 'd.ts',
+        note: 'nobody said this',
+        ourBucket: 'noFindingOnPath',
+      },
+    ],
+    bothMissedCorpus: { pullRequests: 1, goldens: 10, withoutAttribution: 0 },
+  };
+}
+
+/** The audit's verdict on one artifact, as the names of the checks that failed. */
+function failuresOf(artifact) {
+  return auditArtifact(artifact)
+    .findings.filter((finding) => !finding.ok)
+    .map((finding) => finding.name);
+}
+
+describe('an artifact whose detail layers agree', () => {
+  it('passes every check', () => {
+    const audit = auditArtifact(consistentArtifact());
+    expect(failuresOf(consistentArtifact())).toEqual([]);
+    expect(audit.ok).toBe(true);
+  });
+
+  it('says so in one line per check, because a log is the audit rather than a summary of it', () => {
+    const audit = auditArtifact(consistentArtifact());
+    const text = formatAudit(audit);
+    // **One line per check, derived rather than restated**: a hard-coded count is a test that has to be edited whenever
+    // a check is added, which is a test people edit to make it pass.
+    expect(text.split('\n')).toHaveLength(audit.findings.length);
+    expect(audit.findings.every((finding) => finding.ok)).toBe(true);
+    expect(text).toContain('ok   byCategory is a decomposition, not a sample');
+  });
+});
+
+describe('a detail list that is not the list', () => {
+  it('fails when records are fewer than the partition they claim to be', () => {
+    const artifact = consistentArtifact();
+    artifact.missedGoldens.records = artifact.missedGoldens.records.slice(0, 3);
+    // **This is the defect the field was added to repair**: five examples per bucket is exactly this shape, and it is
+    // what made a three-iteration-old next step impossible to take.
+    expect(failuresOf(artifact)).toContain('missedGoldens.records is the whole table');
+  });
+
+  it('fails when the records partition into different buckets than the table publishes', () => {
+    const artifact = consistentArtifact();
+    artifact.missedGoldens.records[0]!.bucket = 'noFindingOnPath';
+    // **Two writers of one table is how a table drifts from itself**, and the counts are what every other document
+    // quotes - so the records disagreeing with them means one of the two is about a different run.
+    expect(failuresOf(artifact)).toContain(
+      'missedGoldens.records partitions into missedGoldens.counts',
+    );
+  });
+});
+
+describe('a decomposition that does not add up', () => {
+  it('fails when the category rows sum to more than the run scored', () => {
+    const artifact = consistentArtifact();
+    // The exact error the first draft made: counting findings that matched something rather than goldens that were
+    // owned, which counts one golden once per mention.
+    artifact.byCategory.rows = [
+      { category: 'bug', emitted: 10, truePositives: 7, falsePositives: 3, precision: 0.7 },
+      { category: 'test', emitted: 5, truePositives: 2, falsePositives: 3, precision: 0.4 },
+    ];
+    expect(failuresOf(artifact)).toContain('byCategory rows sum to the run’s true positives');
+  });
+
+  it('fails when a row does not subtract its own false positives', () => {
+    const artifact = consistentArtifact();
+    artifact.byCategory.rows[0]!.falsePositives = 99;
+    expect(failuresOf(artifact)).toContain(
+      'every byCategory row subtracts its own false positives',
+    );
+  });
+
+  it('fails when the run itself reported the two walks as disagreeing', () => {
+    const artifact = consistentArtifact();
+    artifact.byCategory.totals = {
+      attributedTruePositives: 4,
+      reportedTruePositives: 4,
+      agrees: false,
+    };
+    // **The artifact's own check is believed even when the arithmetic here would pass**, because the two are counted
+    // over different objects: this file sums published rows, and the run counted owned goldens.
+    expect(failuresOf(artifact)).toContain('byCategory is a decomposition, not a sample');
+  });
+});
+
+describe('the ceiling has a denominator', () => {
+  it('fails when the list cannot exceed the corpus it was drawn from', () => {
+    const artifact = consistentArtifact();
+    artifact.bothMissedCorpus.goldens = 0;
+    expect(failuresOf(artifact)).toContain('bothMissed cannot exceed the corpus it was drawn from');
+  });
+
+  it('fails when there is no list at all', () => {
+    const artifact = consistentArtifact();
+    delete (artifact as { bothMissed?: unknown }).bothMissed;
+    const failures = failuresOf(artifact);
+    expect(failures).toContain('bothMissed names its corpus');
+    expect(failures).toContain('bothMissed cannot exceed the corpus it was drawn from');
+  });
+});
+
+describe('the score from its own four counts', () => {
+  it('fails when F1 does not follow from TP, FP and FN', () => {
+    const artifact = consistentArtifact();
+    artifact.f1 = 0.9;
+    expect(failuresOf(artifact)).toContain('precision, recall and F1 follow from TP, FP and FN');
+  });
+
+  it('accepts a run that found nothing without dividing by zero', () => {
+    const artifact = consistentArtifact();
+    artifact.truePositives = 0;
+    artifact.byCategory = {
+      rows: [],
+      totals: { attributedTruePositives: 0, reportedTruePositives: 0, agrees: true },
+    };
+    artifact.f1 = 0;
+    const failures = failuresOf(artifact);
+    // **An empty table is a different failure from a wrong one**, and the honest reading of "no rows" is that the
+    // decomposition was not produced - not that F1 is wrong.
+    expect(failures).toContain('byCategory is a decomposition, not a sample');
+    expect(failures).not.toContain('precision, recall and F1 follow from TP, FP and FN');
+  });
+});

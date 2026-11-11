@@ -65,17 +65,12 @@ on:
         description: 'Row to start at (default 0); 50 with 100 reads the slice after the discovery set'
         type: string
         default: '0'
-      code_context:
-        # **The switch §20 of `EVAL-CONTRACT.md` is registered about: whether a lane is shown the block each hunk sits
-        # in.** `off` is the behaviour every figure this repository has published was measured under, so a dispatch that
-        # does not name it reproduces the old number rather than half of a new one. **An input rather than a constant,
-        # because a device a run cannot turn off is a device whose contribution cannot be measured** - and because the
-        # on-arm spends API calls (one per changed file) and prompt tokens (about 650 per file) that the off-arm does
-        # not, which the artifact records in `engineCounters.codeContext`.
-        description: 'Show each lane the code each hunk sits in: on or off (default off)'
-        type: choice
-        options: ['off', 'on']
-        default: 'off'
+      # **`code_context` used to be an input here, and its deletion is the fix rather than a tidy-up.** As an input it
+      # had one value per dispatch, so measuring the device meant two dispatches - and two dispatches of this job have
+      # reported the *same* configuration at 0.1691 and 0.2405, which is a spread larger than every effect registered in
+      # `EVAL-CONTRACT.md`. The switch is now a matrix key, so one dispatch produces both arms over the same corpus, the
+      # same goldens and the same judge. **A device whose contribution can only be measured across runs cannot be
+      # measured by this instrument**, and §20.4 named this edit before R-18's number existed.
   schedule:
     # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
@@ -106,15 +101,28 @@ permissions:
 # one run today and another next week**, because a comparison across commits is a comparison across everything else that
 # changed in between.
 #
-# **The matrix varies the hypothesis currently under test, and that changed in iteration 119.** It used to vary
+# **The matrix varies the hypothesis currently under test, and that changed in iteration 124.** It used to vary
 # `AACR_CHECKLIST` - the per-language defect checklist of §8 - and that device has been measured twice and falsified
 # twice, so a matrix that still varied it would spend two arms and a hundred pull requests comparing a retired
-# configuration. **What it varies now is `AACR_PROFILE`**, the category floor of §19/R-17: one arm emits every category,
-# the other emits only the categories whose measured acceptance reaches 0.22. **The comparison job reads the varied field
-# out of the two artifacts rather than being told it**, so the next hypothesis is a matrix edit and not a rewrite.
+# configuration. Then it varied `AACR_PROFILE`, the category floor of §19/R-17, which was falsified at +0.0079 against a
+# registered +0.02 on a hundred unseen pull requests. **What it varies now is `AACR_CODE_CONTEXT`**, the code window of
+# §20/R-18: one arm reads each changed file at the pull request's head commit and shows each lane the block its hunk sits
+# in, the other reads only the diff. **The comparison job reads the varied field out of the two artifacts rather than
+# being told it**, so the next hypothesis is a matrix edit and not a rewrite.
+#
+# **And this arm moved into the matrix for a reason the last one did not have.** R-17 and R-18 were both measured across
+# two dispatches, and two dispatches of this job have reported the *same* configuration at 0.1691 and 0.2405 - a spread
+# larger than any effect registered here. **A comparison across runs therefore cannot separate a 0.02 device from the
+# job's own variance**, which is why R-18's first result is `falsified` and `inconclusive` in the same sentence, and why
+# §20.4 named this edit before that number existed. One dispatch now produces both arms over the same corpus, the same
+# goldens and the same judge; `compare` still has no credentials, so the arithmetic still cannot have been done by a
+# model.
 jobs:
   aacr-bench:
-    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile)
+    # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
+    # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
+    # the difference is legible before anything is downloaded.
+    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }})
     runs-on: ubuntu-latest
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
@@ -140,8 +148,26 @@ jobs:
       # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to
       # report that rather than a one-sided figure.
       fail-fast: false
+      # **The two arms of the hypothesis currently registered, written as `include` so that a difference between them is a
+      # variable somebody chose rather than a cross product of everything on the list.**
+      #
+      # **It varies `code_context` now, and `profile` is pinned to `advisory`.** R-18 (§20) was measured across two
+      # dispatches and came back `falsified` on the arm it names by 0.0065 - a movement smaller than the 0.0311 that
+      # slice resolves - so the difference it reported carries the run-to-run variance of this job as well as the device.
+      # **Two runs of this job have reported the same configuration at 0.1691 and 0.2405**, which is larger than every
+      # effect registered here; a comparison across dispatches therefore cannot settle a 0.02 claim at 36 pull requests,
+      # and §20.4 named this matrix as the dispatch that could, before the number existed.
+      #
+      # **`profile` is pinned rather than deleted, and the reason is a measurement.** R-17's 0.22 floor was falsified at
+      # +0.0079 against a registered +0.02 on 100 unseen pull requests (§19.3), so `advisory` is the default and the
+      # other arm is a retired configuration. A cross product with it would double this dispatch's bill to answer a
+      # question already answered, and **a matrix that varies two things answers neither**: `variedField` in
+      # `aacr-ablation-compare.mjs` refuses a pair whose artifacts differ in more than one key, and it would refuse every
+      # pair this job produced.
       matrix:
-        profile: [defect, advisory]
+        include:
+          - { profile: advisory, code_context: 'off' }
+          - { profile: advisory, code_context: 'on' }
 
     steps:
       - name: Checkout
@@ -244,10 +270,11 @@ jobs:
           # default the code was written with, and the artifact's `configuration.promptOrder` says which one ran - so
           # two artifacts can be compared without anyone remembering what the default was that week.
           AACR_PROMPT_ORDER: ${{ inputs.prompt_order || 'boilerplate-first' }}
-          # **The second experimental variable, and the one iteration 123 is about.** Passed explicitly so that the
-          # artifact's `configuration.codeContext` and the workflow cannot disagree about which reviewer produced the
-          # figure - the same rule the profile and the prompt order follow, for the same reason.
-          AACR_CODE_CONTEXT: ${{ inputs.code_context || 'off' }}
+          # **The experimental variable, and the only one this matrix varies.** Read from `matrix.code_context` rather
+          # than from a dispatch input, because **an input would be one value chosen once and given to both arms** - which
+          # is exactly the arrangement that made R-18 a comparison across two dispatches. The artifact's
+          # `configuration.codeContext` and this line cannot disagree: there is one place to write `on`.
+          AACR_CODE_CONTEXT: ${{ matrix.code_context }}
           # **The profile the artifact will record**, passed explicitly rather than left to the script's default, so the
           # workflow and the artifact cannot disagree about which reviewer produced the figure.
           AACR_PROFILE: ${{ matrix.profile }}
@@ -255,11 +282,13 @@ jobs:
           # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
           # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.
           #
-          # **And only one arm records.** The matrix runs this job twice, differing in `AACR_PROFILE`; the competitor
-          # is the same measurement in both, so a `record` dispatch that let both arms record would buy the 5.89 USD arm
-          # twice and write two files whose only difference is which arm's artifact carried them. The `with` arm records;
-          # the other is switched off, and its artifact says so.
-          AACR_COMPETITOR: ${{ inputs.competitor == 'record' && matrix.profile == 'defect' && 'record' || inputs.competitor == 'record' && matrix.profile != 'defect' && 'off' || inputs.competitor || 'replay' }}
+          # **And only one arm records.** The matrix runs this job twice, differing in `code_context`; the competitor is
+          # the same measurement in both, so a `record` dispatch that let both arms record would buy the 5.89 USD arm
+          # twice and write two files whose only difference is which arm's artifact carried them. **The `off` arm
+          # records**, because the recorded baseline is the configuration every published figure was measured under, and
+          # a baseline bought by the arm under test would make the competitor's operating point depend on the device
+          # being measured.
+          AACR_COMPETITOR: ${{ inputs.competitor == 'record' && matrix.code_context == 'off' && 'record' || inputs.competitor == 'record' && 'off' || inputs.competitor || 'replay' }}
           # **And the second reviewer's own configuration**, pointing at the same provider the judge uses - so
           # **the reviewer and the judge are the same model, which is requirement 2 satisfied by construction.**
           OCR_LLM_URL: https://api.deepseek.com/anthropic
@@ -285,11 +314,28 @@ jobs:
           set -e
           node scripts/aacr-paired-replay.mjs --check
 
+      # **The score is not the only figure an artifact publishes any more.** Iteration 124 added the full attribution
+      # list, the per-category decomposition of the true positives, and the goldens neither reviewer found - and **a
+      # breakdown computed by a second rule can disagree with the figure it decomposes while both numbers are plausible**.
+      # The first draft of the category table did exactly that: it counted findings that matched a golden and reported 73
+      # where the run scored 39, because one golden mentioned by three lanes is one true positive and three matches.
+      #
+      # **It fails here rather than in `compare`** for the same reason the step above does: a run whose own detail layers
+      # do not add up must fail where it produced them, before the artifact is published and before two arms are compared
+      # on it. **No `|| true`**: a refusal is the output.
+      - name: Prove the artifact's detail layers add up
+        run: |
+          set -e
+          node scripts/aacr-bench-audit.mjs --check
+
       - name: Upload the figure
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: aacr-bench-${{ matrix.profile }}
+          # **Both matrix keys are in the name**, because a pair of artifacts whose names differ in one segment is a pair
+          # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
+          # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
+          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
           path: |
@@ -324,10 +370,15 @@ jobs:
       - name: Prove the comparison's arithmetic on fixtures
         run: node .github/scripts/aacr-ablation-compare.mjs --self-test
 
-      - name: Download the run with the defect profile
+      # **The arm under test goes in `/tmp/with`, and the direction is load-bearing rather than stylistic.** The
+      # comparison script reads `with` as the side that has the device and `without` as the side that does not, and its
+      # registrations name a sign: R-18 asks the pull-request arm to *rise*. Swapping these two paths would report the
+      # same experiment with every gain negated, and **the artifact would be internally consistent while saying the
+      # opposite**, which is the one failure no gate in this job can see.
+      - name: Download the run with the code window
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-defect
+          name: aacr-bench-advisory-on
           path: /tmp/with
 
       # **Every artifact name here is produced by the matrix above, and a job that downloads a name the matrix does not
@@ -335,10 +386,10 @@ jobs:
       # iterations - the name that `without` became when the matrix was renamed by substitution - so the fifty- and
       # hundred-pull-request runs both spent their money, uploaded both artifacts, and then failed here, which is the
       # only step whose output is the thing the run was dispatched for.
-      - name: Download the run with every category
+      - name: Download the run without it
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory
+          name: aacr-bench-advisory-off
           path: /tmp/without
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

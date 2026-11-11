@@ -1167,6 +1167,7 @@ async function main() {
   const {
     ACTIONABILITY_WEIGHTS,
     collectDiffFacts,
+    goldenOwners,
     matchedGoldenIndices,
     maximumMatchingCount,
     point,
@@ -2191,6 +2192,9 @@ async function main() {
       // conditions are one operating point**, and reporting the gate at one profile and the count at another would make
       // the artifact's precision a figure about a reviewer nobody ran.
       keep: ranked.map((entry) => entry.score.actionable && profileKept.has(entry)),
+      // **Index-aligned with `matches` and `keep`**, because the only way to attribute an owned golden to a category is
+      // to look up the finding that owns it - and `goldenOwners` answers with a position in this very list.
+      categories: ranked.map((entry) => entry.finding.category),
     });
 
     // **And the same judging, for the whole-pull-request arm.**
@@ -2454,6 +2458,142 @@ async function main() {
   /** **The interval the reported F1 lives in**, because 183 unanswered pairs are an error bar and not a footnote. */
   const ourInterval = judgedInterval(gatedCounts, unanswered);
 
+  /**
+   * **The goldens neither reviewer found, which is the ceiling on this whole exercise.**
+   *
+   * Three stage pages in a row listed *sample the goldens both arms miss* as the next step and none of them took it,
+   * for a reason that was structural rather than lazy: this artifact recorded five examples per bucket out of a hundred
+   * and sixty characters each, so **the question could only be asked of a run that was bought again**. The detail is now
+   * written down at the point it is computed, which makes the analysis free and - more importantly - makes it something
+   * a reader can disagree with, because the notes are in the file.
+   *
+   * **Both sides are read under one rule.** `gatedEmission` is the operating point the run registered before it started,
+   * and applying it to `theirs` as well as to `ours` is the same discipline `goldenDiscordance` follows: a golden the
+   * competitor "found" with a finding the rule rejects is not a golden the competitor covered, and counting it as one
+   * would make the ceiling smaller than it is by exactly the amount nobody explained.
+   *
+   * **Only the paired pull requests are counted**, because a pull request the competitor's harness failed on has no
+   * `theirs` row at all - and a golden it never scored is indistinguishable from a golden it missed. The size of that
+   * exclusion is published beside the list rather than folded into it.
+   */
+  const attributionByKey = new Map(attributed.map((entry) => [entry.pr, entry]));
+  const bothMissed = [];
+  /** How many goldens this analysis had a row for, so that `bothMissed.length` has a denominator. */
+  let goldensInPairedPulls = 0;
+  /** And how many it did not, because an attribution that is missing is not an attribution of zero. */
+  let goldensWithoutAttribution = 0;
+  for (const pair of pairing.pairs) {
+    const oursCovered = new Set(gatedEmission(pair.ours).indices);
+    const theirsCovered = new Set(gatedEmission(pair.theirs).indices);
+    goldensInPairedPulls += pair.ours.goldens;
+    const entry = attributionByKey.get(pair.key);
+    if (entry === undefined) {
+      goldensWithoutAttribution += pair.ours.goldens;
+      continue;
+    }
+    for (const golden of entry.perGolden) {
+      if (oursCovered.has(golden.index) || theirsCovered.has(golden.index)) continue;
+      bothMissed.push({
+        pr: pair.key,
+        goldenIndex: golden.index,
+        path: golden.path,
+        // **The whole note, not the example's hundred and sixty characters**, because the question this list answers is
+        // *"is this a defect at all"* and a truncated comment cannot be judged.
+        note: golden.note,
+        // Which bucket our own attribution put it in, so that a reader can see whether we were silent, rejected, or
+        // never sent the file - three different ceilings with three different fixes.
+        ourBucket: golden.bucket,
+      });
+    }
+  }
+
+  /**
+   * **What each category of remark is worth, measured as emission, because F1 cannot be attributed to a category.**
+   *
+   * The corpus's goldens are not labelled by category, so a per-category F1 would divide a numerator it does not have
+   * by a denominator it does not have. What can be measured without inventing anything is **how often a remark of each
+   * category is a remark the judge accepted at all** - and that is the number that decides whether the lane producing it
+   * is earning its prompt.
+   *
+   * `accepted` is a count of findings and `acceptedGoldens` a count of distinct goldens, and **both are stated because
+   * they answer different questions**: a category whose findings pile onto one golden has a high `accepted` and a
+   * `acceptedGoldens` of one, and the second is the one that matters. **`acceptedGoldens` is not de-duplicated across
+   * categories**, so the column does not sum to the run's true positives - it is a reading of where the remarks land,
+   * not a decomposition of the score.
+   *
+   * The gate here is `actionable` rather than `keep`, and under the `advisory` profile the two are the same thing by
+   * construction; under `defect` they are not, which `engineCounters.profile` records. **A table that silently used one
+   * gate while the run was scored under another is the defect this whole file has been fixing for two iterations.**
+   */
+  const byCategory = (() => {
+    const table = new Map();
+    const cellFor = (name) => {
+      const key = String(name ?? 'other');
+      let cell = table.get(key);
+      if (cell === undefined) {
+        cell = { category: key, emitted: 0, truePositives: 0, falsePositives: 0 };
+        table.set(key, cell);
+      }
+      return cell;
+    };
+    let attributedTruePositives = 0;
+    for (const pull of perPr) {
+      const keptAt = [];
+      const kept = [];
+      for (let at = 0; at < pull.matches.length; at += 1) {
+        if (!pull.keep[at]) continue;
+        keptAt.push(at);
+        kept.push(pull.matches[at] ?? []);
+      }
+      const categories = pull.categories ?? [];
+      // **Emission is attributed per finding, because every finding was emitted by one lane.**
+      for (const at of keptAt) cellFor(categories[at]).emitted += 1;
+      // **Coverage is attributed per golden, to the finding the maximum matching gave it.** This is the difference
+      // between a breakdown and an estimate: three lanes can each mention the same golden, and only one of them can own
+      // it - so counting findings that matched something would put one golden in three categories at once and make the
+      // columns add up to more true positives than the run scored.
+      const owners = goldenOwners(kept, pull.goldens);
+      for (const owner of owners) {
+        if (owner === -1) continue;
+        attributedTruePositives += 1;
+        cellFor(categories[keptAt[owner]]).truePositives += 1;
+      }
+    }
+    const rows = [...table.values()]
+      .map((cell) => ({
+        category: cell.category,
+        emitted: cell.emitted,
+        truePositives: cell.truePositives,
+        falsePositives: cell.emitted - cell.truePositives,
+        // **The share of this category's remarks that carried a golden**, which is the one figure that decides whether
+        // the lane producing them is earning its prompt.
+        precision: cell.emitted === 0 ? 0 : round(cell.truePositives / cell.emitted),
+        // **The share of the run's true positives this category owns**, so that a reader can see whether the volume and
+        // the value are the same column. It sums to 1 by construction, which is the property the check below asserts.
+        shareOfTruePositives: gatedCounts.tp === 0 ? 0 : round(cell.truePositives / gatedCounts.tp),
+      }))
+      // **Most emitted first**, because the table's job is to show where the volume is and a sort by precision would
+      // rank a category that emitted twice above the one that emitted a hundred and thirty times.
+      .sort((a, b) => b.emitted - a.emitted || a.category.localeCompare(b.category));
+    return {
+      rows,
+      /**
+       * **The bookkeeping checked against the score, in the file rather than in a report.**
+       *
+       * `gatedCounts.tp` is counted once, over the covered goldens, by the emission rule; the rows above are counted by
+       * asking which finding owns each of them. **Two walks of the same matching that disagree mean one of them is
+       * wrong**, and a breakdown that does not add up to the figure beside it is exactly the kind of quiet inconsistency
+       * this project keeps finding one iteration later. It is reported rather than thrown, because a run that dies after
+       * the money is spent reports nothing - and `scripts/aacr-bench-audit.mjs --check` fails on `agrees: false`.
+       */
+      totals: {
+        attributedTruePositives,
+        reportedTruePositives: gatedCounts.tp,
+        agrees: attributedTruePositives === gatedCounts.tp,
+      },
+    };
+  })();
+
   write({
     ...base,
     // **The threshold every row below was drawn under**, because **a curve whose points are not labelled is a set of
@@ -2576,6 +2716,22 @@ async function main() {
     // wrong thing - **three defects whose fixes are a filter, a lane, and a target.** The sum of the buckets is asserted
     // to equal the golden count inside `attributeGoldens`, so this table cannot quietly lose a row.
     missedGoldens,
+    /**
+     * **The goldens neither reviewer found, with the sentences**, because every stage page since 122 has listed reading
+     * them as the next step and the artifact made it impossible. `records` inside `missedGoldens` is the same idea for
+     * our own misses: **a bucket count is a diagnosis of the artifact's author, and a list is a claim a reader can
+     * check.**
+     */
+    bothMissed,
+    bothMissedCorpus: {
+      pullRequests: pairing.pullRequests,
+      goldens: goldensInPairedPulls,
+      // **The goldens this analysis had no attribution row for**, published rather than folded into the list, because
+      // an exclusion a reader cannot see is an exclusion that flatters the number.
+      withoutAttribution: goldensWithoutAttribution,
+    },
+    /** Where the emitted remarks land, per category - the one per-category reading this corpus supports. */
+    byCategory,
     precision: gated.precision,
     recall: gated.recall,
     f1: gated.f1,

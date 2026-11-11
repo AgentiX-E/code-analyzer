@@ -82,14 +82,19 @@ describe('every golden lands in exactly one bucket', () => {
   });
 
   it('carries the note, capped, so a bucket can be read without opening the corpus', () => {
-    const long = 'z'.repeat(400);
+    // **The cap moved from 160 to 600 in iteration 124, and the reason is a question somebody tried to answer.** A
+    // hundred and sixty characters is enough to recognise a bucket and not enough to judge one, so the analysis every
+    // stage page since 122 recommended - *is this miss even a defect* - could not be done from the artifact. The cap
+    // still exists: an artifact is a file people download, and a thousand goldens at full length is a corpus rather than
+    // a report.
+    const long = 'z'.repeat(900);
     const result = attributeGoldens({
       goldens: [{ path: 'src/a.cpp', note: long }],
       reviewedPaths: [],
       findings: [],
       matches: [],
     });
-    expect(result.perGolden[0]?.note).toHaveLength(160);
+    expect(result.perGolden[0]?.note).toHaveLength(600);
   });
 
   it('treats a missing golden list as an empty partition rather than throwing', () => {
@@ -160,6 +165,62 @@ describe('the merged table is what the artifact publishes', () => {
     const merged = mergeAttributions([{ pr: 'pr/1', ...wide }], { examplesPerBucket: 3 });
     expect(merged.counts.fileNotReviewed).toBe(20);
     expect(merged.examples.fileNotReviewed).toHaveLength(3);
+  });
+
+  it('keeps every golden in `records`, because a capped table is a table nobody can re-analyse', () => {
+    // **The cap on `examples` is for a reader and the full list is for the next analysis**, and iteration 124 found that
+    // the second had never existed: three stage pages in a row listed *read the goldens both reviewers missed* as the
+    // next step, and each of them would have had to buy a run to take it.
+    const wide = attributeGoldens({
+      goldens: Array.from({ length: 20 }, (_, index) => ({
+        path: `src/f${index}.cpp`,
+        note: `n${index}`,
+      })),
+      reviewedPaths: [],
+      findings: [],
+      matches: [],
+    });
+    const merged = mergeAttributions([{ pr: 'pr/1', ...wide }], { examplesPerBucket: 3 });
+    expect(merged.records).toHaveLength(20);
+    expect(merged.records.map((row) => row.goldenIndex)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index),
+    );
+    expect(merged.records[0]).toMatchObject({
+      pr: 'pr/1',
+      bucket: 'fileNotReviewed',
+      path: 'src/f0.cpp',
+    });
+  });
+
+  it('keeps a note long enough to judge, and shortens only the example', () => {
+    // **A hundred and sixty characters is a headline, and the question `records` answers is "is this a defect at all"** -
+    // which a truncated comment cannot answer. The two lengths are therefore different on purpose rather than by
+    // accident, and the difference is asserted so that neither drifts into the other.
+    const long = 'x'.repeat(400);
+    const one = attributeGoldens({
+      goldens: [{ path: 'src/a.cpp', note: long }],
+      reviewedPaths: [],
+      findings: [],
+      matches: [],
+    });
+    const merged = mergeAttributions([{ pr: 'pr/1', ...one }]);
+    expect(merged.records[0]!.note).toHaveLength(400);
+    expect(merged.examples.fileNotReviewed[0]!.note).toHaveLength(160);
+  });
+
+  it('publishes the findings the judge accepted on a rejected golden, so a reader sees what we said', () => {
+    // **A bucket named without its evidence is the same defect as a `findingOnPathRejected` with no shape**: it reports
+    // that the lane was wrong and not what it said, which is the one thing the next iteration needs.
+    const one = attributeGoldens({
+      goldens: [{ path: 'src/a.cpp', note: 'a claim', startLine: 10 }],
+      reviewedPaths: ['src/a.cpp'],
+      findings: [{ path: 'src/a.cpp', startLine: 40 }],
+      matches: [[0]],
+    });
+    const merged = mergeAttributions([{ pr: 'pr/1', ...one }]);
+    expect(merged.records[0]!.bucket).toBe('hit');
+    expect(merged.records[0]!.matchedFindings).toEqual([0]);
+    expect(merged.records[0]!.proximity).toBeNull();
   });
 
   it('names the bucket to fix first, and nothing when there is nothing to fix', () => {

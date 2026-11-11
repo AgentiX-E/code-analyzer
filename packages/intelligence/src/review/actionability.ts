@@ -431,6 +431,50 @@ export function maximumMatchingCount(
 }
 
 /**
+ * **Which finding owns each golden, rather than only which goldens are owned.**
+ *
+ * `matchedGoldenIndices` answers the metric; **the owner answers the question the next iteration asks**, which is *what
+ * kind of finding carries a golden* - and therefore which lane or category the loss belongs to. Without it, a
+ * per-category breakdown of the true positives is not computable at all: the matching is a maximum over pairs, so the
+ * finding that matched a golden is not recoverable from the set of matched goldens, and any breakdown made by counting
+ * *findings that matched something* counts a golden once per finding that mentioned it. **That approximation is larger
+ * than the effect it was meant to explain** - seventy-three matched findings against thirty-nine matched goldens on the
+ * run of 2026-11-11.
+ *
+ * `-1` means the golden is unowned, which is the same state as "no entry" but is a value a caller can iterate over
+ * without a sentinel widening the type. The array is indexed by golden, so **the answer to "who owns golden 7" is one
+ * lookup and not a search.**
+ */
+export function goldenOwners(
+  matches: ReadonlyArray<ReadonlyArray<number>>,
+  goldens: number,
+): number[] {
+  // **The owner is the row's index rather than the row itself**, because the caller's next question is about the
+  // finding - its category, its lane, its score - and a row reference cannot be looked up in the list it came from.
+  const ownerOf = new Map<number, number>();
+
+  const augment = (finding: number, seen: boolean[]): boolean => {
+    for (const golden of matches[finding] ?? []) {
+      if (golden < 0 || golden >= goldens || seen[golden]) continue;
+      seen[golden] = true;
+      const owner = ownerOf.get(golden);
+      if (owner === undefined || augment(owner, seen)) {
+        ownerOf.set(golden, finding);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (let finding = 0; finding < matches.length; finding += 1)
+    augment(finding, new Array<boolean>(goldens).fill(false));
+
+  const owners = new Array<number>(goldens).fill(-1);
+  for (const [golden, finding] of ownerOf) owners[golden] = finding;
+  return owners;
+}
+
+/**
  * **Which goldens a maximum matching covers, rather than how many.**
  *
  * **A count answers the metric; the set answers the comparison.** Two reviewers scored 19 and 19 have the same F1 and
@@ -438,34 +482,15 @@ export function maximumMatchingCount(
  * is the whole reason McNemar exists as a separate test from a difference of proportions.
  *
  * The algorithm is Kuhn's augmenting path, the same one the count has always used; what is returned is the goldens that
- * ended up owned rather than the number of them.
+ * ended up owned rather than the number of them. **It is derived from `goldenOwners` rather than implemented beside
+ * it**, because two walks of the same graph are two chances for the metric and the breakdown to disagree about which
+ * goldens were found.
  */
 export function matchedGoldenIndices(
   matches: ReadonlyArray<ReadonlyArray<number>>,
   goldens: number,
 ): number[] {
-  // **The owner is the row itself rather than its index**, so no step of the search has to look a row up by a number it
-  // just read out of another row - which is the shape that needs a fallback for a lookup that cannot fail. A map rather
-  // than a pre-filled array, because **an absent entry and an entry holding nothing are the same state here** and a map
-  // says that without a sentinel the type has to be widened for.
-  const ownerRow = new Map<number, readonly number[]>();
-
-  const augment = (row: readonly number[], seen: boolean[]): boolean => {
-    for (const golden of row) {
-      if (golden < 0 || golden >= goldens || seen[golden]) continue;
-      seen[golden] = true;
-      const owner = ownerRow.get(golden);
-      if (owner === undefined || augment(owner, seen)) {
-        ownerRow.set(golden, row);
-        return true;
-      }
-    }
-    return false;
-  };
-
-  for (const row of matches) augment(row, new Array<boolean>(goldens).fill(false));
-
-  return [...ownerRow.keys()].sort((a, b) => a - b);
+  return goldenOwners(matches, goldens).flatMap((owner, at) => (owner === -1 ? [] : [at]));
 }
 
 /**

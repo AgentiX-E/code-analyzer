@@ -157,9 +157,13 @@ export function attributeGoldens({ goldens, reviewedPaths, findings, matches }) 
       index,
       bucket,
       path,
-      // **The note is kept short.** The artifact is read by a person deciding what to fix next, and a bucket whose
-      // examples are four hundred characters of prose is a bucket nobody reads.
-      note: String(golden?.note ?? '').slice(0, 160),
+      // **Six hundred characters, and the number is a decision rather than a cap that happened to fit.** Iteration 124
+      // found that the artifact kept five examples per bucket at a hundred and sixty characters and nothing else, so
+      // **the one analysis three consecutive stage pages asked for - read the goldens *both* reviewers missed - could
+      // not be done from the file that was supposed to support it**: a judge of "is this a defect at all" needs the
+      // comment, and a hundred and sixty characters is a headline. The full list is kept below in `records`; the
+      // examples stay short because they are the part a person skims.
+      note: String(golden?.note ?? '').slice(0, 600),
       matchedFindings: hitBy.get(index) ?? [],
       // **Only meaningful for a rejection**, and left `null` everywhere else so that a reader cannot mistake a `hit`'s
       // zero for a coincidence that did not happen.
@@ -185,11 +189,26 @@ export function attributeGoldens({ goldens, reviewedPaths, findings, matches }) 
  * **Examples are capped per bucket rather than per pull request**, because the artifact's job is to let a reader see the
  * shape of a bucket at a glance; **a hundred examples of `fileNotReviewed` are not a hundred times the information**, and
  * they are the difference between an artifact someone opens and one someone downloads.
+ *
+ * **`records` is every golden, and it exists because a capped table is a table that cannot be re-analysed.** Three stage
+ * pages in a row listed *read the goldens both reviewers missed* as the next step, and none of them could take it: the
+ * artifact held five examples per bucket, so the question "how many of the misses are even defects" was answerable only
+ * by paying for another run. **A measurement whose detail is thrown away at the point of writing is a measurement that
+ * has to be bought again**, which is the same defect as a figure that cannot be recomputed from its rows - one level
+ * down and in the other direction.
+ *
+ * The cap on `examples` therefore stays, and the two are not redundant: `examples` is what a reader skims, `records` is
+ * what a follow-up run of analysis reads. `records.length === total` is asserted rather than assumed, because a detail
+ * list that silently drops rows is worse than no detail list.
  */
-export function mergeAttributions(entries, { examplesPerBucket = 5 } = {}) {
+export function mergeAttributions(
+  entries,
+  { examplesPerBucket = 5, noteCharsInExamples = 160 } = {},
+) {
   const counts = Object.fromEntries(GOLDEN_BUCKETS.map((bucket) => [bucket, 0]));
   const examples = Object.fromEntries(GOLDEN_BUCKETS.map((bucket) => [bucket, []]));
   const rejectionShape = Object.fromEntries(REJECTION_SHAPES.map((shape) => [shape, 0]));
+  const records = [];
   let total = 0;
   for (const entry of entries ?? []) {
     for (const bucket of GOLDEN_BUCKETS) {
@@ -203,11 +222,23 @@ export function mergeAttributions(entries, { examplesPerBucket = 5 } = {}) {
       // `counts.findingOnPathRejected` - **the property `rejectionShapeTotal` is asserted against below.**
       if (bucket === 'findingOnPathRejected')
         rejectionShape[rejectionShapeOf(golden.proximity)] += 1;
+      records.push({
+        pr: entry.pr ?? null,
+        goldenIndex: golden.index,
+        bucket,
+        path: golden.path,
+        note: golden.note,
+        proximity: golden.proximity ?? null,
+        // **Which findings the judge accepted as describing this golden**, so that a reader can see what we said
+        // instead of only that it was rejected - a bucket named without its evidence is the same defect as a
+        // `findingOnPathRejected` with no shape.
+        matchedFindings: golden.matchedFindings ?? [],
+      });
       if (!examples[bucket] || examples[bucket].length >= examplesPerBucket) continue;
       examples[bucket].push({
         pr: entry.pr ?? null,
         path: golden.path,
-        note: golden.note,
+        note: String(golden.note ?? '').slice(0, noteCharsInExamples),
       });
     }
   }
@@ -219,7 +250,13 @@ export function mergeAttributions(entries, { examplesPerBucket = 5 } = {}) {
       `rejection shapes do not add up: ${shapeTotal} for ${counts.findingOnPathRejected} rejected goldens`,
     );
   }
-  return { counts, examples, total, rejectionShape };
+  // **The detail list is the same rows as the counts, or it is a different measurement wearing this one's name.**
+  if (records.length !== total) {
+    throw new Error(
+      `attribution records do not add up: ${records.length} records for ${total} goldens`,
+    );
+  }
+  return { counts, examples, total, rejectionShape, records };
 }
 
 /** The bucket with the most goldens in it, or `null` for an empty table - the one line a reader needs first. */

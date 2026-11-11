@@ -1797,3 +1797,84 @@ numbers, one field added. **This is the second time this file has been the defec
 hardcoded mechanism rule was the first), and the lesson is the same one in both cases: **a comparison job that can drift
 away from the sentence it is judging will eventually certify the wrong number, and nothing in its output will look
 wrong.**
+
+---
+
+## 21. The same device, measured in one job: the matrix R-18 was owed, and the detail an artifact owes its reader
+
+**Written 2026-11-12, before the dispatch.** §20 registered a device and measured it across two dispatches, which was
+the only arrangement available at the time and was named as a confound in §20.4 before the number existed. It came back
+`falsified` on the pull-request arm by **0.0065** - a movement smaller than the **0.0311** that slice resolves - so the
+honest reading of R-18 is not _"the window does not work"_ and not _"the window works"_ but **"this instrument, arranged
+this way, cannot tell"**.
+
+**The arrangement was the problem, and it is fixable without a new idea.** Two runs of this job have reported the _same_
+configuration at **0.1691** and **0.2405**: a spread of 0.0714, which is larger than every effect this document has ever
+registered. A comparison across dispatches therefore carries the job's own variance and cannot separate a 0.02 device from
+it at any corpus size this budget allows. **A device whose contribution can only be measured across runs is a device this
+repository cannot measure**, so the switch became a matrix key (`code_context: [off, on]`) and one dispatch now produces
+both arms over the same corpus, the same goldens and the same judge.
+
+### 21.1 The registration
+
+> **R-19.** Over the thirty-six pull requests at `skip 14`, in **one dispatch of one job**, showing each lane the block
+> each hunk sits in raises the **pull-request arm F1** by **at least 0.02** without lowering the file arm.
+
+**Both outcomes are information, which is why this is worth a dispatch rather than an assumption.**
+
+- If the matrix reaches 0.02, then R-18's `falsified` was **the cross-run variance and not the device**, and the sentence
+  in §20.5 that reads _"falsified on the arm it names"_ is wrong about the device and right about the arrangement.
+- If it does not, then R-18's verdict stands **and is now measured by an instrument that can support it**, which is a
+  strictly stronger claim than the one §20 could make.
+
+**Falsified if** the arm's gain is below 0.02, **or** the paired test over the two arms' covered goldens does not separate
+them at **p ≤ 0.05**, **or** recall falls while precision rises by less - the same mechanism clause as every registration
+since §16, because a device that buys precision by emitting less is a filter.
+
+### 21.2 Why the profile left the matrix rather than joining it
+
+**R-17's 0.22 floor was falsified at +0.0079 against a registered +0.02 on a hundred unseen pull requests** (§19.3), and
+`advisory` went back to being the default. Keeping `profile` as a second matrix key would produce four arms: two of them
+would re-measure a retired configuration, and `aacr-ablation-compare.mjs` refuses any pair whose artifacts differ in more
+than one configuration key - so a cross product would produce **four artifacts and zero comparisons**. The matrix names
+its two arms as `include` entries and the test that reads the workflow asserts they differ in exactly one key, because
+**a matrix that varies two things answers neither** and the refusal would arrive after both arms were paid for.
+
+### 21.3 The omission this iteration found in its own artifact
+
+Three stage pages in a row listed _sample the goldens both arms miss_ as the next step and none of them took it. The
+reason was not neglect: **the artifact kept five examples per attribution bucket, at a hundred and sixty characters each,
+and nothing else**. A hundred and sixty-nine goldens went into five buckets and fifteen examples came out.
+
+**The omission was deliberate, and the reason it was deliberate was correct for one reader and wrong for the other.** The
+comment beside the cap said a bucket whose examples are four hundred characters of prose is a bucket nobody reads, and
+that is true: an artifact is a file people open to see a shape. **What it did not account for is that the same file is
+the only evidence the next iteration has**, and a question like _"is this missed golden a defect at all"_ needs the
+comment. The cap therefore was not the error - **having only one layer was**:
+
+| layer                    | what it is for                                                          | what it costs                                      |
+| ------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------- |
+| `missedGoldens.examples` | five per bucket, a hundred and sixty characters, for a person skimming  | nothing, it was already there                      |
+| `missedGoldens.records`  | every golden, six hundred characters, for a program reading it          | about 200 kB in a file that was 676 kB             |
+| `byCategory`             | the true positives decomposed by category, through the matching's owner | one pass over rows already in memory               |
+| `bothMissed`             | the goldens neither reviewer found, with their notes                    | about 90 kB, and it is the ceiling on the exercise |
+
+**`records` is checked against the counts rather than trusted**: the buckets are recounted from the records and compared
+to the table beside them, and a detail list that is not the same list as the table fails the run that produced it.
+
+**And the per-category table is a decomposition rather than an estimate, which took a second attempt.** The first draft
+counted findings that matched a golden, and reported **73** true positives where the run scored **39** - because one
+golden mentioned by three lanes is one true positive and three matched findings. The version that ships attributes each
+owned golden to the finding the maximum matching gave it (`goldenOwners`), which makes the columns sum to the score by
+construction, and the run publishes `byCategory.totals.agrees` so that **a bookkeeping that stopped adding up would say
+so in the artifact rather than in a report about the artifact.**
+
+### 21.4 What this section does not conclude
+
+- **That 0.02 is the right threshold for a device that costs 0.006 USD per pull request.** It is the threshold R-18 was
+  registered under, and re-registering the same claim at a lower bar after a falsification is how a document stops being a
+  record.
+- **That `bothMissed` is a property of the corpus rather than of these two reviewers.** It is the ceiling **for this pair**
+  on these rows; a third reviewer could lower it, and the list exists so that somebody can try.
+- **That the category decomposition explains the gap to the competitor.** It explains where _our_ true positives come
+  from, which is a fact about our own emission and not a comparison.

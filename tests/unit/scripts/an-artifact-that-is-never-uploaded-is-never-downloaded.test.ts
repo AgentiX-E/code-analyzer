@@ -13,6 +13,12 @@
 // **Why the check is here and not in the workflow.** GitHub cannot validate an artifact name against another job's
 // matrix: the name is a string in YAML, and the matrix that produces it is a list in a different job. That is a fact
 // about the names, so it is checked by reading the names.
+//
+// **And iteration 124 added the assertion this file was missing.** The two arms of an experiment must differ in exactly
+// one key, and until now that was a property of how somebody wrote the matrix rather than something a test could fail
+// on. It is a check now: `arms()` returns the matrix as objects, and the pair is required to differ in one key - because
+// **a matrix that varies two things answers neither**, and the comparison job's `variedField` refuses a pair whose
+// artifacts differ in more than one key, so the refusal would arrive after both arms had been paid for.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,14 +30,34 @@ const WORKFLOW = readFileSync(
   'utf8',
 );
 
-/** The `profile` values the bench job runs, read from the matrix rather than restated here. */
-function profiles(): string[] {
-  const matrix = /matrix:\s*\n\s*profile:\s*\[([^\]]+)\]/.exec(WORKFLOW);
-  expect(matrix, 'the workflow no longer declares a profile matrix').not.toBeNull();
-  return matrix![1]!
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean);
+/** One combination the bench job runs, as the keys the matrix declares. */
+type Arm = Record<string, string>;
+
+/**
+ * **The matrix, read as `include` entries rather than as a cross product.**
+ *
+ * The workflow writes the pair it intends explicitly - `include` with one entry per arm - so that a difference between
+ * the arms is a variable somebody chose. Reading it as a cross product would be reading the shape it deliberately does
+ * not have, and would silently accept a matrix that acquired a second key and quadrupled the bill.
+ */
+function arms(): Arm[] {
+  const block = /matrix:\s*\n\s*include:\s*\n((?:\s*-[^\n]*\n)+)/.exec(WORKFLOW);
+  expect(block, 'the workflow no longer declares a matrix `include` list').not.toBeNull();
+  return block![1]!
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('- {'))
+    .map((line) => {
+      const body = /^-\s*\{(.*)\}$/.exec(line)?.[1];
+      expect(body, `a matrix arm is not an inline mapping: ${line}`).toBeTruthy();
+      const arm: Arm = {};
+      for (const pair of body!.split(',')) {
+        const kv = /^\s*([A-Za-z_][\w-]*)\s*:\s*(.+?)\s*$/.exec(pair);
+        expect(kv, `a matrix arm has a field that is not key: value: ${pair}`).toBeTruthy();
+        arm[kv![1]!] = kv![2]!.replace(/^['"]|['"]$/g, '');
+      }
+      return arm;
+    });
 }
 
 /**
@@ -59,15 +85,31 @@ function artifactNames(action: 'upload' | 'download'): string[] {
   return names;
 }
 
+/** A name with every `${{ matrix.key }}` replaced by that arm's value. */
+function expand(name: string, arm: Arm): string {
+  return name.replace(/\$\{\{\s*matrix\.([\w-]+)\s*\}\}/g, (_whole, key: string) => {
+    expect(
+      arm[key],
+      `the name ${name} uses matrix.${key}, which the matrix does not declare`,
+    ).toBeDefined();
+    return arm[key]!;
+  });
+}
+
+/** Whether a name still carries an uninterpolated expression after expansion. */
+function isStatic(name: string): boolean {
+  return !/\$\{\{/.test(name);
+}
+
 describe('the artifact names of the benchmark workflow', () => {
   it('downloads only names that some job uploads', () => {
     const expanded = new Set<string>();
     for (const name of artifactNames('upload')) {
-      const matrixName = /^(.*)\$\{\{\s*matrix\.profile\s*\}\}(.*)$/.exec(name);
-      if (matrixName) {
-        for (const profile of profiles())
-          expanded.add(`${matrixName[1]}${profile}${matrixName[2]}`);
-      } else expanded.add(name);
+      if (isStatic(name)) {
+        expanded.add(name);
+        continue;
+      }
+      for (const arm of arms()) expanded.add(expand(name, arm));
     }
 
     const downloads = artifactNames('download');
@@ -81,14 +123,62 @@ describe('the artifact names of the benchmark workflow', () => {
     const downloads = artifactNames('download');
     expect(new Set(downloads).size).toBe(downloads.length);
     // **Two arms or no comparison.** The two names have to be the two the matrix produces, in some order.
+    const uploaded = artifactNames('upload').filter((name) => !isStatic(name));
+    expect(uploaded.length).toBe(1);
+    const produced = arms().map((arm) => expand(uploaded[0]!, arm));
     expect(downloads.map((n) => n.replace('aacr-bench-', '')).sort()).toEqual(
-      [...profiles()].sort(),
+      produced.map((n) => n.replace('aacr-bench-', '')).sort(),
     );
   });
+});
 
-  it('runs one arm per profile the code knows about', () => {
-    // The matrix is what makes the pair; a profile added to the code and not to the matrix is a hypothesis that is never
-    // tested, and one added to the matrix and not to the code fails at the parse rather than at the comparison.
-    expect(profiles()).toEqual(['defect', 'advisory']);
+describe('the matrix is one experiment', () => {
+  it('runs exactly two arms', () => {
+    // **Every arm is paid for**, so the count is a budget and not a style. A third entry is a dispatch that costs half
+    // again as much for a comparison the paired test was not registered to make.
+    expect(arms()).toHaveLength(2);
+  });
+
+  it('varies exactly one key, so that a difference between the arms is the device', () => {
+    const [withArm, withoutArm] = arms();
+    const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
+    const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);
+    // **This is the assertion the file was missing.** `aacr-ablation-compare.mjs` refuses a pair whose artifacts differ
+    // in more than one configuration key, and that refusal happens in the job that runs *after* both arms have been
+    // paid for - so the only place this can be caught for free is here, before the dispatch.
+    expect(differ, `the arms differ in ${differ.join(' and ')}`).toHaveLength(1);
+  });
+
+  it('varies the code window, which is the device §20 registered', () => {
+    // Named rather than derived: **a matrix that varies something nobody registered is a dispatch that produces a
+    // number no sentence in `EVAL-CONTRACT.md` predicted**, and this line is what makes the arm's identity reviewable
+    // in a diff instead of only in a run page.
+    // **Located by value rather than by position**, because the order of `include` entries is a fact about the YAML and
+    // not about the experiment: reading the first entry as "the arm with the device" would invert every sign in the
+    // comparison the moment somebody sorted the list.
+    const all = arms();
+    const keys = [...new Set(all.flatMap((arm) => Object.keys(arm)))];
+    const varied = keys.find((key) => all[0]![key] !== all[1]![key]);
+    expect(varied).toBe('code_context');
+    const withDevice = all.find((arm) => arm.code_context === 'on');
+    const withoutDevice = all.find((arm) => arm.code_context === 'off');
+    expect(withoutDevice, 'the matrix declares no `off` arm to compare against').toBeDefined();
+    expect(withDevice, 'the matrix declares no `on` arm, which is the device').toBeDefined();
+    expect(all.map((arm) => arm.code_context).sort()).toEqual(['off', 'on']);
+  });
+
+  it('pins the profile to the one R-17 did not falsify', () => {
+    // **§19.3 falsified the 0.22 floor at +0.0079 against a registered +0.02**, so `advisory` is the default and
+    // `defect` is a measured but retired configuration. A cross product with it would double this dispatch's bill to
+    // answer a question that already has an answer.
+    for (const arm of arms()) expect(arm.profile).toBe('advisory');
+  });
+
+  it('takes the code window from the matrix rather than from a dispatch input', () => {
+    // **The input is what made R-18 two dispatches.** One value per dispatch cannot produce two arms, and two
+    // dispatches of this job have reported the same configuration at 0.1691 and 0.2405. Deleting the input is the fix;
+    // this assertion is what stops it coming back.
+    expect(WORKFLOW).toContain('AACR_CODE_CONTEXT: ${{ matrix.code_context }}');
+    expect(WORKFLOW).not.toMatch(/inputs\.code_context/);
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACTIONABILITY_WEIGHTS,
   collectDiffFacts,
+  goldenOwners,
   matchedGoldenIndices,
   maximumMatchingCount,
   point,
@@ -465,6 +466,45 @@ describe('matchedGoldenIndices', () => {
   it('agrees with the count it now backs', () => {
     const matches = [[0, 1], [1, 2], [2]];
     expect(matchedGoldenIndices(matches, 3)).toHaveLength(maximumMatchingCount(matches, 3));
+  });
+});
+
+describe('goldenOwners', () => {
+  it('names the finding that owns each golden, because a breakdown needs the owner and not the set', () => {
+    // Finding 0 found golden 2, finding 1 found golden 0 - so `owners[2] === 0` is the sentence *the first finding
+    // carries the third golden*, which is exactly what a per-category reading of a true positive needs.
+    expect(goldenOwners([[2], [0]], 3)).toEqual([1, -1, 0]);
+  });
+
+  it('displaces a finding to a golden it can find, and reports the displacement', () => {
+    // **This is the augmenting path doing the thing a greedy match cannot.** Finding 0 prefers golden 0 and can fall back
+    // to golden 1; finding 1 only names golden 0. A greedy match gives golden 0 to finding 0 and loses finding 1.
+    expect(goldenOwners([[0, 1], [0]], 2)).toEqual([1, 0]);
+  });
+
+  it('leaves a golden unowned rather than inventing an owner for it', () => {
+    // `-1` rather than `null` or `undefined`, because a caller iterating the array is asking one question per golden and
+    // a sentinel that widens the element type would make every caller handle two shapes of absence.
+    expect(goldenOwners([[0, 1]], 3)).toEqual([0, -1, -1]);
+  });
+
+  it('ignores a golden index that is outside the corpus', () => {
+    // **The judge is a model, and a model that answers with an index the corpus does not have is a pair that must be
+    // dropped rather than an error** - the alternative is a run that dies on a hallucinated coordinate after the money
+    // has been spent.
+    expect(goldenOwners([[-1, 3]], 2)).toEqual([-1, -1]);
+  });
+
+  it('is the same matching `matchedGoldenIndices` returns, walk for walk', () => {
+    const matches = [[0, 1], [1, 2], [2]];
+    const owned = goldenOwners(matches, 3)
+      .map((owner, at) => (owner === -1 ? -1 : at))
+      .filter((at) => at !== -1);
+    expect(owned).toEqual(matchedGoldenIndices(matches, 3));
+  });
+
+  it('returns one slot per golden for an empty ranking', () => {
+    expect(goldenOwners([], 2)).toEqual([-1, -1]);
   });
 });
 
