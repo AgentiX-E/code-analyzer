@@ -142,9 +142,19 @@ describe('the workflow and the code offer the same profiles', () => {
     // and the arm the artifact records is the arm that ran. A matrix arm the code does not implement runs the default
     // while the artifact records a name nobody ran, which is an experiment that measures the wrong arm and says so in its
     // own metadata.
-    const arms = [...workflow.matchAll(/-\s*\{\s*profile:\s*([^,}]+)/g)].map((match) =>
-      match[1]!.trim().replace(/^['"]|['"]$/g, ''),
-    );
+    // **The arms are read in both spellings the workflow can write them, because one of them is now JSON in an
+    // expression.** `matrix.include` holds literal `- {profile: …}` entries, and it also holds a `fromJSON(...)` string
+    // that spells the same objects with escaped quotes - which is what the file has to do since a *job-level* `if`
+    // cannot read `matrix`, so collapsing the run to a single arm when the reading agent is on has to happen inside the
+    // matrix rather than above it. **The property under test did not change**: every arm the workflow can produce names
+    // a profile the code implements, and the retired one is not among them.
+    const arms = [
+      ...new Set(
+        [...workflow.matchAll(/profile\\?["']?\s*:\s*\\?["']?([a-z][a-z0-9_-]*)/g)].map(
+          (match) => match[1]!,
+        ),
+      ),
+    ];
     expect(arms.length).toBeGreaterThan(0);
     for (const arm of arms) expect(Object.keys(KNOWN_PROFILES)).toContain(arm);
     // **And the retired configuration is not one of them**, because a device that is being re-measured every dispatch

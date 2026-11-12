@@ -133,14 +133,18 @@ describe('the ceiling moves with the corpus', () => {
       Math.round(CEILING_USD_PER_PULL_REQUEST_AGENT * 36 * 100) / 100,
     );
     expect(spendCeilingUsd({ pullRequests: 36, mode: 'record', override: '', agent: true })).toBe(
-      Math.round((CEILING_USD_PER_PULL_REQUEST_AGENT + CEILING_USD_PER_PULL_REQUEST.record) * 36 * 100) / 100,
+      Math.round(
+        (CEILING_USD_PER_PULL_REQUEST_AGENT + CEILING_USD_PER_PULL_REQUEST.record) * 36 * 100,
+      ) / 100,
     );
     // **The agent ceiling is above the lane ceiling for the same corpus**, which is the whole claim of the rate.
-    expect(spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '', agent: true })).toBeGreaterThan(
-      spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '' }),
-    );
+    expect(
+      spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '', agent: true }),
+    ).toBeGreaterThan(spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '' }));
     // **And an override still wins**, because a deliberate one-off is a decision the dispatch is allowed to take.
-    expect(spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '9', agent: true })).toBe(9);
+    expect(spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '9', agent: true })).toBe(
+      9,
+    );
   });
 
   it('treats an unrecognised arm as the cheap one', () => {

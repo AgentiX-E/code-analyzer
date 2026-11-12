@@ -33,31 +33,80 @@ const WORKFLOW = readFileSync(
 /** One combination the bench job runs, as the keys the matrix declares. */
 type Arm = Record<string, string>;
 
+/** One inline mapping's body - `profile: advisory, code_context: off` - read as an arm. */
+function armOf(body: string, source: string): Arm {
+  const arm: Arm = {};
+  for (const pair of body.split(',')) {
+    const kv = /^\s*([A-Za-z_][\w-]*)\s*:\s*(.+?)\s*$/.exec(pair);
+    expect(kv, `a matrix arm has a field that is not key: value: (${source}) ${pair}`).toBeTruthy();
+    arm[kv![1]!] = kv![2]!.replace(/^['"]|['"]$/g, '');
+  }
+  return arm;
+}
+
 /**
- * **The matrix, read as `include` entries rather than as a cross product.**
+ * **Every matrix the workflow can produce, as the `include` entries it declares - not as a cross product.**
  *
- * The workflow writes the pair it intends explicitly - `include` with one entry per arm - so that a difference between
- * the arms is a variable somebody chose. Reading it as a cross product would be reading the shape it deliberately does
- * not have, and would silently accept a matrix that acquired a second key and quadrupled the bill.
+ * The workflow writes the rows it intends explicitly, so that a difference between two of them is a variable somebody
+ * chose; reading the matrix as a cross product would be reading the shape it deliberately does not have, and would
+ * silently accept a matrix that acquired a second key and quadrupled the bill.
+ *
+ * **It can write them two ways, and both are read here.** A literal list of `- {profile: …}` entries is the plain form.
+ * The computed form is a `fromJSON(...)` expression holding the same rows as JSON string literals, and **it exists
+ * because a *job-level* `if` cannot see `matrix`**: the dispatch that tried it was refused with *"Unrecognized
+ * named-value: 'matrix'"* and the workflow did not load, so collapsing the run to a single row when the arm under test
+ * reads the code for itself had to happen inside the matrix. **A computed matrix is a list of alternatives rather than
+ * one list**, which is why this returns a list of them - the assertions below are about a matrix, and there is now more
+ * than one a dispatch can run.
  */
-function arms(): Arm[] {
+function alternatives(): Arm[][] {
+  const includeLine = /matrix:[^\n]*\n\s*include:\s*([^\n]+)/.exec(WORKFLOW);
+  expect(includeLine, 'the workflow no longer declares a matrix `include`').not.toBeNull();
+  const declared = includeLine![1]!;
+
+  // The computed form: the rows are JSON literals inside the expression, escaped for YAML's single-quoted scalar, so
+  // each one arrives as `''[{…}]''`. **Parsed rather than pattern-matched**, because the property under test is what the
+  // runner will actually expand, and only a parser knows that.
+  const jsonLiterals = [...declared.matchAll(/''(\[[^']*\])''/g)].map((match) => match[1]!);
+  if (jsonLiterals.length > 0) {
+    return jsonLiterals.map((text) => JSON.parse(text) as Arm[]);
+  }
+
+  // The literal form: one `- {…}` line per row, under `include:`.
   const block = /matrix:\s*\n\s*include:\s*\n((?:\s*-[^\n]*\n)+)/.exec(WORKFLOW);
-  expect(block, 'the workflow no longer declares a matrix `include` list').not.toBeNull();
-  return block![1]!
+  expect(
+    block,
+    'the matrix declares neither JSON alternatives nor an inline mapping list',
+  ).not.toBeNull();
+  const rows = block![1]!
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.startsWith('- {'))
     .map((line) => {
       const body = /^-\s*\{(.*)\}$/.exec(line)?.[1];
       expect(body, `a matrix arm is not an inline mapping: ${line}`).toBeTruthy();
-      const arm: Arm = {};
-      for (const pair of body!.split(',')) {
-        const kv = /^\s*([A-Za-z_][\w-]*)\s*:\s*(.+?)\s*$/.exec(pair);
-        expect(kv, `a matrix arm has a field that is not key: value: ${pair}`).toBeTruthy();
-        arm[kv![1]!] = kv![2]!.replace(/^['"]|['"]$/g, '');
-      }
-      return arm;
+      return armOf(body!, line);
     });
+  return [rows];
+}
+
+/** Every arm of every alternative, for the assertions that hold of the workflow as a whole. */
+function arms(): Arm[] {
+  return alternatives().flat();
+}
+
+/**
+ * **The alternative that runs a pair**, and the reason the assertions about a device are made against it rather than
+ * against `arms()`: a single-row matrix has no second arm to differ from, and reading one row as a pair would compare an
+ * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
+ */
+function pair(): Arm[] {
+  const pairs = alternatives().filter((matrix) => matrix.length === 2);
+  expect(
+    pairs,
+    'the workflow declares no two-arm matrix, so nothing is being compared',
+  ).toHaveLength(1);
+  return pairs[0]!;
 }
 
 /**
@@ -122,10 +171,12 @@ describe('the artifact names of the benchmark workflow', () => {
   it('downloads both arms of the pair, and not the same one twice', () => {
     const downloads = artifactNames('download');
     expect(new Set(downloads).size).toBe(downloads.length);
-    // **Two arms or no comparison.** The two names have to be the two the matrix produces, in some order.
+    // **Two arms or no comparison.** The two names have to be the two the paired matrix produces, in some order - and
+    // **the paired matrix rather than every matrix**, because the run that reads the code for itself is one row and
+    // `compare` does not download it: it compares a device against its absence, and there is no absence to name.
     const uploaded = artifactNames('upload').filter((name) => !isStatic(name));
     expect(uploaded.length).toBe(1);
-    const produced = arms().map((arm) => expand(uploaded[0]!, arm));
+    const produced = pair().map((arm) => expand(uploaded[0]!, arm));
     expect(downloads.map((n) => n.replace('aacr-bench-', '')).sort()).toEqual(
       produced.map((n) => n.replace('aacr-bench-', '')).sort(),
     );
@@ -133,14 +184,23 @@ describe('the artifact names of the benchmark workflow', () => {
 });
 
 describe('the matrix is one experiment', () => {
-  it('runs exactly two arms', () => {
+  it('runs a pair by default and one row when the reviewer reads the code for itself', () => {
     // **Every arm is paid for**, so the count is a budget and not a style. A third entry is a dispatch that costs half
     // again as much for a comparison the paired test was not registered to make.
-    expect(arms()).toHaveLength(2);
+    //
+    // **And the single row is not a saving, it is a different question.** When the agent is the reviewer it reads the
+    // file it needs, so `code_context` is not a variable it consults: two rows would buy the same measurement twice and
+    // write two artifacts whose difference is a switch neither of them read. The assertion is the shape of that
+    // decision - one pair, one single, and nothing else.
+    expect(
+      alternatives()
+        .map((matrix) => matrix.length)
+        .sort(),
+    ).toEqual([1, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
-    const [withArm, withoutArm] = arms();
+    const [withArm, withoutArm] = pair();
     const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
     const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);
     // **This is the assertion the file was missing.** `aacr-ablation-compare.mjs` refuses a pair whose artifacts differ
@@ -156,7 +216,7 @@ describe('the matrix is one experiment', () => {
     // **Located by value rather than by position**, because the order of `include` entries is a fact about the YAML and
     // not about the experiment: reading the first entry as "the arm with the device" would invert every sign in the
     // comparison the moment somebody sorted the list.
-    const all = arms();
+    const all = pair();
     const keys = [...new Set(all.flatMap((arm) => Object.keys(arm)))];
     const varied = keys.find((key) => all[0]![key] !== all[1]![key]);
     expect(varied).toBe('code_context');
@@ -170,7 +230,8 @@ describe('the matrix is one experiment', () => {
   it('pins the profile to the one R-17 did not falsify', () => {
     // **§19.3 falsified the 0.22 floor at +0.0079 against a registered +0.02**, so `advisory` is the default and
     // `defect` is a measured but retired configuration. A cross product with it would double this dispatch's bill to
-    // answer a question that already has an answer.
+    // answer a question that already has an answer. **Every arm of every matrix**, because the single row is still an
+    // arm somebody pays for.
     for (const arm of arms()) expect(arm['profile']).toBe('advisory');
   });
 
