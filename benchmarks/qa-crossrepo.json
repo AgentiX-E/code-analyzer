@@ -17,11 +17,7 @@
     "express": "4.21.2",
     "flask": "3.0.3",
     "werkzeug": "3.0.3",
-    "languages": [
-      "java",
-      "javascript",
-      "python"
-    ]
+    "languages": ["java", "javascript", "python"]
   },
   "depth": 8,
   "questions": [
