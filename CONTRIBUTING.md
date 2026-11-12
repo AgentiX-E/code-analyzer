@@ -251,7 +251,7 @@ test(intelligence): add vector search benchmarks
 
 ## Pull Request Process
 
-1. **Fork** the repository and create a feature branch from `main`
+1. **Fork** the repository and create a feature branch from `master`
 2. **Write code** following our [Coding Standards](#coding-standards)
 3. **Add tests** for new functionality. Ensure existing tests pass.
 4. **Run the full CI pipeline locally** before pushing:
@@ -280,7 +280,7 @@ test(intelligence): add vector search benchmarks
 - [ ] All tests pass (unit, integration, property-based)
 - [ ] Prettier formatting passes
 - [ ] New code has appropriate test coverage
-- [ ] Breaking changes are documented in changeset
+- [ ] Breaking changes are documented in the pull request description
 - [ ] Commit messages follow conventional commits
 
 ## Dependencies
@@ -329,16 +329,24 @@ corpus is this repository and moves every commit, or `superseded` with the reaso
 artifact that names a corpus and no state fails, because that omission is how two node counts for one directory
 coexisted without anyone asking which was true.
 
-## Changesets
+## Versioning
 
-We use [Changesets](https://github.com/changesets/changesets) for versioning and changelogs.
+**There is no `changeset` script, and this section used to say there was.** `package.json` carried `changeset`,
+`version` and `release` scripts and a `@changesets/cli` devDependency for release management, and **nothing in the
+repository invoked any of them**: there is no `.changeset/` directory, no workflow runs them, and `changeset version`
+would have failed on the missing config the first time anyone tried. **A documented process that cannot run is worse than
+an undocumented one**, because a contributor follows it and then has to work out which of the two is wrong.
 
-```bash
-# Create a changeset for your changes
-pnpm changeset
-```
+The dependency and the three scripts are removed. What actually happens:
 
-Follow the prompts to select affected packages and describe the change.
+- **The draft release is assembled by [Release Drafter](https://github.com/release-drafter/release-drafter)** from the
+  pull requests that landed, on every push to `master` (`.github/workflows/release-drafter.yml`). Its sections come from
+  labels and titles, which is why a conventional-commit title matters.
+- **A package version is a line in its own `package.json`.** Changing one is a normal commit with its reason in the
+  message, reviewed like anything else.
+- **Publishing is triggered by a published GitHub Release**, not by a local command:
+  `.github/workflows/publish-npm.yml` runs on `release: published` and the Docker and VS Code workflows follow the same
+  trigger. `pnpm publish` exists for the rare manual case and is not part of the release path.
 
 ## Publishing Packages
 
@@ -346,7 +354,7 @@ Follow the prompts to select affected packages and describe the change.
 
 Before cutting a release, ensure the following:
 
-- [ ] All CI checks pass on `main` (build, lint, typecheck, test, benchmarks)
+- [ ] All CI checks pass on `master` (build, lint, typecheck, test, benchmarks)
 - [ ] Coverage thresholds are met (95% lines, 90% branches, 95% functions, 95% statements)
 - [ ] No benchmark regressions >20%
 - [ ] `CHANGELOG.md` is up to date with all changes since last release
@@ -357,40 +365,20 @@ Before cutting a release, ensure the following:
 
 ### Version Bumping Process
 
-We use [Changesets](https://github.com/changesets/changesets) for version management.
+**A bump is a commit, and the bump type is in its message.**
 
-1. **Create a changeset** for each PR that changes package behavior:
-
-   ```bash
-   pnpm changeset
-   ```
-
-   Select the affected packages and choose the appropriate bump type:
-   - `major` — breaking changes
-   - `minor` — new features (backwards compatible)
-   - `patch` — bug fixes and small improvements
-
-2. **Bump versions** when preparing a release:
-
-   ```bash
-   pnpm version
-   ```
-
-   This updates `package.json` files and `CHANGELOG.md` entries based on all pending changesets.
-
-3. **Commit the version bump**:
-
-   ```bash
-   git add .
-   git commit -m "chore: bump versions for release"
-   git push
-   ```
+1. **Change the `version` field in the `package.json` of every package the change touches.** The root `package.json` is
+   private and is not versioned; the published packages are.
+2. **Say which bump it is and why** in the commit message — `major` for a breaking change, `minor` for a feature,
+   `patch` for a fix — because the reviewer's question is _why this one_ and not _which word_.
+3. **The changelog entry is the pull request's title.** Release Drafter collects them into the draft release; there is no
+   second file to keep in step, which is the reason the changesets flow was removed rather than repaired.
 
 ### Publishing to npm
 
 Releases to npm are automated via GitHub Actions. To publish:
 
-1. Ensure all changes are merged to `main` and CI passes
+1. Ensure all changes are merged to `master` and CI passes
 2. Bump versions using the process above
 3. Create a GitHub Release:
    - Tag: `v{version}` (e.g., `v0.2.0`)
