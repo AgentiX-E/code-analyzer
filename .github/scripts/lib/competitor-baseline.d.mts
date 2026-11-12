@@ -40,6 +40,26 @@ export interface RecordedPull {
 }
 
 /** The whole file. */
+/** One origin of the rows: a run that recorded them live, or a run whose artifact they were transcribed from. */
+export interface BaselineOrigin {
+  how: string;
+  pulls: number;
+  run: string;
+  source?: string;
+  checkedBy?: string;
+  why?: string;
+}
+
+/** **The file's account of itself**, recomputed by `refreshProvenance` from the rows rather than carried forward. */
+export interface BaselineProvenance {
+  measuredAt?: string;
+  why?: string;
+  origins?: BaselineOrigin[];
+  originRule?: string;
+  knownAbsences?: { pulls: string[]; reason?: string };
+  [key: string]: unknown;
+}
+
 export interface CompetitorBaseline {
   version: number;
   recordedAt: string | null;
@@ -49,7 +69,7 @@ export interface CompetitorBaseline {
   };
   competitor: { tool: string };
   /** **Which run the rows came from and how the transcription was checked**, when the file was not written by `record`. */
-  provenance?: Record<string, unknown>;
+  provenance?: BaselineProvenance;
   pulls: Record<string, RecordedPull>;
 }
 
@@ -125,6 +145,16 @@ export declare function startRecording(input: {
   judgeModel: string;
   tool: string;
 }): CompetitorBaseline;
+
+/**
+ * **The file's account of itself, recomputed from its own rows.** Counts are derived from the `fingerprint` mark, and the
+ * absences from the selection the run scored, so a record that grew by replaying rows it did not buy still describes
+ * itself correctly.
+ */
+export declare function refreshProvenance(
+  baseline: CompetitorBaseline,
+  options?: { selection?: Array<string | null | undefined>; run?: string },
+): CompetitorBaseline;
 
 export declare function writeBaseline(path: string, baseline: CompetitorBaseline): void;
 

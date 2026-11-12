@@ -244,6 +244,77 @@ export function startRecording({ existing, fingerprint, judgeModel, tool }) {
   return emptyBaseline({ fingerprint, judgeModel, tool });
 }
 
+/**
+ * **The file's account of itself, recomputed from its own rows instead of carried forward.**
+ *
+ * **A record that grows stops being what its own header says it is.** The file of 2026-11-12 stated *"32 recorded, 14
+ * transcribed"* and listed four pull requests as uncovered; the run that wrote it had replayed thirty-two rows, bought
+ * one, and closed one of the four holes - so the header was wrong in two places at once, **by the mechanism that is the
+ * whole point of the file**: a record that replays rows it did not buy cannot describe its rows by what the run did.
+ *
+ * **So the counts are derived from the rows, and the absences from the selection.** `fingerprint` is the mark of a
+ * recorded row - it is what makes the row checkable against its own pull request - and a row without one was
+ * transcribed. **One rule, applied to the file, with the same definition the resolver uses**, so the header cannot
+ * disagree with the rows it describes; the only thing carried from the previous file is the prose, because prose about
+ * where a row came from is not arithmetic.
+ */
+export function refreshProvenance(
+  baseline,
+  { selection = [], run = new Date().toISOString().slice(0, 10) } = {},
+) {
+  const pulls = baseline?.pulls ?? {};
+  const recorded = Object.keys(pulls).filter(
+    (key) => typeof pulls[key]?.fingerprint === 'string' && pulls[key].fingerprint !== '',
+  );
+  const transcribed = Object.keys(pulls).filter((key) => !recorded.includes(key));
+  const origins = (baseline?.provenance?.origins ?? []).map((origin) => {
+    if (origin?.how !== 'recorded') return { ...origin, pulls: transcribed.length };
+    // **The sentence a growing file keeps getting wrong is the one with a count in it.** *"the replay of these 32 rows to
+    // the 113 true positives and 168 false positives"* was true of one run and false of the next, so the description of
+    // the check no longer counts anything - the counts are in the rows, and the run that buys a row publishes its own
+    // figure in `secondReviewer`. **A failure list travels the same way**: it belonged to the run that produced it, and a
+    // later run's failures are that run's business.
+    const { failedPullRequests: _dropped, ...rest } = origin;
+    return {
+      ...rest,
+      pulls: recorded.length,
+      run,
+      checkedBy:
+        'a per-pull golden fingerprint, and the replay of these rows to the figures the run that bought them published',
+    };
+  });
+  const absent = (selection ?? []).map(String).filter((key) => key !== '' && !(key in pulls));
+  const earlier = String(baseline?.provenance?.measuredAt ?? '')
+    .split(' and ')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  // **The span rather than the list**, because three dates joined by "and" is a sentence nobody reads to the end and the
+  // two that matter are the first and the last.
+  const dates = [...new Set([...earlier, run])].sort();
+  const measuredAt =
+    dates.length <= 1 ? (dates[0] ?? run) : `${dates[0]} and ${dates[dates.length - 1]}`;
+  return {
+    ...baseline,
+    provenance: {
+      ...baseline?.provenance,
+      measuredAt,
+      origins,
+      knownAbsences:
+        absent.length === 0
+          ? {
+              pulls: [],
+              reason: 'every pull request of this run’s selection has a row in this record',
+            }
+          : {
+              pulls: absent,
+              reason:
+                baseline?.provenance?.knownAbsences?.reason ??
+                'the competitor produced nothing usable on these, so they are holes in the pairing rather than zeros - a later record-mode run buys exactly these',
+            },
+    },
+  };
+}
+
 /** Write a baseline, creating the directory it lives in. */
 export function writeBaseline(path, baseline) {
   mkdirSync(dirname(path), { recursive: true });

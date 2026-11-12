@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-11T08:39:03.641Z",
+  "recordedAt": "2026-11-12T01:54:36.426Z",
   "corpus": {
     "fingerprint": "sha256:da057ec6b173b5a4e884717025cd8a3b",
     "judge": {
@@ -12,16 +12,15 @@
     "tool": "open-code-review"
   },
   "provenance": {
-    "measuredAt": "2026-11-09 and 2026-11-11",
+    "measuredAt": "2026-11-09 and 2026-11-12",
     "why": "a result already paid for is an input, and both runs that produced these rows published the per-pair verdicts rather than only a summary, so the record is read instead of re-bought",
     "origins": [
       {
         "how": "recorded",
-        "pulls": 32,
-        "run": "2026-11-11",
+        "pulls": 33,
+        "run": "2026-11-12",
         "source": "a record-mode run of the 36-pull-request slice (corpusSlice skip 14), which drove the competitor through its own CLI on each pull request and stored what it said",
-        "checkedBy": "a per-pull golden fingerprint, and the replay of these 32 rows to the 113 true positives and 168 false positives that run published",
-        "failedPullRequests": ["https://github.com/microsoft/typescript-go/pull/1446"]
+        "checkedBy": "a per-pull golden fingerprint, and the replay of these rows to the figures the run that bought them published"
       },
       {
         "how": "transcribed",
@@ -36,7 +35,6 @@
     "knownAbsences": {
       "pulls": [
         "https://github.com/PowerShell/PowerShell/pull/24910",
-        "https://github.com/gofr-dev/gofr/pull/1395",
         "https://github.com/comfyanonymous/ComfyUI/pull/7952",
         "https://github.com/comfyanonymous/ComfyUI/pull/9560"
       ],
@@ -9650,6 +9648,37 @@
       "unanswered": 0,
       "findings": 8,
       "fingerprint": "sha256:c82c396151069ca8495723a2444b31f1"
+    },
+    "https://github.com/gofr-dev/gofr/pull/1395": {
+      "matches": [[6]],
+      "goldens": 8,
+      "keep": [false],
+      "detail": [
+        {
+          "path": "pkg/gofr/testutil/port.go",
+          "startLine": 43,
+          "endLine": 45,
+          "severity": "medium",
+          "category": "test",
+          "score": 0.4093,
+          "features": {
+            "grounded": true,
+            "quotesDiff": false,
+            "namesSymbol": true,
+            "proposesChange": false,
+            "hedged": true,
+            "agreement": 1,
+            "severity": "medium",
+            "lane": null
+          },
+          "actionable": false,
+          "matchedGoldens": [6],
+          "text": "GetFreePort only asks the kernel for a port, then closes the listener before :: GetFreePort only asks the kernel for a port, then closes the listener before\nreturning. Because bind/close is not atomic, the same port can be handed out to two callers (or be\ngrabbed by an unrelated process) between discovery and actual se"
+        }
+      ],
+      "unanswered": 0,
+      "findings": 1,
+      "fingerprint": "sha256:becfd7345829eec4cb107bb1964c51ca"
     }
   }
 }

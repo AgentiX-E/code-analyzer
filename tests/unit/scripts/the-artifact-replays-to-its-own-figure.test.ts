@@ -65,14 +65,16 @@ describe('the committed artifact reproduces the figures it publishes', () => {
     expect(replay.whole.gate.falseNegatives).toBe(bench.falseNegatives);
   });
 
-  it('counts the pull request that emitted nothing, because its goldens are still misses', () => {
-    // **The subtlety that made the first replay of this artifact disagree by six goldens.** `rankedFindings` carries
-    // 49 pull requests and `coverage.byPullRequest` carries 50; the difference is a pull request with no finding, and a
-    // replay over the findings would have dropped it from the denominator.
+  it('scores the corpus the coverage table names, not the pull requests that emitted something', () => {
+    // **The subtlety that made the first replay of this artifact disagree by six goldens.** `rankedFindings` carries the
+    // pull requests that produced at least one finding; `coverage.byPullRequest` carries the ones that were scored, and a
+    // replay over the findings would drop a silent pull request from the denominator. **On the artifact of 2026-11-12
+    // every scored pull request emitted at least one finding**, so the two sets are the same size and the defect has no
+    // room to show itself - which is why the assertion is on the denominator and not on the difference.
     const inFindings = new Set(
       (bench.rankedFindings as Array<{ pr: string | null }>).map((row) => row.pr),
     );
-    expect(inFindings.size).toBeLessThan(bench.coverage.byPullRequest.length);
+    expect(inFindings.size).toBeLessThanOrEqual(bench.coverage.byPullRequest.length);
     expect(replay.pullRequestsScored).toBe(bench.coverage.byPullRequest.length);
   });
 

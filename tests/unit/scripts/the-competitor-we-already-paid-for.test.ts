@@ -105,13 +105,15 @@ describe('the recorded competitor result replays to the figures the recording ru
     // **The two numbers the run of 2026-11-11 published for its competitor arm**, which are not recomputed from a
     // summary anywhere: they fall out of the per-pair verdicts, which is why reproducing them is evidence that no row
     // was lost on the way into the file. Its precision is the same division the artifact printed: 113 / 281.
-    expect(counts.tp).toBe(113);
+    expect(counts.tp).toBe(114);
     expect(counts.fp).toBe(168);
-    expect(counts.precision).toBeCloseTo(0.4021, 4);
-    expect(counts.tp + counts.fp).toBe(281);
-    // **And the denominator is the 258 goldens of those thirty-two pull requests**, not the 281 findings the tool
-    // emitted - the same distinction the artifact draws one level up.
-    expect(counts.tp + counts.fn).toBe(258);
+    expect(counts.precision).toBeCloseTo(0.4043, 4);
+    expect(counts.tp + counts.fp).toBe(282);
+    // **And the denominator is the 266 goldens of those thirty-three pull requests**, not the 282 findings the tool
+    // emitted - the distinction the artifact draws one level up, and the one a reader is most likely to collapse:
+    // **114 found, 168 wrong and 152 missed is 282 findings against 266 goldens**, and only the first and the third
+    // belong on the same axis.
+    expect(counts.tp + counts.fn).toBe(266);
   });
 
   it('reproduces the 170 goldens both reviewers were scored against on 2026-11-09', () => {
@@ -139,8 +141,10 @@ describe('the recorded competitor result replays to the figures the recording ru
 
 describe('the record states its own two origins rather than the flattering one', () => {
   it('splits forty-six rows into thirty-two recorded and fourteen transcribed, and says how to tell them apart', () => {
-    expect(keys).toHaveLength(46);
-    expect(recorded).toHaveLength(32);
+    // **Forty-seven rows, not forty-six**: the run of 2026-11-12 closed one of the four holes by buying exactly that
+    // pull request, which is the mechanism's own claim tested on the corpus it was built for.
+    expect(keys).toHaveLength(47);
+    expect(recorded).toHaveLength(33);
     expect(transcribed).toHaveLength(14);
     // **The rule is stated in the file and is the same rule the resolver applies**, so a reader holding one row can
     // decide which check a figure rests on without running anything.
@@ -150,17 +154,25 @@ describe('the record states its own two origins rather than the flattering one',
     expect(origins.map((origin) => origin.how).sort()).toEqual(['recorded', 'transcribed']);
     expect(origins.find((origin) => origin.how === 'recorded')?.pulls).toBe(recorded.length);
     expect(origins.find((origin) => origin.how === 'transcribed')?.pulls).toBe(transcribed.length);
-    // **Both runs are dated**, because a figure whose date is one of two is a figure whose date is unknown.
+    // **Both runs are dated, as a span between the first and the last**, because a list of three dates joined by "and"
+    // is a sentence nobody reads to the end.
+    expect(baseline.provenance.measuredAt).toMatch(/^\d{4}-\d{2}-\d{2}( and \d{4}-\d{2}-\d{2})?$/);
     expect(baseline.provenance.measuredAt).toContain('2026-11-09');
-    expect(baseline.provenance.measuredAt).toContain('2026-11-11');
+    expect(baseline.provenance.measuredAt).toContain('2026-11-12');
     // **And each origin names what checked it**, because "recorded" and "transcribed" are claims about provenance, not
-    // about correctness.
-    for (const origin of origins) expect(origin.checkedBy.length).toBeGreaterThan(20);
+    // about correctness. **Neither sentence carries a count**, because the count in it went stale the first time the
+    // file grew - the numbers are in the rows.
+    for (const origin of origins) {
+      expect(origin.checkedBy.length).toBeGreaterThan(20);
+      expect(origin.checkedBy).not.toMatch(/\b\d+ rows\b/);
+    }
   });
 
   it('names the four pull requests it does not cover, so the holes are a list rather than a silence', () => {
+    // **Three, down from four**: the run of 2026-11-12 recorded `PowerShell/24910`, and the two ComfyUI pull requests
+    // and `gofr/1395` are the ones its competitor still produced nothing usable on.
     const absences = baseline.provenance.knownAbsences.pulls;
-    expect(absences).toHaveLength(4);
+    expect(absences).toHaveLength(3);
     for (const key of absences) expect(baseline.pulls[key]).toBeUndefined();
     // **A hole in the pairing, not a zero**: the competitor produced nothing usable, which is the distinction the
     // scoring draws between `missing` and a failed row scored as nothing found.
@@ -282,6 +294,6 @@ describe('every row is geometrically valid, because a shifted index is a wrong s
     expect(baseline.corpus.fingerprint).toMatch(/^sha256:[0-9a-f]{32}$/);
     expect(baseline.corpus.judge).toEqual({ model: 'deepseek-chat', prompt: 'aacr-judge-v1' });
     expect(baseline.competitor.tool).toBe('open-code-review');
-    expect(baseline.recordedAt).toBe('2026-11-11T08:39:03.641Z');
+    expect(baseline.recordedAt).toBe('2026-11-12T01:54:36.426Z');
   });
 });

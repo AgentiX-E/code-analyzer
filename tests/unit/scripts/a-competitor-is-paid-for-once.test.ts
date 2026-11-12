@@ -27,6 +27,7 @@ import {
   parseCompetitorMode,
   readBaseline,
   recordedPull,
+  refreshProvenance,
   replayedPull,
   resolveCompetitor,
   startRecording,
@@ -468,5 +469,79 @@ describe('the two paths hand the scoring the same thing', () => {
     expect(
       recordedPull({ matches: [], goldens: 0, keep: [], detail: [{}], findings: 9 }).findings,
     ).toBe(9);
+  });
+});
+
+describe('a record that grows describes itself from its own rows', () => {
+  const row = (fingerprint?: string) => ({
+    matches: [],
+    goldens: 3,
+    keep: [],
+    detail: [],
+    unanswered: 0,
+    findings: 0,
+    ...(fingerprint === undefined ? {} : { fingerprint }),
+  });
+
+  const grown = () => ({
+    version: BASELINE_VERSION,
+    recordedAt: '2026-11-12T00:00:00.000Z',
+    corpus: { fingerprint: 'sha256:x', judge: { model: JUDGE, prompt: JUDGE_PROMPT_VERSION } },
+    competitor: { tool: 'open-code-review' },
+    provenance: {
+      measuredAt: '2026-11-09',
+      origins: [
+        // **The sentence with a count in it**, which is the one that went stale in the file this function was written
+        // for: it said "32 rows" while the file held 33.
+        { how: 'recorded', pulls: 32, run: '2026-11-09', checkedBy: 'the replay of these 32 rows' },
+        { how: 'transcribed', pulls: 14, run: '2026-11-09', checkedBy: 'the golden count' },
+      ],
+      knownAbsences: { pulls: ['https://github.com/a/b/pull/1'], reason: 'holes' },
+    },
+    pulls: {
+      'https://github.com/a/b/pull/1': row('sha256:one'),
+      'https://github.com/a/b/pull/2': row('sha256:two'),
+      'https://github.com/a/b/pull/3': row(),
+    },
+  });
+
+  it('counts recorded and transcribed from the fingerprint, which is the rule the resolver applies', () => {
+    const refreshed = refreshProvenance(grown(), {
+      selection: ['https://github.com/a/b/pull/1', 'https://github.com/a/b/pull/2'],
+      run: '2026-11-12',
+    });
+    const origins = refreshed.provenance?.origins ?? [];
+    expect(origins.find((origin) => origin.how === 'recorded')?.pulls).toBe(2);
+    expect(origins.find((origin) => origin.how === 'transcribed')?.pulls).toBe(1);
+    // **And the run that did the recording is the date the origin states**, which is what a reader checks the rows
+    // against.
+    expect(origins.find((origin) => origin.how === 'recorded')?.run).toBe('2026-11-12');
+  });
+
+  it('drops the count from the sentence, because the count is in the rows', () => {
+    const refreshed = refreshProvenance(grown(), { selection: [], run: '2026-11-12' });
+    const recordedOrigin = refreshed.provenance?.origins?.find(
+      (origin) => origin.how === 'recorded',
+    );
+    expect(recordedOrigin?.checkedBy ?? '').not.toContain('32');
+    expect(recordedOrigin?.checkedBy ?? '').toContain('fingerprint');
+  });
+
+  it('closes a hole the run filled, and keeps the ones it did not', () => {
+    // The selection is the corpus this run scored: a pull request in it with a row is no longer absent, and one the
+    // file still has no row for stays listed.
+    const refreshed = refreshProvenance(grown(), {
+      selection: ['https://github.com/a/b/pull/1', 'https://github.com/a/b/pull/9'],
+      run: '2026-11-12',
+    });
+    expect(refreshed.provenance?.knownAbsences?.pulls).toEqual(['https://github.com/a/b/pull/9']);
+  });
+
+  it('states a span rather than a list of dates, and covers the run that just wrote the file', () => {
+    const refreshed = refreshProvenance(grown(), { selection: [], run: '2026-11-12' });
+    expect(refreshed.provenance?.measuredAt).toBe('2026-11-09 and 2026-11-12');
+    // **And says so plainly when there is nothing absent**, rather than leaving an empty list to be read as silence.
+    const complete = refreshProvenance(grown(), { selection: [], run: '2026-11-12' });
+    expect(complete.provenance?.knownAbsences?.pulls).toEqual([]);
   });
 });

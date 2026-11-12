@@ -49,6 +49,7 @@ import {
   replayedPull,
   resolveCompetitor,
   startRecording,
+  refreshProvenance,
   withRecord,
   writeBaseline,
 } from './lib/competitor-baseline.mjs';
@@ -2306,7 +2307,13 @@ async function main() {
   // the corpus** - a file with a hole in it replays as a corpus with a hole in it, and the next reader should meet that
   // fact here rather than in a figure that is quietly computed over thirteen of fourteen pull requests.
   if (competitorChoice.mode === 'record' && recordedAny > 0) {
-    competitorBaseline = { ...competitorBaseline, recordedAt: new Date().toISOString() };
+    // **The header is recomputed from the rows it describes**, because a record that replays rows it did not buy cannot
+    // describe itself by what the run did: the file of 2026-11-12 said "32 recorded, 14 transcribed" and listed four
+    // holes, one of which the run had just closed.
+    competitorBaseline = refreshProvenance(
+      { ...competitorBaseline, recordedAt: new Date().toISOString() },
+      { selection: rows.map((row) => row.githubPrUrl), run: new Date().toISOString().slice(0, 10) },
+    );
     writeBaseline(COMPETITOR_BASELINE_PATH, competitorBaseline);
     competitor.baselineRecordedAt = competitorBaseline.recordedAt;
     competitor.baselineCovers = {

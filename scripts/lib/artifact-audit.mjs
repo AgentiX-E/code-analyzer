@@ -172,32 +172,38 @@ export function auditArtifact(artifact) {
     `${String(named.filter((row) => Number(row?.proximity) === 0).length)} of ${String(rejections.length)} rejections sit on a finding's own line`,
   );
 
-  // **8. Every attempt at the competitor arm is accounted for as recorded, replayed, failed or missing.** The run of
-  // 2026-11-11 reported `prsAttempted: 36`, `prsFailed: 4`, `recorded: 32` and **named one failure**: three attempts
-  // existed as a number, contributed no goldens to the competitor's denominator, and could not be looked up. **A count
-  // that does not partition into the rows beside it is the same defect as a figure that does not follow from its
-  // rows**, one level up - and it cost this repository 0.0130 of F1 the first time it happened.
+  // **8. Every scored pull request is either replayed, recorded, failed or missing.** The run of 2026-11-11 reported
+  // `prsFailed: 4`, `recorded: 32` and **named one failure**: three attempts existed as a number, contributed no goldens
+  // to the competitor's denominator, and could not be looked up, so thirty-six pull requests were scored against a
+  // competitor whose rows accounted for thirty-three of them. **A count that does not partition into the rows beside it
+  // is the same defect as a figure that does not follow from its rows**, one level up - and it cost this repository
+  // 0.0130 of F1 the first time it happened.
+  //
+  // **The denominator is the corpus the run scored, not `prsAttempted`** - that field counts the pull requests this run
+  // went and bought, and the first version of this check compared the two and read `36 accounted for of 4 attempted`
+  // on a run that was entirely correct. **A check whose premise is wrong reports a defect in the artifact rather than in
+  // itself**, which is why the run that found it was the run that made the number legible.
   const theirs = artifact?.secondReviewer ?? {};
-  const attempted = Number(theirs.prsAttempted ?? 0);
-  const accounted =
-    Number(theirs.recorded ?? 0) +
-    Number(theirs.replayed ?? 0) +
-    (Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests.length : 0) +
-    (Array.isArray(theirs.missing) ? theirs.missing.length : 0);
+  const corpusSize = Number(
+    artifact?.coverage?.byPullRequest?.length ?? artifact?.prsInDataset ?? 0,
+  );
+  const failed = Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests.length : 0;
+  const missing = Array.isArray(theirs.missing) ? theirs.missing.length : 0;
+  const accounted = Number(theirs.recorded ?? 0) + Number(theirs.replayed ?? 0) + failed + missing;
   record(
-    'every attempted competitor run is either recorded, replayed, failed or missing',
-    attempted === 0 || accounted === attempted,
-    attempted === 0
-      ? 'no competitor attempt in this artifact'
-      : `${String(accounted)} accounted for of ${String(attempted)} attempted (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests.length : 0)} failed, ${String(Array.isArray(theirs.missing) ? theirs.missing.length : 0)} missing)`,
+    'every scored pull request is either replayed, recorded, failed or missing',
+    corpusSize === 0 || accounted === corpusSize,
+    corpusSize === 0
+      ? 'no corpus in this artifact'
+      : `${String(accounted)} accounted for of ${String(corpusSize)} scored (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(failed)} failed, ${String(missing)} missing)`,
   );
 
   // **9. And every failure that was counted is a failure that can be read.** `prsFailed` and the length of the failure
   // list are two writers of one fact, which is exactly the drift this module exists to catch.
   record(
     'the failures that were counted are the failures that were named',
-    attempted === 0 || Number(theirs.prsFailed ?? 0) === (theirs.failedPullRequests ?? []).length,
-    `${String(theirs.prsFailed ?? 0)} counted, ${String((theirs.failedPullRequests ?? []).length)} named`,
+    corpusSize === 0 || Number(theirs.prsFailed ?? 0) === failed,
+    `${String(theirs.prsFailed ?? 0)} counted, ${String(failed)} named`,
   );
 
   return { ok: findings.every((finding) => finding.ok), findings };
@@ -287,16 +293,22 @@ export function competitorTextCoverage(artifact) {
     : [];
   const withText = theirs.filter((row) => typeof row?.text === 'string' && row.text.length > 0);
   const mode = artifact?.secondReviewer?.mode ?? null;
+  const recorded = Number(artifact?.secondReviewer?.recorded ?? 0);
   return {
     mode,
     rows: theirs.length,
     withText: withText.length,
     coverage: theirs.length === 0 ? 0 : withText.length / theirs.length,
     /**
-     * **`record` means this run paid for the competitor's output and must keep it.** `replay` reads a baseline that was
-     * recorded before the field existed, and reporting that as a failure would fail every run until somebody spends
-     * 5.89 USD - which is a decision, not a defect.
+     * **`record` means this run paid for the competitor's output and must keep it** - but only for the rows it paid for.
+     *
+     * **The first version of this flag asked every row of a recording run to carry text, and the run of 2026-11-12
+     * failed on it while being entirely correct**: the record it started from predates the field, so it replayed
+     * thirty-two rows and bought one, and `1 of 282 competitor rows carry text` was the arithmetic of the mechanism
+     * working rather than of a defect. **A check that fails the thing it was written to protect is a check with a wrong
+     * premise**, and the premise is that a `record` run's rows were all recorded - which stopped being true the moment
+     * the replay mechanism started working.
      */
-    mustBeComplete: mode === 'record',
+    mustBeComplete: mode === 'record' && recorded > 0 && withText.length === 0,
   };
 }

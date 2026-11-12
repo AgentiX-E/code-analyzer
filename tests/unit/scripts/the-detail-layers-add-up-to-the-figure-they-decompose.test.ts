@@ -120,6 +120,9 @@ function consistentArtifact() {
       },
     ],
     bothMissedCorpus: { pullRequests: 1, goldens: 10, withoutAttribution: 0 },
+    // **The corpus this run scored**, which is the denominator the attempt partition is checked against - not
+    // `prsAttempted`, which counts only the pull requests the run went and bought.
+    prsInDataset: 3,
     secondReviewer: {
       mode: 'record',
       prsAttempted: 3,
@@ -128,7 +131,13 @@ function consistentArtifact() {
       replayed: 0,
       missing: [],
       failedPullRequests: [{ key: 'k', goldens: 1, reason: 'it produced nothing', stage: 'run' }],
-      findingsAtItsOwnOperatingPoint: [{ text: 'what they said' }],
+      // **Widened, because the tests below replace it with rows that carry coordinates and may or may not carry a
+      // sentence** - the shape the artifact actually publishes.
+      findingsAtItsOwnOperatingPoint: [{ text: 'what they said' }] as Array<{
+        path?: string;
+        startLine?: number;
+        text?: string;
+      }>,
     },
   };
 }
@@ -334,6 +343,10 @@ describe('the competitor’s words', () => {
   const withTheirs = (mode: string, withText: number) => ({
     secondReviewer: {
       mode,
+      // **What the run paid for**, so that `mustBeComplete` is decided on the rows a recording run recorded rather than
+      // on the rows a replay handed it.
+      recorded: mode === 'record' ? 2 : 0,
+      replayed: mode === 'record' ? 0 : 2,
       findingsAtItsOwnOperatingPoint: [
         { path: 'a.ts', startLine: 1, ...(withText > 0 ? { text: 'their first remark' } : {}) },
         { path: 'b.ts', startLine: 2, ...(withText > 1 ? { text: 'their second remark' } : {}) },
@@ -404,16 +417,16 @@ describe('a rejection that names its distance and not its finding', () => {
   });
 });
 
-describe('every attempt at the competitor arm is accounted for', () => {
-  it('fails when an attempt is neither recorded, replayed, failed nor missing', () => {
-    // **The run of 2026-11-11 reported `prsAttempted: 36`, `prsFailed: 4`, `recorded: 32` and named one failure.**
-    // Four failures, one name: the three that were only counted contributed no goldens to the competitor's denominator
-    // while contributing nothing to its numerator either - the same asymmetry that was worth 0.0130 of F1 when it
-    // happened at the other failure branch, surviving in a second code path.
+describe('every scored pull request is accounted for', () => {
+  it('fails when a scored pull request is neither replayed, recorded, failed nor missing', () => {
+    // **The run of 2026-11-11 reported `prsFailed: 4`, `recorded: 32` and named one failure.** Four failures, one name:
+    // the three that were only counted contributed no goldens to the competitor's denominator while contributing nothing
+    // to its numerator either - the same asymmetry that was worth 0.0130 of F1 when it happened at the other failure
+    // branch, surviving in a second code path. Against that run the check reads **33 accounted for of 36 scored**.
     const artifact = consistentArtifact();
-    artifact.secondReviewer.prsAttempted = 4;
+    artifact.prsInDataset = 4;
     expect(failuresOf(artifact)).toContain(
-      'every attempted competitor run is either recorded, replayed, failed or missing',
+      'every scored pull request is either replayed, recorded, failed or missing',
     );
   });
 
@@ -425,18 +438,69 @@ describe('every attempt at the competitor arm is accounted for', () => {
     );
   });
 
-  it('accepts a run that attempted nothing, rather than claiming a partition of zero', () => {
+  it('accepts a run with no corpus, rather than claiming a partition of zero', () => {
     const artifact = consistentArtifact();
-    artifact.secondReviewer.prsAttempted = 0;
+    artifact.prsInDataset = 0;
     artifact.secondReviewer.recorded = 0;
+    artifact.secondReviewer.replayed = 0;
     artifact.secondReviewer.prsFailed = 0;
     artifact.secondReviewer.failedPullRequests = [];
     const failures = failuresOf(artifact);
     expect(failures).not.toContain(
-      'every attempted competitor run is either recorded, replayed, failed or missing',
+      'every scored pull request is either replayed, recorded, failed or missing',
     );
     expect(failures).not.toContain(
       'the failures that were counted are the failures that were named',
     );
+  });
+});
+
+describe('a recording run that replayed most of its rows', () => {
+  it('is not failed for the rows it did not pay for', () => {
+    // **The run of 2026-11-12 was failed by this check while being entirely correct.** Its record predates the `text`
+    // field, so it replayed thirty-two rows and bought one, and `1 of 282 competitor rows carry text` was the arithmetic
+    // of the mechanism working. The flag now asks whether a recording run kept *any* of the words it paid for.
+    const artifact = consistentArtifact();
+    artifact.secondReviewer = {
+      mode: 'record',
+      recorded: 1,
+      replayed: 32,
+      prsAttempted: 4,
+      prsFailed: 3,
+      missing: [],
+      failedPullRequests: [
+        { key: 'a', goldens: 5, reason: 'it produced nothing', stage: 'run' },
+        { key: 'b', goldens: 5, reason: 'it produced nothing', stage: 'run' },
+        { key: 'c', goldens: 6, reason: 'it produced nothing', stage: 'run' },
+      ],
+      findingsAtItsOwnOperatingPoint: [
+        { path: 'a.ts', startLine: 1, text: 'the one row this run bought' },
+        { path: 'b.ts', startLine: 2 },
+        { path: 'c.ts', startLine: 3 },
+        { path: 'd.ts', startLine: 4 },
+      ],
+    };
+    // **Thirty-six pull requests scored**: thirty-two replayed, one recorded, three failed.
+    artifact.prsInDataset = 36;
+    expect(competitorTextCoverage(artifact).mustBeComplete).toBe(false);
+    // **And the partition still holds on that shape**: one recorded, three failed, against four scored.
+    expect(failuresOf(artifact)).toEqual([]);
+  });
+
+  it('is failed when it kept none of the words it paid for', () => {
+    const artifact = consistentArtifact();
+    artifact.secondReviewer = {
+      mode: 'record',
+      recorded: 2,
+      replayed: 0,
+      prsAttempted: 2,
+      prsFailed: 0,
+      missing: [],
+      failedPullRequests: [],
+      findingsAtItsOwnOperatingPoint: [{ path: 'a.ts', startLine: 1 }],
+    };
+    artifact.prsInDataset = 2;
+    // **Both rows recorded and neither carrying a sentence**, which is the state a `record` run must not publish.
+    expect(failuresOf(artifact)).toContain('the competitor’s remarks are readable beside ours');
   });
 });
