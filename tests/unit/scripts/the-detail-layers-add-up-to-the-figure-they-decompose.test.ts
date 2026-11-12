@@ -504,3 +504,50 @@ describe('a recording run that replayed most of its rows', () => {
     expect(failuresOf(artifact)).toContain('the competitor’s remarks are readable beside ours');
   });
 });
+
+describe('an arm that is switched off', () => {
+  it('is not asked to account for rows it never had', () => {
+    const artifact = consistentArtifact();
+    artifact.secondReviewer = {
+      mode: 'off',
+      recorded: 0,
+      replayed: 0,
+      prsAttempted: 0,
+      prsFailed: 0,
+      missing: [],
+      failedPullRequests: [],
+      findingsAtItsOwnOperatingPoint: [],
+    };
+    artifact.prsInDataset = 36;
+    const failures = failuresOf(artifact);
+    expect(failures).not.toContain(
+      'every scored pull request is either replayed, recorded, failed or missing',
+    );
+    expect(failures).not.toContain('the arm that is switched off runs nothing');
+  });
+
+  it('fails when the switched-off arm spent money anyway', () => {
+    // **The `on` arm of 2026-11-12 published exactly this**: `mode: "off"` beside `prsAttempted: 36` and 258 competitor
+    // rows, because the decision chain fell through to the live branch for the one mode whose purpose is to remove the
+    // arm. **A switched-off arm that spent money is worse than a missing one**, and the two fields have to be read
+    // together to see it.
+    const artifact = consistentArtifact();
+    artifact.secondReviewer = {
+      mode: 'off',
+      recorded: 0,
+      replayed: 0,
+      prsAttempted: 36,
+      prsFailed: 5,
+      missing: [],
+      failedPullRequests: Array.from({ length: 5 }, (_, at) => ({
+        key: `k${String(at)}`,
+        goldens: 1,
+        reason: 'it produced nothing',
+        stage: 'run',
+      })),
+      findingsAtItsOwnOperatingPoint: [{ path: 'a.ts', startLine: 1, text: 'they said this' }],
+    };
+    artifact.prsInDataset = 36;
+    expect(failuresOf(artifact)).toContain('the arm that is switched off runs nothing');
+  });
+});

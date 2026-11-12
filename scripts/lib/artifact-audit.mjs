@@ -190,12 +190,33 @@ export function auditArtifact(artifact) {
   const failed = Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests.length : 0;
   const missing = Array.isArray(theirs.missing) ? theirs.missing.length : 0;
   const accounted = Number(theirs.recorded ?? 0) + Number(theirs.replayed ?? 0) + failed + missing;
+  // **And a run whose competitor arm was switched off is not asked to account for rows it never had.** `off` is the one
+  // mode that produces no rows on purpose, so a partition over the corpus would report the corpus as unaccounted rather
+  // than the arm as removed.
+  const switchedOff = String(theirs.mode ?? '') === 'off';
+  // **And a run that says `off` has to be a run that did nothing.** The exemption above would otherwise hide the defect
+  // it was written beside: the `on` arm of 2026-11-12 published `mode: "off"` with `prsAttempted: 36` and 258 competitor
+  // rows, because the decision chain fell through to the live branch for a mode whose entire purpose is to remove the
+  // arm. **A switched-off arm that spent money is worse than one that is missing**, and only a check that reads the two
+  // fields together can say so.
+  record(
+    'the arm that is switched off runs nothing',
+    !switchedOff ||
+      (Number(theirs.prsAttempted ?? 0) === 0 &&
+        failed === 0 &&
+        Number(theirs.recorded ?? 0) + Number(theirs.replayed ?? 0) === 0),
+    switchedOff
+      ? `mode off, ${String(theirs.prsAttempted ?? 0)} attempted, ${String(failed)} failed, ${String(accounted)} accounted rows`
+      : 'the arm was not switched off',
+  );
   record(
     'every scored pull request is either replayed, recorded, failed or missing',
-    corpusSize === 0 || accounted === corpusSize,
-    corpusSize === 0
-      ? 'no corpus in this artifact'
-      : `${String(accounted)} accounted for of ${String(corpusSize)} scored (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(failed)} failed, ${String(missing)} missing)`,
+    switchedOff || corpusSize === 0 || accounted === corpusSize,
+    switchedOff
+      ? 'the competitor arm was switched off for this run'
+      : corpusSize === 0
+        ? 'no corpus in this artifact'
+        : `${String(accounted)} accounted for of ${String(corpusSize)} scored (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(failed)} failed, ${String(missing)} missing)`,
   );
 
   // **9. And every failure that was counted is a failure that can be read.** `prsFailed` and the length of the failure

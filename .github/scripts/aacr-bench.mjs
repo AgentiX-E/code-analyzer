@@ -1553,7 +1553,22 @@ async function main() {
       judgeModel: MODEL,
       pull: { key: competitorKey, fingerprint: pullFingerprint(pr), goldens: issueTexts.length },
     });
-    if (competitorDecision.kind === 'replay') {
+    if (competitorDecision.kind === 'off') {
+      // **A mode whose entire purpose is to remove an arm must not run it.**
+      //
+      // **The chain below used to fall through to the live branch for `off`**, because every decision that was not
+      // `replay`, `missing` or a `record` without a credential arrived at `else if (ocrKey)` - and a credential was
+      // configured. **So the arm described as switched off ran on all thirty-six pull requests**, and the run of
+      // 2026-11-12 reported it in two fields that contradict each other: `secondReviewer.mode: "off"` beside
+      // `prsAttempted: 36` and 258 competitor rows. **The artifact audit added an hour earlier read
+      // `5 accounted for of 36 attempted` and failed the job**, which is the only reason a spent arm was noticed: the
+      // money was real and the figure was not used by anything.
+      //
+      // **A default that spends money is the defect this module was written against**, and this was not even a default:
+      // it was an explicit instruction not to spend. **The branch is empty on purpose** - `off` means this run has no
+      // competitor row for this pull request, and the artifact says so through `mode` rather than through a count of
+      // zero that a reader would have to interpret.
+    } else if (competitorDecision.kind === 'replay') {
       competitor.verifiedBy[competitorDecision.verified === 'count' ? 'count' : 'fingerprint'] += 1;
       competitorPerPr.push(replayedPull(competitorKey, competitorDecision.pull));
       for (const row of competitorDecision.pull.detail ?? []) {
