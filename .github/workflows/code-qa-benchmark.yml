@@ -16,6 +16,15 @@ on:
   schedule:
     - cron: '0 4 * * 3'
   workflow_dispatch:
+    inputs:
+      pool:
+        description: 'Which collection to retrieve from: test-split (500 answers) or all (the published pool)'
+        required: false
+        default: 'test-split'
+        type: choice
+        options:
+          - test-split
+          - all
 
 concurrency:
   group: code-qa-benchmark
@@ -28,9 +37,10 @@ jobs:
   cosqa:
     name: Score retrieval on CoSQA
     runs-on: ubuntu-latest
-    # **Ninety minutes**, because 500 questions are 500 vector searches and, when a key is present, 500 completions -
-    # a budget that is stated rather than discovered by a timeout.
-    timeout-minutes: 90
+    # **A stated budget rather than one discovered by a timeout.** Five hundred questions are 500 vector searches and,
+    # when a key is present, 500 completions - and the `all` pool indexes twelve times as many functions before any of
+    # that starts, so the ceiling covers the arm that costs the most rather than the one that runs on a schedule.
+    timeout-minutes: 180
 
     steps:
       - name: Checkout
@@ -75,6 +85,27 @@ jobs:
           sha256sum benchmarks/corpora/cosqa/cosqa-retrieval-test-500.json | tee -a "$GITHUB_STEP_SUMMARY"
           node -e "const rows=require('./benchmarks/corpora/cosqa/cosqa-retrieval-test-500.json');console.log('questions:', rows.length)"
 
+          # **The distractor pool, only when the arm asks for it.** `all` reproduces the collection a published table
+          # retrieves from; without this file the test would measure 500 candidates and label the figure `all`, which is
+          # the one outcome worse than not running - so a missing file fails the step rather than shrinking the pool.
+          if [ "${{ inputs.pool || 'test-split' }}" = "all" ]; then
+            got=""
+            for branch in main master; do
+              candidate="https://raw.githubusercontent.com/Jun-jie-Huang/CoCLR/${branch}/data/qa/cosqa-all.json"
+              if curl -fsSL "$candidate" -o benchmarks/corpora/cosqa/cosqa-all.json; then
+                got="$candidate"
+                break
+              fi
+            done
+            if [ -z "$got" ]; then
+              echo "::error::the distractor pool could not be downloaded; the pool would silently shrink to 500"
+              exit 1
+            fi
+            echo "fetched $got"
+            sha256sum benchmarks/corpora/cosqa/cosqa-all.json | tee -a "$GITHUB_STEP_SUMMARY"
+            node -e "const rows=require('./benchmarks/corpora/cosqa/cosqa-all.json');const u=new Set(rows.map(r=>r.code));console.log('collection rows:',rows.length,'unique functions:',u.size)"
+          fi
+
       - name: Are the credentials present?
         id: credential
         env:
@@ -94,6 +125,9 @@ jobs:
         if: steps.credential.outputs.vectors == 'true'
         env:
           COSQA_DIR: benchmarks/corpora/cosqa
+          # **Which pool this run measures.** Empty on the schedule, which resolves to the arm every figure so far was
+          # measured on; the published pool is a dispatch, because it is twelve times the indexing cost.
+          COSQA_POOL: ${{ inputs.pool || 'test-split' }}
           # **This run publishes figures**: recording is opt-in so a local run cannot replace the committed artifact.
           BENCHMARK_WRITE: '1'
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}

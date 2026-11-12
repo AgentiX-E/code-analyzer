@@ -46,6 +46,22 @@ const CAN_ASK_A_MODEL = Boolean(process.env['DEEPSEEK_API_KEY']);
 const CUTS = 'recall@1, @5, @10; MRR@10';
 const RERANK_POOL = 50;
 
+/**
+ * **Which collection the answers are retrieved from, and therefore which published table this figure may be put beside.**
+ *
+ * `test-split` retrieves from the 500 functions the corpus file carries, one answer per question. That is a real
+ * measurement of the product and **it is not the pool a published CoSQA table uses**: those retrieve from the collection's
+ * whole unique function set, so a recall at rank one on 500 candidates and one on six thousand are two different
+ * questions and this repository will not rank them against each other.
+ *
+ * `all` closes that gap by writing the remaining unique functions of `cosqa-all.json` into the index as distractors.
+ * **The answers do not move** - a distractor file is named `distractor_######.py` and the answer of question *i* stays
+ * `code_###.py`, so the rank a hit is scored at is computed the same way in both pools and the only variable is what
+ * else was in the collection. Default `test-split` because it is what every figure so far was measured at, and a
+ * default that changes under a published number is the defect the provenance block exists to prevent.
+ */
+const POOL = process.env['COSQA_POOL'] === 'all' ? 'all' : 'test-split';
+
 interface CosqaRow {
   idx: string;
   doc: string;
@@ -81,6 +97,53 @@ function score(ranks: Array<number | null>): Metrics {
   };
 }
 
+/**
+ * **The distraction set, as a pure function so it can be checked without the corpus.**
+ *
+ * Three things have to hold for a pool to be the published one rather than a larger number on a label: the answers
+ * themselves are not in it (a duplicate of an answer is a second correct hit, which would flatter recall), a function
+ * that appears twice is one function, and a row whose `code` is missing or is not a string contributes nothing rather
+ * than an empty file that the scanner would index as a real candidate.
+ */
+function distractorFunctions(
+  collection: ReadonlyArray<unknown>,
+  answers: ReadonlyArray<string>,
+): string[] {
+  const seen = new Set(answers);
+  const kept: string[] = [];
+  for (const row of collection) {
+    const code = (row as { code?: unknown } | null)?.code;
+    if (typeof code !== 'string' || code.length === 0 || seen.has(code)) continue;
+    seen.add(code);
+    kept.push(code);
+  }
+  return kept;
+}
+
+describe('the distractor set is what makes a pool the published one', () => {
+  it('keeps every function that is not an answer, once, and nothing that is not code', () => {
+    const answers = ['def a(): pass'];
+    const collection: unknown[] = [
+      { code: 'def a(): pass' },
+      { code: 'def b(): pass' },
+      { code: 'def b(): pass' },
+      { code: '' },
+      { code: 42 },
+      { doc: 'this row has no code' },
+      null,
+      { code: 'def c(): pass' },
+    ];
+
+    // **Order is first-seen**, so the files written from it are the same files on every run and a diff of two artifacts
+    // is a diff of the measurement rather than of an iteration order.
+    expect(distractorFunctions(collection, answers)).toEqual(['def b(): pass', 'def c(): pass']);
+  });
+
+  it('adds nothing when the collection is the answers', () => {
+    expect(distractorFunctions([{ code: 'x' }, { code: 'y' }], ['x', 'y'])).toEqual([]);
+  });
+});
+
 function sha256(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
@@ -103,6 +166,30 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
       rows.forEach((row, index) => {
         writeFileSync(join(workdir, `code_${String(index).padStart(3, '0')}.py`), row.code, 'utf8');
       });
+
+      // **The distractors, when the pool is the published one.** Every unique function of the collection that is not one
+      // of the 500 answers goes into the index under a name the answer regex does not match, so a hit can never be
+      // mistaken for an answer and the ranks stay comparable with the `test-split` figure.
+      let distractors = 0;
+      if (POOL === 'all') {
+        const allPath = join(dir, 'cosqa-all.json');
+        const collection = JSON.parse(readFileSync(allPath, 'utf8')) as unknown[];
+        const extra = distractorFunctions(
+          collection,
+          rows.map((row) => row.code),
+        );
+        extra.forEach((code, at) => {
+          writeFileSync(
+            join(workdir, `distractor_${String(at).padStart(6, '0')}.py`),
+            code,
+            'utf8',
+          );
+        });
+        distractors = extra.length;
+        // **A pool that quietly stayed at 500 would produce a figure labelled `all`**, which is worse than not running:
+        // the collection file must actually add an order of magnitude, and this is the check that says so.
+        expect(distractors).toBeGreaterThan(5_000);
+      }
 
       try {
         const ctx = {
@@ -227,9 +314,20 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           comment: [
             'Retrieval on **CoSQA** (Huang et al.), the corpus the code-search literature reports on.',
             '',
-            '**The pool is the 500 functions of the test split, not the full training corpus**, so these numbers are not',
-            'directly comparable with published tables that retrieve from ~20 000 functions. The pool size is in this',
-            'artifact so a reader can see exactly what was measured.',
+            ...(POOL === 'all'
+              ? [
+                  "**The pool is the collection's whole unique function set**, which is the pool the published CoSQA",
+                  'tables retrieve from - so this figure may be put beside them, and `pool.distractors` says how much of',
+                  'it is material no question asks for. **The models in those tables are fine-tuned on CoSQA and this one',
+                  'is not**, which is the difference that makes an equal number a stronger result here rather than a',
+                  'weaker one.',
+                ]
+              : [
+                  '**The pool is the 500 functions of the test split, not the full collection**, so these numbers are not',
+                  'directly comparable with published tables that retrieve from the whole function set. The pool size is',
+                  'in this artifact so a reader can see exactly what was measured, and `COSQA_POOL=all` is the arm that',
+                  'closes the gap.',
+                ]),
             '',
             '**Docstrings are stripped from the index** for the same reason `paraphrase-search` strips them: the question',
             'is a paraphrase of documentation, and an index that keeps the documentation lets the retriever copy it.',
@@ -241,9 +339,23 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             name: 'CoSQA retrieval, test split',
             source: 'Jun-jie-Huang/CoCLR · data/search/cosqa-retrieval-test-500.json',
             sha256: sha256(testFile),
+            // **The distractors' own provenance**, because a pool assembled from two files is a pool whose size depends
+            // on both, and a figure that named one of them would be a figure that cannot be re-derived.
+            ...(POOL === 'all'
+              ? {
+                  distractorSource: 'Jun-jie-Huang/CoCLR · data/qa/cosqa-all.json',
+                  distractorSha256: sha256(join(dir, 'cosqa-all.json')),
+                }
+              : {}),
           },
           measuredAt: new Date().toISOString().slice(0, 10),
-          pool: { functions: rows.length, docstrings: 'stripped' },
+          pool: {
+            functions: rows.length + distractors,
+            answers: rows.length,
+            distractors,
+            source: POOL,
+            docstrings: 'stripped',
+          },
           space: {
             index: backend,
             query: queryEmbedder?.backend ?? 'none',
@@ -270,7 +382,7 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         // The summary line **is** the interface: the workflow greps it into the job summary.
         // eslint-disable-next-line no-console
         console.log(
-          `COSQA-RETRIEVAL queries=${rows.length} pool=${rows.length} space=${backend}/${queryEmbedder?.backend ?? 'none'} ` +
+          `COSQA-RETRIEVAL queries=${rows.length} pool=${rows.length + distractors} (${POOL}) space=${backend}/${queryEmbedder?.backend ?? 'none'} ` +
             `lexical=R@1 ${score(lexicalRanks).recallAt1}/R@10 ${score(lexicalRanks).recallAt10}/MRR ${score(lexicalRanks).mrrAt10} ` +
             `fused=R@1 ${score(fusedRanks).recallAt1}/R@10 ${score(fusedRanks).recallAt10}/MRR ${score(fusedRanks).mrrAt10} ` +
             (provider
