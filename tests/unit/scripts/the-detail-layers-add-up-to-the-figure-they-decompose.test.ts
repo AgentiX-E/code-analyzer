@@ -218,6 +218,28 @@ describe('a decomposition that does not add up', () => {
     // over different objects: this file sums published rows, and the run counted owned goldens.
     expect(failuresOf(artifact)).toContain('byCategory is a decomposition, not a sample');
   });
+
+  it('accepts an empty table when nothing reached the gated point, and refuses one when something did', () => {
+    // **The run of `43162733527` is the case.** The reading agent's three findings were all below the actionability
+    // gate, so the gated set was empty and its decomposition was empty - and this check failed a run whose artifact was
+    // correct, in the job whose output is the only reason the run was dispatched.
+    const empty = consistentArtifact();
+    empty.truePositives = 0;
+    empty.falsePositives = 0;
+    empty.falseNegatives = 282;
+    empty.byCategory = {
+      rows: [],
+      totals: { attributedTruePositives: 0, reportedTruePositives: 0, agrees: true },
+    };
+    expect(failuresOf(empty)).not.toContain('byCategory is a decomposition, not a sample');
+    expect(failuresOf(empty)).not.toContain('every byCategory row subtracts its own false positives');
+
+    // **And the check still bites**: a run that scored four true positives and published no rows is the quiet
+    // inconsistency this file exists for.
+    const scored = consistentArtifact();
+    scored.byCategory.rows = [];
+    expect(failuresOf(scored)).toContain('byCategory is a decomposition, not a sample');
+  });
 });
 
 describe('the ceiling has a denominator', () => {

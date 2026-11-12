@@ -62,13 +62,23 @@ export function auditArtifact(artifact) {
 
   // **3. The per-category decomposition adds up.** This is the one that would have caught the approximation the first
   // draft of the table used: counting findings that matched something counts a golden once per finding.
+  //
+  // **An empty table is right exactly when nothing was emitted at the gated operating point**, and the run of
+  // `43162733527` is why that case has to be spelled out: the reading agent's three findings were all below the
+  // actionability gate, so the gated set was empty, the decomposition of it was empty, and this check failed a run whose
+  // artifact was correct. **A gate that fails on a legitimate zero is a gate that gets switched off**, so the zero is
+  // admitted rather than the check removed - a run that scored true positives and published no rows still fails.
   const byCategory = artifact?.byCategory;
   const rows = Array.isArray(byCategory?.rows) ? byCategory.rows : [];
+  const nothingGated =
+    Number(artifact?.truePositives ?? -1) === 0 && Number(artifact?.falsePositives ?? -1) === 0;
   record(
     'byCategory is a decomposition, not a sample',
-    rows.length > 0 && byCategory?.totals?.agrees === true,
+    nothingGated || (rows.length > 0 && byCategory?.totals?.agrees === true),
     rows.length === 0
-      ? 'no byCategory rows'
+      ? nothingGated
+        ? 'nothing reached the gated operating point, so there is nothing to decompose'
+        : 'no byCategory rows'
       : `${String(byCategory?.totals?.attributedTruePositives)} attributed vs ${String(byCategory?.totals?.reportedTruePositives)} reported true positives`,
   );
 
@@ -82,13 +92,14 @@ export function auditArtifact(artifact) {
   const emitted = rows.reduce((sum, row) => sum + Number(row?.emitted ?? 0), 0);
   record(
     'every byCategory row subtracts its own false positives',
-    rows.length > 0 &&
-      Number.isFinite(emitted) &&
-      rows.every(
-        (row) =>
-          Number(row?.falsePositives ?? -1) ===
-          Number(row?.emitted ?? 0) - Number(row?.truePositives ?? 0),
-      ),
+    nothingGated ||
+      (rows.length > 0 &&
+        Number.isFinite(emitted) &&
+        rows.every(
+          (row) =>
+            Number(row?.falsePositives ?? -1) ===
+            Number(row?.emitted ?? 0) - Number(row?.truePositives ?? 0),
+        )),
     // **`falsePositives` is derived on every row**, so a row where it does not subtract is a row written by something
     // other than the writer of `emitted` and `truePositives` - and a table whose columns disagree is a table whose
     // precision column is a third opinion.
