@@ -21,6 +21,7 @@ import {
   dominantRejectionShape,
   mergeAttributions,
   nearestFindingDistance,
+  nearestOnPath,
   rejectionShapeOf,
 } from '../../../.github/scripts/lib/golden-attribution.mjs';
 
@@ -165,6 +166,7 @@ describe('a rejection is shaped by its distance', () => {
               note: '',
               matchedFindings: [],
               proximity: 0,
+              nearestFinding: null,
             },
           ],
           total: 3,
@@ -176,5 +178,94 @@ describe('a rejection is shaped by its distance', () => {
   it('names no shape when nothing was rejected', () => {
     expect(dominantRejectionShape({})).toBeNull();
     expect(REJECTION_SHAPES).toHaveLength(4);
+  });
+});
+
+describe('a rejection carries the finding it rejected, not only how far away it was', () => {
+  /** A ranked finding in the shape the bench script builds, so the gate verdict and the sentence are both read. */
+  const ranked = (startLine: number, actionable: boolean) => ({
+    path: 'src/renderer/blocks.ts',
+    finding: {
+      startLine,
+      endLine: startLine + 2,
+      title: 'the checkpoint path calls `block` positionally',
+      description: 'the forward pass is skipped under gradient checkpointing',
+    },
+    score: { actionable, why: actionable ? ['grounded'] : ['no change proposed'] },
+  });
+
+  it('returns the nearest finding with its coordinates, its gate verdict and its sentence', () => {
+    // **The arithmetic, before the assertion**: the middle finding spans 118-120 and so covers line 120, which is
+    // distance zero rather than the two lines between its start and the golden - the same rule
+    // `nearestFindingDistance` has always applied, now returning the entry it was measured to.
+    const near = nearestOnPath(120, [ranked(400, false), ranked(118, true), ranked(200, true)]);
+    expect(near?.at).toBe(1);
+    expect(near?.distance).toBe(0);
+    // **The gate's verdict travels with the evidence**, because it is the field that decides which repair the next
+    // iteration owes: a kept finding at distance zero is a wording defect, a dropped one is a gate calibration defect.
+    const scored = near?.finding as { score?: { actionable?: boolean } } | undefined;
+    expect(scored?.score?.actionable).toBe(true);
+  });
+
+  it('still returns a finding when the golden has no line, and says the distance is unknown', () => {
+    // **The one shape that would otherwise have nothing behind it.** `noLine` is a hole in the corpus rather than a
+    // targeting defect, and dropping the evidence because the distance could not be computed would leave the reader
+    // with a shape and no sentence.
+    const near = nearestOnPath(null, [ranked(10, false)]);
+    expect(near?.at).toBe(0);
+    expect(near?.distance).toBeNull();
+  });
+
+  it('breaks a tie towards the higher-ranked finding, which is the one a reviewer read first', () => {
+    // First finding spans 90-92 (eight lines above the golden), the second spans 110-112 (ten below), so the nearer
+    // one is at distance eight - and the tie rule is exercised below at equal distances.
+    expect(nearestOnPath(100, [ranked(90, true), ranked(110, false)])?.at).toBe(0);
+    const tie = nearestOnPath(100, [ranked(85, true), ranked(117, false)]);
+    expect(tie?.at).toBe(0);
+    expect(tie?.distance).toBe(13);
+  });
+
+  it('publishes the finding in the record, and only for a rejection', () => {
+    const attribution = attributeGoldens({
+      goldens: [
+        // Four lines below the finding's end, so the row is a rejection that is *near* rather than on the line.
+        {
+          path: 'src/renderer/blocks.ts',
+          note: 'the golden the lane commented near',
+          startLine: 124,
+        },
+        { path: 'src/other.ts', note: 'a file the lane never read', startLine: 4 },
+      ],
+      reviewedPaths: ['src/renderer/blocks.ts'],
+      findings: [ranked(118, true)],
+      matches: [],
+    });
+    const [rejection, hole] = attribution.perGolden;
+    expect(rejection?.bucket).toBe('findingOnPathRejected');
+    expect(rejection?.proximity).toBe(4);
+    expect(rejection?.nearestFinding).toEqual({
+      at: 0,
+      startLine: 118,
+      endLine: 120,
+      actionable: true,
+      why: ['grounded'],
+      text: 'the checkpoint path calls `block` positionally :: the forward pass is skipped under gradient checkpointing',
+    });
+    // **Null on everything that is not a rejection**, so a zero cannot be read as a finding that happened to be there.
+    expect(hole?.nearestFinding).toBeNull();
+  });
+
+  it('carries the evidence through the merge, because the artifact is where it has to be read', () => {
+    const attribution = attributeGoldens({
+      goldens: [{ path: 'src/renderer/blocks.ts', note: 'rejected', startLine: 119 }],
+      reviewedPaths: ['src/renderer/blocks.ts'],
+      findings: [ranked(120, false)],
+      matches: [],
+    });
+    const merged = mergeAttributions([{ pr: 'pr/1', ...attribution }]);
+    expect(merged.records).toHaveLength(1);
+    expect(merged.records[0]?.nearestFinding).toMatchObject({ at: 0, actionable: false });
+    // **And the gate's reason, which is what a calibration defect is diagnosed from** - the words, not only the flag.
+    expect(merged.records[0]?.nearestFinding?.why).toEqual(['no change proposed']);
   });
 });

@@ -68,10 +68,30 @@ export function rejectionShapeOf(distance) {
  * lines below a golden and runs to sixty is forty away and not twenty.
  */
 export function nearestFindingDistance(goldenLine, findings) {
+  return nearestOnPath(goldenLine, findings)?.distance ?? null;
+}
+
+/**
+ * **The finding itself, not only how far away it is, because a distance is a measurement and a rejection is a claim.**
+ *
+ * `proximity` made `findingOnPathRejected` readable in 2026-11-12: of the 164 goldens in that bucket, 100 sit on the
+ * *same line* as a finding we emitted, so the loss is wording rather than targeting. **And the artifact could not let
+ * anyone check that**, because the row carried the distance and not the sentence - which is the same omission as the
+ * discarded `path` two iterations earlier and the discarded `note` one iteration before this one, one level down each
+ * time. **A bucket that names its distance and not its finding is a bucket whose diagnosis has to be bought again.**
+ *
+ * The entry is returned whole rather than copied, because what a caller needs from it (whether the actionability gate
+ * kept it, why it was scored as it was, what it said) is the caller's business: **this module knows about geometry, and
+ * turning a ranked finding into a paragraph is the bench script's job.**
+ *
+ * `distance` is `null` when the golden has no line, and **the nearest finding is still returned** - a rejection with no
+ * coordinate is still a rejection with a sentence, and dropping the evidence because the distance could not be computed
+ * would leave `noLine` as the one shape with nothing behind it.
+ */
+export function nearestOnPath(goldenLine, findings) {
   const line = toLine(goldenLine);
-  if (line === null) return null;
   let best = null;
-  for (const finding of findings ?? []) {
+  for (const [at, finding] of Array.from(findings ?? []).entries()) {
     // **The range, wherever the caller keeps it.** The bench script ranks `{ path, finding: { startLine }, score }`
     // while a test writes `{ path, startLine }`, and **a reading that only understands one of them reports `noLine` for
     // every rejection in the corpus** - empty, plausible, and wrong. This is the shape of defect the dry run caught
@@ -83,8 +103,16 @@ export function nearestFindingDistance(goldenLine, findings) {
     if (low === null) continue;
     const high = end ?? low;
     const distance =
-      line >= low && line <= high ? 0 : Math.min(Math.abs(line - low), Math.abs(line - high));
-    if (best === null || distance < best) best = distance;
+      line === null
+        ? null
+        : line >= low && line <= high
+          ? 0
+          : Math.min(Math.abs(line - low), Math.abs(line - high));
+    // **Strictly nearer, so the first finding wins a tie** - the list is ranked, and on two findings the same distance
+    // from a golden the higher-ranked one is the one the reviewer would have read first.
+    const nearer =
+      best === null || (distance !== null && (best.distance === null || distance < best.distance));
+    if (nearer) best = { at, distance, startLine: start, endLine: end, finding };
   }
   return best;
 }
@@ -153,6 +181,12 @@ export function attributeGoldens({ goldens, reviewedPaths, findings, matches }) 
     else if (onPath.length === 0) bucket = 'noFindingOnPath';
     else bucket = 'findingOnPathRejected';
     counts[bucket] += 1;
+    // **The rejection's own evidence, computed once for the two fields that describe it.** `proximity` says how far
+    // away the nearest finding on this path is; `nearestFinding` says which one it is and whether the gate kept it.
+    // **Two readings of one row, like the shape table and the bucket table**, so they cannot disagree about which
+    // finding the rejection was measured against.
+    const near =
+      bucket === 'findingOnPathRejected' ? nearestOnPath(golden?.startLine, onPath) : null;
     perGolden.push({
       index,
       bucket,
@@ -167,10 +201,29 @@ export function attributeGoldens({ goldens, reviewedPaths, findings, matches }) 
       matchedFindings: hitBy.get(index) ?? [],
       // **Only meaningful for a rejection**, and left `null` everywhere else so that a reader cannot mistake a `hit`'s
       // zero for a coincidence that did not happen.
-      proximity:
-        bucket === 'findingOnPathRejected'
-          ? nearestFindingDistance(golden?.startLine, onPath)
-          : null,
+      proximity: near === null ? null : near.distance,
+      // **And the finding that distance was measured to**, because the next device is chosen by reading these: a
+      // rejection at distance zero that the gate kept is a wording defect, one the gate dropped is a gate calibration
+      // defect, and one fifty lines away is a targeting defect. **Three different fixes behind one bucket name**, and
+      // until now the artifact could only report which bucket the row was in.
+      nearestFinding:
+        near === null
+          ? null
+          : {
+              at: near.at,
+              startLine: near.startLine,
+              endLine: near.endLine,
+              // **The one field that separates the two repairs**, carried as the gate decided it rather than recomputed.
+              actionable: Boolean(
+                near.finding?.score?.actionable ?? near.finding?.actionable ?? false,
+              ),
+              why: Array.from(near.finding?.score?.why ?? [])
+                .slice(0, 4)
+                .map(String),
+              text: `${String(near.finding?.finding?.title ?? '')} :: ${String(
+                near.finding?.finding?.description ?? '',
+              )}`.slice(0, 300),
+            },
     });
   }
 
@@ -233,6 +286,11 @@ export function mergeAttributions(
         // instead of only that it was rejected - a bucket named without its evidence is the same defect as a
         // `findingOnPathRejected` with no shape.
         matchedFindings: golden.matchedFindings ?? [],
+        // **And the finding the rejection is about**, because a `matchedFindings` list is empty for exactly the bucket
+        // that needs evidence most: nothing was accepted, so the only informative row is the one we emitted and the
+        // judge did not accept. Carried through here rather than only in the in-memory table, because the artifact is
+        // the only place this can be read without paying for another run.
+        nearestFinding: golden.nearestFinding ?? null,
       });
       if (!examples[bucket] || examples[bucket].length >= examplesPerBucket) continue;
       examples[bucket].push({

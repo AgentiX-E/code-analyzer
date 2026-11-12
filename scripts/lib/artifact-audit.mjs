@@ -150,6 +150,56 @@ export function auditArtifact(artifact) {
       : `${String(text.withText)} of ${String(text.rows)} competitor rows carry text (mode ${String(text.mode)})`,
   );
 
+  // **7. Every rejection names the finding it rejected, because a bucket without its evidence is a bucket whose
+  // diagnosis has to be bought again.** `findingOnPathRejected` is the largest bucket in the ceiling and, until this
+  // iteration, the only thing an artifact said about it was how far away the nearest finding was: 100 of the 164 sit on
+  // the golden's own line, and *which* finding that was, and whether the actionability gate kept it, could not be read.
+  const rejections = Array.isArray(records)
+    ? records.filter((row) => row?.bucket === 'findingOnPathRejected')
+    : [];
+  const named = rejections.filter(
+    (row) => row?.nearestFinding !== null && typeof row?.nearestFinding === 'object',
+  );
+  record(
+    'every rejected golden names the finding it rejected',
+    rejections.length === 0 || named.length === rejections.length,
+    `${String(named.length)} of ${String(rejections.length)} rejections carry the finding they were measured against`,
+  );
+  record(
+    'the rejections with a finding on their line are counted',
+    rejections.length === 0 ||
+      named.every((row) => Number.isInteger(Number(row?.nearestFinding?.at ?? Number.NaN))),
+    `${String(named.filter((row) => Number(row?.proximity) === 0).length)} of ${String(rejections.length)} rejections sit on a finding's own line`,
+  );
+
+  // **8. Every attempt at the competitor arm is accounted for as recorded, replayed, failed or missing.** The run of
+  // 2026-11-11 reported `prsAttempted: 36`, `prsFailed: 4`, `recorded: 32` and **named one failure**: three attempts
+  // existed as a number, contributed no goldens to the competitor's denominator, and could not be looked up. **A count
+  // that does not partition into the rows beside it is the same defect as a figure that does not follow from its
+  // rows**, one level up - and it cost this repository 0.0130 of F1 the first time it happened.
+  const theirs = artifact?.secondReviewer ?? {};
+  const attempted = Number(theirs.prsAttempted ?? 0);
+  const accounted =
+    Number(theirs.recorded ?? 0) +
+    Number(theirs.replayed ?? 0) +
+    (Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests.length : 0) +
+    (Array.isArray(theirs.missing) ? theirs.missing.length : 0);
+  record(
+    'every attempted competitor run is either recorded, replayed, failed or missing',
+    attempted === 0 || accounted === attempted,
+    attempted === 0
+      ? 'no competitor attempt in this artifact'
+      : `${String(accounted)} accounted for of ${String(attempted)} attempted (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests.length : 0)} failed, ${String(Array.isArray(theirs.missing) ? theirs.missing.length : 0)} missing)`,
+  );
+
+  // **9. And every failure that was counted is a failure that can be read.** `prsFailed` and the length of the failure
+  // list are two writers of one fact, which is exactly the drift this module exists to catch.
+  record(
+    'the failures that were counted are the failures that were named',
+    attempted === 0 || Number(theirs.prsFailed ?? 0) === (theirs.failedPullRequests ?? []).length,
+    `${String(theirs.prsFailed ?? 0)} counted, ${String((theirs.failedPullRequests ?? []).length)} named`,
+  );
+
   return { ok: findings.every((finding) => finding.ok), findings };
 }
 

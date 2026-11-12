@@ -1580,7 +1580,6 @@ async function main() {
       );
       competitor.prsAttempted += 1;
       if (!outcome.ok) {
-        competitor.prsFailed += 1;
         // **A failure with an empty reason is a failure this file has already seen.**
         //
         // **The first version recorded the reason only when it was the first failure AND the field was `null`**, and
@@ -1621,6 +1620,42 @@ async function main() {
           competitor.firstFailure === '(the tool reported a failure with no message)'
         ) {
           competitor.firstFailure = reason;
+        }
+        // **And the attempt gets a row, because a count without a name is a hole the next reader has to guess at.**
+        //
+        // **The run of 2026-11-11 reported `prsFailed: 4` and named one of them.** The parse-failure branch below
+        // pushes a row for every pull request it loses, with the reason and the golden count, and **this branch - the
+        // other way an attempt can fail - pushed nothing at all**: four failures, one name, and the three that were
+        // only counted contributed **no goldens to the competitor's denominator while contributing nothing to its
+        // numerator either**. That is the same asymmetry the comment below says was worth 0.0130 of F1 in the
+        // competitor's favour, surviving in a second code path for six iterations after the first one was fixed -
+        // **because the fix was applied where the symptom was read rather than where the accounting is done.**
+        //
+        // **A failure that ran is an observation, so it is scored as a zero**; a failure that could not run is an
+        // environment fact and is filed as `missing` instead, because the two have different repairs and only one of
+        // them is about the competitor. The credit case is the one this repository has already paid for: the tool was
+        // installed, the range resolved, and the provider refused the call, which says nothing about the reviewer.
+        if (creditFailure) {
+          // **Filed as a hole in the pairing rather than as a failure of the reviewer**, and therefore not counted in
+          // `prsFailed` either: the two lists are one fact written twice, and a run whose provider refused the call did
+          // not observe the competitor at all.
+          competitor.missing.push({ key: competitorKey, reason });
+        } else {
+          competitor.prsFailed += 1;
+          competitorPerPr.push({
+            key: competitorKey,
+            matches: [],
+            goldens: issueTexts.length,
+            keep: [],
+          });
+          competitor.failedPullRequests.push({
+            key: competitorKey,
+            goldens: issueTexts.length,
+            reason: reason.slice(0, 200),
+            // **Which of the two ways it failed**, so that a later run can tell a crash from a refusal without parsing
+            // prose out of a reason string.
+            stage: 'run',
+          });
         }
       } else {
         try {
@@ -1870,6 +1905,9 @@ async function main() {
             key: competitorKey,
             goldens: issueTexts.length,
             reason: String(error.message ?? '').slice(0, 200),
+            // **The stage, so the two lists read the same way**: this one ran and could not be understood, the other
+            // one ran and produced nothing - and both are observations that belong in the denominator.
+            stage: 'parse',
           });
         }
       }

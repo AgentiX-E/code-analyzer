@@ -1,20 +1,18 @@
-// **The competitor result was already paid for, and the run that paid published the verdicts rather than a summary.**
+// **The competitor result was already paid for twice, and both runs published verdicts rather than summaries.**
 //
-// The run of 2026-11-09 cost 8.53 USD, of which 5.89 USD was the competitor arm. That arm's output is a property of the
-// corpus - fourteen pull requests whose goldens have not changed - so the module that replays it was written, and the
-// file it reads was left unwritten: **an iteration later the run would have reported every pull request as `missing`
-// and bought all fourteen again**, which is the whole defect the module exists to prevent.
+// The run of 2026-11-09 cost 8.53 USD, of which 5.89 USD was the competitor arm, and its artifact carried one row per
+// competitor finding with the goldens the judge accepted for it - so those rows were transcribed. The run of 2026-11-11
+// drove the same tool again over thirty-two other pull requests in the same corpus and *recorded* what it said. **The
+// file this test guards is the second of those, and it is the one that was never committed**: an iteration later the job
+// would have reported all thirty-six pull requests as `missing` and bought every one of them again, which is the defect
+// the replay mechanism exists to prevent.
 //
-// **The repair is a transcription, and a transcription is only honest if it can be checked.** The artifact carries one
-// row per competitor finding with the goldens the judge accepted for it, so the record is rebuilt from those rows and
-// then **replayed through the same scoring functions the job uses**, asserting the two figures the artifact published:
-// **50 true positives and 102 false positives**. A row lost in transcription, an index shifted by one, or a `keep` flag
-// turned into a string would move one of those numbers.
-//
-// **And the one pull request the competitor failed on is recorded as a zero rather than omitted**, because that is what
-// happened: it ran, it spent the money, and it produced nothing. Omitting it is what the scoring did on 2026-11-09, and
-// that omission was worth 0.0130 of F1 in the competitor's favour - recall read as 0.3185 against a denominator of 157
-// where both reviewers had been given 170.
+// **A record that mixes two origins and states one is a record that lies about half of itself.** So the file states
+// both, names the four pull requests it does not cover, and carries the rule that tells its rows apart: a row with a
+// `fingerprint` was recorded live, a row without one was transcribed. **This test holds that rule, the geometry of every
+// row, and the arithmetic**: replaying the thirty-two recorded rows through the same scoring functions the job uses
+// reproduces **113 true positives and 168 false positives** - the figures that run published - and replaying the
+// fourteen transcribed rows reproduces the 170 goldens both reviewers were scored against on 2026-11-09.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,7 +24,6 @@ import {
   point,
 } from '../../../packages/intelligence/src/review/actionability.js';
 import {
-  corpusFingerprint,
   pullFingerprint,
   replayedPull,
   resolveCompetitor,
@@ -34,56 +31,56 @@ import {
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 
-/**
- * **A pull request as the resolver sees it**, built from the record's own golden count.
- *
- * The goldens' content is not in the file - the run this was transcribed from published the count - so the fingerprint
- * below is the one a row *would* have if its goldens were the ones the current corpus holds for it. **That is deliberate
- * and it is why `verified` exists**: the replay of these fourteen rows is checked by count, `pullFingerprint` cannot
- * check them, and the artifact says so.
- */
-const factsOf = (key: string, goldens: number) => ({
-  key,
-  goldens,
-  fingerprint: pullFingerprint({ githubPrUrl: key, comments: [] }),
-});
-const baseline = JSON.parse(
-  readFileSync(join(ROOT, 'benchmarks/aacr/competitor-baseline.json'), 'utf8'),
-) as {
+type RecordedPull = {
+  matches: number[][];
+  goldens: number;
+  keep: boolean[];
+  detail: Array<Record<string, unknown>>;
+  unanswered: number;
+  findings: number;
+  failed?: boolean;
+  fingerprint?: string;
+};
+
+type Baseline = {
   version: number;
   recordedAt: string;
   corpus: { fingerprint: string; judge: { model: string; prompt: string } };
   competitor: { tool: string };
-  provenance: { measuredAt: string; failedPullRequests: string[]; transcribedFrom: string };
-  pulls: Record<
-    string,
-    {
-      matches: number[][];
-      goldens: number;
-      keep: boolean[];
-      detail: Array<Record<string, unknown>>;
-      unanswered: number;
-      findings: number;
-      failed?: boolean;
-      fingerprint?: string;
-    }
-  >;
-};
-const artifact = JSON.parse(readFileSync(join(ROOT, 'benchmarks/aacr-bench.json'), 'utf8')) as {
-  measuredAt: string;
-  prsInDataset: number;
-  coverage: { byPullRequest: Array<{ pr: string; goldens: number }> };
-  // **How much of the corpus the competitor's arm could answer for**, which is the field that turns "we did not beat
-  // them" into "the two numbers are not the same measurement".
-  mcnemar: { verdict: string; coverage: { covered: number; requested: number } };
-  secondReviewer: {
-    truePositives: number;
-    falsePositives: number;
-    precision: number;
-    recall: number;
-    f1: number;
+  provenance: {
+    measuredAt: string;
+    origins: Array<{ how: string; pulls: number; run: string; checkedBy: string }>;
+    originRule: string;
+    knownAbsences: { pulls: string[]; reason: string };
   };
+  pulls: Record<string, RecordedPull>;
 };
+
+const baseline = JSON.parse(
+  readFileSync(join(ROOT, 'benchmarks/aacr/competitor-baseline.json'), 'utf8'),
+) as Baseline;
+
+const keys = Object.keys(baseline.pulls);
+const recorded = keys.filter((key) => typeof baseline.pulls[key]?.fingerprint === 'string');
+const transcribed = keys.filter((key) => typeof baseline.pulls[key]?.fingerprint !== 'string');
+
+/**
+ * **A pull request as the resolver sees it, built from the record's own golden count.**
+ *
+ * The goldens' content is not in the file - the artifacts published their coordinates, not their lines - so this is the
+ * facts a row *would* have if its goldens were the ones the corpus holds today. **That is why `verified` exists**: a
+ * transcribed row is checked by its count and says so, and a recorded row is checked by its fingerprint and refuses a
+ * corpus it did not see. The tests below hold both halves of that distinction rather than pretending to the stronger
+ * check on rows that cannot support it.
+ */
+const factsOf = (key: string, goldens: number) => ({
+  key,
+  goldens,
+  // **The fingerprint this row would have if its goldens had no coordinates at all**, which is a value no recorded row
+  // in the file carries - so a test that wants a replay of a recorded row has to say so explicitly rather than getting
+  // one by accident.
+  fingerprint: pullFingerprint({ githubPrUrl: key, comments: [] }),
+});
 
 /** The counts the job would compute from a set of replayed pulls, using the job's own arithmetic. */
 function countsOf(pulls: Record<string, { matches: number[][]; goldens: number }>) {
@@ -99,106 +96,192 @@ function countsOf(pulls: Record<string, { matches: number[][]; goldens: number }
   return { tp, fp, fn, ...point(tp + fp, tp, fp, fn) };
 }
 
-describe('the recorded competitor result replays to the figures that were published', () => {
-  it('reproduces the artifact true and false positive counts exactly', () => {
-    const replayed = Object.fromEntries(
-      Object.entries(baseline.pulls).map(([key, pull]) => [key, replayedPull(key, pull)]),
-    );
-    const counts = countsOf(replayed);
-    // **The two numbers the artifact published for that run.** They are not recomputed from a summary anywhere: they
-    // fall out of the per-pair verdicts, which is why reproducing them is evidence that no row was lost.
-    expect(counts.tp).toBe(artifact.secondReviewer.truePositives);
-    expect(counts.fp).toBe(artifact.secondReviewer.falsePositives);
+const replayed = (subset: string[]) =>
+  Object.fromEntries(subset.map((key) => [key, replayedPull(key, baseline.pulls[key]!)]));
+
+describe('the recorded competitor result replays to the figures the recording run published', () => {
+  it('reproduces that run’s true and false positive counts exactly, from the rows', () => {
+    const counts = countsOf(replayed(recorded));
+    // **The two numbers the run of 2026-11-11 published for its competitor arm**, which are not recomputed from a
+    // summary anywhere: they fall out of the per-pair verdicts, which is why reproducing them is evidence that no row
+    // was lost on the way into the file. Its precision is the same division the artifact printed: 113 / 281.
+    expect(counts.tp).toBe(113);
+    expect(counts.fp).toBe(168);
+    expect(counts.precision).toBeCloseTo(0.4021, 4);
+    expect(counts.tp + counts.fp).toBe(281);
+    // **And the denominator is the 258 goldens of those thirty-two pull requests**, not the 281 findings the tool
+    // emitted - the same distinction the artifact draws one level up.
+    expect(counts.tp + counts.fn).toBe(258);
+  });
+
+  it('reproduces the 170 goldens both reviewers were scored against on 2026-11-09', () => {
+    const counts = countsOf(replayed(transcribed));
+    // **The transcribed half is scored against its own denominator**, because the corpus rows it covers are not the
+    // ones the recording run selected - and a file that added the two halves together would report a recall that was
+    // never measured on either.
+    expect(counts.tp + counts.fn).toBe(170);
     expect(counts.tp).toBe(50);
     expect(counts.fp).toBe(102);
   });
 
-  it('counts the pull request the competitor failed on as missed, which the run of 2026-11-09 did not', () => {
-    const failed = baseline.provenance.failedPullRequests;
+  it('counts the pull request the competitor failed on as a missed one, with its goldens', () => {
+    const failed = keys.filter((key) => baseline.pulls[key]?.failed === true);
     expect(failed).toHaveLength(1);
     const zero = baseline.pulls[failed[0]!]!;
-    expect(zero.failed).toBe(true);
     expect(zero.matches).toEqual([]);
     expect(zero.keep).toEqual([]);
-    // **And its goldens are in the record**, which is the whole point: 13 goldens that are neither found nor dropped.
-    expect(zero.goldens).toBeGreaterThan(0);
+    // **And its goldens are in the record**, which is the whole point: thirteen goldens that are neither found nor
+    // dropped. Omitting the row is what the scoring did on 2026-11-09, and that omission was worth 0.0130 of F1 in the
+    // competitor's favour.
+    expect(zero.goldens).toBe(13);
+  });
+});
 
-    const counts = countsOf(
-      Object.fromEntries(
-        Object.entries(baseline.pulls).map(([key, pull]) => [key, replayedPull(key, pull)]),
-      ),
-    );
-    // The denominator is the corpus's 170 goldens, not 157 - the same denominator our own arm is scored against.
-    expect(counts.tp + counts.fn).toBe(170);
-    // And the honest recall and F1 of that run, which are lower than the 2026-11-09 artifact's because that reading
-    // excluded the crash rather than counting it. **Both are true of the same run; only one of them is comparable to
-    // ours** - and since iteration 119 the artifact carries the comparable one, which is what this asserts.
-    expect(counts.recall).toBeCloseTo(0.2941, 4);
-    expect(counts.f1).toBeCloseTo(0.3106, 4);
-    expect(artifact.secondReviewer.f1).toBeCloseTo(counts.f1, 4);
+describe('the record states its own two origins rather than the flattering one', () => {
+  it('splits forty-six rows into thirty-two recorded and fourteen transcribed, and says how to tell them apart', () => {
+    expect(keys).toHaveLength(46);
+    expect(recorded).toHaveLength(32);
+    expect(transcribed).toHaveLength(14);
+    // **The rule is stated in the file and is the same rule the resolver applies**, so a reader holding one row can
+    // decide which check a figure rests on without running anything.
+    expect(baseline.provenance.originRule).toContain('fingerprint');
+    const origins = baseline.provenance.origins;
+    expect(origins).toHaveLength(2);
+    expect(origins.map((origin) => origin.how).sort()).toEqual(['recorded', 'transcribed']);
+    expect(origins.find((origin) => origin.how === 'recorded')?.pulls).toBe(recorded.length);
+    expect(origins.find((origin) => origin.how === 'transcribed')?.pulls).toBe(transcribed.length);
+    // **Both runs are dated**, because a figure whose date is one of two is a figure whose date is unknown.
+    expect(baseline.provenance.measuredAt).toContain('2026-11-09');
+    expect(baseline.provenance.measuredAt).toContain('2026-11-11');
+    // **And each origin names what checked it**, because "recorded" and "transcribed" are claims about provenance, not
+    // about correctness.
+    for (const origin of origins) expect(origin.checkedBy.length).toBeGreaterThan(20);
   });
 
-  it('carries the fingerprint of the corpus it covers, computed from the artifact rows for those pull requests', () => {
-    // **The artifact grew to fifty pull requests and the record still covers fourteen**, so the fingerprint has to be
-    // taken over the rows the record actually holds. **Comparing it against the whole corpus is the assertion that was
-    // here before this iteration, and it would now pass only if the record had grown with the corpus** - which would be
-    // the record claiming coverage it does not have.
-    const covered = artifact.coverage.byPullRequest.filter((row) => row.pr in baseline.pulls);
-    expect(covered).toHaveLength(Object.keys(baseline.pulls).length);
-    const expected = corpusFingerprint(
-      covered.map((row) => ({
-        githubPrUrl: row.pr,
-        comments: Array.from({ length: row.goldens }, () => ({ note: 'x' })),
-      })),
-    );
-    expect(baseline.corpus.fingerprint).toBe(expected);
+  it('names the four pull requests it does not cover, so the holes are a list rather than a silence', () => {
+    const absences = baseline.provenance.knownAbsences.pulls;
+    expect(absences).toHaveLength(4);
+    for (const key of absences) expect(baseline.pulls[key]).toBeUndefined();
+    // **A hole in the pairing, not a zero**: the competitor produced nothing usable, which is the distinction the
+    // scoring draws between `missing` and a failed row scored as nothing found.
+    expect(baseline.provenance.knownAbsences.reason).toContain('holes');
+    // **And they are real pull requests in the corpus, not placeholders**: the four are named, in full, as the corpus
+    // names them.
+    for (const key of absences)
+      expect(key).toMatch(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/);
   });
 
-  it('names the run it was transcribed from, so a reader can check it rather than believe it', () => {
-    expect(baseline.provenance.transcribedFrom).toBe('benchmarks/aacr-bench.json');
-    // **The date is the record's own, not the artifact's any more**: the artifact was re-measured at fifty pull requests
-    // and the competitor's arm was not re-bought, so the two files describe different runs on purpose - and **the
-    // artifact has to say so rather than leaving a reader to notice**.
-    expect(baseline.provenance.measuredAt).toBe('2026-11-09');
-    expect(artifact.measuredAt).not.toBe(baseline.provenance.measuredAt);
-    expect(artifact.mcnemar.verdict).toBe('withheld');
-    expect(artifact.mcnemar.coverage).toMatchObject({
-      covered: Object.keys(baseline.pulls).length,
-      requested: artifact.prsInDataset,
+  it('refuses to replay an absent pull request, and buys only that one in record mode', () => {
+    for (const key of baseline.provenance.knownAbsences.pulls) {
+      const replayed = resolveCompetitor({
+        mode: 'replay',
+        baseline,
+        judgeModel: baseline.corpus.judge.model,
+        pull: factsOf(key, 3),
+      });
+      expect(replayed.kind).toBe('missing');
+      // **`record` for the absent rows and for nothing else**, which is what makes growing the corpus cost four pull
+      // requests rather than thirty-six.
+      const recording = resolveCompetitor({
+        mode: 'record',
+        baseline,
+        judgeModel: baseline.corpus.judge.model,
+        pull: factsOf(key, 3),
+      });
+      expect(recording.kind).toBe('record');
+    }
+  });
+});
+
+describe('a row is checked against its own pull request rather than against the file it sits in', () => {
+  it('carries a fingerprint on every recorded row and none on any transcribed one', () => {
+    for (const key of recorded)
+      expect(baseline.pulls[key]!.fingerprint).toMatch(/^sha256:[0-9a-f]{32}$/);
+    for (const key of transcribed) expect(baseline.pulls[key]!.fingerprint).toBeUndefined();
+  });
+
+  it('refuses a recorded row whose goldens have moved since it was recorded', () => {
+    const key = recorded[0]!;
+    const row = baseline.pulls[key]!;
+    const decision = resolveCompetitor({
+      mode: 'replay',
+      baseline,
+      judgeModel: baseline.corpus.judge.model,
+      pull: factsOf(key, row.goldens - 1),
     });
-    expect(baseline.corpus.judge.prompt).toBe('aacr-judge-v1');
-    expect(Object.keys(baseline.pulls)).toHaveLength(14);
+    expect(decision.kind).toBe('missing');
+    // **And the reason names the count it read and the count it recorded**, because "missing" without a reason sends
+    // the next reader to the wrong file.
+    if (decision.kind !== 'missing') throw new Error('expected a missing decision');
+    expect(String(decision.reason ?? '')).toContain(String(row.goldens));
   });
 
-  it('answers `replay` for every pull request in the corpus, which is the mode that spends nothing', () => {
-    for (const key of Object.keys(baseline.pulls)) {
-      const goldens = baseline.pulls[key]!.goldens;
+  it('refuses a recorded row whose fingerprint is not the one this corpus produces', () => {
+    const key = recorded[0]!;
+    const decision = resolveCompetitor({
+      mode: 'replay',
+      baseline,
+      judgeModel: baseline.corpus.judge.model,
+      pull: factsOf(key, baseline.pulls[key]!.goldens),
+    });
+    // **The synthetic fingerprint above is the one a corpus with no coordinates produces**, so it is not this row's -
+    // and a row recorded against lines cannot be replayed against a corpus that has none.
+    expect(decision.kind).toBe('missing');
+  });
+
+  it('replays a transcribed row by count, and says which of the two checks it used', () => {
+    for (const key of transcribed) {
       const decision = resolveCompetitor({
         mode: 'replay',
         baseline,
         judgeModel: baseline.corpus.judge.model,
-        pull: factsOf(key, goldens),
+        pull: factsOf(key, baseline.pulls[key]!.goldens),
       });
-      expect(decision.kind).toBe('replay');
-      // **And by count rather than by fingerprint**, because the run these rows were transcribed from published the
-      // number of goldens and not their lines. **A reader who is told "replayed" without being told how it was checked
-      // is being told half a fact**, so the weaker check is named rather than hidden behind the stronger word.
-      if (decision.kind !== 'replay') throw new Error('expected a replay');
+      if (decision.kind !== 'replay') throw new Error(`expected a replay for ${key}`);
+      // **The weaker check is named rather than hidden behind the stronger word**, because a reader who is told
+      // "replayed" without being told how it was checked is being told half a fact.
       expect(decision.verified).toBe('count');
     }
   });
 
   it('refuses a record made against another judge rather than comparing across two of them', () => {
-    const first = Object.keys(baseline.pulls)[0]!;
+    const key = transcribed[0]!;
     const decision = resolveCompetitor({
       mode: 'replay',
       baseline,
       judgeModel: 'some-other-model',
-      pull: factsOf(first, baseline.pulls[first]!.goldens),
+      pull: factsOf(key, baseline.pulls[key]!.goldens),
     });
     expect(decision.kind).toBe('missing');
-    // **And the reason names the judge**, because "missing" without a reason sends the next reader to the wrong file.
     if (decision.kind !== 'missing') throw new Error('expected a missing decision');
     expect(String(decision.reason ?? '')).toContain('judge');
+  });
+});
+
+describe('every row is geometrically valid, because a shifted index is a wrong score', () => {
+  it('keeps one gate verdict per finding and every golden index inside the golden set', () => {
+    for (const key of keys) {
+      const row = baseline.pulls[key]!;
+      expect(row.keep, `${key} keep`).toHaveLength(row.matches.length);
+      for (const goldens of row.matches) {
+        for (const index of goldens) {
+          expect(Number.isInteger(index), `${key} index ${index}`).toBe(true);
+          expect(index, `${key} index ${index}`).toBeGreaterThanOrEqual(0);
+          expect(index, `${key} index ${index}`).toBeLessThan(row.goldens);
+        }
+      }
+      // **A finding the ranker cannot place has no detail row and is still a finding the tool emitted**, so the count
+      // is at least the number of rows and not equal to it.
+      expect(row.findings, `${key} findings`).toBeGreaterThanOrEqual(row.detail.length);
+      expect(row.unanswered, `${key} unanswered`).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('carries the corpus identity the rows were produced against, with the judge as a version', () => {
+    expect(baseline.version).toBe(1);
+    expect(baseline.corpus.fingerprint).toMatch(/^sha256:[0-9a-f]{32}$/);
+    expect(baseline.corpus.judge).toEqual({ model: 'deepseek-chat', prompt: 'aacr-judge-v1' });
+    expect(baseline.competitor.tool).toBe('open-code-review');
+    expect(baseline.recordedAt).toBe('2026-11-11T08:39:03.641Z');
   });
 });

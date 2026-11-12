@@ -43,10 +43,42 @@ function consistentArtifact() {
         findingOnPathRejected: 1,
       },
       records: [
-        { pr: 'p', goldenIndex: 0, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
-        { pr: 'p', goldenIndex: 1, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
-        { pr: 'p', goldenIndex: 2, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
-        { pr: 'p', goldenIndex: 3, bucket: 'hit', path: 'a.ts', note: '', proximity: null },
+        {
+          pr: 'p',
+          goldenIndex: 0,
+          bucket: 'hit',
+          path: 'a.ts',
+          note: '',
+          proximity: null,
+          nearestFinding: null,
+        },
+        {
+          pr: 'p',
+          goldenIndex: 1,
+          bucket: 'hit',
+          path: 'a.ts',
+          note: '',
+          proximity: null,
+          nearestFinding: null,
+        },
+        {
+          pr: 'p',
+          goldenIndex: 2,
+          bucket: 'hit',
+          path: 'a.ts',
+          note: '',
+          proximity: null,
+          nearestFinding: null,
+        },
+        {
+          pr: 'p',
+          goldenIndex: 3,
+          bucket: 'hit',
+          path: 'a.ts',
+          note: '',
+          proximity: null,
+          nearestFinding: null,
+        },
         {
           pr: 'p',
           goldenIndex: 4,
@@ -54,6 +86,7 @@ function consistentArtifact() {
           path: 'b.ts',
           note: '',
           proximity: null,
+          nearestFinding: null,
         },
         {
           pr: 'p',
@@ -62,6 +95,14 @@ function consistentArtifact() {
           path: 'c.ts',
           note: '',
           proximity: 3,
+          nearestFinding: {
+            at: 0,
+            startLine: 8,
+            endLine: 9,
+            actionable: true,
+            why: ['grounded'],
+            text: 'what we said :: instead',
+          },
         },
       ],
     },
@@ -79,6 +120,16 @@ function consistentArtifact() {
       },
     ],
     bothMissedCorpus: { pullRequests: 1, goldens: 10, withoutAttribution: 0 },
+    secondReviewer: {
+      mode: 'record',
+      prsAttempted: 3,
+      prsFailed: 1,
+      recorded: 2,
+      replayed: 0,
+      missing: [],
+      failedPullRequests: [{ key: 'k', goldens: 1, reason: 'it produced nothing', stage: 'run' }],
+      findingsAtItsOwnOperatingPoint: [{ text: 'what they said' }],
+    },
   };
 }
 
@@ -302,7 +353,7 @@ describe('the competitor’s words', () => {
     // them the remark. A comparison that keeps where a comment landed and not what it said cannot be learned from.
     const artifact = { ...consistentArtifact(), ...withTheirs('record', 0) };
     expect(competitorTextCoverage(artifact).mustBeComplete).toBe(true);
-    expect(failuresOf(artifact as ReturnType<typeof consistentArtifact>)).toContain(
+    expect(failuresOf(artifact as unknown as ReturnType<typeof consistentArtifact>)).toContain(
       'the competitor’s remarks are readable beside ours',
     );
   });
@@ -312,7 +363,7 @@ describe('the competitor’s words', () => {
     // 5.89 USD on a new recording - which is a decision a person makes, not a check.
     const artifact = { ...consistentArtifact(), ...withTheirs('replay', 0) };
     expect(competitorTextCoverage(artifact).mustBeComplete).toBe(false);
-    expect(failuresOf(artifact as ReturnType<typeof consistentArtifact>)).not.toContain(
+    expect(failuresOf(artifact as unknown as ReturnType<typeof consistentArtifact>)).not.toContain(
       'the competitor’s remarks are readable beside ours',
     );
   });
@@ -322,5 +373,70 @@ describe('the competitor’s words', () => {
     const coverage = competitorTextCoverage({ secondReviewer: { mode: 'replay' } });
     expect(coverage.rows).toBe(0);
     expect(coverage.coverage).toBe(0);
+  });
+});
+
+describe('a rejection that names its distance and not its finding', () => {
+  it('fails when a rejected golden does not carry the finding it was measured against', () => {
+    // **The state of the artifact before this iteration**: `findingOnPathRejected` was the largest bucket in the
+    // ceiling and the only thing a row said about it was how far away the nearest finding was. 100 of the 164 sat on the
+    // golden's own line, and which finding that was - and whether the actionability gate kept it - could not be read
+    // without paying for another run.
+    const artifact = consistentArtifact();
+    const rejected = artifact.missedGoldens.records.find(
+      (row) => row.bucket === 'findingOnPathRejected',
+    ) as { nearestFinding: unknown };
+    rejected.nearestFinding = null;
+    expect(failuresOf(artifact)).toContain('every rejected golden names the finding it rejected');
+  });
+
+  it('counts the rejections that sit on a finding’s own line', () => {
+    const artifact = consistentArtifact();
+    const rejected = artifact.missedGoldens.records.find(
+      (row) => row.bucket === 'findingOnPathRejected',
+    ) as { proximity: number | null };
+    rejected.proximity = 0;
+    const detail = auditArtifact(artifact).findings.find(
+      (finding) => finding.name === 'the rejections with a finding on their line are counted',
+    );
+    // **The figure the next device is chosen from**, so it is published rather than left to be recomputed by hand.
+    expect(detail?.detail).toContain('1 of 1 rejections');
+  });
+});
+
+describe('every attempt at the competitor arm is accounted for', () => {
+  it('fails when an attempt is neither recorded, replayed, failed nor missing', () => {
+    // **The run of 2026-11-11 reported `prsAttempted: 36`, `prsFailed: 4`, `recorded: 32` and named one failure.**
+    // Four failures, one name: the three that were only counted contributed no goldens to the competitor's denominator
+    // while contributing nothing to its numerator either - the same asymmetry that was worth 0.0130 of F1 when it
+    // happened at the other failure branch, surviving in a second code path.
+    const artifact = consistentArtifact();
+    artifact.secondReviewer.prsAttempted = 4;
+    expect(failuresOf(artifact)).toContain(
+      'every attempted competitor run is either recorded, replayed, failed or missing',
+    );
+  });
+
+  it('fails when the failures that were counted are not the failures that were named', () => {
+    const artifact = consistentArtifact();
+    artifact.secondReviewer.prsFailed = 2;
+    expect(failuresOf(artifact)).toContain(
+      'the failures that were counted are the failures that were named',
+    );
+  });
+
+  it('accepts a run that attempted nothing, rather than claiming a partition of zero', () => {
+    const artifact = consistentArtifact();
+    artifact.secondReviewer.prsAttempted = 0;
+    artifact.secondReviewer.recorded = 0;
+    artifact.secondReviewer.prsFailed = 0;
+    artifact.secondReviewer.failedPullRequests = [];
+    const failures = failuresOf(artifact);
+    expect(failures).not.toContain(
+      'every attempted competitor run is either recorded, replayed, failed or missing',
+    );
+    expect(failures).not.toContain(
+      'the failures that were counted are the failures that were named',
+    );
   });
 });

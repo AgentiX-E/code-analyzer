@@ -956,9 +956,11 @@ the run that tests it.
 requests `missing`. **The debt is not repaid by buying the result again** - the run that bought it published one row per
 finding with the goldens the judge accepted for it, which is exactly the shape the record stores.
 
-`benchmarks/aacr/competitor-baseline.json` is transcribed from `benchmarks/aacr-bench.json` and **replayed through the
-harness's own scoring functions**, asserting **50 true positives and 102 false positives** - the two figures the artifact
-published. A lost row, a shifted index, or a `keep` flag turned into a string moves one of them. **The fingerprint is
+`benchmarks/aacr/competitor-baseline.json` began as a transcription of `benchmarks/aacr-bench.json` and **is replayed
+through the harness's own scoring functions**, asserting **50 true positives and 102 false positives** on those fourteen
+rows - the two figures the artifact published. **It has since grown to forty-six rows in two origins** (§22.1): the
+transcribed fourteen, checked by their golden count, and thirty-two recorded live on 2026-11-11, checked per pull request
+by a golden fingerprint and replayed to that run's 113 true and 168 false positives. A lost row, a shifted index, or a `keep` flag turned into a string moves one of them. **The fingerprint is
 recomputed from the artifact's coverage table and asserted**, so the record cannot be reused against another corpus by
 editing nothing but its header.
 
@@ -1887,3 +1889,88 @@ coordinates.
   on these rows; a third reviewer could lower it, and the list exists so that somebody can try.
 - **That the category decomposition explains the gap to the competitor.** It explains where _our_ true positives come
   from, which is a fact about our own emission and not a comparison.
+
+## 22. The record enters the repository, and the two accounting defects that were hiding behind it
+
+Iteration 124 ended with an obligation and a hole. The obligation: **the competitor's recorded result existed as a file on
+a runner and not as a file in the repository**, so the next job would have reported all thirty-six pull requests
+`missing` and bought them again - the exact defect the replay mechanism was built to prevent, one directory away from the
+code that prevents it. The hole: **a rejected golden carried its distance and not its finding**, so the largest bucket in
+the ceiling (`findingOnPathRejected`, 120 of 166) could be counted and not read.
+
+Both are detail-layer repairs. Neither adds a device, and **neither is registered as a claim**, because neither changes
+the reviewer: they change what a reader can check without paying for another run.
+
+### 22.1 The baseline, and its two origins stated
+
+`benchmarks/aacr/competitor-baseline.json` now holds **46 rows**: **32 recorded** by the record-mode run of 2026-11-11 over
+the `skip 14` slice, and **14 transcribed** from the 2026-11-09 artifact and carried across by `startRecording` rather
+than bought a second time.
+
+**A file that mixes two origins and states one lies about half of itself**, so the file states both, and it carries the
+rule that tells its rows apart - **the same rule the resolver applies**: a row with a `fingerprint` was recorded live and
+replays as `verified: 'fingerprint'`; a row without one was transcribed and replays as `verified: 'count'`. The four pull
+requests the record does not cover are named rather than left to be discovered: they are **holes in the pairing**
+(`secondReviewer.missing`), not zeros, and a later record-mode run buys exactly those four.
+
+**The guard is the arithmetic, not the prose.** Replaying the thirty-two recorded rows through the harness's own scoring
+functions reproduces **113 true positives and 168 false positives** - the figures that run published - and replaying the
+fourteen transcribed rows reproduces the **170 goldens** both reviewers were scored against on 2026-11-09. A lost row, a
+shifted index or a `keep` flag turned into a string moves one of those numbers.
+
+### 22.2 A failure that was counted and not named
+
+**The record run of 2026-11-11 reported `prsAttempted: 36`, `prsFailed: 4`, `recorded: 32` - and named one failure.**
+Three attempts existed as a number, contributed nothing to the competitor's numerator, contributed **nothing to its
+denominator either**, and could not be looked up. **That is the same asymmetry the parse-failure branch documents and was
+worth 0.0130 of F1 the first time it happened**, surviving in a second code path for six iterations: the fix was applied
+where the symptom was read rather than where the accounting is done.
+
+Two rules now hold, and the difference between them is the whole point:
+
+1. **A failure that ran is an observation.** The attempt gets a zero row, its goldens enter the denominator, and the
+   failure gets an entry in `secondReviewer.failedPullRequests` with its stage (`run` or `parse`).
+2. **A failure that could not run is an environment fact.** A provider refusing the call for want of credit
+   (`402`/`Insufficient Balance`) is filed as `missing` - a hole in the pairing - and is not counted in `prsFailed`,
+   because the two lists are one fact written twice.
+
+**The restatement this forces, on the recording slice (36 pull requests, 282 goldens):**
+
+| competitor, 2026-11-11 slice  | P      | R          | F1         |
+| ----------------------------- | ------ | ---------- | ---------- |
+| as published before this fix  | 0.4021 | 0.4248     | 0.4132     |
+| with the four attempts scored | 0.4021 | **0.4007** | **0.4014** |
+
+**The pairing also stops being partial.** With every attempt accounted for, the competitor has a row on all thirty-six
+pull requests, so `mcnemar.comparable` becomes true on the next run and **the head-to-head states a verdict instead of
+withholding one because three rows were missing**. That is not a change of standard: a withheld comparison was the honest
+answer to an incomplete pairing, and the pairing is no longer incomplete.
+
+### 22.3 A bucket that named its distance and not its finding
+
+`findingOnPathRejected` was readable only as a distance. The artifact said _"we spoke on that file and the judge did not
+accept it, 100 of 164 times on the golden's own line"_ and could not say **which finding** - so the two repairs behind
+that one bucket (a wording defect where the gate kept the finding, a gate-calibration defect where it dropped it) could
+not be counted without buying the run again.
+
+`missedGoldens.records[].nearestFinding` now carries the finding itself: **its position in the ranked list, its range, the
+actionability gate's verdict, the gate's reasons, and its sentence** (300 characters). The three checks in
+`scripts/aacr-bench-audit.mjs` that hold it:
+
+- every rejected golden names the finding it was measured against, or the run says how many do not;
+- the rejections on a finding's own line are counted in the artifact rather than in a report about the artifact;
+- every attempted competitor run is either recorded, replayed, failed or missing, and the failures that were counted are
+  the failures that were named.
+
+**The last one is the check that would have caught §22.2 four days earlier**, which is the reason it is a check and not a
+paragraph.
+
+### 22.4 What this section does not conclude
+
+- **That the restated competitor figure is the one to quote against ours.** It is computed over the thirty-six pull
+  requests of that slice; the paired thirty-two-row comparison in the iteration 124 report is a different denominator and
+  is unaffected by the four attempts, because those four are outside it.
+- **That the new verdict is a defeat.** It is the first comparable head-to-head this repository has had on a corpus it did
+  not build, and a comparison that is unfavourable and complete is worth more than one that is withheld and flattering.
+- **That `nearestFinding` explains the 120.** It makes them readable. The split between wording and gate calibration is
+  the next measurement, and it is an offline one.
