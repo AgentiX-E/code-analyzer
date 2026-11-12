@@ -168,6 +168,50 @@ const PROFILE = (() => {
 const AGENT = String(process.env['AACR_AGENT'] ?? 'off').toLowerCase() === 'on';
 
 /**
+ * **How many findings one file may carry, which §23.7 measured to be a binding cap rather than a safety rail.**
+ *
+ * On `43176459822` the arm filed 225 drafts and kept 196: **25 were dropped as `over-budget`, every one of them a comment
+ * the model had already written and grounded and was then refused a slot for.** Against that, 74 of the 232 goldens the
+ * arm missed sit on a file it read and said nothing about, and 35 on a file it never opened - **109 of 232, nearly half,
+ * are volume rather than aim.** Three per file is a number inherited from the lane arm, where three slots *per file per
+ * lane* was the whole emission contract; a reader that has seen the file has no such reason.
+ *
+ * **So it is an input rather than a constant**, validated like every other switch here: a run at 6 and a run at 3 on the
+ * same rows differ in this line and in nothing else, and the artifact records which one produced the figure.
+ */
+const MAX_FINDINGS_PER_FILE = (() => {
+  const raw = String(process.env['AACR_MAX_FINDINGS_PER_FILE'] ?? '3');
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20)
+    throw new Error(`AACR_MAX_FINDINGS_PER_FILE must be an integer in 1..20, not "${raw}"`);
+  return parsed;
+})();
+
+/**
+ * **The rule the lanes are calibrated under**, applied to a list of ranked findings: the actionability gate and the
+ * category profile's floor, which are one operating point rather than two conditions.
+ *
+ * Extracted from the per-pull-request row so that **§23.7's decision is arithmetic a dry run can check** instead of a
+ * ternary buried in a five-hundred-line loop: the lane rule is computed for *every* arm, and which of the two vectors
+ * becomes `keep` is the single line §23.7 changed.
+ */
+const laneRuleKeep = (entries, profileKept) =>
+  entries.map((entry) => entry.score.actionable && profileKept.has(entry));
+
+/**
+ * **Which findings reach a reader, per reviewer.**
+ *
+ * For the five lanes it is the registered gate. For the reading arm it is **nothing further**, because the arm's own
+ * filing check already refused every draft whose quoted code could not be located in the file at the reviewed commit -
+ * 225 drafts became 196 findings in `43176459822` under it - and because the gate's second conjunct asks for a suggestion
+ * or a quotation of an added line, which **a reader that quoted the file expresses as a sentence instead**: it dropped 48
+ * findings that had found a golden and took that run from F1 0.2092 to 0.0523. §23.7 registers the scoping; the lane
+ * rule is still scored beside it so the decision keeps being measured.
+ */
+const shippedRuleKeep = (entries, profileKept) =>
+  AGENT ? entries.map(() => true) : laneRuleKeep(entries, profileKept);
+
+/**
  * **The switch this iteration is about: whether a lane is shown the code each hunk sits in.**
  *
  * `AACR_CODE_CONTEXT=on` reads every changed file at the pull request's head commit through the API and passes it to
@@ -743,6 +787,27 @@ async function dryRun() {
     f1: 0.5714,
   });
 
+  // **§23.7's decision, as arithmetic instead of as a paragraph.**
+  //
+  // The actionability gate was calibrated on lane findings and was being applied to a reading arm, where it took three
+  // quarters of the score. **The scoping is a change to which vector becomes `keep`**, so the thing worth asserting
+  // without a model is that the two vectors are computed for every arm and that the arm's is the wider one:
+  const fixtureProfile = new Set(ranked);
+  const laneRule = laneRuleKeep(ranked, fixtureProfile);
+  const shipped = shippedRuleKeep(ranked, fixtureProfile);
+  assert.equal(
+    laneRule.filter(Boolean).length,
+    3,
+    'the lane rule keeps three of the fixture\u2019s six findings, whichever arm is under test',
+  );
+  assert.equal(
+    shipped.filter(Boolean).length,
+    AGENT ? ranked.length : 3,
+    AGENT
+      ? 'the reading arm ships every finding its own filing check kept, and the lane rule is scored beside it'
+      : 'the lanes ship exactly what the gate passes, which is the rule every published lane figure was measured under',
+  );
+
   const curve = topKCurve(matrix.matches, goldens.length);
   assert.deepEqual(
     curve.map((entryAt) => entryAt.truePositives),
@@ -986,8 +1051,14 @@ async function dryRun() {
     }
   }
 
+  // **`shipped` is printed beside `gate` rather than instead of it**, because since §23.7 the two are different rules
+  // for one reviewer and a log line that named only one of them would let a scoping regression pass as a gate result.
+  // Under the arm, `shipped` is the full list by construction - that is the whole of §23.7 - so it is `full` read again
+  // rather than a second matching.
+  const shippedPoint = AGENT ? full : kept;
+
   console.log(
-    `AACR-BENCH dry run ok · full F1 ${full.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')} · checklist ${checklistOn.length} chars on / ${checklistOff.length} off`,
+    `AACR-BENCH dry run ok · full F1 ${full.f1} · shipped F1 ${shippedPoint.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')} · checklist ${checklistOn.length} chars on / ${checklistOff.length} off`,
   );
 }
 
@@ -2482,7 +2553,7 @@ async function main() {
             filter: true,
             allowOffDiff: false,
             groupSize: 4,
-            maxFindingsPerFile: 3,
+            maxFindingsPerFile: MAX_FINDINGS_PER_FILE,
             limits: {
               maxRounds: 4,
               maxToolCalls: 12,
@@ -2632,11 +2703,21 @@ async function main() {
       // **The emission rule, fixed before the run and applied per finding** - so the operating point is a statement
       // about a comment rather than a budget chosen from the curve below it.
       //
-      // **And the category profile is part of that rule, not a second pass over it.** A finding reaches a reader when
-      // the actionability gate passes *and* its category's measured acceptance clears the profile's floor; **the two
-      // conditions are one operating point**, and reporting the gate at one profile and the count at another would make
-      // the artifact's precision a figure about a reviewer nobody ran.
-      keep: ranked.map((entry) => entry.score.actionable && profileKept.has(entry)),
+      // **And the rule differs by reviewer, which is §23.7's decision rather than a convenience.** For the five lanes it
+      // is the actionability gate *and* the category profile's floor, because **the two conditions are one operating
+      // point** - reporting the gate at one profile and the count at another would make the artifact's precision a figure
+      // about a reviewer nobody ran. For the reading arm it is the arm's own filing check, because that check is stricter
+      // about evidence than the gate is (the quoted code must be located in the file, or in the diff when the file could
+      // not be read) and because **the gate's second conjunct asks for a suggestion or a quotation of an added line, which
+      // is a lane's shape rather than a reader's**: on `43176459822` it dropped 48 findings that had found a golden and
+      // took the arm from F1 0.2092 to 0.0523.
+      keep: shippedRuleKeep(ranked, profileKept),
+      // **And the same rule kept, for the arm it was calibrated on, even when it is not the one that ships.** §23.7
+      // scoped the actionability gate to the lanes because it was taking three quarters of the reading arm's score, and
+      // **a scoping that also deleted the comparison would make the cost of the gate invisible in every future run** -
+      // which is the failure mode of a decision made once and never re-checked. One boolean per finding, already
+      // computed, charged to nothing.
+      laneGateKeep: laneRuleKeep(ranked, profileKept),
       // **Index-aligned with `matches` and `keep`**, because the only way to attribute an owned golden to a category is
       // to look up the finding that owns it - and `goldenOwners` answers with a position in this very list.
       categories: ranked.map((entry) => entry.finding.category),
@@ -2734,9 +2815,24 @@ async function main() {
     emitted: pull.matches.length,
   });
 
-  /** The pre-registered rule: only the findings whose range covers an added line and that say what to change. */
+  /**
+   * **The rule that ships**: the registered actionability gate for the lanes, the arm's own filing check for the reading
+   * arm, which is `keep` as the per-pull request row recorded it. §23.7 has the measurement that moved the arm's rule.
+   */
   const gatedEmission = (pull) => {
     const kept = pull.matches.filter((_, at) => pull.keep[at]);
+    return { indices: matchedGoldenIndices(kept, pull.goldens), emitted: kept.length };
+  };
+
+  /**
+   * **And the rule the lanes were calibrated under, scored on the reading arm's own findings anyway.**
+   *
+   * A scoping decision that stops being re-measured is a decision that can quietly become wrong, so the cost of the gate
+   * stays in the artifact: `laneGate` is the same findings under `actionable AND profile`, and the difference between it
+   * and the headline is what the arm pays for not being a lane.
+   */
+  const laneGateEmission = (pull) => {
+    const kept = pull.matches.filter((_, at) => pull.laneGateKeep[at]);
     return { indices: matchedGoldenIndices(kept, pull.goldens), emitted: kept.length };
   };
 
@@ -2752,7 +2848,7 @@ async function main() {
 
   const asPoint = (counts) => point(counts.tp + counts.fp, counts.tp, counts.fp, counts.fn);
 
-  // **Our operating point, the one that was fixed before the run.**
+  // **Our operating point, the rule that was fixed before the run and the rule the product would use.**
   const gatedCounts = perPr.reduce((total, pull) => {
     const scored = scoreSubset(pull.matches, pull.keep, pull.goldens);
     return addCounts(total, {
@@ -2764,6 +2860,9 @@ async function main() {
   const gated = asPoint(gatedCounts);
   const allCounts = countsOver(perPr, everythingEmitted);
   const allEmitted = asPoint(allCounts);
+  // **And what the lanes' rule would have done to the same findings**, so §23.7's scoping is re-measured every run rather
+  // than argued once. Under the lanes' rule `keep` and `laneGateKeep` are the same vector and this is the same point.
+  const laneGate = asPoint(countsOver(perPr, laneGateEmission));
 
   /**
    * **The measurement's own error, as an interval rather than as a footnote.**
@@ -3084,8 +3183,9 @@ async function main() {
     scoring: {
       protocol:
         'one judge verdict per (finding, golden) pair, then a maximum bipartite matching per pull request; the same protocol for both reviewers in the same job',
-      emissionRule:
-        'actionability gate: the range covers an added line AND (the suggestion names an action OR the finding quotes added code)',
+      emissionRule: AGENT
+        ? 'the reading arm files only what it can locate: the quoted code must appear in the file at the reviewed commit, or in the diff when the file could not be read (§23.7; the actionability gate is a lane instrument and is reported beside it as emissionRules.laneGate)'
+        : 'actionability gate: the range covers an added line AND (the suggestion names an action OR the finding quotes added code), AND the category profile floor',
       emissionRuleRegisteredBeforeRun: true,
       judgeConcurrency: JUDGE_CONCURRENCY,
       /**
@@ -3141,6 +3241,10 @@ async function main() {
       // comparable as settings of one instrument: they differ in what the model is given, in how many calls it makes and
       // in what a finding must contain to survive. **A figure without this field is a figure with no reviewer attached.**
       agent: AGENT,
+      // **The cap that §23.7 measured to bind**: 25 of one run's 225 drafts were refused a slot rather than found
+      // wanting. **A figure from a capped run and a figure from an uncapped one are two reviewers**, so the number is a
+      // coordinate of the figure beside `agent` rather than a detail of the harness.
+      maxFindingsPerFile: MAX_FINDINGS_PER_FILE,
       // **The statement of intent the arm was run under, in the artifact rather than in a dispatch log**, so that a
       // later run can tell an arm that was asked to be cheap from one that hit its ceiling.
       competitorMode: COMPETITOR_CHOICE.mode,
@@ -3220,6 +3324,27 @@ async function main() {
     precision: gated.precision,
     recall: gated.recall,
     f1: gated.f1,
+    /**
+     * **The same findings under the rule the lanes were calibrated on, and the rule that ships.**
+     *
+     * §23.7 found that the actionability gate is a lane instrument: on `43176459822` it kept 24 of the reading arm's 196
+     * findings, eight of them true, and took F1 from 0.2092 to 0.0523 - because its second conjunct asks for a suggestion
+     * or a quotation of an added line, and **a reviewer that quoted the file it read expresses a defect as a sentence
+     * instead.** The gate is therefore scoped to the lanes, and **`laneGate` is the number it would have produced**,
+     * recomputed on every run so the decision keeps being measured instead of being remembered.
+     */
+    emissionRules: {
+      shipped: {
+        rule: AGENT
+          ? 'the reading arm files only what the code it quotes can be located in: 225 drafts became 196 findings in 43176459822'
+          : 'actionability gate AND the category profile floor, which are one operating point',
+        point: gated,
+      },
+      laneGate: {
+        rule: 'actionability gate (the range covers an added line AND (a suggestion names an action OR the finding quotes added code)) AND the profile floor',
+        point: laneGate,
+      },
+    },
     // **The list before the rule, because the rule is only interesting beside it.**
     fullEmission: allEmitted,
     // **The curve, at every budget the rule could have been.**
@@ -3245,7 +3370,9 @@ async function main() {
       pullRequests: pairing.pullRequests,
       excluded: pairing.excluded,
       scoredByThemOnly: pairing.theirsOnly,
-      emissionRule: 'the registered actionability gate, applied to both arms',
+      emissionRule: AGENT
+        ? `the reading arm's own filing rule, applied to both arms`
+        : 'the registered actionability gate, applied to both arms',
       ours: pairedOurPoint,
       theirs: pairedTheirPoint,
       // **The same two arms with every finding emitted**, which is what the earlier runs measured and what the

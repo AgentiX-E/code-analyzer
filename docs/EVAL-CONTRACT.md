@@ -2110,3 +2110,74 @@ next measurement is the same rows at both operating points rather than an argume
 
 **Six pull requests is not a corpus.** The figure above is a smoke test of a repaired loop; the number this section's
 falsification condition is about is §23.4's, and it still has not been measured.
+
+### 23.7 The gate is an instrument for one reviewer, and it was being applied to two
+
+`43176459822` (36 pull requests, skip 14, `agent: on`, repaired loop) is the first run of this arm on a corpus that can
+resolve anything: **TP 50, FP 146, FN 232, precision 0.2551, recall 0.1773, F1 0.2092** emitted, against **0.2033 for the
+five lanes on the same rows** and **0.4043 for the competitor replayed on the paired rows**.
+
+**Applying the registered actionability rule to that emission turns it into F1 0.0523.** Twenty-four findings survive,
+eight of them true, and **42 of the 50 goldens the arm had covered stop being covered by anything**. The rule costs the
+lanes 0.2033 → 0.1886, or seven per cent, and it costs this arm seventy-five per cent, which is not a rule being applied
+twice, it is a rule being applied to something it was not calibrated on.
+
+**The artifact can say exactly why, per finding, because `rankedFindings` records the five conditions separately:**
+
+| what the arm's findings did                                                    | count of 196 |
+| ------------------------------------------------------------------------------ | ------------ |
+| the range covers an added line (`grounded`)                                    | 178          |
+| quotes an added line verbatim (`quotesDiff`)                                   | 19           |
+| names an action or shows a replacement (`proposesChange`)                      | 9            |
+| **found a golden and was dropped anyway**                                      | **48**       |
+| of those, `grounded` true and **both** `quotesDiff` and `proposesChange` false | **43**       |
+
+**The rule's second conjunct is `proposesChange OR quotesDiff`, and it is a request for a lane's artefacts.** A lane
+answers one diff in one call, so its answer arrives as a suggestion or a quotation — that is what the calibration saw. The
+reading arm files through a tool that carries `existing_code` and an _optional_ `suggestion_code`, and across 196 findings
+it supplied the latter nine times: **the arm expresses a defect as a sentence about a line it verified against the file,
+and the rule reads a missing suggestion as an absent claim.**
+
+**And it cannot be retuned, which is a measurement rather than an opinion.** Every rule below was scored offline on that
+run's own artifact — the same judge verdicts, the same matching, no additional spend:
+
+| emission rule                             | k   | TP  | FP  | P      | R      | F1         |
+| ----------------------------------------- | --- | --- | --- | ------ | ------ | ---------- |
+| the registered rule                       | 24  | 8   | 16  | 0.3333 | 0.0284 | 0.0523     |
+| `grounded`                                | 178 | 46  | 132 | 0.2584 | 0.1631 | 0.2000     |
+| `grounded` and names a touched identifier | 173 | 46  | 127 | 0.2659 | 0.1631 | 0.2022     |
+| score ≥ 0.45                              | 172 | 46  | 126 | 0.2674 | 0.1631 | 0.2026     |
+| `grounded` and severity high or critical  | 64  | 19  | 45  | 0.2969 | 0.0674 | 0.1098     |
+| **full emission**                         | 196 | 50  | 146 | 0.2551 | 0.1773 | **0.2092** |
+
+**No threshold and no conjunction over the five recorded conditions beats emitting everything.** The score does not
+separate this arm's true findings from its false ones — the best precision any cut reaches is 0.3714 at k = 35, and it
+pays for it with three quarters of the recall. **A rule that cannot be tuned into an improvement is not at the wrong
+threshold; it is being asked the wrong question**, and the question it asks — _does this comment say what to change?_ — is
+one a single-shot lane has to answer and a reader that quoted the file has already answered a harder way.
+
+**Registered, before the next dispatch:**
+
+1. **The actionability gate is scoped to the lanes.** The reading arm's emission rule is its own filing check, which is
+   stricter about evidence than the gate is: a draft is filed only if the code it quotes is located, character for
+   character or after whitespace normalisation, in the file at the reviewed commit, or in the diff when the file could not
+   be read (§23.5's `snippet-not-found` drop). **225 drafts became 196 findings under that rule in `43176459822`**, and it
+   needs no suggestion and no quotation of an added line.
+2. **The comparison is retained rather than deleted.** The artifact keeps scoring the lane rule on the same findings, so
+   the cost of the scoping stays visible in every future run instead of becoming a footnote in this document.
+3. **Hypothesis H1:** scoping the gate to the lanes raises the arm's shipped F1 from 0.0523 to 0.2092 on the same rows, and
+   the arm's shipped figure is then **above the lanes' 0.2033 for the first time** — by 0.006, which is inside the ±0.031
+   this instrument resolves at 36 pull requests, so **the claim registered here is that the arm is not worse than the lanes
+   once the gate is scoped, not that it is better.**
+4. **Hypothesis H2, and it is the one that has to move the gap.** Of the 232 goldens the arm missed, **74 sit on a file the
+   review did read and said nothing about, and 35 on a file it never opened** — 109 of 232, nearly half, are volume rather
+   than aim. The arm emits 5.4 findings per pull request against the competitor's 7.8, it drops 25 drafts per corpus to a
+   three-findings-per-file cap, and it declares 94 of 249 changed files out of scope. **The next run raises the per-file
+   cap to six and records what the extra findings are worth**; if F1 does not rise, the volume hypothesis is falsified and
+   the remaining gap is claim quality on the 64 goldens we described with a different defect.
+5. **Neither hypothesis is quotable against the competitor** until the confirmation run on `skip_pull_requests: 50`
+   (§23.4), because both were read off the rows that produced them.
+
+**What would falsify item 1**: a run in which the scoped arm's precision falls far enough that its F1 lands below the
+lanes' on the same rows — that is, below 0.2033 — because then the gate was not removing lane-shaped noise but real
+precision, and the arm's sentences are worse claims than the lanes' suggestions rather than differently shaped ones.

@@ -82,6 +82,14 @@ on:
         type: choice
         options: ['off', 'on']
         default: 'off'
+      max_findings_per_file:
+        # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of
+        # one run's 225 drafts refused a slot, and 74 of that run's missed goldens sitting on files it had read - so the
+        # next registered hypothesis (H2) is that volume, not aim, is where half the remaining gap lives. **It is a
+        # dispatch input rather than an edit**, so the arm at 3 and the arm at 6 are the same script on the same rows.
+        description: 'Findings one file may carry (default 3, the lane contract; 6 is H2)'
+        type: string
+        default: '3'
       # **`code_context` used to be an input here, and its deletion is the fix rather than a tidy-up.** As an input it
       # had one value per dispatch, so measuring the device meant two dispatches - and two dispatches of this job have
       # reported the *same* configuration at 0.1691 and 0.2405, which is a spread larger than every effect registered in
@@ -304,6 +312,12 @@ jobs:
           # cannot disagree about which reviewer produced the figure. The agent reads a checkout of the pull request's
           # head commit and ignores `AACR_CODE_CONTEXT` - it does not need a window when it can open the file.
           AACR_AGENT: ${{ inputs.agent || 'off' }}
+          # **The cap on findings per file, which §23.7 measured to bind rather than to protect.** On `43176459822` the
+          # arm filed 225 drafts and kept 196 - **25 were refused a slot, not found wanting** - while 74 goldens it missed
+          # sat on files it read and said nothing about. Three per file is inherited from the lanes, where three slots per
+          # file per lane *was* the emission contract; **an input rather than a constant, so a run at 6 and a run at 3 on
+          # the same rows differ in this line and in nothing else**, and the artifact records which produced the figure.
+          AACR_MAX_FINDINGS_PER_FILE: ${{ inputs.max_findings_per_file || '3' }}
           # **Whether this run buys a competitor result, or reads the one already paid for.** The script's own default
           # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
           # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.
