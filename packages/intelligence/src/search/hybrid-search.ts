@@ -258,6 +258,34 @@ export interface FieldWeighting {
  * The paraphrase column cannot adjudicate it — every docstring is stripped from that index, so the field is only ever
  * filled by a prose node's name — and the lexical column it is built on measured **0.3131 / 0.4646 / 0.2034 at weight
  * one and at weight three, to the last digit**.
+ *
+ * **Two candidates for the fifth field were measured on CoSQA and both were rejected by a second corpus.** This is the
+ * one place in this file where a measurement says *no*, and it is written down because the numbers are the kind that
+ * look like they should be taken.
+ *
+ * | candidate | CoSQA (500 q, BM25 only) | paraphrase corpus |
+ * | --- | --- | --- |
+ * | `vocabulary` 0.25 (shipped) | R@10 **0.6640**, MRR **0.4549**, found 332 | recall@20 **0.4646**, leak-free 0.1489 |
+ * | `vocabulary` 0.5 | R@10 **0.7100**, MRR **0.4919**, found 355 | recall@20 **0.3636** |
+ * | 0.75 | R@10 0.7040, MRR 0.4841 | — |
+ * | 1.0 | R@10 0.7020, MRR 0.4753 | — |
+ * | query stopword filter (0.25) | R@10 0.6860, MRR 0.4530, found 343 | recall@20 **0.4242**, leak-free 0.1277 |
+ *
+ * **A four-and-a-half point gain on the external corpus, and a ten-point loss on the internal one, from the same edit.**
+ * CoSQA rewards the body field because its questions are paraphrases of documentation the index strips; the paraphrase
+ * corpus punishes it because its questions are drawn from doc comments whose words the body repeats, so weighting the
+ * body lets a long function that merely says the words out-sum the function that is described by them. **Neither corpus
+ * can adjudicate the other, and the shipped value is the one that satisfies both** — the shipped row is the only row in
+ * the table that has no losing column.
+ *
+ * **The stopword filter is rejected for the same reason and belongs in the same table**, even though it is a query-side
+ * change rather than a weight: it buys eleven questions on CoSQA and gives back four points of recall@20 on the
+ * paraphrase corpus, because a question there is written in the same words as the doc comment it came from and the
+ * filter deletes exactly those words.
+ *
+ * **What this rules out for the next iteration**: neither "raise the body weight" nor "strip English function words" is
+ * a lever this product can pull, and any future sweep of either has to report both columns before it is believed.
+ * `EVAL-CONTRACT.md` §28 records the measurement and the two dispatches that followed it.
  */
 export const DEFAULT_FIELD_WEIGHTING: FieldWeighting = {
   // **A name token is worth four vocabulary tokens and two path tokens.** The file a symbol lives in is evidence that it

@@ -70,6 +70,36 @@ const SWEEP = readDepthSweep(process.env['COSQA_SWEEP'], DEPTH);
 /** The deepest list either channel has to produce: the sweep's widest prefix and the rerank arm, whichever is larger. */
 const RETRIEVAL_DEPTH = Math.max(DEPTH, ...SWEEP);
 
+/**
+ * **The fusion weights the fused arm is scored at, on the same two lists.**
+ *
+ * The first depth sweep answered its question and raised a larger one: at the collection pool **the vector channel alone
+ * puts the answer in its top ten 354 times and the lexical channel 206, either of them 378 — and the fused list 329.**
+ * Fifty questions that one channel answered were lost by combining it with the other, because reciprocal rank fusion at
+ * equal weight is a compromise and a compromise with a worse list is a worse list.
+ *
+ * **The weight is a measurement's job to set** (`hybrid-search.ts` says so where the constant is declared, and
+ * `docstring-search.test.ts` sweeps it on that corpus). This sweep is the same question asked on this one, for the price
+ * of arithmetic: no embedding is recomputed and no model is called.
+ */
+const VECTOR_WEIGHTS = readNumberSweep(process.env['COSQA_VECTOR_WEIGHTS'], 1);
+
+/** A positive number from the environment, or the default when the variable is absent or unusable. */
+function readPositiveNumber(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+/** The weights a sweep asks for: positive numbers, ascending, **without duplicates**, always including the arm. */
+function readNumberSweep(raw: string | undefined, arm: number): number[] {
+  const asked = (raw ?? '')
+    .split(',')
+    .map((part) => Number.parseFloat(part.trim()))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return [...new Set([arm, ...asked])].sort((left, right) => left - right);
+}
+
 /** A positive integer from the environment, or the default when the variable is absent or unusable. */
 function readPositiveInt(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw.trim() === '') return fallback;
@@ -226,6 +256,29 @@ describe('a depth that came from the environment is still a depth', () => {
   });
 });
 
+describe('a fusion weight that came from the environment is still a weight', () => {
+  it('reads a positive number, including a fraction, and refuses everything else', () => {
+    expect(readPositiveNumber('2', 1)).toBe(2);
+    // **A weight is not an integer**: `0.5` says the lexical list counts double, which is a real arm.
+    expect(readPositiveNumber('0.5', 1)).toBe(0.5);
+    expect(readPositiveNumber(undefined, 1)).toBe(1);
+    expect(readPositiveNumber('', 1)).toBe(1);
+    // **Zero, a negative and a word are not weights**, and a zero weight would silently delete a channel.
+    expect(readPositiveNumber('0', 1)).toBe(1);
+    expect(readPositiveNumber('-2', 1)).toBe(1);
+    expect(readPositiveNumber('heavy', 1)).toBe(1);
+  });
+
+  it('always includes the shipped weight, deduplicates, and orders the sweep', () => {
+    expect(readNumberSweep(undefined, 1)).toEqual([1]);
+    expect(readNumberSweep('3,2,1', 1)).toEqual([1, 2, 3]);
+    expect(readNumberSweep('2,3', 1)).toEqual([1, 2, 3]);
+    expect(readNumberSweep('0.5,0.5,2', 1)).toEqual([0.5, 1, 2]);
+    expect(readNumberSweep(' 0.25 , bad ,4 ', 1)).toEqual([0.25, 1, 4]);
+    expect(readNumberSweep('', 1)).toEqual([1]);
+  });
+});
+
 function sha256(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
@@ -345,6 +398,13 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         const fusedRanksByDepth = new Map<number, Array<number | null>>(
           SWEEP.map((depth) => [depth, [] as Array<number | null>]),
         );
+        // **And one rank list per fusion weight**, because the first run's diagnostic said the loss was here: at the
+        // collection pool the vector channel alone has the answer in its top ten **354** times, the lexical channel
+        // **206**, either of them **378** — and the fused list only **329**. **A compromise between a strong list and a
+        // weak one is a worse list**, and reciprocal rank fusion is what makes the compromise unless the weight says so.
+        const fusedRanksByWeight = new Map<number, Array<number | null>>(
+          VECTOR_WEIGHTS.map((weight) => [weight, [] as Array<number | null>]),
+        );
         const rerankedRanks: Array<number | null> = [];
         const provider = CAN_ASK_A_MODEL ? new DeepSeekProvider({ timeout: 60_000 }) : null;
         let reranked = 0;
@@ -383,6 +443,25 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             );
             fusedRanksByDepth.get(depth)!.push(rankOf(fusedAtDepth, index));
             if (depth === DEPTH) arm = fusedAtDepth;
+          }
+
+          // **The same two channel lists, fused at each weight**, which costs one more pass over fifty entries and no
+          // model call at all. The arm itself stays at weight one: a run that scores a different arm than it reranks
+          // would be the §26 defect again, one field over.
+          for (const weight of VECTOR_WEIGHTS) {
+            const fusedAtWeight =
+              weight === 1
+                ? arm
+                : hybrid.fuseResults(
+                    lexicalHits
+                      .slice(0, DEPTH)
+                      .map((hit) => ({ node: hit.node, score: hit.score })),
+                    vectorHits.slice(0, DEPTH).map((hit) => ({ node: hit.node, score: hit.score })),
+                    60,
+                    DEPTH,
+                    weight,
+                  );
+            fusedRanksByWeight.get(weight)!.push(rankOf(fusedAtWeight, index));
           }
 
           const fusedRank = fusedRanksByDepth.get(DEPTH)![index]!;
@@ -492,6 +571,14 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           sweep: Object.fromEntries(
             SWEEP.map((depth) => [String(depth), score(fusedRanksByDepth.get(depth)!)]),
           ),
+          // **The fusion weight, which is the column the first sweep pointed at.** A reader comparing two artifacts can
+          // see whether a change to the weight moved `found@10`, and `fused` above stays the arm at weight one.
+          fusedByVectorWeight: Object.fromEntries(
+            VECTOR_WEIGHTS.map((weight) => [
+              String(weight),
+              score(fusedRanksByWeight.get(weight)!),
+            ]),
+          ),
           // **Where the ceiling is, channel by channel.** `neither` is the number of questions no widening of these two
           // lists can help, and it is the honest denominator for "a better first stage" - every other question has its
           // answer somewhere in the pool and is a ranking problem rather than a recall one.
@@ -540,6 +627,15 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           );
         }
 
+        // **And one line per fusion weight**, which is the same two lists under a different compromise.
+        for (const weight of VECTOR_WEIGHTS) {
+          const at = score(fusedRanksByWeight.get(weight)!);
+          // eslint-disable-next-line no-console
+          console.log(
+            `COSQA-WEIGHT vector=${weight} R@1 ${at.recallAt1} R@5 ${at.recallAt5} R@10 ${at.recallAt10} MRR ${at.mrrAt10} found ${at.foundAt10}`,
+          );
+        }
+
         // **The only claim this file can make without a comparison**: the product finds the answer at all, and the
         // semantic half is not worse than the lexical one on a corpus neither of them was tuned on.
         expect(score(lexicalRanks).recallAt10).toBeGreaterThan(0);
@@ -554,6 +650,11 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         // depth was actually scored over the whole question set.
         for (const depth of SWEEP) {
           expect(score(fusedRanksByDepth.get(depth)!).queries).toBe(rows.length);
+        }
+        // **And the same for the weights**, for the same reason: a column that scored fewer questions than the corpus
+        // has is a column that describes a subset nobody chose.
+        for (const weight of VECTOR_WEIGHTS) {
+          expect(score(fusedRanksByWeight.get(weight)!).queries).toBe(rows.length);
         }
       } finally {
         rmSync(workdir, { recursive: true, force: true });
