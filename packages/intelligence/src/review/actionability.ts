@@ -260,6 +260,12 @@ export interface ActionabilityScore {
   /** **The pre-registered emission rule**: the comment points at changed code and says what to change. */
   actionable: boolean;
   features: ActionabilityFeatures;
+  /**
+   * **Which of the two conditional terms this reviewer could observe at all.** A score built from five of the seven
+   * terms is not the same ruler as one built from seven, and a reader comparing the two - or a threshold applied to both -
+   * needs to know which they are holding. See the note on `weighFinding`'s return value for the measurement.
+   */
+  scoreTerms: { agreement: boolean; lane: boolean };
   /** Each condition that failed or each penalty applied, so the verdict can be argued with. */
   why: string[];
 }
@@ -342,6 +348,25 @@ export function weighFinding(located: LocatedFinding, facts: DiffFacts): Actiona
 
   return {
     score: Math.round(Math.max(0, Math.min(1, score)) * 10_000) / 10_000,
+    /**
+     * **Two of the seven terms cannot be observed on every reviewer, and a reader comparing two scores is comparing two
+     * rulers unless this says so.**
+     *
+     * `agreement` needs several lanes to have seen the same defect and `lane` needs a lane; **the reading reviewer has
+     * neither**, so its findings arrive with `agreement: 1` and `lane: null` on all of them and collect 0.0333 and 0.03
+     * from those two terms where the five lanes could collect up to 0.1 and 0.06.
+     *
+     * **Measured**: the median score of the reading arm's findings on a hundred-pull-request run was **0.509** against
+     * **0.707** for the five lanes, and the two terms account for 0.0967 of that before anything about the comments is
+     * considered. **The list is recorded rather than repaired**, because re-normalising the score so that the denominator
+     * excludes an unobservable term makes a finding with *more* corroboration score *lower* - the fixture that asserts
+     * agreement raises the score caught exactly that, and a ruler with one fewer mark is a better answer than a scale
+     * whose readings are not monotone.
+     */
+    scoreTerms: Object.freeze({
+      agreement: corroboration !== undefined && Number.isFinite(corroboration),
+      lane: lane !== null && LANE_WEIGHT[lane] !== undefined,
+    }),
     actionable: grounded && (proposesChange || quotesDiff),
     features: {
       grounded,

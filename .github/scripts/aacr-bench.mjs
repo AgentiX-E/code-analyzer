@@ -2170,6 +2170,7 @@ async function main() {
             category: ranked.finding.category,
             score: ranked.score.score,
             features: ranked.score.features,
+            scoreTerms: ranked.score.scoreTerms,
             actionable: ranked.score.actionable,
             matchedGoldens: competitorMatrix.matches[at],
             // **The competitor's own sentence, which this row did not carry and ours did.**
@@ -2687,6 +2688,7 @@ async function main() {
         score: entry.score.score,
         actionable: entry.score.actionable,
         features: entry.score.features,
+        scoreTerms: entry.score.scoreTerms,
         why: entry.score.why,
         which: 'agentix-e',
         // **The sentence itself, because a rejection is a claim about wording and this artifact could not show one.**
@@ -2764,6 +2766,7 @@ async function main() {
         lane: entry.finding.lane ?? null,
         score: entry.score.score,
         features: entry.score.features,
+        scoreTerms: entry.score.scoreTerms,
         which: 'agentix-e-pull-request',
         matchedGoldens: at === undefined ? [] : wholeMatrix.matches[at],
       });

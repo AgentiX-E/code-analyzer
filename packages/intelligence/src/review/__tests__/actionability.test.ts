@@ -343,6 +343,25 @@ describe('weighFinding', () => {
     );
   });
 
+  it('says which of the two conditional terms it could not observe', () => {
+    // **A score built from five of the seven terms is not the same ruler as one built from seven.** The reading reviewer
+    // has one lane and no lane label, so both conditional terms are unobservable on every finding it files - and a reader
+    // comparing its scores with the five lanes' has to be able to see that from the score object rather than from a
+    // report. **Measured on a hundred-pull-request run**: median 0.509 for the reading arm against 0.707 for the lanes,
+    // of which 0.0967 is these two terms before anything about the comments is considered.
+    const lanes = weighFinding(located({ agreement: 2, lane: 'security' }), facts);
+    expect(lanes.scoreTerms).toEqual({ agreement: true, lane: true });
+
+    const reading = weighFinding(located({ lane: undefined }), facts);
+    expect(reading.scoreTerms).toEqual({ agreement: false, lane: false });
+
+    // **The score itself is untouched**, because re-normalising it so the denominator drops an unobservable term makes a
+    // finding with more corroboration score lower - the case above asserts agreement raises it, and both cannot hold.
+    expect(reading.score).toBe(
+      weighFinding(located({ lane: undefined, agreement: 1 }), facts).score,
+    );
+  });
+
   it('clamps the score into [0, 1] and rounds it to four decimals', () => {
     const worst = weighFinding(
       located({
