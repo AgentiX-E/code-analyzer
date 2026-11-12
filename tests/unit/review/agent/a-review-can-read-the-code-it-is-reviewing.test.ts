@@ -8,7 +8,7 @@
 // **Real files, on a real disk**, because the thing under test is a reader: a reader tested against a fake reader has
 // not been tested.
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -41,9 +41,9 @@ function makeTree(files: Record<string, string>): string {
 }
 
 afterEach(() => {
-  for (const root of created.splice(0)) {
-    // **The temp dirs are removed by the OS**, and a teardown that threw would hide the assertion that mattered.
-  }
+  // **The temp dirs are removed by the OS**, and a teardown that threw would hide the assertion that mattered. The list
+  // is still emptied, because a suite that kept every tree it ever built would hold handles across files.
+  created.splice(0);
 });
 
 const DIFF =
@@ -98,6 +98,59 @@ describe('a repository is read, and refuses what it must not read', () => {
     const file = repository.readFile('src/big.ts');
     expect(file?.text).toHaveLength(10);
     expect(file?.truncated).toBe(true);
+  });
+
+  it('refuses a link that leaves the root, and reads one that stays inside it', () => {
+    // **A path inside the root is not a file inside the root.** A pull request can commit a symlink; stripping `..` and
+    // comparing strings then says the name is legal while the file it names is `/elsewhere`. The rule has to be about
+    // the file the name ends at, which is what `realpath` answers.
+    const outside = mkdtempSync(join(tmpdir(), 'agent-outside-'));
+    created.push(outside);
+    const secret = join(outside, 'secret.ts');
+    writeFileSync(secret, 'const leaked = 1;\n');
+    const root = makeTree({ 'src/a.ts': 'const a = 1;\n' });
+    symlinkSync(secret, join(root, 'notes.ts'));
+    symlinkSync(join(root, 'src/a.ts'), join(root, 'alias.ts'));
+    const repository = new DirectoryRepository({ root, changed: new Map() });
+    expect(repository.readFile('notes.ts')).toBeNull();
+    expect(repository.readFile('alias.ts')?.text).toBe('const a = 1;\n');
+  });
+
+  it('treats a sibling directory whose name starts with the root name as outside the root', () => {
+    // **`/tmp/x/repo-evil` starts with `/tmp/x/repo`**, so a prefix test without the separator would read it. The
+    // fixture is built as two sibling directories for that reason, and the link is the only way to reach the second.
+    const parent = mkdtempSync(join(tmpdir(), 'agent-siblings-'));
+    created.push(parent);
+    const root = join(parent, 'repo');
+    const sibling = join(parent, 'repo-evil');
+    mkdirSync(join(root, 'src'), { recursive: true });
+    mkdirSync(sibling, { recursive: true });
+    writeFileSync(join(root, 'src/a.ts'), 'const a = 1;\n');
+    writeFileSync(join(sibling, 'secret.ts'), 'const sibling = 1;\n');
+    symlinkSync(join(sibling, 'secret.ts'), join(root, 'bridge.ts'));
+    const repository = new DirectoryRepository({ root, changed: new Map() });
+    expect(repository.readFile('bridge.ts')).toBeNull();
+    expect(repository.readFile('src/a.ts')?.text).toBe('const a = 1;\n');
+  });
+
+  it('answers for the root itself without reading it as a file', () => {
+    // `readFile('.')` normalises to the root, which is the one path where the containment rule is equality rather than
+    // a prefix - and the answer is the same one a directory gets.
+    const root = makeTree({ 'src/a.ts': 'const a = 1;\n' });
+    const repository = new DirectoryRepository({ root, changed: new Map() });
+    expect(repository.readFile('.')).toBeNull();
+    expect(repository.readFile('./src/a.ts')?.text).toBe('const a = 1;\n');
+  });
+
+  it('closes what it opened, so a long review does not run out of descriptors', () => {
+    // **The descriptor is the thing a leak would be measured in.** Without the `finally`, each read leaves one open and
+    // the process ceiling (1024 on a default Linux) arrives inside a single review's tool budget - so the assertion is
+    // simply that the last read of many still returns text.
+    const root = makeTree({ 'src/a.ts': 'const a = 1;\n' });
+    const repository = new DirectoryRepository({ root, changed: new Map() });
+    let last: string | null = null;
+    for (let i = 0; i < 1200; i += 1) last = repository.readFile('src/a.ts')?.text ?? null;
+    expect(last).toBe('const a = 1;\n');
   });
 
   it('lists nothing when the root itself is not there, rather than throwing at a reviewer', () => {
