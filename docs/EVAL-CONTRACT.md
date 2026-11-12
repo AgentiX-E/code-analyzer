@@ -2344,3 +2344,158 @@ cases, no network, no bill, and the same agent the harness runs.**
 **What this does not change**: the lanes are still the default, every figure published before §23.5 was measured on them,
 and the flag is off unless asked for. **The arm has been measured on 36 pull requests, not confirmed on unseen ones** -
 §23.4's rule has not been satisfied, and until the `skip_pull_requests: 50` run lands, no product claim rests on it.
+
+## 24. The confirmation run landed, and it landed on a checker that was reading the wrong arm
+
+**The run §23.4 asked for, and what it cost.** `43201127022`: 100 pull requests at `skip_pull_requests: 50` - a corpus
+disjoint from the discovery by construction - `agent: on`, `advisory` profile, cap 3. It started at 10:31Z and its
+measurement step finished around 14:37Z, **four hours and five minutes for one hundred pull requests**, about **2.4 USD**
+at the arm's measured 0.024 per pull request. `timeout-minutes: 340` was not reached, and the throughput is now a known
+quantity rather than a surprise.
+
+**The measurement is valid and the job failed on its own arithmetic.** 100 pull requests, 724 goldens, 786 filings,
+147 true positives, 639 false positives, 577 false negatives - **P 0.187, R 0.203, F1 0.1947** on the reading arm's own
+filing rule. The step `Prove the artifact replays to its own figure` exited non-zero:
+
+```
+AACR-PAIRED-REPLAY the artifact's published figures are not derivable from its rows:
+  [{"field":"precision","published":0.187,"replayed":0.2752,"arm":"gate"},
+   {"field":"recall","published":0.203,"replayed":0.0414,"arm":"gate"},
+   {"field":"f1","published":0.1947,"replayed":0.072,"arm":"gate"}]
+```
+
+**Both numbers in that message were already in the artifact.** `emissionRules.shipped` is 0.1947 and
+`emissionRules.laneGate` is 0.072, side by side, because §23.7 introduced the reading arm's filing rule and the lane gate
+as two distinct things. `compareReplayToArtifact` derived the arm as `emissionProfile === 'defect' ? 'profile' : 'gate'`
+and **never looked at `configuration.agent`**, so for the first hundred-pull-request run of the reading reviewer it held
+the lane gate while the published figure was the reading arm's. **An artifact that records two arms and a checker that
+reads a third is the defect, not the figure.**
+
+**The repair, and how it was verified.** The arm is recorded (`scoring.publishedArm`) and read; the derivation survives
+only for artifacts written before the field, where `configuration.agent` is present and was the missing input. A fourth
+arm, `everything-filtered`, is what the reading reviewer publishes under a category profile: its filing rule keeps what
+it can locate and the profile floor is removed on top, **with no actionability requirement** - that is the entire
+difference from `profile`. Verified against the artifact that failed rather than against a fixture:
+
+|                                  | before                                        | after                                                             |
+| -------------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
+| `--check` on the failed artifact | exit 1, three mismatches named against `gate` | **exit 0**, "reproduces the published everything figures exactly" |
+| arm used                         | `gate` (derived)                              | `everything` (read)                                               |
+
+The fixture tests cover the four artifact shapes plus one changed published number that must still fail, because **a
+checker that always agrees is worse than no checker**.
+
+**What the run still cannot say, and the design error that caused it.** `excluded by them 100 · scored by them only 47`:
+**the competitor arm was empty.** `AACR_COMPETITOR` defaults to `replay`, which replays competitor reviews that were
+already paid for - and the confirmation corpus is by construction the fifty-to-one-hundred-fifty slice the competitor has
+never seen. So this run measured our reviewer on unseen pull requests and **could not pair it with anything**, and the
+paired subset is zero pull requests.
+
+**That is an experiment-design error, not a defect** - the harness did exactly what it was configured to do, and the
+configuration could not produce the comparison the run was dispatched for. The repair is a two-dispatch sequence rather
+than a code change: `competitor: record` on this slice first, so the competitor reviews the same hundred pull requests,
+and then `agent: on` with the default `replay` reads them back. **Registered here before it is run**, with the cost
+estimate in the same paragraph because an experiment that does not name its price is a wish:
+
+| dispatch                                           | what it buys                                 | estimated cost |
+| -------------------------------------------------- | -------------------------------------------- | -------------- |
+| `competitor: record`, `agent: off`, 100 at skip 50 | the competitor's reviews on the unseen slice | ~2-3 USD       |
+| `agent: on`, `competitor: replay`, same slice      | our figure on the same rows, paired          | ~2.4 USD       |
+
+**Until the first of those lands, no product claim rests on §24.** The 0.1947 above is a real measurement of the reading
+arm on unseen pull requests and it is **not** a comparison with anybody.
+
+## 25. The question-answering figure was three runs stacked into one table, and a pool that cannot be ranked
+
+**What was on disk.** `benchmarks/cosqa-retrieval.json` carried `lexical` MRR 0.264 and `fused` 0.570 from one retriever
+beside `reranked` 0.7705 from a later one, dated 2026-10-27. **The gain the file attributed to fusion and to reranking was
+a gain between two versions of the product**, not between two stages of one - which is exactly the reading a stacked table
+invites and the reason a provenance block exists. `code-qa-benchmark` had been measuring the whole chain since, and its
+artifact was never written back.
+
+**The run that was.** `43014071651`, 2026-11-11, 500 questions of `cosqa-retrieval-test-500.json` at SHA-256
+`27d3552b2e7dd86cf9f9a0b3c135e6777d4faafa9c29fb1b9b01ece945974ad6`, one run's three stages:
+
+| stage                             |       R@1 |       R@5 |      R@10 |     MRR@10 | found@10 |
+| --------------------------------- | --------: | --------: | --------: | ---------: | -------: |
+| lexical (BM25)                    |     0.356 |     0.578 |     0.664 |     0.4549 |      332 |
+| fused (BM25 + vectors, w=1)       |     0.534 |     0.776 |     0.860 |     0.6354 |      430 |
+| **reranked (listwise, DeepSeek)** | **0.678** | **0.894** | **0.936** | **0.7734** |  **468** |
+
+**Legalization**: the file is now that artifact, and its comment names the run - a copy of an artifact that does not say
+which run it came from is a number with no author.
+
+**Now the ranking, and why it is not a ranking yet.** The literature's CoSQA column, from the NACS paper's Table 1
+(_Deep Code Search with Naming-Agnostic Contrastive Multi-View Learning_, arXiv 2408.09345), with the CoSQA column of
+Huang et al.'s own Table 5 (arXiv 2105.13239) where it reports one:
+
+| system                         |  CoSQA MRR | trained on CoSQA? |
+| ------------------------------ | ---------: | ----------------- |
+| OCoR                           |      0.352 | no                |
+| CSRS                           |      0.373 | no                |
+| DGMS                           |      0.471 | no                |
+| DeepCS                         |      0.472 | no                |
+| CoCLR (CodeBERT + contrastive) |      0.647 | **yes**           |
+| GraphCodeBERT                  |      0.648 | **yes**           |
+| CodeBERT                       |      0.652 | **yes**           |
+| NACS (reported SOTA)           |  **0.708** | **yes**           |
+| **this product, reranked**     | **0.7734** | **no**            |
+
+**0.7734 is higher than every published number in that column and this document does not claim the lead**, for two
+reasons that are both measurable and neither of which is an excuse:
+
+1. **The pool is 500 functions; the published tables retrieve from the collection's whole unique function set.** Recall at
+   rank one on 500 candidates and on six thousand are different questions. The artifact says `pool.functions: 500` so a
+   reader can see it, and `COSQA_POOL=all` now closes it: the remaining unique functions of `cosqa-all.json` are indexed
+   as `distractor_######.py` while **the answers do not move** - the answer of question _i_ stays `code_###.py`, so the
+   rank scoring is byte-identical between the arms and the only variable is what else was in the collection.
+2. **Every model in that column is fine-tuned on CoSQA and this one is not** - which cuts the other way, and is the
+   reason the number is worth publishing at all: the product as shipped, with no training on the corpus and no
+   CoSQA-tuned encoder, finds the answer at rank one for 67.8 % of questions.
+
+**The optimization this names, in order.** (a) Run `pool=all` and publish the pool-matched figure - **dispatched, not
+yet landed**; until it lands, 0.7734 and 0.708 are two numbers on two pools and this repository will not rank them.
+(b) The fused-to-reranked step is worth +0.138 MRR and costs 481 completions for 500 questions: **a cheaper gate on
+which candidates to reorder** is the next cost lever, and the artifact already carries `reordered` so the ablation has a
+denominator. (c) `found@10` is 468 of 500, so **32 questions have no correct answer in the top ten at all** - a recall
+ceiling that no reranker can move and that the lexical column shows is a retrieval problem.
+
+**What this section does not do**: it does not put a retrieval figure beside a review figure. AACR measures a different
+task on a different corpus with a different judge, and §24's paired comparison is the only place this repository compares
+itself with a competitor on the same rows.
+
+## 26. The published reviewer was not the measured reviewer, and one key was the difference
+
+**Found while looking for something else.** The agent's settings were written twice - four literals in
+`.github/scripts/aacr-bench.mjs` and four in `packages/cli/src/commands/pr-review.ts` - and the copies had diverged:
+
+| key                  | measured arm (harness)                       | shipped arm (`review pr --agent`) |
+| -------------------- | -------------------------------------------- | --------------------------------- |
+| `allowOffDiff`       | **false**                                    | **true**                          |
+| `filter`             | true                                         | true                              |
+| `groupSize`          | 4                                            | 4                                 |
+| `maxFindingsPerFile` | 3 (`AACR_MAX_FINDINGS_PER_FILE`)             | 3                                 |
+| `limits`             | `DEFAULT_AGENT_LIMITS`, written out longhand | the default                       |
+
+**Every AACR figure of the reading arm therefore described a configuration that no product path offered.** The harness
+refused findings on untouched files so that a comment could be posted on the same terms a competitor posts one; the
+command shipped them, on the reasoning that a change can break an untouched caller and refusing to say so is a recall the
+product should not give away. Both reasonings are defensible; **holding both while recording neither is not.**
+
+**The repair names the arms instead of picking a winner.** `BASELINE_AGENT_OPTIONS` (measured) and
+`SHIPPED_AGENT_OPTIONS` (published) are declared in `review-agent.ts`, with `AGENT_ARM_DIVERGENCE` **derived from the
+pair** rather than restated, and the artifact records `configuration.agentOptions.{baseline,shipped,divergence,limits}`.
+A second divergence is not forbidden - it is required to be declared, because the person who adds one is the person who
+decides whether the published figure still describes the shipped reviewer.
+
+**Two smaller versions of the same defect, fixed in the same change.** `ReviewAgent` defaulted `maxFindingsPerFile` to
+**4** while the command and the benchmark both used **3**, so the documented default was the one nothing ran - and the
+three-per-file cap is the arm §23.9 measured as binding on 64 of 132 on-path rejections. The class now reads its defaults
+from the shipped arm. And the harness's five `limits` numbers were a second copy of `DEFAULT_AGENT_LIMITS`; they are that
+constant now, with the effective values recorded in the artifact, so a default that moves is **visible in the figure**
+rather than inferred from a date.
+
+**Asserted as values and as behaviour**, because a constant the engine ignores is the same defect one level down: one
+provider, one repository, one finding on an untouched file survives when nothing overrides the default and is refused
+under `BASELINE_AGENT_OPTIONS`. The two source-level assertions read assignment lines rather than prose, so the comments
+that explain the pair are not punished by the test that guards it.
