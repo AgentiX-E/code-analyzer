@@ -90,7 +90,10 @@ export function nearestFindingDistance(goldenLine, findings) {
  */
 export function nearestOnPath(goldenLine, findings) {
   const line = toLine(goldenLine);
-  let best = null;
+  // **Two passes, because the two questions are different**: which findings have coordinates at all, and then which of
+  // them is nearest. Folding them into one loop made the comparison carry a `null` case that could never be reached -
+  // a branch that no test can cover and that a coverage gate with `v8 ignore` disabled is right to refuse.
+  const placed = [];
   for (const [at, finding] of Array.from(findings ?? []).entries()) {
     // **The range, wherever the caller keeps it.** The bench script ranks `{ path, finding: { startLine }, score }`
     // while a test writes `{ path, startLine }`, and **a reading that only understands one of them reports `noLine` for
@@ -101,18 +104,24 @@ export function nearestOnPath(goldenLine, findings) {
     const end = toLine(span?.endLine);
     const low = start ?? end;
     if (low === null) continue;
-    const high = end ?? low;
-    const distance =
-      line === null
-        ? null
-        : line >= low && line <= high
-          ? 0
-          : Math.min(Math.abs(line - low), Math.abs(line - high));
+    placed.push({ at, startLine: start, endLine: end, low, high: end ?? low, finding });
+  }
+  if (placed.length === 0) return null;
+  // **A golden with no line still gets the finding**, because a rejection with no coordinate is still a rejection with
+  // a sentence - and dropping the evidence would leave `noLine` as the one shape with nothing behind it.
+  if (line === null) return { ...placed[0], distance: null };
+
+  const distanceTo = (candidate) =>
+    line >= candidate.low && line <= candidate.high
+      ? 0
+      : Math.min(Math.abs(line - candidate.low), Math.abs(line - candidate.high));
+
+  let best = { ...placed[0], distance: distanceTo(placed[0]) };
+  for (const candidate of placed.slice(1)) {
+    const distance = distanceTo(candidate);
     // **Strictly nearer, so the first finding wins a tie** - the list is ranked, and on two findings the same distance
     // from a golden the higher-ranked one is the one the reviewer would have read first.
-    const nearer =
-      best === null || (distance !== null && (best.distance === null || distance < best.distance));
-    if (nearer) best = { at, distance, startLine: start, endLine: end, finding };
+    if (distance < best.distance) best = { ...candidate, distance };
   }
   return best;
 }

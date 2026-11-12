@@ -216,13 +216,27 @@ describe('a rejection carries the finding it rejected, not only how far away it 
     expect(near?.distance).toBeNull();
   });
 
-  it('breaks a tie towards the higher-ranked finding, which is the one a reviewer read first', () => {
-    // First finding spans 90-92 (eight lines above the golden), the second spans 110-112 (ten below), so the nearer
-    // one is at distance eight - and the tie rule is exercised below at equal distances.
+  it('takes the nearer of two candidates, and keeps the higher-ranked one on a tie', () => {
+    // 90-92 is eight lines above line 100, 110-112 is ten below: the nearer one is the first.
     expect(nearestOnPath(100, [ranked(90, true), ranked(110, false)])?.at).toBe(0);
-    const tie = nearestOnPath(100, [ranked(85, true), ranked(117, false)]);
+    expect(nearestOnPath(100, [ranked(400, true), ranked(110, false)])?.at).toBe(1);
+    // **A genuine tie**: 90-92 is six lines above line 98 and 104-106 is six below, so the ranked order decides.
+    const tie = nearestOnPath(98, [ranked(90, true), ranked(104, false)]);
     expect(tie?.at).toBe(0);
-    expect(tie?.distance).toBe(13);
+    expect(tie?.distance).toBe(6);
+  });
+
+  it('gives up when no finding on the path has coordinates', () => {
+    // **Not `sameLine` and not `beyond50`**: a finding with no line is a hole on our side, and calling it zero would
+    // report agreement that nobody measured.
+    expect(nearestOnPath(100, [{ startLine: null, endLine: null }])).toBeNull();
+    expect(nearestOnPath(100, [])).toBeNull();
+  });
+
+  it('takes the first placed finding when the golden is the one without coordinates', () => {
+    const near = nearestOnPath(null, [{ startLine: null }, ranked(300, true), ranked(10, false)]);
+    expect(near?.at).toBe(1);
+    expect(near?.distance).toBeNull();
   });
 
   it('publishes the finding in the record, and only for a rejection', () => {
