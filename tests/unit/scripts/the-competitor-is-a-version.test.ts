@@ -18,13 +18,18 @@ import { describe, expect, it } from 'vitest';
 /** The version the published figures were measured against, as the run's own install step printed it. */
 const MEASURED_VERSION = '1.13.8';
 
-const WORKFLOWS = ['.github/workflows/aacr-bench.yml', '.github/workflows/runnable-competitors.yml'];
+const WORKFLOWS = [
+  '.github/workflows/aacr-bench.yml',
+  '.github/workflows/runnable-competitors.yml',
+];
 
 describe('the competitor install is pinned to the version the figures were measured on', () => {
   it.each(WORKFLOWS)('%s names the version', (path) => {
     const workflow = readFileSync(path, 'utf8');
 
-    expect(workflow).toContain(`npm install -g @alibaba-group/open-code-review@${MEASURED_VERSION}`);
+    expect(workflow).toContain(
+      `npm install -g @alibaba-group/open-code-review@${MEASURED_VERSION}`,
+    );
     // **A bare install line is the defect**, and it is one keystroke away from the pinned one.
     expect(workflow).not.toMatch(/npm install -g @alibaba-group\/open-code-review\s*$/m);
   });
