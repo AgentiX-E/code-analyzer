@@ -3194,6 +3194,25 @@ async function main() {
         ? 'the reading arm files only what it can locate: the quoted code must appear in the file at the reviewed commit, or in the diff when the file could not be read (§23.7; the actionability gate is a lane instrument and is reported beside it as emissionRules.laneGate)'
         : 'actionability gate: the range covers an added line AND (the suggestion names an action OR the finding quotes added code), AND the category profile floor',
       emissionRuleRegisteredBeforeRun: true,
+      /**
+       * **Which of `replayHeadToHead`'s arms the top-level `precision`, `recall` and `f1` were computed over.**
+       *
+       * `scripts/aacr-paired-replay.mjs --check` recomputes them from `rankedFindings` and fails the job when the two
+       * disagree, which is the property that makes a published figure auditable from its own rows. **It used to derive
+       * the arm instead of reading it**, and derived `gate` for every run that was not the `defect` profile - so the
+       * first hundred-pull-request run of the reading reviewer, whose published F1 was 0.1947, was replayed against the
+       * actionability gate's 0.072 and failed for a disagreement that existed only in the checker.
+       *
+       * **Recorded rather than re-derived here too**, because the same derivation written twice is the defect this
+       * field exists to remove: the value below is the one arm whose rule the three figures above are.
+       */
+      publishedArm: AGENT
+        ? PROFILE === 'defect'
+          ? 'everything-filtered'
+          : 'everything'
+        : PROFILE === 'defect'
+          ? 'profile'
+          : 'gate',
       judgeConcurrency: JUDGE_CONCURRENCY,
       /**
        * **Two arms of this engine, one judge, one set of goldens, one job.**

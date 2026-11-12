@@ -236,6 +236,10 @@ export function replayHeadToHead({ bench, baseline, dropCategories = [] } = {}) 
     everything: () => true,
     gate: (finding) => finding.actionable === true,
     profile: (finding) => finding.actionable === true && !drop.has(String(finding.category)),
+    // **The reading reviewer's published arm under a category profile**: its own filing rule keeps everything it can
+    // locate, and the profile floor is the only thing removed on top of that. It requires no actionability, which is the
+    // whole difference between it and `profile`.
+    'everything-filtered': (finding) => !drop.has(String(finding.category)),
   };
 
   const pairedCorpus = corpus.filter((pull) => pulls[pull.key] !== undefined);
@@ -313,7 +317,7 @@ export function compareReplayToArtifact(replay, bench) {
     recall: bench?.recall ?? null,
     f1: bench?.f1 ?? null,
   };
-  const arm = bench?.configuration?.emissionProfile === 'defect' ? 'profile' : 'gate';
+  const arm = publishedArmOf(bench);
   const actual = replay?.whole?.[arm] ?? null;
   const mismatches = [];
   for (const field of ['precision', 'recall', 'f1']) {
@@ -323,4 +327,28 @@ export function compareReplayToArtifact(replay, bench) {
     }
   }
   return { arm, ok: mismatches.length === 0, mismatches };
+}
+
+/**
+ * **Which arm the artifact's published precision, recall and F1 were computed over.**
+ *
+ * **Read from the artifact when the artifact says so**, and derived only when it does not - because deriving it was
+ * wrong once, expensively: the reading arm publishes what its own filing rule kept (`emissionRules.shipped`), while this
+ * function used to answer `gate` for every non-`defect` run, so a hundred-pull-request run whose published F1 was 0.1947
+ * was replayed against the actionability gate's 0.072 and the job failed for a disagreement that existed only in the
+ * reader. **An artifact that records two arms and a checker that reads a third is the defect, not the figure.**
+ *
+ * `everything-filtered` is the arm the reading reviewer publishes under a category profile: it files what it can locate
+ * and the profile floor then drops categories, so it is neither `everything` (which keeps every category) nor `profile`
+ * (which also requires the actionability gate).
+ */
+function publishedArmOf(bench) {
+  const recorded = bench?.scoring?.publishedArm;
+  if (typeof recorded === 'string') return recorded;
+  // **The derivation kept for artifacts written before the field existed**, with the reading arm's own rule restored:
+  // `configuration.agent` was in every one of those artifacts even when the arm name was not.
+  const profileOn = bench?.configuration?.emissionProfile === 'defect';
+  const reading = bench?.configuration?.agent === true;
+  if (reading) return profileOn ? 'everything-filtered' : 'everything';
+  return profileOn ? 'profile' : 'gate';
 }

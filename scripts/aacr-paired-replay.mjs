@@ -21,6 +21,12 @@ import { fileURLToPath } from 'node:url';
 
 import { compareReplayToArtifact, replayHeadToHead } from './lib/paired-replay.mjs';
 
+/**
+ * **Our arms, named once.** The published arm is one of these, so a checker that printed three of four would report a
+ * figure it also refused to show - which is what happened to the reading reviewer's arm.
+ */
+const OUR_ARMS = ['everything', 'gate', 'profile', 'everything-filtered'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 
@@ -83,14 +89,15 @@ function main() {
       `AACR-PAIRED-REPLAY ${replay.measuredAt ?? 'undated'} · ${replay.pullRequestsScored} pull requests · ${replay.goldensScored} goldens`,
     );
     console.log(`  whole corpus`);
-    for (const name of ['everything', 'gate', 'profile'])
-      console.log(line(name, replay.whole[name]));
+    // **Every arm the replay computed, in a fixed order**, so a new one cannot be measured without being printed: the
+    // list used to be written out by hand here, and the reading reviewer's published arm was not on it.
+    for (const name of OUR_ARMS) console.log(line(name, replay.whole[name]));
     console.log(line('theirs', replay.whole.theirs));
     console.log(line('theirs·raw', replay.whole.theirsEverything));
     console.log(
       `  paired subset · ${replay.paired.pullRequests} pull requests · ${replay.paired.goldens} goldens`,
     );
-    for (const name of ['everything', 'gate', 'profile']) {
+    for (const name of OUR_ARMS) {
       const arm = replay.paired[name];
       console.log(line(name, arm));
       if (arm.discordance) {
