@@ -369,6 +369,40 @@ describe('a budget stops a run before it is a bill with no ceiling', () => {
     expect(budget.hasRead('a.ts')).toBe(true);
     expect(budget.report().refusals.map((refusal) => refusal.kind)).toEqual(['read_file', 'round']);
   });
+
+  it('gives every group its own characters and searches, and keeps one ceiling for the money', () => {
+    // **The trace of `43172833166` said this in the model's own words** on a 200-file pull request: *"every read attempt
+    // was rejected for exceeding the character budget, so I have only the diff text"*. One ceiling for the review turned
+    // every group after the second into a diff-only reviewer, which is the failure the arm exists to remove. The bill
+    // still needs a hard bound, so it is stated as one instead of being hidden in a per-group number.
+    const perGroup = new AgentBudget({ maxReadChars: 10, maxSearches: 1, maxToolCalls: 9 });
+    perGroup.beginGroup(1);
+    expect(perGroup.chargeRead('a.ts', 8).ok).toBe(true);
+    expect(perGroup.chargeRead('b.ts', 8).ok).toBe(false);
+    expect(perGroup.takeToolCall('search_code').ok).toBe(true);
+    expect(perGroup.takeToolCall('search_code').ok).toBe(false);
+
+    // **Group two starts with its own ten characters and its own search**, which is the whole correction.
+    perGroup.beginGroup(2);
+    expect(perGroup.takeToolCall('search_code').ok).toBe(true);
+    expect(perGroup.chargeRead('c.ts', 8).ok).toBe(true);
+    expect(perGroup.chargeRead('d.ts', 8).ok).toBe(false);
+    expect(perGroup.report().readChars).toBe(16);
+    expect(perGroup.report().searches).toBe(2);
+
+    // **And the review's own ceiling is the money**, so it refuses with its own reason even when every group has room
+    // left - which is the case a per-group ceiling alone cannot express.
+    const perReview = new AgentBudget({ maxReadChars: 100, maxReadCharsPerReview: 25 });
+    perReview.beginGroup(1);
+    expect(perReview.chargeRead('e.ts', 20).ok).toBe(true);
+    perReview.beginGroup(2);
+    const refused = perReview.chargeRead('f.ts', 8);
+    expect(refused.ok).toBe(false);
+    expect(refused.ok === false ? refused.reason : '').toContain(
+      "the review's 25-character budget",
+    );
+    expect(perReview.report().readChars).toBe(20);
+  });
 });
 
 describe('the dispatcher owns every effect a tool can have', () => {

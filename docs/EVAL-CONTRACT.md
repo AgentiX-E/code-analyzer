@@ -1974,3 +1974,139 @@ paragraph.
   not build, and a comparison that is unfavourable and complete is worth more than one that is withheld and flattering.
 - **That `nearestFinding` explains the 120.** It makes them readable. The split between wording and gate calibration is
   the next measurement, and it is an offline one.
+
+## 23. The gap was architectural: a reviewer that cannot read the code cannot say what the code does wrong
+
+### 23.1 What the head-to-head said, in one paragraph
+
+On 36 paired pull requests, one corpus, one judge and one model, the competitor reached **F1 0.4043 (114 TP / 168 FP,
+recall 0.4043)** and this engine reached **0.2033 (61 TP / 257 FP, recall 0.2163)**. Under the registered actionability
+gate the two were **0.1954 against 0.1886**, and the paired test — 37 findings of ours against 23 of theirs — was
+**not significant at p = 0.0925**.
+
+**Two numbers decide what that means, and neither is about wording.** Of the 282 goldens we missed, **158 had one of our
+findings on the golden's path within ten lines** — the location was right and the claim was not — and **31 sat on files
+the review never opened**. The reviewer was given a diff string. The competitor's is given a checkout and five tools,
+and its own prompt says: _"when the context is unclear, use tools to obtain contextual information rather than judging
+based on assumptions."_
+
+**So the claim this section registers is not a prompt change.** It is a reviewer that reads: a plan, a tool loop over a
+repository, a finding that survives only if the code it quotes is in the file, and a filter pass that can only remove
+what it can point at.
+
+### 23.2 What was copied, and from where
+
+Read from `alibaba/open-code-review` at 1.13.7 (`internal/config/template/prompts/`, `internal/tool/`,
+`internal/diff/resolver.go`, `internal/config/template/task_template.json`):
+
+| their mechanism              | what it does                                                                                       | ours                                                                                                                            |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `grouping_task`              | clusters changed files, ≤ 10 per group, one LLM call                                               | `groupChangedFiles` — by directory, **no model call**, so a run is reproducible for free                                        |
+| `plan_task`                  | risk points, each with the tool calls that would settle it                                         | folded into the first round's instruction: five lines before the first tool call                                                |
+| `main_task` + 6 tools        | 100 tool rounds, `file_read`/`file_read_diff`/`file_search`/`file_find`/`code_comment`/`task_done` | 4 rounds, 5 tools: `read_file`/`search_code`/`read_diff`/`file_comment`/`task_done`                                             |
+| `code_comment.existing_code` | the quote is how the finding is located                                                            | same, plus a **locator that reports how it found it** (`exact`/`normalised`/`disambiguated`/`anchored`)                         |
+| `re_location_task`           | a second model call regenerates an unmatched quote                                                 | **removed**: an unlocatable quote is dropped, because a model deciding where a model's claim belongs is the defect in a costume |
+| `review_filter_task`         | removes only comments a diff _proves_ wrong                                                        | same asymmetry, and **a removal without a named contradicting line is ignored**                                                 |
+| `task_done` (no arguments)   | ends the review                                                                                    | **takes the files reviewed and the files skipped with reasons** — an unaccounted file is a counted defect                       |
+
+**The one deliberate addition** is the account. Their `task_done` takes nothing, so _did the agent read every changed
+file_ is not answerable from its output — and 31 of the goldens we missed were on files nobody looked at. Here every
+changed file ends with one of four statuses, and `unaccounted` is published per run.
+
+### 23.3 The budget, stated before the number
+
+A hundred tool rounds per group is a bill, not a measurement. Ours: **4 rounds, 12 tool calls, 4 searches and 120 000
+characters per group of files, with one review-wide ceiling of 1 200 000 characters for the money**, and a grounding read
+is counted outside the model's budget because it is ours.
+
+**The unit of every one of those numbers is a correction, not a drafting choice**, and §23.5 and §23.6 are why: they were
+written per pull request, and a ceiling counted once for a review starves either the later groups of one pull request
+(§23.5: no group ever started) or the later groups of a large one (§23.6: a 200-file pull request's third group could not
+read a character and filed from the diff alone). **The only quantity that is not a unit of work is the bill**, so the bill
+is the only ceiling stated per review.
+
+The ceiling scales with the arm: `CEILING_USD_PER_PULL_REQUEST_AGENT = 0.35`, against 0.15 for the lanes. **That number is
+an estimate and is marked as one** — the first measurement of this arm replaces it, and an artifact records which ceiling
+it ran under. **Measured: 0.79 USD for 36 pull requests, of which 0.16 was the judge, 0.46 was five lanes whose findings
+were then discarded, and 0.073 was the agent itself** — so the arm with the lanes removed costs about 0.002 USD per pull
+request and the estimate was two orders out in the harmless direction.
+
+### 23.4 Registered, and honestly not a pre-registration
+
+**The dispatch happened before this section was written** (`43162733527`, 36 pull requests, skip 14, `agent: on`), so its
+figure is a **discovery, not a confirmation**. The rule this repository applies to a discovery is the one R-17 needed and
+did not have:
+
+- the arm's number may motivate a claim;
+- the claim must be confirmed on rows the discovery did not see (`skip_pull_requests: 50`);
+- and **no figure from this arm is quotable against the competitor until that confirmation exists**, because the arm and
+  its prompt were written by the same iteration that read the corpus.
+
+**What would falsify the design rather than the implementation**: if the arm, having read the code, still lands within
+0.03 of 0.2033 on the same corpus. The mechanism would then be wrong about where the gap lives, and the next section
+would have to explain a 158-finding claim-quality gap that reading the file does not close.
+
+### 23.5 The first measurement is a zero, and it is the loop rather than the model
+
+`43162733527` (36 pull requests, skip 14, `agent: on`) produced **TP 0, FP 3, FN 282: precision 0, recall 0, F1 0**, on the
+same rows where the five lanes produce F1 0.1608 and the competitor's replayed arm produces 0.4043.
+
+**Three findings in thirty-six pull requests.** The artifact could not say why, and that is the first defect: it carried
+the score and not the reason for it, so the two questions that matter — _did the model decline to file_, or _did the loop
+never let it_ — were indistinguishable from the output.
+
+What the artifact did carry, read together, answers it:
+
+| the ledger said                                            | what it means                                             |
+| ---------------------------------------------------------- | --------------------------------------------------------- |
+| 145 model calls for 36 pull requests                       | four calls per pull request                               |
+| `aacr-agent:g1:r1` … `g1:r4`, each called exactly 36 times | **round one through four of group one, and no group two** |
+| 273 tool calls, 2 369 133 characters read                  | the arm read 2.4 MB of source and filed three comments    |
+| `accounts.unaccounted: 248` of 249 files                   | `task_done` was never called either                       |
+
+**The ceilings were counted once per review and the work is per group.** Every pull request spent its four rounds on the
+first group of four files, read until the round budget ended, and stopped mid-exploration — so groups two and three never
+ran, 248 of 249 changed files were never opened, and the run reports a reviewer that found nothing when it was a reviewer
+that was never allowed to finish a thought. **This is the third time in this repository's benchmark work that a counter's
+unit did not match the work's unit** (§19.2's per-run budget, §20.3's two dispatches for one device, and this), and it is
+the same failure each time: the number was plausible and the accounting was wrong.
+
+**Three changes, and none of them is a prompt tweak:**
+
+1. **Rounds, tool calls and file reads are counted per group**; characters and searches stay per review, because a bill is
+   a fact about the review and a budget is a fact about the work.
+2. **The last round of every group cannot read.** A budget that can be spent entirely on reading measures how much an
+   agent likes reading, so the final round offers `file_comment` and `task_done` only, and a call to anything else is
+   refused by name rather than executed. This is a reservation rather than an extra call: a group costs what it cost
+   before and one of its rounds now concludes.
+3. **The artifact carries the trace and `draftsFiled`.** One line per round — the tools called and what was said — and the
+   count of drafts before grounding, because _no comments_ and _no attempts_ are different bugs and were the same number.
+
+**The lanes were also being bought and thrown away**: under `AACR_AGENT=on` their findings are replaced downstream, so
+0.46 of that run's 0.79 USD and most of its 41 minutes were a second reviewer nobody scored. They no longer run when the
+agent is the arm.
+
+**What this does not say.** It does not say the agent's design is wrong, and it does not say the competitor's 0.4043 is
+reachable: a run that filed three findings is not evidence about a design, it is evidence about a loop. §23.4's
+falsification condition is unchanged and still unmet, and **the zero above is not quotable as a figure either** — it is a
+defect report.
+
+### 23.6 The repaired loop, measured on six pull requests
+
+`43172833166` (`agent: on`, six pull requests, `skip_pull_requests: 0`) is the first run of this arm in which the
+reviewer filed anything: **35 drafts, 24 kept, 21 files commented, 5 declared clean**, and **not one golden on a file the
+review never opened**.
+
+| operating point              | k   | TP  | FP  | P      | R      | F1     |
+| ---------------------------- | --- | --- | --- | ------ | ------ | ------ |
+| full emission                | 31  | 10  | 21  | 0.3226 | 0.1786 | 0.2299 |
+| after the actionability gate | 6   | 3   | 3   | 0.5    | 0.0536 | 0.0968 |
+
+**The gate is the largest single loss in the pipeline**, and it is the one number here that is a decision rather than a
+measurement: the actionability rule was calibrated on lane findings, which are single-shot claims over a diff, and it
+takes this arm's recall from 0.1786 to 0.0536 while its precision goes from 0.3226 to 0.5. **A rule that halves a
+reviewer's precision loss and quarters its recall is not obviously right for a reviewer that read the file**, and the
+next measurement is the same rows at both operating points rather than an argument about which is better.
+
+**Six pull requests is not a corpus.** The figure above is a smoke test of a repaired loop; the number this section's
+falsification condition is about is §23.4's, and it still has not been measured.

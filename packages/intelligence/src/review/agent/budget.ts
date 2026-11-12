@@ -26,19 +26,33 @@ export interface AgentLimits {
    * the ceiling has to be one too.
    */
   maxRounds: number;
-  /** Tool calls **per group of files**. Default 12. The bill is bounded by `maxReadChars`, which is per review. */
+  /** Tool calls **per group of files**. Default 12. */
   maxToolCalls: number;
-  /** Characters of file text the agent may read. Default 120 000. **Per review**, because this is the cost ceiling. */
+  /**
+   * Characters of file text **one group** may read. Default 120 000.
+   *
+   * **Per group, and the trace of `43172833166` is why.** On a 200-file pull request the third group's filing round said:
+   * *"every read attempt was rejected for exceeding the character budget, so I have only the diff text"* - one ceiling
+   * for the review turned every group after the second into a diff-only reviewer, which is the exact failure this arm
+   * exists to remove. The bill still has a hard ceiling, and it is `maxReadCharsPerReview`.
+   */
   maxReadChars: number;
+  /**
+   * Characters of file text the whole review may read. Default 1 200 000.
+   *
+   * **This is the money, and it is the only ceiling here that is not a unit of work.** A per-group ceiling cannot bound a
+   * bill, because the number of groups is a property of the pull request rather than of the reviewer - so the hard bound
+   * is stated separately instead of being smuggled into a per-group number that large pull requests then hit early.
+   */
+  maxReadCharsPerReview: number;
   /**
    * Distinct files one group may read. Default 12.
    *
    * **Per group, for the same reason the rounds are.** A file ceiling counted once for the review starves the later
-   * groups of a large pull request exactly as the round ceiling did, and the cost of the reading is bounded by
-   * `maxReadChars` rather than by this number.
+   * groups of a large pull request exactly as the round ceiling did.
    */
   maxFilesRead: number;
-  /** Search calls. Default 4. */
+  /** Search calls **per group**. Default 4. */
   maxSearches: number;
 }
 
@@ -46,6 +60,7 @@ export const DEFAULT_AGENT_LIMITS: AgentLimits = Object.freeze({
   maxRounds: 4,
   maxToolCalls: 12,
   maxReadChars: 120_000,
+  maxReadCharsPerReview: 1_200_000,
   maxFilesRead: 12,
   maxSearches: 4,
 });
@@ -85,6 +100,8 @@ export class AgentBudget {
   private readonly groupRounds = new Map<number, number>();
   private readonly groupCalls = new Map<number, number>();
   private readonly groupFiles = new Map<number, Set<string>>();
+  private readonly groupSearches = new Map<number, number>();
+  private readonly groupChars = new Map<number, number>();
 
   constructor(limits: Partial<AgentLimits> = {}) {
     this.limits = { ...DEFAULT_AGENT_LIMITS, ...limits };
@@ -133,26 +150,41 @@ export class AgentBudget {
     if (spent >= this.limits.maxToolCalls) {
       return this.refuse(kind, `the ${String(this.limits.maxToolCalls)}-call budget is spent`);
     }
-    if (kind === 'search_code' && this.ledger.searches >= this.limits.maxSearches) {
-      return this.refuse(kind, `the ${String(this.limits.maxSearches)}-search budget is spent`);
+    if (kind === 'search_code') {
+      const searched = this.groupSearches.get(this.group) ?? 0;
+      if (searched >= this.limits.maxSearches) {
+        return this.refuse(kind, `the ${String(this.limits.maxSearches)}-search budget is spent`);
+      }
+      this.groupSearches.set(this.group, searched + 1);
+      this.ledger.searches += 1;
     }
     if (kind === 'read_file' && this.groupSet().size >= this.limits.maxFilesRead) {
       return this.refuse(kind, `the ${String(this.limits.maxFilesRead)}-file budget is spent`);
     }
     this.groupCalls.set(this.group, spent + 1);
     this.ledger.toolCalls += 1;
-    if (kind === 'search_code') this.ledger.searches += 1;
     return { ok: true };
   }
 
   /** Record a read's cost, after it happened, so the character ceiling can stop the next one. */
   chargeRead(path: string, chars: number): Consumed {
-    if (this.ledger.readChars + chars > this.limits.maxReadChars) {
+    // **Two ceilings, and they answer different questions.** The per-group one is what makes a group reviewable; the
+    // per-review one is what makes the run affordable. Refusing on the review ceiling says which of the two was hit,
+    // because "this group is out of characters" and "this review is out of money" send a reader to different places.
+    const spentHere = this.groupChars.get(this.group) ?? 0;
+    if (spentHere + chars > this.limits.maxReadChars) {
       return this.refuse(
         'read_file',
-        `reading ${path} would pass the ${String(this.limits.maxReadChars)}-character budget`,
+        `reading ${path} would pass this group's ${String(this.limits.maxReadChars)}-character budget`,
       );
     }
+    if (this.ledger.readChars + chars > this.limits.maxReadCharsPerReview) {
+      return this.refuse(
+        'read_file',
+        `reading ${path} would pass the review's ${String(this.limits.maxReadCharsPerReview)}-character budget`,
+      );
+    }
+    this.groupChars.set(this.group, spentHere + chars);
     this.ledger.readChars += chars;
     this.files.add(path);
     this.groupSet().add(path);
