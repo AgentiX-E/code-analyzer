@@ -253,6 +253,35 @@ export type {
   InlineComment,
 } from './review/github-webhook.js';
 
+// The review agent — a review that can read the code it is reviewing
+export { ReviewAgent, groupChangedFiles } from './review/agent/review-agent.js';
+export type {
+  AgentReviewOutcome,
+  DropRecord,
+  FileAccount,
+  FileStatus,
+  ReviewAgentOptions,
+} from './review/agent/review-agent.js';
+export { DirectoryRepository, MappedRepository } from './review/agent/repository.js';
+export type {
+  RepositoryFile,
+  RepositoryLimits,
+  ReviewRepository,
+  SearchHit,
+  SearchOptions,
+} from './review/agent/repository.js';
+export { locateInDiff, locateInFile, locateSnippetLines } from './review/agent/grounding.js';
+export type { LocatedSpan, LocationQuality } from './review/agent/grounding.js';
+export { AgentBudget, DEFAULT_AGENT_LIMITS } from './review/agent/budget.js';
+export type { AgentLedger, AgentLimits } from './review/agent/budget.js';
+export {
+  AGENT_TOOLS,
+  dispatchTool,
+  parseDeclaration,
+  parseDraftComments,
+} from './review/agent/tools.js';
+export type { DraftComment, ReviewDeclaration, ToolOutcome } from './review/agent/tools.js';
+
 // Diff Parser
 export { DiffParser } from './review/diff-parser.js';
 export type {

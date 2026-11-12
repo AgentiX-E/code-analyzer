@@ -65,6 +65,23 @@ on:
         description: 'Row to start at (default 0); 50 with 100 reads the slice after the discovery set'
         type: string
         default: '0'
+      agent:
+        # **The arm the head-to-head made necessary: a reviewer that can read the repository.**
+        #
+        # The competitor scored F1 0.4043 against our 0.2033 on 36 paired pull requests, and 158 of the 282 goldens we
+        # missed had a finding of ours on their path within ten lines that described something else. `on` replaces the
+        # five single-shot lanes with `ReviewAgent` - a plan, a tool loop over a checkout, a finding that survives only
+        # if the code it quotes is in the file, and a filter pass. **`off` is the default**, because every figure this
+        # repository has published was measured under the lanes and an arm that cannot be switched off cannot be
+        # measured against them.
+        #
+        # **And it collapses the matrix to one arm.** The two arms differ in `code_context`, which the agent provides
+        # for itself by reading the file; running the agent twice would buy the same measurement twice and write two
+        # artifacts whose only difference is a switch the agent does not consult.
+        description: 'Review arm: the five lanes (off), or the reading agent (on)'
+        type: choice
+        options: ['off', 'on']
+        default: 'off'
       # **`code_context` used to be an input here, and its deletion is the fix rather than a tidy-up.** As an input it
       # had one value per dispatch, so measuring the device meant two dispatches - and two dispatches of this job have
       # reported the *same* configuration at 0.1691 and 0.2405, which is a spread larger than every effect registered in
@@ -122,8 +139,12 @@ jobs:
     # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
     # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
     # the difference is legible before anything is downloaded.
-    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }})
+    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, agent ${{ inputs.agent || 'off' }})
     runs-on: ubuntu-latest
+    # **The agent arm is one arm, so the matrix collapses to its `on` row rather than paying for a switch the agent does
+    # not consult.** A skipped arm writes no artifact, and the comparison job reports a one-sided pair rather than a
+    # difference between two runs that were the same run.
+    if: ${{ (inputs.agent || 'off') == 'off' || matrix.code_context == 'on' }}
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
     # that is the only reason this number moved, and **a timeout raised because a job is close to it would hide the
@@ -278,6 +299,10 @@ jobs:
           # **The profile the artifact will record**, passed explicitly rather than left to the script's default, so the
           # workflow and the artifact cannot disagree about which reviewer produced the figure.
           AACR_PROFILE: ${{ matrix.profile }}
+          # **The arm itself**, passed explicitly for the same reason as the two above: the artifact and the workflow
+          # cannot disagree about which reviewer produced the figure. The agent reads a checkout of the pull request's
+          # head commit and ignores `AACR_CODE_CONTEXT` - it does not need a window when it can open the file.
+          AACR_AGENT: ${{ inputs.agent || 'off' }}
           # **Whether this run buys a competitor result, or reads the one already paid for.** The script's own default
           # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
           # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.

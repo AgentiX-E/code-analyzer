@@ -21,6 +21,17 @@
 export const CEILING_USD_PER_PULL_REQUEST = { replay: 0.15, record: 0.5 };
 
 /**
+ * **What a pull request costs when the reviewer is an agent rather than five lanes, and why the number is provisional.**
+ *
+ * The agent reads the repository: a plan, four rounds of tool calls and a filter pass per group, over prompts that carry
+ * file text rather than three lines of hunk context. **That is a different shape of spend and it has not been measured
+ * yet** - so this rate is deliberately generous rather than fitted, and the artifact records the ceiling it ran under so
+ * the next iteration can replace it with a measurement instead of an estimate. **A ceiling set below the cost of a
+ * valid run is a ceiling that produces a low recall and calls it a reviewer.**
+ */
+export const CEILING_USD_PER_PULL_REQUEST_AGENT = 0.35;
+
+/**
  * **The smallest ceiling that still admits the run the script was written for.**
  *
  * A rate alone would refuse a small corpus it should clearly allow (fourteen pull requests at 0.15 is 2.1 USD, and the
@@ -55,7 +66,7 @@ export function requestedPullRequests(raw, { fallback = 14 } = {}) {
  * An empty string counts as no override: the workflow passes the variable conditionally, and a conditional `env:` that
  * falls through sets it to `''` rather than leaving it unset.
  */
-export function spendCeilingUsd({ pullRequests, mode, override }) {
+export function spendCeilingUsd({ pullRequests, mode, override, agent = false }) {
   const explicit = Number(override);
   if (
     override !== undefined &&
@@ -67,7 +78,12 @@ export function spendCeilingUsd({ pullRequests, mode, override }) {
     return explicit;
   }
   const key = mode === 'record' ? 'record' : 'replay';
-  const scaled = CEILING_USD_PER_PULL_REQUEST[key] * requestedPullRequests(pullRequests);
+  // **The agent rate replaces the lane rate rather than adding to it**, because the arm runs one reviewer or the other:
+  // a `record` run needs both, so the two rates are summed there and only there.
+  const rate =
+    (agent ? CEILING_USD_PER_PULL_REQUEST_AGENT : CEILING_USD_PER_PULL_REQUEST[key]) +
+    (agent && key === 'record' ? CEILING_USD_PER_PULL_REQUEST.record : 0);
+  const scaled = rate * requestedPullRequests(pullRequests);
   return Math.max(CEILING_USD_FLOOR[key], Math.round(scaled * 100) / 100);
 }
 

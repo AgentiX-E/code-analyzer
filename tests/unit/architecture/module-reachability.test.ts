@@ -380,11 +380,19 @@ describe('every module a package compiles is reachable from an entry its manifes
       // for a bill.** 157 was iteration 110, which added `review/llm/language-rules.ts`: the per-language checklist is
       // content rather than plumbing, and this register is what makes that a decision somebody took rather than a file
       // that appeared.)
-      // **162 since iteration 123**, which added `review/llm/code-context.ts`: the block each hunk sits in, headed by
+      // **167 since iteration 126**, which added the five modules of `review/agent/`: `repository.ts` (the code a review
+      // may read, with a byte budget), `grounding.ts` (the quote-to-line locator), `budget.ts` (what an agent may
+      // spend), `tools.ts` (the five tools and the one dispatcher that owns every effect they can have) and
+      // `review-agent.ts` (the loop). **Five modules rather than one because they fail independently** - a locator that
+      // is wrong files findings at the wrong line, a repository that escapes its root reads `../../etc/passwd`, and a
+      // budget that is a constant inside a loop is a bill with no ceiling - and each is tested against the thing it
+      // guards rather than through a model call.
+      //
+      // **162 was iteration 123**, which added `review/llm/code-context.ts`: the block each hunk sits in, headed by
       // the coordinates a model cannot recover from the text. It is a module because the alternative was a private
       // method on the review engine, and **a window that can only be tested through a provider call is a window nobody
       // tests** - the 21 cases beside it need a file and a diff, not a model.
-      intelligence: 162,
+      intelligence: 167,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

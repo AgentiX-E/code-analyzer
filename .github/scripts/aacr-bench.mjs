@@ -151,6 +151,23 @@ const PROFILE = (() => {
 })();
 
 /**
+ * **The switch the head-to-head made necessary: a reviewer that can read the repository.**
+ *
+ * `AACR_AGENT=on` replaces the five lanes with `ReviewAgent`: it groups the changed files, gives the model the five tools
+ * their `internal/tool/definitions.go` gives theirs, and files a finding only when the code it quotes can be found. The
+ * reason is a number this repository published: **on 36 paired pull requests the competitor reached F1 0.4043 and we
+ * reached 0.2033**, and 158 of the 282 goldens we missed had **a finding of ours on their path, within ten lines, that
+ * described something else.** That is not a prompt-tuning gap; it is a reviewer reasoning about a patch it cannot read.
+ *
+ * **Why it is a switch and not the default**: the default has to stay the arm every published figure was measured under,
+ * or a run that forgets the switch reproduces half a new number. **And why the repository is a checkout rather than the
+ * API**: the agent's `read_file` is synchronous by design - so that the module that decides what a reviewer may read is
+ * testable - and a checkout is also what the competitor's own harness is given, which keeps the two arms comparable in
+ * the resource that matters.
+ */
+const AGENT = String(process.env['AACR_AGENT'] ?? 'off').toLowerCase() === 'on';
+
+/**
  * **The switch this iteration is about: whether a lane is shown the code each hunk sits in.**
  *
  * `AACR_CODE_CONTEXT=on` reads every changed file at the pull request's head commit through the API and passes it to
@@ -163,7 +180,8 @@ const PROFILE = (() => {
  * the prompt order are environment values. The retrieval costs one API call per changed file and 650 tokens per file of
  * prompt, so **an on-arm spends money the off-arm does not: the artifact records both the calls and the characters.**
  */
-const CODE_CONTEXT = String(process.env['AACR_CODE_CONTEXT'] ?? 'off').toLowerCase() === 'on';
+const CODE_CONTEXT =
+  AGENT || String(process.env['AACR_CODE_CONTEXT'] ?? 'off').toLowerCase() === 'on';
 
 /**
  * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
@@ -826,6 +844,139 @@ async function dryRun() {
     'a language it does not carry gets no checklist rather than a generic one',
   );
 
+  /**
+   * **The reading arm, rehearsed without a model.**
+   *
+   * The agent's wiring is four things that fail independently and silently: the repository the job builds, the tool
+   * dispatch inside the loop, the locator that turns a quote into a line, and the account of which files were reviewed.
+   * A run that gets any of them wrong produces a plausible artifact with a lower figure, which is the shape this
+   * repository has paid for twelve times. **So the arm is exercised here, on a two-file fixture, with a provider whose
+   * answers are written down** - the same seam the judge uses, and for the same reason.
+   */
+  {
+    const { ReviewAgent } =
+      await import('../../packages/intelligence/dist/review/agent/review-agent.js');
+    const { DirectoryRepository } =
+      await import('../../packages/intelligence/dist/review/agent/repository.js');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const root = mkdtempSync(join(tmpdir(), 'aacr-dry-agent-'));
+    try {
+      mkdirSync(join(root, 'src'), { recursive: true });
+      writeFileSync(
+        join(root, 'src/ledger.ts'),
+        'export const rate = 1;\nexport function total(x: number) {\n  return x * rate;\n}\n',
+      );
+      const planted =
+        'diff --git a/src/ledger.ts b/src/ledger.ts\n--- a/src/ledger.ts\n+++ b/src/ledger.ts\n@@ -1,1 +1,4 @@\n export const rate = 1;\n+export function total(x: number) {\n+  return x * rate;\n+}\n';
+      const repository = new DirectoryRepository({
+        root,
+        changed: new Map([['src/ledger.ts', planted]]),
+      });
+      const script = [
+        () => ({
+          content: 'the multiplication ignores a null x',
+          toolCalls: [
+            { id: 'r1', name: 'read_file', arguments: JSON.stringify({ path: 'src/ledger.ts' }) },
+          ],
+        }),
+        () => ({
+          content: '',
+          toolCalls: [
+            {
+              id: 'c1',
+              name: 'file_comment',
+              arguments: JSON.stringify({
+                comments: [
+                  {
+                    path: 'src/ledger.ts',
+                    content: 'x is not checked before the multiply',
+                    existing_code: 'return x * rate;',
+                  },
+                  {
+                    path: 'src/ledger.ts',
+                    content: 'a quote that is not in the file',
+                    existing_code: 'return x / rate;',
+                  },
+                ],
+              }),
+            },
+            {
+              id: 'd1',
+              name: 'task_done',
+              arguments: JSON.stringify({ reviewed: ['src/ledger.ts'] }),
+            },
+          ],
+        }),
+        () => ({ content: '{"remove": []}' }),
+      ];
+      const provider = {
+        name: 'dry-run',
+        model: 'dry-run',
+        async complete() {
+          const step = script.shift()();
+          return { content: step.content, model: 'dry-run', createdAt: '', finishReason: 'stop' };
+        },
+        async completeWithTools(prompt) {
+          const step = script.shift()();
+          prompts.push(prompt);
+          return {
+            content: step.content,
+            model: 'dry-run',
+            createdAt: '',
+            finishReason: 'stop',
+            toolCalls: step.toolCalls,
+          };
+        },
+        async healthCheck() {
+          return true;
+        },
+      };
+      const prompts = [];
+      const outcome = await new ReviewAgent(provider, { filter: true }).review({
+        repository,
+        changedPaths: ['src/ledger.ts'],
+      });
+      assert.equal(
+        outcome.comments.length,
+        1,
+        'the finding whose quote is in the file survives, and only it',
+      );
+      assert.equal(
+        outcome.comments[0].startLine,
+        3,
+        "the quote locates the finding at its line, not at the model's guess",
+      );
+      assert.equal(
+        outcome.comments[0].existingCode,
+        'return x * rate;',
+        'the quoted code travels with the finding',
+      );
+      assert.equal(
+        outcome.drops.length,
+        1,
+        'the finding whose quote is absent is dropped rather than filed',
+      );
+      assert.equal(outcome.drops[0].reason, 'snippet-not-found', 'and the drop names its reason');
+      assert.equal(
+        outcome.accounts[0].status,
+        'commented',
+        'the file is accounted for as commented',
+      );
+      assert.ok(
+        prompts[1].includes('TOOL read_file ->'),
+        'the read reached the next round as evidence',
+      );
+      assert.ok(
+        prompts[1].includes('    3|   return x * rate;'),
+        'and it arrived with the numbers a quote can be copied from',
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
   console.log(
     `AACR-BENCH dry run ok · full F1 ${full.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')} · checklist ${checklistOn.length} chars on / ${checklistOff.length} off`,
   );
@@ -1200,6 +1351,9 @@ async function main() {
     pullRequests: MAX_PRS,
     mode: COMPETITOR_CHOICE.mode,
     override: process.env['AACR_MAX_USD'],
+    // **The arm's own rate**, because an agent reading a checkout is not five lanes reading a diff and a ceiling written
+    // for one of them would stop the other halfway.
+    agent: AGENT,
   });
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
   //
@@ -1279,6 +1433,31 @@ async function main() {
     codeContext: CODE_CONTEXT
       ? { enabled: true, requested: 0, read: 0, absent: 0, failed: 0, chars: 0, reasons: [] }
       : { enabled: false },
+  };
+  /**
+   * **What the agent arm spent and what it decided**, per pull request.
+   *
+   * The three numbers that matter are not the cost: **how many changed files it never accounted for** (the 31 goldens we
+   * missed on files nobody opened), **how many findings it withheld because the quote was not in the file** (the
+   * competitor's resolver, made countable), and **how many the filter removed** - because a reviewer that improves by
+   * removing its own output is a different claim from one that improves by reading.
+   */
+  const agentCounters = {
+    enabled: AGENT,
+    pulls: 0,
+    modelCalls: 0,
+    toolCalls: 0,
+    readChars: 0,
+    checkoutFailures: 0,
+    firstCheckoutFailure: null,
+    groundingReads: 0,
+    disambiguated: 0,
+    filtered: 0,
+    draftsFiled: 0,
+    drops: {},
+    accounts: { commented: 0, 'reviewed-clean': 0, skipped: 0, unaccounted: 0 },
+    unaccountedPaths: [],
+    firstFailure: null,
   };
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
   /**
@@ -1497,6 +1676,56 @@ async function main() {
       return { ok: false, reason: `the file request threw: ${String(error?.message ?? error)}` };
     }
   }
+
+  /**
+   * **The repository, at the commit the review is about, on disk.**
+   *
+   * The agent's `read_file` is synchronous, so the transport has to be a checkout rather than an HTTP call inside the
+   * tool loop - and **a checkout is what the competitor's harness is given too**, which is the comparison this arm
+   * exists to make. `--filter=blob:none` downloads every commit and no file contents, so the clone is cheap and the
+   * checkout fetches only the blobs that commit needs; a `--depth 1` fetch would be cheaper and would give a repository
+   * with no merge base, which is the mistake the competitor arm already paid for.
+   *
+   * **A clone that fails returns null rather than throwing**, because the arm must still run: the caller falls back to
+   * the changed files the API already delivered, and the artifact records which of the two it used.
+   */
+  const checkouts = new Map();
+  const checkoutAt = (url, sha) => {
+    if (checkouts.has(sha)) return checkouts.get(sha);
+    const repo = shortRepo(url);
+    if (!repo || !sha) {
+      checkouts.set(sha, null);
+      return null;
+    }
+    const dir = mkdtempSync(`${tmpdir()}/agent-`);
+    try {
+      execFileSync(
+        'git',
+        [
+          'clone',
+          '-q',
+          '--filter=blob:none',
+          '--no-checkout',
+          `https://github.com/${repo}.git`,
+          dir,
+        ],
+        {
+          stdio: 'pipe',
+          timeout: 600_000,
+        },
+      );
+      execFileSync('git', ['-C', dir, 'checkout', '-q', sha], { stdio: 'pipe', timeout: 600_000 });
+      checkouts.set(sha, dir);
+      return dir;
+    } catch (error) {
+      agentCounters.checkoutFailures += 1;
+      if (agentCounters.firstCheckoutFailure === null) {
+        agentCounters.firstCheckoutFailure = String(error.message ?? '').slice(0, 200);
+      }
+      checkouts.set(sha, null);
+      return null;
+    }
+  };
 
   for (const pr of rows) {
     // **Their field names, and the diff fetched rather than read from the corpus.** **A PR whose diff cannot be
@@ -1977,8 +2206,12 @@ async function main() {
     // gets a checkout and pays a clone for it; 249 files over 36 pull requests is 249 small requests, which is the same
     // fact for a fraction of the bytes.
     const fileTexts = new Map();
+    // **The head commit, hoisted out of the retrieval block** because the agent arm needs the same revision and reading it
+    // twice is a second request for a fact already in hand.
+    let pullHead = null;
     if (CODE_CONTEXT) {
       const head = await fetchPullHead(pr.githubPrUrl);
+      pullHead = head.ok ? head : null;
       if (!head.ok) {
         engineCounters.codeContext.failed += 1;
         if (engineCounters.codeContext.reasons.length < 3) {
@@ -2179,15 +2412,123 @@ async function main() {
       categories[cat] = (categories[cat] ?? 0) + 1;
     }
 
+    /**
+     * **ARM FIVE: an agent that reads the repository before it says anything.**
+     *
+     * The five lanes above see a diff and a window. This arm sees a checkout and five tools, and it is the arm the
+     * competitor's design implies - see `internal/config/template/prompts/` in `alibaba/open-code-review`: a grouping
+     * call, a plan of risks with the tool calls that would settle each one, a main loop whose prompt is *"when the
+     * context is unclear, use tools to obtain contextual information rather than judging based on assumptions"*, and a
+     * `code_comment` tool whose `existing_code` field is how a finding gets located at all.
+     *
+     * **Its findings replace the lanes' findings for this pull request**, rather than being added to them: two reviewers
+     * scored as one is a figure about neither, and the arm exists to answer whether reading the code moves the number.
+     *
+     * **What it cannot do is comment outside the change.** `allowOffDiff: false` here even though the agent supports it,
+     * because a comment on an unchanged line cannot be posted and the competitor's own filter removes exactly those -
+     * `Ground A` of `review_filter_task_user.md`. Scored with them, this arm would be measured on a rule the other arm
+     * is not held to.
+     */
+    let agentResult = null;
+    if (AGENT) {
+      const started = Date.now();
+      try {
+        const { ReviewAgent } =
+          await import('../../packages/intelligence/dist/review/agent/review-agent.js');
+        const { DirectoryRepository } =
+          await import('../../packages/intelligence/dist/review/agent/repository.js');
+        const changedDiffs = new Map(
+          sections.map((section) => [section.path, section.lines.join(String.fromCharCode(10))]),
+        );
+        const checkout = pullHead === null ? null : checkoutAt(pr.githubPrUrl, pullHead.sha);
+        let repository = null;
+        if (checkout !== null) {
+          repository = new DirectoryRepository({ root: checkout, changed: changedDiffs });
+        } else if (fileTexts.size > 0) {
+          // **The fallback the API already paid for**: the changed files, and nothing else. A run whose clone failed
+          // still reviews, and the artifact says which repository it reviewed with.
+          const { MappedRepository } =
+            await import('../../packages/intelligence/dist/review/agent/repository.js');
+          repository = new MappedRepository({ files: fileTexts, changed: changedDiffs });
+        }
+        if (repository === null) {
+          agentCounters.firstFailure =
+            'no repository: the clone failed and no file was readable through the API';
+        } else {
+          const agent = new ReviewAgent(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
+            filter: true,
+            allowOffDiff: false,
+            groupSize: 4,
+            maxFindingsPerFile: 3,
+            limits: {
+              maxRounds: 4,
+              maxToolCalls: 12,
+              maxReadChars: 120_000,
+              maxFilesRead: 12,
+              maxSearches: 4,
+            },
+            tag: 'aacr-agent',
+          });
+          const outcome = await agent.review({
+            repository,
+            changedPaths: sections.map((section) => section.path),
+          });
+          agentCounters.pulls += 1;
+          agentCounters.modelCalls += outcome.ledger.modelCalls;
+          agentCounters.toolCalls += outcome.ledger.toolCalls;
+          agentCounters.readChars += outcome.ledger.readChars;
+          agentCounters.groundingReads += outcome.ledger.groundingReads;
+          agentCounters.disambiguated += outcome.ledger.disambiguated;
+          agentCounters.filtered += outcome.ledger.filtered;
+          for (const drop of outcome.drops) {
+            agentCounters.drops[drop.reason] = (agentCounters.drops[drop.reason] ?? 0) + 1;
+          }
+          for (const account of outcome.accounts) {
+            agentCounters.accounts[account.status] =
+              (agentCounters.accounts[account.status] ?? 0) + 1;
+            if (account.status === 'unaccounted' && agentCounters.unaccountedPaths.length < 20) {
+              agentCounters.unaccountedPaths.push(`${String(pr.githubPrUrl)} ${account.path}`);
+            }
+          }
+          agentResult = {
+            outcome,
+            findings: outcome.comments.map((comment) => ({
+              finding: {
+                path: comment.path,
+                startLine: comment.startLine,
+                endLine: comment.endLine,
+                severity: comment.severity,
+                category: comment.category,
+                title: String(comment.content).split(String.fromCharCode(10))[0].slice(0, 160),
+                description: comment.content,
+                suggestion: comment.suggestionCode ?? null,
+                lane: 'agent',
+              },
+              path: comment.path,
+            })),
+            repository: checkout === null ? 'api' : 'checkout',
+            elapsedMs: Date.now() - started,
+          };
+        }
+      } catch (error) {
+        // **A failure is a fact in the artifact**, not an arm that quietly reviewed nothing: the same rule the competitor
+        // arm follows, for the same reason.
+        agentCounters.firstFailure = String(error?.message ?? error).slice(0, 300);
+      }
+    }
+
     // **The per-file findings, each with the path its line numbers belong to.**
     //
     // **`l.findings` alone loses the one thing the ranking needs.** A lane reviews one file and its findings carry line
     // numbers in that file; **the path lived on the result rather than on the finding**, so a flattened list of findings
     // could not be grounded against any diff - which is the same shape of loss as the golden path that was handed to
     // the engine three runs ago.
-    const located = lanes
+    let located = lanes
       .filter((l) => l.success)
       .flatMap((l) => (l.findings ?? []).map((finding) => ({ finding, path: l.filePath })));
+    // **The agent's findings, when the arm ran.** Replaced rather than merged: a figure over two reviewers at once is a
+    // figure about neither.
+    if (agentResult !== null) located = agentResult.findings;
 
     // **ARM THREE: the same findings, ordered by the probability a developer would act on them.**
     //
@@ -2762,6 +3103,13 @@ async function main() {
       // reviewers and not one: `defect` drops the categories measured below the floor in `category-prior.ts`, and
       // **`advisory` is what makes the drop measurable** - the same findings, one switch, one artifact each.
       emissionProfile: PROFILE,
+      // **Which reviewer produced the figure.** `false` is the five lanes and `true` is `ReviewAgent`, and the two are not
+      // comparable as settings of one instrument: they differ in what the model is given, in how many calls it makes and
+      // in what a finding must contain to survive. **A figure without this field is a figure with no reviewer attached.**
+      agent: AGENT,
+      // **The statement of intent the arm was run under, in the artifact rather than in a dispatch log**, so that a
+      // later run can tell an arm that was asked to be cheap from one that hit its ceiling.
+      competitorMode: COMPETITOR_CHOICE.mode,
     },
     // **How many pull requests the dataset held, not how many this run read.** `prsInDataset` is the run's choice and
     // **a choice cannot be told apart from a limit unless both are recorded.**
@@ -3050,6 +3398,11 @@ async function main() {
     // **The engine's own account of what it did**, because **a figure that says "one finding" without saying "199
     // files and 199 lanes" is a figure whose cause is not in the file.**
     engineCounters,
+    // **What the reading arm did, per pull request.** Published beside the figure because the three numbers that explain
+    // it are not the cost: **files the review never accounted for**, findings **withheld because the quote was not in the
+    // file**, and comments **the filter removed** - a reviewer that improves by reading and one that improves by deleting
+    // its own output produce the same F1 and different entries here.
+    agent: agentCounters,
     skipped: null,
   });
   console.log(

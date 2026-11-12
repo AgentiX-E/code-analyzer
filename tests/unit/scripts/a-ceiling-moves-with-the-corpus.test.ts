@@ -19,6 +19,7 @@ import {
   requestedPullRequests,
   skippedPullRequests,
   spendCeilingUsd,
+  CEILING_USD_PER_PULL_REQUEST_AGENT,
 } from '../../../.github/scripts/lib/run-config.mjs';
 
 describe('a run refuses a corpus size it cannot read', () => {
@@ -123,6 +124,23 @@ describe('the ceiling moves with the corpus', () => {
     // A nonsense override falls back to the computed bound instead of admitting everything or nothing.
     expect(spendCeilingUsd({ pullRequests: 50, mode: 'replay', override: 'lots' })).toBe(7.5);
     expect(spendCeilingUsd({ pullRequests: 50, mode: 'replay', override: '-1' })).toBe(7.5);
+  });
+
+  it('prices the reading arm at its own rate, because it reads a checkout rather than a diff', () => {
+    // **The arm runs one reviewer or the other**, so the agent rate replaces the lane rate - and only a `record` run,
+    // which buys the competitor as well, adds the two.
+    expect(spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '', agent: true })).toBe(
+      Math.round(CEILING_USD_PER_PULL_REQUEST_AGENT * 36 * 100) / 100,
+    );
+    expect(spendCeilingUsd({ pullRequests: 36, mode: 'record', override: '', agent: true })).toBe(
+      Math.round((CEILING_USD_PER_PULL_REQUEST_AGENT + CEILING_USD_PER_PULL_REQUEST.record) * 36 * 100) / 100,
+    );
+    // **The agent ceiling is above the lane ceiling for the same corpus**, which is the whole claim of the rate.
+    expect(spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '', agent: true })).toBeGreaterThan(
+      spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '' }),
+    );
+    // **And an override still wins**, because a deliberate one-off is a decision the dispatch is allowed to take.
+    expect(spendCeilingUsd({ pullRequests: 36, mode: 'replay', override: '9', agent: true })).toBe(9);
   });
 
   it('treats an unrecognised arm as the cheap one', () => {
