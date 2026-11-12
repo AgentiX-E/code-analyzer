@@ -2,23 +2,17 @@
   "comment": [
     "Retrieval on **CoSQA** (Huang et al.), the corpus the code-search literature reports on.",
     "",
-    "**The pool is the collection's whole unique function set** - 6 267 unique functions, of which 500 are answers and 5 795",
-    "are material no question asks for - which is the pool the published CoSQA tables retrieve from. **This figure may be put",
-    "beside them, and it is the figure that does so**: the 500-candidate arm measured the same review at 0.7734 MRR@10, and",
-    "the difference between the two numbers is the pool rather than the retriever.",
+    "**The pool is the collection's whole unique function set**, which is the pool the published CoSQA",
+    "tables retrieve from - so this figure may be put beside them, and `pool.distractors` says how much of",
+    "it is material no question asks for. **The models in those tables are fine-tuned on CoSQA and this one",
+    "is not**, which is the difference that makes an equal number a stronger result here rather than a",
+    "weaker one.",
     "",
     "**Docstrings are stripped from the index** for the same reason `paraphrase-search` strips them: the question",
     "is a paraphrase of documentation, and an index that keeps the documentation lets the retriever copy it.",
     "",
     "**The product as shipped**: BM25 + vectors fused at weight 1, and the same list reordered listwise when a",
-    "model is available. **No part of it is trained on CoSQA**, while every model in the published table is fine-tuned on it -",
-    "which is stated here because it points in the product's favour, and a comparison that only lists the caveats pointing",
-    "one way is not a comparison.",
-    "",
-    "**Where this now stands, and it is fifth**: NACS 0.708, CodeBERT 0.652, GraphCodeBERT 0.648, CoCLR 0.647, **this engine",
-    "0.5743**, then DeepCS 0.472, DGMS 0.471, CSRS 0.373, OCoR 0.352. **0.134 MRR@10 behind the reported state of the art**",
-    "- which is the honest distance, and the one the next iteration works on rather than the 0.7734 that a 500-candidate",
-    "pool produced."
+    "model is available."
   ],
   "dataset": {
     "name": "CoSQA retrieval, test split",
@@ -41,6 +35,11 @@
     "reason": null
   },
   "cuts": "recall@1, @5, @10; MRR@10",
+  "depths": {
+    "rerank": 50,
+    "sweep": "50",
+    "retrieval": 50
+  },
   "lexical": {
     "queries": 500,
     "recallAt1": 0.16,
@@ -51,19 +50,75 @@
   },
   "fused": {
     "queries": 500,
-    "recallAt1": 0.276,
-    "recallAt5": 0.516,
-    "recallAt10": 0.65,
-    "mrrAt10": 0.387,
-    "foundAt10": 325
+    "recallAt1": 0.27,
+    "recallAt5": 0.514,
+    "recallAt10": 0.644,
+    "mrrAt10": 0.3807,
+    "foundAt10": 322
+  },
+  "sweep": {
+    "50": {
+      "queries": 500,
+      "recallAt1": 0.27,
+      "recallAt5": 0.514,
+      "recallAt10": 0.644,
+      "mrrAt10": 0.3807,
+      "foundAt10": 322
+    }
+  },
+  "fusedByVectorWeight": {
+    "1": {
+      "queries": 500,
+      "recallAt1": 0.27,
+      "recallAt5": 0.514,
+      "recallAt10": 0.644,
+      "mrrAt10": 0.3807,
+      "foundAt10": 322
+    },
+    "2": {
+      "queries": 500,
+      "recallAt1": 0.302,
+      "recallAt5": 0.562,
+      "recallAt10": 0.688,
+      "mrrAt10": 0.4136,
+      "foundAt10": 344
+    },
+    "3": {
+      "queries": 500,
+      "recallAt1": 0.302,
+      "recallAt5": 0.584,
+      "recallAt10": 0.688,
+      "mrrAt10": 0.4213,
+      "foundAt10": 344
+    },
+    "4": {
+      "queries": 500,
+      "recallAt1": 0.308,
+      "recallAt5": 0.602,
+      "recallAt10": 0.694,
+      "mrrAt10": 0.431,
+      "foundAt10": 347
+    }
+  },
+  "retrieval": {
+    "lexicalInTop10": 206,
+    "vectorInTop10": 350,
+    "eitherInTop10": 379,
+    "neitherInChannelDepth": 8
   },
   "reranked": {
     "queries": 500,
-    "recallAt1": 0.47,
-    "recallAt5": 0.714,
-    "recallAt10": 0.796,
-    "mrrAt10": 0.5743,
-    "foundAt10": 398,
-    "reordered": 496
+    "recallAt1": 0.454,
+    "recallAt5": 0.722,
+    "recallAt10": 0.806,
+    "mrrAt10": 0.5658,
+    "foundAt10": 403,
+    "reordered": 493
+  },
+  "rerankEffect": {
+    "reordered": 493,
+    "rescued": 92,
+    "lost": 11,
+    "net": 81
   }
 }

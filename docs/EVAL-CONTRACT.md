@@ -2621,3 +2621,45 @@ is the reason the weight sweep is a single run over one set of embeddings rather
 **Cost of this iteration's measurement**: one `pool=all` dispatch at ~0.3 USD of completions plus ~6 000 embeddings
 (≈0.05 USD); the local probe that reproduced the lexical column to four decimals ran on a workstation for free, and is
 why two candidate weightings were rejected before either cost a workflow.
+
+## 29. The fusion weight moves the figure, and one constant cannot serve both kinds of question
+
+**The weight sweep the last section registered (`43270005537`, 2026-11-12, same pool, same 500 questions, `space=api/api`)
+scored the same two channel lists at four weights. Nothing was re-embedded and no model was called for the sweep.**
+
+| `vectorWeight` |   R@1 |   R@5 |      R@10 |     MRR@10 | found@10 |
+| -------------: | ----: | ----: | --------: | ---------: | -------: |
+|          **1** | 0.270 | 0.514 |     0.644 |     0.3807 |  **322** |
+|              2 | 0.302 | 0.562 |     0.688 |     0.4136 |      344 |
+|              3 | 0.302 | 0.584 |     0.688 |     0.4213 |      344 |
+|              4 | 0.308 | 0.602 | **0.694** | **0.4310** |  **347** |
+
+**Inside one run, the weight is worth twenty-five questions and five points of R@10** - and it is monotone up to four,
+which is the first lever in this document whose direction is unambiguous. The fused column at weight one in this run
+(322 found) and in the previous one (329) also differ by seven questions, **with identical inputs**: that is the
+run-to-run variance §28 recorded, and it is why the comparison above is made inside a single run rather than across two.
+
+**So why is the constant still one?** Because the same sweep has been run on another corpus, and it points the other
+way. `docstring-search.test.ts` scores a symbol by its own doc comment and reports the fused column at each weight:
+
+| `vectorWeight` | docstring corpus, MRR@20 |
+| -------------: | -----------------------: |
+|            1.0 |                   0.9119 |
+|            0.5 |                   0.9194 |
+|           0.25 |                   0.9263 |
+|            0.1 |               **0.9636** |
+
+**A lookup question wants the lexical list to dominate; a paraphrase question wants the semantic one to.** The two
+directions are five points apart on CoSQA and five points apart on the docstring corpus, and **a single constant can
+only be wrong for one of them** - which is exactly what `DEFAULT_VECTOR_WEIGHT = 1` is.
+
+**What this rules out and what it registers.** It rules out "turn the weight up" as a global change: it would be a
+measured improvement on this corpus and a measured regression on another, and §28 already has one of those. It registers
+the shape of the repair - **the weight is a property of the query, not of the engine** - and the observable that
+separates the two kinds of question is already computed in `tokenize`: a lookup question is a symbol, a paraphrase
+question is a sentence. **The next iteration measures a query-classified weight** against both corpora before any default
+moves, and the two columns above are the acceptance bar it has to clear.
+
+**The artifact in this repository is now the run of this section** (`43270005537`), so `benchmarks/cosqa-retrieval.json`
+carries `fusedByVectorWeight`, `retrieval` and `rerankEffect`. §25's table describes the earlier run of the same arm;
+the two differ by 0.0085 MRR@10 with identical configuration, which is the variance and not a change.
