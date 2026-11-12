@@ -2259,3 +2259,88 @@ about the file and described a different defect_, and on this corpus that is the
    arm under the new judge** — 5.89 USD and a corpus — so it is a priced decision for a later iteration rather than a
    tweak to make in the same breath.
 4. **Neither is quotable against the competitor** until the confirmation on `skip_pull_requests: 50` (§23.4).
+
+### 23.9 The 132, read instead of counted — and the depth hypothesis the pairing could not see
+
+§23.8 recorded 132 goldens in `findingOnPathRejected` and named it _we described a different defect_. That sentence was a
+reading of the bucket's **name**. The artifact carries the two sentences of every row — the golden's `note`, and
+`nearestFinding.text`, `proximity`, `actionable` and `why` for the finding we filed nearest to it — and **nobody had read
+them.** Doing so changes the diagnosis, and the change is the reason this section exists.
+
+**Where the finding we filed nearest to the golden actually sits** (36 pull requests, `43184902326`):
+
+| proximity to our nearest finding on that path | rejections |
+| --------------------------------------------- | ---------- |
+| on the golden's own line                      | **22**     |
+| 1-10 lines away                               | 39         |
+| more than 10 lines away                       | **71**     |
+
+**And how much we said about that file:**
+
+| what the row shows                                                         | count         |
+| -------------------------------------------------------------------------- | ------------- |
+| rejections on a path where we filed **fewer** findings than it has goldens | **96 of 132** |
+| rejections on a path where we filed exactly the cap of three               | 64            |
+| drafts refused a slot by the three-per-file cap, across the run            | 32            |
+| findings per commented path, mean                                          | 1.92          |
+| goldens per golden-carrying path, mean                                     | 2.39          |
+
+**So the bucket is not one thing, and its largest part is not aim.** Seventy-one rejections are more than ten lines from
+anything we said **in a file we did open and did comment on**, and 96 are on files where the number of findings we filed
+is smaller than the number of defects the file turned out to have — with 64 of those sitting exactly at the cap. **A file
+with eight goldens and a three-finding cap is a file where five defects cannot be reported, whatever the model writes.**
+
+**This corrects §23.8 rather than extending it.** That section compared _aggregate_ volume — 245 findings against the
+competitor's 282 — and concluded that volume could explain at most a seventh of the gap. The comparison was arithmetically
+right and addressed the wrong quantity: **the gap is not how many findings we emit across the corpus, it is how many we
+emit per file where the file is rich in defects.** The withdrawal of H2 recorded in §23.8 is itself withdrawn, and what
+replaces it is narrower and measurable.
+
+**Registered, before the run:**
+
+1. **H2′: the three-per-file cap is the binding constraint on 96 of 132 on-path rejections.** The comparison arm is the
+   **same run at a cap of six**, scored twice: once as emitted, and once as a **rank cut** — the highest-scoring three
+   findings per path, which is what a cap of three buys from the same model output. **The cut is a subset of the run rather
+   than a second dispatch**, so the two arms differ in the cap and in nothing else, and the confirmation run already
+   dispatched at `skip_pull_requests: 50` supplies the cap-of-three arm on unseen rows.
+2. **What would falsify it**: a cap-of-six run whose top-three cut scores **within ±0.01** of the same run's full emission.
+   Then the extra findings add nothing that the ranking would have kept, the cap is not the constraint, and the remaining
+   gap is the 22 same-line rejections and the 71 far ones — aim, not depth.
+3. **The product runs the same rule.** `review pr --agent` now exists (§23.10), takes `--max-findings-per-file` with the
+   same default of three, and reports the count it used — **because a benchmark arm and a product flag that disagree about
+   a cap are two different reviewers wearing one name.**
+
+### 23.10 The arm becomes a product, and the two arms are kept one
+
+Every figure in §23.5-§23.9 was measured on a capability reachable only from `.github/scripts/aacr-bench.mjs`. **A
+capability that exists only in a harness is a measurement, not a feature**, and §7 of the iteration report said so before
+this section existed. `review pr --agent` is that wiring, and it is four decisions rather than a flag:
+
+1. **The patch travels out of the resolver.** `ChangeSet` carries `patch: string`. It used to fetch the pull request's
+   diff, parse it into `GitDiff[]` - whose `ranges` hold line numbers and no text - and drop the raw patch one frame
+   later, so a reviewer that must quote the change had nothing to quote. **Rendering a second diff from ranges and file
+   contents was rejected**: a renderer that disagrees with git's is a review of a change that never happened.
+   `splitPatchByPath` splits git's own text, keyed by the right-hand path, with chunk boundaries only at `diff --git`.
+2. **The repository is the change's own text.** `MappedRepository` is built from `change.contents` - each selected file at
+   the head commit - rather than `DirectoryRepository` over the working tree, so **a checkout left at the base cannot make
+   the reviewer quote a line the pull request has not written yet.**
+3. **The emission rule is the arm's, not the lane gate's.** §23.7's scoping is applied here first and in the product:
+   every comment that reaches the report has already passed the filing check, and the report counts the drops by reason in
+   the fields the lane report already uses (`evidenceRejected`, `adversarialRejected`, `iouDeduped`, `truncatedFindings`),
+   so a product report and a harness artifact are comparable rather than merely similar.
+4. **The reviewer, its spend and its blind spots are printed.** `report.agent` carries model calls, tool calls, characters
+   read, drafts filed and the per-file account; the text format prints one line for the first four and a warning for files
+   the reviewer neither reviewed nor declared. **Zero findings and one unaccounted file is not a clean pull request**, and
+   before this the two were the same sentence.
+
+**What the wiring is proved by.** `tests/e2e/the-reviewer-that-reads-runs-from-the-command.test.ts` is the user story -
+a bound added below the line that makes it unreachable, invisible in the diff and visible in the file - driven through
+`runPrReview` against a real git repository and a provider that answers from the round it is in. It asserts the finding's
+file, line (the span the quoted code occupies, found in the file rather than taken from the model), the refusal of a
+comment whose quote is absent, the four spend counts, the printed reviewer line, the unaccounted-file warning, the lanes
+returning no `agent` block, and the missing-key refusal naming `DEEPSEEK_API_KEY` instead of printing a stack. **Five
+cases, no network, no bill, and the same agent the harness runs.**
+
+**What this does not change**: the lanes are still the default, every figure published before §23.5 was measured on them,
+and the flag is off unless asked for. **The arm has been measured on 36 pull requests, not confirmed on unseen ones** -
+§23.4's rule has not been satisfied, and until the `skip_pull_requests: 50` run lands, no product claim rests on it.

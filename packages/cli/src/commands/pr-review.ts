@@ -22,9 +22,15 @@ import { basename } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
+  CostLedger,
+  DeepSeekProvider,
+  MappedRepository,
+  ReviewAgent,
   ReviewSwarm,
+  splitPatchByPath,
   type ActionItem,
   type LensFinding,
+  type LLMProvider,
   type SwarmDecision,
 } from '@code-analyzer/intelligence';
 
@@ -45,13 +51,18 @@ import {
   resolveStandards,
 } from './standards-check.js';
 
-import type { ProjectStandard, Severity, StandardsCheckResult } from '@code-analyzer/shared';
+import type {
+  ProjectStandard,
+  ReviewComment,
+  Severity,
+  StandardsCheckResult,
+} from '@code-analyzer/shared';
 
 /** The shape of the JSON this command writes. Bumped when a field a consumer reads changes meaning. */
 export const PR_REVIEW_SCHEMA = 'code-analyzer/pr-review/1';
 
 /** Where a finding came from, which is not the same question as which file it is in. */
-export type FindingSource = 'lens' | 'standards';
+export type FindingSource = 'lens' | 'standards' | 'agent';
 
 /**
  * One finding, flattened for a reader and a script.
@@ -144,6 +155,21 @@ export interface PrReviewReport {
   actionPlan: ActionItem[];
   findings: PrReviewFinding[];
   durationMs: number;
+  /**
+   * **Which reviewer ran and what it spent**, present only under `--agent`.
+   *
+   * **A report of a model reading a repository that does not say how much reading happened is a figure with no
+   * coordinate.** The four counts are the ones the benchmark publishes for the same arm, so a report from the product and
+   * a figure from the harness can be placed beside each other — and the accounts are here because *did the reviewer open
+   * every changed file* is the question this arm exists to answer, and the answer is a count per file.
+   */
+  agent?: {
+    modelCalls: number;
+    toolCalls: number;
+    readChars: number;
+    draftsFiled: number;
+    accounts: Record<string, number>;
+  };
 }
 
 /** What to review. Presentation (`--format`, `--output`) is the caller's, not this module's. */
@@ -166,6 +192,25 @@ export interface PrReviewOptions {
   exclude?: string[];
   languages?: string[];
   projectId?: string;
+  /**
+   * `--agent`: run the reading reviewer — a tool loop over the checkout — instead of the five single-shot lanes.
+   *
+   * **Why this is the flag that turns a measurement into a feature.** On AACR-Bench the reading arm scores F1 0.2416 on
+   * thirty-six pull requests where the lanes score 0.2033, and until this existed the arm was reachable only from the
+   * benchmark harness — **a capability that exists only in a harness is a measurement, not a product.** The lanes stay
+   * the default, because every figure this repository published before the arm existed was measured on them.
+   */
+  agent?: boolean;
+  /**
+   * The provider the agent calls. Absent builds `DeepSeekProvider` from `DEEPSEEK_API_KEY`.
+   *
+   * **A seam rather than an environment variable**, because the end-to-end test that proves this path works must not
+   * need a key, a network or a bill — and a provider injected here is the same object the benchmark hands the same
+   * agent, so the test exercises the wiring rather than a stub of it.
+   */
+  provider?: LLMProvider;
+  /** `--max-findings-per-file`: how many findings one file may carry. Default 3, recorded because it bounds the figure. */
+  maxFindingsPerFile?: number;
 }
 
 /** Either a report or the reason there is none. A thrown error would print a stack where a sentence belongs. */
@@ -335,6 +380,178 @@ function maxFindingsOf(options: PrReviewOptions): number | undefined {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+/**
+ * **The spend ceiling the reading arm runs under, and where the number comes from.**
+ *
+ * `docs/EVAL-CONTRACT.md` §23.3 registers 0.35 USD per pull request as an estimate that the first measurement replaces;
+ * **the measurement replaced it with 0.024** (0.88 USD over thirty-six pull requests, of which 0.51 was the arm itself).
+ * It is not tightened to the measured figure on purpose: a ceiling set at the measured cost is a budget that fails the
+ * first pull request larger than the average, and **a review that refuses to finish because it spent what it usually
+ * spends is a worse reviewer than one that costs more.** The number stays where it was registered, and a run that
+ * approaches it is a finding rather than a silent truncation.
+ */
+const AGENT_CEILING_USD = 0.35;
+
+/** How many findings one file may carry under `--agent`. Three is the lane contract and the benchmark's default. */
+const AGENT_FINDINGS_PER_FILE = 3;
+
+/**
+ * **The reading reviewer, wired to what the command already resolved.**
+ *
+ * The repository is `MappedRepository` rather than `DirectoryRepository`: a pull request is reviewed at its head commit,
+ * and `change.contents` holds every selected file's text at exactly that revision — so the reviewer reads the code the
+ * change produced, not whatever happens to be on disk, **and a checkout at the base cannot make it quote a line the pull
+ * request has not written yet.**
+ *
+ * The patch is split rather than re-rendered (§`splitPatchByPath`), because git's own text is the only diff that is
+ * guaranteed to agree with the pull request.
+ */
+async function reviewWithTheAgent(
+  change: ChangeSet,
+  options: PrReviewOptions,
+): Promise<
+  { ok: true; comments: ReviewComment[]; spend: AgentSpend } | { ok: false; error: string }
+> {
+  let provider: LLMProvider;
+  try {
+    provider =
+      options.provider ??
+      new DeepSeekProvider({ ledger: new CostLedger(), ceilingUsd: AGENT_CEILING_USD });
+  } catch (error) {
+    // **A missing key is a usage error with a sentence, not a stack.** `DeepSeekProvider` throws `LLMAuthError` at
+    // construction, which is the right place for it — but a caller reading `DEEPSEEK_API_KEY is not set` learns what
+    // went wrong and what to do, and a caller reading an error trace does not.
+    return {
+      ok: false,
+      error:
+        `--agent needs a model provider: ${(error as Error).message}. ` +
+        'Set DEEPSEEK_API_KEY, or run without --agent to use the deterministic lanes.',
+    };
+  }
+
+  const agent = new ReviewAgent(provider, {
+    filter: true,
+    // **Off-diff findings are allowed**, because a change can break an untouched caller and the benchmark's own filter
+    // protects exactly that case; the report marks them `inDiff: false` so a consumer that cannot post them knows.
+    allowOffDiff: true,
+    groupSize: 4,
+    maxFindingsPerFile: options.maxFindingsPerFile ?? AGENT_FINDINGS_PER_FILE,
+    tag: 'pr-review:agent',
+  });
+
+  const outcome = await agent.review({
+    repository: new MappedRepository({
+      files: change.contents,
+      changed: splitPatchByPath(change.patch),
+    }),
+    changedPaths: change.files,
+  });
+
+  const accounts: Record<string, number> = {};
+  for (const account of outcome.accounts) {
+    accounts[account.status] = (accounts[account.status] ?? 0) + 1;
+  }
+  const drops: Record<string, number> = {};
+  for (const drop of outcome.drops) drops[drop.reason] = (drops[drop.reason] ?? 0) + 1;
+
+  return {
+    ok: true,
+    comments: outcome.comments,
+    spend: {
+      modelCalls: outcome.ledger.modelCalls,
+      toolCalls: outcome.ledger.toolCalls,
+      readChars: outcome.ledger.readChars,
+      draftsFiled: outcome.ledger.draftsFiled,
+      accounts,
+      drops,
+    },
+  };
+}
+
+/** What the reviewer did, in the four counts the benchmark publishes for the same arm. */
+interface AgentSpend {
+  modelCalls: number;
+  toolCalls: number;
+  readChars: number;
+  draftsFiled: number;
+  accounts: Record<string, number>;
+  /** Why a draft did not become a finding, by reason. **`0` is "none", and an absent key is "did not apply".** */
+  drops: Record<string, number>;
+}
+
+/**
+ * One of the reading reviewer's comments as a report finding.
+ *
+ * **The split between `title` and `description` is the first line and the rest**, which is the same convention the
+ * benchmark applies when it gives the same comment to a judge — so a figure from the product and a figure from the
+ * harness are computed over the same text rather than over two readings of it.
+ */
+export function agentFindings(
+  comments: readonly ReviewComment[],
+  inDiff: (file: string, line: number) => boolean,
+): PrReviewFinding[] {
+  return comments.map((comment, at) => {
+    const text = String(comment.content ?? '');
+    const breakAt = text.indexOf('\n');
+    const title = (breakAt === -1 ? text : text.slice(0, breakAt)).trim();
+    return {
+      id: comment.id ?? `agent-${at}-${comment.path}`,
+      file: comment.path,
+      line: comment.startLine,
+      endLine: comment.endLine,
+      severity: comment.severity,
+      category: comment.category,
+      lens: 'agent',
+      source: 'agent',
+      title: title.length === 0 ? `Finding on ${comment.path}` : title,
+      description: text,
+      ...(comment.suggestionCode === undefined ? {} : { suggestion: comment.suggestionCode }),
+      ...(comment.suggestionCode === undefined ? {} : { fixSuggestion: comment.suggestionCode }),
+      // **Never empty**: the comment survived only because the code it quotes was found in the file, so the quote is the
+      // evidence and `existingCode` is where it is kept.
+      snippet: comment.existingCode,
+      confidence: 'high',
+      autoFixable: comment.suggestionCode !== undefined,
+      inDiff: inDiff(comment.path, comment.startLine),
+    };
+  });
+}
+
+/**
+ * The merge decision, from findings rather than from a swarm.
+ *
+ * **The same four-way rule the lanes' decision uses** — critical blocks, more than three high requests changes, any
+ * finding comments, nothing approves — because a caller that switches `--agent` must not also get a different meaning of
+ * "mergeable". `tests/unit/cli` pins the two against the same inputs.
+ */
+export function decisionFor(findings: readonly PrReviewFinding[]): SwarmDecision {
+  const critical = findings.filter((finding) => finding.severity === 'critical');
+  const high = findings.filter((finding) => finding.severity === 'high');
+  return {
+    canMerge: critical.length === 0,
+    recommendation:
+      critical.length > 0
+        ? 'block'
+        : high.length > 3
+          ? 'request-changes'
+          : findings.length > 0
+            ? 'approve-with-comments'
+            : 'approve',
+    reason:
+      critical.length > 0
+        ? `${String(critical.length)} critical finding(s) must be resolved before merge.`
+        : high.length > 0
+          ? `${String(high.length)} high-severity finding(s) should be reviewed.`
+          : findings.length === 0
+            ? 'No issues found. Safe to merge.'
+            : `${String(findings.length)} finding(s) — review recommended.`,
+    blockingCount: critical.length,
+    requiredCorrections: critical.map(
+      (finding) => `[${finding.lens}] ${finding.file}:${String(finding.line)} — ${finding.title}`,
+    ),
+  };
+}
+
 /** The project id the engines key their graph lookups on. */
 function projectIdOf(options: PrReviewOptions, change: ChangeSet): string {
   if (options.projectId !== undefined && options.projectId.length > 0) return options.projectId;
@@ -418,8 +635,64 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
   }
 
   const projectId = projectIdOf(options, change);
-  const swarm = new ReviewSwarm(new InMemoryGraphStore(), { minSeverity: 'info' });
-  const swarmResult = await swarm.reviewWithGraphContext(projectId, change.diffs, change.contents);
+
+  // **The reviewer is chosen once, here, and the rest of the command does not know which one ran** beyond the counts it
+  // reports. Two variables carry the difference: the findings the reviewer produced and the summary the swarm would
+  // have filled in, so every branch below is written once instead of twice.
+  const inDiff = diffMembership(change);
+  let lensFindings: PrReviewFinding[];
+  let lensSummary: {
+    linesAnalyzed: number;
+    evidenceRejected: number;
+    adversarialRejected: number;
+    iouDeduped: number;
+    needsLLMValidation: number;
+    truncatedFindings: number;
+  };
+  let decision: SwarmDecision;
+  let actionPlan: ActionItem[];
+  let spend: AgentSpend | undefined;
+
+  if (options.agent === true) {
+    const reviewed = await reviewWithTheAgent(change, options);
+    if (!reviewed.ok) return { ok: false, exitCode: EXIT_USAGE, error: reviewed.error };
+    spend = reviewed.spend;
+    lensFindings = agentFindings(reviewed.comments, inDiff);
+    // **The swarm's counters, read from the agent's own drop reasons rather than reported as zeros.** A zero for
+    // `evidenceRejected` would say a quote was never checked when the check may simply never have failed; these four
+    // counts are the same facts in the vocabulary the report already uses, which is what lets two reports be compared.
+    lensSummary = {
+      linesAnalyzed: [...change.contents.values()].reduce(
+        (total, text) => total + text.split('\n').length,
+        0,
+      ),
+      evidenceRejected: reviewed.spend.drops['snippet-not-found'] ?? 0,
+      adversarialRejected: reviewed.spend.drops['filtered'] ?? 0,
+      iouDeduped: reviewed.spend.drops['duplicate'] ?? 0,
+      needsLLMValidation: 0,
+      truncatedFindings: reviewed.spend.drops['over-budget'] ?? 0,
+    };
+    decision = decisionFor(lensFindings);
+    actionPlan = [];
+  } else {
+    const swarm = new ReviewSwarm(new InMemoryGraphStore(), { minSeverity: 'info' });
+    const swarmResult = await swarm.reviewWithGraphContext(
+      projectId,
+      change.diffs,
+      change.contents,
+    );
+    lensFindings = joinLensFindings(swarmResult, inDiff);
+    lensSummary = {
+      linesAnalyzed: swarmResult.summary.linesAnalyzed,
+      evidenceRejected: swarmResult.summary.evidenceRejected,
+      adversarialRejected: swarmResult.summary.adversarialRejected,
+      iouDeduped: swarmResult.summary.iouDeduped,
+      needsLLMValidation: swarmResult.summary.needsLLMValidation,
+      truncatedFindings: 0,
+    };
+    decision = swarmResult.decision;
+    actionPlan = swarmResult.actionPlan;
+  }
 
   const engine = createStandardsEngine();
   let standards: ProjectStandard[] = [];
@@ -434,11 +707,7 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
   }
   const standardsResults = checkStandards(engine, standards, change);
 
-  const inDiff = diffMembership(change);
-  const merged = sortFindings([
-    ...joinLensFindings(swarmResult, inDiff),
-    ...standardsFindings(standardsResults, inDiff),
-  ]);
+  const merged = sortFindings([...lensFindings, ...standardsFindings(standardsResults, inDiff)]);
 
   // **The threshold filters, it does not discard the count.** `--severity` decides what is reported; the number that
   // did not reach the report is kept so a reader can lower the bar instead of wondering where the findings went.
@@ -457,6 +726,19 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
     ...(change.headRef === undefined ? {} : { headRef: change.headRef }),
     projectId,
     standardsApplied: standards.map((standard) => standard.id),
+    // **Present only when the reading reviewer ran**, because a report that carried the field with zeros under the lanes
+    // would say a reviewer spent nothing rather than that it did not run.
+    ...(spend === undefined
+      ? {}
+      : {
+          agent: {
+            modelCalls: spend.modelCalls,
+            toolCalls: spend.toolCalls,
+            readChars: spend.readChars,
+            draftsFiled: spend.draftsFiled,
+            accounts: spend.accounts,
+          },
+        }),
     summary: {
       totalFindings: findings.length,
       ...tally(findings),
@@ -466,15 +748,15 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
       filteredFileCount: change.filteredFileCount,
       truncatedFileCount: change.truncatedFileCount,
       unreadable: change.unreadable,
-      linesAnalyzed: swarmResult.summary.linesAnalyzed,
-      evidenceRejected: swarmResult.summary.evidenceRejected,
-      adversarialRejected: swarmResult.summary.adversarialRejected,
-      iouDeduped: swarmResult.summary.iouDeduped,
-      needsLLMValidation: swarmResult.summary.needsLLMValidation,
+      linesAnalyzed: lensSummary.linesAnalyzed,
+      evidenceRejected: lensSummary.evidenceRejected,
+      adversarialRejected: lensSummary.adversarialRejected,
+      iouDeduped: lensSummary.iouDeduped,
+      needsLLMValidation: lensSummary.needsLLMValidation,
       truncatedFindings: reported.length - findings.length,
     },
-    decision: swarmResult.decision,
-    actionPlan: swarmResult.actionPlan,
+    decision,
+    actionPlan,
     findings,
     durationMs: Date.now() - started,
   };
@@ -637,6 +919,23 @@ export function formatPrReviewText(report: PrReviewReport): string {
       (textNotes.length === 0 ? '' : ` (${textNotes.join(', ')})`),
   );
   lines.push(`Decision: ${decisionLine(report)}`);
+  if (report.agent !== undefined) {
+    // **One line, because the four numbers are one fact**: a model read the repository, this is how much it read, and
+    // this is how many drafts it wrote before the code it quoted had to exist.
+    lines.push(
+      `Reviewer: agent — ${String(report.agent.modelCalls)} model calls, ` +
+        `${String(report.agent.toolCalls)} tool calls, ` +
+        `${String(report.agent.readChars)} characters read, ` +
+        `${String(report.agent.draftsFiled)} drafts filed`,
+    );
+    const unaccounted = report.agent.accounts['unaccounted'] ?? 0;
+    if (unaccounted > 0) {
+      lines.push(
+        `Warning: ${String(unaccounted)} changed file(s) the reviewer neither reviewed nor declared; ` +
+          'the findings below do not cover them.',
+      );
+    }
+  }
   if (report.standardsApplied.length > 0) {
     lines.push(`Standards: ${report.standardsApplied.join(', ')}`);
   }

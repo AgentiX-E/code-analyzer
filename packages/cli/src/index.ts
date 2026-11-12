@@ -397,6 +397,10 @@ interface ScopeOptionBag {
   exclude?: unknown;
   languages?: unknown;
   projectId?: unknown;
+  /** `--agent`: present is `true`, absent leaves the lanes in charge. */
+  agent?: unknown;
+  /** `--max-findings-per-file <number>`. */
+  maxFindingsPerFile?: unknown;
 }
 
 /** Build the change-scope half of a review request, or the reason it cannot be built. */
@@ -417,6 +421,8 @@ function scopeOf(opts: ScopeOptionBag): {
     | 'exclude'
     | 'languages'
     | 'projectId'
+    | 'agent'
+    | 'maxFindingsPerFile'
   >;
   error?: string;
 } {
@@ -426,6 +432,8 @@ function scopeOf(opts: ScopeOptionBag): {
   if (maxFiles.error !== undefined) return { error: maxFiles.error };
   const maxFindings = readPositiveInt(opts.maxFindings, 'max-findings');
   if (maxFindings.error !== undefined) return { error: maxFindings.error };
+  const maxFindingsPerFile = readPositiveInt(opts.maxFindingsPerFile, 'max-findings-per-file');
+  if (maxFindingsPerFile.error !== undefined) return { error: maxFindingsPerFile.error };
 
   // **`--token` falls back to GITHUB_TOKEN**, which every GitHub runner already exports: an invocation that names a
   // pull request and not a token is a caller who expected the environment to supply it, and refusing is not a favour.
@@ -445,6 +453,11 @@ function scopeOf(opts: ScopeOptionBag): {
       failOn: textOption(opts.failOn),
       maxFiles: maxFiles.value,
       maxFindings: maxFindings.value,
+      maxFindingsPerFile: maxFindingsPerFile.value,
+      // **`!== false` rather than truthiness**, because `--agent` is a boolean flag with no argument: commander sets it
+      // to `true` when present and leaves it absent otherwise, and an absent flag must keep the lanes - the reviewer
+      // every published figure before the arm existed was measured on.
+      agent: opts.agent === true ? true : undefined,
       exclude: splitList(opts.exclude),
       languages: splitList(opts.languages),
       projectId: textOption(opts.projectId),
@@ -500,6 +513,14 @@ function prReviewOptionFlags(command: Command): Command {
       [] as string[],
     )
     .option('-l, --languages <list>', 'Comma-separated languages, e.g. typescript,python')
+    .option(
+      '--agent',
+      'Review with the reading reviewer: a tool loop over the checkout instead of the five lanes (needs DEEPSEEK_API_KEY)',
+    )
+    .option(
+      '--max-findings-per-file <number>',
+      'Findings one file may carry under --agent (default: 3)',
+    )
     .option(
       '-p, --project-id <id>',
       'Project identifier for graph lookups (default: $CODE_ANALYZER_PROJECT_ID)',

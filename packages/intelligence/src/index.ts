@@ -263,6 +263,7 @@ export type {
   ReviewAgentOptions,
 } from './review/agent/review-agent.js';
 export { DirectoryRepository, MappedRepository } from './review/agent/repository.js';
+export { splitPatchByPath } from './review/agent/patch.js';
 export type {
   RepositoryFile,
   RepositoryLimits,

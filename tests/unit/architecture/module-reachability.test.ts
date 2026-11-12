@@ -380,6 +380,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       // for a bill.** 157 was iteration 110, which added `review/llm/language-rules.ts`: the per-language checklist is
       // content rather than plumbing, and this register is what makes that a decision somebody took rather than a file
       // that appeared.)
+      // **168 since iteration 127**, which added `review/agent/patch.ts`: the split of a patch into one chunk per file.
+      // It is a module rather than a function inside the command because **the command's job is to resolve a change and
+      // the patch is part of what it resolved** - and because the alternative to splitting git's own text is rendering a
+      // second diff from line ranges, which is a renderer that has to agree with git's and cannot be proved to.
+      //
       // **167 since iteration 126**, which added the five modules of `review/agent/`: `repository.ts` (the code a review
       // may read, with a byte budget), `grounding.ts` (the quote-to-line locator), `budget.ts` (what an agent may
       // spend), `tools.ts` (the five tools and the one dispatcher that owns every effect they can have) and
@@ -392,7 +397,7 @@ describe('every module a package compiles is reachable from an entry its manifes
       // the coordinates a model cannot recover from the text. It is a module because the alternative was a private
       // method on the review engine, and **a window that can only be tested through a provider call is a window nobody
       // tests** - the 21 cases beside it need a file and a diff, not a model.
-      intelligence: 167,
+      intelligence: 168,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

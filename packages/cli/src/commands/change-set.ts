@@ -73,6 +73,13 @@ export interface ChangeSet {
   files: string[];
   /** The text of each selected file, keyed by the same path. A file that could not be read is absent. */
   contents: Map<string, string>;
+  /**
+   * **The patch itself, unparsed.** `diffs` carries line ranges and no text, so a reviewer that wants to quote the change -
+   * or to show it to a model - has nothing to quote once parsing is done. It is carried rather than re-rendered because a
+   * synthetic diff that disagrees with git's is a review of a change that never happened. Empty in `tree` mode, where
+   * there is no change to describe.
+   */
+  patch: string;
   /** Files that survived filtering but whose text could not be read — analysed by path only, or not at all. */
   unreadable: string[];
   /** How many files the change touched **before** `--exclude`, `--languages` and `--max-files`. */
@@ -275,6 +282,7 @@ export async function resolveChangeSet(
       diffs: diffs.filter((diff) => kept.has(diff.filePath)),
       files: selection.files,
       contents,
+      patch: diffText,
       unreadable,
       changedFileCount: diffs.length,
       filteredFileCount: selection.filtered,
@@ -326,6 +334,7 @@ export async function resolveChangeSet(
       diffs: diffs.filter((diff) => kept.has(diff.filePath)),
       files: selection.files,
       contents,
+      patch: diffText,
       unreadable,
       changedFileCount: diffs.length,
       filteredFileCount: selection.filtered,
@@ -347,6 +356,7 @@ export async function resolveChangeSet(
     diffs: [],
     files: selection.files,
     contents,
+    patch: '',
     unreadable,
     changedFileCount: tracked.length,
     filteredFileCount: selection.filtered,
