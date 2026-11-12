@@ -2539,3 +2539,79 @@ hundred-pull-request artifact the categories and features say the same thing fro
 139 of 786 at precision **0.101**, `bug` is 438 at **0.283**, and every one of `grounded`, `quotesDiff`, `namesSymbol`
 and `severity` sits within 0.06 of the base rate, because the reading arm's filing rule already removed what those terms
 were built to detect. **The remaining gap is not a threshold.**
+
+## 28. The recall ceiling was not a depth, and the fused list was the thing losing answers
+
+**The registered next step was "first-stage recall for the 102 questions whose answer is not in the top ten"** (§25).
+The hypothesis was concrete - each channel contributed fifty results before fusion, fifty was a constant rather than a
+measurement, and a candidate a channel never returned cannot be reordered into the answer - so the test grew a depth
+switch and a curve, and the run was dispatched at `pool=all`, `depth=50`, `sweep=50,100,200`.
+
+**The run (`43261826373`, 2026-11-12, 6 295 functions, `space=api/api`) said no.**
+
+| fused depth |   R@1 |   R@5 |      R@10 | MRR@10 | found@10 |
+| ----------: | ----: | ----: | --------: | -----: | -------: |
+|      **50** | 0.282 | 0.530 | **0.658** | 0.3938 |  **329** |
+|         100 | 0.286 | 0.528 |     0.636 | 0.3913 |      318 |
+|         200 | 0.286 | 0.540 |     0.636 | 0.3950 |      318 |
+
+**Widening the pool does not recover the missing questions; it loses eleven of them.** This is not a defect in the
+measurement: reciprocal rank fusion is not monotone in channel depth, because a candidate at lexical rank 51 adds
+`1/111` to a list whose tenth entry may carry `1/71`. The curve is why the suite refuses to assert monotonicity - a
+bound that demanded it would have failed here, on a correct run.
+
+**What the same artifact does say is where the answers go.** These counts were new in this run and no earlier figure in
+this repository could produce them:
+
+| channel                                 | questions with the answer in the top ten |
+| --------------------------------------- | ---------------------------------------: |
+| lexical (BM25)                          |                                  **206** |
+| vector (embedding-3)                    |                                  **354** |
+| either                                  |                                  **378** |
+| **fused at weight 1, then reranked**    |                                  **398** |
+| **fused at weight 1, before reranking** |                                  **329** |
+
+**Fifty questions that one channel answered were lost by combining it with the other.** Only **four** of five hundred
+have their answer outside both channels' top two hundred, so "a better first stage" is not the largest term any more -
+**the fusion is**. Reciprocal rank fusion at equal weight is a compromise, a compromise with a worse list is a worse
+list, and the 1:1 weight was never measured on this corpus (it was measured on the docstring corpus, which is a lookup
+task).
+
+**So the suspect is now a number the product already reads.** `fuseResults` takes `vectorWeight`, the constant is
+documented as "the measurement's job to set", and the test now scores the same two lists at each weight in
+`COSQA_VECTOR_WEIGHTS` for the price of arithmetic - no embedding recomputed, no model called. `fusedByVectorWeight`
+carries the columns, and the arm that is **reranked stays at weight one**, because reporting a figure for an arm the
+reranker did not see is §26's defect with a different key.
+
+**The reranker's ledger, which this run also introduced.** Of 500 lists, **495 were reordered**, **82 questions were
+rescued** into the top ten and **13 were lost** from it - a net **+69**, against R@10 0.658 → 0.796. **A reranker whose
+net is zero can still be spending completions to shuffle**, and the pair of counters is now in the artifact so a future
+run can tell that from a reranker that helps.
+
+**Two levers were measured, chased, and reverted in the same iteration.** Both looked like wins on CoSQA alone:
+
+| candidate                               | CoSQA (500 q, BM25 only)                   | paraphrase corpus                      |
+| --------------------------------------- | ------------------------------------------ | -------------------------------------- |
+| shipped (`vocabulary` 0.25)             | R@10 **0.6640**, MRR **0.4549**, found 332 | recall@20 **0.4646**, leak-free 0.1489 |
+| `vocabulary` 0.5                        | R@10 **0.7100**, MRR **0.4919**, found 355 | recall@20 **0.3636** ✗                 |
+| 0.75                                    | R@10 0.7040, MRR 0.4841                    | —                                      |
+| 1.0                                     | R@10 0.7020, MRR 0.4753                    | —                                      |
+| query stopword filter (shipped weights) | R@10 0.6860, MRR 0.4530, found 343         | recall@20 **0.4242** ✗                 |
+
+**A four-and-a-half point gain on the external corpus and a ten-point loss on the internal one, from the same edit.**
+The mechanism is not mysterious: CoSQA's questions are paraphrases of documentation the index strips, so the body field
+is the only place their words can land; the paraphrase corpus's questions are drawn from doc comments whose words the
+body repeats, so weighting the body lets a long function that merely contains the words out-sum the function described
+by them. **Neither corpus can adjudicate the other**, and the shipped row is the only row in this table with no losing
+column. Both candidates are written down where the constants live, so the next reader does not spend an iteration
+rediscovering them.
+
+**And one methodological number that matters for every future comparison.** The same arm, re-run, scored **0.5670**
+against the previous run's **0.5743** MRR@10 (R@10 identical at 0.796). The difference is in the reranker, not in the
+retriever: the fused column moved 0.387 → 0.3938 and the reorder is a model's judgement at `temperature: 0`. **A delta
+smaller than about 0.01 MRR on this corpus is inside run-to-run variance and cannot be attributed to a change** - which
+is the reason the weight sweep is a single run over one set of embeddings rather than two dispatched runs.
+
+**Cost of this iteration's measurement**: one `pool=all` dispatch at ~0.3 USD of completions plus ~6 000 embeddings
+(≈0.05 USD); the local probe that reproduced the lexical column to four decimals ran on a workstation for free, and is
+why two candidate weightings were rejected before either cost a workflow.
