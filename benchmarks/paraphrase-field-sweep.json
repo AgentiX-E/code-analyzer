@@ -23,7 +23,7 @@
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
     "snapshot": "superseded",
-    "supersededReason": "measured on the corpus as it measured 5 735 nodes; the same 52 files measure 3 257 today, so these weights are not comparable with any figure in this directory. Re-run paraphrase-search.test.ts with a key before quoting them.",
+    "supersededReason": "measured on the corpus as it measured 5 735 nodes; the same 52 files measure 3 257 today, so these weights are not comparable with any figure in this directory. Re-run paraphrase-search.test.ts with a key before quoting them. The corpus also moved after that measurement: the C++ provider inside it now bounds a modifier run and the Svelte reader accepts an end tag that carries attributes, so the files that measure 3 257 nodes today are not the files behind these weights.",
     "nodes": 5735
   },
   "queries": 99,

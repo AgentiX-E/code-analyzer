@@ -16,7 +16,7 @@
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
     "snapshot": "superseded",
-    "supersededReason": "measured on benchmarks/retrieval-corpus before the C++ provider inside it was changed to bound a modifier run, which is a ReDoS fix and therefore a change to the corpus bytes; the file that was measured is no longer the file in the directory. Re-run with a key before quoting these figures.",
+    "supersededReason": "measured on benchmarks/retrieval-corpus before two changes to the corpus bytes: the C++ provider inside it was changed to bound a modifier run, and the Svelte reader was changed to accept an end tag that carries attributes - both are the same class of fix (a pattern that could be made to crawl, and a block boundary that ended in the wrong place), and both mean the file that was measured is no longer the file in the directory. Re-run with a key before quoting these figures.",
     "nodes": 3257,
     "nodesWithADocstring": 220,
     "queries": 219
