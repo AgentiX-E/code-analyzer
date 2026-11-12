@@ -8,7 +8,7 @@
 // **Real files, on a real disk**, because the thing under test is a reader: a reader tested against a fake reader has
 // not been tested.
 
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -184,6 +184,44 @@ describe('a repository is read, and refuses what it must not read', () => {
     // **A skipped directory is skipped**, and a dotfile is not source.
     expect(repository.listFiles()).toEqual(['src/a.ts', 'src/b.py']);
   });
+
+  it('walks past a file it cannot read instead of failing the search', () => {
+    // **`listFiles` is cached and `readFile` is not**, so the two can disagree: a file can be listed and then gone, and a
+    // search that threw on that disagreement would let one deleted file silence every later hit. The link case is the
+    // same path in production - a target outside the root is refused by `readFile` and not listed by the walk - and this
+    // is the version of it a test can produce deterministically.
+    const root = makeTree({ 'src/a.ts': 'const needle = 1;\n', 'src/c.ts': 'const needle = 3;\n' });
+    const repository = new DirectoryRepository({ root, changed: new Map() });
+    expect(repository.listFiles()).toEqual(['src/a.ts', 'src/c.ts']);
+    rmSync(join(root, 'src/c.ts'));
+    expect(repository.search('needle').map((hit) => hit.path)).toEqual(['src/a.ts']);
+  });
+
+  it('stops listing at its ceiling rather than walking a monorepo to the end', () => {
+    // **The listing ceiling is a refusal to spend, not a filter**: a walk that ignores it visits every directory of a
+    // monorepo once per search, and the number is reported rather than discovered as a slow review.
+    const root = makeTree({
+      'a.ts': 'const a = 1;\n',
+      'b.ts': 'const b = 2;\n',
+      'c.ts': 'const c = 3;\n',
+    });
+    const repository = new DirectoryRepository({
+      root,
+      changed: new Map(),
+      limits: { maxFilesListed: 2 },
+    });
+    expect(repository.listFiles()).toEqual(['a.ts', 'b.ts']);
+  });
+
+  it('reads a name under a root that is the filesystem root', () => {
+    // **`isWithin` compares a prefix, and the root `/` already ends with the separator.** That is the one spelling where
+    // appending another slash would produce `//` and refuse every path beneath it, so the case is tested with a real
+    // file under `/tmp` rather than left to a ternary nobody exercised.
+    const root = makeTree({ 'rooted.ts': 'const rooted = 1;\n' });
+    const repository = new DirectoryRepository({ root: '/', changed: new Map() });
+    const relative = root.replace(/^\//, '');
+    expect(repository.readFile(`${relative}/rooted.ts`)?.text).toBe('const rooted = 1;\n');
+  });
 });
 
 describe('a repository can be the files a transport already fetched', () => {
@@ -228,13 +266,18 @@ describe('a repository can be the files a transport already fetched', () => {
     const root = makeTree({ 'src/b.ts': 'needle one\nneedle two\n', 'src/c.ts': 'needle three\n' });
     const disk = new DirectoryRepository({ root, changed: new Map() });
     const repository = new MappedRepository({
-      // **The same file the fallback also has**, so the dedupe is exercised rather than assumed.
-      files: new Map([['src/b.ts', 'needle one\nneedle two\n']]),
+      // **The same file the fallback also has**, so the dedupe is exercised rather than assumed. And **a second file
+      // the limit can stop the walk on**: with one file the loop ends before the ceiling is ever consulted, which is a
+      // boundary that only a second file tests.
+      files: new Map([
+        ['src/b.ts', 'needle one\nneedle two\n'],
+        ['src/z.ts', 'needle four\n'],
+      ]),
       changed: new Map([['src/b.ts', 'diff']]),
       fallback: disk,
     });
     const hits = repository.search('needle');
-    expect(hits.map((hit) => hit.path)).toEqual(['src/b.ts', 'src/b.ts', 'src/c.ts']);
+    expect(hits.map((hit) => hit.path)).toEqual(['src/b.ts', 'src/b.ts', 'src/z.ts', 'src/c.ts']);
     // **A limit inside the mapped files stops the walk**, so the fallback is not called for a question already answered.
     expect(repository.search('needle', { limit: 1 }).map((hit) => hit.path)).toEqual(['src/b.ts']);
     expect(repository.search('needle', { suffix: '.py' })).toEqual([]);

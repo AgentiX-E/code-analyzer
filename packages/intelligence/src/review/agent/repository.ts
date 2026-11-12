@@ -230,11 +230,16 @@ export class DirectoryRepository implements ReviewRepository {
       const file = this.readFile(path);
       if (file === null) continue;
       examined += 1;
-      const lines = file.text.split('\n');
-      for (let i = 0; i < lines.length; i += 1) {
-        const line = lines[i] ?? '';
+      // **`entries()` rather than an index and a `?? ''`.** The guard was there because an indexed read is typed as
+      // possibly-missing, and a sparse array is the only way it could be - which no split of a string produces, so the
+      // fallback was a branch nothing could reach that made `search` look safer than it was.
+      for (const [offset, line] of file.text.split('\n').entries()) {
         if (line.toLowerCase().includes(needle)) {
-          hits.push({ path, line: i + file.firstLine, text: line.trim().slice(0, 240) });
+          hits.push({
+            path,
+            line: offset + file.firstLine,
+            text: line.trim().slice(0, 240),
+          });
           if (hits.length >= limit) break;
         }
       }
@@ -331,10 +336,9 @@ export class MappedRepository implements ReviewRepository {
       if (hits.length >= limit) break;
       if (options.suffix !== undefined && !path.endsWith(options.suffix)) continue;
       seen.add(path);
-      const lines = text.split('\n');
-      for (let i = 0; i < lines.length; i += 1) {
-        if ((lines[i] ?? '').toLowerCase().includes(needle)) {
-          hits.push({ path, line: i + 1, text: (lines[i] ?? '').trim().slice(0, 240) });
+      for (const [offset, line] of text.split('\n').entries()) {
+        if (line.toLowerCase().includes(needle)) {
+          hits.push({ path, line: offset + 1, text: line.trim().slice(0, 240) });
           if (hits.length >= limit) break;
         }
       }
