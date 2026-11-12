@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { compareReplayToArtifact } from '../../../scripts/lib/paired-replay.mjs';
+import type { PairedReplay } from '../../../scripts/lib/paired-replay.mjs';
 
 type Point = { precision: number; recall: number; f1: number };
 
@@ -25,8 +26,12 @@ type Point = { precision: number; recall: number; f1: number };
  * its own answer. A single number per arm would not do: precision, recall and F1 are three different numbers on the same
  * arm, and a fixture that collapsed them could pass while the comparison read the wrong field.
  */
-function replayWith(values: Record<string, Point>): { whole: Record<string, Point> } {
-  return { whole: values };
+function replayWith(values: Record<string, Point>): PairedReplay {
+  // **The assertion is the fixture's whole point, and it is narrow**: `compareReplayToArtifact` reads `whole[arm]` and
+  // nothing else, so the counts, the paired block and the discordances are not inputs to the question under test.
+  // Building a complete `PairedReplay` here would add twelve fields no assertion looks at and would still prove nothing
+  // about the arm.
+  return { whole: values } as unknown as PairedReplay;
 }
 
 /** The arms of the run that failed, at their measured values. */
