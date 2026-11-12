@@ -90,12 +90,21 @@ function main() {
   // --update: rewrite the baseline from this log
   // -------------------------------------------------------------------------
   if (UPDATE) {
+    // **Only a baseline that is not there is rewritten from scratch.** The `existsSync` in front of the read was a
+    // window rather than a guard, and the `catch` behind it swallowed a parse failure as well: a corrupt baseline
+    // rewrote itself to empty and the ratchet forgot every file it was holding.
     let existing = { comment: [], files: {} };
-    if (existsSync(BASELINE_PATH)) {
-      try {
-        existing = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
-      } catch {
-        /* rewrite from scratch */
+    try {
+      existing = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        /* no baseline yet: this run writes the first one */
+      } else if (error instanceof SyntaxError) {
+        // **A ratchet is only as good as the number it holds**, so a baseline nobody can read stops the run with the
+        // file named rather than being replaced by an empty one that would pass everything.
+        throw new Error(`${BASELINE_PATH} is not valid JSON: ${error.message}`);
+      } else {
+        throw error;
       }
     }
     const next = {

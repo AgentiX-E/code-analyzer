@@ -143,6 +143,20 @@ describe('typecheck per-file ratchet', () => {
     expect(output).toContain('packages/b/src/__tests__/now-clean.test.ts: 3 → 0');
   });
 
+  it('refuses to rewrite a baseline it cannot parse, rather than forgetting the floor', () => {
+    // **A baseline that exists but does not parse is not a repository with no baseline.** The `catch` that used to
+    // wrap the read turned a truncated or hand-edited file into `{ files: {} }` and rewrote it on `--update`, which
+    // silently released every file the ratchet was holding. Only `ENOENT` may mean "start from scratch".
+    const baseline = write('b6.json', '{ this is not json');
+    const log = write('l6.log', diagnostic('packages/c/src/__tests__/new.test.ts', 1));
+
+    const { code, output } = runRatchet(log, baseline, ['--update']);
+
+    expect(code).not.toBe(0);
+    expect(output).toContain('is not valid JSON');
+    expect(readFileSync(baseline, 'utf-8')).toBe('{ this is not json');
+  });
+
   it('rewrites the baseline with --update', () => {
     const baseline = write('b5.json', { comment: ['kept'], files: { 'old.test.ts': 99 } });
     const log = write('l5.log', diagnostic('packages/c/src/__tests__/new.test.ts', 1));

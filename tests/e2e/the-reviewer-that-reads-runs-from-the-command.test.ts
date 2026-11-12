@@ -15,7 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -74,6 +74,11 @@ class ScriptedReviewer implements LLMProvider {
   readonly offered: string[][] = [];
 
   private round = 0;
+
+  /** A scripted reviewer is always up: the test is about what it is asked, not whether it answers. */
+  async healthCheck(): Promise<boolean> {
+    return true;
+  }
 
   async complete(prompt: string): Promise<CompletionResult> {
     this.prompts.push(prompt);
@@ -159,6 +164,11 @@ class ScriptedReviewer implements LLMProvider {
 class SilentReviewer implements LLMProvider {
   readonly name = 'silent';
   readonly model = 'silent-1';
+
+  /** Reachable, and useless - which is the case the report has to make visible. */
+  async healthCheck(): Promise<boolean> {
+    return true;
+  }
 
   async complete(): Promise<CompletionResult> {
     return this.result('{"remove": []}');

@@ -154,9 +154,21 @@ if (counts.size === 0) {
   process.exit(1);
 }
 
-const recorded = fs.existsSync(baselinePath)
-  ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')).files
-  : {};
+// **A missing baseline and a corrupt one are not the same answer.** Reading without the `existsSync` in front of it
+// removes the window between the check and the read; catching only `ENOENT` keeps the ratchet honest, because a
+// baseline that exists but does not parse used to be able to mean "no floor recorded" and let a regression through.
+let recorded = {};
+try {
+  recorded = JSON.parse(fs.readFileSync(baselinePath, 'utf8')).files;
+} catch (error) {
+  if (error.code === 'ENOENT') {
+    /* no baseline yet: every file is new, which the caller reports */
+  } else if (error instanceof SyntaxError) {
+    throw new Error(`${baselinePath} is not valid JSON: ${error.message}`);
+  } else {
+    throw error;
+  }
+}
 
 if (update) {
   const files = Object.fromEntries([...counts.entries()].sort(([a], [b]) => a.localeCompare(b)));

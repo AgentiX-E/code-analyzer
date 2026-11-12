@@ -84,4 +84,30 @@ describe('lint-per-file ratchet', () => {
     expect(status).toBe(1);
     expect(out).toContain('did not run');
   });
+  it('refuses a baseline it cannot parse, rather than treating it as an empty one', () => {
+    // **A truncated baseline used to read as "nothing is recorded"**, which released every file the ratchet held - the
+    // one failure mode a ratchet must not have, because it looks like a green run. Only a baseline that is absent may
+    // mean "no floor yet"; one that is present and unreadable stops the run.
+    const dir = mkdtempSync(join(tmpdir(), 'lint-gate-'));
+    const jsonPath = join(dir, 'lint.json');
+    const basePath = join(dir, 'baseline.json');
+    writeFileSync(jsonPath, JSON.stringify([entry('packages/a/src/known.ts', 1)]));
+    writeFileSync(basePath, '{ this is not json');
+
+    let status = 0;
+    let out = '';
+    try {
+      out = execFileSync('node', [SCRIPT, '--json', jsonPath, '--baseline', basePath], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (error) {
+      const e = error as { status?: number; stdout?: string; stderr?: string };
+      status = e.status ?? 1;
+      out = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+    }
+
+    expect(status).toBe(1);
+    expect(out).toContain('is not valid JSON');
+  });
 });

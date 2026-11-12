@@ -125,7 +125,12 @@ export class SvelteProvider implements LanguageProvider {
    */
   private extractScriptBlocks(source: string): Array<{ content: string; offset: number }> {
     const blocks: Array<{ content: string; offset: number }> = [];
-    const scriptRegex = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+    // **The end tag is matched by the rule the HTML tokenizer uses, not by `</script\s*>`.** Whitespace is allowed
+    // between the tag name and the `>`, and so is anything else that is not `>` - `</script >`, `</script\n>` and
+    // `</script foo>` all end the element in a browser. The narrow form ran to the *next* `</script>` when a file used
+    // one of them, so the block it returned contained the rest of the file and every offset computed from it was wrong.
+    // `\b` keeps `</scriptx>` from matching, which is the one thing the old form got right.
+    const scriptRegex = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
     let match: RegExpExecArray | null;
 
     while ((match = scriptRegex.exec(source)) !== null) {

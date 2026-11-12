@@ -25,6 +25,28 @@ const C_TAINT_NODES = {
   argumentContainer: ['argument_list'],
 };
 
+/**
+ * The pattern that reads a C function signature, as a factory.
+ *
+ * **A factory and not a constant**, because a `/g` pattern carries `lastIndex` between callers and the reader is
+ * called once per file: a shared instance would start each file where the last one stopped. **Exported** so the cost
+ * test drives the pattern itself rather than a provider that masks lines longer than its budget first - the mask is a
+ * mitigation, and a test that cannot see past it cannot say whether the pattern under it is linear.
+ *
+ * **Why its whitespace is bounded.** `(?:[\w*]+[ \t]+)+` is a `+` over a `+`, and `(\*{0,64}[ \t]*)?` puts a second
+ * nullable whitespace quantifier immediately after the first one's trailing `[ \t]+`: on a line of 8 000 short words
+ * followed by 24 000 spaces the engine re-split one whitespace run at every word boundary it had consumed and cost
+ * **1 869 ms**, measured. Three changes, and they are one change: the repetition moves to the top level, where a
+ * failure costs one character; the star run is no longer followed by a nullable `[ \t]*` that could absorb whitespace
+ * the preceding `[ \t]+` also wanted; and the whitespace runs are bounded at 64 - eight times the deepest indent any
+ * formatter emits, and the bound is what makes the per-position work constant. **Same matches on 200 000 generated
+ * inputs and on every case in `a-c-signature-is-read-in-one-pass.test.ts`**; the one signature it no longer matches is
+ * one with 64 consecutive spaces inside it, which no formatter writes.
+ */
+export function cSignaturePattern(): RegExp {
+  return /(^|[\n;{}])[ \t]*[\w*]+(?:[ \t]{1,64}[\w*]+)*[ \t]{1,64}(\*{0,64})[ \t]{0,64}(\w{1,128})[ \t]*\([^)\n]{0,512}\)[ \t]*(?:\{|;)/g;
+}
+
 export class CProvider extends TreeSitterBaseProvider {
   readonly language = 'c';
   readonly displayName = 'C';
@@ -360,16 +382,12 @@ export class CProvider extends TreeSitterBaseProvider {
     // The return-type group allows stars both attached to the type (`int* fp`)
     // and attached to the name (`int *fp`); the name is the last word before `(`.
     //
-    // **Anchored at the start of a line, and one line long, because the run of qualifiers is a quantifier over a
-    // quantifier.** `(?:\w{1,128}\**\s+)+` gives every word up to 128 ways to be split between two repetitions and
-    // every prefix of the run a chance to end it: on a generated line of `a a a a …` with no `(` after it, the engine
-    // explored all of them — 4 297 ms at the size the assay replays, measured. Anchor plus `[ \t]` removes both
-    // freedoms: the split points are the spaces, and only a statement boundary can begin a match, so a failure at any
-    // other position costs one character comparison. The boundary is `;`, `{`, `}` or a newline rather than only a
-    // newline, because two definitions on one line are one line and `int b() {} int a() {}` is an existing test. What
-    // it no longer matches is a signature whose return type sits on the previous line, which no C formatter writes.
-    const funcRegex =
-      /(^|[\n;{}])[ \t]*(?:[\w*]+[ \t]+)+(\*{0,64}[ \t]*)?(\w{1,128})[ \t]*\([^)\n]{0,512}\)[ \t]*(?:\{|;)/g;
+    // **Anchored at a statement boundary and one line long**, which is what keeps the run of qualifiers from being
+    // explored prefix by prefix: the boundary is `;`, `{`, `}` or a newline rather than only a newline, because two
+    // definitions on one line are one line and `int b() {} int a() {}` is an existing test. What it no longer matches is
+    // a signature whose return type sits on the previous line, which no C formatter writes. The pattern itself, and why
+    // its whitespace is bounded, is documented on `cSignaturePattern` above.
+    const funcRegex = cSignaturePattern();
     while ((m = funcRegex.exec(source)) !== null) {
       // The leading `\n` is part of the anchor, not part of the declaration.
       const offset = m.index + m[1]!.length;

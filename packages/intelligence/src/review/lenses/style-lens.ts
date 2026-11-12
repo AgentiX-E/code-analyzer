@@ -51,6 +51,59 @@ function checkNaming(name: string, line: number, filePath: string): LensFinding 
   );
 }
 
+/**
+ * Every numeric literal in a line, in reading order - the pattern `(-?\d+\.?\d*)(?<![a-zA-Z0-9_.#])…(?![a-zA-Z0-9_])`
+ * said as one forward pass.
+ *
+ * **Why it is not a pattern any more.** The pattern was quadratic in the length of a digit run. `\d+` followed by an
+ * optional fraction has one way to fail - the character after the run - and the engine only discovers it after
+ * backtracking the run down to nothing, at every position of the run: a generated line of `0000…` cost O(n²) and the
+ * lens runs over every line of every file under review. **The class the run is made of is the class the trailing
+ * lookahead forbids**, so no shorter run can ever be accepted: the long candidate is the only candidate, and the three
+ * candidate ends below are the three the pattern could reach, tried in the pattern's own order of greediness. The scan
+ * does not guess, so it cannot backtrack - one pass, linear, same matches.
+ */
+export function numericLiterals(code: string): string[] {
+  const found: string[] = [];
+  const digit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
+  /** The trailing lookahead's class: a literal glued to an identifier is part of the identifier. */
+  const nameChar = (c: string | undefined): boolean =>
+    digit(c) ||
+    (c !== undefined && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === '_'));
+  /** The lookbehind's class, which also excludes a member access and a private field. */
+  const glued = (c: string | undefined): boolean => nameChar(c) || c === '.' || c === '#';
+
+  let i = 0;
+  while (i < code.length) {
+    const signed = code[i] === '-' && digit(code[i + 1]);
+    const start = signed ? i + 1 : digit(code[i]) ? i : -1;
+    if (start < 0 || glued(code[i - 1])) {
+      i += 1;
+      continue;
+    }
+
+    let runEnd = start;
+    while (digit(code[runEnd])) runEnd += 1;
+    const candidates =
+      code[runEnd] === '.' ? [fractionEnd(code, runEnd + 1), runEnd + 1, runEnd] : [runEnd];
+    const end = candidates.find((candidate) => !nameChar(code[candidate]));
+    if (end === undefined) {
+      i += 1;
+      continue;
+    }
+    found.push(code.slice(i, end));
+    i = Math.max(end, i + 1);
+  }
+  return found;
+}
+
+/** One past the last digit of the fraction that starts at `from`. */
+function fractionEnd(code: string, from: number): number {
+  let end = from;
+  while (code[end] !== undefined && code[end]! >= '0' && code[end]! <= '9') end += 1;
+  return end;
+}
+
 /** Check for magic numbers (excluding common allowed values) */
 function checkMagicNumbers(line: string, lineNum: number, filePath: string): LensFinding | null {
   const allowed = new Set([
@@ -78,8 +131,8 @@ function checkMagicNumbers(line: string, lineNum: number, filePath: string): Len
   // escape or the quote ends the string, and a measured line of them cost three seconds at eighty kilobytes. The scan
   // walks forward once and takes the next character after a backslash, which is the rule the pattern was trying to say.
   const code = replaceQuotedBodies(line, `"'`, '');
-  const numMatch = code.match(/(?<![a-zA-Z0-9_.#])(-?\d+\.?\d*)(?![a-zA-Z0-9_])/g);
-  if (!numMatch) return null;
+  const numMatch = numericLiterals(code);
+  if (numMatch.length === 0) return null;
 
   const magicNums = numMatch.filter((n) => !allowed.has(n) && parseFloat(n) > 3);
   if (magicNums.length === 0) return null;
