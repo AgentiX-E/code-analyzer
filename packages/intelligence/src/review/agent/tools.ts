@@ -184,6 +184,25 @@ export const AGENT_TOOLS: ReadonlyArray<ToolDefinition> = Object.freeze([
 /** The names, for a dispatcher that must reject a call it does not implement. */
 export const AGENT_TOOL_NAMES: ReadonlyArray<string> = AGENT_TOOLS.map((tool) => tool.name);
 
+/**
+ * **The tools that can only report, for the round in which reading is over.**
+ *
+ * **The first measured run of this agent filed nothing.** 36 pull requests, 145 model calls, 273 tool calls, 2.4 million
+ * characters read - and not one `file_comment`, because the reading budget ran out while the model was still opening
+ * files. An agent whose last act is always a read is an agent that has never been asked to conclude, so the last round of
+ * every group offers these two tools and nothing else: it cannot read, and `task_done` still names what was covered.
+ * **This is a reservation rather than an extra call**, so a group costs what it cost before - one of its rounds is now
+ * spent concluding instead of exploring.
+ */
+export const FILING_TOOLS: ReadonlyArray<ToolDefinition> = Object.freeze(
+  AGENT_TOOLS.filter((tool) => tool.name === 'file_comment' || tool.name === 'task_done'),
+);
+
+/** Whether a tool may be called in the round that files. */
+export function isFilingTool(name: string): boolean {
+  return FILING_TOOLS.some((tool) => tool.name === name);
+}
+
 /** Render a file with line numbers, so a quote can be copied without counting. */
 function numbered(file: RepositoryFile, from?: number, to?: number): string {
   const lines = file.text.split('\n');

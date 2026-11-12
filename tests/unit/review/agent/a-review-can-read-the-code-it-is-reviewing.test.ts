@@ -295,6 +295,37 @@ describe('a budget stops a run before it is a bill with no ceiling', () => {
     expect(new AgentBudget({ maxRounds: 3 }).policy().maxRounds).toBe(3);
     expect(new AgentBudget().policy().maxToolCalls).toBeGreaterThan(0);
   });
+
+  it('counts rounds and files per group, and the review total across groups', () => {
+    // **The starvation the first measured run produced.** Rounds and file reads were counted once for the review, so the
+    // first group of every pull request spent them and no later group started: 36 of 36 pull requests used rounds
+    // `g1:r1` to `g1:r4`, 248 of 249 changed files were never opened, and the run reported F1 0 as if the reviewer had
+    // found nothing. **The unit of work is a group**, so the ceilings are per group and the totals stay per review - a
+    // bill is a fact about the review and a budget is a fact about the work.
+    const budget = new AgentBudget({ maxFilesRead: 1, maxRounds: 1, maxToolCalls: 4 });
+    budget.beginGroup(1);
+    expect(budget.takeToolCall('read_file').ok).toBe(true);
+    expect(budget.chargeRead('a.ts', 10).ok).toBe(true);
+    // The first group's file is spent, and the refusal is recorded rather than merely returned.
+    expect(budget.takeToolCall('read_file').ok).toBe(false);
+    expect(budget.roundsLeft()).toBe(1);
+    expect(budget.startRound().ok).toBe(true);
+    expect(budget.roundsLeft()).toBe(0);
+    expect(budget.startRound().ok).toBe(false);
+
+    // **The second group starts with a budget of its own**, which is the whole point.
+    budget.beginGroup(2);
+    expect(budget.roundsLeft()).toBe(1);
+    expect(budget.takeToolCall('read_file').ok).toBe(true);
+    expect(budget.chargeRead('b.ts', 10).ok).toBe(true);
+
+    // And the review still knows what it cost.
+    expect(budget.report().rounds).toBe(1);
+    expect(budget.report().toolCalls).toBe(2);
+    expect(budget.report().filesRead).toBe(2);
+    expect(budget.hasRead('a.ts')).toBe(true);
+    expect(budget.report().refusals.map((refusal) => refusal.kind)).toEqual(['read_file', 'round']);
+  });
 });
 
 describe('the dispatcher owns every effect a tool can have', () => {

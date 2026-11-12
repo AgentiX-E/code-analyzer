@@ -972,6 +972,15 @@ async function dryRun() {
         prompts[1].includes('    3|   return x * rate;'),
         'and it arrived with the numbers a quote can be copied from',
       );
+      // **The two numbers that tell a broken loop from a quiet reviewer**, rehearsed here because the run that follows
+      // this step cannot print them until it has spent an hour and a model: zero drafts over 36 pull requests is a bug
+      // in this loop, and zero comments over two drafts is a bug in the locator. They are different failures.
+      assert.equal(outcome.ledger.draftsFiled, 2, 'both filed drafts are counted before grounding');
+      assert.equal(outcome.trace.length, 2, 'every round left a line in the trace');
+      assert.ok(
+        outcome.trace[0].startsWith('g1 r1: read_file |'),
+        'and the trace names the round, the tools and what was said',
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1457,6 +1466,14 @@ async function main() {
     drops: {},
     accounts: { commented: 0, 'reviewed-clean': 0, skipped: 0, unaccounted: 0 },
     unaccountedPaths: [],
+    /**
+     * **One line per round, capped**, so the artifact can answer *why* an arm filed nothing.
+     *
+     * The first run of this arm produced F1 0 with `draftsFiled: 0`, and the artifact could not distinguish a model that
+     * could not call the tool from one that never reached the round where it would have. A benchmark that records the
+     * score and not the reason a score is zero is a benchmark that cannot be debugged from its own output.
+     */
+    trace: [],
     firstFailure: null,
   };
   const ocrKey = process.env['OCR_LLM_TOKEN'] ?? process.env['DEEPSEEK_API_KEY'] ?? '';
@@ -2238,7 +2255,13 @@ async function main() {
       }
     }
     const lanes = [];
-    for (const section of sections) {
+    // **The lanes do not run when the agent is the arm under test.** Its findings replace theirs a hundred lines below,
+    // so every lane call this loop makes under `AACR_AGENT=on` is bought and then discarded: the measured run spent
+    // 0.46 of its 0.79 USD on 1 245 lane calls whose findings were never scored, and most of its 41 minutes the same
+    // way. **An arm that pays for a second reviewer it does not use is an arm whose cost per iteration cannot come
+    // down**, and this one has to be iterated on. The loop is emptied rather than deleted, because the lane path is
+    // still what the other arms measure and the counters it writes are still reported when it runs.
+    for (const section of AGENT ? [] : sections) {
       const sectionDiff = section.lines.join(String.fromCharCode(10));
       try {
         // **One file per call, and the file's own path** - **so neither the count nor the location depends on the
@@ -2480,6 +2503,17 @@ async function main() {
           agentCounters.groundingReads += outcome.ledger.groundingReads;
           agentCounters.disambiguated += outcome.ledger.disambiguated;
           agentCounters.filtered += outcome.ledger.filtered;
+          // **The number that tells a broken loop from a quiet reviewer.** The first run of this arm filed no finding over
+          // 36 pull requests, and the artifact carried no field that could say whether the model had called
+          // `file_comment` and been refused, or had never got to it. `draftsFiled` was declared in this object and never
+          // written, which is the same defect as a counter that does not exist.
+          agentCounters.draftsFiled += outcome.ledger.draftsFiled;
+          for (const line of outcome.trace) {
+            if (agentCounters.trace.length >= 60) break;
+            agentCounters.trace.push(
+              `${String(pr.githubPrUrl).replace('https://github.com/', '')} ${line}`,
+            );
+          }
           for (const drop of outcome.drops) {
             agentCounters.drops[drop.reason] = (agentCounters.drops[drop.reason] ?? 0) + 1;
           }

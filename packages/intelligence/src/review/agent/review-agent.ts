@@ -25,7 +25,14 @@
 
 import { AgentBudget, type AgentLedger, type AgentLimits } from './budget.js';
 import { locateInDiff, locateInFile, type LocatedSpan } from './grounding.js';
-import { AGENT_TOOLS, dispatchTool, type DraftComment, type ReviewDeclaration } from './tools.js';
+import {
+  AGENT_TOOLS,
+  FILING_TOOLS,
+  dispatchTool,
+  isFilingTool,
+  type DraftComment,
+  type ReviewDeclaration,
+} from './tools.js';
 
 import type { ReviewRepository } from './repository.js';
 import type { LLMProvider } from '../llm/provider.js';
@@ -61,9 +68,21 @@ export interface AgentReviewOutcome {
   comments: ReviewComment[];
   accounts: FileAccount[];
   drops: DropRecord[];
+  /**
+   * **What each round did, in one line**, so a run that filed nothing can say why.
+   *
+   * **The first measured run of this agent needed this and did not have it.** It made 145 model calls over 36 pull
+   * requests, filed no comment at all, and the artifact could not say whether the model had been unable to call
+   * `file_comment`, had called it and been refused, or had never got to it - three different bugs with the same number.
+   * The trace is capped by the caller, not here.
+   */
+  trace: string[];
   ledger: AgentLedger & {
     modelCalls: number;
     groups: number;
+    /** Drafts the model actually filed, before grounding. **Zero here and zero comments is a broken loop, not a quiet
+     * reviewer** - and the number was missing from the ledger, which is how that distinction was lost. */
+    draftsFiled: number;
     /** Grounding reads are ours, not the model's; they are counted separately rather than hidden. */
     groundingReads: number;
     groundingChars: number;
@@ -219,6 +238,7 @@ export class ReviewAgent {
 
     const drafts: DraftComment[] = [];
     const drops: DropRecord[] = [];
+    const trace: string[] = [];
     let declared: ReviewDeclaration | null = null;
     let modelCalls = 0;
     let groundingReads = 0;
@@ -229,6 +249,10 @@ export class ReviewAgent {
     const groupList = groupChangedFiles(changed, this.options.groupSize);
     for (const group of groupList) {
       groups += 1;
+      // **Each group gets its own rounds and calls.** The first measured run of this agent spent the entire budget on
+      // group one of every pull request - 36 of 36 - so groups two and three never ran and their files were counted
+      // unaccounted for. A ceiling meant for one group was being counted once for the review.
+      budget.beginGroup(groups);
       const entries = group.map((path) => ({ path, diff: repository.diffOf(path) ?? '' }));
       const others = changed.filter((path) => !group.includes(path));
       const transcript: string[] = [SYSTEM, '', groupPrompt(entries, others)];
@@ -237,13 +261,28 @@ export class ReviewAgent {
       // reason. A `for (round = 1; round <= maxRounds; …)` stops one step earlier and leaves the ledger saying nothing
       // about why the review ended, which is the difference between a run that finished and a run that ran out.
       while (!finished) {
+        // **`roundsLeft` counts the round about to be taken**, so `1` means this is it. Asking the budget for the round
+        // first is what records a refusal in the ledger: a group that ends because its ceiling is spent and a group that
+        // ends because it declared itself done produce the same comments and different explanations.
+        const left = budget.roundsLeft();
         const started = budget.startRound();
         if (!started.ok) break;
+        // **The last round cannot read.** One round of every group is reserved for concluding: the run that produced
+        // nothing did so by reading until the budget ended, so the ceiling now ends in a round where the only two tools
+        // are `file_comment` and `task_done`. A budget that can be spent entirely on reading is a budget that measures
+        // how much an agent likes reading.
+        const filing = left === 1;
+        transcript.push(
+          `BUDGET: round ${String(budget.policy().maxRounds - left + 1)} of ${String(budget.policy().maxRounds)} for this group of ${String(group.length)} file(s).` +
+            (filing
+              ? ' **This is the last round: reading is over.** File the findings you can support from what you have read, then call `task_done` naming every file you reviewed and every file you skipped.'
+              : ` ${String(left - 1)} round(s) remain after this one, and the last cannot read.`),
+        );
         const round = budget.report().rounds;
         modelCalls += 1;
         const result = await this.provider.completeWithTools(
           transcript.join('\n\n'),
-          [...AGENT_TOOLS],
+          filing ? [...FILING_TOOLS] : [...AGENT_TOOLS],
           {
             maxTokens: 4_000,
             temperature: 0.1,
@@ -252,6 +291,11 @@ export class ReviewAgent {
         );
         const calls = result.toolCalls ?? [];
         const said = result.content.trim();
+        trace.push(
+          `g${String(groups)} r${String(round)}${filing ? ' filing' : ''}: ${
+            calls.length === 0 ? '(no tool call)' : calls.map((call) => call.name).join(', ')
+          } | ${said.replace(/\s+/g, ' ').slice(0, 160)}`,
+        );
         if (calls.length === 0) {
           // **A round that called nothing is a round the model spent talking.** It is recorded in the transcript so the
           // next round can answer it, and it is not treated as `task_done`: an agent that stops without declaring its
@@ -264,6 +308,16 @@ export class ReviewAgent {
         }
         const rendered: string[] = [];
         for (const call of calls) {
+          // **A tool the round did not offer is refused here rather than dispatched.** The provider has the list, but a
+          // model can name anything, and a filing round that quietly executed `read_file` would be the round this was
+          // built to prevent.
+          if (filing && !isFilingTool(call.name)) {
+            trace.push(`g${String(groups)} r${String(round)} refused ${call.name} (filing round)`);
+            rendered.push(
+              `TOOL ${call.name} -> refused: the reading budget is spent, so this round offers only file_comment and task_done`,
+            );
+            continue;
+          }
           let parsed: unknown = {};
           try {
             parsed = JSON.parse(call.arguments.length > 0 ? call.arguments : '{}');
@@ -377,10 +431,12 @@ export class ReviewAgent {
       comments: kept,
       accounts,
       drops,
+      trace,
       ledger: {
         ...budget.report(),
         modelCalls,
         groups,
+        draftsFiled: drafts.length,
         groundingReads,
         groundingChars,
         disambiguated,

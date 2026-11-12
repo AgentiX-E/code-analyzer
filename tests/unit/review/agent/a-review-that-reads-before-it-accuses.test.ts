@@ -55,6 +55,8 @@ class ScriptedProvider implements LLMProvider {
   readonly name = 'scripted';
   readonly model = 'scripted-1';
   readonly prompts: string[] = [];
+  /** **The tools each round was offered.** A round's capability is part of what is under test, not only its answer. */
+  readonly toolLists: string[][] = [];
   private readonly steps: Step[];
 
   constructor(steps: Step[]) {
@@ -80,9 +82,10 @@ class ScriptedProvider implements LLMProvider {
 
   async completeWithTools(
     prompt: string,
-    _tools: ToolDefinition[],
+    tools: ToolDefinition[],
     _options?: CompletionOptions,
   ): Promise<CompletionResult> {
+    this.toolLists.push(tools.map((tool) => tool.name));
     return this.next(prompt);
   }
 
@@ -266,6 +269,131 @@ describe('the agent reads the repository between rounds', () => {
       'unaccounted',
     ]);
     expect(outcome.accounts[1]?.reason).toBe('named in neither list');
+  });
+});
+
+describe('the round that has to conclude', () => {
+  // **The measured failure this suite exists for.** The first run of this agent over 36 pull requests made 145 model
+  // calls, read 2.4 million characters, and filed **no finding at all**: every group spent its whole budget reading and
+  // was cut off mid-exploration. An agent whose last act is always a read is an agent that was never asked to conclude.
+
+  it('reserves the last round of a group for filing, and offers it no reading tool', async () => {
+    // **A model that reads every time it is asked.** It never concludes on its own, which is what the real one did.
+    const provider = new ScriptedProvider([
+      () => ({ toolCalls: [call('read_file', { path: 'src/a.ts' })] }),
+      () => ({ toolCalls: [call('read_file', { path: 'src/a.ts' })] }),
+      () => ({ toolCalls: [call('read_file', { path: 'src/a.ts' })] }),
+    ]);
+    const outcome = await new ReviewAgent(provider, {
+      filter: false,
+      limits: { maxRounds: 3 },
+    }).review({
+      repository: repositoryFor({ 'src/a.ts': FILE_A }),
+      changedPaths: ['src/a.ts'],
+    });
+    // **Three rounds: two that could read, and a third that could only file.** The tools offered are the loop's
+    // capability, so they are asserted rather than inferred from the prompts.
+    expect(provider.toolLists).toHaveLength(3);
+    expect(provider.toolLists[0]).toEqual([
+      'read_file',
+      'search_code',
+      'read_diff',
+      'file_comment',
+      'task_done',
+    ]);
+    expect(provider.toolLists[2]).toEqual(['file_comment', 'task_done']);
+    expect(provider.prompts[2]).toContain('reading is over');
+    expect(outcome.ledger.modelCalls).toBe(3);
+  });
+
+  it('refuses a read in the filing round instead of executing it', async () => {
+    const provider = new ScriptedProvider([
+      () => ({ toolCalls: [call('read_file', { path: 'src/a.ts' })] }),
+      // **The model ignores the offer and asks to read again.** A round that executed this would be the round the
+      // reservation exists to prevent, so the refusal is a behaviour with a test rather than a hope about a model.
+      () => ({ toolCalls: [call('read_file', { path: 'src/a.ts' })] }),
+    ]);
+    const outcome = await new ReviewAgent(provider, {
+      filter: false,
+      limits: { maxRounds: 2 },
+    }).review({
+      repository: repositoryFor({ 'src/a.ts': FILE_A }),
+      changedPaths: ['src/a.ts'],
+    });
+    // **The refusal is a fact about the round, and it is recorded where a run can be read afterwards.** The transcript
+    // it was written into is never sent - the budget is spent, so there is no next prompt - which is why the assertion
+    // is on the trace and on the charge, not on a prompt nobody will see.
+    expect(outcome.trace.join('\n')).toContain('refused read_file (filing round)');
+    // **The file was read once and the call was not billed**, so the refusal did not cost a second read of the text.
+    expect(outcome.ledger.toolCalls).toBe(1);
+    expect(outcome.ledger.filesRead).toBe(1);
+    expect(outcome.ledger.draftsFiled).toBe(0);
+    expect(outcome.accounts[0]?.status).toBe('unaccounted');
+  });
+
+  it('gives every group its own rounds, because the unit of work is a group', async () => {
+    // **The bug this replaced.** The ceiling was counted once per review, so the first group of all 36 measured pull
+    // requests consumed it and no later group ever started - 248 of 249 changed files were never looked at.
+    const provider = new ScriptedProvider([
+      () => ({ toolCalls: [call('read_file', { path: 'src/a.ts' })] }),
+      () => ({ toolCalls: [call('task_done', { reviewed: ['src/a.ts'] })] }),
+      () => ({ toolCalls: [call('read_file', { path: 'src/c.ts' })] }),
+      () => ({ toolCalls: [call('task_done', { reviewed: ['src/c.ts'] })] }),
+    ]);
+    const outcome = await new ReviewAgent(provider, {
+      filter: false,
+      groupSize: 1,
+      limits: { maxRounds: 2 },
+    }).review({
+      repository: repositoryFor({ 'src/a.ts': FILE_A, 'src/c.ts': FILE_C }),
+      changedPaths: ['src/a.ts', 'src/c.ts'],
+    });
+    expect(outcome.ledger.groups).toBe(2);
+    expect(outcome.ledger.modelCalls).toBe(4);
+    // **Both groups reached their own conclusion**, which is the fact a shared budget destroyed.
+    expect(outcome.accounts.map((account) => account.status)).toEqual([
+      'reviewed-clean',
+      'reviewed-clean',
+    ]);
+  });
+
+  it('records what each round did, so a run that files nothing can say why', async () => {
+    const provider = new ScriptedProvider([
+      () => ({
+        content: 'Checking the added constant.',
+        toolCalls: [call('read_file', { path: 'src/a.ts' })],
+      }),
+      () => ({ toolCalls: [call('task_done', { reviewed: ['src/a.ts'] })] }),
+    ]);
+    const outcome = await new ReviewAgent(provider, { filter: false }).review({
+      repository: repositoryFor({ 'src/a.ts': FILE_A }),
+      changedPaths: ['src/a.ts'],
+    });
+    expect(outcome.trace).toHaveLength(2);
+    expect(outcome.trace[0]).toMatch(/^g1 r1: read_file \| Checking the added constant\./);
+    expect(outcome.trace[1]).toMatch(/^g1 r2: task_done \|/);
+  });
+
+  it('counts the drafts the model filed, so zero comments can be told from zero attempts', async () => {
+    const provider = new ScriptedProvider([
+      () => ({
+        toolCalls: [
+          call('file_comment', {
+            comments: [
+              { path: 'src/a.ts', content: 'b is a literal', existing_code: 'const b = 2;' },
+              { path: 'src/a.ts', content: 'a is a literal', existing_code: 'const a = 1;' },
+            ],
+          }),
+        ],
+      }),
+      () => ({ toolCalls: [call('task_done', { reviewed: ['src/a.ts'] })] }),
+    ]);
+    const outcome = await new ReviewAgent(provider, { filter: false }).review({
+      repository: repositoryFor({ 'src/a.ts': FILE_A }),
+      changedPaths: ['src/a.ts'],
+    });
+    expect(outcome.ledger.draftsFiled).toBe(2);
+    expect(outcome.comments).toHaveLength(2);
   });
 });
 
