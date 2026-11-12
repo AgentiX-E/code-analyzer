@@ -118,6 +118,13 @@ query-filters:
       id: js/http-to-file-access
     paths:
       - packages/intelligence/src/review/session-store.ts
+  # Artifact publishing is opt-in (`ARTIFACT_WRITE_ENV`), the destination is a constant path in this repository, and the
+  # contents are the measurement the run just computed. A refused write has to be explainable in one sentence to the
+  # person who set the variable, which is the rule this function is built around.
+  - exclude:
+      id: js/http-to-file-access
+    paths:
+      - packages/shared/src/benchmark/artifact.ts
   # Every `git` call here goes through `execFileSync` with an argument list - there is no shell - and the branch is
   # refused when it begins with a dash by `assertGitArgument`, which is what makes `--upload-pack` unreachable. See
   # packages/infra/src/__tests__/assert-git-argument.test.ts and

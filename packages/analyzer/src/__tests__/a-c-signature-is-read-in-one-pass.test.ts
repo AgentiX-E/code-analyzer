@@ -16,9 +16,8 @@
 // are asserted through the provider, because a pattern that is right in isolation and wrong once its captures are
 // indexed is still wrong.
 
-import { describe, expect, it } from 'vitest';
-
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { describe, expect, it } from 'vitest';
 
 import { CProvider, cSignaturePattern } from '../languages/c.js';
 
