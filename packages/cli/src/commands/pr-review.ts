@@ -27,6 +27,7 @@ import {
   MappedRepository,
   ReviewAgent,
   ReviewSwarm,
+  SHIPPED_AGENT_OPTIONS,
   splitPatchByPath,
   type ActionItem,
   type LensFinding,
@@ -392,8 +393,12 @@ function maxFindingsOf(options: PrReviewOptions): number | undefined {
  */
 const AGENT_CEILING_USD = 0.35;
 
-/** How many findings one file may carry under `--agent`. Three is the lane contract and the benchmark's default. */
-const AGENT_FINDINGS_PER_FILE = 3;
+/**
+ * How many findings one file may carry under `--agent`. **Read from the shipped arm rather than written here**, because
+ * the same number used to be written in three places - this constant, `ReviewAgent`'s own default, and the benchmark's
+ * `AACR_MAX_FINDINGS_PER_FILE` - and the benchmark's cap is the one the per-file truncation measurements were taken at.
+ */
+const AGENT_FINDINGS_PER_FILE = SHIPPED_AGENT_OPTIONS.maxFindingsPerFile;
 
 /**
  * **The reading reviewer, wired to what the command already resolved.**
@@ -430,11 +435,10 @@ async function reviewWithTheAgent(
   }
 
   const agent = new ReviewAgent(provider, {
-    filter: true,
-    // **Off-diff findings are allowed**, because a change can break an untouched caller and the benchmark's own filter
-    // protects exactly that case; the report marks them `inDiff: false` so a consumer that cannot post them knows.
-    allowOffDiff: true,
-    groupSize: 4,
+    // **Named, not spelled out.** `SHIPPED_AGENT_OPTIONS` is the arm this command runs; `BASELINE_AGENT_OPTIONS` is the
+    // arm every published figure was measured on, and the two differ in `allowOffDiff` alone - see
+    // `review-agent.ts`, where that pair and its one-key difference are declared and asserted.
+    ...SHIPPED_AGENT_OPTIONS,
     maxFindingsPerFile: options.maxFindingsPerFile ?? AGENT_FINDINGS_PER_FILE,
     tag: 'pr-review:agent',
   });

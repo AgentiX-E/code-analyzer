@@ -96,7 +96,8 @@ export interface AgentReviewOutcome {
 
 export interface ReviewAgentOptions {
   limits?: Partial<AgentLimits>;
-  /** Maximum findings kept per file. Default 4. **A file with six defects has six; a file with six opinions has one.** */
+  /** Maximum findings kept per file. Defaults to `SHIPPED_AGENT_OPTIONS.maxFindingsPerFile`. **A file with six defects
+   * has six; a file with six opinions has one.** */
   maxFindingsPerFile?: number;
   /** Run the precision filter after grounding. Default true - **it can only remove, so its worst case is recall**. */
   filter?: boolean;
@@ -108,6 +109,50 @@ export interface ReviewAgentOptions {
   /** Tag for the cost ledger. */
   tag?: string;
 }
+
+/**
+ * **The configuration every published figure in this repository was measured on, named so that a number and a behaviour
+ * cannot drift apart.**
+ *
+ * The measurement arm has to be comparable with a competitor, and the competitor comments on the lines the pull request
+ * changed: a finding on an untouched file is not a comment either tool can post on the same terms, so `allowOffDiff` is
+ * off. **This is the arm `AACR` numbers describe** - `AACR_MAX_FINDINGS_PER_FILE` overrides the cap, and nothing else
+ * here is a variable.
+ *
+ * **Why a constant rather than the same four literals in two files.** These values used to be written twice - once in
+ * `.github/scripts/aacr-bench.mjs` and once in `packages/cli/src/commands/pr-review.ts` - and the two copies had already
+ * diverged on `allowOffDiff`, which meant **the published configuration was not one any product path offered**. A
+ * difference of one key that nobody declared is how a benchmark stops describing the thing it is named after.
+ */
+export const BASELINE_AGENT_OPTIONS: Readonly<
+  Required<Omit<ReviewAgentOptions, 'limits' | 'tag'>>
+> = Object.freeze({
+  maxFindingsPerFile: 3,
+  filter: true,
+  allowOffDiff: false,
+  groupSize: 4,
+});
+
+/**
+ * **The configuration `review pr --agent` runs, which differs from the measured one in exactly one key.**
+ *
+ * A change can break an untouched caller, and refusing to say so is the recall this repository exists to keep - so the
+ * shipped arm allows an off-diff finding and marks it `inDiff: false`, which is the flag a consumer that cannot post it
+ * reads. **The difference is `allowOffDiff` and nothing else**, and
+ * `tests/unit/review/the-shipped-review-is-the-measured-review-plus-one-key.test.ts` fails if it ever becomes two: the
+ * published number would then describe a configuration the product does not ship, which is the defect this pair exists
+ * to make visible rather than to forbid.
+ */
+export const SHIPPED_AGENT_OPTIONS: Readonly<Required<Omit<ReviewAgentOptions, 'limits' | 'tag'>>> =
+  Object.freeze({ ...BASELINE_AGENT_OPTIONS, allowOffDiff: true });
+
+/** The key the two arms differ in, derived rather than written down twice. */
+export const AGENT_ARM_DIVERGENCE: ReadonlyArray<keyof typeof BASELINE_AGENT_OPTIONS> =
+  Object.freeze(
+    (Object.keys(BASELINE_AGENT_OPTIONS) as Array<keyof typeof BASELINE_AGENT_OPTIONS>).filter(
+      (key) => BASELINE_AGENT_OPTIONS[key] !== SHIPPED_AGENT_OPTIONS[key],
+    ),
+  );
 
 const SYSTEM = `You are a senior engineer reviewing one pull request. You have tools that read the repository at the
 revision under review. Use them. A claim about code you have not read is the failure this review exists to prevent: the
@@ -215,10 +260,13 @@ export class ReviewAgent {
   constructor(provider: LLMProvider, options: ReviewAgentOptions = {}) {
     this.provider = provider;
     this.options = {
-      maxFindingsPerFile: options.maxFindingsPerFile ?? 4,
-      filter: options.filter ?? true,
-      allowOffDiff: options.allowOffDiff ?? true,
-      groupSize: options.groupSize ?? 4,
+      // **Every default is read from the shipped arm rather than written here**, so the class and the command it backs
+      // cannot disagree about what "the default review" is - they did: this line said 4 while `review pr` said 3, and
+      // the class is the lower-level of the two, which made the documented default the one nothing ran.
+      maxFindingsPerFile: options.maxFindingsPerFile ?? SHIPPED_AGENT_OPTIONS.maxFindingsPerFile,
+      filter: options.filter ?? SHIPPED_AGENT_OPTIONS.filter,
+      allowOffDiff: options.allowOffDiff ?? SHIPPED_AGENT_OPTIONS.allowOffDiff,
+      groupSize: options.groupSize ?? SHIPPED_AGENT_OPTIONS.groupSize,
       limits: options.limits ?? {},
       tag: options.tag ?? 'agent-review',
     };

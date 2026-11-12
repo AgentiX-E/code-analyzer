@@ -1068,6 +1068,14 @@ async function main() {
     await dryRun();
     return;
   }
+  // **The arm's definition, loaded once for the whole run.** The reviewer is built from these and the artifact records
+  // them, so two separate loads could only ever disagree by being two - and a figure whose configuration was resolved
+  // twice is a figure that can name a configuration it did not run. Loaded after the dry-run return on purpose: the dry
+  // run's job is to check arithmetic on a runner with no build, and importing the built package would make it need one.
+  const { BASELINE_AGENT_OPTIONS, SHIPPED_AGENT_OPTIONS, AGENT_ARM_DIVERGENCE } =
+    await import('../../packages/intelligence/dist/review/agent/review-agent.js');
+  const { DEFAULT_AGENT_LIMITS } =
+    await import('../../packages/intelligence/dist/review/agent/budget.js');
   const base = {
     comment: [
       'Our review engine on AACR-Bench, the corpus a direct competitor published.',
@@ -2550,17 +2558,16 @@ async function main() {
             'no repository: the clone failed and no file was readable through the API';
         } else {
           const agent = new ReviewAgent(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
-            filter: true,
-            allowOffDiff: false,
-            groupSize: 4,
+            // **The measured arm, imported rather than spelled out.** These four values were written here as literals
+            // alongside another copy in `pr-review.ts`, and the copies had already diverged on `allowOffDiff` - so the
+            // published figure described a configuration no product path offered. `BASELINE_AGENT_OPTIONS` is the one
+            // place the measured arm is defined, and the shipped arm is that plus one declared key.
+            ...BASELINE_AGENT_OPTIONS,
             maxFindingsPerFile: MAX_FINDINGS_PER_FILE,
-            limits: {
-              maxRounds: 4,
-              maxToolCalls: 12,
-              maxReadChars: 120_000,
-              maxFilesRead: 12,
-              maxSearches: 4,
-            },
+            // **`DEFAULT_AGENT_LIMITS` rather than another copy of it**, so a change to the budget moves the arm and the
+            // artifact together: `configuration.agentLimits` below records what actually ran, which is what keeps a
+            // moved default visible in the figure rather than inferred from a date.
+            limits: { ...DEFAULT_AGENT_LIMITS },
             tag: 'aacr-agent',
           });
           const outcome = await agent.review({
@@ -3245,6 +3252,17 @@ async function main() {
       // wanting. **A figure from a capped run and a figure from an uncapped one are two reviewers**, so the number is a
       // coordinate of the figure beside `agent` rather than a detail of the harness.
       maxFindingsPerFile: MAX_FINDINGS_PER_FILE,
+      // **The rest of the arm, recorded rather than implied.** `maxFindingsPerFile` above is the one key the harness
+      // varies; every other key of the reviewer is fixed by `BASELINE_AGENT_OPTIONS`, and a figure that names only the
+      // varied key cannot say whether the model was shown untouched files or given the default budget. **`shipped`
+      // travels beside it** so a reader can see, without opening the source, that the arm which publishes reviews
+      // differs from the arm behind this figure in exactly one key and which one.
+      agentOptions: {
+        baseline: { ...BASELINE_AGENT_OPTIONS, maxFindingsPerFile: MAX_FINDINGS_PER_FILE },
+        limits: { ...DEFAULT_AGENT_LIMITS },
+        shipped: { ...SHIPPED_AGENT_OPTIONS },
+        divergence: [...AGENT_ARM_DIVERGENCE],
+      },
       // **The statement of intent the arm was run under, in the artifact rather than in a dispatch log**, so that a
       // later run can tell an arm that was asked to be cheap from one that hit its ceiling.
       competitorMode: COMPETITOR_CHOICE.mode,

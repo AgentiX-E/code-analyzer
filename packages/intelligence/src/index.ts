@@ -254,7 +254,13 @@ export type {
 } from './review/github-webhook.js';
 
 // The review agent — a review that can read the code it is reviewing
-export { ReviewAgent, groupChangedFiles } from './review/agent/review-agent.js';
+export {
+  AGENT_ARM_DIVERGENCE,
+  BASELINE_AGENT_OPTIONS,
+  ReviewAgent,
+  SHIPPED_AGENT_OPTIONS,
+  groupChangedFiles,
+} from './review/agent/review-agent.js';
 export type {
   AgentReviewOutcome,
   DropRecord,
