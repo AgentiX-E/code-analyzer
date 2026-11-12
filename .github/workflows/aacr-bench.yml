@@ -141,10 +141,6 @@ jobs:
     # the difference is legible before anything is downloaded.
     name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, agent ${{ inputs.agent || 'off' }})
     runs-on: ubuntu-latest
-    # **The agent arm is one arm, so the matrix collapses to its `on` row rather than paying for a switch the agent does
-    # not consult.** A skipped arm writes no artifact, and the comparison job reports a one-sided pair rather than a
-    # difference between two runs that were the same run.
-    if: ${{ (inputs.agent || 'off') == 'off' || matrix.code_context == 'on' }}
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
     # that is the only reason this number moved, and **a timeout raised because a job is close to it would hide the
@@ -185,10 +181,15 @@ jobs:
       # question already answered, and **a matrix that varies two things answers neither**: `variedField` in
       # `aacr-ablation-compare.mjs` refuses a pair whose artifacts differ in more than one key, and it would refuse every
       # pair this job produced.
+      #
+      # **And it is one row rather than two when the arm under test is the agent.** The agent reads the file it needs, so
+      # `code_context` is not a variable it consults: two rows would buy the same measurement twice and write two
+      # artifacts whose difference is a switch neither of them read. **The rows are computed rather than filtered**, because
+      # a job-level `if` cannot see `matrix` - the expansion happens before it, and a workflow that names `matrix` there
+      # does not parse at all. That is not a preference: the dispatch this replaced was refused with
+      # *"Unrecognized named-value: 'matrix'"* and the workflow did not load until the expression moved here.
       matrix:
-        include:
-          - { profile: advisory, code_context: 'off' }
-          - { profile: advisory, code_context: 'on' }
+        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on"}]'' || ''[{"profile":"advisory","code_context":"off"},{"profile":"advisory","code_context":"on"}]'') }}'
 
     steps:
       - name: Checkout
