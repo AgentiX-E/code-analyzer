@@ -232,7 +232,9 @@ describe('a decomposition that does not add up', () => {
       totals: { attributedTruePositives: 0, reportedTruePositives: 0, agrees: true },
     };
     expect(failuresOf(empty)).not.toContain('byCategory is a decomposition, not a sample');
-    expect(failuresOf(empty)).not.toContain('every byCategory row subtracts its own false positives');
+    expect(failuresOf(empty)).not.toContain(
+      'every byCategory row subtracts its own false positives',
+    );
 
     // **And the check still bites**: a run that scored four true positives and published no rows is the quiet
     // inconsistency this file exists for.
