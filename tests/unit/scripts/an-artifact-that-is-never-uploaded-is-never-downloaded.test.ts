@@ -242,4 +242,14 @@ describe('the matrix is one experiment', () => {
     expect(WORKFLOW).toContain('AACR_CODE_CONTEXT: ${{ matrix.code_context }}');
     expect(WORKFLOW).not.toMatch(/inputs\.code_context/);
   });
+
+  it('does not go looking for a counterpart when the matrix has one row', () => {
+    // **The first agent dispatch failed here**, at `Download the run without it`, looking for an artifact the
+    // single-row matrix never produces - after the money was spent, in the job whose purpose was to report a figure
+    // the arm had already computed. The comparison job is gated on the input that collapses the matrix, because a
+    // difference between one arm and nothing is not a comparison.
+    const compare = /  compare:[\s\S]*?\n    steps:/.exec(WORKFLOW);
+    expect(compare, 'the workflow no longer declares a `compare` job').not.toBeNull();
+    expect(compare![0]).toMatch(/if: \(inputs\.agent \|\| 'off'\) != 'on'/);
+  });
 });

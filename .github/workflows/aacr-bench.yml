@@ -380,6 +380,13 @@ jobs:
     name: The two runs, paired
     needs: aacr-bench
     runs-on: ubuntu-latest
+    # **A single-row matrix has no counterpart, so this job does not run for it.** The agent arm collapses the matrix
+    # to one row because `code_context` is not a switch it consults, and the first dispatch under that shape failed
+    # here - at `Download the run without it`, looking for an artifact the matrix never produced. **The job that
+    # reports a comparison is not the job that should discover there is nothing to compare**: a dispatch whose whole
+    # purpose is one arm should end green with its figure, and a run of this job over one row would compute a
+    # difference between an arm and nothing.
+    if: (inputs.agent || 'off') != 'on'
     timeout-minutes: 10
     steps:
       - name: Checkout
