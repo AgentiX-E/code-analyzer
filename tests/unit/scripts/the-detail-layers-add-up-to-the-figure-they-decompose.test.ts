@@ -167,6 +167,17 @@ describe('the ceiling has a denominator', () => {
     expect(failuresOf(artifact)).toContain('bothMissed cannot exceed the corpus it was drawn from');
   });
 
+  it('fails when the ceiling contains a golden our own attribution calls a hit', () => {
+    // **The first version of `bothMissed` had exactly this defect**: it read our coverage through the maximum matching,
+    // and a golden we demonstrably commented on was reported as a golden nobody found because a different finding of ours
+    // owned it. On a 258-golden slice the difference was 20.
+    const artifact = consistentArtifact();
+    artifact.bothMissed = [
+      { pr: 'p', goldenIndex: 1, path: 'a.ts', note: 'we found this', ourBucket: 'hit' },
+    ];
+    expect(failuresOf(artifact)).toContain('the ceiling holds no golden either side found');
+  });
+
   it('fails when there is no list at all', () => {
     const artifact = consistentArtifact();
     delete (artifact as { bothMissed?: unknown }).bothMissed;

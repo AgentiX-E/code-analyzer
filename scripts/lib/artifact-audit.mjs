@@ -106,6 +106,19 @@ export function auditArtifact(artifact) {
       ? `${String(bothMissed.length)} of ${String(ceilingCorpus.goldens)} goldens on ${String(ceilingCorpus.pullRequests)} paired pull requests, ${String(ceilingCorpus.withoutAttribution ?? 0)} without an attribution`
       : 'no bothMissed list',
   );
+  // **A ceiling that contains a golden we found is not a ceiling.** Our own attribution files a golden under `hit` when
+  // any of our findings was accepted against it, so a `hit` inside `bothMissed` means the two lists were read by
+  // different rules - which is the defect the first version of this field had, at 20 goldens on a 258-golden slice.
+  const foundIt = Array.isArray(bothMissed)
+    ? bothMissed.filter((row) => row?.ourBucket === 'hit')
+    : [];
+  record(
+    'the ceiling holds no golden either side found',
+    foundIt.length === 0,
+    foundIt.length === 0
+      ? 'no golden in bothMissed is filed under `hit`'
+      : `${String(foundIt.length)} goldens in bothMissed are filed under \`hit\` by our own attribution`,
+  );
   record(
     'bothMissed cannot exceed the corpus it was drawn from',
     Array.isArray(bothMissed) && bothMissed.length <= Number(ceilingCorpus?.goldens ?? -1),

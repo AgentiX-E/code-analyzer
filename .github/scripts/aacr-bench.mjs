@@ -2503,9 +2503,29 @@ async function main() {
   let goldensInPairedPulls = 0;
   /** And how many it did not, because an attribution that is missing is not an attribution of zero. */
   let goldensWithoutAttribution = 0;
+  /**
+   * **Coverage here is the union of accepted remarks, not the maximum matching, and the difference was worth 20 goldens.**
+   *
+   * The score uses a maximum matching: one golden, one finding, and a finding that lost a golden to another does not
+   * count twice. **The diagnosis is a different question** - *did this reviewer say anything the judge accepted about
+   * this golden* - and under the matching's rule a golden we demonstrably commented on is reported as a golden nobody
+   * found, because a *different* finding of ours owned it. The first version of this field used the matching for both
+   * sides and reported 186 on a slice where the honest figure is 166.
+   *
+   * **Our own attribution already answers the union question**: `attributeGoldens` files a golden under `hit` when *any*
+   * finding was accepted against it, which is the same rule applied to the competitor below - every kept finding's
+   * goldens, unioned - so the two sides are read by one sentence instead of two.
+   */
+  const coveredByUnion = (pull) => {
+    const covered = new Set();
+    (pull.matches ?? []).forEach((goldens, at) => {
+      if (!pull.keep?.[at]) return;
+      for (const golden of goldens ?? []) covered.add(golden);
+    });
+    return covered;
+  };
   for (const pair of pairing.pairs) {
-    const oursCovered = new Set(gatedEmission(pair.ours).indices);
-    const theirsCovered = new Set(gatedEmission(pair.theirs).indices);
+    const theirsCovered = coveredByUnion(pair.theirs);
     goldensInPairedPulls += pair.ours.goldens;
     const entry = attributionByPull.get(pair.ours);
     if (entry === undefined) {
@@ -2513,7 +2533,9 @@ async function main() {
       continue;
     }
     for (const golden of entry.perGolden) {
-      if (oursCovered.has(golden.index) || theirsCovered.has(golden.index)) continue;
+      // **`hit` is this side's union**, so it is read rather than recomputed - and reading it is what keeps the ceiling
+      // and the bucket table from disagreeing about the same golden.
+      if (golden.bucket === 'hit' || theirsCovered.has(golden.index)) continue;
       bothMissed.push({
         pr: pair.key,
         goldenIndex: golden.index,
