@@ -236,7 +236,11 @@ jobs:
       - name: Install the competitor whose corpus this is
         run: |
           set -e
-          npm install -g @alibaba-group/open-code-review
+          # **Pinned, because the figure this job publishes is a comparison and an unpinned competitor moves under it.**
+          # 1.13.8 is the version every published AACR figure in this repository was measured against - the install step
+          # prints its own version on the next line, so a bump is a visible change to the comparison rather than a
+          # silent one. Bumping it means re-running the pairing, not just this job.
+          npm install -g @alibaba-group/open-code-review@1.13.8
           command -v ocr
           ocr --version
 

@@ -68,8 +68,10 @@ jobs:
       - name: Install the executives
         run: |
           set -e
-          # **`open-code-review`: a Go CLI on npm.**
-          npm install -g @alibaba-group/open-code-review
+          # **`open-code-review`: a Go CLI on npm, pinned to the version the published comparisons were measured
+          # against.** An unpinned install makes "the competitor" a moving target, and the probe records the version it
+          # ran so a bump is visible in the artifact rather than inferred from a date.
+          npm install -g @alibaba-group/open-code-review@1.13.8
           command -v ocr
           ocr --version
           # **`PR-Agent`: pip, and its model layer is LiteLLM** - so **the endpoint below is the whole of the
