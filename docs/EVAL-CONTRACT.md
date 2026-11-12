@@ -2590,13 +2590,19 @@ run can tell that from a reranker that helps.
 
 **Two levers were measured, chased, and reverted in the same iteration.** Both looked like wins on CoSQA alone:
 
-| candidate                               | CoSQA (500 q, BM25 only)                   | paraphrase corpus                      |
-| --------------------------------------- | ------------------------------------------ | -------------------------------------- |
-| shipped (`vocabulary` 0.25)             | R@10 **0.6640**, MRR **0.4549**, found 332 | recall@20 **0.4646**, leak-free 0.1489 |
-| `vocabulary` 0.5                        | R@10 **0.7100**, MRR **0.4919**, found 355 | recall@20 **0.3636** ✗                 |
-| 0.75                                    | R@10 0.7040, MRR 0.4841                    | —                                      |
-| 1.0                                     | R@10 0.7020, MRR 0.4753                    | —                                      |
-| query stopword filter (shipped weights) | R@10 0.6860, MRR 0.4530, found 343         | recall@20 **0.4242** ✗                 |
+| candidate                               | CoSQA (500 q, BM25 only)   | paraphrase corpus                      |
+| --------------------------------------- | -------------------------- | -------------------------------------- |
+| shipped (`vocabulary` 0.25)             | R@10 **0.6640**, found 332 | recall@20 **0.4646**, leak-free 0.1489 |
+| `vocabulary` 0.5                        | R@10 **0.7100**, found 355 | recall@20 **0.3636** ✗                 |
+| 0.75                                    | R@10 0.7040                | —                                      |
+| 1.0                                     | R@10 0.7020                | —                                      |
+| query stopword filter (shipped weights) | R@10 0.6860, found 343     | recall@20 **0.4242** ✗                 |
+
+**MRR is deliberately not restated in this table.** The lexical column's MRR at the shipped weighting is already
+published in §25 and in `benchmarks/cosqa-retrieval.json` (`lexical.mrrAt10`), and `numbers-gate` refused this section's
+first draft for writing it a second time here: the value is within 0.0005 of a _withdrawn_ paraphrase figure, and the
+gate compares numbers rather than sources. **That collision is a gate limitation and it is recorded rather than worked
+around** — the honest repair is not to restate a number that already has a home.
 
 **A four-and-a-half point gain on the external corpus and a ten-point loss on the internal one, from the same edit.**
 The mechanism is not mysterious: CoSQA's questions are paraphrases of documentation the index strips, so the body field
