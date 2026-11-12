@@ -111,9 +111,13 @@ jobs:
       - name: Ask the workspace
         env:
           QA_CORPUS_DIR: benchmarks/corpora/qa
+          # **This run publishes the labelled sample's rate**: recording is opt-in so a local run cannot replace the
+          # committed artifact, and the file names the four questions and the rank each answer landed at.
+          BENCHMARK_WRITE: '1'
         run: |
           set -o pipefail
           npx vitest run --config vitest.e2e.config.ts tests/e2e/qa-multilingual-crossrepo.test.ts 2>&1 | tee /tmp/qa.log
+          grep -o 'QA-CROSSREPO .*' /tmp/qa.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Ask it again, to prove the second run agrees
         env:
@@ -135,3 +139,15 @@ jobs:
         run: |
           set -o pipefail
           npx vitest run --config vitest.e2e.config.ts tests/e2e/communities-real-corpus.test.ts 2>&1 | tee /tmp/communities.log
+
+      # **The rate, as an artifact rather than a line in a log.** The four questions, the rank each answer landed at and
+      # the cut they were scored against travel together, so a reader can tell a retrieval miss from a ranking one
+      # without re-running the job.
+      - name: Upload the labelled sample's rate
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: qa-crossrepo
+          path: benchmarks/qa-crossrepo.json
+          if-no-files-found: warn
+          retention-days: 90

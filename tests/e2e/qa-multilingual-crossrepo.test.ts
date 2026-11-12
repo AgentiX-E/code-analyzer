@@ -32,10 +32,67 @@ import {
   restrictToUniverse,
   toCorpusPath,
 } from '@code-analyzer/intelligence';
+import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it, beforeAll } from 'vitest';
 
 import type { AnswerResult } from '@code-analyzer/intelligence';
 import type { PipelineContext } from '@code-analyzer/shared';
+
+/**
+ * **The labelled questions, and the reason this file now publishes a number rather than only a set of verdicts.**
+ *
+ * Every case above asserts one behaviour on one question, and a reader who wants to know *how often* the surface finds
+ * the file has had to count verdicts by hand. A rate needs a fixed set with an answer attached to each question, and it
+ * needs the set to be small enough to stay honest: **four questions is a sample, not a leaderboard**, and the figure is
+ * labelled with its size wherever it is printed.
+ *
+ * **Every label here was already asserted above** - three single-repository questions and one whose answer is in a
+ * second repository of the same workspace. A label the suite has not proved is a number with no audit trail, so the
+ * set grows by adding a case, never by adding a row.
+ */
+interface LabelledQuestion {
+  readonly question: string;
+  /** The file's path suffix, which is how a corpus names a file without naming its checkout. */
+  readonly suffix: string;
+  /** A directory fragment that disambiguates two checkouts holding the same file name. */
+  readonly contains?: string;
+  readonly language: 'java' | 'javascript' | 'python';
+  /** Whether the answer is in a repository the question does not name - the cross-repository claim. */
+  readonly crossRepo: boolean;
+}
+
+const LABELLED: readonly LabelledQuestion[] = [
+  {
+    question: 'where does the owner controller render the page that lists an owner with their pets',
+    suffix: 'OwnerController.java',
+    language: 'java',
+    crossRepo: false,
+  },
+  {
+    question: 'where does an express application mount middleware and route handlers',
+    suffix: 'application.js',
+    language: 'javascript',
+    crossRepo: false,
+  },
+  {
+    question: 'how does flask dispatch an incoming request to the view function that handles it',
+    suffix: 'app.py',
+    contains: '/flask/',
+    language: 'python',
+    crossRepo: false,
+  },
+  {
+    question:
+      'where is a session cookie signed and serialised before it is written to the response',
+    suffix: 'sessions.py',
+    contains: '/flask/',
+    language: 'python',
+    crossRepo: true,
+  },
+];
+
+/** The cut a file has to be inside to be part of the answer, **the same one the cases above assert**. */
+const ANSWER_DEPTH = 8;
 
 const corpusRoot = process.env['QA_CORPUS_DIR'];
 const enabled = corpusRoot !== undefined && existsSync(corpusRoot);
@@ -516,4 +573,122 @@ describe.skipIf(!enabled)('QA on real repositories — one workspace, three lang
       expect(node.projectId).toBe(flaskProject);
     }
   });
+
+  /**
+   * **The rate, over the labelled set above.**
+   *
+   * The cases in this file answer "does it work"; this one answers "how often", which is the question a comparison with
+   * another product needs. **The figure is a sample and says so in its own name** (`hitAt8`, `n`) - four questions cannot
+   * rank two engines, and a number that hid its size would be read as if it could.
+   *
+   * The artifact carries every question with the rank its answer landed at, so a reader can see which one failed rather
+   * than only the rate. **A rank of `null` is "not in the context at all"**, which is a different defect from "in the
+   * context but past the cut", and the two are kept apart.
+   */
+  it(
+    'scores the labelled question set, and writes the ranks it scored',
+    { timeout: 300_000 },
+    async () => {
+      const rows: Array<{
+        question: string;
+        language: string;
+        crossRepo: boolean;
+        rank: number | null;
+      }> = [];
+      for (const label of LABELLED) {
+        const result = await askCodebase({
+          question: label.question,
+          store: workspace.store,
+          search: workspace.search,
+          options: { generate: false },
+        });
+        const at = result.retrievedFiles.findIndex(
+          (file) =>
+            file.endsWith(label.suffix) &&
+            (label.contains === undefined || file.includes(label.contains)),
+        );
+        rows.push({
+          question: label.question,
+          language: label.language,
+          crossRepo: label.crossRepo,
+          // **One-based, so the arithmetic below is `1/rank`**, and `null` when the file is nowhere in the answer.
+          rank: at >= 0 ? at + 1 : null,
+        });
+      }
+
+      const within = (row: { rank: number | null }): boolean =>
+        row.rank !== null && row.rank <= ANSWER_DEPTH;
+      const round = (value: number): number => Math.round(value * 10000) / 10000;
+      const rate = (subset: typeof rows): { n: number; hitAt8: number; mrrAt8: number } => ({
+        n: subset.length,
+        hitAt8: subset.length === 0 ? 0 : round(subset.filter(within).length / subset.length),
+        mrrAt8:
+          subset.length === 0
+            ? 0
+            : round(
+                subset.reduce(
+                  (sum, row) =>
+                    sum + (row.rank !== null && row.rank <= ANSWER_DEPTH ? 1 / row.rank : 0),
+                  0,
+                ) / subset.length,
+              ),
+      });
+
+      const byLanguage = Object.fromEntries(
+        ['java', 'javascript', 'python'].map((language) => [
+          language,
+          rate(rows.filter((row) => row.language === language)),
+        ]),
+      );
+      const metrics = {
+        ...rate(rows),
+        byLanguage,
+        crossRepo: rate(rows.filter((row) => row.crossRepo)),
+        singleRepo: rate(rows.filter((row) => !row.crossRepo)),
+      };
+
+      const artifact = {
+        comment: [
+          'Question answering on **four released checkouts in one workspace**, three languages, with the answer to each',
+          'question named by a file the suite independently asserts.',
+          '',
+          '**The sample is four questions and the field says so.** It is the acceptance sample of this repository, not a',
+          'leaderboard: it exists so that a product change can be seen to move a rate, and so that a competitor can be',
+          'asked the same four questions. **`rank` is 1-based, and `null` means the file was not in the answer at all** -',
+          'which is a retrieval miss rather than a ranking one.',
+          '',
+          '**Every label was proved by a case in `tests/e2e/qa-multilingual-crossrepo.test.ts`**, so the set grows by',
+          'adding a case and never by adding a row to this table.',
+        ],
+        measuredAt: new Date().toISOString().slice(0, 10),
+        corpus: {
+          petclinic: process.env['PETCLINIC_SHA'] ?? null,
+          express: process.env['EXPRESS_TAG'] ?? null,
+          flask: process.env['FLASK_TAG'] ?? null,
+          werkzeug: process.env['WERKZEUG_TAG'] ?? null,
+          languages: ['java', 'javascript', 'python'],
+        },
+        depth: ANSWER_DEPTH,
+        questions: rows,
+        metrics,
+      };
+
+      const recorded = recordArtifact('benchmarks/qa-crossrepo.json', artifact);
+      // eslint-disable-next-line no-console -- the artifact's fate, printed where the workflow reads it.
+      if (!recorded.written) console.log(`QA-CROSSREPO artifact ${recorded.because}`);
+      // The summary line **is** the interface: the workflow greps it into the job summary.
+      // eslint-disable-next-line no-console
+      console.log(
+        `QA-CROSSREPO n=${String(metrics.n)} hit@${String(ANSWER_DEPTH)}=${String(metrics.hitAt8)} mrr@${String(ANSWER_DEPTH)}=${String(metrics.mrrAt8)} ` +
+          `java=${String(byLanguage['java']!.hitAt8)} javascript=${String(byLanguage['javascript']!.hitAt8)} python=${String(byLanguage['python']!.hitAt8)} ` +
+          `crossRepo=${String(metrics.crossRepo.hitAt8)} singleRepo=${String(metrics.singleRepo.hitAt8)}`,
+      );
+
+      // **The claim this file can make on its own**: at least one answer is inside the cut, and the cross-repository
+      // question - the one no single-repository product can answer - is among them. **The rate itself is not asserted**:
+      // a suite that demanded a particular hit rate would fail on a corpus revision rather than on a change.
+      expect(metrics.hitAt8).toBeGreaterThan(0);
+      expect(metrics.crossRepo.hitAt8).toBeGreaterThan(0);
+    },
+  );
 });
