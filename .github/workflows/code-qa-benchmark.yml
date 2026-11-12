@@ -25,6 +25,16 @@ on:
         options:
           - test-split
           - all
+      depth:
+        description: 'How many results each channel contributes before fusion, and how many the reranker sees'
+        required: false
+        default: '50'
+        type: string
+      sweep:
+        description: 'Depths to score the fused arm at in one pass, comma separated (e.g. 50,100,200). Empty scores depth alone'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: code-qa-benchmark
@@ -128,6 +138,11 @@ jobs:
           # **Which pool this run measures.** Empty on the schedule, which resolves to the arm every figure so far was
           # measured on; the published pool is a dispatch, because it is twelve times the indexing cost.
           COSQA_POOL: ${{ inputs.pool || 'test-split' }}
+          # **The depth the reranker is shown**, and the curve the fused arm is scored along. Two variables because they
+          # answer two questions: a wider pool is free to retrieve from and costs completions to reorder, so the curve
+          # and the arm a run pays for are separate decisions.
+          COSQA_DEPTH: ${{ inputs.depth || '50' }}
+          COSQA_SWEEP: ${{ inputs.sweep || '' }}
           # **This run publishes figures**: recording is opt-in so a local run cannot replace the committed artifact.
           BENCHMARK_WRITE: '1'
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
@@ -136,7 +151,9 @@ jobs:
         run: |
           set -o pipefail
           npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/cosqa-retrieval.test.ts 2>&1 | tee /tmp/cosqa.log
-          grep -o 'COSQA-RETRIEVAL .*' /tmp/cosqa.log | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+          # **Every line the test published, not the last one**: the summary line is the arm and `COSQA-SWEEP` is the
+          # depth curve, and a job summary that kept only the tail would drop the measurement the dispatch asked for.
+          grep -oE 'COSQA-(RETRIEVAL|SWEEP) .*' /tmp/cosqa.log | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the CoSQA figure
         if: always() && steps.credential.outputs.vectors == 'true'

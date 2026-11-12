@@ -44,7 +44,47 @@ const HAS_VECTORS = Boolean(process.env['ZHIPU_API_KEY']);
 const CAN_ASK_A_MODEL = Boolean(process.env['DEEPSEEK_API_KEY']);
 /** The cuts the literature reports. **MRR is cut at ten**, as published. */
 const CUTS = 'recall@1, @5, @10; MRR@10';
-const RERANK_POOL = 50;
+
+/**
+ * **How many results each channel contributes before fusion, which is also how many the reranker is shown.**
+ *
+ * **Fifty was a constant and it was a recall ceiling nobody measured.** At the collection pool the answer is absent from
+ * the top ten for **102 of 500 questions**, and a candidate a channel never returned cannot be reordered into the
+ * answer: the depth is therefore the one lever that can move `found@10`, and the reranker - which reorders what it is
+ * given - cannot move it at all. Widening the pool costs **no embedding calls and no completions per question** on the
+ * retrieval side, so the question "does depth help" is answerable for the price of one run.
+ *
+ * `COSQA_DEPTH` sets the arm a run reranks; **the default stays 50** because every published figure so far was measured
+ * there and a default that moves under a number is the defect the provenance block exists to prevent.
+ */
+const DEPTH = readPositiveInt(process.env['COSQA_DEPTH'], 50);
+
+/**
+ * **The depths the fused arm is scored at, in one pass.**
+ *
+ * Each depth is a prefix of the same two ranked lists, so scoring three of them costs three fusions and **one query
+ * embedding**: the sweep is why a run can say where recall is built instead of only how much of it there is. Default is
+ * the rerank depth alone; `COSQA_SWEEP=50,100,200` asks for the curve.
+ */
+const SWEEP = readDepthSweep(process.env['COSQA_SWEEP'], DEPTH);
+/** The deepest list either channel has to produce: the sweep's widest prefix and the rerank arm, whichever is larger. */
+const RETRIEVAL_DEPTH = Math.max(DEPTH, ...SWEEP);
+
+/** A positive integer from the environment, or the default when the variable is absent or unusable. */
+function readPositiveInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number.parseInt(raw, 10);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+/** The depths a sweep asks for: positive integers, ascending, **without duplicates**, always including the arm. */
+function readDepthSweep(raw: string | undefined, arm: number): number[] {
+  const asked = (raw ?? '')
+    .split(',')
+    .map((part) => Number.parseInt(part.trim(), 10))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  return [...new Set([arm, ...asked])].sort((left, right) => left - right);
+}
 
 /**
  * **Which collection the answers are retrieved from, and therefore which published table this figure may be put beside.**
@@ -97,6 +137,12 @@ function score(ranks: Array<number | null>): Metrics {
   };
 }
 
+/** Whether a 1-based rank is inside the published cut. **`null` is absent rather than last**, so it is never inside. */
+function isWithinTen(rank: number | null | undefined): boolean {
+  // **A rank is 1-based**, so zero is a counter that was never incremented rather than a hit at the front.
+  return rank !== null && rank !== undefined && rank > 0 && rank <= 10;
+}
+
 /**
  * **The distraction set, as a pure function so it can be checked without the corpus.**
  *
@@ -141,6 +187,42 @@ describe('the distractor set is what makes a pool the published one', () => {
 
   it('adds nothing when the collection is the answers', () => {
     expect(distractorFunctions([{ code: 'x' }, { code: 'y' }], ['x', 'y'])).toEqual([]);
+  });
+});
+
+describe('a depth that came from the environment is still a depth', () => {
+  it('reads a positive integer and refuses everything else', () => {
+    expect(readPositiveInt('120', 50)).toBe(120);
+    // **An absent or blank variable is the default**, which is the arm every published figure was measured on.
+    expect(readPositiveInt(undefined, 50)).toBe(50);
+    expect(readPositiveInt('   ', 50)).toBe(50);
+    // **Zero, a negative and a word are not depths**, and a run that treated them as one would query a pool of nothing.
+    expect(readPositiveInt('0', 50)).toBe(50);
+    expect(readPositiveInt('-3', 50)).toBe(50);
+    expect(readPositiveInt('all', 50)).toBe(50);
+    // **`parseInt` reads a prefix**, and `10x` is the depth the operator typed followed by a typo rather than a new one.
+    expect(readPositiveInt('10x', 50)).toBe(10);
+  });
+
+  it('always includes the arm, deduplicates, and orders the sweep', () => {
+    expect(readDepthSweep(undefined, 50)).toEqual([50]);
+    expect(readDepthSweep('200,100,50', 50)).toEqual([50, 100, 200]);
+    // **The arm is in every sweep**, because the fused column the reranked column is compared against is the arm's own.
+    expect(readDepthSweep('100,200', 50)).toEqual([50, 100, 200]);
+    expect(readDepthSweep('100,100,100', 50)).toEqual([50, 100]);
+    expect(readDepthSweep(' 25 , bad ,7 ', 50)).toEqual([7, 25, 50]);
+    expect(readDepthSweep('', 50)).toEqual([50]);
+  });
+
+  it('counts a rank inside the cut and an absent answer outside it', () => {
+    expect(isWithinTen(1)).toBe(true);
+    expect(isWithinTen(10)).toBe(true);
+    expect(isWithinTen(11)).toBe(false);
+    // **Absent is not last**: a question whose answer no channel returned is not inside any cut.
+    expect(isWithinTen(null)).toBe(false);
+    expect(isWithinTen(undefined)).toBe(false);
+    // **Zero is not a rank**: a 1-based counter that never fired is not a hit at the front of the list.
+    expect(isWithinTen(0)).toBe(false);
   });
 });
 
@@ -257,33 +339,56 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         };
 
         const lexicalRanks: Array<number | null> = [];
-        const fusedRanks: Array<number | null> = [];
+        const vectorRanks: Array<number | null> = [];
+        // **One rank list per depth**, because a sweep is the only way to say where recall is built: the same two
+        // channel lists are truncated at each depth, so the columns differ by what the reranker could have seen.
+        const fusedRanksByDepth = new Map<number, Array<number | null>>(
+          SWEEP.map((depth) => [depth, [] as Array<number | null>]),
+        );
         const rerankedRanks: Array<number | null> = [];
         const provider = CAN_ASK_A_MODEL ? new DeepSeekProvider({ timeout: 60_000 }) : null;
         let reranked = 0;
+        // **The reranker's ledger, which no published table reports and every reader of the 102 misses needs.**
+        let rescued = 0;
+        let lost = 0;
+
+        /** The 1-based rank at which a question's own answer sits in a hit list, or `null` when it is absent. */
+        const rankOf = (
+          hits: ReadonlyArray<{ node: GraphNode }>,
+          answer: number,
+        ): number | null => {
+          const at = hits.findIndex((hit) => fileIndex(hit) === answer);
+          return at >= 0 ? at + 1 : null;
+        };
 
         for (let index = 0; index < rows.length; index++) {
           const row = rows[index]!;
 
           const lexicalHits = lexicalEngine.bm25Search(row.doc);
-          const lexicalRank = lexicalHits.findIndex((hit) => fileIndex(hit) === index);
-          lexicalRanks.push(lexicalRank >= 0 ? lexicalRank + 1 : null);
+          lexicalRanks.push(rankOf(lexicalHits, index));
 
-          const fused: HybridSearchResult[] = hybrid.fuseResults(
-            lexicalHits.slice(0, RERANK_POOL).map((hit) => ({ node: hit.node, score: hit.score })),
-            (await hybrid.vectorSearch(row.doc, RERANK_POOL, null)).map((hit) => ({
-              node: hit.node,
-              score: hit.score,
-            })),
-            60,
-            RERANK_POOL,
-            1,
-          );
-          const fusedRank = fused.findIndex((hit) => fileIndex(hit) === index);
-          fusedRanks.push(fusedRank >= 0 ? fusedRank + 1 : null);
+          // **One query embedding for every depth in the sweep**, which is what makes the curve free: the vector list
+          // is produced once at the widest depth and each arm reads a prefix of it.
+          const vectorHits = await hybrid.vectorSearch(row.doc, RETRIEVAL_DEPTH, null);
+          vectorRanks.push(rankOf(vectorHits, index));
+
+          let arm: HybridSearchResult[] = [];
+          for (const depth of SWEEP) {
+            const fusedAtDepth = hybrid.fuseResults(
+              lexicalHits.slice(0, depth).map((hit) => ({ node: hit.node, score: hit.score })),
+              vectorHits.slice(0, depth).map((hit) => ({ node: hit.node, score: hit.score })),
+              60,
+              depth,
+              1,
+            );
+            fusedRanksByDepth.get(depth)!.push(rankOf(fusedAtDepth, index));
+            if (depth === DEPTH) arm = fusedAtDepth;
+          }
+
+          const fusedRank = fusedRanksByDepth.get(DEPTH)![index]!;
 
           if (provider) {
-            const entries = fused.map((hit, position) => ({ rank: position + 1, hit }));
+            const entries = arm.map((hit, position) => ({ rank: position + 1, hit }));
             const result = await rerankCandidates(
               row.doc,
               entries,
@@ -306,7 +411,17 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             const rerankedIndex = result.ordered.findIndex(
               (entry) => fileIndex(entry.hit) === index,
             );
-            rerankedRanks.push(rerankedIndex >= 0 ? rerankedIndex + 1 : null);
+            const rerankedRank = rerankedIndex >= 0 ? rerankedIndex + 1 : null;
+            rerankedRanks.push(rerankedRank);
+            // **A reorder is only worth its completions if it moves the answer**, and the two directions are different
+            // defects: `rescued` is a question the fused order missed in the top ten and the model recovered, `lost` is
+            // one the fused order already had and the model moved out. **A reranker whose net is zero can still be
+            // spending money to shuffle** - this is the pair of counters that says so.
+            if (fusedRank === null || fusedRank > 10) {
+              if (rerankedRank !== null && rerankedRank <= 10) rescued += 1;
+            } else if (rerankedRank === null || rerankedRank > 10) {
+              lost += 1;
+            }
           }
         }
 
@@ -365,10 +480,36 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           // Prettier collapses it back — which is how a generated artifact fails `prettier --check` in CI while being
           // perfectly correct JSON.
           cuts: CUTS,
+          depths: { rerank: DEPTH, sweep: SWEEP.join(','), retrieval: RETRIEVAL_DEPTH },
           lexical: score(lexicalRanks),
-          fused: score(fusedRanks),
+          // **The arm the figure below is put beside**: the fused list truncated at the depth the reranker saw, which is
+          // the only comparison that isolates the reorder from the candidates it was given.
+          fused: score(fusedRanksByDepth.get(DEPTH)!),
+          // **The depth curve, which is free to measure and is the only lever that can move `found@10`.**
+          //
+          // A key per depth rather than an array, because a reader comparing two artifacts wants to diff one number and
+          // a list whose positions move is a diff of the sweep rather than of the measurement.
+          sweep: Object.fromEntries(
+            SWEEP.map((depth) => [String(depth), score(fusedRanksByDepth.get(depth)!)]),
+          ),
+          // **Where the ceiling is, channel by channel.** `neither` is the number of questions no widening of these two
+          // lists can help, and it is the honest denominator for "a better first stage" - every other question has its
+          // answer somewhere in the pool and is a ranking problem rather than a recall one.
+          retrieval: {
+            lexicalInTop10: lexicalRanks.filter((rank) => rank !== null && rank <= 10).length,
+            vectorInTop10: vectorRanks.filter((rank) => rank !== null && rank <= 10).length,
+            eitherInTop10: lexicalRanks.filter(
+              (rank, at) => (rank !== null && rank <= 10) || isWithinTen(vectorRanks[at]),
+            ).length,
+            neitherInChannelDepth: lexicalRanks.filter(
+              (rank, at) => rank === null && vectorRanks[at] === null,
+            ).length,
+          },
           ...(provider
-            ? { reranked: { ...score(rerankedRanks), reordered: reranked } }
+            ? {
+                reranked: { ...score(rerankedRanks), reordered: reranked },
+                rerankEffect: { reordered: reranked, rescued, lost, net: rescued - lost },
+              }
             : {
                 reranked: { reason: 'DEEPSEEK_API_KEY is absent, so nothing could be reordered' },
               }),
@@ -382,18 +523,38 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         // The summary line **is** the interface: the workflow greps it into the job summary.
         // eslint-disable-next-line no-console
         console.log(
-          `COSQA-RETRIEVAL queries=${rows.length} pool=${rows.length + distractors} (${POOL}) space=${backend}/${queryEmbedder?.backend ?? 'none'} ` +
+          `COSQA-RETRIEVAL queries=${rows.length} pool=${rows.length + distractors} (${POOL}) depth=${DEPTH} sweep=${SWEEP.join('/')} space=${backend}/${queryEmbedder?.backend ?? 'none'} ` +
             `lexical=R@1 ${score(lexicalRanks).recallAt1}/R@10 ${score(lexicalRanks).recallAt10}/MRR ${score(lexicalRanks).mrrAt10} ` +
-            `fused=R@1 ${score(fusedRanks).recallAt1}/R@10 ${score(fusedRanks).recallAt10}/MRR ${score(fusedRanks).mrrAt10} ` +
+            `fused=R@1 ${score(fusedRanksByDepth.get(DEPTH)!).recallAt1}/R@10 ${score(fusedRanksByDepth.get(DEPTH)!).recallAt10}/MRR ${score(fusedRanksByDepth.get(DEPTH)!).mrrAt10} ` +
             (provider
-              ? `rerank=R@1 ${score(rerankedRanks).recallAt1}/R@10 ${score(rerankedRanks).recallAt10}/MRR ${score(rerankedRanks).mrrAt10}`
+              ? `rerank=R@1 ${score(rerankedRanks).recallAt1}/R@10 ${score(rerankedRanks).recallAt10}/MRR ${score(rerankedRanks).mrrAt10} rescued=${rescued} lost=${lost}`
               : 'rerank=none'),
         );
+
+        // **The sweep, one line per depth**, so the job summary carries the curve without a reader downloading JSON.
+        for (const depth of SWEEP) {
+          const at = score(fusedRanksByDepth.get(depth)!);
+          // eslint-disable-next-line no-console
+          console.log(
+            `COSQA-SWEEP depth=${depth} R@1 ${at.recallAt1} R@5 ${at.recallAt5} R@10 ${at.recallAt10} MRR ${at.mrrAt10} found ${at.foundAt10}`,
+          );
+        }
 
         // **The only claim this file can make without a comparison**: the product finds the answer at all, and the
         // semantic half is not worse than the lexical one on a corpus neither of them was tuned on.
         expect(score(lexicalRanks).recallAt10).toBeGreaterThan(0);
-        expect(score(fusedRanks).recallAt10).toBeGreaterThanOrEqual(score(lexicalRanks).recallAt10);
+        expect(score(fusedRanksByDepth.get(DEPTH)!).recallAt10).toBeGreaterThanOrEqual(
+          score(lexicalRanks).recallAt10,
+        );
+        // **The sweep's monotonicity is deliberately not asserted.** Reciprocal rank fusion is not monotone in the
+        // channel depth: a candidate at lexical rank 51 adds `1/111` to a list whose tenth entry may carry `1/71`, so a
+        // wider pool can and does push an answer out of the top ten. A test that demanded monotonicity would fail on a
+        // correct measurement and teach the next reader to widen a bound instead of reading the curve - which is the
+        // failure this repository keeps paying for. **The curve is the finding**; the suite asserts only that every
+        // depth was actually scored over the whole question set.
+        for (const depth of SWEEP) {
+          expect(score(fusedRanksByDepth.get(depth)!).queries).toBe(rows.length);
+        }
       } finally {
         rmSync(workdir, { recursive: true, force: true });
       }
