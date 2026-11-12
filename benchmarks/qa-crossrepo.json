@@ -1,0 +1,85 @@
+{
+  "comment": [
+    "Question answering on **four released checkouts in one workspace**, three languages, with the answer to each",
+    "question named by a file the suite independently asserts.",
+    "",
+    "**The sample is four questions and the field says so.** It is the acceptance sample of this repository, not a",
+    "leaderboard: it exists so that a product change can be seen to move a rate, and so that a competitor can be",
+    "asked the same four questions. **`rank` is 1-based, and `null` means the file was not in the answer at all** -",
+    "which is a retrieval miss rather than a ranking one.",
+    "",
+    "**Every label was proved by a case in `tests/e2e/qa-multilingual-crossrepo.test.ts`**, so the set grows by",
+    "adding a case and never by adding a row to this table."
+  ],
+  "measuredAt": "2026-11-12",
+  "corpus": {
+    "petclinic": "500158f732419217507c7656904b8e6aa1bcc0d6",
+    "express": "4.21.2",
+    "flask": "3.0.3",
+    "werkzeug": "3.0.3",
+    "languages": [
+      "java",
+      "javascript",
+      "python"
+    ]
+  },
+  "depth": 8,
+  "questions": [
+    {
+      "question": "where does the owner controller render the page that lists an owner with their pets",
+      "language": "java",
+      "crossRepo": false,
+      "rank": 3
+    },
+    {
+      "question": "where does an express application mount middleware and route handlers",
+      "language": "javascript",
+      "crossRepo": false,
+      "rank": 3
+    },
+    {
+      "question": "how does flask dispatch an incoming request to the view function that handles it",
+      "language": "python",
+      "crossRepo": false,
+      "rank": 1
+    },
+    {
+      "question": "where is a session cookie signed and serialised before it is written to the response",
+      "language": "python",
+      "crossRepo": true,
+      "rank": 1
+    }
+  ],
+  "metrics": {
+    "n": 4,
+    "hitAt8": 1,
+    "mrrAt8": 0.6667,
+    "byLanguage": {
+      "java": {
+        "n": 1,
+        "hitAt8": 1,
+        "mrrAt8": 0.3333
+      },
+      "javascript": {
+        "n": 1,
+        "hitAt8": 1,
+        "mrrAt8": 0.3333
+      },
+      "python": {
+        "n": 2,
+        "hitAt8": 1,
+        "mrrAt8": 1
+      }
+    },
+    "crossRepo": {
+      "n": 1,
+      "hitAt8": 1,
+      "mrrAt8": 1
+    },
+    "singleRepo": {
+      "n": 3,
+      "hitAt8": 1,
+      "mrrAt8": 0.5556
+    }
+  }
+}
