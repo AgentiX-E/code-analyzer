@@ -2181,3 +2181,81 @@ one a single-shot lane has to answer and a reader that quoted the file has alrea
 **What would falsify item 1**: a run in which the scoped arm's precision falls far enough that its F1 lands below the
 lanes' on the same rows — that is, below 0.2033 — because then the gate was not removing lane-shaped noise but real
 precision, and the arm's sentences are worse claims than the lanes' suggestions rather than differently shaped ones.
+
+### 23.8 The budget was the loop again, and what is left is precision rather than volume
+
+`43184902326` (36 pull requests, skip 14, `agent: on`, `0f9463dc`) is the first run under §23.3's corrected units — the
+character and search ceilings are per group, with one review-wide ceiling of 1 200 000 characters for the bill:
+
+|                                     | `43176459822`, per review | `43184902326`, per group |
+| ----------------------------------- | ------------------------- | ------------------------ |
+| findings kept                       | 196                       | **256**                  |
+| true positives                      | 50                        | **65**                   |
+| precision                           | 0.2551                    | 0.2539                   |
+| recall                              | 0.1773                    | **0.2305**               |
+| F1, everything emitted              | 0.2092                    | **0.2416**               |
+| characters read                     | 3 499 229                 | 5 572 368                |
+| drafts filed                        | 225                       | 294                      |
+| files declared out of scope         | 94                        | **46**                   |
+| files commented                     | 104                       | 133                      |
+| goldens on a file read in silence   | 74                        | **42**                   |
+| goldens rejected with one on path   | 112                       | 132                      |
+| goldens on a file never opened      | 35                        | 33                       |
+| drafts refused for the per-file cap | 25                        | 32                       |
+
+**+0.0324, and it is the mechanism rather than a mood**: the arm read 59 % more characters, declared half as many files out
+of scope, and the goldens it missed _on a file it read and said nothing about_ fell from 74 to 42. **That is the same
+defect as §23.5 in a smaller place and its third appearance in this section** — a ceiling whose unit is the review, applied
+to work whose unit is the group — and this time the artifact already carried the reason: the six-pull-request run's trace
+had the model saying _"every read attempt was rejected for exceeding the character budget, so I have only the diff text"_.
+
+**The gain is at the edge of what this instrument resolves** (±0.031 at 36 pull requests), so it is a discovery on the rows
+that produced the change rather than a confirmed effect, and the run is **not** a pre-registration: `0f9463dc` was pushed
+before this section existed.
+
+**The gate's rule sweep was recomputed on these rows and says the same thing a second time**, which is what keeps §23.7's
+scoping from being a story about one run:
+
+| emission rule                              | k   | TP  | FP  | P      | R      | F1         |
+| ------------------------------------------ | --- | --- | --- | ------ | ------ | ---------- |
+| the registered actionability rule          | 30  | 11  | 19  | 0.3667 | 0.0390 | 0.0705     |
+| `grounded`                                 | 231 | 56  | 175 | 0.2424 | 0.1986 | 0.2183     |
+| score ≥ 0.45                               | 223 | 55  | 168 | 0.2466 | 0.1950 | 0.2178     |
+| `grounded` and severity high or critical   | 75  | 24  | 51  | 0.3200 | 0.0851 | 0.1345     |
+| **full emission, which the arm now ships** | 256 | 65  | 191 | 0.2539 | 0.2305 | **0.2416** |
+
+**And §23.7's item 4 is falsified by this run's own pairing, which is why it is corrected here rather than defended.** On
+the 33 pull requests both reviewers were scored over:
+
+|                 | k   | TP  | precision | recall | F1     |
+| --------------- | --- | --- | --------- | ------ | ------ |
+| the reading arm | 245 | 60  | 0.2449    | 0.2256 | 0.2348 |
+| the competitor  | 282 | 114 | 0.4043    | 0.4286 | 0.4161 |
+
+**We emit 87 % of what the competitor emits and 61 % of our remarks carry a golden.** Volume can therefore explain at most
+**13 %** of the difference and precision explains the rest — so _raising the per-file cap to six_ cannot close a gap that is
+not made of volume, and **the hypothesis registered one section earlier is withdrawn before the run that would have spent
+money on it.** What the 132 `findingOnPathRejected` goldens say is not _we did not speak about the file_; it is _we spoke
+about the file and described a different defect_, and on this corpus that is the gap.
+
+**Registered in its place, before any run:**
+
+1. **H3: the arm's remarks describe the wrong defect more often than they miss the file.** The measurable form is the
+   `findingOnPathRejected` bucket, at 132 of 217 missed goldens, against 42 on a file read in silence and 33 on a file
+   never opened. **What would confirm it**: a run in which the bucket stays above half the misses while the volume moves,
+   and the prompt work that has to follow is about which defect a comment claims rather than how many are filed. **This
+   supersedes §23.7's item 4**, which proposed raising the per-file cap: the pairing above says volume can account for 13 %
+   of the difference at most, so the cap is registered as a coordinate of future figures rather than as a remedy.
+2. **H4: the address, not the sentence — withdrawn before it was run, because this instrument cannot see an address.**
+   `judgeImpl` is handed two strings, the golden's `note` and the finding's `title :: description`, and **nothing else** —
+   not the path, not the line, not the span. So _"file the same sentence against the changed line and it scores higher"_ is
+   not a hypothesis this instrument can test, and **a run spent on it would have produced two identical figures and a
+   story about why.** The competitor's advantage is therefore a claim about text on both sides, or it is not visible here
+   at all — and that limit is written down rather than discovered later, because **the next reader's first idea will be
+   the same one.**
+3. **What H4 leaves, and what it would cost.** If the remaining gap is textual, the instrument that has to be questioned
+   is the judge, not the reviewer: one verdict per pair over `title :: description` against a forty-character `note`
+   measures _how much of the defect two sentences share_. Re-judging that properly means **re-recording the competitor's
+   arm under the new judge** — 5.89 USD and a corpus — so it is a priced decision for a later iteration rather than a
+   tweak to make in the same breath.
+4. **Neither is quotable against the competitor** until the confirmation on `skip_pull_requests: 50` (§23.4).
