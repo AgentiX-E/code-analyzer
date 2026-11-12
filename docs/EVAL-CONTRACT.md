@@ -2405,7 +2405,7 @@ estimate in the same paragraph because an experiment that does not name its pric
 **Until the first of those lands, no product claim rests on §24.** The 0.1947 above is a real measurement of the reading
 arm on unseen pull requests and it is **not** a comparison with anybody.
 
-## 25. The question-answering figure was three runs stacked into one table, and a pool that cannot be ranked
+## 25. The question-answering figure was three runs stacked into one table, and the pool decides where it ranks
 
 **What was on disk.** `benchmarks/cosqa-retrieval.json` carried `lexical` MRR 0.264 and `fused` 0.570 from one retriever
 beside `reranked` 0.7705 from a later one, dated 2026-10-27. **The gain the file attributed to fusion and to reranking was
@@ -2425,40 +2425,51 @@ artifact was never written back.
 **Legalization**: the file is now that artifact, and its comment names the run - a copy of an artifact that does not say
 which run it came from is a number with no author.
 
-**Now the ranking, and why it is not a ranking yet.** The literature's CoSQA column, from the NACS paper's Table 1
+**Now the ranking, and it took one dispatch to get it.** The literature's CoSQA column, from the NACS paper's Table 1
 (_Deep Code Search with Naming-Agnostic Contrastive Multi-View Learning_, arXiv 2408.09345), with the CoSQA column of
-Huang et al.'s own Table 5 (arXiv 2105.13239) where it reports one:
+Huang et al.'s own Table 5 (arXiv 2105.13239) where it reports one. **This product is measured twice: once on the 500
+candidates the corpus file carries, and once on the collection's whole 6 267 unique functions** (`pool=all`, run
+`43247478528`, 5 795 distractors, distractor file at SHA-256 `4d1a227f…`).
 
-| system                         |  CoSQA MRR | trained on CoSQA? |
-| ------------------------------ | ---------: | ----------------- |
-| OCoR                           |      0.352 | no                |
-| CSRS                           |      0.373 | no                |
-| DGMS                           |      0.471 | no                |
-| DeepCS                         |      0.472 | no                |
-| CoCLR (CodeBERT + contrastive) |      0.647 | **yes**           |
-| GraphCodeBERT                  |      0.648 | **yes**           |
-| CodeBERT                       |      0.652 | **yes**           |
-| NACS (reported SOTA)           |  **0.708** | **yes**           |
-| **this product, reranked**     | **0.7734** | **no**            |
+|  rank | system                         |  CoSQA MRR |       pool | trained on CoSQA? |
+| ----: | ------------------------------ | ---------: | ---------: | ----------------- |
+|     1 | NACS (reported SOTA)           |  **0.708** | collection | **yes**           |
+|     2 | CodeBERT                       |      0.652 | collection | **yes**           |
+|     3 | GraphCodeBERT                  |      0.648 | collection | **yes**           |
+|     4 | CoCLR (CodeBERT + contrastive) |      0.647 | collection | **yes**           |
+| **5** | **this engine, reranked**      | **0.5743** |  **6 295** | **no**            |
+|     6 | DeepCS                         |      0.472 | collection | no                |
+|     7 | DGMS                           |      0.471 | collection | no                |
+|     8 | CSRS                           |      0.373 | collection | no                |
+|     9 | OCoR                           |      0.352 | collection | no                |
+|     - | _this engine, reranked_        |   _0.7734_ |      _500_ | _no_              |
 
-**0.7734 is higher than every published number in that column and this document does not claim the lead**, for two
-reasons that are both measurable and neither of which is an excuse:
+**The 0.7734 in the last row is why the row above it exists.** On the 500 candidates of the test split the same review
+scores 0.7734 and would appear to lead the table; on the collection the published tables use it scores **0.5743**. **The
+0.199 difference is the pool, not the retriever** - the answers did not move between the two runs, the distractors only
+arrived - and it is the size of the error a small pool hides.
 
-1. **The pool is 500 functions; the published tables retrieve from the collection's whole unique function set.** Recall at
-   rank one on 500 candidates and on six thousand are different questions. The artifact says `pool.functions: 500` so a
-   reader can see it, and `COSQA_POOL=all` now closes it: the remaining unique functions of `cosqa-all.json` are indexed
-   as `distractor_######.py` while **the answers do not move** - the answer of question _i_ stays `code_###.py`, so the
-   rank scoring is byte-identical between the arms and the only variable is what else was in the collection.
-2. **Every model in that column is fine-tuned on CoSQA and this one is not** - which cuts the other way, and is the
-   reason the number is worth publishing at all: the product as shipped, with no training on the corpus and no
-   CoSQA-tuned encoder, finds the answer at rank one for 67.8 % of questions.
+**So the honest distance is 0.134 MRR@10 behind the reported state of the art, and this product is fifth of nine.** Every
+system above it is fine-tuned on CoSQA and this one is not, which is a real qualification and **not a substitute for the
+number**: a reader who wants the lead needs the lead to be measured on the same pool, and it is not.
 
-**The optimization this names, in order.** (a) Run `pool=all` and publish the pool-matched figure - **dispatched, not
-yet landed**; until it lands, 0.7734 and 0.708 are two numbers on two pools and this repository will not rank them.
-(b) The fused-to-reranked step is worth +0.138 MRR and costs 481 completions for 500 questions: **a cheaper gate on
-which candidates to reorder** is the next cost lever, and the artifact already carries `reordered` so the ablation has a
-denominator. (c) `found@10` is 468 of 500, so **32 questions have no correct answer in the top ten at all** - a recall
-ceiling that no reranker can move and that the lexical column shows is a retrieval problem.
+**Where the 0.134 comes from, in the order the artifact supports.** `found@10` is **398 of 500** at the collection pool
+against **468 of 500** at 500 candidates: **the recall ceiling is the largest single term**, and it is a retrieval
+problem that no reranker can move. The stage table shows where it is built and where it is lost:
+
+| stage                         |   R@1 |   R@5 |  R@10 |     MRR@10 | found@10 |
+| ----------------------------- | ----: | ----: | ----: | ---------: | -------: |
+| lexical (BM25)                | 0.160 | 0.346 | 0.412 |     0.2367 |      206 |
+| fused (BM25 + vectors, w=1)   | 0.276 | 0.516 | 0.650 |      0.387 |      325 |
+| reranked (listwise, DeepSeek) | 0.470 | 0.714 | 0.796 | **0.5743** |      398 |
+
+**Lexical retrieval finds the answer in the top ten for 41 % of questions at this pool**, so 59 % of the work is being
+done by embeddings and the reranker - and the reranker is reordering 496 of 500 lists to gain +0.187 MRR over fusion.
+The three levers, in order: (a) **the 102 questions whose answer is not in the top ten at all** - a recall problem that
+needs a better first stage, not a better order; (b) **the +0.187 the reranker buys costs 496 completions**, so a cheaper
+gate on which lists to reorder is the cost lever, and `reordered` is already in the artifact as its denominator;
+(c) **a CoSQA-trained encoder** is what every system above this one uses and what this project has deliberately not done -
+which is a decision with a price, and the price is now written down in MRR.
 
 **What this section does not do**: it does not put a retrieval figure beside a review figure. AACR measures a different
 task on a different corpus with a different judge, and §24's paired comparison is the only place this repository compares
@@ -2499,3 +2510,32 @@ rather than inferred from a date.
 provider, one repository, one finding on an untouched file survives when nothing overrides the default and is refused
 under `BASELINE_AGENT_OPTIONS`. The two source-level assertions read assignment lines rather than prose, so the comments
 that explain the pair are not punished by the test that guards it.
+
+## 27. Two of the seven score terms are invisible to the reading reviewer
+
+**Found by reading a hundred pull requests' worth of real findings, not by looking for it.** Every one of the 786 findings
+the reading arm filed carried `agreement: 1` and no lane. The score adds `agreement × 0.1 × min(n,3)/3` and
+`lane × LANE_WEIGHT[lane] ?? 0.5`, so those findings collected **0.0333** and **0.03** where the five lanes can collect
+up to **0.1** and **0.06** - **not because the comments were worse but because two of the seven terms describe a reviewer
+the reading arm is not.**
+
+**Measured on the artifacts**: median score **0.509** for the reading arm against **0.707** for the lanes. The two terms
+account for **0.0967** of that before anything about either comment is considered.
+
+**The obvious repair was tried and the existing suite refused it.** Re-normalising the score so the denominator excludes
+an unobservable term makes a finding with _more_ corroboration score _lower_ - `agreement: 2` came out at **0.7901**
+against **0.8048** for no agreement at all, and `raises the score with agreement and saturates at three lanes` failed on
+the first run. **That case is right and the repair was wrong**: a scale whose readings are not monotone is a worse answer
+than a ruler with one fewer mark, and the score is therefore unchanged - as is every figure measured with it.
+
+**What is new is `scoreTerms`**, in the score object and in the artifact's `rankedFindings`, saying which of the two
+conditional terms the reviewer could observe. **The consequence is registered rather than papered over**: a score
+threshold calibrated on the five lanes is **not** an operating point on the reading arm - which is the second reason
+§23.7 scoped the gate to the lanes, and the first one that can be checked from a single artifact.
+
+**What this changes about the next iteration.** The lever this rules out is the tempting one: **dropping the low-score
+tail of the reading arm is not a precision filter, it is a filter calibrated on a different scale.** On the
+hundred-pull-request artifact the categories and features say the same thing from another direction - `test` findings are
+139 of 786 at precision **0.101**, `bug` is 438 at **0.283**, and every one of `grounded`, `quotesDiff`, `namesSymbol`
+and `severity` sits within 0.06 of the base rate, because the reading arm's filing rule already removed what those terms
+were built to detect. **The remaining gap is not a threshold.**

@@ -2,32 +2,37 @@
   "comment": [
     "Retrieval on **CoSQA** (Huang et al.), the corpus the code-search literature reports on.",
     "",
-    "**The pool is the 500 functions of the test split, not the full training corpus**, so these numbers are not",
-    "directly comparable with published tables that retrieve from ~20 000 functions. The pool size is in this",
-    "artifact so a reader can see exactly what was measured.",
+    "**The pool is the collection's whole unique function set** - 6 267 unique functions, of which 500 are answers and 5 795",
+    "are material no question asks for - which is the pool the published CoSQA tables retrieve from. **This figure may be put",
+    "beside them, and it is the figure that does so**: the 500-candidate arm measured the same review at 0.7734 MRR@10, and",
+    "the difference between the two numbers is the pool rather than the retriever.",
     "",
     "**Docstrings are stripped from the index** for the same reason `paraphrase-search` strips them: the question",
     "is a paraphrase of documentation, and an index that keeps the documentation lets the retriever copy it.",
     "",
     "**The product as shipped**: BM25 + vectors fused at weight 1, and the same list reordered listwise when a",
-    "model is available.",
+    "model is available. **No part of it is trained on CoSQA**, while every model in the published table is fine-tuned on it -",
+    "which is stated here because it points in the product's favour, and a comparison that only lists the caveats pointing",
+    "one way is not a comparison.",
     "",
-    "**Where this figure comes from**: the `code-qa-benchmark` workflow, run 43014071651 on 2026-11-11, which fetched the",
-    "file above and checked its SHA-256 before measuring. The provenance is here rather than inferred from the date because",
-    "**this file is a copy of an artifact, and a copy that does not say which run it came from is a number with no author.**",
-    "",
-    "**The three stages are one run**, which the previous copy of this file was not: its `lexical` and `fused` rows came",
-    "from an earlier retriever and its `reranked` row from a later one, so the gain attributed to fusion and to reranking",
-    "was a gain between two versions of the product rather than between two stages of one."
+    "**Where this now stands, and it is fifth**: NACS 0.708, CodeBERT 0.652, GraphCodeBERT 0.648, CoCLR 0.647, **this engine",
+    "0.5743**, then DeepCS 0.472, DGMS 0.471, CSRS 0.373, OCoR 0.352. **0.134 MRR@10 behind the reported state of the art**",
+    "- which is the honest distance, and the one the next iteration works on rather than the 0.7734 that a 500-candidate",
+    "pool produced."
   ],
   "dataset": {
     "name": "CoSQA retrieval, test split",
     "source": "Jun-jie-Huang/CoCLR · data/search/cosqa-retrieval-test-500.json",
-    "sha256": "27d3552b2e7dd86cf9f9a0b3c135e6777d4faafa9c29fb1b9b01ece945974ad6"
+    "sha256": "27d3552b2e7dd86cf9f9a0b3c135e6777d4faafa9c29fb1b9b01ece945974ad6",
+    "distractorSource": "Jun-jie-Huang/CoCLR · data/qa/cosqa-all.json",
+    "distractorSha256": "4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c"
   },
-  "measuredAt": "2026-11-11",
+  "measuredAt": "2026-11-12",
   "pool": {
-    "functions": 500,
+    "functions": 6295,
+    "answers": 500,
+    "distractors": 5795,
+    "source": "all",
     "docstrings": "stripped"
   },
   "space": {
@@ -38,27 +43,27 @@
   "cuts": "recall@1, @5, @10; MRR@10",
   "lexical": {
     "queries": 500,
-    "recallAt1": 0.356,
-    "recallAt5": 0.578,
-    "recallAt10": 0.664,
-    "mrrAt10": 0.4549,
-    "foundAt10": 332
+    "recallAt1": 0.16,
+    "recallAt5": 0.346,
+    "recallAt10": 0.412,
+    "mrrAt10": 0.2367,
+    "foundAt10": 206
   },
   "fused": {
     "queries": 500,
-    "recallAt1": 0.534,
-    "recallAt5": 0.776,
-    "recallAt10": 0.86,
-    "mrrAt10": 0.6354,
-    "foundAt10": 430
+    "recallAt1": 0.276,
+    "recallAt5": 0.516,
+    "recallAt10": 0.65,
+    "mrrAt10": 0.387,
+    "foundAt10": 325
   },
   "reranked": {
     "queries": 500,
-    "recallAt1": 0.678,
-    "recallAt5": 0.894,
-    "recallAt10": 0.936,
-    "mrrAt10": 0.7734,
-    "foundAt10": 468,
-    "reordered": 481
+    "recallAt1": 0.47,
+    "recallAt5": 0.714,
+    "recallAt10": 0.796,
+    "mrrAt10": 0.5743,
+    "foundAt10": 398,
+    "reordered": 496
   }
 }
