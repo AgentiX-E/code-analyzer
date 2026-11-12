@@ -38,7 +38,10 @@ jobs:
         uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
         with:
           languages: ${{ matrix.language }}
-          queries: security-extended,security-and-quality
+          # **The suite and the triage both live in one file**, `.github/codeql/codeql-config.yml`: the queries it names
+          # and the `(query, path)` pairs where the query's premise does not hold. Keeping them here would mean a
+          # suppression could be added without a reason next to it.
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
