@@ -114,6 +114,8 @@ export default tseslint.config(
       'scripts/feature-matrix.ts',
       'scripts/cross-repo-matrix.ts',
       'scripts/multirepo-qa.ts',
+      'scripts/multirepo-paraphrase.ts',
+      'scripts/lib/multirepo-harness.ts',
       'scripts/owasp-benchmark.ts',
       'scripts/lca-merge.ts',
       // **The child process the bug-localisation harness supervises**, enrolled for the same reason as the merge beside

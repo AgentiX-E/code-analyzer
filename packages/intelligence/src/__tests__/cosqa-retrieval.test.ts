@@ -28,7 +28,7 @@ import {
 } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { recordArtifact } from '@code-analyzer/shared';
+import { mapWithConcurrency, recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { DeepSeekProvider } from '../review/llm/provider.js';
@@ -79,6 +79,23 @@ const SWEEP = readDepthSweep(process.env['COSQA_SWEEP'], DEPTH);
  * job would put the model's run-to-run variance back into the comparison it was separated to remove.
  */
 const RERANK_DEPTHS = readDepthSweep(process.env['COSQA_RERANK_DEPTHS'], DEPTH);
+
+/**
+ * **How many reranks are in flight at once, which is the ceiling on how wide a ladder this project can afford.**
+ *
+ * The loop this replaces was sequential, and nothing about the work required it: question *i*'s prompt contains question
+ * *i*'s candidates and no other question's answer, so the order the completions are issued in cannot change what any of
+ * them says. **What sequential bought was 85 minutes for three thousand completions** - six arms over five hundred
+ * questions - and that is the number every wider ladder was priced against.
+ *
+ * **The default is one, and that is the point rather than a leftover.** Every published figure was measured at one in
+ * flight; a default that silently became eight would put a queue depth between this artifact and the ones it is compared
+ * with. A run that wants the speed says so, and `mapWithConcurrency` keeps the columns in question order either way.
+ *
+ * **A limit is not a reranker's opinion, so raising this needs the retry in `rerankCandidates`**: a 429 used to be
+ * indistinguishable from a model that had no opinion, and eight in flight hit limits that one never did.
+ */
+const RERANK_CONCURRENCY = readPositiveInt(process.env['COSQA_RERANK_CONCURRENCY'], 1);
 
 /**
  * **The deepest list either channel has to produce.**
@@ -493,7 +510,10 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         for (const depth of RERANK_DEPTHS) {
           for (const armKey of ['derived', 'constant']) {
             const key = `${armKey}@${depth}`;
-            rerankedByKey.set(key, []);
+            // **Pre-sized rather than appended.** A sequential loop could push in question order and get the same list;
+            // a concurrent one cannot, and an array filled by completion order is a column permuted by the network. The
+            // slot is the contract `mapWithConcurrency` keeps.
+            rerankedByKey.set(key, new Array<number | null>(rows.length).fill(null));
             reorderedByKey.set(key, 0);
             rescuedByKey.set(key, 0);
             lostByKey.set(key, 0);
@@ -507,6 +527,32 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           }
         }
         const provider = CAN_ASK_A_MODEL ? new DeepSeekProvider({ timeout: 60_000 }) : null;
+
+        /**
+         * **One rerank of one list, collected rather than awaited.**
+         *
+         * The two lists a question needs are pure arithmetic over the fusion; only the completion is slow, and only the
+         * completion is independent. Collecting them lets the queue be `RERANK_CONCURRENCY` deep while every column
+         * still lands in its question's own position.
+         */
+        interface RerankTask {
+          rowIndex: number;
+          key: string;
+          question: string;
+          hits: HybridSearchResult[];
+          fusedRank: number | null;
+        }
+        const rerankTasks: RerankTask[] = [];
+        /** **Limits and failures counted, because a run that was throttled is not a run that measured nothing.** */
+        const rerankCalls = { failures: 0, rateLimitRetries: 0, emptyAnswers: 0 };
+        /**
+         * **How many columns each key actually received, which is what a pre-sized array cannot show.**
+         *
+         * A slot that was never written decodes as `-`, and `-` is also the honest value for "the answer was not
+         * returned" - so a concurrent run that dropped a task would publish a column indistinguishable from a retrieval
+         * that failed on that question. The counter is the only thing that separates the two, and it is published.
+         */
+        const writtenByKey = new Map<string, number>();
 
         /** The 1-based rank at which a question's own answer sits in a hit list, or `null` when it is absent. */
         const rankOf = (
@@ -564,81 +610,100 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           }
 
           if (provider) {
-            /**
-             * **One rerank of one list, and everything it did or cost.**
-             *
-             * Written once because the four calls a two-depth run makes are the same experiment at four addresses: a
-             * copy per arm would be a copy that could drift, and the columns would then differ by the copy rather than
-             * by the arm.
-             */
-            const rerankArm = async (
-              hits: HybridSearchResult[],
-              key: string,
-            ): Promise<number | null> => {
-              const entries = hits.map((hit, position) => ({ rank: position + 1, hit }));
-              const result = await rerankCandidates(
-                row.doc,
-                entries,
-                (entry) => ({
-                  rank: entry.rank,
-                  name: entry.hit.node.name,
-                  qualifiedName: entry.hit.node.qualifiedName,
-                  filePath: entry.hit.node.filePath,
-                  signature: entry.hit.node.signature,
-                  excerpt:
-                    typeof entry.hit.node.properties['body'] === 'string'
-                      ? entry.hit.node.properties['body'].slice(0, 240)
-                      : null,
-                }),
-                provider,
-                { timeout: 60_000 },
-              );
-              if (result.applied) reorderedByKey.set(key, reorderedByKey.get(key)! + 1);
-              // **The bill, summed from the calls rather than estimated from an average**: the provider returns the
-              // tokens and the amount, and a report that multiplied a per-call guess by five hundred was the weaker of
-              // the two numbers it could have had.
-              const bill = billByKey.get(key)!;
-              if (result.cost) {
-                bill.calls += 1;
-                bill.promptTokens += result.cost.usage?.promptTokens ?? 0;
-                bill.completionTokens += result.cost.usage?.completionTokens ?? 0;
-                // **An unpriced model is counted, not folded in as zero**: a total that absorbed it would report a bill
-                // smaller than the one that was paid.
-                if (result.cost.usd === undefined) bill.unpriced += 1;
-                else bill.usd += result.cost.usd;
-              }
-              // **The rank the answer lands at after the reorder**: `indexOf` inside the ordered list, not its fused
-              // rank, because the whole point of the reorder is that the two differ.
-              const at = result.ordered.findIndex((entry) => fileIndex(entry.hit) === index);
-              const rank = at >= 0 ? at + 1 : null;
-              rerankedByKey.get(key)!.push(rank);
-              return rank;
-            };
-
-            /** **A reorder is only worth its completions if it moves the answer.** Two directions, both counted. */
-            const recordEffect = (
-              key: string,
-              fusedRank: number | null,
-              rank: number | null,
-            ): void => {
-              if (fusedRank === null || fusedRank > 10) {
-                if (rank !== null && rank <= 10) rescuedByKey.set(key, rescuedByKey.get(key)! + 1);
-              } else if (rank === null || rank > 10) {
-                lostByKey.set(key, lostByKey.get(key)! + 1);
-              }
-            };
-
+            // **Collected, not awaited.** The lists are arithmetic and the completion is the only slow part; issuing it
+            // here would make the queue one deep and the run 85 minutes long (see `RERANK_CONCURRENCY`).
             for (const depth of RERANK_DEPTHS) {
-              // **The constant first**, which is the arm every earlier run published.
               const constantList = fuseAt(depth, 1);
-              const constantRank = await rerankArm(constantList, `constant@${depth}`);
-              recordEffect(`constant@${depth}`, rankOf(constantList, index), constantRank);
+              rerankTasks.push({
+                rowIndex: index,
+                key: `constant@${depth}`,
+                question: row.doc,
+                hits: constantList,
+                fusedRank: rankOf(constantList, index),
+              });
 
               const derivedList = fuseAt(depth, derivedWeight);
-              const derivedRank = await rerankArm(derivedList, `derived@${depth}`);
-              recordEffect(`derived@${depth}`, rankOf(derivedList, index), derivedRank);
+              rerankTasks.push({
+                rowIndex: index,
+                key: `derived@${depth}`,
+                question: row.doc,
+                hits: derivedList,
+                fusedRank: rankOf(derivedList, index),
+              });
             }
           }
+        }
+
+        /**
+         * **Every rerank, issued with `RERANK_CONCURRENCY` in flight and each column written to its question's slot.**
+         *
+         * The body below is the same experiment the sequential loop ran - one prompt shape, one temperature, one tag,
+         * the same bill - and the only thing that changed is how many were open at once. **A failure still leaves the
+         * fused order**, which is `rerankCandidates`' contract; what is new is that a failure is counted here rather
+         * than disappearing into a column, because a throttled arm reported as "no opinion" is the measurement error
+         * concurrency would otherwise introduce.
+         */
+        if (provider) {
+          await mapWithConcurrency(rerankTasks, RERANK_CONCURRENCY, async (task) => {
+            const entries = task.hits.map((hit, position) => ({ rank: position + 1, hit }));
+            const result = await rerankCandidates(
+              task.question,
+              entries,
+              (entry) => ({
+                rank: entry.rank,
+                name: entry.hit.node.name,
+                qualifiedName: entry.hit.node.qualifiedName,
+                filePath: entry.hit.node.filePath,
+                signature: entry.hit.node.signature,
+                excerpt:
+                  typeof entry.hit.node.properties['body'] === 'string'
+                    ? entry.hit.node.properties['body'].slice(0, 240)
+                    : null,
+              }),
+              provider,
+              { timeout: 60_000 },
+            );
+
+            if (result.applied) reorderedByKey.set(task.key, reorderedByKey.get(task.key)! + 1);
+            if (result.rateLimitRetries !== undefined) {
+              rerankCalls.rateLimitRetries += result.rateLimitRetries;
+            }
+            if (result.reason?.startsWith('rerank failed') === true) rerankCalls.failures += 1;
+            if (result.reason === 'the answer contained no usable candidate number') {
+              rerankCalls.emptyAnswers += 1;
+            }
+
+            // **The bill, summed from the calls rather than estimated from an average**: the provider returns the
+            // tokens and the amount, and a report that multiplied a per-call guess by five hundred was the weaker of
+            // the two numbers it could have had. **The additions are synchronous**, so two in flight cannot lose one:
+            // the only `await` in this body has already resolved.
+            const bill = billByKey.get(task.key)!;
+            if (result.cost) {
+              bill.calls += 1;
+              bill.promptTokens += result.cost.usage?.promptTokens ?? 0;
+              bill.completionTokens += result.cost.usage?.completionTokens ?? 0;
+              // **An unpriced model is counted, not folded in as zero**: a total that absorbed it would report a bill
+              // smaller than the one that was paid.
+              if (result.cost.usd === undefined) bill.unpriced += 1;
+              else bill.usd += result.cost.usd;
+            }
+
+            // **The rank the answer lands at after the reorder**: `indexOf` inside the ordered list, not its fused
+            // rank, because the whole point of the reorder is that the two differ.
+            const at = result.ordered.findIndex((entry) => fileIndex(entry.hit) === task.rowIndex);
+            const rank = at >= 0 ? at + 1 : null;
+            rerankedByKey.get(task.key)![task.rowIndex] = rank;
+            writtenByKey.set(task.key, (writtenByKey.get(task.key) ?? 0) + 1);
+
+            // **A reorder is only worth its completions if it moves the answer.** Two directions, both counted.
+            if (task.fusedRank === null || task.fusedRank > 10) {
+              if (rank !== null && rank <= 10) {
+                rescuedByKey.set(task.key, rescuedByKey.get(task.key)! + 1);
+              }
+            } else if (rank === null || rank > 10) {
+              lostByKey.set(task.key, lostByKey.get(task.key)! + 1);
+            }
+          });
         }
 
         /**
@@ -714,6 +779,11 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           // perfectly correct JSON.
           cuts: CUTS,
           depths: { rerank: DEPTH, sweep: SWEEP.join(','), retrieval: RETRIEVAL_DEPTH },
+          // **How the completions were issued**, because a queue depth is part of an experiment's conditions: two runs
+          // of the same arms at different concurrency that disagree are two conditions rather than a replication, and
+          // `failures` is the number that says whether the fast one measured anything. `rateLimitRetries` counts waits
+          // that were retried into a real answer, so a reader can tell "answered" from "answered after being throttled".
+          rerankCalls: { concurrency: RERANK_CONCURRENCY, ...rerankCalls },
           lexical: score(lexicalRanks),
           // **The arm the figure below is put beside**: the fused list truncated at the depth the reranker saw, which is
           // the only comparison that isolates the reorder from the candidates it was given.
@@ -787,17 +857,26 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
                   RERANK_DEPTHS.map((depth) => [
                     String(depth),
                     {
+                      // **The column, not only its aggregate.** §34.2 registered this as the one thing missing: the
+                      // per-depth figures were published beside a per-depth paired verdict whose inputs a reader could
+                      // not decode, so the depth contrast was two totals from one harness run rather than the paired
+                      // test every other figure in this project is. **The column is what makes the verdict checkable**,
+                      // and it costs one string per arm.
                       derived: {
                         ...score(rerankedByKey.get(`derived@${depth}`)!),
                         reordered: reorderedByKey.get(`derived@${depth}`)!,
                         rescued: rescuedByKey.get(`derived@${depth}`)!,
                         lost: lostByKey.get(`derived@${depth}`)!,
+                        covered: writtenByKey.get(`derived@${depth}`) ?? 0,
+                        ranks: encodeRanks(rerankedByKey.get(`derived@${depth}`)!),
                       },
                       constant: {
                         ...score(rerankedByKey.get(`constant@${depth}`)!),
                         reordered: reorderedByKey.get(`constant@${depth}`)!,
                         rescued: rescuedByKey.get(`constant@${depth}`)!,
                         lost: lostByKey.get(`constant@${depth}`)!,
+                        covered: writtenByKey.get(`constant@${depth}`) ?? 0,
+                        ranks: encodeRanks(rerankedByKey.get(`constant@${depth}`)!),
                       },
                       // **The two arms tested against each other *at this depth*.** The top-level
                       // `paired.rerankedDerivedVsConstant` is the arm's own depth only, so a two-depth artifact used to
@@ -858,6 +937,9 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
               ? {
                   reranked: encodeRanks(rerankedRanks),
                   rerankedConstant: encodeRanks(rerankedConstantRanks),
+                  // **The other depths' columns are not repeated here.** They live inside
+                  // `rerankByDepth[<depth>][<arm>].ranks`, beside the aggregate each one produces, so a reader finds a
+                  // column next to the figure it explains rather than in a second block that could drift from it.
                 }
               : {}),
           },
@@ -1041,26 +1123,72 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           expect(pair.mrrInterval[1]).toBeGreaterThanOrEqual(pair.deltaMrr);
         }
 
-        // **Every depth that publishes two arms publishes the test between them.** The arm contrast is the one number a
-        // reader is most likely to quote, and a depth without it is a depth that can be quoted but not checked.
+        // **Every depth that publishes two arms publishes the test between them, and now the columns it was computed
+        // from.** §34.2 registered the second half: a per-depth verdict whose inputs were not in the artifact could be
+        // quoted and not checked, which is the weaker of the two things a number can be.
         const rerankByDepth = (
-          artifact as { rerankByDepth?: Record<string, { paired: ReturnType<typeof compareArms> }> }
+          artifact as {
+            rerankByDepth?: Record<
+              string,
+              {
+                paired: ReturnType<typeof compareArms>;
+                derived: { covered: number; ranks: string; foundAt10: number; mrrAt10: number };
+                constant: { covered: number; ranks: string; foundAt10: number; mrrAt10: number };
+              }
+            >;
+          }
         ).rerankByDepth;
         if (rerankByDepth) {
           for (const [depth, entry] of Object.entries(rerankByDepth)) {
+            // **Every slot was written.** A pre-sized column that a concurrent run failed to fill would decode as `-`,
+            // which is also the honest value for "the answer was not returned" - so the counter is the only thing that
+            // distinguishes a dropped task from a failed retrieval, and it is asserted rather than trusted.
+            expect(entry.derived.covered, `derived@${depth} did not fill every question`).toBe(
+              rows.length,
+            );
+            expect(entry.constant.covered, `constant@${depth} did not fill every question`).toBe(
+              rows.length,
+            );
+
+            const derived = decodeRanks(entry.derived.ranks, rows.length);
+            const constant = decodeRanks(entry.constant.ranks, rows.length);
+
+            // **The published column is the column that produced the published aggregate**, both of them read back from
+            // the artifact rather than from memory: a run whose JSON disagreed with its own console would otherwise
+            // pass here and mislead every reader of the artifact.
+            expect(score(derived), `derived@${depth} disagrees with its column`).toEqual(
+              score(rerankedByKey.get(`derived@${depth}`)!),
+            );
+            expect(score(constant), `constant@${depth} disagrees with its column`).toEqual(
+              score(rerankedByKey.get(`constant@${depth}`)!),
+            );
+            expect(score(derived).foundAt10).toBe(entry.derived.foundAt10);
+            expect(score(derived).mrrAt10).toBe(entry.derived.mrrAt10);
+
             expect(entry.paired.queries, `rerankByDepth.${depth}.paired covers a subset`).toBe(
               rows.length,
             );
-            // **And it must be the verdict of the columns printed beside it**, recomputed here from those columns
-            // rather than trusted: a block that carried the arm's own depth by copy would agree with a neighbour it
-            // did not measure, and no reader could tell.
-            expect(entry.paired).toEqual(
-              compareArms(
-                rerankedByKey.get(`derived@${depth}`)!,
-                rerankedByKey.get(`constant@${depth}`)!,
-              ),
-            );
+            // **And the verdict is the one those two columns produce**, recomputed from the decoded strings rather
+            // than from the arrays the run happened to hold: that is the whole difference between an artifact and a
+            // log, and it is what makes the depth contrast a paired test a reader can re-run.
+            expect(
+              entry.paired,
+              `rerankByDepth.${depth}.paired is not its columns' verdict`,
+            ).toEqual(compareArms(derived, constant));
+            expect(entry.paired.mrrInterval[0]).toBeLessThanOrEqual(entry.paired.deltaMrr);
+            expect(entry.paired.mrrInterval[1]).toBeGreaterThanOrEqual(entry.paired.deltaMrr);
           }
+        }
+
+        // **The queue depth is recorded and legal**, because it is an experimental condition: two runs of the same arms
+        // at different concurrency that disagree are two conditions, and a `0` in this field would be a run that
+        // measured nothing.
+        const calls = (artifact as { rerankCalls?: { concurrency: number; failures: number } })
+          .rerankCalls;
+        if (calls !== undefined) {
+          expect(calls.concurrency).toBeGreaterThanOrEqual(1);
+          expect(calls.concurrency).toBe(RERANK_CONCURRENCY);
+          expect(calls.failures).toBeGreaterThanOrEqual(0);
         }
       } finally {
         rmSync(workdir, { recursive: true, force: true });

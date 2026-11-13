@@ -23,202 +23,47 @@
 // Usage:
 //   npx tsx scripts/multirepo-qa.ts [--out benchmarks/multirepo-qa.json] [--cache .cache/multirepo-qa]
 
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
-import { InMemoryGraphStore } from '../packages/infra/src/index.js';
-import { CrossRepoIndexer, RepoGroupManager } from '../packages/intelligence/src/index.js';
+import {
+  CUT,
+  buildWorkspace,
+  deriveQuestions,
+  rankOf,
+  readCorpus,
+  repoName,
+  sampleQuestions,
+  score,
+} from './lib/multirepo-harness.js';
 import { FederatedSearchEngine } from '../packages/intelligence/src/cross-repo/federated-search.js';
 import {
   compareArms,
   decodeRanks,
   encodeRanks,
   foundWithin,
-  reciprocalRank,
-  type RankList,
 } from '../packages/intelligence/src/search/paired-stats.js';
 
-const DEPTH = 10;
-const CUT = 10;
 
-interface CorpusRepository {
-  id: string;
-  sha: string;
-  language: string;
-  role: string;
-}
-
-interface Corpus {
-  repositories: CorpusRepository[];
-}
-
-interface Question {
-  key: string;
-  repo: string;
-  symbol: string;
-  filePath: string;
-  label: string;
-  text: string;
-  /** Does the question's own text spell the symbol's name? If so it is a name lookup, not a description lookup. */
-  namesItsAnswer: boolean;
-  /** How many of the four repositories define a symbol with this name. */
-  sameNameElsewhere: number;
-}
+/** **Ten results per question**, which is the cut every figure below is reported at. */
+const DEPTH = CUT;
 
 function arg(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
   return at >= 0 && process.argv[at + 1] ? process.argv[at + 1]! : fallback;
 }
 
-/** `owner/name` → `name`, which is what the tar layout strips to and what a caller types as a filter. */
-function repoName(id: string): string {
-  return id.slice(id.lastIndexOf('/') + 1);
-}
-
-/** Download and unpack one pinned commit, once. */
-function materialise(repo: CorpusRepository, cache: string): string {
-  const dir = join(cache, repoName(repo.id));
-  const marker = join(dir, '.complete');
-  if (existsSync(marker)) return dir;
-
-  mkdirSync(dir, { recursive: true });
-  const tarball = join(cache, `${repoName(repo.id)}.tar.gz`);
-  // **The commit is the pin**: a branch would have made two runs of the same artifact two different corpora.
-  execFileSync('curl', [
-    '-sSL',
-    '--max-time',
-    '300',
-    '-o',
-    tarball,
-    `https://codeload.github.com/${repo.id}/tar.gz/${repo.sha}`,
-  ]);
-  execFileSync('tar', ['-xzf', tarball, '-C', dir, '--strip-components=1']);
-  writeFileSync(marker, repo.sha, 'utf8');
-  return dir;
-}
-
-/**
- * The doc comment as a question: markers stripped, tags dropped, whitespace collapsed, first sentence kept.
- *
- * **Tags are dropped because they are not prose.** `@param {string} name The name` is three tokens of syntax and one
- * of English, and a question made of it would measure the index's tolerance for punctuation.
- */
-function toQuestion(doc: string): string | null {
-  const prose = doc
-    .replace(/\/\*\*?|\*\//g, ' ')
-    .replace(/^\s*(\*|\/\/\/?)\s?/gm, ' ')
-    .replace(/@[a-zA-Z]+\s*/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (prose.length < 20) return null;
-  const sentence = prose.match(/^(.{20,240}?[.!?])(\s|$)/);
-  const text = (sentence ? sentence[1]! : prose.slice(0, 200)).trim();
-  return text.length >= 20 ? text : null;
-}
-
-/** The rank of the intended answer in a result list, or `null` when it is not there. */
-function rankOf(
-  results: ReadonlyArray<{ repo: string; symbol: string; filePath: string }>,
-  question: Question,
-): number | null {
-  for (let index = 0; index < results.length; index++) {
-    const hit = results[index]!;
-    if (hit.repo !== question.repo || hit.symbol !== question.symbol) continue;
-    const a = hit.filePath.replace(/\\/g, '/');
-    const b = question.filePath.replace(/\\/g, '/');
-    // **The file is part of the answer**, because a symbol name that exists in two files of one repository is two
-    // different functions, and returning the wrong one is not finding the answer.
-    if (a === b || a.endsWith(b) || b.endsWith(a)) return index + 1;
-  }
-  return null;
-}
-
-function score(ranks: RankList): { n: number; found: number; r1: number; mrr: number } {
-  const found = ranks.filter((rank) => foundWithin(rank, CUT)).length;
-  const r1 = ranks.filter((rank) => foundWithin(rank, 1)).length;
-  const mrr = ranks.reduce<number>((sum, rank) => sum + reciprocalRank(rank, CUT), 0);
-  return {
-    n: ranks.length,
-    found,
-    r1: Number((r1 / ranks.length).toFixed(4)),
-    mrr: Number((mrr / ranks.length).toFixed(4)),
-  };
-}
-
 async function main(): Promise<void> {
   const out = arg('out', 'benchmarks/multirepo-qa.json');
   const cache = arg('cache', '.cache/multirepo-qa');
-  const corpus = JSON.parse(readFileSync('benchmarks/multirepo-qa-corpus.json', 'utf8')) as Corpus;
+  const corpus = readCorpus();
 
-  mkdirSync(cache, { recursive: true });
+  // **The four checkouts and the index over them**, which the paraphrase script shares: two corpora compared on the
+  // same symbols have to be the same symbols, and the only way to be sure is to run the same code.
+  const { store, manager, index, indexMs } = await buildWorkspace(corpus, cache);
 
-  const store = new InMemoryGraphStore();
-  const manager = new RepoGroupManager();
-  manager.createGroup('multirepo-qa', 'multirepo-qa', 'four released repositories');
-
-  const checkedOut: Record<string, string> = {};
-  for (const repo of corpus.repositories) {
-    const [owner, name] = [repo.id.slice(0, repo.id.indexOf('/')), repoName(repo.id)];
-    checkedOut[repo.id] = materialise(repo, cache);
-    manager.addRepo('multirepo-qa', owner!, name, '', checkedOut[repo.id]!);
-  }
-
-  const indexer = new CrossRepoIndexer(store, manager);
-  const indexStarted = Date.now();
-  const index = (await indexer.indexGroup('multirepo-qa', { concurrency: 4 })) as {
-    reposIndexed: number;
-    totalNodes: number;
-    totalEdges: number;
-    crossRepoEdges: number;
-    errors: string[];
-  };
-  const indexMs = Date.now() - indexStarted;
-
-  // **Every symbol a question could be asked about**, in a stable order: the sample is the first of every k, and an
-  // order that depends on insertion order would make two runs two corpora.
-  const nodes = store.getAllNodes();
-  const symbolLabels = new Set(['Function', 'Method', 'Class']);
-  const candidates = nodes
-    .filter(
-      (node) =>
-        symbolLabels.has(node.label) &&
-        typeof node.docstring === 'string' &&
-        node.docstring.length > 30 &&
-        typeof node.projectId === 'string' &&
-        node.projectId !== '',
-    )
-    .sort((a, b) =>
-      `${a.projectId}:${a.qualifiedName}`.localeCompare(`${b.projectId}:${b.qualifiedName}`),
-    );
-
-  const nameToRepos = new Map<string, Set<string>>();
-  for (const node of nodes) {
-    if (!symbolLabels.has(node.label) || !node.projectId) continue;
-    const set = nameToRepos.get(node.name) ?? new Set<string>();
-    set.add(node.projectId);
-    nameToRepos.set(node.name, set);
-  }
-
-  const derived: Question[] = [];
-  for (const node of candidates) {
-    const text = toQuestion(node.docstring!);
-    if (text === null) continue;
-    derived.push({
-      key: `${node.projectId}#${node.qualifiedName}`,
-      repo: node.projectId!,
-      symbol: node.name,
-      filePath: node.filePath ?? '',
-      label: node.label,
-      text,
-      namesItsAnswer: text.toLowerCase().includes(node.name.toLowerCase()),
-      sameNameElsewhere: (nameToRepos.get(node.name) ?? new Set([node.projectId!])).size,
-    });
-  }
-
-  const sample = derived.filter(
-    (_, position) => position % Math.max(1, Math.floor(derived.length / 400)) === 0,
-  );
+  const derived = deriveQuestions(store);
+  const sample = sampleQuestions(derived);
 
   const engine = new FederatedSearchEngine(store, manager);
 
@@ -257,8 +102,8 @@ async function main(): Promise<void> {
   sample.forEach((question, index) => {
     const row = (byRepo[question.repo] ??= { federated: 0, scoped: 0, n: 0 });
     row.n += 1;
-    if (foundWithin(federated[index]!, CUT)) row.federated += 1;
-    if (foundWithin(scoped[index]!, CUT)) row.scoped += 1;
+    if (foundWithin(federated[index], CUT)) row.federated += 1;
+    if (foundWithin(scoped[index], CUT)) row.scoped += 1;
   });
 
   const artifact = {

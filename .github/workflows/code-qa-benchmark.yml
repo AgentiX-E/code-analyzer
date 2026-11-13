@@ -49,6 +49,15 @@ on:
         required: false
         default: ''
         type: string
+      rerankConcurrency:
+        # **How many completions are in flight, which is the ceiling on how wide a ladder this job can afford.** Three
+        # thousand completions at one in flight took 85 minutes; the work is independent per question, so the only
+        # thing the queue bought was that run's length. **The default stays 1** because every published figure was
+        # measured there, and `rerankCalls` in the artifact records which depth produced it.
+        description: 'Rerank calls in flight at once (default 1, the depth every published figure used)'
+        required: false
+        default: '1'
+        type: string
 
 concurrency:
   group: code-qa-benchmark
@@ -161,6 +170,9 @@ jobs:
           # weekly job measures; a dispatch that names two pays for both arms at both and gets a paired comparison
           # between them rather than two figures a year apart.
           COSQA_RERANK_DEPTHS: ${{ inputs.rerankDepths || '' }}
+          # **The queue depth, recorded in the artifact.** A run that raises it buys wall-clock; the retry inside
+          # `rerankCandidates` is what keeps a 429 from being reported as "the model had no opinion".
+          COSQA_RERANK_CONCURRENCY: ${{ inputs.rerankConcurrency || '1' }}
           # **The fusion weight, which the depth sweep pointed at**: at the collection pool the fused list finds the
           # answer fewer times than either channel alone, so the compromise itself is the suspect.
           COSQA_VECTOR_WEIGHTS: ${{ inputs.vectorWeights || '' }}

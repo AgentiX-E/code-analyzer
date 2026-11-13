@@ -42,6 +42,8 @@
     "scripts/feature-matrix.ts",
     "scripts/cross-repo-matrix.ts",
     "scripts/multirepo-qa.ts",
+    "scripts/multirepo-paraphrase.ts",
+    "scripts/lib/multirepo-harness.ts",
     "scripts/owasp-benchmark.ts",
     "scripts/lca-merge.ts",
     "scripts/lca-instance.ts"

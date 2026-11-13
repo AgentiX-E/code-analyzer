@@ -10,6 +10,7 @@ export { LRUCache } from './utils/lru-cache.js';
 export type { CacheStats } from './utils/lru-cache.js';
 export { globToRegExp, globToRegExpBody, matchesIncludePattern } from './utils/glob.js';
 export { simpleTypeName, stripTypeArguments } from './utils/type-text.js';
+export { mapWithConcurrency } from './utils/concurrency.js';
 export {
   ARTIFACT_WRITE_ENV,
   artifactRecordingEnabled,

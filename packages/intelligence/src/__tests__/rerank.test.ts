@@ -6,14 +6,17 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { LLMRateLimitError } from '../review/llm/provider.js';
 import {
   answerBudget,
   applyOrder,
   describeFailure,
   parseRerankAnswer,
+  rateLimitDelayMs,
   rerankCandidates,
   rerankPrompt,
 } from '../search/rerank.js';
+
 
 import type { LLMProvider } from '../review/llm/provider.js';
 import type { RerankCandidate } from '../search/rerank.js';
@@ -291,5 +294,132 @@ describe('the reranker reports what it was billed rather than what it was expect
     expect(
       (await rerankCandidates('q', [candidate(1, 'only')], describeCandidate, billing('1'))).cost,
     ).toBeUndefined();
+  });
+
+  /**
+   * **A rate limit is not an opinion, and the difference is the whole reason the ladder can be parallelised.**
+   *
+   * The provider refuses to retry a 429 on purpose - it reports what the service said - and `rerankCandidates` used to
+   * fold that into "the fused order is my answer", which is the same output a model that shrugged produces. **A wide
+   * ladder is exactly where that folds into a published figure**: eight questions in flight hit a limit that one in
+   * flight never did, and the arm would be reported as having no effect rather than as having been throttled.
+   */
+  describe('rate limits', () => {
+    /** A provider that refuses `times` times and then answers, **counting the calls it was asked to make**. */
+    function throttled(
+      times: number,
+      answer: string,
+    ): { provider: LLMProvider; calls: () => number } {
+      let made = 0;
+      return {
+        calls: () => made,
+        provider: {
+          name: 'throttled',
+          complete: async () => {
+            made += 1;
+            if (made <= times) throw new LLMRateLimitError('deepseek', '0');
+            return {
+              content: answer,
+              model: 'throttled',
+              createdAt: new Date(0).toISOString(),
+              finishReason: 'stop',
+            };
+          },
+        } as unknown as LLMProvider,
+      };
+    }
+
+    it('asks again after a rate limit and applies the answer it eventually got', async () => {
+      const { provider, calls } = throttled(1, '3 1 2');
+      const result = await rerankCandidates('q', pool, describeCandidate, provider);
+
+      expect(calls()).toBe(2);
+      expect(result.applied).toBe(true);
+      expect(result.rateLimitRetries).toBe(1);
+      expect(result.ordered.map((entry) => entry.rank)).toEqual([3, 1, 2]);
+    });
+
+    it('gives up after the retry budget and says it was throttled rather than uninterested', async () => {
+      const { provider, calls } = throttled(Number.POSITIVE_INFINITY, '1 2 3');
+      const result = await rerankCandidates('q', pool, describeCandidate, provider);
+
+      // **Four calls: the first attempt and three retries**, which is the number the constant states.
+      expect(calls()).toBe(4);
+      expect(result.applied).toBe(false);
+      expect(result.rateLimitRetries).toBe(3);
+      expect(result.reason).toContain('Rate limit exceeded');
+      // **No bill**: a refused request was not answered, so counting one would report a cost nothing bought.
+      expect(result.cost).toBeUndefined();
+    });
+
+    it('honours a Retry-After date that is already in the past without waiting', async () => {
+      // **The header is either seconds or an HTTP date**, providers send both, and a caller that parsed only seconds
+      // would compute `NaN` - which `setTimeout` fires immediately. That is right by accident for a past date and wrong
+      // for a future one, so the test uses a past date and also asserts the wait did not happen.
+      let made = 0;
+      const dated = {
+        name: 'dated',
+        complete: async () => {
+          made += 1;
+          if (made === 1) {
+            throw new LLMRateLimitError('deepseek', new Date(Date.now() - 1000).toUTCString());
+          }
+          return {
+            content: '2 1 3',
+            model: 'dated',
+            createdAt: new Date(0).toISOString(),
+            finishReason: 'stop',
+          };
+        },
+      } as unknown as LLMProvider;
+
+      const startedAt = Date.now();
+      const result = await rerankCandidates('q', pool, describeCandidate, dated);
+
+      expect(Date.now() - startedAt).toBeLessThan(2000);
+      expect(made).toBe(2);
+      expect(result.applied).toBe(true);
+      expect(result.rateLimitRetries).toBe(1);
+    });
+
+    it('turns each Retry-After form into a wait, capped so one search cannot become an hour', async () => {
+      // **The header has two forms and the cap has to survive both.** `3600` is a real value and waiting for it would
+      // hold a search open for an hour, so the arithmetic is tested directly rather than by waiting: the constant is
+      // what keeps a throttled provider degrading to a refused rerank instead of to a hung process.
+      expect(rateLimitDelayMs(new LLMRateLimitError('deepseek', '2'), 0)).toBe(2000);
+      expect(rateLimitDelayMs(new LLMRateLimitError('deepseek', '0'), 0)).toBe(0);
+      expect(rateLimitDelayMs(new LLMRateLimitError('deepseek', '3600'), 0)).toBe(30_000);
+      // **A date in the past is zero rather than a negative timer**, which `setTimeout` would also fire immediately -
+      // correct by accident, and `Math.max` is what makes it correct on purpose.
+      expect(
+        rateLimitDelayMs(
+          new LLMRateLimitError('deepseek', new Date(Date.now() - 5000).toUTCString()),
+          0,
+        ),
+      ).toBe(0);
+      // **An unparseable header falls back to exponential**, which is where the attempt number is used.
+      expect(rateLimitDelayMs(new LLMRateLimitError('deepseek', 'soon'), 0)).toBe(1000);
+      expect(rateLimitDelayMs(new LLMRateLimitError('deepseek', 'soon'), 2)).toBe(4000);
+      // **Absent header, same fallback**: a provider that sent none is a provider that wants a polling client.
+      expect(rateLimitDelayMs(new LLMRateLimitError('deepseek'), 1)).toBe(2000);
+    });
+
+    it('does not retry a failure that a retry cannot fix', async () => {
+      let made = 0;
+      const broken = {
+        name: 'broken',
+        complete: async () => {
+          made += 1;
+          throw new Error('socket hang up');
+        },
+      } as unknown as LLMProvider;
+      const result = await rerankCandidates('q', pool, describeCandidate, broken);
+
+      expect(made).toBe(1);
+      expect(result.reason).toContain('socket hang up');
+      // **Absent rather than zero**: a call that was never throttled has no retry count, and a `0` would be a claim
+      // about a run that did not happen.
+      expect(result.rateLimitRetries).toBeUndefined();
+    });
   });
 });

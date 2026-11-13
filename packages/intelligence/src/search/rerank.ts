@@ -20,6 +20,8 @@
 // 2. **A failure returns the input.** No provider, a timeout, or an answer that parses to nothing leaves the fused
 //    order exactly as it was, and says so.
 
+import { LLMRateLimitError } from '../review/llm/provider.js';
+
 import type { LLMTokenUsage } from '../review/llm/cost.js';
 import type { LLMProvider } from '../review/llm/provider.js';
 
@@ -46,6 +48,15 @@ export interface RerankResult<T extends { rank: number }> {
   reason?: string;
   /** The raw answer, kept for a reader debugging a prompt rather than a score. */
   answer?: string;
+  /**
+   * **How many times the provider said "slow down" before this call got through.**
+   *
+   * A rate limit is not a reranker's opinion, and it is the one failure a retry can turn into a real answer. It is
+   * reported rather than hidden because **a ladder that ran with a queue of one never saw one, and a ladder that runs
+   * eight at a time may** - a reader comparing two runs needs to know whether the fast one was answered or throttled,
+   * and `reason` alone cannot say that for a call that eventually succeeded.
+   */
+  rateLimitRetries?: number;
   /**
    * **What the call was billed, when a call was made.**
    *
@@ -119,6 +130,45 @@ export function answerBudget(count: number): number {
 }
 
 /**
+ * **How many times a rate-limited call is asked again.**
+ *
+ * Three, because a limit that survives three backoffs is a service that is down for this caller rather than busy, and a
+ * rerank that waits longer than this is a search that hangs. **The number is bounded by the search's own timeout**: the
+ * worst case here is 1 + 2 + 4 seconds of waiting plus four timeouts, and a caller that passed a 60 s timeout still gets
+ * an answer it can act on.
+ */
+const RATE_LIMIT_RETRIES = 3;
+
+/** The longest a single backoff may be, so a provider's `Retry-After: 3600` cannot turn one search into an hour. */
+const RETRY_DELAY_CAP_MS = 30_000;
+
+/** `setTimeout` as a promise, **the one effect the retry has that a test cannot observe by reading a value**. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * How long to wait before asking a rate-limited call again.
+ *
+ * **`Retry-After` is honoured when it is usable and ignored when it is not**: the header is either a number of seconds
+ * or an HTTP date, providers send both, and a caller that parsed only the first would wait for a parsed `NaN` - which
+ * `setTimeout` treats as zero, turning a courtesy into a hammer.
+ */
+export function rateLimitDelayMs(error: LLMRateLimitError, attempt: number): number {
+  const header = error.retryAfter;
+  if (header !== undefined && header.trim() !== '') {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(seconds * 1000, RETRY_DELAY_CAP_MS);
+    }
+    const at = Date.parse(header);
+    if (Number.isFinite(at)) return Math.max(0, Math.min(at - Date.now(), RETRY_DELAY_CAP_MS));
+  }
+  // **Exponential from one second**, which is the interval a single client is expected to back off by.
+  return Math.min(1000 * 2 ** attempt, RETRY_DELAY_CAP_MS);
+}
+
+/**
  * The order the model asked for, restricted to what the list can honour.
  *
  * **The parse is the safety boundary**, so it accepts the shapes a model actually produces - `3 1 2`, `3, 1, 2`,
@@ -188,35 +238,61 @@ export async function rerankCandidates<T extends { rank: number }>(
 
   let answer: string;
   let cost: RerankCost;
+  let rateLimitRetries = 0;
+  const prompt = rerankPrompt(question, candidates.map(toCandidate));
   try {
-    const completion = await provider.complete(
-      rerankPrompt(question, candidates.map(toCandidate)),
-      {
-        // **Derived from the pool, not declared**: see `answerBudget`.
-        maxTokens: options.maxTokens ?? answerBudget(candidates.length),
-        temperature: 0,
-        // **One tag for the whole ranker**, so the ledger can say whether ordering the answer costs more than answering
-        // it - a question this product could not ask before, and the one that decides whether the reranker ships on.
-        tag: 'search:rerank',
-        ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
-      },
-    );
-    answer = completion.content;
-    // **The bill, carried out of the call rather than estimated outside it.** `costUsd` is absent for a model the price
-    // table does not know, and it stays absent: a measured zero and an unknown price are different facts.
-    cost = {
-      model: completion.model,
-      ...(completion.usage ? { usage: completion.usage } : {}),
-      ...(completion.costUsd === undefined ? {} : { usd: completion.costUsd }),
-    };
+    /**
+     * **A rate limit is retried, and every other failure is not.**
+     *
+     * `DeepSeekProvider` deliberately does not retry a 429: the provider's job is to say what the service said, and the
+     * caller's is to decide what that means. **For a reranker it means "ask again", not "the fused order is my
+     * answer"** - the second reading is indistinguishable from a model that had no opinion, so a run that was throttled
+     * would publish a reranker's contribution as zero. It became load-bearing when the ladder was given a queue: three
+     * thousand completions at one in flight never saw the limit, and eight in flight will.
+     */
+    for (;;) {
+      try {
+        const completion = await provider.complete(prompt, {
+          // **Derived from the pool, not declared**: see `answerBudget`.
+          maxTokens: options.maxTokens ?? answerBudget(candidates.length),
+          temperature: 0,
+          // **One tag for the whole ranker**, so the ledger can say whether ordering the answer costs more than answering
+          // it - a question this product could not ask before, and the one that decides whether the reranker ships on.
+          tag: 'search:rerank',
+          ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
+        });
+        answer = completion.content;
+        // **The bill, carried out of the call rather than estimated outside it.** `costUsd` is absent for a model the price
+        // table does not know, and it stays absent: a measured zero and an unknown price are different facts.
+        cost = {
+          model: completion.model,
+          ...(completion.usage ? { usage: completion.usage } : {}),
+          ...(completion.costUsd === undefined ? {} : { usd: completion.costUsd }),
+        };
+        break;
+      } catch (error) {
+        if (error instanceof LLMRateLimitError && rateLimitRetries < RATE_LIMIT_RETRIES) {
+          rateLimitRetries += 1;
+          await sleep(rateLimitDelayMs(error, rateLimitRetries - 1));
+          continue;
+        }
+        throw error;
+      }
+    }
   } catch (error) {
     // **A rerank that fails must not fail the search**: the fused order is a valid answer, and the caller keeps it.
     return {
       ordered: candidates,
       applied: false,
       reason: `rerank failed: ${describeFailure(error)}`,
+      ...(rateLimitRetries > 0 ? { rateLimitRetries } : {}),
     };
   }
+
+  // **Carried out of the loop on every path that made a call**, because a reader comparing a fast run with a slow one
+  // needs to know whether the fast one was answered or waited out - and the successful path is the one where `reason`
+  // cannot say it.
+  const retried = rateLimitRetries > 0 ? { rateLimitRetries } : {};
 
   const order = parseRerankAnswer(answer, candidates.length);
   if (order.length === 0) {
@@ -228,6 +304,7 @@ export async function rerankCandidates<T extends { rank: number }>(
       // **A call that was billed and answered nothing is still a bill**, and a ledger that dropped it would report the
       // cheapest arm as the one whose prompts the model ignored.
       cost,
+      ...retried,
     };
   }
   const ordered = applyOrder(candidates, order);
@@ -238,5 +315,6 @@ export async function rerankCandidates<T extends { rank: number }>(
     ...(applied ? {} : { reason: 'the answer kept the fused order' }),
     answer,
     cost,
+    ...retried,
   };
 }
