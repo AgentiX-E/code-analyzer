@@ -2862,3 +2862,132 @@ correct.
 distribution over 719 questions in this repository; the separation is 98.6 % there and unmeasured anywhere else. The
 gates in the three suites are what keep that honest: a corpus where the classifier fires the wrong way fails a test
 rather than a report, and the two columns in 30.3 are what a reader compares before moving either cut.
+
+## 31. The classifier's advantage is real at fusion and gone after the reranker, and both statements now carry a p-value
+
+**§30.5 ended with a sentence that was not a result**: the post-rerank difference of 0.0054 was "inside the band", where
+the band was a run-to-run wobble of 0.0085 measured by re-running one arm. A band is not a test. This section replaces
+it with two tests that are, publishes the columns they read, and answers §30.5's registered question — *does a deeper
+pool change the post-rerank gap* — with a measurement rather than a second run.
+
+Everything below is one job (`43352844317`), `pool=all` (6 295 functions, 500 questions), `space=api/api`,
+`sweep=50,100`, `rerankDepths=50,100`, both arms reranked at both depths **on the same questions in the same run**.
+
+### 31.1 Four instruments had to be built before any of it could be believed
+
+| what was wrong                                                                | what replaced it                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "the difference is inside the band" (a wobble, not a test)                     | `search/paired-stats.ts`: exact McNemar on the per-question hits, seeded paired bootstrap on the per-question reciprocals. **Resolution is now explicit**: six one-sided discordant questions is p = 0.03125, five is a coin. |
+| an aggregate nobody could recompute                                            | `perQuestion` columns in the artifact — four rank lists, the derived weights and the evidences, encoded as comma strings and decoded by `decodeRanks`. **The gate asserts each column reproduces the aggregate printed beside it.** |
+| every cost figure was `average × 500`                                          | `RerankResult.cost` carries the vendor's own tokens and the price table's arithmetic; `rerankCost[depth][arm]` is the sum of the calls. An unpriced model stays **unpriced**, not free. |
+| `RETRIEVAL_DEPTH` covered the sweep and the arm but **not the rerank depths**  | `retrievalDepth()` takes the maximum of all three. The defect it removes is silent: a hundred-deep rerank slicing a fifty-deep list reports the wider pool as worth nothing. |
+
+### 31.2 At fusion the classifier is worth 0.051 MRR, and that is now a verdict
+
+| arm                         | R@1   | R@10  | MRR@10    | found@10 |
+| --------------------------- | ----: | ----: | --------: | -------: |
+| lexical only                | 0.160 | 0.412 |    0.2367 |      206 |
+| fused, constant weight 1    | 0.278 | 0.644 |    0.3872 |      322 |
+| fused, derived weight       | 0.316 | 0.698 | **0.4382** |  **349** |
+
+Paired on the same 500 questions: **MRR +0.0510, 95 % interval [0.0324, 0.0677]**, found@10 **39 rescued against 12
+lost**, exact McNemar **p = 0.000198**. The interval excludes zero, and its lower bound is 63 % of the estimate it brackets; the discordant counts are 3:1 in
+the classifier's favour and the exact test puts p at two in ten thousand. **This is the first result in this document that a reviewer cannot attribute to the
+instrument**, and it is the measurement §29 asked for.
+
+The split on this corpus is `0 / 33 / 467`: **the lexical bound never fires**, because no CoSQA question has 80 % of its
+terms in the best hit's own name, signature or doc comment (`selfEvidence` p90 is 0.50). On this corpus the classifier is
+therefore a two-way switch between *neutral* and *semantic*, and the confident branch that §30 designed is exercised only
+by the doc-comment corpus. Recorded here because a branch a corpus never reaches is a branch a corpus never tests.
+
+### 31.3 After the reranker reads the candidates the two arms are identical, and "inside the band" was too weak a way to say it
+
+| arm                            | R@1   | R@10  | MRR@10    | found@10 | reordered | rescued | lost |
+| ------------------------------ | ----: | ----: | --------: | -------: | --------: | ------: | ---: |
+| reranked, constant weight      | 0.468 | 0.776 |    0.5699 |      388 |       495 |      82 |   16 |
+| reranked, derived weight       | 0.468 | 0.776 |    0.5665 |      388 |       497 |      63 |   24 |
+
+Paired: **MRR −0.0034, 95 % interval [−0.0254, 0.0172]**, found@10 **26 against 26**, exact McNemar **p = 1**. The
+interval is twelve times wider than the effect it brackets, and the discordant counts are not merely "not significant" —
+they are **exactly balanced**, which is what a difference of zero looks like when the same model answers the same
+questions twice with two different inputs.
+
+**Where the classifier's advantage went**, counted one question at a time rather than inferred:
+
+| of the 39 the classifier rescued at fusion | count |
+| ------------------------------------------ | ----: |
+| the reranker keeps it in **both** arms      |    30 |
+| only the derived arm keeps it               |     3 |
+| only the constant arm keeps it              |     2 |
+| neither arm keeps it                        |     4 |
+
+| of the 12 the classifier dropped at fusion  | count |
+| ------------------------------------------- | ----: |
+| both arms still find it                     |     7 |
+
+So **33 of the 39 survive, and the 12 losses are mostly repaired**: the net becomes 26 : 26. The mechanism is not noise.
+The classifier's job is to guess **which channel to trust before reading the candidates**; the reranker reads the bodies
+of the top fifty and so does not have to guess. **One is a substitute for the other, not a complement**, and the number
+that says so is that the classifier's +27 net at fusion becomes 0 when a model is allowed to look.
+
+This is a product statement, not a laboratory one, and both configurations ship: `search()` without a reranker keeps
+**+0.051 MRR** from the classifier at zero marginal cost, and the reranked path keeps nothing from it. What the reranked
+path keeps, measured in the same run: **MRR 0.4382 → 0.5665 (+0.128) and found@10 349 → 388 (+39)** for 0.42 USD per
+500 questions (§31.5). The two levers are ~2.5× apart in size and only one of them costs money.
+
+### 31.4 §30.5's registered question, answered: the pool does not move the gap, and doubling it buys nothing
+
+| rerank depth | arm      | R@10  | MRR@10    | found@10 | prompt tokens | USD (500 q) |
+| -----------: | -------- | ----: | --------: | -------: | ------------: | ----------: |
+|           50 | constant | 0.776 |    0.5699 |      388 |     1 749 316 |    0.609248 |
+|           50 | derived  | 0.776 |    0.5665 |      388 |     1 216 033 |    0.418486 |
+|          100 | constant | 0.792 |    0.5641 |      396 |     3 359 827 |    1.098569 |
+|          100 | derived  | 0.772 |    0.5612 |      386 |     2 344 737 |    0.725712 |
+
+Paired, 100 against 50, **within each arm**: constant **found 396 vs 388, onlyA 26 onlyB 18, p = 0.291**, MRR −0.0058
+[−0.0225, 0.0111]; derived **386 vs 388, p = 0.885**, MRR −0.0053 [−0.0209, 0.0099]. **Nothing at a hundred is
+distinguishable from fifty, in either arm, in either direction**, and the bill is **1.7–1.8×**. The registered question is
+therefore closed: *the post-rerank gap does not flip with depth, because at these widths there is no gap to flip.*
+
+Two things follow, and both are cheaper than the run that produced them:
+
+- **Depth 50 stays the default.** A wider pool is a 73–80 % larger bill for a difference the test cannot see.
+- **The interesting direction is downward, and it is now dispatched** (`43364553771`, `rerankDepths=10,25,50`). Depth is
+  the only cost knob with a known ceiling: at depth 10 the reranker can only reorder what fusion already found, so
+  `found@10 ≤ 349` **by construction** and the arm measures pure reordering. The distance from there to 388 is what
+  *widening* buys, and the cheapest depth that reaches the plateau is the product's default.
+
+The free columns carry a warning about depth as well: **fused at 100 is worse than fused at 50** (312 found against 322,
+MRR 0.3853 against 0.3872). A deeper merge lets the weaker channel contribute more entries to the same length of list,
+which is what a constant weight does when nobody is choosing — the same defect §30 fixed for questions, arriving through
+the depth instead.
+
+### 31.5 What the run cost, summed from the calls rather than estimated
+
+**2.852 USD** for four rerank arms over 500 questions (0.418 + 0.609 + 0.726 + 1.099), **8 669 913 prompt tokens and
+414 889 completion tokens**, 2 000 completions, **0 unpriced calls**. Per question at the shipping configuration:
+**0.00084 USD** (0.084 ¢), or **0.0066 USD per question rescued into the top ten** (0.42 USD over 63 rescues).
+
+One observation that is not a claim: **the derived arm's prompts were 30 % cheaper than the constant arm's at the same
+width and the same question count** (1.22 M against 1.75 M prompt tokens at depth 50). The two fusions return different
+*files* in their fifty slots — a weight changes which channel's entries survive — and excerpt cost follows the files.
+Whether the classifier systematically promotes terser documentation is unmeasured, so it is written as an observation
+with a candidate explanation rather than as a saving.
+
+### 31.6 Three things this section does not claim
+
+**The absolute figures move between runs, and the paired ones do not have to.** The constant arm measured **395**
+found@10 in `43340541442` and **388** here, same configuration, same corpus, same model name. Everything in 31.2–31.4 is
+computed **inside one run**, which is why the sections above can publish a difference of 0.0034 with an interval: the
+embedding endpoint is not a function, so a comparison across runs inherits a variance that no test in this file can
+bound. **A figure without a run id is a figure this document no longer publishes.**
+
+**The depth-100 arms were not tested against each other.** The artifact published the arm contrast at the arm's own
+depth only, so "is derived better than constant at depth 100" is a question the run cannot answer. The artifact now
+carries the same exact and bootstrapped verdicts at **every** depth it prints (`rerankByDepth[d].paired`, recomputed in
+the gate from the columns beside it), and the dispatched ladder will populate it.
+
+**`+0.051` is a CoSQA figure.** It is the corpus the classifier was calibrated on, which is exactly the corpus where a
+threshold-calibrated rule looks best. The doc-comment and paraphrase corpora in §30.3 are the counterweight — 0.9794
+against 0.9711 on 219 questions, and a wash on 99 — and neither is large enough to give the CI that CoSQA just got. **The
+classifier's headroom claim is one corpus deep**, which is the honest state of it.
