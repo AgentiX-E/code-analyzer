@@ -463,7 +463,6 @@
     "tree-sitter-sql": "^0.1.0",
     "tree-sitter-swift": "^0.7.1",
     "tree-sitter-typescript": "^0.21.0",
-    "tree-sitter-yaml": "^0.5.0",
     "tree-sitter-zig": "^0.2.0",
     "@eagleoutice/tree-sitter-r": "^1.1.2",
     "@tree-sitter-grammars/tree-sitter-hcl": "^1.2.0",

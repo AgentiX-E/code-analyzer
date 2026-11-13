@@ -61,7 +61,6 @@ const treeSitter = [
   'tree-sitter-sql',
   'tree-sitter-swift',
   'tree-sitter-typescript',
-  'tree-sitter-yaml',
   'tree-sitter-zig',
   '@eagleoutice/tree-sitter-r',
   '@tree-sitter-grammars/tree-sitter-hcl',

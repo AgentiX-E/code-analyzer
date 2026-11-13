@@ -182,7 +182,15 @@ const GRAMMAR_PACKAGES: Record<string, string> = {
   csharp: 'tree-sitter-c-sharp',
   swift: 'tree-sitter-swift',
   json: 'tree-sitter-json',
-  yaml: 'tree-sitter-yaml',
+  // **YAML is deliberately absent**, and it was absent in effect before it was absent in fact: the entry pointed at
+  // `tree-sitter-yaml@0.5.0`, whose 2020 binding predates the `Language` ABI tree-sitter 0.25 requires, so
+  // `Parser#setLanguage` threw and every YAML file in this repository was extracted by the regex fallback below. The
+  // maintained grammar (`@tree-sitter-grammars/tree-sitter-yaml@0.7.1`) does produce a `Language` - measured this
+  // iteration on Node 22.23.4, where the old one fails to compile at all - but `walkTsTree` recognises none of YAML's
+  // node types, so pointing the map at it would set `hasAst` true and hand the rules five empty arrays **where the
+  // fallback now finds the quoted scalars a secret rule reads** (`host: "prod-db.internal"` is two of them, asserted in
+  // `__tests__/yaml-rule-fallback.test.ts`): a working extraction traded for a silent one. Re-adding the entry is a change to the walker with
+  // a measurement attached, not a dependency bump.
   toml: 'tree-sitter-toml',
   sql: 'tree-sitter-sql',
   bash: 'tree-sitter-bash',

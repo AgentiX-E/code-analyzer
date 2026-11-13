@@ -1,9 +1,16 @@
 // @code-analyzer/analyzer — YAML Provider (regex-based parser)
 //
-// A pure regex provider (no tree-sitter): the `tree-sitter-yaml` package only
-// ships `nodeTypeInfo` metadata (no compiled `Language` object), so a
-// tree-sitter path is unreachable dead code. The regex parser below handles
-// mappings, sequences, anchors/aliases, block scalars, and config-secret taint
+// A pure regex provider (no tree-sitter). The reason used to be structural:
+// `tree-sitter-yaml@0.5.0` is a 2020 grammar whose binding predates the
+// `Language` ABI tree-sitter 0.25 requires, so `Parser#setLanguage` rejected it
+// and this parser was the only reachable path. Iteration 132 measured the
+// maintained grammar (`@tree-sitter-grammars/tree-sitter-yaml@0.7.1`): it does
+// produce a `Language` - and the old package does not even compile against Node
+// 22.23.4, which the repository pins - but the rule engine's capture walker
+// recognises none of YAML's node types, so a syntax-tree path would set
+// `hasAst` and return nothing where this parser finds the quoted scalars a
+// secret rule reads. The regex parser below therefore stays, and it handles
+// mappings, sequences, anchors/aliases, block scalars and config-secret taint
 // detection.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
