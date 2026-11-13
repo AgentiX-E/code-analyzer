@@ -10,7 +10,7 @@
 // variable each one exists to measure.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { InMemoryGraphStore } from '../../packages/infra/src/index.js';
@@ -67,14 +67,27 @@ export function repoName(id: string): string {
   return id.slice(id.lastIndexOf('/') + 1);
 }
 
-/** Download and unpack one pinned commit, once. **The commit is the pin**: a branch would make two runs two corpora. */
+/**
+ * Download and unpack one pinned commit, once. **The commit is the pin**: a branch would make two runs two corpora.
+ *
+ * **The cache is keyed by the commit, not by the directory's existence.** It used to be `existsSync(marker)`, which
+ * answers "a checkout was unpacked here once" - so changing a pin in the corpus file left the previous commit's files in
+ * place and the next run measured a corpus that no longer matched the one the artifact names. The marker is read and
+ * compared instead, and a mismatch unpacks over the top.
+ *
+ * A caller may pass a cache that is shared between concurrent jobs on one machine; the unpack is therefore done into a
+ * directory named after the commit and moved into place, so two runs of two different pins cannot interleave inside one
+ * tree.
+ */
 export function materialise(repo: CorpusRepository, cache: string): string {
-  const dir = join(cache, repoName(repo.id));
+  const name = repoName(repo.id);
+  const dir = join(cache, name);
   const marker = join(dir, '.complete');
-  if (existsSync(marker)) return dir;
 
-  mkdirSync(dir, { recursive: true });
-  const tarball = join(cache, `${repoName(repo.id)}.tar.gz`);
+  if (cachedCommit(marker) === repo.sha) return dir;
+
+  mkdirSync(cache, { recursive: true });
+  const tarball = join(cache, `${name}-${repo.sha}.tar.gz`);
   execFileSync('curl', [
     '-sSL',
     '--max-time',
@@ -83,9 +96,27 @@ export function materialise(repo: CorpusRepository, cache: string): string {
     tarball,
     `https://codeload.github.com/${repo.id}/tar.gz/${repo.sha}`,
   ]);
-  execFileSync('tar', ['-xzf', tarball, '-C', dir, '--strip-components=1']);
-  writeFileSync(marker, repo.sha, 'utf8');
+
+  // **Unpack beside the target and rename into place.** A half-written tree under the final name would be read as a
+  // complete checkout by the next caller, and `rename` is the one step that cannot be observed half-done.
+  const staging = `${dir}.${repo.sha}.unpacking`;
+  rmSync(staging, { recursive: true, force: true });
+  mkdirSync(staging, { recursive: true });
+  execFileSync('tar', ['-xzf', tarball, '-C', staging, '--strip-components=1']);
+  writeFileSync(join(staging, '.complete'), repo.sha, 'utf8');
+
+  rmSync(dir, { recursive: true, force: true });
+  renameSync(staging, dir);
   return dir;
+}
+
+/** The commit a cache directory was unpacked from, or `null` when there is no readable marker. */
+function cachedCommit(marker: string): string | null {
+  try {
+    return readFileSync(marker, 'utf8').trim();
+  } catch {
+    return null;
+  }
 }
 
 /**
