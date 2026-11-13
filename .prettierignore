@@ -40,3 +40,12 @@ benchmarks/agentic-permissions.json
 # committed file differ from the file the workflow uploaded. The same rule as the two artifacts above: **the harness's
 # output is the artifact, and Prettier is not a second author of it.**
 benchmarks/aacr-bench.json
+
+# **The same rule for the cross-repository measurement, and it is the reason the rule exists.** Both files are written
+# by `scripts/multirepo-qa.ts` and `scripts/multirepo-paraphrase.ts` with `JSON.stringify(…, null, 2)`, and those are the
+# exact bytes the workflow uploads as its artifact - so a formatter that collapsed `"mrrInterval": [0, 0]` onto one line
+# would make the committed file differ from the measured one, in fourteen lines, for no reason a reader of either could
+# state. **The harness's output is the artifact, and Prettier is not a second author of it.** Verified: the only
+# difference Prettier finds in either file is array layout.
+benchmarks/multirepo-qa.json
+benchmarks/multirepo-qa-paraphrase.json
