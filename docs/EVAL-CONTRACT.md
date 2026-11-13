@@ -3498,3 +3498,27 @@ and −0.7144. So:
 corpus, the questions and both channels are in the repository. The artifacts are
 `benchmarks/multirepo-qa.json` (`2026-11-13T12:49:38Z`) and `benchmarks/multirepo-qa-paraphrase.json`
 (`2026-11-13T12:51:00Z`), and both carry the per-question columns the paired tests are computed from.
+
+### 37.7 The same defect had a second instance, in the surface a user actually calls
+
+`FederatedSearchEngine` is not the only thing that searched across repositories. **`cross_repo_search` — the MCP tool —
+did not call it.** It called `store.searchFts` itself, applied `repos` and `groupId` to the rows that came back, and
+reported `rank / 10` as a relevance. That is the same two defects the engine was just repaired for, in a second
+implementation that nothing in the measurement touched: the containment channel, and a scope applied to a page.
+
+**So the 0.8010 was true of the harness and not of the product**, which is the failure mode this document exists to
+catch. The tool now calls `ctx.getFederatedSearch().search()` with the scope resolved before the ranking, and two
+properties are asserted from outside: the first item's relevance is exactly `1` (it is relative to its own list, where
+the old value was a raw rank), and no `File` node is ever an answer (the candidate set is declarations).
+
+**`groupId` is turned into a `repoFilter` at that boundary rather than passed through**, because the groups this surface
+registers live in a module-scoped manager and the engine holds the context's own. Naming the repositories keeps one
+meaning for the word across the two, and the alternative — a group id that resolves against a manager the tool never
+wrote to — would answer nothing.
+
+**Six other call sites still use `searchFts`** and are registered here rather than repaired: the CLI's `search`
+command, two GraphQL resolvers, and three lookups inside the MCP exploration tools. Two of those three are
+name lookups (`searchFts(symbolName, { limit: 1 })`), which is the one question containment scoring answers well; the
+CLI and the GraphQL field are general queries and carry the measured defect. **The cost is now a number instead of an
+opinion: 173 against 358 on 447 rewritten questions**, and the next iteration that touches either surface has the
+comparison to justify itself.

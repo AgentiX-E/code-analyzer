@@ -54,6 +54,16 @@ export interface RepoScopeResolver {
 export interface FederatedSearchItem {
   repo: string;
   symbol: string;
+  /**
+   * **The identity a caller needs in order to ask a second question about the hit.**
+   *
+   * A search result is the beginning of a conversation - the next call is "who references this" or "show me the file" -
+   * and both of those are keyed by the qualified name. It is carried here because a surface that had to look it up
+   * again would be a second implementation of the ranking's own output.
+   */
+  qualifiedName: string;
+  /** The label the node carries, so a surface can render a declaration differently from a file. */
+  label: string;
   filePath: string;
   line: number;
   snippet: string;
@@ -227,6 +237,8 @@ export class FederatedSearchEngine {
       return {
         repo,
         symbol: hit.node.name,
+        qualifiedName: hit.node.qualifiedName,
+        label: hit.node.label,
         filePath: hit.node.filePath ?? '',
         line: hit.node.startLine ?? 0,
         snippet: snippetOf(hit.node),

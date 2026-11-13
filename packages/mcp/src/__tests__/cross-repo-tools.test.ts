@@ -294,6 +294,25 @@ describe('crossRepoSearch', () => {
     expect(data.reposSearched).toBeDefined();
   });
 
+  // **What this surface answers with, now that it ranks through the engine rather than the store's containment match.**
+  //
+  // Two properties of the ranking are visible from outside and neither was true of the previous implementation: the
+  // relevance of the first item is exactly one (it is the answer relative to the best answer in its own list, where the
+  // old channel reported a raw rank divided by ten), and a file node is never the answer (the engine's candidate set is
+  // declarations, where the old channel returned whatever contained the word).
+  it('answers with a declaration, ordered by a relevance anchored at its own best answer', async () => {
+    const result = await registry.execute('cross_repo_search', { query: 'alpha' }, ctx);
+
+    const data = JSON.parse(result.content[0]!.text!) as {
+      items: Array<{ relevance: number; label: string; qualifiedName: string }>;
+    };
+    expect(data.items[0]!.relevance).toBe(1);
+    for (const item of data.items) {
+      expect(item.label).not.toBe('File');
+      expect(typeof item.qualifiedName).toBe('string');
+    }
+  });
+
   it('should return empty results without store', async () => {
     const result = await registry.execute('cross_repo_search', {
       query: 'anything',
