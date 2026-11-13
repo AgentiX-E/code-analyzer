@@ -1,0 +1,929 @@
+{
+  "comment": [
+    "The same symbols, asked twice: once as the doc comment reads and once as a model rewrote it.",
+    "",
+    "Both conditions are measured in one run over one index, so the difference between them is the wording of the",
+    "question and not the corpus, the embedding backend or the engine. Every aggregate can be recomputed from",
+    "`perQuestion`, and a test does recompute them."
+  ],
+  "measuredAt": "2026-11-13T16:25:30.068Z",
+  "cut": 10,
+  "depth": 10,
+  "model": "replayed",
+  "prompt": "multirepo-paraphrase-v1",
+  "index": {
+    "groupId": "multirepo-qa",
+    "reposIndexed": 4,
+    "totalNodes": 12659,
+    "totalEdges": 741,
+    "crossRepoEdges": 20,
+    "contracts": 0,
+    "duration": 21541,
+    "errors": [],
+    "edgesByType": {
+      "CROSS_REPO_IMPORTS": 20,
+      "IMPORTS": 721
+    },
+    "durationMs": 21541
+  },
+  "space": {
+    "index": "api",
+    "query": "api",
+    "model": "embedding-3",
+    "reason": null,
+    "vectors": 12072,
+    "embedMs": 335824
+  },
+  "corpus": [
+    {
+      "id": "pallets/flask",
+      "sha": "49943b5a94413a530761350f04e896f76e8d620e",
+      "language": "python",
+      "role": "web framework, docstring-heavy"
+    },
+    {
+      "id": "expressjs/express",
+      "sha": "43fca52d28a422c8be48fd489cbd4f2d6152bab6",
+      "language": "javascript",
+      "role": "web framework, JSDoc"
+    },
+    {
+      "id": "sindresorhus/got",
+      "sha": "6b5aafc1cd538998728be6f45c65b0f80bae01b2",
+      "language": "typescript",
+      "role": "typed HTTP client, JSDoc with tags"
+    },
+    {
+      "id": "google/gson",
+      "sha": "a961b0fe088f8558d00cc1b56e506a3656907a91",
+      "language": "java",
+      "role": "serialization library, Javadoc"
+    }
+  ],
+  "questions": {
+    "sampled": 494,
+    "generated": 494,
+    "accepted": 454,
+    "rejected": 40,
+    "namesItsAnswer": 0
+  },
+  "conditions": {
+    "verbatimFederated": {
+      "n": 454,
+      "found": 451,
+      "r1": 0.8458,
+      "mrr": 0.9061
+    },
+    "verbatimScoped": {
+      "n": 454,
+      "found": 454,
+      "r1": 0.8524,
+      "mrr": 0.9126
+    },
+    "paraphraseFederated": {
+      "n": 454,
+      "found": 360,
+      "r1": 0.533,
+      "mrr": 0.6299
+    },
+    "paraphraseScoped": {
+      "n": 454,
+      "found": 374,
+      "r1": 0.5551,
+      "mrr": 0.656
+    },
+    "semanticParaphrase": {
+      "n": 454,
+      "found": 295,
+      "r1": 0.4736,
+      "mrr": 0.5342
+    },
+    "semanticParaphraseScoped": {
+      "n": 454,
+      "found": 296,
+      "r1": 0.4802,
+      "mrr": 0.5426
+    },
+    "semanticVerbatim": {
+      "n": 454,
+      "found": 452,
+      "r1": 0.848,
+      "mrr": 0.9105
+    }
+  },
+  "paired": {
+    "paraphrase-vs-verbatim-federated": {
+      "queries": 454,
+      "deltaMrr": -0.2761992168379833,
+      "mrrInterval": [
+        -0.31448063072512417,
+        -0.23741434165442976
+      ],
+      "foundA": 360,
+      "foundB": 451,
+      "onlyA": 1,
+      "onlyB": 92,
+      "pValue": 1.8983148823238382e-26,
+      "distinguishable": true,
+      "cut": 10
+    },
+    "paraphrase-vs-verbatim-scoped": {
+      "queries": 454,
+      "deltaMrr": -0.2565895741556535,
+      "mrrInterval": [
+        -0.29646003775959734,
+        -0.21943832599118943
+      ],
+      "foundA": 374,
+      "foundB": 454,
+      "onlyA": 0,
+      "onlyB": 80,
+      "pValue": 1.6543612251060553e-24,
+      "distinguishable": true,
+      "cut": 10
+    },
+    "paraphrase-scoped-vs-federated": {
+      "queries": 454,
+      "deltaMrr": 0.02612579539892315,
+      "mrrInterval": [
+        0.01672959932871828,
+        0.03736539402838961
+      ],
+      "foundA": 374,
+      "foundB": 360,
+      "onlyA": 14,
+      "onlyB": 0,
+      "pValue": 0.00012207031250000005,
+      "distinguishable": true,
+      "cut": 10
+    },
+    "verbatim-scoped-vs-federated": {
+      "queries": 454,
+      "deltaMrr": 0.0065161527165932456,
+      "mrrInterval": [
+        0.0022026431718061676,
+        0.01220631424375918
+      ],
+      "foundA": 454,
+      "foundB": 451,
+      "onlyA": 3,
+      "onlyB": 0,
+      "pValue": 0.25000000000000006,
+      "distinguishable": false,
+      "cut": 10
+    },
+    "semantic-vs-lexical-paraphrase": {
+      "queries": 454,
+      "deltaMrr": -0.0956471575414307,
+      "mrrInterval": [
+        -0.13915373050835605,
+        -0.05201384518565133
+      ],
+      "foundA": 295,
+      "foundB": 360,
+      "onlyA": 21,
+      "onlyB": 86,
+      "pValue": 1.6010060804361686e-10,
+      "distinguishable": true,
+      "cut": 10
+    },
+    "semantic-vs-lexical-verbatim": {
+      "queries": 454,
+      "deltaMrr": 0.004405286343612335,
+      "mrrInterval": [
+        -0.0072241451646738,
+        0.016296937277113493
+      ],
+      "foundA": 452,
+      "foundB": 451,
+      "onlyA": 2,
+      "onlyB": 1,
+      "pValue": 1,
+      "distinguishable": false,
+      "cut": 10
+    },
+    "semantic-scoped-vs-federated-paraphrase": {
+      "queries": 454,
+      "deltaMrr": 0.008364799664359142,
+      "mrrInterval": [
+        -0.000555905181455842,
+        0.018182294944409483
+      ],
+      "foundA": 296,
+      "foundB": 295,
+      "onlyA": 2,
+      "onlyB": 1,
+      "pValue": 1,
+      "distinguishable": false,
+      "cut": 10
+    }
+  },
+  "perQuestion": {
+    "keys": [
+      "expressjs/express#project:expressjs/express:examples/view-constructor/github-view.js:GithubView",
+      "expressjs/express#project:expressjs/express:lib/application.js:disable",
+      "expressjs/express#project:expressjs/express:lib/application.js:enabled",
+      "expressjs/express#project:expressjs/express:lib/application.js:init",
+      "expressjs/express#project:expressjs/express:lib/request.js:accepts",
+      "expressjs/express#project:expressjs/express:lib/request.js:acceptsLanguages",
+      "expressjs/express#project:expressjs/express:lib/response.js:clearCookie",
+      "expressjs/express#project:expressjs/express:lib/response.js:format",
+      "expressjs/express#project:expressjs/express:lib/response.js:jsonp",
+      "expressjs/express#project:expressjs/express:lib/response.js:redirect",
+      "expressjs/express#project:expressjs/express:lib/response.js:sendFile",
+      "expressjs/express#project:expressjs/express:lib/response.js:stringify",
+      "expressjs/express#project:expressjs/express:lib/utils.js:compileETag",
+      "expressjs/express#project:expressjs/express:lib/utils.js:createETagGenerator",
+      "expressjs/express#project:expressjs/express:lib/utils.js:parseExtendedQueryString",
+      "expressjs/express#project:expressjs/express:lib/view.js:render",
+      "expressjs/express#project:expressjs/express:test/support/utils.js:shouldHaveHeader",
+      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/interceptors/InterceptorFactory.java:InterceptorFactory",
+      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/PostConstructAdapterFactory.java:PostConstructAdapterFactory",
+      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/RuntimeTypeAdapterFactory.java:registerSubtype",
+      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/UtcDateTypeAdapter.java:checkOffset",
+      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/UtcDateTypeAdapter.java:parseInt",
+      "google/gson#project:google/gson:extras/src/test/java/com/google/gson/typeadapters/PostConstructAdapterFactoryTest.java:MultipleSandwiches",
+      "google/gson#project:google/gson:extras/src/test/java/com/google/gson/typeadapters/RuntimeTypeAdapterFactoryTest.java:testRuntimeTypeAdapterRecognizeSubtypes",
+      "google/gson#project:google/gson:gson/src/main/java-templates/com/google/gson/internal/GsonBuildConfig.java:GsonBuildConfig",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldAttributes.java:FieldAttributes",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldAttributes.java:getDeclaredClass",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldAttributes.java:getName",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldNamingPolicy.java:translateName",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldNamingStrategy.java:translateName",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FormattingStyle.java:getNewline",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FormattingStyle.java:withNewline",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:FutureTypeAdapter",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:newJsonWriter",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:addDeserializationExclusionStrategy",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:checkDateFormatStyle",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:disableHtmlEscaping",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:GsonBuilder",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:registerTypeAdapterFactory",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setExclusionStrategies",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setFormattingStyle",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setNumberToNumberStrategy",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setStrictness",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ArrayTypeAdapter.java:read",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/DefaultDateTypeAdapter.java:create",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/DefaultDateTypeAdapter.java:write",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/EnumTypeAdapter.java:read",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JdkOptionalTypeAdapters.java:JdkOptionalTypeAdapters",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java:getAnnotation",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java:JsonAdapterAnnotationTypeAdapterFactory",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonTreeReader.java:endObject",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonTreeReader.java:JsonTreeReader",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonTreeWriter.java:get",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/MapTypeAdapterFactory.java:getKeyAdapter",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:Adapter",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:createBoundField",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:getBoundFields",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:readIntoField",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/SerializationDelegatingTypeAdapter.java:getSerializationDelegate",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java:getSerializationDelegate",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java:newTypeHierarchyFactory",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TypeAdapterRuntimeTypeWrapper.java:isReflective",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TypeAdapters.java:newFactory",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TypeAdapters.java:TypeAdapters",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/util/ISO8601Utils.java:indexOfNonDigit",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ConstructorConstructor.java:checkInstantiable",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ConstructorConstructor.java:get",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ConstructorConstructor.java:newSpecialCollectionConstructor",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Excluder.java:create",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:arrayOf",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:getArrayComponentType",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:getMapKeyAndValueTypes",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:newParameterizedTypeWithOwner",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:supertypeOf",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LazilyParsedNumber.java:LazilyParsedNumber",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:find",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:last",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:rebalance",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:rotateRight",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/NonNullElementWrapperList.java:NonNullElementWrapperList",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/PreJava9DateFormatProvider.java:getUsDateTimeFormat",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Primitives.java:wrap",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:fieldToString",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:getInaccessibleTroubleshootingSuffix",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:makeAccessible",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:ReflectionHelper",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ReflectionAccessFilterHelper.java:canAccess",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ReflectionAccessFilterHelper.java:ReflectionAccessFilterHelper",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/sql/SqlTimestampTypeAdapter.java:create",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/sql/SqlTimeTypeAdapter.java:SqlTimeTypeAdapter",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Streams.java:CurrentWrite",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Streams.java:toString",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/UnsafeAllocator.java:assertInstantiable",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:addAll",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:deepCopy",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsBigDecimal",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsByte",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsFloat",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsNumber",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:hashCode",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:JsonArray",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:size",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:deepCopy",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsBoolean",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsDouble",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsJsonArray",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsJsonPrimitive",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsShort",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:isJsonNull",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:JsonElement",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonNull.java:deepCopy",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonNull.java:JsonNull",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:equals",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:getAsJsonObject",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:hashCode",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:keySet",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonParseException.java:JsonParseException",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonParser.java:parseReader",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:equals",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsBoolean",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsDouble",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsLong",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsString",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:isBoolean",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:isString",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonStreamParser.java:next",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/LongSerializationPolicy.java:serialize",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:getParameterized",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:getTypeTokenTypeArgument",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:beginArray",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:consumeNonExecutePrefix",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:endObject",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:getNestingLimit",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:getStrictness",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:nextInt",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:nextString",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:peekNumber",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:readEscapeCharacter",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:setNestingLimit",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:skipTo",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:syntaxError",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:alwaysCreatesValidJsonNumber",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:beginObject",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:endArray",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:getFormattingStyle",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:isHtmlSafe",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:peek",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:setHtmlSafe",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:setSerializeNulls",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/MalformedJsonException.java:MalformedJsonException",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/TypeAdapter.java:fromJson",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/TypeAdapter.java:read",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/TypeAdapter.java:TypeAdapter",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/CommentsTest.java:CommentsTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/common/MoreAsserts.java:MoreAsserts",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/DefaultMapJsonSerializerTest.java:DefaultMapJsonSerializerTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/FieldNamingPolicyTest.java:FieldNamingPolicyTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CircularReferenceTest.java:assertThrowsStackOverflow",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CircularReferenceTest.java:testSelfReferenceArrayFieldSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CollectionTest.java:testCollectionWithoutNoArgsConstructor",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ConcurrencyTest.java:ConcurrencyTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ConcurrencyTest.java:testSingleThreadDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CustomSerializerTest.java:CustomSerializerTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:checkReflectiveTypeAdapterFactory",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testClassDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testDateSerializationInCollection",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testDateSerializationWithStyle",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testDefaultGregorianCalendarSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DelegateTypeAdapterTest.java:testDelegateInvoked",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/EnumTest.java:testEnumSubclass",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/EnumTest.java:testJdkEnum",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ExclusionStrategyFunctionalTest.java:ExclusionStrategyFunctionalTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ExposeFieldsTest.java:ExposeFieldsTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/FormattingStyleTest.java:createInput",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/FormattingStyleTest.java:testFormatCompact",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/FormattingStyleTest.java:testPrettyToCompact",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/GsonVersionDiagnosticsTest.java:GsonVersionDiagnosticsTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/InternationalizationTest.java:testSupplementaryUnicodeDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testDuplicateJsonProperties",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testMultipleNamesDeserializedCorrectly",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testPrimitiveAdapterNullValue",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testStaticFieldDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testThrowingConstructor",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JavaUtilTest.java:JavaUtilTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:create",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testDelegating_SameFactoryClass",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testDelegating_SameFactoryInstance_OnClassAndField",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testFactoryReturningNull",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testJsonSerializer",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:User",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:Computer2",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:GetAdapterDelegation",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testDelegatingAdapterFactory_Delayed",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testExcludeSerializePrecedence",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testJsonSerializer",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testPrimitiveFieldAnnotationTakesPrecedenceOverDefault",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterSerializerDeserializerTest.java:JsonAdapterSerializerDeserializerTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonParserTest.java:testBadFieldTypeForDeserializingCustomTree",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/LeniencyTest.java:LeniencyTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:MapWithoutNoArgsConstructor",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:testMapOfMapSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:testMapSerializationWithNullValuesSerialized",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:testSerializeMaps",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MoreSpecificTypeSerializationTest.java:testListOfParameterizedSubclassFields",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/NamingPolicyTest.java:testAtSignInSerializedName",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/NullObjectAndFieldTest.java:testAbsentJsonElementsAreSetToNull",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/NumberLimitsTest.java:testJsonReader",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:shouldSkipField",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:testDateAsMapObjectField",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:testNullObjectFieldsDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:testStaticFieldDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ParameterizedTypesTest.java:assertCorrectlyDeserialized",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ParameterizedTypesTest.java:Quantity",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:PrimitiveTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:testBigDecimalNaNDeserializationNotSupported",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:testDoubleSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:testLongAsStringSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrintFormattingTest.java:PrintFormattingTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/RawSerializationTest.java:testThreeLevelParameterizedObject",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReadersWritersTest.java:testToJsonAppendable",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessFilterTest.java:testBlockAllCollectionImplementation",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessFilterTest.java:testBlockAllPartial",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessFilterTest.java:testConstantsToString",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessTest.java:testInaccessibleField",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReusedTypeVariablesFullyResolveTest.java:ReusedTypeVariablesFullyResolveTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/RuntimeTypeAdapterFactoryFunctionalTest.java:read",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/RuntimeTypeAdapterFactoryFunctionalTest.java:testSubclassesAutomaticallySerialized",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/SecurityTest.java:testJsonWithNonExecutableTokenWithConfiguredGsonDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/SerializedNameTest.java:testMultipleNamesDeserializedCorrectly",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/StringTest.java:testAssignmentCharDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TreeTypeAdaptersTest.java:TreeTypeAdaptersTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeAdapterRuntimeTypeWrapperTest.java:testJsonDeserializer_ReflectiveSerializerDelegate",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeAdapterRuntimeTypeWrapperTest.java:testJsonSerializer",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeVariableTest.java:Blue",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/UncategorizedTest.java:testReturningDerivedClassesDuringDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/VersioningTest.java:testIgnoreLaterVersionClassDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:assertDefaultGson",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:testModificationAfterCreate",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:testRegisterTypeHierarchyAdapterJsonElements",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:testSetDateFormatNullPattern",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonTest.java:create",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonTest.java:testGetAdapter_FutureAdapterConcurrency",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonTypeAdapterTest.java:GsonTypeAdapterTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/InnerClassExclusionStrategyTest.java:InnerClassExclusionStrategyTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/integration/OSGiManifestIT.java:shortenVersionNumber",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/integration/OSGiManifestIT.java:testRequireCapability",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/Java17ReflectiveTypeAdapterFactoryTest.java:read",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/JsonTreeReaderTest.java:testNextIntAndLongAcceptAsciiDigitsInString",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/JsonTreeReaderTest.java:testNextLongRejectsNonAsciiDigits",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/JsonTreeWriterTest.java:testStrictBoxedNansAndInfinities",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/RecursiveTypesResolveTest.java:testRecursiveResolveSimple",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/util/ISO8601UtilsTest.java:testDateFormatString",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:CustomLinkedHashMap",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:CustomSet",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:testCustomCollectionCreation",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:testMapCreation",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/GsonTypesTest.java:testNewParameterizedTypeWithoutOwner",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/JavaVersionTest.java:testJava6",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/LinkedTreeMapSuiteTest.java:create",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/LinkedTreeMapSuiteTest.java:suite",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/reflect/Java17ReflectionHelperTest.java:testJava17RecordAccessors",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/sql/SqlTypesGsonTest.java:testSqlDateSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/UnsafeAllocatorInstantiationTest.java:testAbstractClassInstantiation",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/UnsafeAllocatorInstantiationTest.java:UnsafeAllocatorInstantiationTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JavaSerializationTest.java:testMapIsSerializable",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonArrayAsListTest.java:JsonArrayAsListTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonArrayAsListTest.java:testSort",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonArrayTest.java:JsonArrayTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectAsMapSuiteTest.java:create",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectAsMapTest.java:testContainsValue",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectAsMapTest.java:testValues",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectTest.java:testAddingNullOrEmptyPropertyName",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectTest.java:testPropertyWithQuotes",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonParserTest.java:testLegacyStrict",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonPrimitiveTest.java:testEqualsAndHashCodeAcrossNumberTypes",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonStreamParserTest.java:testCallingNextBeyondAvailableInput",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/metrics/PerformanceTest.java:testByteArrayDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/metrics/PerformanceTest.java:testLargeCollectionDeserialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/ObjectTypeAdapterParameterizedTest.java:testReadWrite",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/ParameterizedTypeFixtures.java:MyParameterizedTypeInstanceCreator",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/PrimitiveTypeAdapter.java:adaptType",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:GenericWithBound",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:testIsAssignableFromWithNestedWildcards",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:testParameterizedFactory",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:testTypeTokenTypeVariable",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderPathTest.java:promoteNameToValueUpdatesPath_unquotedNumber",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testDoubles",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testMalformedNumbers",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testNextIntNumberFormatExceptionContainsLocation",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testPeekLargerThanLongMaxValue",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testReaderDoesNotTreatU2028U2029AsNewline",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testStringEndingInSlash",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonWriterTest.java:testIndentOverwritesFormattingStyle",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonWriterTest.java:testRepeatedName",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/SubsetTest.java:SubsetTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/TypeAdapterTest.java:testToJson_ThrowingIOException",
+      "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/BagOfPrimitivesDeserializationBenchmark.java:BagOfPrimitivesDeserializationBenchmark",
+      "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/BagOfPrimitivesDeserializationBenchmark.java:timeBagOfPrimitivesStreaming",
+      "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/CollectionsDeserializationBenchmark.java:timeCollectionsReflectionStreaming",
+      "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/ParseBenchmark.java:ParseBenchmark",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/LegacyProtoTypeAdapterFactory.java:read",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/LegacyProtoTypeAdapterFactory.java:write",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/LegacyProtoTypeAdapterFactory.java:writeMessageField",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:addSerializedNameExtension",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:getCachedMethod",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:getEnumValue",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:serialize",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/StructTypeAdapter.java:fromStruct",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:legacyCompat_canOnlyDeserializeStringOneof",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:legacyCompatToRtaf",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:rewriteJsonObject",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:rtafToLegacyCompatWithTargetTypeMessage",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/ProtosWithAnnotationsAndJsonNamesTest.java:testProtoWithAnnotationsAndJsonNames_fieldWithCustomSerializedName",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/ProtosWithAnnotationsAndJsonNamesTest.java:testProtoWithAnnotationsAndJsonNames_unannotatedField",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/ProtosWithComplexAndRepeatedFieldsTest.java:ProtosWithComplexAndRepeatedFieldsTest",
+      "google/gson#project:google/gson:test-graal-native-image/src/test/java/com/google/gson/native_test/ReflectionTest.java:ClassWithoutDefaultConstructor",
+      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ExportedPackagesTest.java:testAnnotationsPackage",
+      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ExportedPackagesTest.java:testReflectionInternalField",
+      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ModuleTest.java:ModuleTest",
+      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ReflectionInaccessibleTest.java:ReflectionInaccessibleTest",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/ClassWithJsonAdapterAnnotation.java:ClassWithJsonAdapterAnnotation",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/ClassWithNoArgsConstructor.java:ClassWithNoArgsConstructor",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/ClassWithVersionAnnotations.java:ClassWithVersionAnnotations",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/Main.java:runTests",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/Main.java:testUnreferencedConstructorNoArgs",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/NoSerializedNameMain.java:runTestHasArgsConstructor",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/NoSerializedNameMain.java:TestClassHasArgsConstructor",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/TestExecutor.java:run",
+      "google/gson#project:google/gson:test-shrinker/src/test/java/com/google/gson/it/ShrinkingIT.java:isTestingProGuard",
+      "google/gson#project:google/gson:test-shrinker/src/test/java/com/google/gson/it/ShrinkingIT.java:test",
+      "google/gson#project:google/gson:test-shrinker/src/test/java/com/google/gson/it/ShrinkingIT.java:testNoSerializedName_NoArgsConstructorNoJdkUnsafe",
+      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/auth.py:logout",
+      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/blog.py:delete",
+      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/blog.py:update",
+      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/db.py:init_app",
+      "pallets/flask#project:pallets/flask:examples/tutorial/tests/test_auth.py:test_register",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:__call__",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:add_ctx",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:create_jinja_environment",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:finalize_request",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:get_send_file_max_age",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:handle_user_exception",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:make_response",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:open_resource",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:raise_routing_exception",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:run",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:test_client",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:url_for",
+      "pallets/flask#project:pallets/flask:src/flask/blueprints.py:open_resource",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:_called_with_wrong_args",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:_validate_key",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:FlaskGroup",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:NoAppException",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:routes_command",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:SeparatedPathType",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:with_appcontext",
+      "pallets/flask#project:pallets/flask:src/flask/config.py:ConfigAttribute",
+      "pallets/flask#project:pallets/flask:src/flask/config.py:from_mapping",
+      "pallets/flask#project:pallets/flask:src/flask/config.py:from_pyfile",
+      "pallets/flask#project:pallets/flask:src/flask/ctx.py:_AppCtxGlobals",
+      "pallets/flask#project:pallets/flask:src/flask/ctx.py:AppContext",
+      "pallets/flask#project:pallets/flask:src/flask/ctx.py:from_environ",
+      "pallets/flask#project:pallets/flask:src/flask/ctx.py:pop",
+      "pallets/flask#project:pallets/flask:src/flask/ctx.py:wrapper",
+      "pallets/flask#project:pallets/flask:src/flask/debughelpers.py:DebugFilesKeyError",
+      "pallets/flask#project:pallets/flask:src/flask/debughelpers.py:UnexpectedUnicodeError",
+      "pallets/flask#project:pallets/flask:src/flask/helpers.py:_CollectErrors",
+      "pallets/flask#project:pallets/flask:src/flask/helpers.py:get_debug_flag",
+      "pallets/flask#project:pallets/flask:src/flask/helpers.py:get_root_path",
+      "pallets/flask#project:pallets/flask:src/flask/helpers.py:raise_any",
+      "pallets/flask#project:pallets/flask:src/flask/helpers.py:send_from_directory",
+      "pallets/flask#project:pallets/flask:src/flask/json/__init__.py:dumps",
+      "pallets/flask#project:pallets/flask:src/flask/json/__init__.py:loads",
+      "pallets/flask#project:pallets/flask:src/flask/json/provider.py:dump",
+      "pallets/flask#project:pallets/flask:src/flask/json/provider.py:load",
+      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:__init__",
+      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:tag",
+      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:TagMarkup",
+      "pallets/flask#project:pallets/flask:src/flask/logging.py:wsgi_errors_stream",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:add_template_filter",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:debug",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:iter_blueprints",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:make_aborter",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:redirect",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:shell_context_processor",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:__init__",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:add_app_template_test",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:app_context_processor",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:app_url_value_preprocessor",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:BlueprintSetupState",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:record_once",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:register_template_filter",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:teardown_app_request",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:_endpoint_from_view_func",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:add_url_rule",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:context_processor",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:has_static_folder",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:register_error_handler",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:_fail",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:get_cookie_httponly",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:get_cookie_path",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:get_expiration_time",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:make_null_session",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:SecureCookieSessionInterface",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:should_set_cookie",
+      "pallets/flask#project:pallets/flask:src/flask/templating.py:DispatchingJinjaLoader",
+      "pallets/flask#project:pallets/flask:src/flask/templating.py:render_template_string",
+      "pallets/flask#project:pallets/flask:src/flask/testing.py:__init__",
+      "pallets/flask#project:pallets/flask:src/flask/testing.py:session_transaction",
+      "pallets/flask#project:pallets/flask:src/flask/views.py:MethodView",
+      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:blueprint",
+      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:max_content_length",
+      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:max_form_parts",
+      "pallets/flask#project:pallets/flask:tests/conftest.py:_standard_os_environ",
+      "pallets/flask#project:pallets/flask:tests/conftest.py:test_apps",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:run_simple_mock",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_app_freed_on_zero_refcount",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_extended_flashing",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_provide_automatic_options_attr_disable",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_run_defaults",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_werkzeug_passthrough_errors",
+      "pallets/flask#project:pallets/flask:tests/test_blueprints.py:test_templates_and_static",
+      "pallets/flask#project:pallets/flask:tests/test_cli.py:test_cli_name",
+      "pallets/flask#project:pallets/flask:tests/test_cli.py:test_prepare_import",
+      "pallets/flask#project:pallets/flask:tests/test_helpers.py:__init__",
+      "pallets/flask#project:pallets/flask:tests/test_helpers.py:TestNoImports",
+      "pallets/flask#project:pallets/flask:tests/test_json.py:__init__",
+      "pallets/flask#project:pallets/flask:tests/test_json.py:test_jsonify_aware_datetimes",
+      "pallets/flask#project:pallets/flask:tests/test_json.py:X",
+      "pallets/flask#project:pallets/flask:tests/test_request.py:test_limit_config",
+      "pallets/flask#project:pallets/flask:tests/test_templating.py:test_templates_auto_reload",
+      "pallets/flask#project:pallets/flask:tests/test_user_error_handler.py:test_handle_class_or_code",
+      "pallets/flask#project:pallets/flask:tests/test_user_error_handler.py:TestGenericHandlers",
+      "pallets/flask#project:pallets/flask:tests/test_views.py:test_view_provide_automatic_options_attr_enable",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:HTTPError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:RequestError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:TimeoutError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:isAborted",
+      "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:timings",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:allowAbsoluteUrls",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:assertPlainObject",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:cacheOptions",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:dnsCache",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:followRedirect",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:http2",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:isStream",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:maxRedirects",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:methodRewriting",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:resolveBodyOnly",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:safeObjectAssign",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:strictContentLength",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:throwHttpErrors",
+      "sindresorhus/got#project:sindresorhus/got:source/core/response.ts:copyRedirectDecision",
+      "sindresorhus/got#project:sindresorhus/got:test/helpers/once-value.ts:onceValue"
+    ],
+    "verbatim": "1,1,1,1,2,1,1,1,1,1,8,1,1,1,1,1,1,1,2,1,2,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,4,1,1,1,1,1,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,1,1,1,1,2,2,3,1,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,3,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,8,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,-,4,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,-,-,1,1,1,1,1,1,1,2,1,1,3,1,1,7,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,1,3,1,2,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "verbatimScoped": "1,1,1,1,2,1,1,1,1,1,3,1,1,1,1,1,1,1,2,1,2,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,4,1,1,1,1,1,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,1,1,1,1,2,2,3,1,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,3,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,8,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,6,2,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,6,6,1,1,1,1,1,1,1,2,1,1,1,1,1,7,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "paraphrase": "3,1,1,-,5,1,3,-,8,-,-,1,1,1,1,-,1,1,-,2,6,5,-,1,1,-,1,1,3,3,-,3,-,3,2,1,1,-,2,1,-,1,-,1,-,2,-,-,1,1,1,2,1,3,2,1,1,1,10,2,2,9,-,-,1,1,3,2,3,2,5,1,1,1,1,1,2,1,2,1,1,-,1,1,1,1,1,1,-,1,1,-,-,-,-,1,2,2,1,-,1,-,-,10,1,1,-,1,1,2,1,1,-,1,3,1,2,4,2,1,-,1,-,1,1,10,1,1,1,1,-,-,-,-,-,1,-,-,1,-,1,1,1,3,1,1,2,1,2,4,-,-,4,1,-,1,1,1,1,1,-,2,-,1,1,-,1,2,-,1,1,1,1,1,1,2,1,1,3,1,1,1,-,1,-,1,1,-,1,1,1,4,2,-,1,-,1,1,1,1,-,4,-,1,1,1,1,2,-,6,3,2,-,1,1,-,1,-,2,1,1,1,1,1,1,3,1,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,2,8,2,1,1,-,-,1,1,8,1,2,1,-,6,9,-,3,1,1,-,1,1,2,1,-,4,1,4,1,2,1,1,1,1,3,2,1,4,-,4,1,2,1,3,1,1,1,1,-,-,4,-,1,1,1,1,-,1,1,1,1,1,-,1,2,1,2,-,3,-,-,2,-,3,-,1,1,1,1,6,2,1,2,1,1,1,-,1,-,6,2,1,8,2,-,1,1,1,1,1,-,1,-,1,2,6,1,2,1,1,1,1,1,9,1,1,1,4,-,-,1,1,1,1,1,1,2,-,1,1,-,7,1,4,2,1,-,1,3,2,1,3,-,2,1,2,4,1,2,1,1,4,1,1,-,1,-,7,10,1,1,1,1,2,1,2,-,3,1,1,1,2,2,2,1,1,1,1,1,1,1,2,1,2,-,-,1,1,1,1,1,-,1,1,-,1,1,1,1,1,1",
+    "paraphraseScoped": "1,1,1,3,2,1,1,1,3,6,2,1,1,1,1,2,1,1,-,1,5,4,-,1,1,-,1,1,3,2,-,3,-,3,2,1,1,-,2,1,-,1,5,1,-,2,6,-,1,1,1,2,1,3,2,1,1,1,10,2,2,9,-,-,1,1,2,2,2,2,5,1,1,1,1,1,2,1,2,1,1,-,1,1,1,1,1,1,-,1,1,-,-,-,-,1,2,2,1,-,1,-,-,10,1,1,-,1,1,2,1,1,-,1,3,1,1,4,2,1,-,1,-,1,1,10,1,1,1,1,-,8,-,-,-,1,-,-,1,-,1,1,1,3,1,1,2,1,2,4,-,-,3,1,-,1,1,1,1,1,-,2,-,1,1,-,1,2,-,1,1,1,1,1,1,2,1,1,3,1,1,1,-,1,-,1,1,-,1,1,1,4,2,-,1,-,1,1,1,1,-,4,-,1,1,1,1,2,-,6,3,2,-,1,1,-,1,-,2,1,1,1,1,1,1,3,1,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,2,7,2,1,1,-,-,1,1,8,1,2,1,-,6,5,-,3,1,1,-,1,1,2,1,-,4,1,1,1,2,1,1,1,1,3,2,1,4,-,4,1,2,1,3,1,1,1,1,-,-,4,-,1,1,1,1,-,1,1,1,1,1,-,1,2,1,2,-,3,-,-,2,-,3,-,1,1,1,1,3,2,1,2,1,1,1,7,1,2,3,2,1,6,2,-,1,1,1,1,1,-,1,8,1,2,6,1,1,1,1,1,1,1,1,1,1,1,3,-,-,1,1,1,1,1,1,2,-,1,1,-,5,1,4,2,1,-,1,3,2,1,3,-,1,1,2,4,1,2,1,1,2,1,1,-,1,-,6,5,1,1,1,1,1,1,2,-,3,1,1,1,2,2,2,1,1,1,1,1,1,1,2,1,2,6,-,1,1,1,1,1,8,1,1,6,1,1,1,1,1,1",
+    "semanticParaphrase": "1,1,-,-,1,1,1,1,1,-,-,-,1,1,-,-,5,1,-,2,-,-,-,1,1,-,1,1,-,-,-,1,-,-,-,1,-,-,1,4,-,-,-,1,-,1,-,-,-,6,1,-,6,8,-,1,-,1,10,2,-,1,-,-,1,1,-,1,1,1,1,1,2,1,1,1,1,1,2,1,1,-,-,1,2,1,1,1,-,1,2,-,-,-,-,10,2,1,-,-,1,-,-,-,1,6,-,1,7,4,1,-,-,2,-,1,-,-,1,-,-,2,-,1,1,-,5,1,1,1,-,1,7,-,1,1,-,1,1,-,1,-,1,1,1,-,1,3,-,-,-,-,-,-,-,5,1,1,1,1,-,1,-,1,1,1,-,3,1,-,1,2,3,1,-,1,-,1,1,1,1,1,2,8,-,1,9,-,1,1,1,4,2,1,2,1,-,1,1,1,-,1,-,1,1,-,1,1,-,-,2,-,-,5,1,1,1,-,1,1,2,1,2,1,-,1,10,1,2,-,1,1,1,-,8,1,2,1,1,1,1,1,7,-,2,1,1,1,-,1,-,1,1,3,-,2,1,-,-,-,1,-,1,-,1,-,1,-,-,-,1,1,1,1,2,1,1,1,1,5,1,1,1,1,-,1,2,2,-,1,1,2,1,1,3,1,-,1,1,3,1,-,-,-,-,-,1,3,1,-,1,1,1,1,-,5,-,1,1,1,-,2,-,-,-,-,1,-,1,-,2,1,1,4,1,1,1,1,-,-,2,1,-,2,1,-,-,1,1,1,1,5,1,1,1,-,1,-,-,2,1,3,1,1,1,1,1,2,2,2,-,-,-,5,4,1,1,1,1,6,-,1,1,-,-,-,9,-,2,1,-,9,1,1,-,-,-,1,1,8,-,-,3,1,-,-,2,-,1,-,-,1,1,1,1,1,1,-,3,5,2,1,1,1,2,-,2,1,1,1,1,1,1,1,6,-,-,-,-,-,-,-,4,1,-,-,-,1,1,1,1,1,1,1",
+    "semanticParaphraseScoped": "1,1,-,-,1,1,1,1,1,-,-,-,1,1,-,-,1,1,-,2,-,-,-,1,1,-,1,1,-,-,-,1,-,-,-,1,-,-,1,4,-,-,-,1,-,1,-,-,-,6,1,-,6,9,-,1,-,1,10,2,-,1,-,-,1,1,-,1,1,1,1,1,1,1,1,1,1,1,2,1,1,-,-,1,2,1,1,1,-,1,2,-,-,-,-,10,2,1,-,-,1,-,-,-,1,6,-,1,8,4,1,-,-,3,-,1,1,-,1,-,-,2,-,1,1,-,5,1,1,1,-,1,4,-,1,1,-,1,1,-,1,-,1,1,1,-,1,3,-,-,-,-,-,-,-,6,1,1,1,1,-,1,-,1,1,1,-,3,1,-,1,2,1,1,-,1,-,1,1,1,1,1,2,9,-,1,9,-,1,1,1,4,2,1,2,1,-,1,1,1,-,1,-,1,1,-,1,1,-,-,2,-,-,1,1,1,1,-,1,1,2,1,2,1,-,1,10,1,2,-,1,1,1,-,9,1,2,1,1,1,1,1,8,-,2,1,1,1,-,1,-,1,1,2,-,2,1,-,-,-,1,-,1,-,1,-,1,-,-,-,1,1,1,1,2,1,1,1,1,3,1,1,1,1,-,1,2,2,-,1,1,2,1,1,3,1,-,1,1,3,1,-,-,-,-,-,1,4,1,-,1,1,1,1,-,4,-,1,1,1,-,2,-,-,-,-,1,-,1,-,2,1,1,2,1,1,1,1,-,-,2,1,-,2,1,-,-,1,1,1,1,5,1,1,1,-,1,-,-,3,1,3,1,1,1,1,1,2,2,2,-,-,-,2,1,1,1,2,1,9,-,1,1,-,-,-,-,-,2,1,-,9,1,1,-,-,-,1,1,7,-,-,2,1,4,-,2,-,2,-,-,1,1,1,1,1,1,-,3,5,2,1,1,1,2,-,2,1,1,1,1,1,1,1,5,-,-,-,-,-,-,-,4,2,-,-,-,1,1,1,1,1,1,1",
+    "semanticVerbatim": "1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,2,1,2,2,3,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,2,1,1,1,1,1,3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,7,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,4,1,1,1,2,2,3,1,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,1,1,1,1,1,1,3,-,3,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,6,-,1,1,1,1,1,1,1,2,1,1,3,1,2,3,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
+  },
+  "rejected": [
+    {
+      "key": "expressjs/express#project:expressjs/express:lib/application.js:param",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "expressjs/express#project:expressjs/express:lib/application.js:set",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "expressjs/express#project:expressjs/express:lib/request.js:range",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "expressjs/express#project:expressjs/express:lib/view.js:View",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:Gson",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:enableComplexMapKeySerialization",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonElementTypeAdapter.java:read",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ObjectTypeAdapter.java:ObjectTypeAdapter",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/JavaVersion.java:isJava9OrLater",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/JsonReaderInternalAccess.java:JsonReaderInternalAccess",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Primitives.java:isWrapperType",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:asMap",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonSerializer.java:serialize",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:typeEquals",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:JsonReader",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:nextNonWhitespace",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:JsonWriter",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ArrayTest.java:ArrayTest",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/InstanceCreatorTest.java:testInstanceCreatorForCollectionType",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapAsArrayTypeAdapterTest.java:testSerializeComplexMapWithTypeAdapter",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MoreSpecificTypeSerializationTest.java:testWildcardListOfParameterizedSubclassFields",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/DefaultDateTypeAdapterTest.java:testGsonDateFormat",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/auth.py:load_logged_in_user",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:examples/tutorial/tests/conftest.py:app",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/app.py:do_teardown_appcontext",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/cli.py:command",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/cli.py:list_commands",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/ctx.py:has_request",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/json/tag.py:JSONTag",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/json/tag.py:untag",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:App",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:errorhandler",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:post",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:teardown_request",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/sessions.py:permanent",
+      "reasons": [
+        "spells the symbol name",
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/testing.py:FlaskCliRunner",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:tests/test_cli.py:expect_order",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:copyPipedHeaders",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "sindresorhus/got#project:sindresorhus/got:source/core/utils/is-unix-socket-url.ts:getUnixSocketPath",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "sindresorhus/got#project:sindresorhus/got:test/headers.ts:withRawServer",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    }
+  ]
+}

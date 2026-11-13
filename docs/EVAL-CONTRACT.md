@@ -3635,3 +3635,48 @@ working, not a corpus failing.**
 **So the vector-channel result of §38.1 stands on the corpus it was measured on, and is re-measured on this one before
 anything is concluded about it.** The sequence is deliberate: the deficit was found on a corpus with a known defect,
 and a channel is not condemned on evidence from a corpus that has since been corrected.
+
+### 38.6 The channel, measured again on the corpus that was not truncated
+
+The deficit in §38.1 was found on a corpus whose questions were the last line of a comment. **A channel is not condemned
+on evidence from a corpus that has since been corrected**, so the same two jobs ran again on the regenerated one — same
+key, same model, 12 072 vectors, no completions:
+
+| condition (regenerated corpus) |          lexical |     with vectors |                            Δ MRR | only lexical | only vectors | exact p |
+| ------------------------------ | ---------------: | ---------------: | -------------------------------: | -----------: | -----------: | ------: |
+| quoted, found@10 (494)         |     0.9860 (487) | **0.9939 (491)** |     +0.0057 `[−0.0024, +0.0139]` |            1 |        **5** |   0.219 |
+| quoted, MRR@10                 |           0.9056 |       **0.9113** |                                — |            — |            — |       — |
+| quoted, ambiguous subset (31)  |      0.9677 (30) |  **1.0000 (31)** |                                — |            1 |        **1** |   1.000 |
+| rewritten, found@10 (454)      | **0.7930 (360)** |     0.6500 (295) | **−0.0956** `[−0.1392, −0.0520]` |       **86** |           21 |  < 1e-4 |
+| rewritten, MRR@10              |       **0.6299** |           0.5342 |                                — |            — |            — |       — |
+
+**The direction held and the size halved.** On the corpus with the defect the cost was −0.1682; on the corrected one it is
+−0.0956, still 86 questions against 21 and still unambiguous. **So the finding is not an artefact of the truncated
+questions** — which is the thing a second measurement exists to rule out.
+
+**And the quoted corpus moved the other way, in a place that matters.** It gained 4 questions overall and **the ambiguous
+subset — the one whose symbol name exists in two or more repositories — went from 30 of 31 to 31 of 31.** That is the
+sub-question a federated search exists to get right, and a vector channel that reads the description rather than the
+name is exactly what should fix it. **Five questions gained against one lost on the quoted corpus is not a result at
+`p = 0.219`**, and it is reported as the direction it is.
+
+**What this leaves is one open question, and it is the weight.** A fused list that is 14 points worse on the corpus it
+was bought for, and 0.6 points better on the one it was already good at, is the signature of a fusion that lets the worse
+list dominate — which is what `deriveVectorWeight` does here by returning **4** for a question that shares no words with
+its answer. `--weights` exists now (§38.7) and the sweep is the next dispatch.
+
+### 38.7 The weight became an input, because a variable that moves a figure by fourteen points is measured
+
+`FederatedSearchOptions.vectorWeight` now reaches the fusion, and `multirepo-paraphrase.ts --weights 0.1,0.35,1,4` sweeps
+it over one corpus in one dispatch. The artifact carries `semanticSweep` — each weight scored and **paired against the
+lexical column it is a re-weighting of** — so the answer to "is the derived weight the good one" is a table rather than
+an argument.
+
+**The four weights are the ones the single-repository sweeps already scored**, not a grid invented here:
+`docstring-search` sweeps `[1, 0.5, 0.25, 0.1]` and `cosqa-retrieval` sweeps `COSQA_VECTOR_WEIGHTS`, and
+`FUSION_WEIGHT_BOUNDS` is `{min: 0.1, max: 4}` **because those are the ends a run has a figure for**. A weight nobody
+measured would be a second guess wearing the first one's clothes.
+
+**Empty is the default and it is the product's behaviour**: `deriveVectorWeight` reads the question, and every figure
+before this input existed was measured at the weight it derives. **A sweep is a measurement, and a measurement is
+opt-in** — the same rule that keeps a paid workflow out of a push trigger.
