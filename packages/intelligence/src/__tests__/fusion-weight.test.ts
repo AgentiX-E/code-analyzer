@@ -221,16 +221,30 @@ describe('evidenceRatioWeight', () => {
     expect(evidenceRatioWeight([], list([talkative], [0.9]), 'sign the session cookie')).toBe(1);
   });
 
-  it('claims nothing when both lists carry the question equally', () => {
-    // **The case the one-sided rule got wrong and this one gets right by construction.** A symbol looked up from its
-    // own doc comment is found by both channels and described by both, so there is no side to take - and the doc-comment
-    // sweep agrees: MRR 0.9711 at weight one against 0.9718 at a tenth, a difference of seven ten-thousandths.
+  it('gives the lexical list the tenth it asks for when it spells the question itself', () => {
+    // **The absolute half of the rule, and the case a ratio alone got wrong.** A symbol looked up from its own doc
+    // comment is found by both channels and described by both, so the two shares are near one and a ratio near one - and
+    // a ratio near one is the weight the engine already shipped, which keeps the vector list at half a vote on questions
+    // the lexical list has already answered. Measured on the four-repository corpus that cost the quoted condition two
+    // questions and 0.0125 MRR (§39.6); the doc-comment sweep, for its part, peaks at a tenth (MRR 0.9718 against
+    // 0.9711 at one).
     const both = list([talkative], [40]);
-    expect(evidenceRatioWeight(both, list([talkative], [0.9]), 'sign the session cookie')).toBe(1);
-    // The one-sided rule moved a tenth of the way for exactly this question, which is the disagreement.
-    expect(deriveVectorWeight(both, list([talkative], [0.9]), 'sign the session cookie')).toBe(
+    expect(evidenceRatioWeight(both, list([talkative], [0.9]), 'sign the session cookie')).toBe(
       FUSION_WEIGHT_BOUNDS.min,
     );
+  });
+
+  it('claims nothing when the two channels are equally ignorant of the question', () => {
+    // **The converse case, and the one a threshold alone got wrong.** Neither list can spell the question, so there is
+    // no side to take and the comparison is a tie: a weight of one is not a fallback here, it is the ratio's own answer.
+    const weak = makeNode({ id: 30, name: 'dispatch', docstring: 'Routes a call' });
+    const other = makeNode({ id: 31, name: 'router', docstring: 'Holds routes' });
+    const query = 'dispatch router table lookup latency';
+    // One of six terms carried by each of the two answers, and the top five of each list are the same node five times,
+    // which is what makes the two shares equal rather than merely close.
+    const five = (node: GraphNode): RankedResult[] =>
+      [node, node, node, node, node].map((n, at) => ranked(n, 5 - at));
+    expect(evidenceRatioWeight(five(weak), five(other), query)).toBeCloseTo(1, 10);
   });
 
   it('gives the vector list less when it carries less of the question', () => {

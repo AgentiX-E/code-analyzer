@@ -174,9 +174,21 @@ export function evidenceRatioWeight(
 ): number {
   if (lexical.length === 0 || vector.length === 0) return NEUTRAL_VECTOR_WEIGHT;
 
-  const ratio =
-    (channelEvidence(query, vector, depth) + EVIDENCE_SMOOTHING) /
-    (channelEvidence(query, lexical, depth) + EVIDENCE_SMOOTHING);
+  const lexicalShare = channelEvidence(query, lexical, depth);
+
+  // **The absolute half, and it is not decoration.** A ratio is scale-free, so it cannot tell a lexical list that
+  // carries four fifths of the question from one that carries two fifths of a question nobody can answer: both are
+  // compared to a vector list of their own size. On four released repositories that blindness cost the quoted condition
+  // **two questions and 0.0125 MRR** while the same rule gained twelve on the rewritten one (§39.6) - the vector list was
+  // still being given half a vote on questions the lexical list had already answered in the answer's own words.
+  //
+  // The cut is `SELF_EVIDENCE_CONFIDENT`, which this file has carried since the two corpora were first compared and which
+  // is the doc-comment sweep's own verdict: when the lexical list spells the question, its order is the answer's order and
+  // a semantic rank is worth a tenth. **No new number enters the rule here**; the value was already measured.
+  if (lexicalShare >= SELF_EVIDENCE_CONFIDENT) return FUSION_WEIGHT_BOUNDS.min;
+
+  const vectorShare = channelEvidence(query, vector, depth);
+  const ratio = (vectorShare + EVIDENCE_SMOOTHING) / (lexicalShare + EVIDENCE_SMOOTHING);
 
   return Math.min(FUSION_WEIGHT_BOUNDS.max, Math.max(FUSION_WEIGHT_BOUNDS.min, ratio));
 }
