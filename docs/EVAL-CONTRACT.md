@@ -2781,6 +2781,11 @@ embeddings:
 |                        4 |     0.306 |     0.702 |     0.4332 |      351 |
 |    **derived per query** | **0.306** | **0.702** | **0.4339** |  **351** |
 
+**A second run of the same arms (`43340541442`, the one that reranked them) measured 318 for the constant, 351 for weight
+four and 352 for the derived arm, at MRR 0.3772 / 0.4302 / 0.4312.** Two runs, identical configuration, up to ten
+questions apart: the embedding endpoint is not a function, and that is why every comparison in this section is made
+inside one run - and why §30.5 states its variance band before its result.
+
 **The classifier reaches the top of the grid and slightly passes it**: `0.4339` against `0.4332`, because 33 questions
 kept the neutral weight instead of being pushed to four. The split the artifact records is `0` lexical, `33` neutral,
 `467` semantic - and the evidence percentiles (`p10 0.1667`, `p50 0.300`, `p90 0.500`) are the CoSQA column of 30.2,
