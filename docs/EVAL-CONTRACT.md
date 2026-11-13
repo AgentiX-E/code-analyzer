@@ -2794,22 +2794,50 @@ inside one run - **the difference is the classifier and nothing else.**
 lexical list would be told to trust the semantic one if its evidence were low. §30.3 is where that is checked, and the
 lookup corpus's own derived column is the answer: 0.9794, above the constant it replaced.
 
-### 30.5 Where this leaves the ranking, and what the next lever is
+### 30.5 The gain before the reranker does not survive the reranker, and that is the finding
 
-The fused arm's MRR@10 on the published pool is now **0.4339** before reranking, against **0.5743** for the best reranked
-run of the same corpus (§25) - so the reranker is still the larger single lever, and the question this section cannot
-answer is whether the fusion improvement survives it. That is measured rather than argued: the benchmark now reranks
-**both** arms in one run, the constant's and the derived one, because comparing a new arm's rerank figure against an
-earlier run's would be attributing a difference smaller than the reranker's own variance to the change (§28).
+The fused column is not the number a user of `askCodebase` sees: with a provider present the pool is reranked, and
+comparing a new arm's rerank figure against an earlier run's would attribute a difference smaller than the model's own
+variance to the change (§28). So `43340541442` reranked **both** arms in one run, same questions, same model, same
+fifty-candidate pool:
 
-**The standing gap to the reported state of the art is unchanged at about 0.13 MRR** (§25, NACS 0.708 on this corpus),
-and this section closes 0.0458 of the pre-rerank part of it. The remaining terms, in the order the artifacts rank them:
+| arm                      | found@10 before rerank | found@10 after | R@10 after | MRR@10 after | rescued | lost |
+| ------------------------ | ---------------------: | -------------: | ---------: | -----------: | ------: | ---: |
+| constant (weight 1)      |                    318 |        **395** |  **0.790** |   **0.5732** |      91 |   14 |
+| **derived per question** |                **352** |            385 |      0.770 |       0.5678 |      55 |   22 |
 
-1. **the encoder** - the four systems above us are fine-tuned on CoSQA and we call a general embedding endpoint;
-2. **the rerank arm's ceiling** - 80 rescued and 18 lost per run is a reranker doing real work on a list that still
-   misses 149 of 500;
-3. **the lexical channel's 206** - BM25 sees the answer in the top ten for two questions in five, and no weighting
-   recovers a document it never returned.
+**The 34-question fusion gain becomes a 10-question deficit once the model reorders the pool.** Two readings are
+available and only one of them is honest:
+
+- **"the reranker prefers the weaker list"** - it rescues 91 questions from the constant's pool and 55 from the derived
+  one, and loses 14 against 22. A better-ordered input leaves less to rescue, and the same amount of damage.
+- **"the difference is inside the model's own variance"** - §28 measured 0.0085 MRR between two runs of an identical
+  arm; the gap here is **0.0054**, measured in one run so the _sample_ is paired but the model's reproducibility is not.
+
+**Both are true and the second bounds the first.** What can be said with the arithmetic this document has is:
+
+1. **Before the reranker the derived weight is worth +0.054 MRR and +34 questions, six times the variance band.** That is
+   a measured improvement, and it is what a retrieval-only surface (the MCP search tool, the editor's find-symbol path)
+   actually uses.
+2. **After the reranker the two arms are within one variance band of each other**, with the constant nominally ahead.
+   **No claim of improvement survives reranking, and the regression is not large enough to call a regression** - calling
+   it one would be treating a 0.0054 difference as real while the same arm moves 0.0085 on a re-run.
+3. **The reranker's marginal value collapses as its input improves**: net +77 from the constant's pool, net +33 from the
+   derived one. **A reranker is compensating for a weak fusion**, which is the first measurement in this document that
+   explains why the systems above us invest in encoders rather than in rerankers.
+
+**So the default stays the derived weight**, on the strength of (1) and the absence of a measurable cost in (2), and the
+open question is written down rather than waved away: **does the post-rerank gap reproduce across seeds, and does a
+deeper pool change it?** That is the next iteration's first measurement, and it costs one dispatch with `depth=100`.
+
+**Where this leaves the ranking.** The best post-rerank MRR on this corpus is **0.5732** (constant arm, this run) and
+**0.5678** (derived arm), against **0.708** for NACS (§25) - a gap of about 0.13 that has now been attributed rather
+than observed:
+
+1. **the encoder** - the four systems above us fine-tune on CoSQA and we call a general endpoint; this is the only term
+   left that no arithmetic in this document can move;
+2. **the reranker's ceiling** - 149 of 500 answers are outside the pool it is given, so no reorder reaches them;
+3. **the lexical channel's 206** - BM25 sees the answer in its top ten for two questions in five.
 
 ### 30.6 Three limits of the classifier, recorded before they are found the hard way
 

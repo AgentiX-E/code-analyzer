@@ -21,7 +21,7 @@
     "distractorSource": "Jun-jie-Huang/CoCLR · data/qa/cosqa-all.json",
     "distractorSha256": "4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c"
   },
-  "measuredAt": "2026-11-12",
+  "measuredAt": "2026-11-13",
   "pool": {
     "functions": 6295,
     "answers": 500,
@@ -50,75 +50,94 @@
   },
   "fused": {
     "queries": 500,
-    "recallAt1": 0.27,
+    "recallAt1": 0.266,
     "recallAt5": 0.514,
-    "recallAt10": 0.644,
-    "mrrAt10": 0.3807,
-    "foundAt10": 322
+    "recallAt10": 0.636,
+    "mrrAt10": 0.3772,
+    "foundAt10": 318
   },
   "sweep": {
     "50": {
       "queries": 500,
-      "recallAt1": 0.27,
+      "recallAt1": 0.266,
       "recallAt5": 0.514,
-      "recallAt10": 0.644,
-      "mrrAt10": 0.3807,
-      "foundAt10": 322
+      "recallAt10": 0.636,
+      "mrrAt10": 0.3772,
+      "foundAt10": 318
     }
   },
   "fusedByVectorWeight": {
     "1": {
       "queries": 500,
-      "recallAt1": 0.27,
+      "recallAt1": 0.266,
       "recallAt5": 0.514,
-      "recallAt10": 0.644,
-      "mrrAt10": 0.3807,
-      "foundAt10": 322
-    },
-    "2": {
-      "queries": 500,
-      "recallAt1": 0.302,
-      "recallAt5": 0.562,
-      "recallAt10": 0.688,
-      "mrrAt10": 0.4136,
-      "foundAt10": 344
-    },
-    "3": {
-      "queries": 500,
-      "recallAt1": 0.302,
-      "recallAt5": 0.584,
-      "recallAt10": 0.688,
-      "mrrAt10": 0.4213,
-      "foundAt10": 344
+      "recallAt10": 0.636,
+      "mrrAt10": 0.3772,
+      "foundAt10": 318
     },
     "4": {
       "queries": 500,
-      "recallAt1": 0.308,
-      "recallAt5": 0.602,
-      "recallAt10": 0.694,
-      "mrrAt10": 0.431,
-      "foundAt10": 347
+      "recallAt1": 0.31,
+      "recallAt5": 0.586,
+      "recallAt10": 0.702,
+      "mrrAt10": 0.4302,
+      "foundAt10": 351
+    }
+  },
+  "derived": {
+    "queries": 500,
+    "recallAt1": 0.31,
+    "recallAt5": 0.59,
+    "recallAt10": 0.704,
+    "mrrAt10": 0.4312,
+    "foundAt10": 352,
+    "weights": {
+      "lexical": 0,
+      "neutral": 33,
+      "semantic": 467
+    },
+    "selfEvidence": {
+      "p10": 0.1667,
+      "p50": 0.3,
+      "p90": 0.5
     }
   },
   "retrieval": {
     "lexicalInTop10": 206,
-    "vectorInTop10": 350,
-    "eitherInTop10": 379,
+    "vectorInTop10": 341,
+    "eitherInTop10": 375,
     "neitherInChannelDepth": 8
   },
   "reranked": {
     "queries": 500,
-    "recallAt1": 0.454,
-    "recallAt5": 0.722,
-    "recallAt10": 0.806,
-    "mrrAt10": 0.5658,
-    "foundAt10": 403,
-    "reordered": 493
+    "recallAt1": 0.476,
+    "recallAt5": 0.7,
+    "recallAt10": 0.77,
+    "mrrAt10": 0.5678,
+    "foundAt10": 385,
+    "reordered": 495,
+    "from": "derived"
   },
   "rerankEffect": {
-    "reordered": 493,
-    "rescued": 92,
-    "lost": 11,
-    "net": 81
+    "reordered": 495,
+    "rescued": 55,
+    "lost": 22,
+    "net": 33
+  },
+  "rerankedConstant": {
+    "queries": 500,
+    "recallAt1": 0.472,
+    "recallAt5": 0.708,
+    "recallAt10": 0.79,
+    "mrrAt10": 0.5732,
+    "foundAt10": 395,
+    "reordered": 496,
+    "from": "weight-1"
+  },
+  "rerankEffectConstant": {
+    "reordered": 496,
+    "rescued": 91,
+    "lost": 14,
+    "net": 77
   }
 }
