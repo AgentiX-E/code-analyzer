@@ -44,7 +44,6 @@ import {
   foundWithin,
 } from '../packages/intelligence/src/search/paired-stats.js';
 
-
 /** **Ten results per question**, which is the cut every figure below is reported at. */
 const DEPTH = CUT;
 

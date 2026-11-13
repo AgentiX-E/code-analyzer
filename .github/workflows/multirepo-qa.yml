@@ -15,25 +15,13 @@ name: Multi-Repo QA
 
 on:
   workflow_dispatch:
-    inputs:
-      paraphrase:
-        # **The second condition, which is the only one that costs money.** `generate` pays a model to rewrite 469
-        # questions and writes the corpus file for review; `replay` measures the frozen corpus at zero cost. **The
-        # default is `off`** so a push-triggered run measures the free condition only, and a run that spent money says
-        # so in its input.
-        description: 'Paraphrase condition: off, generate (pays a model), or replay (measures the frozen corpus)'
-        type: choice
-        options: ['off', 'generate', 'replay']
-        default: off
   push:
     branches: [master]
     paths:
       - 'packages/intelligence/src/cross-repo/**'
       - 'scripts/multirepo-qa.ts'
-      - 'scripts/multirepo-paraphrase.ts'
       - 'scripts/lib/multirepo-harness.ts'
       - 'benchmarks/multirepo-qa-corpus.json'
-      - 'benchmarks/multirepo-qa-paraphrase-corpus.json'
       - 'tests/unit/scripts/a-cross-repo-answer-can-be-recomputed.test.ts'
       - '.github/workflows/multirepo-qa.yml'
 
@@ -48,11 +36,11 @@ jobs:
   measure:
     name: Four repositories, four languages, one question
     runs-on: ubuntu-latest
-    # **Twenty-five minutes for the free condition, and the arithmetic written down.** Four tarballs are ~20 MB and
-    # index in under a minute; the rest is dependency installation. **The paid condition is why this is not twenty**:
-    # 469 rewrites at four in flight is roughly six minutes of completions, and a ceiling that a paid step can reach is
-    # a ceiling that fails after the money is spent.
-    timeout-minutes: 45
+    # **Twenty minutes**, stated rather than discovered: four tarballs are ~20 MB and index in under a minute on the
+    # sandbox; the rest is dependency installation. **The paraphrase condition is not here** - it names a provider
+    # credential, and a workflow that names one may not be triggered by the code it measures. It lives in
+    # `multirepo-paraphrase.yml`, which is dispatch-only.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -100,28 +88,6 @@ jobs:
           set -o pipefail
           npx tsx scripts/multirepo-qa.ts --out benchmarks/multirepo-qa.json 2>&1 | tee /tmp/multirepo-qa.log
 
-      # **The paraphrase condition, which is off unless a dispatch asks for it.** Generation is the only paid step in
-      # this workflow: 469 rewrites at temperature zero, frozen into a corpus file so that the measurement beside it is
-      # free and repeatable. A replay run reads that file and fails if its rows no longer hash to the digest it records.
-      - name: Measure the paraphrase condition
-        if: inputs.paraphrase != '' && inputs.paraphrase != 'off'
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: |
-          set -o pipefail
-          npx tsx scripts/multirepo-paraphrase.ts --mode '${{ inputs.paraphrase }}' 2>&1 | tee /tmp/multirepo-paraphrase.log
-
-      - name: Publish the paraphrase figures to the run summary
-        if: always() && inputs.paraphrase != '' && inputs.paraphrase != 'off'
-        run: |
-          {
-            echo '### Paraphrase condition — the same symbols, asked the way a person would'
-            echo ''
-            echo '```'
-            grep -E '^PARAPHRASE' /tmp/multirepo-paraphrase.log || echo 'no figures were printed'
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Publish the figures to the run summary
         if: always()
         run: |
@@ -147,9 +113,6 @@ jobs:
           name: multirepo-qa
           path: |
             benchmarks/multirepo-qa.json
-            benchmarks/multirepo-qa-paraphrase.json
-            benchmarks/multirepo-qa-paraphrase-corpus.json
             /tmp/multirepo-qa.log
-            /tmp/multirepo-paraphrase.log
           if-no-files-found: warn
           retention-days: 90

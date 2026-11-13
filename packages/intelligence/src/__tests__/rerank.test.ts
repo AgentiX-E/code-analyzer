@@ -17,7 +17,6 @@ import {
   rerankPrompt,
 } from '../search/rerank.js';
 
-
 import type { LLMProvider } from '../review/llm/provider.js';
 import type { RerankCandidate } from '../search/rerank.js';
 

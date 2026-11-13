@@ -1,0 +1,125 @@
+name: Multi-Repo Paraphrase
+
+# **The one multi-repository condition that costs money, in a workflow of its own.**
+#
+# The verbatim corpus asks each question the way the doc comment reads, so a system that finds the answer has found the
+# text. This job rewrites the same documentation into the question a developer would type - no symbol name, no copied
+# phrase - and measures both wordings on the same symbols in the same index, so the difference between the two figures is
+# the wording and nothing else.
+#
+# **Why it is not a step in `multirepo-qa.yml`.** That job is triggered by a push to the code it measures, and a workflow
+# that names a provider credential must not be: a commit that changes one line of a prompt would start a run that pays a
+# model to re-measure the prompt it changed. `tests/unit/scripts/a-paid-workflow-is-not-triggered-by-the-code-it-measures.test.ts`
+# holds that rule, and it caught this job's first version.
+#
+# **`generate` is paid once**, writes `benchmarks/multirepo-qa-paraphrase-corpus.json` for review, and then the
+# measurement beside it is free forever: `replay` reads the frozen corpus and fails if its rows no longer hash to the
+# digest it records. Both modes index the four pinned checkouts and run the same engine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        # **`replay` is the default because it cannot spend anything.** A dispatch that forgets to choose measures the
+        # corpus that exists; only a run that says `generate` buys new questions.
+        description: 'generate (pays a model for 469 rewrites and rewrites the corpus) or replay (measures the frozen corpus)'
+        type: choice
+        options: ['replay', 'generate']
+        default: replay
+
+concurrency:
+  group: multirepo-paraphrase
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: The same symbols, asked the way a person would
+    runs-on: ubuntu-latest
+    # **Forty-five minutes, and the arithmetic written down.** Four tarballs are ~20 MB and index in under a minute; the
+    # rest is dependency installation plus 469 rewrites at four in flight, which is roughly six minutes of completions.
+    # A ceiling the paid step can reach is a ceiling that fails after the money is spent.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The commits come from the corpus file**, so the job and the artifact cannot disagree about what was measured.
+      - name: Fetch the four checkouts at their pinned commits
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/multirepo-qa
+          python3 -c "
+          import json
+          for repo in json.load(open('benchmarks/multirepo-qa-corpus.json'))['repositories']:
+              print(repo['id'], repo['sha'])
+          " > /tmp/multirepo-pins.txt
+          while read -r id sha; do
+            name="${id##*/}"
+            curl -fsSL --max-time 300 "https://codeload.github.com/${id}/tar.gz/${sha}" -o ".cache/multirepo-qa/${name}.tar.gz"
+            sha256sum ".cache/multirepo-qa/${name}.tar.gz" | tee -a "$GITHUB_STEP_SUMMARY"
+            mkdir -p ".cache/multirepo-qa/${name}"
+            tar -xzf ".cache/multirepo-qa/${name}.tar.gz" -C ".cache/multirepo-qa/${name}" --strip-components=1
+            echo "$sha" > ".cache/multirepo-qa/${name}/.complete"
+          done < /tmp/multirepo-pins.txt
+
+      - name: Measure the paraphrase condition
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -o pipefail
+          npx tsx scripts/multirepo-paraphrase.ts --mode '${{ inputs.mode }}' 2>&1 | tee /tmp/multirepo-paraphrase.log
+
+      - name: Publish the figures to the run summary
+        if: always()
+        run: |
+          {
+            echo '### Paraphrase condition — the same symbols, asked the way a person would'
+            echo ''
+            echo '```'
+            grep -E '^PARAPHRASE' /tmp/multirepo-paraphrase.log || echo 'no figures were printed'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # **The artifact is also the acceptance gate**: every aggregate is recomputed from the columns it publishes, every
+      # accepted rewrite is re-checked against the rule that made it a rewrite, and the verbatim column has to match the
+      # free artifact's on the questions both scored.
+      # **Not on a generating run**, because the corpus and the artifact it produces are the inputs a replay checks, and a
+      # gate run against a file that was written seconds earlier checks nothing a reader could reproduce.
+      - name: Re-derive every figure from the published columns
+        if: inputs.mode == 'replay'
+        run: |
+          set -o pipefail
+          npx vitest run tests/unit/scripts/a-paraphrase-answer-can-be-recomputed.test.ts 2>&1 | tee /tmp/multirepo-paraphrase-gate.log
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: multirepo-paraphrase
+          path: |
+            benchmarks/multirepo-qa-paraphrase.json
+            benchmarks/multirepo-qa-paraphrase-corpus.json
+            /tmp/multirepo-paraphrase.log
+          if-no-files-found: warn
+          retention-days: 90

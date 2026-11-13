@@ -353,7 +353,7 @@ async function main(): Promise<void> {
     measuredAt: new Date().toISOString(),
     cut: CUT,
     depth: DEPTH,
-    model: (generation?.model ?? 'replayed'),
+    model: generation?.model ?? 'replayed',
     prompt: PROMPT_VERSION,
     index: { ...index, durationMs: indexMs },
     corpus: corpus.repositories.map(({ id, sha, language, role }) => ({ id, sha, language, role })),
