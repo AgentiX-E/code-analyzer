@@ -129,6 +129,23 @@ describe('mapWithConcurrency', () => {
     expect(settled.sort((left, right) => left - right)).toEqual([1, 2]);
   });
 
+  it('keeps the first failure when a second worker fails too, and starts nothing further', async () => {
+    // **Two workers, two failures.** The first sets the flag; the second finds it set and must not overwrite the message
+    // - a caller reading "item 1 failed" when item 0 failed first is reading the consequence instead of the cause. The
+    // remaining two items are never started, which is the branch a single-worker test cannot reach.
+    const started: number[] = [];
+    const run = async (item: number): Promise<number> => {
+      started.push(item);
+      // Item 0 fails first; item 1 fails five milliseconds later, while the queue is already stopped.
+      await after(item === 0 ? 0 : 5, null);
+      if (item <= 1) throw new Error(`item ${item} failed`);
+      return item;
+    };
+
+    await expect(mapWithConcurrency([0, 1, 2, 3], 2, run)).rejects.toThrow('item 0 failed');
+    expect(started.sort((left, right) => left - right)).toEqual([0, 1]);
+  });
+
   it('rethrows a non-Error value unchanged', async () => {
     await expect(
       mapWithConcurrency([1], 1, async () => {
