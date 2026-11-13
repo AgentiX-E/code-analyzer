@@ -6,10 +6,10 @@
     "question and not the corpus, the embedding backend or the engine. Every aggregate can be recomputed from",
     "`perQuestion`, and a test does recompute them."
   ],
-  "measuredAt": "2026-11-13T11:22:20.396Z",
+  "measuredAt": "2026-11-13T11:35:02.453Z",
   "cut": 10,
   "depth": 10,
-  "model": "deepseek-chat",
+  "model": "replayed",
   "prompt": "multirepo-paraphrase-v1",
   "index": {
     "groupId": "multirepo-qa",
@@ -18,13 +18,13 @@
     "totalEdges": 741,
     "crossRepoEdges": 20,
     "contracts": 0,
-    "duration": 17172,
+    "duration": 20610,
     "errors": [],
     "edgesByType": {
       "CROSS_REPO_IMPORTS": 20,
       "IMPORTS": 721
     },
-    "durationMs": 17173
+    "durationMs": 20610
   },
   "corpus": [
     {
@@ -58,11 +58,6 @@
     "accepted": 447,
     "rejected": 22,
     "namesItsAnswer": 0
-  },
-  "generation": {
-    "usd": 0.01539,
-    "attempts": 498,
-    "model": "deepseek-chat"
   },
   "conditions": {
     "verbatimFederated": {
@@ -113,6 +108,30 @@
       "onlyB": 247,
       "pValue": 1.1010078567518657e-72,
       "distinguishable": true,
+      "cut": 10
+    },
+    "paraphrase-scoped-vs-federated": {
+      "queries": 447,
+      "deltaMrr": 0.03089378928305103,
+      "mrrInterval": [0.020317992968999676, 0.04304357089591989],
+      "foundA": 189,
+      "foundB": 173,
+      "onlyA": 16,
+      "onlyB": 0,
+      "pValue": 0.000030517578125000014,
+      "distinguishable": true,
+      "cut": 10
+    },
+    "verbatim-scoped-vs-federated": {
+      "queries": 447,
+      "deltaMrr": 0.0014319448883207272,
+      "mrrInterval": [0.0003417847377578921, 0.0029411242498490822],
+      "foundA": 435,
+      "foundB": 432,
+      "onlyA": 3,
+      "onlyB": 0,
+      "pValue": 0.25000000000000006,
+      "distinguishable": false,
       "cut": 10
     }
   },

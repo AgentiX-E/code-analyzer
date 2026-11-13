@@ -3277,7 +3277,7 @@ whose words it was not given. **The 0.9664 was real and it was smaller than it l
 | paraphrase |    0.3870 | 0.4228 |      **15** |          **0** | 6.1 × 10⁻⁵ |
 
 **When the question quotes the documentation, the three neighbouring repositories cost three questions and the test cannot
-resolve it. When it does not, the same three repositories cost fifteen, and it can.** The mechanism is the same one
+resolve it. When it does not, the same three repositories cost sixteen, and it can.** The mechanism is the same one
 §33.1 could only state as a floor: a lexical index that is asked for words it holds buries the neighbours under exact
 matches; asked for words it does not hold, it surfaces everything that looks locally plausible — and "locally" is a
 repository's own vocabulary. **A first stage that only works on quoted text is a first stage whose immunity to
@@ -3312,3 +3312,77 @@ and the federated engine does not use it. Three changes, in the order their cost
 
 **Registered here as the next measurement, not as a plan**: the artifact already carries the columns a paired test needs,
 so the run that follows the change answers "how much" rather than "whether".
+
+## 36. The queue became four deep, and the depth contrast became a paired test
+
+§34.2 registered two things: a column (`perQuestion` inside each `rerankByDepth` entry) that would turn the depth
+contrast into the same paired test everything else in this document uses, and an admission that without it the ladder's
+depth figures were two totals from one harness run. **Both are now in `43415558075`**, which is also the first run with
+more than one completion in flight.
+
+### 36.1 What the queue bought, measured
+
+| step                           | serial `43394763480` | concurrent `43415558075` |       |
+| ------------------------------ | -------------------: | -----------------------: | ----: |
+| `Measure the product on CoSQA` |          68 min 04 s |          **33 min 12 s** | 2.05× |
+
+**Four in flight bought a factor of two, not four**, and the arithmetic says why: three thousand completions against one
+API are bounded by that API's shared throughput, not by how many sockets this job holds open. **The number that matters
+is the one a next iteration budgets against** — a six-arm ladder is now ~50 minutes rather than 85 — and **2.05× is what
+it is** rather than what the queue depth suggested.
+
+**One of two thousand calls failed** (`failures: 1`, `rateLimitRetries: 0`, `emptyAnswers: 0`): 0.05 %, a rerank that
+returned the fused order because its completion did not arrive. **The artifact could not say why** — a count with no
+reason is a figure that will be misread later — so the reason is now grouped and published (`rerankCalls.failureReasons`)
+for the next run.
+
+### 36.2 The same four arms in three runs, which is what the variance is
+
+| run                        | in flight | 25 derived | 25 constant | 50 derived | 50 constant |
+| -------------------------- | --------: | ---------: | ----------: | ---------: | ----------: |
+| `43364553771` ladder       |         1 |        382 |         377 |        383 |         392 |
+| `43394763480` replication  |         1 |        385 |         376 |        393 |         394 |
+| **`43415558075` this run** |     **4** |    **373** |     **377** |    **384** |     **394** |
+
+**The largest same-arm same-depth difference across runs is twelve questions** (derived at 25: 385 → 373), which is
+2.4 % of five hundred and is **not** caused by the queue: §34 already recorded a seven-question difference between two
+serial runs of the same arm. **This table is the reason every comparison in this document cites a run id**, and it is the
+second time a claim of the form "arm X beats arm Y" would have needed a run id to mean anything.
+
+### 36.3 The depth contrast, now paired
+
+**The column §34.2 asked for is in the artifact**, and the verdict is computed from it inside the same run: 500 questions,
+both depths, both arms.
+
+| arm      | found@10 at 25 | found@10 at 50 | only 25 | only 50 |             ΔMRR [95 % CI] |   exact p |
+| -------- | -------------: | -------------: | ------: | ------: | -------------------------: | --------: |
+| derived  |            373 |            384 |      18 |      29 | −0.0118 [−0.0330, +0.0090] |     0.144 |
+| constant |            377 |            394 |  **19** |  **36** | −0.0037 [−0.0247, +0.0165] | **0.030** |
+
+**Seventeen questions, thirty-six against nineteen, in one run on one model with the pool widened and nothing else
+changed.** The ladder of §32 could only say that the constant arm leaned fifteen questions towards fifty at p = 0.058;
+§34 added a second lean the same way; **this is the first time the comparison is a paired test, and it is the first time
+it is distinguishable** — on the constant arm, not on the shipping one.
+
+**So the default stays at fifty, and for a stronger reason than before.** The shipping arm's own contrast remains
+unresolved (18 against 29, p = 0.144) — **the derived weight and the depth interact, and the interaction is not in this
+run's resolution**. What the run does settle is that a deeper pool finds more answers for the arm that does not adapt its
+weight, and that a cost argument for twenty-five has to be made against a fourteen-question deficit rather than against
+an unresolved lean.
+
+### 36.4 The bill, and one thing it cannot explain
+
+| item                                          |         serial |     concurrent |
+| --------------------------------------------- | -------------: | -------------: |
+| prompt tokens (four arms, 500 questions each) |      4 702 206 |      4 931 178 |
+| completion tokens                             |        218 766 |        218 603 |
+| **measured cost**                             | **1.5153 USD** | **0.7860 USD** |
+
+**The same completion work, five per cent more prompt tokens, and half the money — nineteen cents per million
+tokens against thirty-two, with the price table unchanged.**
+that produces that pair is prompt-cache hits, and **the artifact records the token split the vendor returned but not the
+cached fraction**, so this document can state the arithmetic and not the cause. That is a field to add rather than a
+sentence to write: a billing section that cannot say _why_ two identical runs cost 2× apart is a section a reader has to
+take on trust.
+
+**This iteration: 0.786 USD for the ladder and 0.01539 USD for the paraphrase generation — 0.80 USD in total.**

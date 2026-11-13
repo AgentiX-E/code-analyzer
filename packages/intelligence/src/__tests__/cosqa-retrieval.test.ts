@@ -546,6 +546,14 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         /** **Limits and failures counted, because a run that was throttled is not a run that measured nothing.** */
         const rerankCalls = { failures: 0, rateLimitRetries: 0, emptyAnswers: 0 };
         /**
+         * **Why a call failed, counted by the reason rather than only counted.**
+         *
+         * The first concurrent run reported `failures: 1` and could not say what it was - so the number raised a question
+         * the artifact could not answer, which is the shape of a figure that will be misread later. The reasons are
+         * grouped because they repeat: a timeout is one sentence, and a hundred timeouts are the same sentence.
+         */
+        const failureReasons: Record<string, number> = {};
+        /**
          * **How many columns each key actually received, which is what a pre-sized array cannot show.**
          *
          * A slot that was never written decodes as `-`, and `-` is also the honest value for "the answer was not
@@ -668,7 +676,11 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             if (result.rateLimitRetries !== undefined) {
               rerankCalls.rateLimitRetries += result.rateLimitRetries;
             }
-            if (result.reason?.startsWith('rerank failed') === true) rerankCalls.failures += 1;
+            if (result.reason?.startsWith('rerank failed') === true) {
+              rerankCalls.failures += 1;
+              const reason = result.reason.slice(0, 160);
+              failureReasons[reason] = (failureReasons[reason] ?? 0) + 1;
+            }
             if (result.reason === 'the answer contained no usable candidate number') {
               rerankCalls.emptyAnswers += 1;
             }
@@ -783,7 +795,7 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           // of the same arms at different concurrency that disagree are two conditions rather than a replication, and
           // `failures` is the number that says whether the fast one measured anything. `rateLimitRetries` counts waits
           // that were retried into a real answer, so a reader can tell "answered" from "answered after being throttled".
-          rerankCalls: { concurrency: RERANK_CONCURRENCY, ...rerankCalls },
+          rerankCalls: { concurrency: RERANK_CONCURRENCY, ...rerankCalls, failureReasons },
           lexical: score(lexicalRanks),
           // **The arm the figure below is put beside**: the fused list truncated at the depth the reranker saw, which is
           // the only comparison that isolates the reorder from the candidates it was given.
